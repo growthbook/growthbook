@@ -53,8 +53,7 @@ properties:
     type: string
     description: WHERE clause to add to the default experiment query
   owner:
-    type: string
-    description: Email of the person who owns this experiment
+    $ref: "../fields/OwnerInputField.yaml"
   archived:
     type: boolean
   status:
@@ -172,7 +171,9 @@ properties:
         coverage:
           type: number
         trafficSplit:
+          deprecated: true
           type: array
+          description: Deprecated and unused. Use variationWeights instead.
           items:
             type: object
             required:
@@ -274,6 +275,23 @@ properties:
     enum:
       - "days"
       - "hours"
+  postStratificationEnabled:
+    type:
+      - boolean
+      - "null"
+    description: When null, the organization default is used.
+  decisionFrameworkSettings:
+    $ref: "../schemas/ExperimentDecisionFrameworkSettings.yaml"
+  metricOverrides:
+    type: array
+    items:
+      $ref: "../schemas/ExperimentMetricOverrideEntry.yaml"
+    description: >-
+      Per-metric analysis overrides for this experiment.
+      Replaces the entire stored array (does not patch individual entries).
+  defaultDashboardId:
+    type: string
+    description: ID of the default dashboard for this experiment.
   customFields:
     type: object
     additionalProperties:

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ownerField, ownerInputField } from "./owner-field";
 
 // If you change these types, also update the factTableColumnTypeValidator to match
 export const factTableColumnTypes = [
@@ -77,7 +78,7 @@ export const createFactTablePropsValidator = z
     // Only being used in middleware for fact-table POST request so this is safe
     // Remove when we migrate FactTableModel to use the BaseModel and use defaultValues instead
     // eslint-disable-next-line no-restricted-syntax
-    owner: z.string().default(""),
+    owner: ownerInputField.default(""),
     projects: z.array(z.string()),
     tags: z.array(z.string()),
     datasource: z.string(),
@@ -95,7 +96,7 @@ export const updateFactTablePropsValidator = z
   .object({
     name: z.string().optional(),
     description: z.string().optional(),
-    owner: z.string().optional(),
+    owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
     userIdTypes: z.array(z.string()).optional(),
@@ -215,7 +216,7 @@ export const factMetricValidator = z
     id: z.string(),
     organization: z.string(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
-    owner: z.string(),
+    owner: ownerField,
     datasource: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),

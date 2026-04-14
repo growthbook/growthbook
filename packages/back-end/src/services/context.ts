@@ -17,6 +17,7 @@ import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
+import { UserInterface } from "shared/types/user";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -67,9 +68,11 @@ import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTempl
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { getUserByEmail } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -113,7 +116,8 @@ export type ModelName =
   | "watch"
   | "apiKeys"
   | "rampSchedules"
-  | "rampScheduleTemplates";
+  | "rampScheduleTemplates"
+  | "aiConversations";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -150,6 +154,7 @@ export const modelClasses = {
   apiKeys: ApiKeyModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
+  aiConversations: AIConversationModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -195,6 +200,7 @@ export class ReqContextClass {
       apiKeys: new ApiKeyModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
+      aiConversations: new AIConversationModel(this),
     };
   }
 
@@ -339,15 +345,20 @@ export class ReqContextClass {
 
   // Record an audit log entry
   public async auditLog(data: AuditInterfaceInput) {
-    const auditUser = this.userId
+    const apiKeyUser =
+      this.auditUser?.type === "api_key" ? this.auditUser : undefined;
+    const auditUser = this.isApiRequest
       ? {
-          id: this.userId,
-          email: this.email,
-          name: this.userName || "",
+          apiKey: this.apiKey || "unknown",
+          id: apiKeyUser?.id,
+          name: apiKeyUser?.name,
+          email: apiKeyUser?.email,
         }
-      : this.apiKey
+      : this.userId
         ? {
-            apiKey: this.apiKey,
+            id: this.userId,
+            email: this.email,
+            name: this.userName || "",
           }
         : ({
             system: true,
@@ -404,6 +415,11 @@ export class ReqContextClass {
         this.foreignRefs[type].set(ref.id, ref as any);
       });
     }
+  }
+
+  // This is defined on the context to prevent a circular dependency between UserModel and BaseModel
+  public async getUserByEmail(email: string): Promise<UserInterface | null> {
+    return getUserByEmail(email);
   }
 
   // Cache projects since they are needed many places in the code

@@ -97,6 +97,8 @@ export default function EditTargetingModal({
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
+  const lastPhaseVariations = getLatestPhaseVariations(experiment);
+
   const defaultValues = {
     condition: lastPhase?.condition ?? "",
     savedGroups: lastPhase?.savedGroups ?? [],
@@ -117,7 +119,13 @@ export default function EditTargetingModal({
     trackingKey: experiment.trackingKey || "",
     variationWeights:
       lastPhase?.variationWeights ??
-      getEqualWeights(getLatestPhaseVariations(experiment).length, 4),
+      getEqualWeights(lastPhaseVariations.length, 4),
+    variations:
+      lastPhase?.variations ??
+      lastPhaseVariations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
     newPhase: false,
     reseed: true,
   };
@@ -582,7 +590,6 @@ function TargetingForm({
           setWeight={(i, weight) =>
             form.setValue(`variationWeights.${i}`, weight)
           }
-          valueAsId={true}
           variations={
             getLatestPhaseVariations(experiment).map((v, i) => {
               return {

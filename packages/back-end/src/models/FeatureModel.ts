@@ -20,6 +20,7 @@ import {
   RevisionRampAction,
   RampStepAction,
 } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -1161,7 +1162,7 @@ const updateSafeRolloutStatuses = async (
 
   safeRollouts.forEach((safeRollout) => {
     // sync the status of the safe rollout to the status of the revision
-    const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
+    const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
       status: safeRolloutStatusesMap[safeRollout.id].status,
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
@@ -1637,7 +1638,8 @@ export async function publishRevision(
 // Either the revision is published and the updated feature is returned, or an
 // error is thrown — a pending-review draft is never silently left behind.
 // canBypassApprovalChecks should be true when the org-level restApiBypassesReviews
-// setting is on; individual role permissions do not bypass on the REST path.
+// setting is on, or when the caller's role/token grants bypassApprovalChecks
+// on the feature's project.
 export async function createAndPublishRevision({
   context,
   feature,

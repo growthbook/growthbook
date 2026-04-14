@@ -22,7 +22,6 @@ import {
 } from "shared/constants";
 import { AIModel, EmbeddingModel } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { SegmentInterface } from "shared/types/segment";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -234,7 +233,7 @@ export function getAISettingsForOrg(
     defaultAIModel:
       context.org.settings?.defaultAIModel ||
       context.org.settings?.openAIDefaultModel ||
-      "gpt-4o-mini",
+      "gpt-5.4-mini",
     embeddingModel:
       context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };
@@ -636,9 +635,11 @@ export async function inviteUser({
   limitAccessByEnvironment,
   environments,
   projectRoles,
+  invitedBy,
 }: {
   organization: OrganizationInterface;
   email: string;
+  invitedBy?: string;
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
@@ -684,6 +685,7 @@ export async function inviteUser({
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      invitedBy,
     },
   ];
 
@@ -961,12 +963,7 @@ export async function importConfig(
         try {
           const existing = await context.models.segments.getById(k);
           if (existing) {
-            const updates: Partial<SegmentInterface> = {
-              ...s,
-            };
-            delete updates.organization;
-
-            await context.models.segments.update(existing, updates);
+            await context.models.segments.update(existing, s);
           } else {
             await context.models.segments.create({
               ...s,

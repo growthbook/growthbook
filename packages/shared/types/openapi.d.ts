@@ -683,9 +683,23 @@ export interface paths {
     /** Get all dashboards for an experiment */
     get: operations["getDashboardsForExperiment"];
   };
+  "/experiment-templates/{id}": {
+    /** Get a single experimentTemplate */
+    get: operations["getExperimentTemplate"];
+    /** Update a single experimentTemplate */
+    put: operations["updateExperimentTemplate"];
+    /** Delete a single experimentTemplate */
+    delete: operations["deleteExperimentTemplate"];
+  };
   "/experiment-templates": {
     /** Get all experimentTemplates */
     get: operations["listExperimentTemplates"];
+    /** Create a single experimentTemplate */
+    post: operations["createExperimentTemplate"];
+  };
+  "/experiment-templates/bulk-import": {
+    /** Bulk create or update experiment templates */
+    post: operations["bulkImportExperimentTemplates"];
   };
   "/metric-groups/{id}": {
     /** Get a single metricGroup */
@@ -802,10 +816,10 @@ export interface components {
         dateRange: {
           /** @enum {string} */
           predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-          startDate: string | null;
-          endDate: string | null;
+          lookbackValue?: number | null;
+          lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+          startDate?: string | null;
+          endDate?: string | null;
         };
         /** @constant */
         type: "metric";
@@ -864,10 +878,10 @@ export interface components {
         dateRange: {
           /** @enum {string} */
           predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-          startDate: string | null;
-          endDate: string | null;
+          lookbackValue?: number | null;
+          lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+          startDate?: string | null;
+          endDate?: string | null;
         };
         /** @constant */
         type: "fact_table";
@@ -928,10 +942,10 @@ export interface components {
         dateRange: {
           /** @enum {string} */
           predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-          startDate: string | null;
-          endDate: string | null;
+          lookbackValue?: number | null;
+          lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+          startDate?: string | null;
+          endDate?: string | null;
         };
         /** @constant */
         type: "data_source";
@@ -1194,10 +1208,10 @@ export interface components {
             dateRange: {
               /** @enum {string} */
               predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-              lookbackValue: number | null;
-              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-              startDate: string | null;
-              endDate: string | null;
+              lookbackValue?: number | null;
+              lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+              startDate?: string | null;
+              endDate?: string | null;
             };
             /** @constant */
             type: "metric";
@@ -1267,10 +1281,10 @@ export interface components {
             dateRange: {
               /** @enum {string} */
               predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-              lookbackValue: number | null;
-              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-              startDate: string | null;
-              endDate: string | null;
+              lookbackValue?: number | null;
+              lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+              startDate?: string | null;
+              endDate?: string | null;
             };
             /** @constant */
             type: "fact_table";
@@ -1342,10 +1356,10 @@ export interface components {
             dateRange: {
               /** @enum {string} */
               predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-              lookbackValue: number | null;
-              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-              startDate: string | null;
-              endDate: string | null;
+              lookbackValue?: number | null;
+              lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+              startDate?: string | null;
+              endDate?: string | null;
             };
             /** @constant */
             type: "data_source";
@@ -1384,6 +1398,7 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       project?: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       templateMetadata: {
         name: string;
@@ -1436,6 +1451,7 @@ export interface components {
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       name: string;
       description: string;
@@ -1642,6 +1658,7 @@ export interface components {
       id: string;
       dateCreated: string;
       dateUpdated: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       datasourceId: string;
       identifierType: string;
@@ -1663,6 +1680,7 @@ export interface components {
       managedBy: "" | "api" | "config" | "admin";
       dateCreated: string;
       dateUpdated: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       datasourceId: string;
       name: string;
@@ -1795,6 +1813,7 @@ export interface components {
     };
     Segment: {
       id: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       datasourceId: string;
       identifierType: string;
@@ -1845,6 +1864,7 @@ export interface components {
       dateUpdated: string;
       archived: boolean;
       description: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       project: string;
       /** @enum {string} */
@@ -2469,6 +2489,7 @@ export interface components {
       dateUpdated: string;
       archived: boolean;
       description: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       project: string;
       /** @enum {string} */
@@ -3410,6 +3431,7 @@ export interface components {
           /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
           metadata?: {
             description?: string;
+            /** @description The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string;
             project?: string;
             tags?: (string)[];
@@ -4992,6 +5014,7 @@ export interface components {
       /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
       metadata?: {
         description?: string;
+        /** @description The userId of the owner (or raw owner name/email for legacy records) */
         owner?: string;
         project?: string;
         tags?: (string)[];
@@ -5061,6 +5084,7 @@ export interface components {
       hypothesis: string;
       description: string;
       tags: (string)[];
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       archived: boolean;
       status: string;
@@ -5138,6 +5162,36 @@ export interface components {
         regressionAdjustmentEnabled?: boolean;
         sequentialTestingEnabled?: boolean;
         sequentialTestingTuningParameter?: number;
+        /** @description When null, the organization default is used. */
+        postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+        decisionFrameworkSettings?: {
+          decisionCriteriaId?: string;
+          decisionFrameworkMetricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+              targetMDE?: number;
+            })[];
+        };
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+        metricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @enum {string} */
+            windowType?: "conversion" | "lookback" | "";
+            windowHours?: number;
+            delayHours?: number;
+            /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
+          })[];
         goals: ({
             metricId: string;
             overrides: {
@@ -5145,8 +5199,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         secondaryMetrics: ({
@@ -5156,8 +5219,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         guardrails: ({
@@ -5167,8 +5239,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         activationMetric?: {
@@ -5178,8 +5259,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         };
       };
@@ -5215,6 +5305,8 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      /** @description ID of the default dashboard for this experiment. */
+      defaultDashboardId?: string;
       templateId?: string;
     };
     ExperimentSnapshot: {
@@ -5229,9 +5321,46 @@ export interface components {
         windowHours?: number;
         /** @enum {string} */
         window?: "conversion" | "lookback" | "";
+        /** @deprecated */
         winRiskThreshold?: number;
+        /** @deprecated */
         loseRiskThreshold?: number;
+        properPriorOverride?: boolean;
+        properPriorEnabled?: boolean;
+        properPriorMean?: number;
+        properPriorStdDev?: number;
+        regressionAdjustmentOverride?: boolean;
+        regressionAdjustmentEnabled?: boolean;
+        regressionAdjustmentDays?: number;
       };
+    };
+    /** @description Per-metric analysis overrides stored on the experiment (matches internal metricOverrides). */
+    ExperimentMetricOverrideEntry: {
+      /** @description ID of the metric to override settings for. */
+      id: string;
+      /** @enum {string} */
+      windowType?: "conversion" | "lookback" | "";
+      windowHours?: number;
+      delayHours?: number;
+      /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+      properPriorOverride?: boolean;
+      properPriorEnabled?: boolean;
+      properPriorMean?: number;
+      properPriorStdDev?: number;
+      /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+      regressionAdjustmentOverride?: boolean;
+      regressionAdjustmentEnabled?: boolean;
+      regressionAdjustmentDays?: number;
+    };
+    /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+    ExperimentDecisionFrameworkSettings: {
+      decisionCriteriaId?: string;
+      decisionFrameworkMetricOverrides?: ({
+          /** @description ID of the metric to override settings for. */
+          id: string;
+          /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+          targetMDE?: number;
+        })[];
     };
     ExperimentAnalysisSettings: {
       datasourceId: string;
@@ -5266,6 +5395,36 @@ export interface components {
       regressionAdjustmentEnabled?: boolean;
       sequentialTestingEnabled?: boolean;
       sequentialTestingTuningParameter?: number;
+      /** @description When null, the organization default is used. */
+      postStratificationEnabled?: OneOf<[boolean, null]>;
+      /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+      decisionFrameworkSettings?: {
+        decisionCriteriaId?: string;
+        decisionFrameworkMetricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+            targetMDE?: number;
+          })[];
+      };
+      /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+      metricOverrides?: ({
+          /** @description ID of the metric to override settings for. */
+          id: string;
+          /** @enum {string} */
+          windowType?: "conversion" | "lookback" | "";
+          windowHours?: number;
+          delayHours?: number;
+          /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+          properPriorOverride?: boolean;
+          properPriorEnabled?: boolean;
+          properPriorMean?: number;
+          properPriorStdDev?: number;
+          /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+          regressionAdjustmentOverride?: boolean;
+          regressionAdjustmentEnabled?: boolean;
+          regressionAdjustmentDays?: number;
+        })[];
       goals: ({
           metricId: string;
           overrides: {
@@ -5273,8 +5432,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         })[];
       secondaryMetrics: ({
@@ -5284,8 +5452,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         })[];
       guardrails: ({
@@ -5295,8 +5472,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         })[];
       activationMetric?: {
@@ -5306,8 +5492,17 @@ export interface components {
           windowHours?: number;
           /** @enum {string} */
           window?: "conversion" | "lookback" | "";
+          /** @deprecated */
           winRiskThreshold?: number;
+          /** @deprecated */
           loseRiskThreshold?: number;
+          properPriorOverride?: boolean;
+          properPriorEnabled?: boolean;
+          properPriorMean?: number;
+          properPriorStdDev?: number;
+          regressionAdjustmentOverride?: boolean;
+          regressionAdjustmentEnabled?: boolean;
+          regressionAdjustmentDays?: number;
         };
       };
     };
@@ -5370,6 +5565,36 @@ export interface components {
         regressionAdjustmentEnabled?: boolean;
         sequentialTestingEnabled?: boolean;
         sequentialTestingTuningParameter?: number;
+        /** @description When null, the organization default is used. */
+        postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+        decisionFrameworkSettings?: {
+          decisionCriteriaId?: string;
+          decisionFrameworkMetricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+              targetMDE?: number;
+            })[];
+        };
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+        metricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @enum {string} */
+            windowType?: "conversion" | "lookback" | "";
+            windowHours?: number;
+            delayHours?: number;
+            /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
+          })[];
         goals: ({
             metricId: string;
             overrides: {
@@ -5377,8 +5602,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         secondaryMetrics: ({
@@ -5388,8 +5622,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         guardrails: ({
@@ -5399,8 +5642,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         activationMetric?: {
@@ -5410,8 +5662,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         };
       };
@@ -5459,6 +5720,7 @@ export interface components {
       hypothesis: string;
       description: string;
       tags: (string)[];
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       archived: boolean;
       status: string;
@@ -5536,6 +5798,36 @@ export interface components {
         regressionAdjustmentEnabled?: boolean;
         sequentialTestingEnabled?: boolean;
         sequentialTestingTuningParameter?: number;
+        /** @description When null, the organization default is used. */
+        postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+        decisionFrameworkSettings?: {
+          decisionCriteriaId?: string;
+          decisionFrameworkMetricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+              targetMDE?: number;
+            })[];
+        };
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+        metricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @enum {string} */
+            windowType?: "conversion" | "lookback" | "";
+            windowHours?: number;
+            delayHours?: number;
+            /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
+          })[];
         goals: ({
             metricId: string;
             overrides: {
@@ -5543,8 +5835,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         secondaryMetrics: ({
@@ -5554,8 +5855,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         guardrails: ({
@@ -5565,8 +5875,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         activationMetric?: {
@@ -5576,8 +5895,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         };
       };
@@ -5613,6 +5941,8 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      /** @description ID of the default dashboard for this experiment. */
+      defaultDashboardId?: string;
       templateId?: string;
     }) & ({
       enhancedStatus?: {
@@ -5706,6 +6036,7 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner?: string;
       /** @description When type = 'condition', this is the JSON-encoded condition for the group */
       condition?: string;
@@ -5735,6 +6066,7 @@ export interface components {
       id: string;
       name: string;
       description: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       projects: (string)[];
       tags: (string)[];
@@ -5852,6 +6184,7 @@ export interface components {
       id: string;
       name: string;
       description: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       projects: (string)[];
       tags: (string)[];
@@ -6040,6 +6373,7 @@ export interface components {
       dateUpdated: string;
       name: string;
       description?: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       isPublic: boolean;
       /** @description The attributes to set when using this Archetype */
@@ -6308,6 +6642,7 @@ export interface operations {
                 dateUpdated: string;
                 archived: boolean;
                 description: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 project: string;
                 /** @enum {string} */
@@ -6946,7 +7281,7 @@ export interface operations {
           archived?: boolean;
           /** @description Description of the feature */
           description?: string;
-          /** @description Email of the person who owns this experiment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner: string;
           /** @description An associated project ID */
           project?: string;
@@ -7363,6 +7698,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -8008,6 +8344,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -8949,6 +9286,7 @@ export interface operations {
                   /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
                   metadata?: {
                     description?: string;
+                    /** @description The userId of the owner (or raw owner name/email for legacy records) */
                     owner?: string;
                     project?: string;
                     tags?: (string)[];
@@ -8997,6 +9335,7 @@ export interface operations {
           archived?: boolean;
           /** @description An associated project ID */
           project?: string;
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           defaultValue?: string;
           /** @description List of associated tags. Will override tags completely with submitted list */
@@ -9411,6 +9750,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -10088,6 +10428,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -10736,6 +11077,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -11700,6 +12042,7 @@ export interface operations {
                 /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
                 metadata?: {
                   description?: string;
+                  /** @description The userId of the owner (or raw owner name/email for legacy records) */
                   owner?: string;
                   project?: string;
                   tags?: (string)[];
@@ -11998,6 +12341,7 @@ export interface operations {
                 id: string;
                 dateCreated: string;
                 dateUpdated: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 datasourceId: string;
                 identifierType: string;
@@ -12031,7 +12375,7 @@ export interface operations {
           name: string;
           /** @description Description of the dimension */
           description?: string;
-          /** @description Owner of the dimension */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description ID of the datasource this dimension belongs to */
           datasourceId: string;
@@ -12055,6 +12399,7 @@ export interface operations {
               id: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -12088,6 +12433,7 @@ export interface operations {
               id: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -12120,7 +12466,7 @@ export interface operations {
           name?: string;
           /** @description Description of the dimension */
           description?: string;
-          /** @description Owner of the dimension */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description ID of the datasource this dimension belongs to */
           datasourceId?: string;
@@ -12144,6 +12490,7 @@ export interface operations {
               id: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -12201,6 +12548,7 @@ export interface operations {
           "application/json": ({
             segments: ({
                 id: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 datasourceId: string;
                 identifierType: string;
@@ -12239,7 +12587,7 @@ export interface operations {
         "application/json": {
           /** @description Name of the segment */
           name: string;
-          /** @description Owner of the segment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description Description of the segment */
           description?: string;
@@ -12274,6 +12622,7 @@ export interface operations {
           "application/json": {
             segment: {
               id: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -12312,6 +12661,7 @@ export interface operations {
           "application/json": {
             segment: {
               id: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -12351,7 +12701,7 @@ export interface operations {
           name?: string;
           /** @description Description of the segment */
           description?: string;
-          /** @description Owner of the segment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description ID of the datasource this segment belongs to */
           datasourceId?: string;
@@ -12384,6 +12734,7 @@ export interface operations {
           "application/json": {
             segment: {
               id: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -12905,6 +13256,7 @@ export interface operations {
                 hypothesis: string;
                 description: string;
                 tags: (string)[];
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 archived: boolean;
                 status: string;
@@ -12982,6 +13334,36 @@ export interface operations {
                   regressionAdjustmentEnabled?: boolean;
                   sequentialTestingEnabled?: boolean;
                   sequentialTestingTuningParameter?: number;
+                  /** @description When null, the organization default is used. */
+                  postStratificationEnabled?: OneOf<[boolean, null]>;
+                  /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                  decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string;
+                    decisionFrameworkMetricOverrides?: ({
+                        /** @description ID of the metric to override settings for. */
+                        id: string;
+                        /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number;
+                      })[];
+                  };
+                  /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                  metricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @enum {string} */
+                      windowType?: "conversion" | "lookback" | "";
+                      windowHours?: number;
+                      delayHours?: number;
+                      /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
+                    })[];
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -12989,8 +13371,17 @@ export interface operations {
                         windowHours?: number;
                         /** @enum {string} */
                         window?: "conversion" | "lookback" | "";
+                        /** @deprecated */
                         winRiskThreshold?: number;
+                        /** @deprecated */
                         loseRiskThreshold?: number;
+                        properPriorOverride?: boolean;
+                        properPriorEnabled?: boolean;
+                        properPriorMean?: number;
+                        properPriorStdDev?: number;
+                        regressionAdjustmentOverride?: boolean;
+                        regressionAdjustmentEnabled?: boolean;
+                        regressionAdjustmentDays?: number;
                       };
                     })[];
                   secondaryMetrics: ({
@@ -13000,8 +13391,17 @@ export interface operations {
                         windowHours?: number;
                         /** @enum {string} */
                         window?: "conversion" | "lookback" | "";
+                        /** @deprecated */
                         winRiskThreshold?: number;
+                        /** @deprecated */
                         loseRiskThreshold?: number;
+                        properPriorOverride?: boolean;
+                        properPriorEnabled?: boolean;
+                        properPriorMean?: number;
+                        properPriorStdDev?: number;
+                        regressionAdjustmentOverride?: boolean;
+                        regressionAdjustmentEnabled?: boolean;
+                        regressionAdjustmentDays?: number;
                       };
                     })[];
                   guardrails: ({
@@ -13011,8 +13411,17 @@ export interface operations {
                         windowHours?: number;
                         /** @enum {string} */
                         window?: "conversion" | "lookback" | "";
+                        /** @deprecated */
                         winRiskThreshold?: number;
+                        /** @deprecated */
                         loseRiskThreshold?: number;
+                        properPriorOverride?: boolean;
+                        properPriorEnabled?: boolean;
+                        properPriorMean?: number;
+                        properPriorStdDev?: number;
+                        regressionAdjustmentOverride?: boolean;
+                        regressionAdjustmentEnabled?: boolean;
+                        regressionAdjustmentDays?: number;
                       };
                     })[];
                   activationMetric?: {
@@ -13022,8 +13431,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   };
                 };
@@ -13059,6 +13477,8 @@ export interface operations {
                         levels: (string)[];
                       })[];
                   })[];
+                /** @description ID of the default dashboard for this experiment. */
+                defaultDashboardId?: string;
                 templateId?: string;
               })[];
           }) & {
@@ -13107,7 +13527,7 @@ export interface operations {
           segmentId?: string;
           /** @description WHERE clause to add to the default experiment query */
           queryFilter?: string;
-          /** @description Email of the person who owns this experiment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           archived?: boolean;
           /** @enum {string} */
@@ -13207,6 +13627,38 @@ export interface operations {
           banditConversionWindowValue?: number;
           /** @enum {string} */
           banditConversionWindowUnit?: "days" | "hours";
+          /** @description When null, the organization default is used. */
+          postStratificationEnabled?: OneOf<[boolean, null]>;
+          /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+          decisionFrameworkSettings?: {
+            decisionCriteriaId?: string;
+            decisionFrameworkMetricOverrides?: ({
+                /** @description ID of the metric to override settings for. */
+                id: string;
+                /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                targetMDE?: number;
+              })[];
+          };
+          /** @description Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries). */
+          metricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @enum {string} */
+              windowType?: "conversion" | "lookback" | "";
+              windowHours?: number;
+              delayHours?: number;
+              /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
+            })[];
+          /** @description ID of the default dashboard for this experiment. */
+          defaultDashboardId?: string;
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -13238,6 +13690,7 @@ export interface operations {
               hypothesis: string;
               description: string;
               tags: (string)[];
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               archived: boolean;
               status: string;
@@ -13315,6 +13768,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -13322,8 +13805,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -13333,8 +13825,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -13344,8 +13845,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -13355,8 +13865,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -13392,6 +13911,8 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
               templateId?: string;
             };
           };
@@ -13446,6 +13967,7 @@ export interface operations {
               hypothesis: string;
               description: string;
               tags: (string)[];
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               archived: boolean;
               status: string;
@@ -13523,6 +14045,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -13530,8 +14082,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -13541,8 +14102,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -13552,8 +14122,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -13563,8 +14142,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -13600,6 +14188,8 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
               templateId?: string;
             }) & ({
               enhancedStatus?: {
@@ -13650,7 +14240,7 @@ export interface operations {
           segmentId?: string;
           /** @description WHERE clause to add to the default experiment query */
           queryFilter?: string;
-          /** @description Email of the person who owns this experiment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           archived?: boolean;
           /** @enum {string} */
@@ -13721,6 +14311,10 @@ export interface operations {
               reasonForStopping?: string;
               seed?: string;
               coverage?: number;
+              /**
+               * @deprecated 
+               * @description Deprecated and unused. Use variationWeights instead.
+               */
               trafficSplit?: ({
                   variationId: string;
                   weight: number;
@@ -13761,6 +14355,38 @@ export interface operations {
           banditConversionWindowValue?: number;
           /** @enum {string} */
           banditConversionWindowUnit?: "days" | "hours";
+          /** @description When null, the organization default is used. */
+          postStratificationEnabled?: OneOf<[boolean, null]>;
+          /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+          decisionFrameworkSettings?: {
+            decisionCriteriaId?: string;
+            decisionFrameworkMetricOverrides?: ({
+                /** @description ID of the metric to override settings for. */
+                id: string;
+                /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                targetMDE?: number;
+              })[];
+          };
+          /** @description Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries). */
+          metricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @enum {string} */
+              windowType?: "conversion" | "lookback" | "";
+              windowHours?: number;
+              delayHours?: number;
+              /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
+            })[];
+          /** @description ID of the default dashboard for this experiment. */
+          defaultDashboardId?: string;
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -13792,6 +14418,7 @@ export interface operations {
               hypothesis: string;
               description: string;
               tags: (string)[];
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               archived: boolean;
               status: string;
@@ -13869,6 +14496,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -13876,8 +14533,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -13887,8 +14553,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -13898,8 +14573,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -13909,8 +14593,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -13946,6 +14639,8 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
               templateId?: string;
             };
           };
@@ -14095,6 +14790,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -14102,8 +14827,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -14113,8 +14847,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -14124,8 +14867,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -14135,8 +14887,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -14319,6 +15080,7 @@ export interface operations {
                 managedBy: "" | "api" | "config" | "admin";
                 dateCreated: string;
                 dateUpdated: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 datasourceId: string;
                 name: string;
@@ -14438,7 +15200,7 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api";
-          /** @description Name of the person who owns this metric */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description Name of the metric */
           name: string;
@@ -14592,6 +15354,7 @@ export interface operations {
               managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               datasourceId: string;
               name: string;
@@ -14713,6 +15476,7 @@ export interface operations {
               managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               datasourceId: string;
               name: string;
@@ -14829,7 +15593,7 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api" | "admin";
-          /** @description Name of the person who owns this metric */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description Name of the metric */
           name?: string;
@@ -15104,6 +15868,7 @@ export interface operations {
               hypothesis: string;
               description: string;
               tags: (string)[];
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               archived: boolean;
               status: string;
@@ -15181,6 +15946,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -15188,8 +15983,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -15199,8 +16003,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -15210,8 +16023,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -15221,8 +16043,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -15258,6 +16089,8 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
               templateId?: string;
             };
           };
@@ -15356,6 +16189,7 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner?: string;
                 /** @description When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string;
@@ -15396,7 +16230,7 @@ export interface operations {
           attributeKey?: string;
           /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
-          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           projects?: (string)[];
         };
@@ -15415,6 +16249,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner?: string;
               /** @description When type = 'condition', this is the JSON-encoded condition for the group */
               condition?: string;
@@ -15451,6 +16286,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner?: string;
               /** @description When type = 'condition', this is the JSON-encoded condition for the group */
               condition?: string;
@@ -15483,7 +16319,7 @@ export interface operations {
           condition?: string;
           /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
-          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           projects?: (string)[];
         };
@@ -15502,6 +16338,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner?: string;
               /** @description When type = 'condition', this is the JSON-encoded condition for the group */
               condition?: string;
@@ -15816,6 +16653,7 @@ export interface operations {
                 dateUpdated: string;
                 name: string;
                 description?: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 isPublic: boolean;
                 /** @description The attributes to set when using this Archetype */
@@ -15852,6 +16690,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               description?: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               isPublic: boolean;
               /** @description The attributes to set when using this Archetype */
@@ -15881,6 +16720,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               description?: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               isPublic: boolean;
               /** @description The attributes to set when using this Archetype */
@@ -15923,6 +16763,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               description?: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               isPublic: boolean;
               /** @description The attributes to set when using this Archetype */
@@ -16202,6 +17043,7 @@ export interface operations {
                 id: string;
                 name: string;
                 description: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 projects: (string)[];
                 tags: (string)[];
@@ -16282,7 +17124,7 @@ export interface operations {
           name: string;
           /** @description Description of the fact table */
           description?: string;
-          /** @description The person who is responsible for this fact table */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description List of associated project ids */
           projects?: (string)[];
@@ -16312,6 +17154,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -16393,6 +17236,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -16472,7 +17316,7 @@ export interface operations {
           name?: string;
           /** @description Description of the fact table */
           description?: string;
-          /** @description The person who is responsible for this fact table */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description List of associated project ids */
           projects?: (string)[];
@@ -16542,6 +17386,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -16860,6 +17705,7 @@ export interface operations {
                 id: string;
                 name: string;
                 description: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 projects: (string)[];
                 tags: (string)[];
@@ -17006,6 +17852,7 @@ export interface operations {
         "application/json": {
           name: string;
           description?: string;
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           projects?: (string)[];
           tags?: (string)[];
@@ -17181,6 +18028,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -17329,6 +18177,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -17474,6 +18323,7 @@ export interface operations {
         "application/json": {
           name?: string;
           description?: string;
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           projects?: (string)[];
           tags?: (string)[];
@@ -17638,6 +18488,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -17844,7 +18695,7 @@ export interface operations {
                 name: string;
                 /** @description Description of the fact table */
                 description?: string;
-                /** @description The person who is responsible for this fact table */
+                /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
                 owner?: string;
                 /** @description List of associated project ids */
                 projects?: (string)[];
@@ -17889,6 +18740,7 @@ export interface operations {
               data: {
                 name: string;
                 description?: string;
+                /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
                 owner?: string;
                 projects?: (string)[];
                 tags?: (string)[];
@@ -20203,10 +21055,10 @@ export interface operations {
           dateRange: {
             /** @enum {string} */
             predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            lookbackValue: number | null;
-            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-            startDate: string | null;
-            endDate: string | null;
+            lookbackValue?: number | null;
+            lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+            startDate?: string | null;
+            endDate?: string | null;
           };
           /** @constant */
           type: "metric";
@@ -20294,10 +21146,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "metric";
@@ -20391,10 +21243,10 @@ export interface operations {
           dateRange: {
             /** @enum {string} */
             predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            lookbackValue: number | null;
-            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-            startDate: string | null;
-            endDate: string | null;
+            lookbackValue?: number | null;
+            lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+            startDate?: string | null;
+            endDate?: string | null;
           };
           /** @constant */
           type: "fact_table";
@@ -20484,10 +21336,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "fact_table";
@@ -20583,10 +21435,10 @@ export interface operations {
           dateRange: {
             /** @enum {string} */
             predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            lookbackValue: number | null;
-            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-            startDate: string | null;
-            endDate: string | null;
+            lookbackValue?: number | null;
+            lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+            startDate?: string | null;
+            endDate?: string | null;
           };
           /** @constant */
           type: "data_source";
@@ -20681,10 +21533,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "data_source";
@@ -20915,6 +21767,9 @@ export interface operations {
   deleteCustomField: {
     /** Delete a single customField */
     parameters: {
+      query: {
+        index?: string;
+      };
       path: {
         id: string;
       };
@@ -21153,10 +22008,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "metric";
@@ -21226,10 +22081,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "fact_table";
@@ -21301,10 +22156,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "data_source";
@@ -21668,10 +22523,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "metric";
@@ -21741,10 +22596,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "fact_table";
@@ -21816,10 +22671,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "data_source";
@@ -22070,10 +22925,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "metric";
@@ -22143,10 +22998,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "fact_table";
@@ -22218,10 +23073,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "data_source";
@@ -22494,10 +23349,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "metric";
@@ -22567,10 +23422,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "fact_table";
@@ -22642,10 +23497,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "data_source";
@@ -23046,10 +23901,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "metric";
@@ -23119,10 +23974,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "fact_table";
@@ -23194,10 +24049,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "data_source";
@@ -23458,10 +24313,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "metric";
@@ -23531,10 +24386,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "fact_table";
@@ -23606,10 +24461,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "data_source";
@@ -23646,6 +24501,214 @@ export interface operations {
       };
     };
   };
+  getExperimentTemplate: {
+    /** Get a single experimentTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              project?: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
+              owner: string;
+              templateMetadata: {
+                name: string;
+                description?: string;
+              };
+              /** @enum {string} */
+              type: "standard";
+              hypothesis?: string;
+              description?: string;
+              tags?: (string)[];
+              customFields?: {
+                [key: string]: string | undefined;
+              };
+              datasource: string;
+              exposureQueryId: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              goalMetrics?: (string)[];
+              secondaryMetrics?: (string)[];
+              guardrailMetrics?: (string)[];
+              activationMetric?: string;
+              /** @enum {string} */
+              statsEngine: "bayesian" | "frequentist";
+              segment?: string;
+              skipPartialData?: boolean;
+              targeting: {
+                coverage: number;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                condition: string;
+              };
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  updateExperimentTemplate: {
+    /** Update a single experimentTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          project?: string;
+          templateMetadata?: {
+            name: string;
+            description?: string;
+          };
+          /** @enum {string} */
+          type?: "standard";
+          hypothesis?: string;
+          description?: string;
+          tags?: (string)[];
+          customFields?: {
+            [key: string]: string | undefined;
+          };
+          datasource?: string;
+          exposureQueryId?: string;
+          hashAttribute?: string;
+          fallbackAttribute?: string;
+          disableStickyBucketing?: boolean;
+          goalMetrics?: (string)[];
+          secondaryMetrics?: (string)[];
+          guardrailMetrics?: (string)[];
+          activationMetric?: string;
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
+          segment?: string;
+          skipPartialData?: boolean;
+          targeting?: {
+            coverage: number;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
+              })[];
+            condition: string;
+          };
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              project?: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
+              owner: string;
+              templateMetadata: {
+                name: string;
+                description?: string;
+              };
+              /** @enum {string} */
+              type: "standard";
+              hypothesis?: string;
+              description?: string;
+              tags?: (string)[];
+              customFields?: {
+                [key: string]: string | undefined;
+              };
+              datasource: string;
+              exposureQueryId: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              goalMetrics?: (string)[];
+              secondaryMetrics?: (string)[];
+              guardrailMetrics?: (string)[];
+              activationMetric?: string;
+              /** @enum {string} */
+              statsEngine: "bayesian" | "frequentist";
+              segment?: string;
+              skipPartialData?: boolean;
+              targeting: {
+                coverage: number;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                condition: string;
+              };
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteExperimentTemplate: {
+    /** Delete a single experimentTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listExperimentTemplates: {
     /** Get all experimentTemplates */
     parameters: {
@@ -23664,6 +24727,7 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 project?: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 templateMetadata: {
                   name: string;
@@ -23715,6 +24779,191 @@ export interface operations {
       };
     };
   };
+  createExperimentTemplate: {
+    /** Create a single experimentTemplate */
+    requestBody: {
+      content: {
+        "application/json": {
+          project?: string;
+          templateMetadata: {
+            name: string;
+            description?: string;
+          };
+          /** @enum {string} */
+          type: "standard";
+          hypothesis?: string;
+          description?: string;
+          tags?: (string)[];
+          customFields?: {
+            [key: string]: string | undefined;
+          };
+          datasource: string;
+          exposureQueryId: string;
+          hashAttribute?: string;
+          fallbackAttribute?: string;
+          disableStickyBucketing?: boolean;
+          goalMetrics?: (string)[];
+          secondaryMetrics?: (string)[];
+          guardrailMetrics?: (string)[];
+          activationMetric?: string;
+          /** @enum {string} */
+          statsEngine: "bayesian" | "frequentist";
+          segment?: string;
+          skipPartialData?: boolean;
+          targeting: {
+            coverage: number;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
+              })[];
+            condition: string;
+          };
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              project?: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
+              owner: string;
+              templateMetadata: {
+                name: string;
+                description?: string;
+              };
+              /** @enum {string} */
+              type: "standard";
+              hypothesis?: string;
+              description?: string;
+              tags?: (string)[];
+              customFields?: {
+                [key: string]: string | undefined;
+              };
+              datasource: string;
+              exposureQueryId: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              goalMetrics?: (string)[];
+              secondaryMetrics?: (string)[];
+              guardrailMetrics?: (string)[];
+              activationMetric?: string;
+              /** @enum {string} */
+              statsEngine: "bayesian" | "frequentist";
+              segment?: string;
+              skipPartialData?: boolean;
+              targeting: {
+                coverage: number;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                condition: string;
+              };
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  bulkImportExperimentTemplates: {
+    /** Bulk create or update experiment templates */
+    requestBody: {
+      content: {
+        "application/json": {
+          templates: ({
+              id: string;
+              data: {
+                project?: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              };
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            added: number;
+            updated: number;
+          };
+        };
+      };
+    };
+  };
   getMetricGroup: {
     /** Get a single metricGroup */
     parameters: {
@@ -23732,6 +24981,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               name: string;
               description: string;
@@ -23762,7 +25012,7 @@ export interface operations {
           projects?: (string)[];
           metrics?: (string)[];
           datasource?: string;
-          /** @description Will default to the current user */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           archived?: boolean;
         };
@@ -23778,6 +25028,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               name: string;
               description: string;
@@ -23821,6 +25072,7 @@ export interface operations {
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 name: string;
                 description: string;
@@ -23846,7 +25098,7 @@ export interface operations {
           projects: (string)[];
           metrics: (string)[];
           datasource: string;
-          /** @description Will default to the current user */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           archived?: boolean;
         };
@@ -23862,6 +25114,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               name: string;
               description: string;
@@ -24605,6 +25858,8 @@ export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnection
 export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
 export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
+export type ApiExperimentMetricOverrideEntry = z.infer<typeof openApiValidators.apiExperimentMetricOverrideEntryValidator>;
+export type ApiExperimentDecisionFrameworkSettings = z.infer<typeof openApiValidators.apiExperimentDecisionFrameworkSettingsValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
 export type ApiLookbackOverride = z.infer<typeof openApiValidators.apiLookbackOverrideValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;

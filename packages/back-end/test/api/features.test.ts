@@ -90,12 +90,16 @@ const makeRevisionDoc = (version: number, featureId = "myfeature") => ({
 
 describe("features API", () => {
   const { app, auditMock, setReqContext } = setupApp();
+
+  const testUser = { id: "u_user1", email: "user@example.com" };
+
   const org = {
     id: "org",
     settings: {
       environments: [{ id: "production" }],
       restApiBypassesReviews: true,
     },
+    members: [{ id: testUser.id }],
   };
 
   const getEmptyCustomFieldsModel = () => ({
@@ -116,6 +120,17 @@ describe("features API", () => {
     canBypassApprovalChecks: () => false,
     ...extra,
   });
+
+  // Sets req.context with sensible defaults; pass overrides for test-specific needs.
+  const defaultContext = (overrides: Record<string, unknown> = {}) =>
+    setReqContext({
+      org,
+      models: defaultModels(),
+      permissions: defaultPermissions(),
+      getProjects: async () => [{ id: "project" }],
+      getUserByEmail: jest.fn().mockResolvedValue(null),
+      ...overrides,
+    });
 
   beforeEach(() => {
     (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
@@ -139,6 +154,17 @@ describe("features API", () => {
         });
       },
     );
+
+    // Default write mocks — individual tests can override as needed.
+    (getFeature as jest.Mock).mockReturnValue(undefined);
+    (addTags as jest.Mock).mockReturnValue(undefined);
+    (createFeature as jest.Mock).mockImplementation((v) => v);
+    (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
+      Promise.resolve({ ...f, ...updates }),
+    );
+    (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
+      {},
+    );
   });
 
   afterEach(() => {
@@ -150,16 +176,7 @@ describe("features API", () => {
   // ---------------------------------------------------------------------------
 
   it("can create new features", async () => {
-    setReqContext({
-      org,
-      models: defaultModels(),
-      permissions: defaultPermissions({ canCreateFeature: () => true }),
-      getProjects: async () => [{ id: "project" }],
-    });
-
-    (createFeature as jest.Mock).mockImplementation((v) => v);
-    (getFeature as jest.Mock).mockReturnValue(undefined);
-    (addTags as jest.Mock).mockReturnValue(undefined);
+    defaultContext();
     (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
       "createInterfaceEnvSettingsFromApiEnvSettings",
     );
@@ -167,7 +184,7 @@ describe("features API", () => {
     const feature = {
       defaultValue: "defaultValue",
       valueType: "string",
-      owner: "owner",
+      owner: testUser.id,
       description: "description",
       project: "project",
       id: "id",
@@ -203,7 +220,7 @@ describe("features API", () => {
               simple: { fields: [], type: "object" },
             }),
             organization: "org",
-            owner: "owner",
+            owner: testUser.id,
             project: "project",
             tags: ["tag"],
             valueType: "string",
@@ -214,15 +231,67 @@ describe("features API", () => {
       }),
     );
     expect(auditMock).toHaveBeenCalledWith({
-      details: `{"post":{"defaultValue":"defaultValue","valueType":"string","owner":"owner","description":"description","project":"project","dateCreated":"${response.body.feature.feature.dateCreated}","dateUpdated":"${response.body.feature.feature.dateUpdated}","organization":"org","id":"id","archived":true,"version":1,"environmentSettings":"createInterfaceEnvSettingsFromApiEnvSettings","prerequisites":[],"tags":["tag"],"jsonSchema":{"schemaType":"schema","schema":"","simple":{"type":"object","fields":[]},"date":"${response.body.feature.feature.jsonSchema.date}","enabled":false}},"context":{}}`,
+      details: `{"post":{"defaultValue":"defaultValue","valueType":"string","owner":"${testUser.id}","description":"description","project":"project","dateCreated":"${response.body.feature.feature.dateCreated}","dateUpdated":"${response.body.feature.feature.dateUpdated}","organization":"org","id":"id","archived":true,"version":1,"environmentSettings":"createInterfaceEnvSettingsFromApiEnvSettings","prerequisites":[],"tags":["tag"],"jsonSchema":{"schemaType":"schema","schema":"","simple":{"type":"object","fields":[]},"date":"${response.body.feature.feature.jsonSchema.date}","enabled":false}},"context":{}}`,
       entity: { id: "id", object: "feature" },
       event: "feature.create",
     });
   });
 
+  it("resolves email to userId when creating a feature", async () => {
+    defaultContext({
+      getUserByEmail: jest.fn().mockResolvedValue({ id: testUser.id }),
+    });
+
+    const response = await request(app)
+      .post("/api/v1/features")
+      .send({
+        defaultValue: "false",
+        valueType: "boolean",
+        owner: testUser.email,
+        id: "email-owner-feature",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.feature.feature.owner).toBe(testUser.id);
+  });
+
+  it("passes through unresolvable email/name owner values unchanged", async () => {
+    defaultContext();
+
+    const response = await request(app)
+      .post("/api/v1/features")
+      .send({
+        defaultValue: "false",
+        valueType: "boolean",
+        owner: "Ben",
+        id: "id",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.feature.feature.owner).toBe("Ben");
+  });
+
+  it("rejects an explicit userId that is not an org member", async () => {
+    defaultContext();
+
+    const response = await request(app)
+      .post("/api/v1/features")
+      .send({
+        defaultValue: "false",
+        valueType: "boolean",
+        owner: "u_notamember",
+        id: "id",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toContain("Unable to find user");
+  });
+
   it("fails to create new features when a required custom field is missing", async () => {
-    setReqContext({
-      org,
+    defaultContext({
       models: {
         ...defaultModels(),
         customFields: {
@@ -240,14 +309,7 @@ describe("features API", () => {
           ]),
         },
       },
-      permissions: defaultPermissions({ canCreateFeature: () => true }),
-      getProjects: async () => [{ id: "project" }],
     });
-
-    (getFeature as jest.Mock).mockReturnValue(undefined);
-    (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
-      "createInterfaceEnvSettingsFromApiEnvSettings",
-    );
 
     const response = await request(app)
       .post("/api/v1/features")
@@ -274,16 +336,14 @@ describe("features API", () => {
   // ---------------------------------------------------------------------------
 
   describe("requireProjectForFeatures enabled", () => {
-    it("fails to create new features without a project", async () => {
-      setReqContext({
-        org: {
-          ...org,
-          settings: { requireProjectForFeatures: true },
-        },
-        models: defaultModels(),
-        permissions: defaultPermissions({ canCreateFeature: () => true }),
-        getProjects: async () => [{ id: "project" }],
+    const requireProjectContext = (overrides: Record<string, unknown> = {}) =>
+      defaultContext({
+        org: { ...org, settings: { requireProjectForFeatures: true } },
+        ...overrides,
       });
+
+    it("fails to create new features without a project", async () => {
+      requireProjectContext();
 
       const response = await request(app)
         .post("/api/v1/features")
@@ -305,18 +365,10 @@ describe("features API", () => {
     });
 
     it("fails to update existing features if removing a project", async () => {
-      setReqContext({
-        org: { ...org, settings: { requireProjectForFeatures: true } },
-        models: defaultModels(),
-        permissions: defaultPermissions(),
-        getProjects: async () => [{ id: "project" }],
-      });
+      requireProjectContext();
 
       const existingFeature = makeFeature({ project: "project" });
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -327,18 +379,10 @@ describe("features API", () => {
     });
 
     it("allows updating existing features if originally not associated with a project", async () => {
-      setReqContext({
-        org: { ...org, settings: { requireProjectForFeatures: true } },
-        models: defaultModels(),
-        permissions: defaultPermissions(),
-        getProjects: async () => [{ id: "project" }],
-      });
+      requireProjectContext();
 
       const existingFeature = makeFeature({ project: "" });
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
 
       const newDescription = "This is an updated description";
       const response = await request(app)
@@ -371,21 +415,15 @@ describe("features API", () => {
           dateUpdated: new Date("2026-01-01"),
         },
       ]);
-      setReqContext({
-        org: { ...org, settings: { requireProjectForFeatures: true } },
+      requireProjectContext({
         models: {
           ...defaultModels(),
           customFields: { getCustomFieldsBySectionAndProject },
         },
-        permissions: defaultPermissions(),
-        getProjects: async () => [{ id: "project" }],
       });
 
       const existingFeature = makeFeature({ customFields: {} });
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -409,21 +447,15 @@ describe("features API", () => {
           dateUpdated: new Date("2026-01-01"),
         },
       ]);
-      setReqContext({
-        org: { ...org, settings: { requireProjectForFeatures: true } },
+      requireProjectContext({
         models: {
           ...defaultModels(),
           customFields: { getCustomFieldsBySectionAndProject },
         },
-        permissions: defaultPermissions(),
-        getProjects: async () => [{ id: "project" }],
       });
 
       const existingFeature = makeFeature({ customFields: {} });
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -447,23 +479,17 @@ describe("features API", () => {
           dateUpdated: new Date("2026-01-01"),
         },
       ]);
-      setReqContext({
-        org: { ...org, settings: { requireProjectForFeatures: true } },
+      requireProjectContext({
         models: {
           ...defaultModels(),
           customFields: { getCustomFieldsBySectionAndProject },
         },
-        permissions: defaultPermissions(),
-        getProjects: async () => [{ id: "project" }],
       });
 
       const existingFeature = makeFeature({
         customFields: { cfd_team: "growth" },
       });
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -490,21 +516,16 @@ describe("features API", () => {
           dateUpdated: new Date("2026-01-01"),
         },
       ]);
-      setReqContext({
-        org: { ...org, settings: { requireProjectForFeatures: true } },
+      requireProjectContext({
         models: {
           ...defaultModels(),
           customFields: { getCustomFieldsBySectionAndProject },
         },
-        permissions: defaultPermissions(),
         getProjects: async () => [{ id: "project" }, { id: "project-b" }],
       });
 
       const existingFeature = makeFeature({ customFields: {} });
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -534,21 +555,16 @@ describe("features API", () => {
               ])
             : Promise.resolve([]),
         );
-      setReqContext({
-        org: { ...org, settings: { requireProjectForFeatures: true } },
+      requireProjectContext({
         models: {
           ...defaultModels(),
           customFields: { getCustomFieldsBySectionAndProject },
         },
-        permissions: defaultPermissions(),
         getProjects: async () => [{ id: "project" }, { id: "project-b" }],
       });
 
       const existingFeature = makeFeature({ customFields: {} });
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -580,13 +596,11 @@ describe("features API", () => {
               ])
             : Promise.resolve([]),
         );
-      setReqContext({
-        org: { ...org, settings: { requireProjectForFeatures: true } },
+      requireProjectContext({
         models: {
           ...defaultModels(),
           customFields: { getCustomFieldsBySectionAndProject },
         },
-        permissions: defaultPermissions(),
         getProjects: async () => [{ id: "project" }, { id: "project-b" }],
       });
 
@@ -594,9 +608,6 @@ describe("features API", () => {
         customFields: { cfd_team: "growth" },
       });
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -620,9 +631,7 @@ describe("features API", () => {
 
   describe("nextScheduledUpdate", () => {
     it("writes nextScheduledUpdate when scheduleRules are updated via API", async () => {
-      setReqContext({
-        org,
-        models: defaultModels(),
+      defaultContext({
         permissions: defaultPermissions({
           canBypassApprovalChecks: () => true,
         }),
@@ -671,9 +680,6 @@ describe("features API", () => {
         revision: makeRevisionDoc(11, existingFeature.id),
         updatedFeature: { ...existingFeature, version: 11 },
       });
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -711,10 +717,7 @@ describe("features API", () => {
     });
 
     it("does not modify nextScheduledUpdate if there are no environment updates", async () => {
-      setReqContext({
-        org,
-        models: defaultModels(),
-        permissions: defaultPermissions(),
+      defaultContext({
         getProjects: async () => [{ id: "project_1" }, { id: "project_2" }],
       });
 
@@ -743,9 +746,6 @@ describe("features API", () => {
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
       (getNextScheduledUpdate as jest.Mock).mockImplementation((envSettings) =>
         envSettings ? new Date("2026-02-20T08:00:00.000Z") : null,
-      );
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
       );
 
       const originalVersion = existingFeature.version;
@@ -779,16 +779,11 @@ describe("features API", () => {
 
     const setupUpdateTest = (orgSettings = {}, permissionsOverride = {}) => {
       const existingFeature = makeFeature();
-      setReqContext({
+      defaultContext({
         org: { ...org, settings: { ...org.settings, ...orgSettings } },
-        models: defaultModels(),
         permissions: defaultPermissions(permissionsOverride),
-        getProjects: async () => [{ id: "project" }],
       });
       (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
-        Promise.resolve({ ...f, ...updates }),
-      );
       return existingFeature;
     };
 
@@ -821,9 +816,10 @@ describe("features API", () => {
       );
     });
 
-    it("role-based bypassApprovalChecks permission does NOT bypass when restApiBypassesReviews=false", async () => {
-      // Even if the API key's role has bypassApprovalChecks, the REST API path
-      // only respects the org-level restApiBypassesReviews setting.
+    it("role-based bypassApprovalChecks permission bypasses when restApiBypassesReviews=false", async () => {
+      // Tokens/roles that grant bypassApprovalChecks for the feature's project
+      // can still publish through the REST API even when the org-level
+      // restApiBypassesReviews setting is disabled.
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
         { canBypassApprovalChecks: () => true },
@@ -834,14 +830,14 @@ describe("features API", () => {
 
       expect(response.status).toBe(200);
       expect(createAndPublishRevision).toHaveBeenCalledWith(
-        expect.objectContaining({ canBypassApprovalChecks: false }),
+        expect.objectContaining({ canBypassApprovalChecks: true }),
       );
     });
 
-    it("throws when approvals required and restApiBypassesReviews=false, regardless of role permissions", async () => {
+    it("throws when approvals required and neither restApiBypassesReviews nor role permission allow bypass", async () => {
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => true },
+        { canBypassApprovalChecks: () => false },
       );
       (createAndPublishRevision as jest.Mock).mockRejectedValue(
         Object.assign(
@@ -863,7 +859,7 @@ describe("features API", () => {
       );
     });
 
-    it("passes canBypassApprovalChecks=false when restApiBypassesReviews=false", async () => {
+    it("passes canBypassApprovalChecks=false when neither org setting nor role permission allow bypass", async () => {
       setupUpdateTest({
         ...approvalRequiredSettings,
         restApiBypassesReviews: false,

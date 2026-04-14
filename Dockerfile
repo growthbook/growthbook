@@ -20,8 +20,9 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 \
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=46.0.6,<47" \
   && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel
+# cryptography version is specified above to override transitive dependency and fix vulnerability
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
