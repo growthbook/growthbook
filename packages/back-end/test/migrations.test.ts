@@ -1514,10 +1514,20 @@ describe("Experiment Migration", () => {
     phases: [
       {
         phase: "main",
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
       {
         phase: "main",
         name: "New Name",
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
     ],
     uid: "1234",
@@ -1564,6 +1574,11 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
       {
         phase: "main",
@@ -1576,6 +1591,11 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
     ],
     sequentialTestingEnabled: false,
@@ -1721,6 +1741,70 @@ describe("Experiment Migration", () => {
       // Keeps old metric fields around, but they're not used
       metrics: ["met_abc"],
       guardrails: ["met_def"],
+    });
+  });
+
+  it("Populates missing phase variations from top-level variations", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        phases: exp.phases.map((p: ExperimentPhase) => {
+          const phaseWithoutVariations = { ...p };
+          delete phaseWithoutVariations.variations;
+          return phaseWithoutVariations;
+        }),
+      }),
+    ).toEqual({
+      ...upgraded,
+      phases: upgraded.phases.map((p) => ({
+        ...p,
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
+      })),
+    });
+  });
+
+  it("Only backfills phase variations when missing", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        phases: [
+          {
+            ...exp.phases[0],
+            variations: [
+              { id: "0", status: "stopped" },
+              { id: "1", status: "active" },
+            ],
+          },
+          (() => {
+            const phaseWithoutVariations = { ...exp.phases[1] };
+            delete phaseWithoutVariations.variations;
+            return phaseWithoutVariations;
+          })(),
+        ],
+      }),
+    ).toEqual({
+      ...upgraded,
+      phases: [
+        {
+          ...upgraded.phases[0],
+          variations: [
+            { id: "0", status: "stopped" },
+            { id: "1", status: "active" },
+          ],
+        },
+        {
+          ...upgraded.phases[1],
+          variations: [
+            { id: "0", status: "active" },
+            { id: "1", status: "active" },
+            { id: "foo", status: "active" },
+          ],
+        },
+      ],
     });
   });
 });

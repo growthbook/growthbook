@@ -130,6 +130,8 @@ import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
+import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
+import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
@@ -658,6 +660,10 @@ app.post(
   "/experiment/:id/targeting",
   experimentsController.postExperimentTargeting,
 );
+app.post(
+  "/experiment/:id/features",
+  experimentsController.postExperimentFeatureValues,
+);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.put(
   "/experiment/:id/phase/:phase",
@@ -764,6 +770,12 @@ app.use("/url-redirects", urlRedirectRouter);
 
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
+
+// Ramp Schedules
+app.use("/ramp-schedule", rampScheduleRouter);
+
+// Ramp Schedule Templates
+app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
 
 // Holdouts
 app.use("/holdout", holdoutRouter);
@@ -892,6 +904,10 @@ app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
+app.post(
+  "/datasource/:id/query/:queryId/cancel",
+  datasourcesController.cancelDataSourceQuery,
+);
 app.put(
   "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
   datasourcesController.updateExposureQuery,

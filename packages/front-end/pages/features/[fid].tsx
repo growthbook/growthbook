@@ -56,6 +56,7 @@ export default function FeaturePage() {
   const experiments = data?.experiments;
   const safeRollouts = data?.safeRollouts;
   const holdout = data?.holdout;
+  const rampSchedules = data?.rampSchedules;
 
   const { dependents: dependentsData } = useFeatureDependents(baseFeature?.id);
 
@@ -148,6 +149,7 @@ export default function FeaturePage() {
             experiments={experiments}
             safeRollouts={safeRollouts}
             holdout={holdout}
+            rampSchedules={rampSchedules}
             mutate={refreshData}
             editProjectModal={editProjectModal}
             setEditProjectModal={setEditProjectModal}

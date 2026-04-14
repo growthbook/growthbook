@@ -16,6 +16,7 @@ import {
   validateCondition,
   checkEnvironmentsMatch,
   checkIfRevisionNeedsReview,
+  liveRevisionFromFeature,
   resetReviewOnChange,
   simpleToJSONSchema,
   inferSchemaField,
@@ -204,7 +205,14 @@ describe("autoMerge", () => {
       defaultValue: "base",
       rules: {
         dev: [],
-        prod: [],
+        prod: [
+          {
+            type: "force",
+            description: "",
+            id: "sharedForce",
+            value: "base",
+          },
+        ],
       },
       version: 4,
     };
@@ -216,8 +224,8 @@ describe("autoMerge", () => {
           {
             type: "force",
             description: "",
-            id: "liveForce",
-            value: "force",
+            id: "sharedForce",
+            value: "live",
           },
         ],
       },
@@ -238,8 +246,8 @@ describe("autoMerge", () => {
           {
             type: "force",
             description: "",
-            id: "revisionForce",
-            value: "force",
+            id: "sharedForce",
+            value: "revision",
           },
         ],
       },
@@ -358,6 +366,128 @@ describe("autoMerge", () => {
           prod: revision.rules["prod"],
         },
       },
+    });
+  });
+
+  describe("tryRuleLevelMerge (via autoMerge)", () => {
+    const A = { type: "force" as const, id: "a", description: "", value: "a" };
+    const B = { type: "force" as const, id: "b", description: "", value: "b" };
+    const C = { type: "force" as const, id: "c", description: "", value: "c" };
+
+    it("live reorders rules, draft modifies one — absorbs reorder, uses live ordering", () => {
+      const Bmod = { ...B, value: "b-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, B, C] },
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [C, A, B] },
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, Bmod, C] },
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.rules?.dev).toEqual([C, A, Bmod]);
+      }
+    });
+
+    it("both sides add new rules — draft addition appended after live rules", () => {
+      const D = {
+        type: "force" as const,
+        id: "d",
+        description: "",
+        value: "d",
+      };
+      const E = {
+        type: "force" as const,
+        id: "e",
+        description: "",
+        value: "e",
+      };
+
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A] },
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, E] },
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, D] },
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.rules?.dev).toEqual([A, E, D]);
+      }
+    });
+
+    it("live deletes rule, draft modifies different rule — deletion preserved", () => {
+      const Cmod = { ...C, value: "c-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, B, C] },
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, C] },
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, B, Cmod] },
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.rules?.dev).toEqual([A, Cmod]);
+      }
+    });
+
+    it("live deletes rule that draft also modified — conflict", () => {
+      const Bmod = { ...B, value: "b-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, B] },
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A] },
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, Bmod] },
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.conflicts).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ key: "rules.dev" }),
+          ]),
+        );
+      }
     });
   });
 });
@@ -1502,6 +1632,72 @@ describe("check revision needs review", () => {
         baseRevision,
         revision,
         allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      }),
+    ).toEqual(false);
+  });
+  it("does not require review for a non-gated env change on a brand-new feature (holdout undefined vs null)", () => {
+    // Mirrors FeaturesOverview.tsx: filledLive is built via liveRevisionFromFeature
+    // and used as BOTH base and the spread-target for effectiveRevision. On a
+    // brand-new feature neither the feature nor the live revision has a `holdout`
+    // field, so liveRevisionFromFeature falls through to `liveRevision.holdout`
+    // (undefined). The asymmetric `?? null` in revisionHasGlobalChange used to
+    // compare undefined vs null and report a global change, returning "all"
+    // affected envs and forcing review even when only a non-gated env changed.
+    const allEnvironments = ["production", "staging"];
+    const newFeature: FeatureInterface = {
+      ...feature,
+      defaultValue: "false",
+      environmentSettings: {
+        production: { enabled: false, rules: [] },
+        staging: { enabled: true, rules: [] },
+      },
+      // No `holdout` key — matches a freshly-created feature.
+    };
+    const liveRev: FeatureRevisionInterface = {
+      ...baseRevision,
+      version: 1,
+      defaultValue: "false",
+      rules: { production: [], staging: [] },
+      environmentsEnabled: { production: false, staging: true },
+      // No `holdout` key — createInitialRevision does not set one.
+    };
+    const filledLive = {
+      ...liveRev,
+      ...liveRevisionFromFeature(liveRev, newFeature),
+    };
+    // Draft only changes staging rules; everything else inherited from filledLive.
+    const effectiveRevision = {
+      ...filledLive,
+      rules: {
+        ...filledLive.rules,
+        staging: [
+          {
+            id: "fr_1",
+            type: "force" as const,
+            description: "",
+            value: "true",
+            enabled: true,
+          },
+        ],
+      },
+    };
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["production"],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: newFeature,
+        baseRevision: filledLive,
+        revision: effectiveRevision,
+        allEnvironments,
         settings,
       }),
     ).toEqual(false);

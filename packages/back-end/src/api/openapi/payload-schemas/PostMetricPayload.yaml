@@ -14,8 +14,7 @@ properties:
       - ""
       - api
   owner:
-    type: string
-    description: Name of the person who owns this metric
+    $ref: "../fields/OwnerInputField.yaml"
   name:
     type: string
     description: Name of the metric

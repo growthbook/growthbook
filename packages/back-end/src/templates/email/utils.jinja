@@ -1,9 +1,9 @@
-{% macro button(display, url) %}
+{% macro button(display, url, bgColor="#0991CE") %}
 <table align="center" role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: auto;">
   <tr>
-    <td class="button-td button-td-primary" style="border-radius: 4px; background: #0991CE;">
+    <td class="button-td button-td-primary" style="border-radius: 8px; background: {{ bgColor }};">
       <a class="button-a button-a-primary" href="{{ url }}"
-        style="background: #0991CE; border: 0px solid #000000; font-family: sans-serif; font-size: 15px; line-height: 15px; text-decoration: none; padding: 13px 17px; color: #ffffff; display: block; border-radius: 4px;">{{
+        style="background: {{ bgColor }}; border: 0px solid #000000; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 16px; text-decoration: none; padding: 14px 32px; color: #ffffff; display: block; border-radius: 8px;">{{
         display }}</a>
     </td>
   </tr>

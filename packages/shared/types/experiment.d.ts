@@ -30,8 +30,10 @@ export {
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,
+  PhaseVariation,
   Screenshot,
   Variation,
+  VariationStatus,
 } from "shared/validators";
 
 export {
@@ -211,6 +213,7 @@ export type ExperimentTargetingData = Pick<
   | "namespace"
   | "seed"
   | "variationWeights"
+  | "variations"
   | "savedGroups"
   | "prerequisites"
 > &

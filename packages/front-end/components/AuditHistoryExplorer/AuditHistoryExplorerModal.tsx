@@ -6,6 +6,8 @@ import { PiArrowsClockwise } from "react-icons/pi";
 import { AuditInterface, EventType } from "shared/types/audit";
 import { datetime } from "shared/dates";
 import Link from "next/link";
+import EventUser from "@/components/Avatar/EventUser";
+import { auditInterfaceUserToEventUser } from "@/components/Avatar/auditUserToEventUser";
 import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -95,13 +97,6 @@ function RawAuditRow({
   open: boolean;
   setOpen: (open: boolean) => void;
 }) {
-  const user = event.user;
-  const userDisplay =
-    ("name" in user && user.name) ||
-    ("email" in user && user.email) ||
-    ("apiKey" in user && "API Key") ||
-    ("system" in user && "System");
-
   return (
     <>
       <tr
@@ -114,7 +109,12 @@ function RawAuditRow({
         <td title={datetime(event.dateCreated)}>
           {datetime(event.dateCreated)}
         </td>
-        <td>{userDisplay}</td>
+        <td>
+          <EventUser
+            user={auditInterfaceUserToEventUser(event.user)}
+            display="name-email"
+          />
+        </td>
         <td>{event.event}</td>
         <td style={{ width: 30 }}>
           {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}

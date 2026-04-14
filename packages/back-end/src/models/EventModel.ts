@@ -256,21 +256,7 @@ export const createEvent = async <
       tags,
       environments,
       containsSecrets,
-      user: context.userId
-        ? {
-            type: "dashboard",
-            id: context.userId,
-            email: context.email,
-            name: context.userName || "",
-          }
-        : context.apiKey
-          ? {
-              type: "api_key",
-              apiKey: context.apiKey,
-            }
-          : {
-              type: "system",
-            },
+      user: context.auditUser ?? { type: "system" },
     },
     organizationId: context.org.id,
     ...(objectId ? { objectId } : {}),

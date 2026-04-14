@@ -35,6 +35,12 @@ export function makeExplorationEndpoint<
     zodReturnObject: z.object({
       exploration: explorationValidator.nullable(),
       query: apiQueryValidator.nullable(),
+      explorationUrl: z
+        .string()
+        .optional()
+        .describe(
+          "A direct link to view this exploration in the GrowthBook Application.",
+        ),
       message: z
         .string()
         .describe(

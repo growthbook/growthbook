@@ -22,7 +22,7 @@ properties:
   name:
     type: string
   owner:
-    type: string
+    $ref: "../fields/OwnerField.yaml"
   condition:
     description: When type = 'condition', this is the JSON-encoded condition for the group
     type: string

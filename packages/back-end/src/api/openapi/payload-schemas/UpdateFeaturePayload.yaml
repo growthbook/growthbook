@@ -9,7 +9,7 @@ properties:
     type: string
     description: An associated project ID
   owner:
-    type: string
+    $ref: "../fields/OwnerInputField.yaml"
   defaultValue:
     type: string
   tags:

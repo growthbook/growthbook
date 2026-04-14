@@ -1610,9 +1610,9 @@ export default function FactMetricModal({
             });
           }
 
-          const updatePayload: UpdateFactMetricProps = omit(values, [
+          const updatePayload = omit(values, [
             "datasource",
-          ]);
+          ]) as UpdateFactMetricProps;
           await apiCall(`/fact-metrics/${existing.id}`, {
             method: "PUT",
             body: JSON.stringify(updatePayload),
@@ -2367,7 +2367,6 @@ export default function FactMetricModal({
                                     inputGroupClassName="d-inline-flex w-150px"
                                     append="days"
                                     min="0"
-                                    max="100"
                                     disabled={!hasRegressionAdjustmentFeature}
                                     helpText={
                                       <>
@@ -2384,8 +2383,7 @@ export default function FactMetricModal({
                                       {
                                         valueAsNumber: true,
                                         validate: (v) => {
-                                          v = v || 0;
-                                          return !(v <= 0 || v > 100);
+                                          return v === undefined || v > 0;
                                         },
                                       },
                                     )}
