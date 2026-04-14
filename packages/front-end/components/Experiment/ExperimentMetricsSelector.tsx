@@ -18,6 +18,7 @@ export interface Props {
   datasource?: string;
   exposureQueryId?: string;
   project?: string;
+  additionalProjects?: string[];
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
@@ -42,6 +43,7 @@ export default function ExperimentMetricsSelector({
   datasource,
   exposureQueryId,
   project,
+  additionalProjects,
   goalMetrics,
   secondaryMetrics,
   guardrailMetrics,
@@ -266,6 +268,7 @@ export default function ExperimentMetricsSelector({
             datasource={datasource}
             exposureQueryId={exposureQueryId}
             project={project}
+            additionalProjects={additionalProjects}
             autoFocus={autoFocus}
             includeFacts={true}
             forceSingleMetric={forceSingleGoalMetric}
@@ -316,6 +319,7 @@ export default function ExperimentMetricsSelector({
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
                 project={project}
+                additionalProjects={additionalProjects}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
                 excludeQuantiles={excludeQuantiles}
@@ -357,6 +361,7 @@ export default function ExperimentMetricsSelector({
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
                 project={project}
+                additionalProjects={additionalProjects}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
                 excludeQuantiles={excludeQuantiles}

@@ -769,6 +769,7 @@ export default function RuleModal({
           targetURLRegex: "",
           ideaSource: "",
           project: feature.project,
+          additionalProjects: feature.additionalProjects,
           variations,
           phases,
           sequentialTestingEnabled:

@@ -26,6 +26,11 @@ properties:
   project:
     type: string
     description: Project ID which the experiment belongs to
+  additionalProjects:
+    type: array
+    items:
+      type: string
+    description: Additional project IDs for SDK payload visibility
   templateId:
     type: string
     description: ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields.

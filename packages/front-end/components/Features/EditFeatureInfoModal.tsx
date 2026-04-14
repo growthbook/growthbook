@@ -2,7 +2,7 @@ import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { getReviewSetting } from "shared/util";
+import { getAllEntityProjects, getReviewSetting } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -10,6 +10,7 @@ import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -72,6 +73,7 @@ const EditFeatureInfoModal: FC<{
       tags: feature.tags || [],
       owner: feature.owner,
       project: feature.project || "",
+      additionalProjects: feature.additionalProjects || [],
       description: feature.description || "",
     },
   });
@@ -80,6 +82,7 @@ const EditFeatureInfoModal: FC<{
     permissionsUtil.canUpdateFeature(feature, { project });
   const initialOption =
     permissionRequired("") && !requireProjectForFeatures ? "None" : "";
+  const allEntityProjects = getAllEntityProjects(feature);
 
   return (
     <Modal
@@ -146,12 +149,18 @@ const EditFeatureInfoModal: FC<{
             value={form.watch("project")}
             onChange={(v) => {
               form.setValue("project", v, { shouldDirty: true });
+              // Remove the new primary project from additionalProjects if present
+              const currentAdditional = form.watch("additionalProjects");
+              if (v && currentAdditional.includes(v)) {
+                form.setValue(
+                  "additionalProjects",
+                  currentAdditional.filter((p) => p !== v),
+                  { shouldDirty: true },
+                );
+              }
               setShowProjectWarningMsg(v !== feature.project);
             }}
-            options={useProjectOptions(
-              permissionRequired,
-              feature?.project ? [feature.project] : [],
-            )}
+            options={useProjectOptions(permissionRequired, allEntityProjects)}
             initialOption={initialOption}
             autoFocus={true}
             disabled={dependents > 0}
@@ -174,6 +183,21 @@ const EditFeatureInfoModal: FC<{
               )}
             </>
           )}
+        </Box>
+        <Box mb="4">
+          <MultiSelectField
+            label="Additional Projects"
+            value={form.watch("additionalProjects")}
+            onChange={(v) =>
+              form.setValue("additionalProjects", v, { shouldDirty: true })
+            }
+            options={useProjectOptions(
+              permissionRequired,
+              allEntityProjects,
+            ).filter((o) => o.value !== form.watch("project"))}
+            placeholder="None"
+            helpText="Also include this feature in these projects' SDK payloads. Ownership and edit permissions stay with the primary project."
+          />
         </Box>
         <Box mb="4">
           <label>Tags</label>

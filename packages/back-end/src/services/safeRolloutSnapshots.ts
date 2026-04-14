@@ -9,7 +9,11 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { getSafeRolloutSnapshotAnalysis, isDefined } from "shared/util";
+import {
+  getAllEntityProjects,
+  getSafeRolloutSnapshotAnalysis,
+  isDefined,
+} from "shared/util";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -565,7 +569,7 @@ const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
     objectId: feature.id,
     event,
     data,
-    projects: feature.project ? [feature.project] : [],
+    projects: getAllEntityProjects(feature),
     tags: feature.tags || [],
     environments: [environment],
     containsSecrets: false,

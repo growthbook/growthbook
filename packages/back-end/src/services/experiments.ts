@@ -2176,6 +2176,7 @@ export async function toExperimentApiInterface(
     name: experiment.name || "",
     type: experimentType,
     project: experiment.project || "",
+    additionalProjects: experiment.additionalProjects ?? [],
     hypothesis: experiment.hypothesis || "",
     description: experiment.description || "",
     tags: experiment.tags || [],
@@ -3363,6 +3364,7 @@ export function postExperimentApiPayloadToInterface(
       : {}),
     autoSnapshots: payload.autoRefresh ?? true,
     project: payload.project,
+    additionalProjects: payload.additionalProjects,
     owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
     exposureQueryId:
@@ -3617,6 +3619,7 @@ export function updateExperimentApiPayloadToInterface(
   const {
     trackingKey,
     project,
+    additionalProjects,
     owner,
     datasourceId,
     assignmentQueryId,
@@ -3669,6 +3672,7 @@ export function updateExperimentApiPayloadToInterface(
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
+    ...(additionalProjects !== undefined ? { additionalProjects } : {}),
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),

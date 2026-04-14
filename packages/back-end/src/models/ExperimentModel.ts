@@ -2,7 +2,11 @@ import { each, isEqual, pick, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import {
+  getAllEntityProjects,
+  includeExperimentInPayload,
+  hasVisualChanges,
+} from "shared/util";
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
@@ -109,6 +113,7 @@ const experimentSchema = new mongoose.Schema({
     index: true,
   },
   project: String,
+  additionalProjects: [String],
   owner: String,
   datasource: String,
   userIdType: String,
@@ -352,6 +357,7 @@ const experimentSchema = new mongoose.Schema({
 // Compound indexes for API list filtering
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
+experimentSchema.index({ organization: 1, additionalProjects: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -389,7 +395,7 @@ async function findExperiments(
   const experiments = (await cursor.toArray()).map(toInterface);
 
   return experiments.filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project),
+    context.permissions.canReadMultiProjectResource(getAllEntityProjects(exp)),
   );
 }
 
@@ -406,7 +412,9 @@ export async function getExperimentById(
 
   const experiment = toInterface(doc);
 
-  return context.permissions.canReadSingleProjectResource(experiment.project)
+  return context.permissions.canReadMultiProjectResource(
+    getAllEntityProjects(experiment),
+  )
     ? experiment
     : null;
 }
@@ -444,7 +452,7 @@ export async function getAllExperiments(
   };
 
   if (project) {
-    query.project = project;
+    query.$or = [{ project }, { additionalProjects: project }];
   }
 
   if (datasourceId) {
@@ -482,7 +490,7 @@ export async function hasArchivedExperiments(
   };
 
   if (project) {
-    query.project = project;
+    query.$or = [{ project }, { additionalProjects: project }];
   }
 
   const e = await getCollection(COLLECTION).findOne(query);
@@ -502,7 +510,9 @@ export async function getExperimentByTrackingKey(
 
   const experiment = toInterface(doc);
 
-  return context.permissions.canReadSingleProjectResource(experiment.project)
+  return context.permissions.canReadMultiProjectResource(
+    getAllEntityProjects(experiment),
+  )
     ? experiment
     : null;
 }
@@ -687,7 +697,9 @@ export async function getExperimentByIdea(
 
   const experiment = toInterface(doc);
 
-  return context.permissions.canReadSingleProjectResource(experiment.project)
+  return context.permissions.canReadMultiProjectResource(
+    getAllEntityProjects(experiment),
+  )
     ? experiment
     : null;
 }
@@ -774,11 +786,14 @@ export async function getPastExperimentsByDatasource(
       trackingKey: true,
       exposureQueryId: true,
       project: true,
+      additionalProjects: true,
     })
     .toArray();
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project),
+    context.permissions.canReadMultiProjectResource(
+      getAllEntityProjects(exp as unknown as ExperimentInterface),
+    ),
   );
 
   return experimentsUserCanAccess.map((exp) => ({
@@ -980,11 +995,14 @@ export async function getExperimentsForActivityFeed(
       id: true,
       name: true,
       project: true,
+      additionalProjects: true,
     })
     .toArray();
 
   const filteredExperiments = experiments.filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project),
+    context.permissions.canReadMultiProjectResource(
+      getAllEntityProjects(exp as unknown as ExperimentInterface),
+    ),
   );
 
   return filteredExperiments.map((exp) => ({
@@ -1011,7 +1029,9 @@ const findExperiment = async ({
 
   const experiment = toInterface(doc);
 
-  return context.permissions.canReadSingleProjectResource(experiment.project)
+  return context.permissions.canReadMultiProjectResource(
+    getAllEntityProjects(experiment),
+  )
     ? experiment
     : null;
 };
@@ -1048,7 +1068,7 @@ export const logExperimentCreated = async (
     data: {
       object: apiExperiment,
     },
-    projects: [apiExperiment.project],
+    projects: getAllEntityProjects(apiExperiment),
     tags: apiExperiment.tags,
     environments: changedEnvs,
     containsSecrets: false,
@@ -1132,7 +1152,10 @@ export const logExperimentUpdated = async ({
       changes,
     },
     projects: Array.from(
-      new Set([previousApiExperiment.project, currentApiExperiment.project]),
+      new Set([
+        ...getAllEntityProjects(previousApiExperiment),
+        ...getAllEntityProjects(currentApiExperiment),
+      ]),
     ),
     tags: Array.from(
       new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags]),
@@ -1330,6 +1353,7 @@ export async function removeProjectFromExperiments(
   context: ReqContext | ApiReqContext,
   project: string,
 ) {
+  // Clear primary project
   const query = { organization: context.org.id, project };
   const previousExperiments = await findExperiments(context, query);
 
@@ -1338,6 +1362,24 @@ export async function removeProjectFromExperiments(
   logAllChanges(context, previousExperiments, (exp) => ({
     ...exp,
     project: "",
+  }));
+
+  // Pull from additionalProjects
+  const additionalQuery = {
+    organization: context.org.id,
+    additionalProjects: project,
+  };
+  const additionalExperiments = await findExperiments(context, additionalQuery);
+
+  await ExperimentModel.updateMany(additionalQuery, {
+    $pull: { additionalProjects: project },
+  });
+
+  logAllChanges(context, additionalExperiments, (exp) => ({
+    ...exp,
+    additionalProjects: (exp.additionalProjects ?? []).filter(
+      (p) => p !== project,
+    ),
   }));
 }
 
@@ -1478,7 +1520,7 @@ export const logExperimentDeleted = async (
     data: {
       object: apiExperiment,
     },
-    projects: [apiExperiment.project],
+    projects: getAllEntityProjects(apiExperiment),
     environments: changedEnvs,
     tags: apiExperiment.tags,
     containsSecrets: false,
@@ -1513,24 +1555,33 @@ export async function getAllPayloadExperiments(
 ): Promise<Map<string, ExperimentInterface>> {
   const projectFilter =
     !projects || !projects.length
-      ? {}
-      : projects.length === 1
-        ? { project: projects[0] }
-        : { project: { $in: projects } };
+      ? []
+      : [
+          {
+            $or: [
+              { project: { $in: projects } },
+              { additionalProjects: { $elemMatch: { $in: projects } } },
+            ],
+          },
+        ];
 
   const experiments = await findExperiments(context, {
     organization: context.org.id,
-    ...projectFilter,
     archived: { $ne: true },
-    $or: [
+    $and: [
+      ...projectFilter,
       {
-        linkedFeatures: { $exists: true, $ne: [] },
-      },
-      {
-        hasVisualChangesets: true,
-      },
-      {
-        hasURLRedirects: true,
+        $or: [
+          {
+            linkedFeatures: { $exists: true, $ne: [] },
+          },
+          {
+            hasVisualChangesets: true,
+          },
+          {
+            hasURLRedirects: true,
+          },
+        ],
       },
     ],
   });
@@ -1714,7 +1765,7 @@ export function getPayloadKeys(
   }
 
   const environments: string[] = getEnvironmentIdsFromOrg(context.org);
-  const project = experiment.project ?? "";
+  const experimentProjects = getAllEntityProjects(experiment);
 
   // Visual editor and URL redirect experiments always affect all environments
   if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
@@ -1723,8 +1774,10 @@ export function getPayloadKeys(
     environments.forEach((e) => {
       // Always update the "no-project" payload
       keys.push({ environment: e, project: "" });
-      // If the experiment is in a project, update that payload as well
-      if (project) keys.push({ environment: e, project });
+      // Update payloads for all entity projects
+      for (const p of experimentProjects) {
+        keys.push({ environment: e, project: p });
+      }
     });
 
     return keys;

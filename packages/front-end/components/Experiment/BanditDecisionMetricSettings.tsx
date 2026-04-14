@@ -16,6 +16,7 @@ export type BanditDecisionMetricSettingsProps = {
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
   project?: string;
+  additionalProjects?: string[];
   disabled?: boolean;
 };
 
@@ -23,6 +24,7 @@ export default function BanditDecisionMetricSettings({
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
   project,
+  additionalProjects,
   disabled = false,
 }: BanditDecisionMetricSettingsProps) {
   const form = useFormContext();
@@ -114,6 +116,7 @@ export default function BanditDecisionMetricSettings({
         datasource={datasource?.id}
         exposureQueryId={exposureQueryId}
         project={project}
+        additionalProjects={additionalProjects}
         forceSingleGoalMetric={true}
         noQuantileGoalMetrics={true}
         goalMetrics={form.watch("goalMetrics") ?? []}

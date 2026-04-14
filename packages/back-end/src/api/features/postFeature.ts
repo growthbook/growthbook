@@ -129,6 +129,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
     description: req.body.description || "",
     project: req.body.project || "",
+    additionalProjects: req.body.additionalProjects,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: req.context.org.id,

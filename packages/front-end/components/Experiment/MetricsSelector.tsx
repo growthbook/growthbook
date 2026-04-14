@@ -1,5 +1,5 @@
 import { FC, ReactNode, useCallback, useMemo, useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import { isProjectListValidForEntity } from "shared/util";
 import {
   ExperimentMetricInterface,
   isFactMetric,
@@ -87,6 +87,7 @@ export const MetricsSelectorTooltip = ({
 const MetricsSelector: FC<{
   datasource?: string;
   project?: string;
+  additionalProjects?: string[];
   exposureQueryId?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
@@ -111,6 +112,7 @@ const MetricsSelector: FC<{
 }> = ({
   datasource,
   project,
+  additionalProjects,
   exposureQueryId,
   selected,
   onChange,
@@ -253,7 +255,12 @@ const MetricsSelector: FC<{
           ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
           : true,
       )
-      .filter((m) => isProjectListValidForProject(m.projects, project));
+      .filter((m) =>
+        isProjectListValidForEntity(m.projects, {
+          project,
+          additionalProjects,
+        }),
+      );
   }, [
     metrics,
     factMetrics,
@@ -263,6 +270,7 @@ const MetricsSelector: FC<{
     datasourceSettings,
     userIdType,
     project,
+    additionalProjects,
     noLegacyMetrics,
     noManual,
     includeFacts,

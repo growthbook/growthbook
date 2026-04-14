@@ -97,6 +97,7 @@ const genFormDefaultValues = ({
   | "description"
   | "tags"
   | "project"
+  | "additionalProjects"
   | "id"
   | "environmentSettings"
   | "customFields"
@@ -125,6 +126,7 @@ const genFormDefaultValues = ({
         description: featureToDuplicate.description,
         id: genDuplicatedKey(featureToDuplicate),
         project: featureToDuplicate.project ?? project,
+        additionalProjects: featureToDuplicate.additionalProjects ?? [],
         tags: featureToDuplicate.tags,
         environmentSettings,
         customFields: customFieldValues,
@@ -139,6 +141,7 @@ const genFormDefaultValues = ({
         description: "",
         id: "",
         project,
+        additionalProjects: [],
         tags: [],
         environmentSettings,
         customFields: customFieldValues,

@@ -358,12 +358,14 @@ export default function BanditRefNewFields({
             disableBanditConversionWindow={disableBanditConversionWindow}
             setDisableBanditConversionWindow={setDisableBanditConversionWindow}
             project={project}
+            additionalProjects={feature?.additionalProjects}
           />
 
           <ExperimentMetricsSelector
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
             project={project}
+            additionalProjects={feature?.additionalProjects}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
             guardrailMetrics={form.watch("guardrailMetrics") ?? []}

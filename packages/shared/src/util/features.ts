@@ -40,6 +40,28 @@ export const DRAFT_REVISION_STATUSES = [
   "pending-review",
 ];
 
+export function getAllEntityProjects(entity: {
+  project?: string;
+  additionalProjects?: string[];
+}): string[] {
+  const out: string[] = [];
+  if (entity.project) out.push(entity.project);
+  for (const p of entity.additionalProjects ?? []) {
+    if (!out.includes(p)) out.push(p);
+  }
+  return out;
+}
+
+export function isProjectListValidForEntity(
+  resourceProjects: string[] | undefined,
+  entity: { project?: string; additionalProjects?: string[] },
+): boolean {
+  const entityProjects = getAllEntityProjects(entity);
+  if (!entityProjects.length) return true;
+  if (!resourceProjects?.length) return true;
+  return entityProjects.some((p) => resourceProjects.includes(p));
+}
+
 export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
   try {
     if (!feature?.jsonSchema) {
@@ -117,6 +139,8 @@ export function mergeRevision(
     if (m.description !== undefined) newFeature.description = m.description;
     if (m.owner !== undefined) newFeature.owner = m.owner;
     if (m.project !== undefined) newFeature.project = m.project;
+    if (m.additionalProjects !== undefined)
+      newFeature.additionalProjects = m.additionalProjects;
     if (m.tags !== undefined) newFeature.tags = m.tags;
     if (m.neverStale !== undefined) newFeature.neverStale = m.neverStale;
     if (m.customFields !== undefined)
@@ -1812,7 +1836,7 @@ export function featureHasEnvironment(
   feature: FeatureInterface,
   environment: Environment,
 ): boolean {
-  const featureProjects = feature.project ? [feature.project] : [];
+  const featureProjects = getAllEntityProjects(feature);
   if (featureProjects.length === 0) return true;
   const filteredProjects = filterProjectsByEnvironment(
     featureProjects,
@@ -1835,7 +1859,7 @@ export function experimentHasEnvironment(
   experiment: ExperimentInterfaceStringDates,
   environment: Environment,
 ): boolean {
-  const experimentProjects = experiment.project ? [experiment.project] : [];
+  const experimentProjects = getAllEntityProjects(experiment);
   if (experimentProjects.length === 0) return true;
   const filteredProjects = filterProjectsByEnvironment(
     experimentProjects,

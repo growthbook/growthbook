@@ -2,6 +2,7 @@ import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
+import { getAllEntityProjects } from "shared/util";
 import Link from "next/link";
 import React from "react";
 import { PiClock } from "react-icons/pi";
@@ -44,6 +45,7 @@ export default function ExperimentRefFields({
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
+  const featureProjects = getAllEntityProjects(feature);
   const experimentOptions = experiments
     .filter(
       (e) =>
@@ -51,7 +53,11 @@ export default function ExperimentRefFields({
         (e.id === experimentId ||
           (!e.archived &&
             e.status !== "stopped" &&
-            (e.project || "") === (feature.project || ""))),
+            (featureProjects.length === 0
+              ? !e.project
+              : featureProjects.some((p) =>
+                  getAllEntityProjects(e).includes(p),
+                )))),
     )
     .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
     .map((e) => ({

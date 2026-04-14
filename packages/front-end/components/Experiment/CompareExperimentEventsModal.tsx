@@ -204,6 +204,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   hypothesis: "metadata",
   tags: "metadata",
   project: "metadata",
+  additionalProjects: "metadata",
   status: "metadata",
   winner: "metadata",
   owner: "metadata",

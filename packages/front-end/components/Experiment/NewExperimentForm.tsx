@@ -366,6 +366,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
+      additionalProjects: initialValue?.additionalProjects || [],
     },
   });
 
@@ -1494,6 +1495,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 noLegacyMetrics={willExperimentBeIncludedInIncrementalRefresh}
                 exposureQueryId={exposureQueryId}
                 project={project}
+                additionalProjects={form.watch("additionalProjects")}
                 goalMetrics={form.watch("goalMetrics") ?? []}
                 secondaryMetrics={form.watch("secondaryMetrics") ?? []}
                 guardrailMetrics={form.watch("guardrailMetrics") ?? []}

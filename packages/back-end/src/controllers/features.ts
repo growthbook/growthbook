@@ -18,6 +18,7 @@ import {
   getDefaultPrerequisiteCondition,
   getDependentExperiments,
   getDependentFeatures,
+  getAllEntityProjects,
   isFeatureStale,
   IsFeatureStaleResult,
   mergeRevision,
@@ -653,6 +654,28 @@ export async function postFeatures(
   // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
   if (otherProps.project) {
     await context.models.projects.ensureProjectsExist([otherProps.project]);
+  }
+
+  // Validate additionalProjects on create
+  if (
+    otherProps.additionalProjects &&
+    otherProps.additionalProjects.length > 0
+  ) {
+    const deduped = [...new Set(otherProps.additionalProjects)];
+    if (otherProps.project && deduped.includes(otherProps.project)) {
+      throw new Error(
+        "The primary project cannot also be listed in additionalProjects",
+      );
+    }
+    otherProps.additionalProjects = deduped;
+    await context.models.projects.ensureProjectsExist(deduped);
+    for (const p of deduped) {
+      if (!context.permissions.canCreateFeature({ project: p })) {
+        throw new Error(
+          `You do not have permission to add project ${p} to this feature`,
+        );
+      }
+    }
   }
 
   await validateCustomFieldsForSection({
@@ -1359,6 +1382,13 @@ export async function postFeatureRevert(
     }
     if (m.project !== undefined && m.project !== (feature.project ?? "")) {
       metadataChanges.project = m.project;
+      hasMetadataChanges = true;
+    }
+    if (
+      m.additionalProjects !== undefined &&
+      !isEqual(m.additionalProjects, feature.additionalProjects ?? [])
+    ) {
+      metadataChanges.additionalProjects = m.additionalProjects;
       hasMetadataChanges = true;
     }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
@@ -3133,6 +3163,34 @@ export async function putFeature(
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
 
+  // Validate and permission-check additionalProjects changes
+  if (updates.additionalProjects) {
+    // Ensure no duplicates and primary project is not in additionalProjects
+    const primaryProject =
+      "project" in updates ? updates.project : feature.project;
+    const deduped = [...new Set(updates.additionalProjects)];
+    if (primaryProject && deduped.includes(primaryProject)) {
+      throw new Error(
+        "The primary project cannot also be listed in additionalProjects",
+      );
+    }
+    updates.additionalProjects = deduped;
+    // Validate all project ids exist
+    if (deduped.length > 0) {
+      await context.models.projects.ensureProjectsExist(deduped);
+    }
+    // Permission gate: adding a project requires manageFeatures on that project
+    const previous = new Set(feature.additionalProjects ?? []);
+    const added = deduped.filter((p) => !previous.has(p));
+    for (const p of added) {
+      if (!context.permissions.canCreateFeature({ project: p })) {
+        throw new Error(
+          `You do not have permission to add project ${p} to this feature`,
+        );
+      }
+    }
+  }
+
   // Changing the project can affect SDK payload visibility; require publish permission in both old and new project
   if ("project" in updates) {
     if (
@@ -3153,6 +3211,7 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "additionalProjects",
     "owner",
     "customFields",
     "holdout",
@@ -3187,6 +3246,7 @@ export async function putFeature(
     "tags",
     "description",
     "project",
+    "additionalProjects",
     "owner",
     "customFields",
   ];
@@ -3212,6 +3272,9 @@ export async function putFeature(
         }),
         ...(metadataUpdates.project !== undefined && {
           project: metadataUpdates.project,
+        }),
+        ...(metadataUpdates.additionalProjects !== undefined && {
+          additionalProjects: metadataUpdates.additionalProjects,
         }),
         ...(metadataUpdates.tags !== undefined && {
           tags: metadataUpdates.tags,
@@ -5137,12 +5200,13 @@ export async function getFeaturesStaleStates(
   > = {};
 
   for (const feature of targetFeatures) {
+    const featureProjects = getAllEntityProjects(feature);
     const applicableEnvIds = getEnvironments(context.org)
       .filter(
         (env) =>
-          !feature.project ||
+          !featureProjects.length ||
           !env.projects?.length ||
-          env.projects.includes(feature.project as string),
+          featureProjects.some((p) => env.projects!.includes(p)),
       )
       .map((env) => env.id);
 

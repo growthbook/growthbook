@@ -4,12 +4,14 @@ import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
 import { ComputedExperimentInterface } from "shared/types/experiment";
+import { getAllEntityProjects } from "shared/util";
 import { date, datetime } from "shared/dates";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import WatchButton from "@/components/WatchButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/components/Pagination";
+import ProjectBadges from "@/components/ProjectBadges";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -132,8 +134,15 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       >
                         <span className="text-danger">Invalid project</span>
                       </Tooltip>
+                    ) : getAllEntityProjects(e).length > 0 ? (
+                      <ProjectBadges
+                        resourceType="experiment"
+                        projectIds={getAllEntityProjects(e)}
+                        primaryProjectId={e.project}
+                        skipMargin
+                      />
                     ) : (
-                      (e.projectName ?? <em>None</em>)
+                      <em>None</em>
                     )}
                   </td>
                 )}

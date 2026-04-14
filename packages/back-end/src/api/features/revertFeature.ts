@@ -136,6 +136,13 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         metadataChanges.project = m.project;
         hasMetaChange = true;
       }
+      if (
+        m.additionalProjects !== undefined &&
+        !isEqual(m.additionalProjects, feature.additionalProjects)
+      ) {
+        metadataChanges.additionalProjects = m.additionalProjects;
+        hasMetaChange = true;
+      }
       if (m.tags !== undefined && !isEqual(m.tags, feature.tags)) {
         metadataChanges.tags = m.tags;
         hasMetaChange = true;

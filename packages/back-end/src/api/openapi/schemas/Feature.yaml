@@ -29,6 +29,10 @@ properties:
     $ref: "../fields/OwnerField.yaml"
   project:
     type: string
+  additionalProjects:
+    type: array
+    items:
+      type: string
   valueType:
     type: string
     enum:

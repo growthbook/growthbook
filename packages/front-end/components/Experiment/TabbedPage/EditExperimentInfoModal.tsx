@@ -1,8 +1,11 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getAllEntityProjects } from "shared/util";
 import { useForm } from "react-hook-form";
+import { Box } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsInput from "@/components/Tags/TagsInput";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -32,6 +35,8 @@ export default function EditExperimentInfoModal({
     permissionsUtil.canUpdateExperiment({ project }, {});
   const initialProjectOption = canUpdateExperimentProject("") ? "None" : "";
 
+  const allEntityProjects = getAllEntityProjects(experiment);
+
   const form = useForm({
     defaultValues: {
       name: experiment.name,
@@ -39,6 +44,7 @@ export default function EditExperimentInfoModal({
       owner: experiment.owner || "",
       tags: experiment.tags,
       project: experiment.project || "",
+      additionalProjects: experiment.additionalProjects || [],
     },
   });
 
@@ -84,34 +90,59 @@ export default function EditExperimentInfoModal({
           onChange={(tags) => form.setValue("tags", tags)}
         />
       </div>
-      <SelectField
-        label={
-          <>
-            Project
-            <Tooltip
-              className="pl-1"
-              body={
-                "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
-              }
-            />
-          </>
-        }
-        autoFocus={focusSelector === "project"}
-        value={form.watch("project")}
-        onChange={(v) => form.setValue("project", v)}
-        options={useProjectOptions(
-          (project) => canUpdateExperimentProject(project),
-          experiment.project ? [experiment.project] : [],
-        )}
-        initialOption={initialProjectOption}
-      />
-      {experiment.project !== form.watch("project") ? (
-        <Callout status="warning">
-          Moving to a different Project may prevent your linked Feature Flags,
-          Visual Changes, and URL Redirects from being sent to users, and could
-          restrict use of some Data Sources and Metrics.
-        </Callout>
-      ) : null}
+      <Box mb="4">
+        <SelectField
+          label={
+            <>
+              Project
+              <Tooltip
+                className="pl-1"
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
+                }
+              />
+            </>
+          }
+          autoFocus={focusSelector === "project"}
+          value={form.watch("project")}
+          onChange={(v) => {
+            form.setValue("project", v);
+            // Remove the new primary project from additionalProjects if present
+            const currentAdditional = form.watch("additionalProjects");
+            if (v && currentAdditional.includes(v)) {
+              form.setValue(
+                "additionalProjects",
+                currentAdditional.filter((p) => p !== v),
+              );
+            }
+          }}
+          options={useProjectOptions(
+            (project) => canUpdateExperimentProject(project),
+            allEntityProjects,
+          )}
+          initialOption={initialProjectOption}
+        />
+        {experiment.project !== form.watch("project") ? (
+          <Callout status="warning">
+            Moving to a different Project may prevent your linked Feature Flags,
+            Visual Changes, and URL Redirects from being sent to users, and
+            could restrict use of some Data Sources and Metrics.
+          </Callout>
+        ) : null}
+      </Box>
+      <Box mb="4">
+        <MultiSelectField
+          label="Additional Projects"
+          value={form.watch("additionalProjects")}
+          onChange={(v) => form.setValue("additionalProjects", v)}
+          options={useProjectOptions(
+            (project) => canUpdateExperimentProject(project),
+            allEntityProjects,
+          ).filter((o) => o.value !== form.watch("project"))}
+          placeholder="None"
+          helpText="Also include this experiment in these projects' SDK payloads."
+        />
+      </Box>
     </Modal>
   );
 }

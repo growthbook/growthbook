@@ -210,6 +210,7 @@ const EditMetricsForm: FC<{
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
         project={experiment.project}
+        additionalProjects={experiment.additionalProjects}
         goalMetrics={form.watch("goalMetrics")}
         secondaryMetrics={form.watch("secondaryMetrics")}
         guardrailMetrics={form.watch("guardrailMetrics")}
@@ -261,6 +262,7 @@ const EditMetricsForm: FC<{
               onChange={(metric) => form.setValue("activationMetric", metric)}
               datasource={experiment.datasource}
               project={experiment.project}
+              additionalProjects={experiment.additionalProjects}
               onlyBinomial
               includeFacts={true}
             />
