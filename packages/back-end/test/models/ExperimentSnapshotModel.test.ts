@@ -1,12 +1,38 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
+import {
   getLatestSnapshot,
   createExperimentSnapshotModel,
+  updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import type { ExperimentSnapshotDocument } from "back-end/src/models/ExperimentSnapshotModel";
 import type { Context } from "back-end/src/models/BaseModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { ExperimentSnapshotResultChunkModel } from "back-end/src/models/ExperimentSnapshotResultChunkModel";
+import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
+import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
+import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
+
+jest.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentById: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/experiments", () => ({
+  updateExperimentAnalysisSummary: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/experimentNotifications", () => ({
+  notifyExperimentChange: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/experimentTimeSeries", () => ({
+  updateExperimentTimeSeries: jest.fn(),
+}));
 
 const snapshotTestContext = {
   org: { id: "org_1" },
@@ -16,6 +42,25 @@ const snapshotTestContext = {
     },
   },
 } as unknown as Context;
+
+function getSnapshotUpdateContext() {
+  const context = {
+    org: { id: "org_1" },
+    userId: "user_1",
+    userName: "Test User",
+    populateForeignRefs: jest.fn().mockResolvedValue(undefined),
+    models: {
+      dashboards: {
+        findByExperiment: jest.fn().mockResolvedValue([]),
+      },
+    },
+  } as unknown as Context;
+
+  context.models.experimentSnapshotResultChunks =
+    new ExperimentSnapshotResultChunkModel(context);
+
+  return context;
+}
 
 describe("ExperimentSnapshotModel", () => {
   let mongod: MongoMemoryServer;
@@ -31,6 +76,7 @@ describe("ExperimentSnapshotModel", () => {
   });
 
   afterEach(async () => {
+    jest.clearAllMocks();
     const collections = mongoose.connection.collections;
     for (const key in collections) {
       await collections[key].deleteMany({});
@@ -299,6 +345,110 @@ describe("ExperimentSnapshotModel", () => {
 
       expect(result?.id).toBe(scheduledSuccess.id);
       expect(result?.status).toBe("success");
+    });
+  });
+
+  describe("updateSnapshot", () => {
+    it("passes populated chunked results to post-success side effects", async () => {
+      const context = getSnapshotUpdateContext();
+      const experimentId = "exp_chunked_results";
+      const experiment = {
+        id: experimentId,
+        phases: [{}],
+        analysisSummary: undefined,
+      };
+
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperimentAnalysisSummary as jest.Mock).mockResolvedValue(
+        experiment,
+      );
+      (notifyExperimentChange as jest.Mock).mockResolvedValue([]);
+      (updateExperimentTimeSeries as jest.Mock).mockResolvedValue(undefined);
+      const populateSnapshotsSpy = jest.spyOn(
+        context.models.experimentSnapshotResultChunks,
+        "populateSnapshots",
+      );
+
+      const snapshot = snapshotFactory.build({
+        id: "snp_chunked_results",
+        experiment: experimentId,
+        phase: 0,
+        type: "standard",
+        status: "running",
+      });
+      snapshot.settings = {
+        ...snapshot.settings,
+        experimentId,
+        goalMetrics: ["met_1"],
+        variations: [
+          { id: "0", weight: 0.5 },
+          { id: "1", weight: 0.5 },
+        ],
+      };
+      await createExperimentSnapshotModel({ data: snapshot });
+
+      const analysis: ExperimentSnapshotAnalysis = {
+        dateCreated: new Date("2025-01-01T00:00:00Z"),
+        status: "success",
+        settings: {
+          dimensions: [],
+          statsEngine: "bayesian",
+          regressionAdjusted: false,
+          sequentialTesting: false,
+          differenceType: "relative",
+          pValueCorrection: null,
+          baselineVariationIndex: 0,
+          numGoalMetrics: 1,
+        },
+        results: [
+          {
+            name: "",
+            srm: 0.95,
+            variations: [
+              {
+                users: 100,
+                metrics: {
+                  met_1: {
+                    value: 10,
+                    cr: 0.1,
+                    users: 100,
+                  },
+                },
+              },
+              {
+                users: 120,
+                metrics: {
+                  met_1: {
+                    value: 15,
+                    cr: 0.125,
+                    users: 120,
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [analysis],
+        },
+      });
+
+      expect(updateExperimentAnalysisSummary).toHaveBeenCalledTimes(1);
+      const passedSnapshot = (updateExperimentAnalysisSummary as jest.Mock).mock
+        .calls[0][0].experimentSnapshot as ExperimentSnapshotInterface;
+
+      expect(passedSnapshot.hasChunkedResults).toBe(true);
+      expect(passedSnapshot.analyses[0].results[0].variations).toHaveLength(2);
+      expect(
+        passedSnapshot.analyses[0].results[0].variations[1].metrics.met_1.value,
+      ).toBe(15);
+      expect(populateSnapshotsSpy).not.toHaveBeenCalled();
     });
   });
 });

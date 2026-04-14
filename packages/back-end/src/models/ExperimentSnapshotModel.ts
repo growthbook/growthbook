@@ -265,32 +265,45 @@ export async function updateSnapshot({
 }) {
   const organization = context.org.id;
 
+  const existingSnapshotModel = await ExperimentSnapshotModel.findOne({
+    organization,
+    id,
+  });
+  if (!existingSnapshotModel) throw "Internal error";
+
+  const updatesForDb = { ...updates };
+  let experimentSnapshot: ExperimentSnapshotInterface = {
+    ...toInterface(existingSnapshotModel),
+    ...updates,
+  };
+  const analysesWithResults = updates.analyses?.some(
+    (a) => a.results?.length > 0,
+  );
+
   // If analyses have results, chunk them into separate documents
-  if (updates.analyses?.some((a) => a.results?.length > 0)) {
-    // Get snapshot settings to determine metric ordering
-    const existing = await ExperimentSnapshotModel.findOne({
-      organization,
-      id,
-    });
-    if (existing?.settings) {
-      // Delete old chunks and create new ones
-      await context.models.experimentSnapshotResultChunks.deleteBySnapshotId(
+  if (analysesWithResults && updates.analyses) {
+    await context.models.experimentSnapshotResultChunks.deleteBySnapshotId(id);
+    const analysisMeta =
+      await context.models.experimentSnapshotResultChunks.createFromAnalyses(
         id,
+        updates.analyses,
+        experimentSnapshot.settings,
       );
-      const analysisMeta =
-        await context.models.experimentSnapshotResultChunks.createFromAnalyses(
-          id,
-          updates.analyses,
-          existing.settings,
-        );
-      // Clear results from the main document and set the flag
-      updates.analyses = updates.analyses.map((a) => ({
-        ...a,
-        results: [],
-      }));
-      updates.hasChunkedResults = true;
-      updates.analysisMeta = analysisMeta;
-    }
+
+    // Clear results from the main document while keeping the logical snapshot
+    // populated for post-success side effects below.
+    updatesForDb.analyses = updates.analyses.map((a) => ({
+      ...a,
+      results: [],
+    }));
+    updatesForDb.hasChunkedResults = true;
+    updatesForDb.analysisMeta = analysisMeta;
+    experimentSnapshot = {
+      ...experimentSnapshot,
+      analyses: updates.analyses,
+      hasChunkedResults: true,
+      analysisMeta,
+    };
   }
 
   await ExperimentSnapshotModel.updateOne(
@@ -299,42 +312,41 @@ export async function updateSnapshot({
       id,
     },
     {
-      $set: updates,
+      $set: updatesForDb,
     },
   );
 
-  const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
-    id,
-    organization,
-  });
-  if (!experimentSnapshotModel) throw "Internal error";
+  if (experimentSnapshot.hasChunkedResults && !analysesWithResults) {
+    await context.models.experimentSnapshotResultChunks.populateSnapshots([
+      experimentSnapshot,
+    ]);
+  }
 
   const shouldUpdateExperimentAnalysisSummary =
-    experimentSnapshotModel.type === "standard" &&
-    experimentSnapshotModel.status === "success";
+    experimentSnapshot.type === "standard" &&
+    experimentSnapshot.status === "success";
 
   if (shouldUpdateExperimentAnalysisSummary) {
     const currentExperimentModel = await getExperimentById(
       context,
-      experimentSnapshotModel.experiment,
+      experimentSnapshot.experiment,
     );
 
     const isLatestPhase = currentExperimentModel
-      ? experimentSnapshotModel.phase ===
-        currentExperimentModel.phases.length - 1
+      ? experimentSnapshot.phase === currentExperimentModel.phases.length - 1
       : false;
 
     if (currentExperimentModel && isLatestPhase) {
       const updatedExperimentModel = await updateExperimentAnalysisSummary({
         context,
         experiment: currentExperimentModel,
-        experimentSnapshot: experimentSnapshotModel,
+        experimentSnapshot,
       });
 
       const notificationsTriggered = await notifyExperimentChange({
         context,
         experiment: updatedExperimentModel,
-        snapshot: experimentSnapshotModel,
+        snapshot: experimentSnapshot,
         previousAnalysisSummary: currentExperimentModel.analysisSummary,
       });
 
@@ -343,7 +355,7 @@ export async function updateSnapshot({
           context,
           experiment: updatedExperimentModel,
           previousAnalysisSummary: currentExperimentModel.analysisSummary,
-          experimentSnapshot: experimentSnapshotModel,
+          experimentSnapshot,
           notificationsTriggered,
         });
       } catch (error) {
@@ -351,7 +363,7 @@ export async function updateSnapshot({
           {
             err: error,
             experimentId: currentExperimentModel.id,
-            snapshotId: experimentSnapshotModel.id,
+            snapshotId: experimentSnapshot.id,
           },
           "Unable to update experiment time series",
         );
@@ -364,11 +376,11 @@ export async function updateSnapshot({
     const blocks = dashboard.blocks.map((block) => {
       if (
         !blockHasFieldOfType(block, "snapshotId", isString) ||
-        !snapshotSatisfiesBlock(experimentSnapshotModel, block)
+        !snapshotSatisfiesBlock(experimentSnapshot, block)
       )
         return block;
       updatedBlock = true;
-      return { ...block, snapshotId: experimentSnapshotModel.id };
+      return { ...block, snapshotId: experimentSnapshot.id };
     });
     if (updatedBlock) {
       await context.models.dashboards.dangerousUpdateBypassPermission(
@@ -381,14 +393,14 @@ export async function updateSnapshot({
   };
 
   if (
-    experimentSnapshotModel.status === "success" &&
+    experimentSnapshot.status === "success" &&
     // Only use main snapshots or those triggered automatically for dashboards
-    experimentSnapshotModel.triggeredBy !== "manual-dashboard" &&
-    (experimentSnapshotModel.triggeredBy === "update-dashboards" ||
-      experimentSnapshotModel.type === "standard")
+    experimentSnapshot.triggeredBy !== "manual-dashboard" &&
+    (experimentSnapshot.triggeredBy === "update-dashboards" ||
+      experimentSnapshot.type === "standard")
   ) {
     const dashboards = await context.models.dashboards.findByExperiment(
-      experimentSnapshotModel.experiment,
+      experimentSnapshot.experiment,
       { enableAutoUpdates: true },
     );
     for (const dashboard of dashboards) {
@@ -704,7 +716,7 @@ export async function getLatestSnapshot({
   experiment: string;
   phase: number;
   dimension?: string;
-  beforeSnapshot?: ExperimentSnapshotDocument;
+  beforeSnapshot?: Pick<ExperimentSnapshotInterface, "dateCreated">;
   withResults?: boolean;
   type?: SnapshotType;
 }): Promise<ExperimentSnapshotInterface | null> {
