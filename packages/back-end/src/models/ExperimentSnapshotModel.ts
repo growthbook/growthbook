@@ -225,7 +225,7 @@ export async function updateSnapshotsOnPhaseDelete(
     hasChunkedResults: true,
   }).select({ id: 1 });
   if (snapshotsToDelete.length) {
-    await context.models.snapshotResultChunks.deleteBySnapshotIds(
+    await context.models.experimentSnapshotResultChunks.deleteBySnapshotIds(
       snapshotsToDelete.map((s) => s.id),
     );
   }
@@ -274,9 +274,11 @@ export async function updateSnapshot({
     });
     if (existing?.settings) {
       // Delete old chunks and create new ones
-      await context.models.snapshotResultChunks.deleteBySnapshotId(id);
+      await context.models.experimentSnapshotResultChunks.deleteBySnapshotId(
+        id,
+      );
       const analysisMeta =
-        await context.models.snapshotResultChunks.createFromAnalyses(
+        await context.models.experimentSnapshotResultChunks.createFromAnalyses(
           id,
           updates.analyses,
           existing.settings,
@@ -449,7 +451,7 @@ export async function addOrUpdateSnapshotAnalysis(
     });
     if (updated?.settings) {
       // Populate existing chunk data for other analyses
-      await context.models.snapshotResultChunks.populateSnapshots([
+      await context.models.experimentSnapshotResultChunks.populateSnapshots([
         updated as unknown as ExperimentSnapshotInterface,
       ]);
       // Swap in the new analysis results (other analyses now have populated results from chunks)
@@ -462,9 +464,11 @@ export async function addOrUpdateSnapshotAnalysis(
         return a;
       });
 
-      await context.models.snapshotResultChunks.deleteBySnapshotId(id);
+      await context.models.experimentSnapshotResultChunks.deleteBySnapshotId(
+        id,
+      );
       const analysisMeta =
-        await context.models.snapshotResultChunks.createFromAnalyses(
+        await context.models.experimentSnapshotResultChunks.createFromAnalyses(
           id,
           populatedAnalyses,
           updated.settings,
@@ -534,7 +538,7 @@ export async function updateSnapshotAnalysis({
       id,
     });
     if (updated?.settings) {
-      await context.models.snapshotResultChunks.populateSnapshots([
+      await context.models.experimentSnapshotResultChunks.populateSnapshots([
         updated as unknown as ExperimentSnapshotInterface,
       ]);
       const populatedAnalyses = (
@@ -546,9 +550,11 @@ export async function updateSnapshotAnalysis({
         return a;
       });
 
-      await context.models.snapshotResultChunks.deleteBySnapshotId(id);
+      await context.models.experimentSnapshotResultChunks.deleteBySnapshotId(
+        id,
+      );
       const analysisMeta =
-        await context.models.snapshotResultChunks.createFromAnalyses(
+        await context.models.experimentSnapshotResultChunks.createFromAnalyses(
           id,
           populatedAnalyses,
           updated.settings,
@@ -578,7 +584,7 @@ export async function updateSnapshotAnalysis({
 }
 
 export async function deleteSnapshotById(context: Context, id: string) {
-  await context.models.snapshotResultChunks.deleteBySnapshotId(id);
+  await context.models.experimentSnapshotResultChunks.deleteBySnapshotId(id);
   await ExperimentSnapshotModel.deleteOne({
     organization: context.org.id,
     id,
@@ -596,7 +602,9 @@ export async function findSnapshotById(
   if (!doc) return null;
   const snapshot = toInterface(doc);
   if (snapshot.hasChunkedResults) {
-    await context.models.snapshotResultChunks.populateSnapshots([snapshot]);
+    await context.models.experimentSnapshotResultChunks.populateSnapshots([
+      snapshot,
+    ]);
   }
   return snapshot;
 }
@@ -610,7 +618,9 @@ export async function findSnapshotsByIds(
     id: { $in: ids },
   });
   const snapshots = docs.map(toInterface);
-  await context.models.snapshotResultChunks.populateSnapshots(snapshots);
+  await context.models.experimentSnapshotResultChunks.populateSnapshots(
+    snapshots,
+  );
   return snapshots;
 }
 
@@ -742,7 +752,9 @@ export async function getLatestSnapshot({
   ): Promise<ExperimentSnapshotInterface> {
     const snapshot = toInterface(doc);
     if (snapshot.hasChunkedResults) {
-      await context.models.snapshotResultChunks.populateSnapshots([snapshot]);
+      await context.models.experimentSnapshotResultChunks.populateSnapshots([
+        snapshot,
+      ]);
     }
     return snapshot;
   }
@@ -856,7 +868,9 @@ export async function getLatestSnapshotMultipleExperiments(
   }
 
   // Populate chunked results
-  await context.models.snapshotResultChunks.populateSnapshots(snapshots);
+  await context.models.experimentSnapshotResultChunks.populateSnapshots(
+    snapshots,
+  );
 
   return snapshots;
 }

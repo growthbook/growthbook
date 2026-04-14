@@ -6,9 +6,9 @@ import {
   AnalysisMetaEntry,
 } from "shared/snapshot-results";
 import {
-  snapshotResultChunkValidator,
-  SnapshotResultChunkInterface,
-  validateSnapshotResultChunkColumnLengths,
+  experimentSnapshotResultChunkValidator,
+  ExperimentSnapshotResultChunkInterface,
+  validateExperimentSnapshotResultChunkColumnLengths,
 } from "shared/validators";
 import {
   ExperimentSnapshotAnalysis,
@@ -19,8 +19,8 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
-  schema: snapshotResultChunkValidator,
-  collectionName: "snapshotresultchunks",
+  schema: experimentSnapshotResultChunkValidator,
+  collectionName: "experimentsnapshotresultchunks",
   idPrefix: "snpres_",
   globallyUniquePrimaryKeys: true,
   additionalIndexes: [
@@ -39,7 +39,7 @@ function getMetricOrdering(settings: ExperimentSnapshotSettings): string[] {
   );
 }
 
-export class SnapshotResultChunkModel extends BaseClass {
+export class ExperimentSnapshotResultChunkModel extends BaseClass {
   protected canRead() {
     return true;
   }
@@ -53,8 +53,10 @@ export class SnapshotResultChunkModel extends BaseClass {
     return true;
   }
 
-  protected async customValidation(doc: SnapshotResultChunkInterface) {
-    validateSnapshotResultChunkColumnLengths(doc);
+  protected async customValidation(
+    doc: ExperimentSnapshotResultChunkInterface,
+  ) {
+    validateExperimentSnapshotResultChunkColumnLengths(doc);
   }
 
   /**
@@ -116,7 +118,7 @@ export class SnapshotResultChunkModel extends BaseClass {
 
     const snapshotIds = chunkedSnapshots.map((s) => s.id);
 
-    let allChunks: SnapshotResultChunkInterface[];
+    let allChunks: ExperimentSnapshotResultChunkInterface[];
     if (metricIds?.length) {
       allChunks = await this._find({
         snapshotId: { $in: snapshotIds },
@@ -131,7 +133,7 @@ export class SnapshotResultChunkModel extends BaseClass {
     // Group chunks by snapshot ID
     const chunksBySnapshotId = new Map<
       string,
-      SnapshotResultChunkInterface[]
+      ExperimentSnapshotResultChunkInterface[]
     >();
     for (const chunk of allChunks) {
       if (!chunksBySnapshotId.has(chunk.snapshotId)) {

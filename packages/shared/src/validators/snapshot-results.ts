@@ -1,27 +1,27 @@
 import { z } from "zod";
 
-type SnapshotResultColumnLengthMismatch = {
+type ExperimentSnapshotResultColumnLengthMismatch = {
   column: string;
   actualLength: number;
   expectedLength: number;
 };
 
-type SnapshotResultNumRowsMismatch = {
+type ExperimentSnapshotResultNumRowsMismatch = {
   actualLength: number;
   expectedLength: number;
 };
 
-function getSnapshotResultLengthMismatches({
+function getExperimentSnapshotResultLengthMismatches({
   data,
   numRows,
 }: {
   data: Record<string, unknown[]>;
   numRows: number;
 }): {
-  columnMismatches: SnapshotResultColumnLengthMismatch[];
-  numRowsMismatch?: SnapshotResultNumRowsMismatch;
+  columnMismatches: ExperimentSnapshotResultColumnLengthMismatch[];
+  numRowsMismatch?: ExperimentSnapshotResultNumRowsMismatch;
 } {
-  const columnMismatches: SnapshotResultColumnLengthMismatch[] = [];
+  const columnMismatches: ExperimentSnapshotResultColumnLengthMismatch[] = [];
   const expectedLength = Object.values(data)[0]?.length ?? 0;
 
   for (const [column, values] of Object.entries(data)) {
@@ -46,7 +46,7 @@ function getSnapshotResultLengthMismatches({
   };
 }
 
-export function validateSnapshotResultChunkColumnLengths({
+export function validateExperimentSnapshotResultChunkColumnLengths({
   data,
   numRows,
 }: {
@@ -54,7 +54,7 @@ export function validateSnapshotResultChunkColumnLengths({
   numRows: number;
 }) {
   const { columnMismatches, numRowsMismatch } =
-    getSnapshotResultLengthMismatches({
+    getExperimentSnapshotResultLengthMismatches({
       data,
       numRows,
     });
@@ -76,7 +76,7 @@ export function validateSnapshotResultChunkColumnLengths({
   );
 }
 
-export const snapshotResultChunkValidator = z
+export const experimentSnapshotResultChunkValidator = z
   .object({
     organization: z.string(),
     dateCreated: z.date(),
@@ -91,7 +91,7 @@ export const snapshotResultChunkValidator = z
   .strict()
   .superRefine((chunk, ctx) => {
     const { columnMismatches, numRowsMismatch } =
-      getSnapshotResultLengthMismatches(chunk);
+      getExperimentSnapshotResultLengthMismatches(chunk);
 
     for (const mismatch of columnMismatches) {
       ctx.addIssue({
@@ -110,6 +110,6 @@ export const snapshotResultChunkValidator = z
     }
   });
 
-export type SnapshotResultChunkInterface = z.infer<
-  typeof snapshotResultChunkValidator
+export type ExperimentSnapshotResultChunkInterface = z.infer<
+  typeof experimentSnapshotResultChunkValidator
 >;

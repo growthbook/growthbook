@@ -62,7 +62,7 @@ import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
-import { SnapshotResultChunkModel } from "back-end/src/models/SnapshotResultChunkModel";
+import { ExperimentSnapshotResultChunkModel } from "back-end/src/models/ExperimentSnapshotResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
@@ -106,7 +106,7 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
-  | "snapshotResultChunks"
+  | "experimentSnapshotResultChunks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
@@ -143,7 +143,7 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
-  snapshotResultChunks: SnapshotResultChunkModel,
+  experimentSnapshotResultChunks: ExperimentSnapshotResultChunkModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
@@ -189,7 +189,9 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
-      snapshotResultChunks: new SnapshotResultChunkModel(this),
+      experimentSnapshotResultChunks: new ExperimentSnapshotResultChunkModel(
+        this,
+      ),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),

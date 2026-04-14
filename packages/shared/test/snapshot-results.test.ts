@@ -12,8 +12,8 @@ import {
   AnalysisMetaEntry,
 } from "../src/snapshot-results";
 import {
-  snapshotResultChunkValidator,
-  validateSnapshotResultChunkColumnLengths,
+  experimentSnapshotResultChunkValidator,
+  validateExperimentSnapshotResultChunkColumnLengths,
 } from "../src/validators/snapshot-results";
 
 function makeMetric(overrides: Partial<SnapshotMetric> = {}): SnapshotMetric {
@@ -75,7 +75,7 @@ function decodeHelper(
   );
 }
 
-function makeSnapshotResultChunk(data: Record<string, unknown[]>) {
+function makeExperimentSnapshotResultChunk(data: Record<string, unknown[]>) {
   return {
     organization: "org_1",
     dateCreated: new Date("2025-01-01"),
@@ -89,10 +89,10 @@ function makeSnapshotResultChunk(data: Record<string, unknown[]>) {
   };
 }
 
-describe("snapshotResultChunkValidator", () => {
+describe("experimentSnapshotResultChunkValidator", () => {
   it("accepts column data when all arrays match numRows", () => {
-    const result = snapshotResultChunkValidator.safeParse(
-      makeSnapshotResultChunk({
+    const result = experimentSnapshotResultChunkValidator.safeParse(
+      makeExperimentSnapshotResultChunk({
         a: [0, 0],
         d: ["All", "All"],
         v: [0, 1],
@@ -104,8 +104,8 @@ describe("snapshotResultChunkValidator", () => {
   });
 
   it("rejects column data when any array length differs from the other columns", () => {
-    const result = snapshotResultChunkValidator.safeParse(
-      makeSnapshotResultChunk({
+    const result = experimentSnapshotResultChunkValidator.safeParse(
+      makeExperimentSnapshotResultChunk({
         a: [0, 0],
         d: ["All"],
         v: [0, 1],
@@ -131,8 +131,8 @@ describe("snapshotResultChunkValidator", () => {
   });
 
   it("rejects column data when numRows does not match the common array length", () => {
-    const result = snapshotResultChunkValidator.safeParse({
-      ...makeSnapshotResultChunk({
+    const result = experimentSnapshotResultChunkValidator.safeParse({
+      ...makeExperimentSnapshotResultChunk({
         a: [0, 0],
         d: ["All", "All"],
         v: [0, 1],
@@ -155,7 +155,7 @@ describe("snapshotResultChunkValidator", () => {
 
   it("throws from the model-layer helper when column lengths are invalid", () => {
     expect(() =>
-      validateSnapshotResultChunkColumnLengths({
+      validateExperimentSnapshotResultChunkColumnLengths({
         numRows: 2,
         data: {
           a: [0, 0],

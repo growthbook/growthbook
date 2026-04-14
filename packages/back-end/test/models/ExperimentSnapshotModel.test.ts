@@ -11,7 +11,7 @@ import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 const snapshotTestContext = {
   org: { id: "org_1" },
   models: {
-    snapshotResultChunks: {
+    experimentSnapshotResultChunks: {
       populateSnapshots: jest.fn(),
     },
   },
