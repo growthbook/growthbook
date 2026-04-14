@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ownerField, ownerInputField } from "./owner-field";
-import { apiPaginationFieldsValidator } from "./openapi";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 // Corresponds to schemas/Metric.yaml
 export const apiMetricValidator = z
@@ -692,20 +692,7 @@ export const listMetricsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       datasourceId: z.string().describe("Filter by Data Source").optional(),
     })

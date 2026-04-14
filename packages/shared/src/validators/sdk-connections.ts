@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiPaginationFieldsValidator } from "./openapi";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 // Corresponds to schemas/SdkConnection.yaml
 export const apiSdkConnectionValidator = z
@@ -79,20 +79,7 @@ export const listSdkConnectionsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       withProxy: z.string().optional(),
       multiOrg: z.string().optional(),
@@ -101,7 +88,7 @@ export const listSdkConnectionsValidator = {
   paramsSchema: z.never(),
   responseSchema: z.intersection(
     z.object({
-      connections: z.array(apiSdkConnectionValidator).optional(),
+      connections: z.array(apiSdkConnectionValidator),
     }),
     apiPaginationFieldsValidator,
   ),

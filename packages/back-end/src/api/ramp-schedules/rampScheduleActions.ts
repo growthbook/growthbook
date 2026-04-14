@@ -28,7 +28,7 @@ const rampScheduleResponse = z.object({
 // POST /ramp-schedules/:id/actions/start
 export const startRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: attributionBodySchema,
+  bodySchema: z.never(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/{id}/actions/start",
@@ -86,7 +86,7 @@ export const startRampSchedule = createApiRequestHandler({
 // POST /ramp-schedules/:id/actions/pause
 export const pauseRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: attributionBodySchema,
+  bodySchema: z.never(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/{id}/actions/pause",
@@ -115,7 +115,7 @@ export const pauseRampSchedule = createApiRequestHandler({
 // POST /ramp-schedules/:id/actions/resume
 export const resumeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: attributionBodySchema,
+  bodySchema: z.never(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/{id}/actions/resume",
@@ -281,7 +281,7 @@ export const jumpRampSchedule = createApiRequestHandler({
 // POST /ramp-schedules/:id/actions/complete
 export const completeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: attributionBodySchema,
+  bodySchema: z.never(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/{id}/actions/complete",
@@ -306,7 +306,7 @@ export const completeRampSchedule = createApiRequestHandler({
 
 export const approveStepRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: attributionBodySchema,
+  bodySchema: z.never(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/{id}/actions/approve-step",
@@ -342,7 +342,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
 // POST /ramp-schedules/:id/actions/rollback — lands in "paused" so it can be restarted
 export const rollbackRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: attributionBodySchema,
+  bodySchema: z.never(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/{id}/actions/rollback",

@@ -128,7 +128,7 @@ export interface paths {
     /** Remove members from team */
     delete: operations["removeTeamMember"];
   };
-  "/teams/{teamId}/": {
+  "/teams/{teamId}": {
     /** Delete a single team */
     delete: operations["deleteTeam"];
   };

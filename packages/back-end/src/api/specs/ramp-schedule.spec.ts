@@ -100,8 +100,8 @@ const updateBodySchema = z.object({
 const listQuerySchema = z.object({
   featureId: z.string().optional(),
   status: z.string().optional(),
-  limit: z.coerce.number().int().default(10),
-  offset: z.coerce.number().int().default(0),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  offset: z.coerce.number().int().min(0).default(0),
 });
 
 // --- Spec ---

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ownerField, ownerInputField } from "./owner-field";
-import { apiPaginationFieldsValidator } from "./openapi";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 export const savedGroupTypeValidator = z.enum(["condition", "list"]);
 
@@ -140,20 +140,7 @@ export const listSavedGroupsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
     })
     .strict(),
   paramsSchema: z.never(),

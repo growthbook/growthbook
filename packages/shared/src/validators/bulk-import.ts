@@ -111,7 +111,8 @@ const postBulkImportFactsBody = z
                 .describe(
                   "Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.",
                 )
-                .optional(),
+                .optional()
+                .meta({ deprecated: true }),
               rowFilters: z
                 .array(
                   z.object({
@@ -192,7 +193,8 @@ const postBulkImportFactsBody = z
                   .describe(
                     "Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.",
                   )
-                  .optional(),
+                  .optional()
+                  .meta({ deprecated: true }),
                 rowFilters: z
                   .array(
                     z.object({

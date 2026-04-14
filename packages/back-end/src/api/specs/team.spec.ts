@@ -29,7 +29,7 @@ export const removeTeamMemberEndpoint = {
 };
 
 export const deleteTeamEndpoint = {
-  pathFragment: "/:teamId/",
+  pathFragment: "/:teamId",
   verb: "delete" as const,
   operationId: "deleteTeam",
   validator: apiDeleteTeamValidator,

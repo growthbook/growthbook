@@ -183,7 +183,6 @@ API_MODELS.forEach((modelClass) => {
 
 allRoutes.forEach((route) => {
   if (!route.method) {
-    console.log(route);
     return;
   }
 

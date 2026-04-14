@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ownerField, ownerInputField } from "./owner-field";
-import { apiPaginationFieldsValidator } from "./openapi";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 // If you change these types, also update the factTableColumnTypeValidator to match
 export const factTableColumnTypes = [
@@ -545,20 +545,7 @@ export const listFactTablesValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
       datasourceId: z.string().describe("Filter by Data Source").optional(),
       projectId: z.string().describe("Filter by project id").optional(),
     })
@@ -659,20 +646,7 @@ export const listFactTableFiltersValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
     })
     .strict(),
   paramsSchema: factTableIdParams,

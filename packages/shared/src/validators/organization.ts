@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationQueryFields } from "./shared";
 
 export const memberRoleInfo = z.strictObject({
   role: z.string(),
@@ -116,20 +117,7 @@ export const listOrganizationsValidator = {
           "Search string to search organization names, owner emails, and external ids by",
         )
         .optional(),
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
     })
     .strict(),
   paramsSchema: z.never(),

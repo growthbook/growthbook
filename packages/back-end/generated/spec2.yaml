@@ -3320,7 +3320,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -4150,6 +4150,8 @@ paths:
                   deletedId:
                     description: The ID of the deleted feature
                     type: string
+                required:
+                  - deletedId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -4569,7 +4571,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -5313,8 +5315,11 @@ paths:
                                     namespaceId:
                                       type: string
                                     range:
+                                      minItems: 2
+                                      maxItems: 2
                                       type: array
-                                      items: {}
+                                      items:
+                                        type: number
                                   required:
                                     - namespaceId
                                     - range
@@ -5560,8 +5565,10 @@ paths:
                                             - lookback
                                             - ''
                                         winRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         loseRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         properPriorOverride:
                                           type: boolean
@@ -5603,8 +5610,10 @@ paths:
                                             - lookback
                                             - ''
                                         winRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         loseRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         properPriorOverride:
                                           type: boolean
@@ -5646,8 +5655,10 @@ paths:
                                             - lookback
                                             - ''
                                         winRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         loseRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         properPriorOverride:
                                           type: boolean
@@ -5687,8 +5698,10 @@ paths:
                                           - lookback
                                           - ''
                                       winRiskThreshold:
+                                        deprecated: true
                                         type: number
                                       loseRiskThreshold:
+                                        deprecated: true
                                         type: number
                                       properPriorOverride:
                                         type: boolean
@@ -5869,7 +5882,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -6379,6 +6392,8 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/result'
+                required:
+                  - result
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -6402,7 +6417,7 @@ paths:
             description: The experiment id of the experiment to update
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -7195,7 +7210,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -7821,7 +7836,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -8087,7 +8102,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -8307,7 +8322,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -8367,6 +8382,8 @@ paths:
                   deletedId:
                     description: The ID of the deleted project
                     type: string
+                required:
+                  - deletedId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -8420,8 +8437,10 @@ paths:
                   type: string
                 toggleOnList:
                   description: Show toggle on feature list
+                  type: boolean
                 defaultState:
                   description: Default state for new features
+                  type: boolean
                 projects:
                   type: array
                   items:
@@ -8462,7 +8481,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -8640,7 +8659,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/property'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -8754,6 +8773,8 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/connections'
+                    required:
+                      - connections
                     additionalProperties: false
                   - type: object
                     properties:
@@ -8897,7 +8918,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -9401,7 +9422,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -9591,7 +9612,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -9818,7 +9839,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -10170,7 +10191,7 @@ paths:
         - $ref: '#/components/parameters/factTableId'
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -10385,6 +10406,7 @@ paths:
                       items:
                         type: string
                     inlineFilters:
+                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -10492,6 +10514,7 @@ paths:
                       items:
                         type: string
                     inlineFilters:
+                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -10772,6 +10795,7 @@ paths:
                 - name
                 - metricType
                 - numerator
+                - priorSettings
               additionalProperties: false
       responses:
         '200':
@@ -10825,7 +10849,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -10895,6 +10919,7 @@ paths:
                       items:
                         type: string
                     inlineFilters:
+                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -11002,6 +11027,7 @@ paths:
                       items:
                         type: string
                     inlineFilters:
+                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -11162,6 +11188,39 @@ paths:
                   required:
                     - type
                   additionalProperties: false
+                priorSettings:
+                  description: >-
+                    Controls the bayesian prior for the metric. If omitted,
+                    organization defaults will be used.
+                  type: object
+                  properties:
+                    override:
+                      description: >-
+                        If false, the organization default settings will be used
+                        instead of the other settings in this object
+                      type: boolean
+                    proper:
+                      description: >-
+                        If true, the `mean` and `stddev` will be used, otherwise
+                        we will use an improper flat prior.
+                      type: boolean
+                    mean:
+                      description: >-
+                        The mean of the prior distribution of relative effects
+                        in proportion terms (e.g. 0.01 is 1%)
+                      type: number
+                    stddev:
+                      description: >-
+                        Must be > 0. The standard deviation of the prior
+                        distribution of relative effects in proportion terms.
+                      type: number
+                      exclusiveMinimum: 0
+                  required:
+                    - override
+                    - proper
+                    - mean
+                    - stddev
+                  additionalProperties: false
                 regressionAdjustmentSettings:
                   description: >-
                     Controls the regression adjustment (CUPED) settings for the
@@ -11280,6 +11339,8 @@ paths:
                   deletedId:
                     description: The ID of the deleted fact metric
                     type: string
+                required:
+                  - deletedId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -11302,7 +11363,7 @@ paths:
             description: The fact metric id to analyze
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -11389,7 +11450,7 @@ paths:
         - fact-tables
       parameters: []
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -11578,6 +11639,7 @@ paths:
                                 items:
                                   type: string
                               inlineFilters:
+                                deprecated: true
                                 description: >-
                                   Inline filters to apply to the fact table.
                                   Keys are column names, values are arrays of
@@ -11689,6 +11751,7 @@ paths:
                                 items:
                                   type: string
                               inlineFilters:
+                                deprecated: true
                                 description: >-
                                   Inline filters to apply to the fact table.
                                   Keys are column names, values are arrays of
@@ -12409,14 +12472,6 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           content:
@@ -12449,14 +12504,6 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           content:
@@ -12489,14 +12536,6 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           content:
@@ -12529,14 +12568,6 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           content:
@@ -12614,14 +12645,6 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           content:
@@ -12654,14 +12677,6 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           content:
@@ -12745,7 +12760,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -13244,7 +13259,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -15988,7 +16003,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -16146,7 +16161,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -16330,7 +16345,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -16706,7 +16721,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -19458,7 +19473,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -19954,7 +19969,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -20473,6 +20488,8 @@ paths:
           schema:
             default: 10
             type: integer
+            minimum: 1
+            maximum: 100
         - name: offset
           in: query
           required: true
@@ -20480,6 +20497,7 @@ paths:
           schema:
             default: 0
             type: integer
+            minimum: 0
       responses:
         '200':
           content:
@@ -20509,6 +20527,8 @@ components:
         default: 10
         description: The number of items to return
         type: integer
+        minimum: 1
+        maximum: 100
     offset:
       name: offset
       in: query
@@ -20517,6 +20537,7 @@ components:
         default: 0
         description: How many items to skip (use in conjunction with limit for pagination)
         type: integer
+        minimum: 0
     projectId:
       name: projectId
       in: query
@@ -20534,7 +20555,6 @@ components:
     skipPagination:
       name: skipPagination
       in: query
-      required: true
       description: >-
         If true, return all matching features and ignore limit/offset.
 
@@ -20547,6 +20567,16 @@ components:
           Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is
           set to true or 1.
         default: false
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     id:
       name: id
       in: path
@@ -23066,8 +23096,11 @@ components:
                   namespaceId:
                     type: string
                   range:
+                    minItems: 2
+                    maxItems: 2
                     type: array
-                    items: {}
+                    items:
+                      type: number
                 required:
                   - namespaceId
                   - range
@@ -25315,6 +25348,7 @@ components:
               items:
                 type: string
             inlineFilters:
+              deprecated: true
               description: >-
                 Inline filters to apply to the fact table. Keys are column
                 names, values are arrays of values to filter by. Deprecated, use
@@ -25402,6 +25436,7 @@ components:
               items:
                 type: string
             inlineFilters:
+              deprecated: true
               description: >-
                 Inline filters to apply to the fact table. Keys are column
                 names, values are arrays of values to filter by. Deprecated, use
@@ -25553,6 +25588,36 @@ components:
           required:
             - type
           additionalProperties: false
+        priorSettings:
+          description: Controls the bayesian prior for the metric
+          type: object
+          properties:
+            override:
+              description: >-
+                If false, the organization default settings will be used instead
+                of the other settings in this object
+              type: boolean
+            proper:
+              description: >-
+                If true, the `mean` and `stddev` will be used, otherwise we will
+                use an improper flat prior.
+              type: boolean
+            mean:
+              description: >-
+                The mean of the prior distribution of relative effects in
+                proportion terms (e.g. 0.01 is 1%)
+              type: number
+            stddev:
+              description: >-
+                Must be > 0. The standard deviation of the prior distribution of
+                relative effects in proportion terms.
+              type: number
+          required:
+            - override
+            - proper
+            - mean
+            - stddev
+          additionalProperties: false
         regressionAdjustmentSettings:
           description: Controls the regression adjustment (CUPED) settings for the metric
           type: object
@@ -25625,6 +25690,7 @@ components:
         - inverse
         - cappingSettings
         - windowSettings
+        - priorSettings
         - regressionAdjustmentSettings
         - riskThresholdSuccess
         - riskThresholdDanger

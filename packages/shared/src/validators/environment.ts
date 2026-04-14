@@ -62,8 +62,14 @@ const postEnvironmentBody = z
       .string()
       .describe("The description of the new environment")
       .optional(),
-    toggleOnList: z.any().describe("Show toggle on feature list").optional(),
-    defaultState: z.any().describe("Default state for new features").optional(),
+    toggleOnList: z
+      .boolean()
+      .describe("Show toggle on feature list")
+      .optional(),
+    defaultState: z
+      .boolean()
+      .describe("Default state for new features")
+      .optional(),
     projects: z.array(z.string()).optional(),
     parent: z
       .string()

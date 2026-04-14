@@ -17176,15 +17176,15 @@ paths:
           schema:
             default: 10
             type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
+            minimum: 1
+            maximum: 100
         - name: offset
           in: query
           required: true
           schema:
             default: 0
             type: integer
-            minimum: -9007199254740991
+            minimum: 0
             maximum: 9007199254740991
       tags:
         - RampSchedules
@@ -18213,7 +18213,7 @@ paths:
                 required:
                   - status
                 additionalProperties: false
-  '/teams/{teamId}/':
+  '/teams/{teamId}':
     delete:
       $skipValidatorGeneration: true
       parameters:
@@ -18234,7 +18234,7 @@ paths:
       operationId: deleteTeam
       x-codeSamples:
         - lang: cURL
-          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId}/ -u secret_abc123DEF456'
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/teams/{teamId} -u secret_abc123DEF456'
       responses:
         '200':
           content:

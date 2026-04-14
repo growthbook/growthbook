@@ -4,6 +4,8 @@ import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
+  paginationQueryFields,
+  apiPaginationFieldsValidator,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import { ownerField, ownerInputField } from "./owner-field";
@@ -402,8 +404,6 @@ export type ExperimentInterfaceExcludingHoldouts = Omit<
 // These correspond to the external REST API schemas for experiments & snapshots.
 // ---------------------------------------------------------------------------
 
-import { apiPaginationFieldsValidator } from "./openapi";
-
 // Corresponds to schemas/ExperimentMetric.yaml
 const apiExperimentMetricOverrides = z.object({
   delayHours: z.coerce.number().optional(),
@@ -420,23 +420,6 @@ const apiExperimentMetricOverrides = z.object({
   regressionAdjustmentDays: z.coerce.number().optional(),
 });
 
-// Variant WITHOUT deprecated meta on winRiskThreshold/loseRiskThreshold
-// (used in getExperiment response which uses ExperimentWithEnhancedStatus)
-const apiExperimentMetricOverridesNonDeprecated = z.object({
-  delayHours: z.coerce.number().optional(),
-  windowHours: z.coerce.number().optional(),
-  window: z.enum(["conversion", "lookback", ""]).optional(),
-  winRiskThreshold: z.coerce.number().optional(),
-  loseRiskThreshold: z.coerce.number().optional(),
-  properPriorOverride: z.boolean().optional(),
-  properPriorEnabled: z.boolean().optional(),
-  properPriorMean: z.coerce.number().optional(),
-  properPriorStdDev: z.coerce.number().optional(),
-  regressionAdjustmentOverride: z.boolean().optional(),
-  regressionAdjustmentEnabled: z.boolean().optional(),
-  regressionAdjustmentDays: z.coerce.number().optional(),
-});
-
 // Corresponds to schemas/ExperimentMetric.yaml
 export const apiExperimentMetricValidator = z
   .object({
@@ -444,12 +427,6 @@ export const apiExperimentMetricValidator = z
     overrides: apiExperimentMetricOverrides,
   })
   .strict();
-
-// Variant for getExperiment response (no deprecated meta)
-const apiExperimentMetricNonDeprecated = z.object({
-  metricId: z.string(),
-  overrides: apiExperimentMetricOverridesNonDeprecated,
-});
 
 // Corresponds to schemas/ExperimentMetricOverrideEntry.yaml
 export const apiExperimentMetricOverrideEntryValidator = z
@@ -632,7 +609,7 @@ const apiExperimentPhase = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
-      range: z.array(z.any()),
+      range: z.array(z.number()).min(2).max(2),
     })
     .optional(),
   targetingCondition: z.string(),
@@ -680,94 +657,7 @@ const apiCustomMetricSlices = z
   );
 
 // Corresponds to schemas/Experiment.yaml
-export const apiExperimentValidator = z
-  .object({
-    id: z.string(),
-    trackingKey: z.string(),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-    name: z.string(),
-    type: z.enum(["standard", "multi-armed-bandit"]),
-    project: z.string(),
-    hypothesis: z.string(),
-    description: z.string(),
-    tags: z.array(z.string()),
-    owner: ownerField,
-    archived: z.boolean(),
-    status: z.string(),
-    autoRefresh: z.boolean(),
-    hashAttribute: z.string(),
-    fallbackAttribute: z.string().optional(),
-    hashVersion: z.union([z.literal(1), z.literal(2)]),
-    disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.coerce.number().optional(),
-    minBucketVersion: z.coerce.number().optional(),
-    variations: z.array(apiExperimentVariation),
-    phases: z.array(apiExperimentPhase),
-    settings: apiExperimentAnalysisSettingsValidator,
-    resultSummary: apiResultSummary.optional(),
-    shareLevel: z.enum(["public", "organization"]).optional(),
-    publicUrl: z.string().optional(),
-    banditScheduleValue: z.coerce.number().optional(),
-    banditScheduleUnit: z.enum(["days", "hours"]).optional(),
-    banditBurnInValue: z.coerce.number().optional(),
-    banditBurnInUnit: z.enum(["days", "hours"]).optional(),
-    banditConversionWindowValue: z.coerce.number().optional(),
-    banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
-    linkedFeatures: z.array(z.string()).optional(),
-    hasVisualChangesets: z.boolean().optional(),
-    hasURLRedirects: z.boolean().optional(),
-    customFields: z.record(z.string(), z.any()).optional(),
-    customMetricSlices: apiCustomMetricSlices.optional(),
-    defaultDashboardId: z
-      .string()
-      .describe("ID of the default dashboard for this experiment.")
-      .optional(),
-    templateId: z.string().optional(),
-  })
-  .strict();
-
-// Analysis settings variant for getExperiment (no deprecated meta on risk thresholds)
-const apiExperimentAnalysisSettingsNonDeprecated = z.object({
-  datasourceId: z.string(),
-  assignmentQueryId: z.string(),
-  experimentId: z.string(),
-  segmentId: z.string(),
-  queryFilter: z.string(),
-  inProgressConversions: z.enum(["include", "exclude"]),
-  attributionModel: z
-    .enum(["firstExposure", "experimentDuration", "lookbackOverride"])
-    .describe(
-      'Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.',
-    ),
-  lookbackOverride: apiLookbackOverride.optional(),
-  statsEngine: z.enum(["bayesian", "frequentist"]),
-  regressionAdjustmentEnabled: z.boolean().optional(),
-  sequentialTestingEnabled: z.boolean().optional(),
-  sequentialTestingTuningParameter: z.coerce.number().optional(),
-  postStratificationEnabled: z
-    .union([
-      z.boolean().describe("When null, the organization default is used."),
-      z.null().describe("When null, the organization default is used."),
-    ])
-    .describe("When null, the organization default is used.")
-    .optional(),
-  decisionFrameworkSettings:
-    apiExperimentDecisionFrameworkSettingsValidator.optional(),
-  metricOverrides: z
-    .array(apiExperimentMetricOverrideEntryValidator)
-    .describe(
-      "Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries).",
-    )
-    .optional(),
-  goals: z.array(apiExperimentMetricNonDeprecated),
-  secondaryMetrics: z.array(apiExperimentMetricNonDeprecated),
-  guardrails: z.array(apiExperimentMetricNonDeprecated),
-  activationMetric: apiExperimentMetricNonDeprecated.optional(),
-});
-
-// Experiment object for getExperiment (with non-deprecated risk thresholds)
-const apiExperimentNonDeprecated = z.object({
+const apiExperimentShape = z.object({
   id: z.string(),
   trackingKey: z.string(),
   dateCreated: z.string().meta({ format: "date-time" }),
@@ -790,7 +680,7 @@ const apiExperimentNonDeprecated = z.object({
   minBucketVersion: z.coerce.number().optional(),
   variations: z.array(apiExperimentVariation),
   phases: z.array(apiExperimentPhase),
-  settings: apiExperimentAnalysisSettingsNonDeprecated,
+  settings: apiExperimentAnalysisSettingsValidator,
   resultSummary: apiResultSummary.optional(),
   shareLevel: z.enum(["public", "organization"]).optional(),
   publicUrl: z.string().optional(),
@@ -811,10 +701,12 @@ const apiExperimentNonDeprecated = z.object({
     .optional(),
   templateId: z.string().optional(),
 });
+export const apiExperimentValidator = apiExperimentShape.strict();
 
 // Corresponds to schemas/ExperimentWithEnhancedStatus.yaml (allOf Experiment + enhancedStatus)
+// Uses the non-strict shape so z.intersection can add enhancedStatus.
 const apiExperimentWithEnhancedStatus = z.intersection(
-  apiExperimentNonDeprecated,
+  apiExperimentShape,
   z.object({
     enhancedStatus: z
       .object({
@@ -1335,20 +1227,7 @@ export const listExperimentsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       datasourceId: z.string().describe("Filter by Data Source").optional(),
       experimentId: z
@@ -1549,7 +1428,7 @@ export const getExperimentResultsValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      result: apiExperimentResultsValidator.optional(),
+      result: apiExperimentResultsValidator,
     })
     .strict(),
   summary: "Get results for an experiment",

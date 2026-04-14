@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ownerField, ownerInputField } from "./owner-field";
-import { apiPaginationFieldsValidator } from "./openapi";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 // Shared sub-schemas for fact metric column references
 
@@ -53,7 +53,8 @@ const apiNumeratorRef = z.object({
     .describe(
       "Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.",
     )
-    .optional(),
+    .optional()
+    .meta({ deprecated: true }),
   rowFilters: z
     .array(apiRowFilterValidator)
     .describe(
@@ -89,7 +90,8 @@ const apiDenominatorRef = z.object({
     .describe(
       "Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.",
     )
-    .optional(),
+    .optional()
+    .meta({ deprecated: true }),
   rowFilters: z
     .array(apiRowFilterValidator)
     .describe(
@@ -176,6 +178,31 @@ const apiRegressionAdjustmentSettings = z
     "Controls the regression adjustment (CUPED) settings for the metric",
   );
 
+const apiPriorSettings = z
+  .object({
+    override: z
+      .boolean()
+      .describe(
+        "If false, the organization default settings will be used instead of the other settings in this object",
+      ),
+    proper: z
+      .boolean()
+      .describe(
+        "If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.",
+      ),
+    mean: z
+      .number()
+      .describe(
+        "The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)",
+      ),
+    stddev: z
+      .number()
+      .describe(
+        "Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.",
+      ),
+  })
+  .describe("Controls the bayesian prior for the metric");
+
 const apiMetricTypeEnum = z.enum([
   "proportion",
   "retention",
@@ -206,6 +233,7 @@ export const apiFactMetricValidator = z
     quantileSettings: apiQuantileSettings.optional(),
     cappingSettings: apiCappingSettings,
     windowSettings: apiWindowSettings,
+    priorSettings: apiPriorSettings,
     regressionAdjustmentSettings: apiRegressionAdjustmentSettings,
     riskThresholdSuccess: z.coerce.number(),
     riskThresholdDanger: z.coerce.number(),
@@ -277,7 +305,8 @@ const postNumeratorRef = z.object({
     .describe(
       "Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.",
     )
-    .optional(),
+    .optional()
+    .meta({ deprecated: true }),
   rowFilters: z
     .array(apiRowFilterValidator)
     .describe(
@@ -324,7 +353,8 @@ const postDenominatorRef = z
       .describe(
         "Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.",
       )
-      .optional(),
+      .optional()
+      .meta({ deprecated: true }),
     rowFilters: z
       .array(apiRowFilterValidator)
       .describe(
@@ -473,7 +503,7 @@ const postFactMetricBody = z
     quantileSettings: postQuantileSettings.optional(),
     cappingSettings: postCappingSettings.optional(),
     windowSettings: postWindowSettings.optional(),
-    priorSettings: postPriorSettings.optional(),
+    priorSettings: postPriorSettings,
     regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
     riskThresholdSuccess: z
       .number()
@@ -552,6 +582,7 @@ const updateFactMetricBody = z
     quantileSettings: postQuantileSettings.optional(),
     cappingSettings: postCappingSettings.optional(),
     windowSettings: postWindowSettings.optional(),
+    priorSettings: postPriorSettings.optional(),
     regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
     riskThresholdSuccess: z
       .number()
@@ -670,20 +701,7 @@ export const listFactMetricsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
       datasourceId: z.string().describe("Filter by Data Source").optional(),
       projectId: z.string().describe("Filter by project id").optional(),
       factTableId: z
@@ -778,10 +796,7 @@ export const deleteFactMetricValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z
-        .string()
-        .describe("The ID of the deleted fact metric")
-        .optional(),
+      deletedId: z.string().describe("The ID of the deleted fact metric"),
     })
     .strict(),
   summary: "Deletes a single fact metric",

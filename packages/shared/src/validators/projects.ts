@@ -2,6 +2,7 @@ import { z } from "zod";
 import { statsEngines } from "shared/constants";
 import { managedByValidator } from "./managed-by";
 import { baseSchema } from "./base-model";
+import { paginationQueryFields } from "./shared";
 
 export const statsEnginesValidator = z.enum(statsEngines);
 
@@ -93,20 +94,7 @@ const idParams = z
 
 const listQuerySchema = z
   .object({
-    limit: z.coerce
-      .number()
-      .int()
-      .describe("The number of items to return")
-      .optional()
-      .meta({ default: 10 }),
-    offset: z.coerce
-      .number()
-      .int()
-      .describe(
-        "How many items to skip (use in conjunction with limit for pagination)",
-      )
-      .optional()
-      .meta({ default: 0 }),
+    ...paginationQueryFields,
   })
   .strict();
 
@@ -196,10 +184,7 @@ export const deleteProjectValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z
-        .string()
-        .describe("The ID of the deleted project")
-        .optional(),
+      deletedId: z.string().describe("The ID of the deleted project"),
     })
     .strict(),
   summary: "Deletes a single project",

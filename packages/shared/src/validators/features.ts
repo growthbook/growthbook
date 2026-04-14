@@ -5,6 +5,8 @@ import {
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
+  paginationQueryFields,
+  apiPaginationFieldsValidator,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import { ownerField, ownerInputField } from "./owner-field";
@@ -401,8 +403,6 @@ export type ComputedFeatureInterface = z.infer<typeof computedFeatureInterface>;
 // ---------------------------------------------------------------------------
 // API endpoint validators (hand-written to reference shared schema objects)
 // ---------------------------------------------------------------------------
-
-import { apiPaginationFieldsValidator } from "./openapi";
 
 // ---- ScheduleRule (schemas/ScheduleRule.yaml) ----
 export const apiScheduleRuleValidator = z
@@ -1026,20 +1026,7 @@ export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       clientKey: z
         .string()
@@ -1053,12 +1040,11 @@ export const listFeaturesValidator = {
           z.literal("1"),
           z.boolean(),
         ])
-        .optional()
-        .transform((v) => v === true || v === "true" || v === "1")
         .describe(
           "If true, return all matching features and ignore limit/offset.\nSelf-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.",
         )
-        .meta({ default: false }),
+        .meta({ default: false })
+        .optional(),
     })
     .strict(),
   paramsSchema: z.never(),
@@ -1131,10 +1117,7 @@ export const deleteFeatureValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z
-        .string()
-        .describe("The ID of the deleted feature")
-        .optional(),
+      deletedId: z.string().describe("The ID of the deleted feature"),
     })
     .strict(),
   summary: "Deletes a single feature",
@@ -1203,20 +1186,7 @@ export const getFeatureRevisionsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z.coerce
-        .number()
-        .int()
-        .describe("The number of items to return")
-        .optional()
-        .meta({ default: 10 }),
-      offset: z.coerce
-        .number()
-        .int()
-        .describe(
-          "How many items to skip (use in conjunction with limit for pagination)",
-        )
-        .optional()
-        .meta({ default: 0 }),
+      ...paginationQueryFields,
     })
     .strict(),
   paramsSchema: idParams,
