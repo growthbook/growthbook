@@ -174,6 +174,45 @@ export const cappingSettingsValidator = z
   })
   .strict();
 
+/** Upper/lower capping ordering (shared by API model and fact metric UI). */
+export function validateCappingSettingsOrdering(
+  cs: z.infer<typeof cappingSettingsValidator>,
+): void {
+  const upperAbsActive = cs.type === "absolute" && cs.value > 0;
+  const lowerAbsActive =
+    cs.lowerType === "absolute" &&
+    cs.lowerValue != null &&
+    cs.lowerValue > 0;
+  if (
+    upperAbsActive &&
+    lowerAbsActive &&
+    cs.lowerValue != null &&
+    cs.value < cs.lowerValue
+  ) {
+    throw new Error(
+      "Absolute ceiling (value) must be greater than or equal to absolute floor (lowerValue).",
+    );
+  }
+
+  const upperPctActive =
+    cs.type === "percentile" && cs.value > 0 && cs.value < 1;
+  const lowerPctActive =
+    cs.lowerType === "percentile" &&
+    cs.lowerValue != null &&
+    cs.lowerValue > 0 &&
+    cs.lowerValue < 1;
+  if (
+    upperPctActive &&
+    lowerPctActive &&
+    cs.lowerValue != null &&
+    cs.lowerValue >= cs.value
+  ) {
+    throw new Error(
+      "Lower percentile (lowerValue) must be less than upper percentile (value).",
+    );
+  }
+}
+
 export const legacyWindowSettingsValidator = z.object({
   type: windowTypeValidator.optional(),
   delayHours: z.coerce.number().optional(),

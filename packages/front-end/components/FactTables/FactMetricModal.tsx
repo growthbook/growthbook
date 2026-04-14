@@ -8,6 +8,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
+import { validateCappingSettingsOrdering } from "shared/validators";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
@@ -1542,17 +1543,8 @@ export default function FactMetricModal({
               lowerValue: 0,
               ignoreZeros: false,
             };
-          } else if (
-            cs?.type === "percentile" &&
-            cs?.lowerType === "percentile" &&
-            cs.value > 0 &&
-            cs.value < 1 &&
-            cs.lowerValue != null &&
-            cs.lowerValue >= cs.value
-          ) {
-            throw new Error(
-              "Lower percentile must be less than upper percentile when both are set.",
-            );
+          } else {
+            validateCappingSettingsOrdering(values.cappingSettings);
           }
         }
 

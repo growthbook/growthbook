@@ -9,7 +9,10 @@ import {
   getSelectedColumnDatatype,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
-import { factMetricValidator } from "shared/validators";
+import {
+  factMetricValidator,
+  validateCappingSettingsOrdering,
+} from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -17,7 +20,6 @@ import {
   FactTableInterface,
   LegacyColumnRef,
   LegacyFactMetricInterface,
-  MetricCappingSettings,
 } from "shared/types/fact-table";
 import { ApiFactMetric } from "shared/types/openapi";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
@@ -102,41 +104,6 @@ function validateUserFilter({
       column: numerator.aggregateFilterColumn,
       ignoreInvalid: false,
     });
-  }
-}
-
-/** Upper/lower capping ordering (logic formerly on cappingSettingsValidator in Zod). */
-function validateCappingSettingsOrdering(cs: MetricCappingSettings): void {
-  const upperAbsActive = cs.type === "absolute" && cs.value > 0;
-  const lowerAbsActive =
-    cs.lowerType === "absolute" && cs.lowerValue != null && cs.lowerValue > 0;
-  if (
-    upperAbsActive &&
-    lowerAbsActive &&
-    cs.lowerValue != null &&
-    cs.value < cs.lowerValue
-  ) {
-    throw new Error(
-      "Absolute ceiling (value) must be greater than or equal to absolute floor (lowerValue).",
-    );
-  }
-
-  const upperPctActive =
-    cs.type === "percentile" && cs.value > 0 && cs.value < 1;
-  const lowerPctActive =
-    cs.lowerType === "percentile" &&
-    cs.lowerValue != null &&
-    cs.lowerValue > 0 &&
-    cs.lowerValue < 1;
-  if (
-    upperPctActive &&
-    lowerPctActive &&
-    cs.lowerValue != null &&
-    cs.lowerValue >= cs.value
-  ) {
-    throw new Error(
-      "Lower percentile (lowerValue) must be less than upper percentile (value).",
-    );
   }
 }
 
