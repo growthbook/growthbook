@@ -89,6 +89,8 @@ export const getInformationSchemaValidator = {
     })
     .strict(),
   summary: "Get a Data Source's Information Schema",
+  description:
+    "Returns cached database schema metadata for a data source, including databases, schemas, and tables. The information schema is automatically created when a SQL-based data source is added. Not all data source types support information schemas.",
   operationId: "getInformationSchema",
   tags: ["data-sources"],
   method: "get" as const,
@@ -105,6 +107,8 @@ export const getInformationSchemaTableValidator = {
     })
     .strict(),
   summary: "Get a single Information Schema Table by id",
+  description:
+    "Returns cached metadata for a specific table in the Data Source, including columns and their data types. Not all data source types support information schemas.",
   operationId: "getInformationSchemaTable",
   tags: ["data-sources"],
   method: "get" as const,

@@ -531,13 +531,8 @@ curl https://api.growthbook.io/api/v1 \
     let requestBody: RequestBody | undefined = undefined;
     if (isNonEmptySchema(schemas?.body)) {
       const jsonSchema = toOpenApiSchema(schemas.body);
-      // Body is only required if it has required fields
-      const hasRequiredFields =
-        "required" in jsonSchema &&
-        Array.isArray(jsonSchema.required) &&
-        jsonSchema.required.length > 0;
       requestBody = {
-        required: hasRequiredFields,
+        required: !(schemas.body instanceof z.ZodOptional),
         content: {
           "application/json": {
             schema: jsonSchema,
@@ -651,7 +646,7 @@ curl https://api.growthbook.io/api/v1 \
       summary,
       ...(description !== undefined && { description }),
       tags,
-      parameters,
+      ...(parameters.length > 0 && { parameters }),
       ...(requestBody !== undefined && { requestBody }),
       responses,
       "x-codeSamples": codeSamples,

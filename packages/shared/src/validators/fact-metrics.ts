@@ -804,7 +804,10 @@ export const deleteFactMetricValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z.string().describe("The ID of the deleted fact metric"),
+      deletedId: z
+        .string()
+        .describe("The ID of the deleted fact metric")
+        .meta({ example: "fact__123abc" }),
     })
     .strict(),
   summary: "Deletes a single fact metric",
@@ -816,7 +819,7 @@ export const deleteFactMetricValidator = {
 };
 
 export const postFactMetricAnalysisValidator = {
-  bodySchema: postFactMetricAnalysisBody,
+  bodySchema: postFactMetricAnalysisBody.optional(),
   querySchema: z.never(),
   paramsSchema: analysisIdParams,
   responseSchema: z

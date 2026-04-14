@@ -87,6 +87,7 @@ export const postCodeRefsValidator = {
         .describe(
           "Whether to delete code references that are no longer present in the submitted data",
         )
+        .meta({ default: "false" })
         .optional(),
     })
     .strict(),

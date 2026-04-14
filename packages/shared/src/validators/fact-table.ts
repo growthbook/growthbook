@@ -495,7 +495,10 @@ const postFactTableFilterBody = z
       .string()
       .describe("Description of the fact table filter")
       .optional(),
-    value: z.string().describe("The SQL expression for this filter."),
+    value: z
+      .string()
+      .describe("The SQL expression for this filter.")
+      .meta({ example: "country = 'US'" }),
     managedBy: z
       .enum(["", "api"])
       .describe(
@@ -516,6 +519,7 @@ const updateFactTableFilterBody = z
     value: z
       .string()
       .describe("The SQL expression for this filter.")
+      .meta({ example: "country = 'US'" })
       .optional(),
     managedBy: z
       .enum(["", "api"])
@@ -635,7 +639,10 @@ export const deleteFactTableValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z.string().describe("The ID of the deleted fact table"),
+      deletedId: z
+        .string()
+        .describe("The ID of the deleted fact table")
+        .meta({ example: "ftb_123abc" }),
     })
     .strict(),
   summary: "Deletes a single fact table",
@@ -731,7 +738,10 @@ export const deleteFactTableFilterValidator = {
   paramsSchema: factTableIdAndIdParams,
   responseSchema: z
     .object({
-      deletedId: z.string().describe("The ID of the deleted fact filter"),
+      deletedId: z
+        .string()
+        .describe("The ID of the deleted fact filter")
+        .meta({ example: "flt_123abc" }),
     })
     .strict(),
   summary: "Deletes a single fact table filter",

@@ -1052,7 +1052,11 @@ export const listFeaturesValidator = {
         .describe(
           "If true, return all matching features and ignore limit/offset.\nSelf-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.",
         )
-        .meta({ default: false })
+        .meta({
+          default: false,
+          "x-selfHostedOnly": true,
+          "x-requiresEnv": "API_ALLOW_SKIP_PAGINATION",
+        })
         .optional(),
     })
     .strict(),
@@ -1064,6 +1068,8 @@ export const listFeaturesValidator = {
     apiPaginationFieldsValidator,
   ),
   summary: "Get all features",
+  description:
+    "Returns features with pagination. The skipPagination query parameter is\nhonored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).\n",
   operationId: "listFeatures",
   tags: ["features"],
   method: "get" as const,
@@ -1114,6 +1120,8 @@ export const updateFeatureValidator = {
   paramsSchema: idParams,
   responseSchema: featureResponseSchema,
   summary: "Partially update a feature",
+  description:
+    'Updates any combination of a feature\'s metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
   operationId: "updateFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1126,10 +1134,15 @@ export const deleteFeatureValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z.string().describe("The ID of the deleted feature"),
+      deletedId: z
+        .string()
+        .describe("The ID of the deleted feature")
+        .meta({ example: "feature-123" }),
     })
     .strict(),
   summary: "Deletes a single feature",
+  description:
+    'Permanently deletes a feature and all of its revisions.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.\n',
   operationId: "deleteFeature",
   tags: ["features"],
   method: "delete" as const,
@@ -1161,6 +1174,8 @@ export const toggleFeatureValidator = {
   paramsSchema: idParams,
   responseSchema: featureResponseSchema,
   summary: "Toggle a feature in one or more environments",
+  description:
+    'Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
   operationId: "toggleFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1184,6 +1199,8 @@ export const revertFeatureValidator = {
   paramsSchema: idParams,
   responseSchema: featureResponseSchema,
   summary: "Revert a feature to a specific revision",
+  description:
+    'Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
   operationId: "revertFeature",
   tags: ["features"],
   method: "post" as const,

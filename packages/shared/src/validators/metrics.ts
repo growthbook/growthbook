@@ -806,6 +806,8 @@ export const getMetricUsageValidator = {
     })
     .strict(),
   summary: "Get metric usage across experiments",
+  description:
+    "Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric\nand some usage statistics. If a metric is part of a metric group, then usage of that metric group counts as\nusage of all metrics in the group. Warning: only includes experiments that you have access to! If you do not have admin\naccess or read access to experiments across all projects, this endpoint may not return the latest usage data across\nall experiments. \n",
   operationId: "getMetricUsage",
   tags: ["usage"],
   method: "get" as const,

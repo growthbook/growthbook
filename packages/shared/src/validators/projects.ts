@@ -186,7 +186,10 @@ export const deleteProjectValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z.string().describe("The ID of the deleted project"),
+      deletedId: z
+        .string()
+        .describe("The ID of the deleted project")
+        .meta({ example: "prj__123abc" }),
     })
     .strict(),
   summary: "Deletes a single project",

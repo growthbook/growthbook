@@ -455,10 +455,10 @@ export const apiExperimentMetricOverrideEntryValidator = z
     regressionAdjustmentEnabled: z.boolean().optional(),
     regressionAdjustmentDays: z.coerce.number().optional(),
   })
+  .strict()
   .describe(
     "Per-metric analysis overrides stored on the experiment (matches internal metricOverrides).",
-  )
-  .strict();
+  );
 
 // Corresponds to schemas/ExperimentDecisionFrameworkSettings.yaml
 export const apiExperimentDecisionFrameworkSettingsValidator = z
@@ -1347,7 +1347,8 @@ export const postExperimentSnapshotValidator = {
         )
         .optional(),
     })
-    .strict(),
+    .strict()
+    .optional(),
   querySchema: z.never(),
   paramsSchema: z
     .object({

@@ -637,13 +637,20 @@ function normalizeLiteralEnums(val: unknown): unknown {
     out[k] = normalizeLiteralEnums(v);
   }
 
-  if (Array.isArray(out["enum"]) && typeof out["type"] === "string") {
+  if (Array.isArray(out["enum"])) {
     const enumVals = out["enum"];
     const { type: _, enum: _e, ...rest } = out;
     return {
       ...rest,
       anyOf: enumVals.map((v) => ({ const: v })),
     };
+  }
+
+  // Strip redundant `type` from `{ type: T, const: V }` objects — the const
+  // already implies the type, and different generators include or omit it.
+  if ("const" in out && "type" in out) {
+    const { type: _, ...rest } = out;
+    return rest;
   }
 
   return out;
@@ -836,7 +843,11 @@ function printDiff(d: Diff): void {
   }
 }
 
-function printSection(title: string, diffs: Diff[]): void {
+function printSection(
+  title: string,
+  diffs: Diff[],
+  { noHeaders = false }: { noHeaders?: boolean } = {},
+): void {
   if (diffs.length === 0) return;
   console.log("");
   console.log(
@@ -857,11 +868,11 @@ function printSection(title: string, diffs: Diff[]): void {
       byPath.get(key)!.push(d);
     }
     for (const [pathKey, pathDiffs] of byPath) {
-      console.log(COLORS.bold(`  ${pathKey}`));
+      if (!noHeaders) console.log(COLORS.bold(`  ${pathKey}`));
       for (const d of pathDiffs) {
         printDiff(d);
       }
-      console.log("");
+      if (!noHeaders) console.log("");
     }
   } else {
     for (const d of diffs) {
@@ -943,6 +954,7 @@ Options:
   --paths-only     Only show path/endpoint differences
   --help, -h       Show this help
   --no-color       Don't color code the output
+  --no-headers     Don't print path section headers
 `);
     process.exit(args.includes("--help") || args.includes("-h") ? 0 : 1);
   }
@@ -951,6 +963,7 @@ Options:
   const jsonOutput = args.includes("--json");
   const pathsOnly = args.includes("--paths-only");
   const noColor = args.includes("--no-color");
+  const noHeaders = args.includes("--no-headers");
   if (noColor) {
     COLORS = {
       red: (s: string) => s,
@@ -1036,15 +1049,16 @@ Options:
   // Group and display
   const groups = groupDiffs(diffs);
 
+  const printOpts = { noHeaders };
   if (pathsOnly) {
-    printSection("Paths", groups.paths);
+    printSection("Paths", groups.paths, printOpts);
   } else {
-    printSection("Paths", groups.paths);
-    printSection("Schemas", groups.schemas);
-    printSection("Parameters", groups.parameters);
-    printSection("Responses", groups.responses);
-    printSection("Security", groups.security);
-    printSection("Other", groups.other);
+    printSection("Paths", groups.paths, printOpts);
+    printSection("Schemas", groups.schemas, printOpts);
+    printSection("Parameters", groups.parameters, printOpts);
+    printSection("Responses", groups.responses, printOpts);
+    printSection("Security", groups.security, printOpts);
+    printSection("Other", groups.other, printOpts);
   }
 
   // Summary

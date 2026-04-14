@@ -237,7 +237,7 @@ export class RampScheduleModel extends BaseClass {
       schedules = schedules.filter((s) => s.status === req.query.status);
     }
 
-    const { filtered } = applyPagination(
+    const { filtered, returnFields } = applyPagination(
       schedules.sort(
         (a, b) =>
           new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
@@ -245,7 +245,17 @@ export class RampScheduleModel extends BaseClass {
       req.query,
     );
 
-    return filtered.map((s) => this.toApiInterface(s));
+    // TODO: clean this up and better support pagination in BaseModel list routes
+    // When crudValidatorOverrides provides a responseSchema, the route handler
+    // returns this value directly (hasResponseOverride) instead of wrapping it.
+    return {
+      rampSchedules: filtered.map((s) => this.toApiInterface(s)),
+      ...returnFields,
+    } as unknown as ReturnType<
+      InstanceType<typeof BaseClass>["handleApiList"]
+    > extends Promise<infer R>
+      ? R
+      : never;
   }
 
   public override async handleApiCreate(
@@ -314,11 +324,11 @@ export class RampScheduleModel extends BaseClass {
         return body.steps.map(
           (s: {
             trigger: ApiRampTrigger;
-            actions: PostBodyAction[];
+            actions?: PostBodyAction[];
             approvalNotes?: string | null;
           }) => ({
             trigger: normalizeApiTrigger(s.trigger),
-            actions: s.actions.map((a: PostBodyAction) =>
+            actions: (s.actions ?? []).map((a: PostBodyAction) =>
               hasTarget
                 ? injectTarget(a, targetId!, body.ruleId!)
                 : normalizeAction(a),
@@ -443,7 +453,7 @@ export class RampScheduleModel extends BaseClass {
     const body = req.body;
 
     const resolveTargetId = (action: {
-      targetType: "feature-rule";
+      targetType?: "feature-rule";
       targetId?: string;
       patch: unknown;
     }): RampStepAction => {
@@ -475,15 +485,15 @@ export class RampScheduleModel extends BaseClass {
       updates.steps = body.steps.map(
         (step: {
           trigger: unknown;
-          actions: {
-            targetType: "feature-rule";
+          actions?: {
+            targetType?: "feature-rule";
             targetId?: string;
             patch: unknown;
           }[];
           approvalNotes?: string | null;
         }) => ({
           ...step,
-          actions: step.actions.map(resolveTargetId),
+          actions: (step.actions ?? []).map(resolveTargetId),
         }),
       );
     }

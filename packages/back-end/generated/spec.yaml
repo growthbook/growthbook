@@ -218,6 +218,11 @@ paths:
     get:
       operationId: listFeatures
       summary: Get all features
+      description: >
+        Returns features with pagination. The skipPagination query parameter is
+
+        honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted
+        deployments).
       tags:
         - features
       parameters:
@@ -275,7 +280,6 @@ paths:
       summary: Create a single feature
       tags:
         - features
-      parameters: []
       requestBody:
         required: true
         content:
@@ -3315,12 +3319,23 @@ paths:
     post:
       operationId: updateFeature
       summary: Partially update a feature
+      description: >
+        Updates any combination of a feature's metadata (description, owner,
+        tags, project), default value, environment settings (rules, kill
+        switches, enabled state), prerequisites, holdout assignment, or JSON
+        schema validation. All provided fields are merged into the existing
+        feature and the result is immediately published as a new revision.
+
+
+        Returns 403 if the API key lacks permission or if approval rules are
+        enabled for an affected environment and the org setting "REST API always
+        bypasses approval requirements" is off.
       tags:
         - features
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -4136,6 +4151,14 @@ paths:
     delete:
       operationId: deleteFeature
       summary: Deletes a single feature
+      description: >
+        Permanently deletes a feature and all of its revisions.
+
+
+        Archived features can be deleted freely. Deleting a live (non-archived)
+        feature returns 403 unless the org setting "REST API always bypasses
+        approval requirements" is enabled, or the API key lacks delete
+        permission.
       tags:
         - features
       parameters:
@@ -4149,6 +4172,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted feature
+                    example: feature-123
                     type: string
                 required:
                   - deletedId
@@ -4162,6 +4186,15 @@ paths:
     post:
       operationId: toggleFeature
       summary: Toggle a feature in one or more environments
+      description: >
+        Enables or disables a feature in one or more environments
+        simultaneously. Accepts a map of environment name → boolean and
+        immediately publishes the change.
+
+
+        Returns 403 if the API key lacks permission or if approval rules are
+        enabled for an affected environment and the org setting "REST API always
+        bypasses approval requirements" is off.
       tags:
         - features
       parameters:
@@ -4226,6 +4259,15 @@ paths:
     post:
       operationId: revertFeature
       summary: Revert a feature to a specific revision
+      description: >
+        Creates a new revision whose rules and values match a
+        previously-published revision, then immediately publishes it. This
+        leaves a clear audit trail of the revert action in the revision history.
+
+
+        Returns 403 if the API key lacks permission or if approval rules are
+        enabled for an affected environment and the org setting "REST API always
+        bypasses approval requirements" is off.
       tags:
         - features
       parameters:
@@ -4465,7 +4507,6 @@ paths:
       summary: Get the organization's archetypes
       tags:
         - archetypes
-      parameters: []
       responses:
         '200':
           content:
@@ -4490,7 +4531,6 @@ paths:
       summary: Create a single archetype
       tags:
         - archetypes
-      parameters: []
       requestBody:
         required: true
         content:
@@ -4571,7 +4611,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -4702,7 +4742,6 @@ paths:
       summary: Create a single experiment
       tags:
         - experiments
-      parameters: []
       requestBody:
         required: true
         content:
@@ -5505,6 +5544,10 @@ paths:
                                   patch individual entries).
                                 type: array
                                 items:
+                                  description: >-
+                                    Per-metric analysis overrides stored on the
+                                    experiment (matches internal
+                                    metricOverrides).
                                   type: object
                                   properties:
                                     id:
@@ -5887,7 +5930,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -6788,7 +6831,6 @@ paths:
       summary: Create a single metric
       tags:
         - metrics
-      parameters: []
       requestBody:
         required: true
         content:
@@ -7215,7 +7257,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -7623,6 +7665,20 @@ paths:
     get:
       operationId: getMetricUsage
       summary: Get metric usage across experiments
+      description: >
+        Returns usage information for one or more legacy or fact metrics,
+        showing which experiments use each metric
+
+        and some usage statistics. If a metric is part of a metric group, then
+        usage of that metric group counts as
+
+        usage of all metrics in the group. Warning: only includes experiments
+        that you have access to! If you do not have admin
+
+        access or read access to experiments across all projects, this endpoint
+        may not return the latest usage data across
+
+        all experiments. 
       tags:
         - usage
       parameters:
@@ -7715,7 +7771,6 @@ paths:
       summary: Create a single segment
       tags:
         - segments
-      parameters: []
       requestBody:
         required: true
         content:
@@ -7841,7 +7896,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -7943,6 +7998,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted segment
+                    example: seg_123abc
                     type: string
                 required:
                   - deletedId
@@ -8011,7 +8067,6 @@ paths:
       summary: Create a single dimension
       tags:
         - dimensions
-      parameters: []
       requestBody:
         required: true
         content:
@@ -8107,7 +8162,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8179,6 +8234,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted dimension
+                    example: dim_123abc
                     type: string
                 required:
                   - deletedId
@@ -8247,7 +8303,6 @@ paths:
       summary: Create a single project
       tags:
         - projects
-      parameters: []
       requestBody:
         required: true
         content:
@@ -8327,7 +8382,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8386,6 +8441,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted project
+                    example: prj__123abc
                     type: string
                 required:
                   - deletedId
@@ -8401,7 +8457,6 @@ paths:
       summary: Get the organization's environments
       tags:
         - environments
-      parameters: []
       responses:
         '200':
           content:
@@ -8426,7 +8481,6 @@ paths:
       summary: Create a new environment
       tags:
         - environments
-      parameters: []
       requestBody:
         required: true
         content:
@@ -8486,7 +8540,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8556,7 +8610,6 @@ paths:
       summary: Get the organization's attributes
       tags:
         - attributes
-      parameters: []
       responses:
         '200':
           content:
@@ -8581,7 +8634,6 @@ paths:
       summary: Create a new attribute
       tags:
         - attributes
-      parameters: []
       requestBody:
         required: true
         content:
@@ -8663,7 +8715,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/property'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -8814,7 +8866,6 @@ paths:
       summary: Create a single sdk connection
       tags:
         - sdk-connections
-      parameters: []
       requestBody:
         required: true
         content:
@@ -8922,7 +8973,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -9125,6 +9176,11 @@ paths:
     get:
       operationId: getInformationSchema
       summary: Get a Data Source's Information Schema
+      description: >-
+        Returns cached database schema metadata for a data source, including
+        databases, schemas, and tables. The information schema is automatically
+        created when a SQL-based data source is added. Not all data source types
+        support information schemas.
       tags:
         - data-sources
       parameters:
@@ -9318,7 +9374,6 @@ paths:
       summary: Create a single saved group
       tags:
         - saved-groups
-      parameters: []
       requestBody:
         required: true
         content:
@@ -9420,7 +9475,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -9561,7 +9616,6 @@ paths:
         Enterprise Plan only)
       tags:
         - organizations
-      parameters: []
       requestBody:
         required: true
         content:
@@ -9610,7 +9664,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -9726,7 +9780,6 @@ paths:
       summary: Create a single fact table
       tags:
         - fact-tables
-      parameters: []
       requestBody:
         required: true
         content:
@@ -9837,7 +9890,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -10032,6 +10085,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted fact table
+                    example: ftb_123abc
                     type: string
                 required:
                   - deletedId
@@ -10118,6 +10172,7 @@ paths:
                   type: string
                 value:
                   description: The SQL expression for this filter.
+                  example: country = 'US'
                   type: string
                 managedBy:
                   description: >-
@@ -10189,7 +10244,7 @@ paths:
         - $ref: '#/components/parameters/factTableId'
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -10202,6 +10257,7 @@ paths:
                   type: string
                 value:
                   description: The SQL expression for this filter.
+                  example: country = 'US'
                   type: string
                 managedBy:
                   description: >-
@@ -10251,6 +10307,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted fact filter
+                    example: flt_123abc
                     type: string
                 required:
                   - deletedId
@@ -10332,7 +10389,6 @@ paths:
       summary: Create a single fact metric
       tags:
         - fact-metrics
-      parameters: []
       requestBody:
         required: true
         content:
@@ -10846,7 +10902,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -11335,6 +11391,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted fact metric
+                    example: fact__123abc
                     type: string
                 required:
                   - deletedId
@@ -11445,9 +11502,8 @@ paths:
       summary: Bulk import fact tables, filters, and metrics
       tags:
         - fact-tables
-      parameters: []
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -11540,6 +11596,7 @@ paths:
                             type: string
                           value:
                             description: The SQL expression for this filter.
+                            example: country = 'US'
                             type: string
                           managedBy:
                             description: >-
@@ -12411,7 +12468,6 @@ paths:
       summary: Get organization settings
       tags:
         - settings
-      parameters: []
       responses:
         '200':
           content:
@@ -12433,6 +12489,10 @@ paths:
     get:
       operationId: getInformationSchemaTable
       summary: Get a single Information Schema Table by id
+      description: >-
+        Returns cached metadata for a specific table in the Data Source,
+        including columns and their data types. Not all data source types
+        support information schemas.
       tags:
         - data-sources
       parameters:
@@ -12460,6 +12520,11 @@ paths:
     post:
       operationId: startRampSchedule
       summary: Start a ramp schedule
+      description: >
+        Transitions the schedule from `ready` to `running` and processes the
+        first
+
+        step immediately if eligible.
       tags:
         - ramp-schedules
       parameters:
@@ -12492,6 +12557,9 @@ paths:
     post:
       operationId: pauseRampSchedule
       summary: Pause a ramp schedule
+      description: |
+        Pauses a `running` or `pending-approval` schedule. The schedule can be
+        resumed from the same position with the `/actions/resume` endpoint.
       tags:
         - ramp-schedules
       parameters:
@@ -12524,6 +12592,9 @@ paths:
     post:
       operationId: resumeRampSchedule
       summary: Resume a paused ramp schedule
+      description: |
+        Resumes a `paused` schedule. Adjusts timing anchors to account for the
+        pause duration so step intervals continue from where they left off.
       tags:
         - ramp-schedules
       parameters:
@@ -12556,6 +12627,9 @@ paths:
     post:
       operationId: rollbackRampSchedule
       summary: Roll back a ramp schedule
+      description: |
+        Rolls back to the starting position and lands in `paused` status so the
+        schedule can be restarted with `/actions/start` or `/actions/resume`.
       tags:
         - ramp-schedules
       parameters:
@@ -12588,6 +12662,14 @@ paths:
     post:
       operationId: jumpRampSchedule
       summary: Jump to a specific step
+      description: >
+        Moves the schedule directly to `targetStepIndex` (forward or backward)
+        and
+
+        pauses. Use `-1` to jump to the pre-start position without rolling back
+        rule
+
+        patches.
       tags:
         - ramp-schedules
       parameters:
@@ -12605,6 +12687,7 @@ paths:
               type: object
               properties:
                 targetStepIndex:
+                  description: Zero-based index of the step to jump to; -1 = pre-start
                   type: integer
                   minimum: -1
               required:
@@ -12633,6 +12716,9 @@ paths:
     post:
       operationId: completeRampSchedule
       summary: Complete a ramp schedule immediately
+      description: |
+        Applies end actions and marks the schedule as `completed`, regardless of
+        how many steps remain.
       tags:
         - ramp-schedules
       parameters:
@@ -12665,6 +12751,10 @@ paths:
     post:
       operationId: approveStepRampSchedule
       summary: Approve the current pending-approval step
+      description: |
+        Approves the current step on a schedule in `pending-approval` status and
+        advances to the next step. Requires the caller to have feature review
+        permissions for the associated feature.
       tags:
         - ramp-schedules
       parameters:
@@ -12697,6 +12787,13 @@ paths:
     post:
       operationId: addTargetRampSchedule
       summary: Add a target rule to a ramp schedule
+      description: >
+        Attaches an additional feature rule to this ramp schedule. The
+
+        `[ruleId, environment]` pair must identify a rule that is already
+        published
+
+        and must not already be controlled by another schedule.
       tags:
         - ramp-schedules
       parameters:
@@ -12747,6 +12844,17 @@ paths:
     post:
       operationId: ejectTargetRampSchedule
       summary: Remove a target rule from a ramp schedule
+      description: >
+        Detaches a target rule from this ramp schedule. Identify the target
+        either
+
+        by its `targetId` or by the `[ruleId, environment]` pair.
+
+
+        If this is the last target on the schedule, the schedule is deleted
+        entirely
+
+        and the response contains `deleted: true` instead of `rampSchedule`.
       tags:
         - ramp-schedules
       parameters:
@@ -12757,17 +12865,20 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
                 targetId:
+                  description: Target ID (from the targets array)
                   type: string
                 ruleId:
+                  description: Rule ID — use with environment as an alternative to targetId
                   type: string
                 environment:
+                  description: Environment — use with ruleId as an alternative to targetId
                   type: string
               additionalProperties: false
       responses:
@@ -12782,6 +12893,7 @@ paths:
                         type: object
                         properties:
                           id:
+                            description: Unique identifier (rs_ prefix)
                             type: string
                           dateCreated:
                             type: string
@@ -12802,6 +12914,7 @@ paths:
                           entityId:
                             type: string
                           targets:
+                            description: Controlled entity references
                             type: array
                             items:
                               type: object
@@ -12828,6 +12941,9 @@ paths:
                                     - pending-join
                                     - active
                                 activatingRevisionVersion:
+                                  description: >-
+                                    Feature revision version that activates this
+                                    ramp; cleared once published
                                   anyOf:
                                     - type: integer
                                     - type: 'null'
@@ -12838,6 +12954,7 @@ paths:
                                 - status
                               additionalProperties: false
                           steps:
+                            description: Ordered ramp steps
                             type: array
                             items:
                               type: object
@@ -12939,7 +13056,8 @@ paths:
                                                     - condition
                                                   additionalProperties: false
                                               - type: 'null'
-                                          force: {}
+                                          force:
+                                            description: Force value (any JSON type)
                                           enabled:
                                             anyOf:
                                               - type: boolean
@@ -12961,6 +13079,10 @@ paths:
                                 - actions
                               additionalProperties: false
                           endActions:
+                            description: >-
+                              Actions applied on top of all step patches when
+                              the ramp completes. Represents the final desired
+                              rule state.
                             type: array
                             items:
                               type: object
@@ -13021,7 +13143,8 @@ paths:
                                               - condition
                                             additionalProperties: false
                                         - type: 'null'
-                                    force: {}
+                                    force:
+                                      description: Force value (any JSON type)
                                     enabled:
                                       anyOf:
                                         - type: boolean
@@ -13035,6 +13158,10 @@ paths:
                                 - patch
                               additionalProperties: false
                           startDate:
+                            description: >-
+                              When the ramp fires. Absent/null means immediately
+                              on publish; set to a future datetime to delay
+                              start and keep the rule disabled until that time.
                             anyOf:
                               - type: string
                                 format: date-time
@@ -13042,6 +13169,9 @@ paths:
                                   ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                               - type: 'null'
                           endCondition:
+                            description: >-
+                              Optional hard deadline for standard (no-step)
+                              schedules
                             anyOf:
                               - type: object
                                 properties:
@@ -13074,6 +13204,7 @@ paths:
                               - completed
                               - rolled-back
                           currentStepIndex:
+                            description: Index of current step; -1 = not yet started
                             type: integer
                             minimum: -1
                           startedAt:
@@ -13084,6 +13215,9 @@ paths:
                                   ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                               - type: 'null'
                           phaseStartedAt:
+                            description: >-
+                              Anchor for cumulative interval timing; resets
+                              after each approval gate
                             anyOf:
                               - type: string
                                 format: date-time
@@ -13098,6 +13232,9 @@ paths:
                                   ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                               - type: 'null'
                           nextStepAt:
+                            description: >-
+                              When the next step fires; null for approval steps
+                              and terminal states
                             anyOf:
                               - type: string
                                 format: date-time
@@ -13112,6 +13249,9 @@ paths:
                                   ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                               - type: 'null'
                           elapsedMs:
+                            description: >-
+                              Milliseconds since startedAt (computed at response
+                              time, not stored)
                             anyOf:
                               - type: integer
                               - type: 'null'
@@ -13151,7 +13291,6 @@ paths:
   /transform-copy:
     post:
       operationId: postCopyTransform
-      parameters: []
       requestBody:
         required: true
         content:
@@ -13256,7 +13395,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -15127,7 +15266,6 @@ paths:
       summary: Create a single dashboard
       tags:
         - Dashboards
-      parameters: []
       requestBody:
         required: true
         content:
@@ -15639,7 +15777,6 @@ paths:
       summary: Get all dashboards
       tags:
         - Dashboards
-      parameters: []
       responses:
         '200':
           content:
@@ -15699,7 +15836,6 @@ paths:
       summary: Create a single customField
       tags:
         - CustomFields
-      parameters: []
       requestBody:
         required: true
         content:
@@ -16000,7 +16136,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -16158,7 +16294,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -16215,7 +16351,6 @@ paths:
       summary: Create a single metricGroup
       tags:
         - MetricGroups
-      parameters: []
       requestBody:
         required: true
         content:
@@ -16279,7 +16414,6 @@ paths:
       summary: Get all metricGroups
       tags:
         - MetricGroups
-      parameters: []
       responses:
         '200':
           content:
@@ -16342,7 +16476,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -16428,7 +16562,6 @@ paths:
       summary: Create a single team
       tags:
         - Teams
-      parameters: []
       requestBody:
         required: true
         content:
@@ -16519,7 +16652,6 @@ paths:
       summary: Get all teams
       tags:
         - Teams
-      parameters: []
       responses:
         '200':
           content:
@@ -16718,7 +16850,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -16878,7 +17010,6 @@ paths:
       summary: Create a single experimentTemplate
       tags:
         - ExperimentTemplates
-      parameters: []
       requestBody:
         required: true
         content:
@@ -17078,7 +17209,6 @@ paths:
       summary: Bulk create or update experiment templates
       tags:
         - ExperimentTemplates
-      parameters: []
       requestBody:
         required: true
         content:
@@ -19470,7 +19600,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -19669,7 +19799,6 @@ paths:
       summary: Create a single rampScheduleTemplate
       tags:
         - RampScheduleTemplates
-      parameters: []
       requestBody:
         required: true
         content:
@@ -19872,7 +20001,6 @@ paths:
       summary: Get all rampScheduleTemplates
       tags:
         - RampScheduleTemplates
-      parameters: []
       responses:
         '200':
           content:
@@ -19926,6 +20054,11 @@ paths:
     delete:
       operationId: deleteRampSchedule
       summary: Delete a single rampSchedule
+      description: >
+        Permanently deletes a ramp schedule. This does not undo any rule patches
+        that
+
+        were already applied by completed steps.
       tags:
         - RampSchedules
       parameters:
@@ -19956,6 +20089,25 @@ paths:
     put:
       operationId: updateRampSchedule
       summary: Update a single rampSchedule
+      description: >
+        Updates the name, steps, endActions, startDate, or endCondition of a
+        ramp schedule.
+
+
+        Only allowed when the schedule is in `pending`, `ready`, or `paused`
+        status.
+
+
+        **targetId shorthand**: When providing `steps` or `endActions`, you may
+        omit `targetId`
+
+        (or pass `"t1"`) in each action. If the schedule has exactly one active
+        target, the server
+
+        will resolve it automatically. For schedules with multiple targets,
+        provide the explicit
+
+        target UUID from `targets[].id`.
       tags:
         - RampSchedules
       parameters:
@@ -19966,7 +20118,7 @@ paths:
           schema:
             type: string
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -19975,7 +20127,6 @@ paths:
                 name:
                   type: string
                 steps:
-                  minItems: 0
                   type: array
                   items:
                     type: object
@@ -20018,9 +20169,6 @@ paths:
                         items:
                           type: object
                           properties:
-                            targetType:
-                              type: string
-                              const: feature-rule
                             patch:
                               type: object
                               properties:
@@ -20072,7 +20220,8 @@ paths:
                                           - condition
                                         additionalProperties: false
                                     - type: 'null'
-                                force: {}
+                                force:
+                                  description: Force value (any JSON type)
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -20080,10 +20229,12 @@ paths:
                               required:
                                 - ruleId
                               additionalProperties: false
+                            targetType:
+                              type: string
+                              const: feature-rule
                             targetId:
                               type: string
                           required:
-                            - targetType
                             - patch
                           additionalProperties: false
                       approvalNotes:
@@ -20092,16 +20243,12 @@ paths:
                           - type: 'null'
                     required:
                       - trigger
-                      - actions
                     additionalProperties: false
                 endActions:
                   type: array
                   items:
                     type: object
                     properties:
-                      targetType:
-                        type: string
-                        const: feature-rule
                       patch:
                         type: object
                         properties:
@@ -20153,7 +20300,8 @@ paths:
                                     - condition
                                   additionalProperties: false
                               - type: 'null'
-                          force: {}
+                          force:
+                            description: Force value (any JSON type)
                           enabled:
                             anyOf:
                               - type: boolean
@@ -20161,10 +20309,12 @@ paths:
                         required:
                           - ruleId
                         additionalProperties: false
+                      targetType:
+                        type: string
+                        const: feature-rule
                       targetId:
                         type: string
                     required:
-                      - targetType
                       - patch
                     additionalProperties: false
                 startDate:
@@ -20217,9 +20367,59 @@ paths:
     post:
       operationId: createRampSchedule
       summary: Create a single rampSchedule
+      description: >
+        Creates a new ramp schedule, optionally attaching it to a published
+        feature rule.
+
+
+        ### Target attachment (optional)
+
+
+        Provide `featureId`, `ruleId`, and `environment` together to attach the
+        schedule
+
+        to a specific rule on creation. The rule must already be live
+        (published). Each
+
+        `[ruleId, environment]` pair can only be controlled by one schedule at a
+        time.
+
+
+        When all three are supplied, **`targetId` and `patch.ruleId` are
+        auto-injected**
+
+        into every step action and endAction — callers only need to supply the
+        patch
+
+        values (`coverage`, `condition`, etc.).
+
+
+        If omitted, the schedule is created as a free-standing skeleton in
+        `pending`
+
+        status. Use `POST /ramp-schedules/{id}/actions/add-target` to attach
+        rules later,
+
+        and `POST /ramp-schedules/{id}/actions/start` to start it.
+
+
+        ### Using templates
+
+
+        Provide `templateId` to inherit steps and endActions from a saved
+        template.
+
+        Explicit `steps` / `endActions` in the request body take precedence over
+        the
+
+        template. Template auto-population requires `featureId`, `ruleId`, and
+
+        `environment` to be set (so targetId can be injected).
+
+
+        Requires an **Enterprise** plan.
       tags:
         - RampSchedules
-      parameters: []
       requestBody:
         required: true
         content:
@@ -20230,12 +20430,29 @@ paths:
                 name:
                   type: string
                 featureId:
+                  description: >-
+                    Feature that anchors this schedule. Required when
+                    ruleId/environment are set.
                   type: string
                 ruleId:
+                  description: >-
+                    Rule to attach as the initial target. Requires featureId and
+                    environment.
                   type: string
                 environment:
+                  description: >-
+                    Environment of the target rule. Requires featureId and
+                    ruleId.
                   type: string
                 steps:
+                  description: >
+                    Ordered ramp steps. When featureId+ruleId+environment are
+                    provided,
+
+                    `targetId` and `patch.ruleId` in actions are auto-injected —
+                    only
+
+                    supply the patch fields you want to change.
                   type: array
                   items:
                     type: object
@@ -20274,20 +20491,31 @@ paths:
                               - at
                             additionalProperties: false
                       actions:
-                        default: []
                         type: array
                         items:
                           type: object
                           properties:
                             targetType:
+                              description: >-
+                                Omit when using featureId+ruleId+environment
+                                (auto-injected)
                               type: string
                               const: feature-rule
                             targetId:
+                              description: >-
+                                Auto-injected when featureId+ruleId+environment
+                                are provided
                               type: string
                             patch:
+                              description: >-
+                                Sparse patch — only fields present are applied;
+                                absent fields accumulate from previous steps
                               type: object
                               properties:
                                 ruleId:
+                                  description: >-
+                                    Auto-injected when ruleId is provided at the
+                                    top level
                                   type: string
                                 coverage:
                                   anyOf:
@@ -20335,7 +20563,8 @@ paths:
                                           - condition
                                         additionalProperties: false
                                     - type: 'null'
-                                force: {}
+                                force:
+                                  description: Force value (any JSON type)
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -20350,22 +20579,37 @@ paths:
                           - type: 'null'
                     required:
                       - trigger
-                      - actions
                     additionalProperties: false
                 endActions:
+                  description: >-
+                    Actions applied when the ramp completes. targetId and
+                    patch.ruleId are auto-injected when
+                    featureId+ruleId+environment are provided.
                   type: array
                   items:
                     type: object
                     properties:
                       targetType:
+                        description: >-
+                          Omit when using featureId+ruleId+environment
+                          (auto-injected)
                         type: string
                         const: feature-rule
                       targetId:
+                        description: >-
+                          Auto-injected when featureId+ruleId+environment are
+                          provided
                         type: string
                       patch:
+                        description: >-
+                          Sparse patch — only fields present are applied; absent
+                          fields accumulate from previous steps
                         type: object
                         properties:
                           ruleId:
+                            description: >-
+                              Auto-injected when ruleId is provided at the top
+                              level
                             type: string
                           coverage:
                             anyOf:
@@ -20413,7 +20657,8 @@ paths:
                                     - condition
                                   additionalProperties: false
                               - type: 'null'
-                          force: {}
+                          force:
+                            description: Force value (any JSON type)
                           enabled:
                             anyOf:
                               - type: boolean
@@ -20423,6 +20668,7 @@ paths:
                       - patch
                     additionalProperties: false
                 startDate:
+                  description: When to start. Absent/null = immediately on start action.
                   anyOf:
                     - type: string
                       format: date-time
@@ -20430,6 +20676,7 @@ paths:
                         ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     - type: 'null'
                 endCondition:
+                  description: Optional hard deadline
                   type: object
                   properties:
                     trigger:
@@ -20449,6 +20696,10 @@ paths:
                       additionalProperties: false
                   additionalProperties: false
                 templateId:
+                  description: >-
+                    Load steps and endActions from a saved template
+                    (featureId+ruleId+environment must also be set for
+                    auto-injection)
                   type: string
               required:
                 - name
@@ -20473,28 +20724,15 @@ paths:
     get:
       operationId: listRampSchedules
       summary: Get all rampSchedules
+      description: |
+        Returns all ramp schedules for the organization, with optional filters.
       tags:
         - RampSchedules
       parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/featureId'
         - $ref: '#/components/parameters/status'
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: 1
-            maximum: 100
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: 0
       responses:
         '200':
           content:
@@ -20502,11 +20740,31 @@ paths:
               schema:
                 type: object
                 properties:
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
                   rampSchedules:
                     type: array
                     items:
                       $ref: '#/components/schemas/rampSchedule'
                 required:
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
                   - rampSchedules
                 additionalProperties: false
       x-codeSamples:
@@ -20574,6 +20832,8 @@ components:
           - type: string
             const: '1'
           - type: boolean
+      x-selfHostedOnly: true
+      x-requiresEnv: API_ALLOW_SKIP_PAGINATION
     id:
       name: id
       in: path
@@ -20719,6 +20979,7 @@ components:
         description: >-
           Whether to delete code references that are no longer present in the
           submitted data
+        default: 'false'
         type: string
         enum:
           - 'true'
@@ -20802,9 +21063,18 @@ components:
     status:
       name: status
       in: query
-      description: ''
+      description: Filter by schedule status
       schema:
+        description: Filter by schedule status
         type: string
+        enum:
+          - pending
+          - ready
+          - running
+          - paused
+          - pending-approval
+          - completed
+          - rolled-back
   schemas:
     features:
       type: object
@@ -23267,6 +23537,9 @@ components:
                 not patch individual entries).
               type: array
               items:
+                description: >-
+                  Per-metric analysis overrides stored on the experiment
+                  (matches internal metricOverrides).
                 type: object
                 properties:
                   id:
@@ -23755,6 +24028,9 @@ components:
                 not patch individual entries).
               type: array
               items:
+                description: >-
+                  Per-metric analysis overrides stored on the experiment
+                  (matches internal metricOverrides).
                 type: object
                 properties:
                   id:
@@ -26191,6 +26467,7 @@ components:
       type: object
       properties:
         id:
+          description: Unique identifier (rs_ prefix)
           type: string
         dateCreated:
           type: string
@@ -26211,6 +26488,7 @@ components:
         entityId:
           type: string
         targets:
+          description: Controlled entity references
           type: array
           items:
             type: object
@@ -26237,6 +26515,9 @@ components:
                   - pending-join
                   - active
               activatingRevisionVersion:
+                description: >-
+                  Feature revision version that activates this ramp; cleared
+                  once published
                 anyOf:
                   - type: integer
                   - type: 'null'
@@ -26247,6 +26528,7 @@ components:
               - status
             additionalProperties: false
         steps:
+          description: Ordered ramp steps
           type: array
           items:
             type: object
@@ -26348,7 +26630,8 @@ components:
                                   - condition
                                 additionalProperties: false
                             - type: 'null'
-                        force: {}
+                        force:
+                          description: Force value (any JSON type)
                         enabled:
                           anyOf:
                             - type: boolean
@@ -26370,6 +26653,9 @@ components:
               - actions
             additionalProperties: false
         endActions:
+          description: >-
+            Actions applied on top of all step patches when the ramp completes.
+            Represents the final desired rule state.
           type: array
           items:
             type: object
@@ -26430,7 +26716,8 @@ components:
                             - condition
                           additionalProperties: false
                       - type: 'null'
-                  force: {}
+                  force:
+                    description: Force value (any JSON type)
                   enabled:
                     anyOf:
                       - type: boolean
@@ -26444,6 +26731,10 @@ components:
               - patch
             additionalProperties: false
         startDate:
+          description: >-
+            When the ramp fires. Absent/null means immediately on publish; set
+            to a future datetime to delay start and keep the rule disabled until
+            that time.
           anyOf:
             - type: string
               format: date-time
@@ -26451,6 +26742,7 @@ components:
                 ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         endCondition:
+          description: Optional hard deadline for standard (no-step) schedules
           anyOf:
             - type: object
               properties:
@@ -26483,6 +26775,7 @@ components:
             - completed
             - rolled-back
         currentStepIndex:
+          description: Index of current step; -1 = not yet started
           type: integer
           minimum: -1
         startedAt:
@@ -26493,6 +26786,9 @@ components:
                 ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         phaseStartedAt:
+          description: >-
+            Anchor for cumulative interval timing; resets after each approval
+            gate
           anyOf:
             - type: string
               format: date-time
@@ -26507,6 +26803,9 @@ components:
                 ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         nextStepAt:
+          description: >-
+            When the next step fires; null for approval steps and terminal
+            states
           anyOf:
             - type: string
               format: date-time
@@ -26521,6 +26820,7 @@ components:
                 ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         elapsedMs:
+          description: Milliseconds since startedAt (computed at response time, not stored)
           anyOf:
             - type: integer
             - type: 'null'

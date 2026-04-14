@@ -12,7 +12,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   const context = req.context;
   const id = req.params.id;
 
-  const { triggeredBy } = req.body;
+  const { triggeredBy } = req.body ?? {};
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {

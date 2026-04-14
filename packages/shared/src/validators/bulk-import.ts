@@ -56,7 +56,10 @@ const postBulkImportFactsBody = z
               .string()
               .describe("Description of the fact table filter")
               .optional(),
-            value: z.string().describe("The SQL expression for this filter."),
+            value: z
+              .string()
+              .describe("The SQL expression for this filter.")
+              .meta({ example: "country = 'US'" }),
             managedBy: z
               .enum(["", "api"])
               .describe(

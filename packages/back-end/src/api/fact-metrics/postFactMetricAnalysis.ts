@@ -19,7 +19,7 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     useCache,
     additionalNumeratorFilters,
     additionalDenominatorFilters,
-  } = req.body;
+  } = req.body ?? {};
 
   const factMetric = await context.models.factMetrics.getById(id);
 

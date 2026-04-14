@@ -76,7 +76,12 @@ export type DefaultCrudValidators = typeof defaultCrudValidators;
 
 /** Wide type constraining crudValidatorOverrides — allows any Zod schema for each slot. */
 export type CrudValidatorOverrides = Partial<
-  Record<CrudAction, RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>>
+  Record<
+    CrudAction,
+    RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> & {
+      responseSchema?: ZodType;
+    }
+  >
 >;
 
 /**
@@ -119,6 +124,8 @@ export type OpenApiModelSpec<
   crudActions?: CrudAction[];
   crudValidatorOverrides?: CrudValidatorOverrides;
   customEndpoints?: OpenApiEndpointSpec[];
+  /** Per-CRUD-action descriptions (longer form text shown below the summary in docs). */
+  crudDescriptions?: Partial<Record<CrudAction, string>>;
   /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
   navDisplayName?: string;
   /** Short description shown under the nav label in the docs. */
@@ -177,6 +184,7 @@ type CrudActionConfig<A extends CrudAction = CrudAction> = {
   returnKey: string;
   returnSchema: ZodType;
   plural: boolean | undefined;
+  hasResponseOverride: boolean;
 };
 export function getCrudConfig(spec: OpenApiModelSpec): CrudActionConfig[] {
   const actions = spec.includeDefaultCrud
@@ -191,14 +199,18 @@ export function getCrudConfig(spec: OpenApiModelSpec): CrudActionConfig[] {
         : plural
           ? spec.modelPlural
           : spec.modelSingular;
-    const returnSchema = z.object({
-      [returnKey]:
-        action === "delete"
-          ? z.string()
-          : plural
-            ? z.array(spec.apiInterface)
-            : spec.apiInterface,
-    });
+    const overrideResponse =
+      spec.crudValidatorOverrides?.[action]?.responseSchema;
+    const returnSchema =
+      overrideResponse ??
+      z.object({
+        [returnKey]:
+          action === "delete"
+            ? z.string()
+            : plural
+              ? z.array(spec.apiInterface)
+              : spec.apiInterface,
+      });
     return {
       action,
       verb,
@@ -207,6 +219,7 @@ export function getCrudConfig(spec: OpenApiModelSpec): CrudActionConfig[] {
       returnKey,
       returnSchema,
       plural,
+      hasResponseOverride: !!overrideResponse,
     };
   });
 }
@@ -234,6 +247,7 @@ export function getOpenApiRoutesForApiConfig(
       returnKey,
       returnSchema,
       plural,
+      hasResponseOverride,
     }) => {
       const singularCapitalized = capitalizeFirstCharacter(
         apiConfig.openApiSpec.modelSingular,
@@ -251,6 +265,7 @@ export function getOpenApiRoutesForApiConfig(
           apiConfig.openApiSpec.modelSingular,
           apiConfig.openApiSpec.modelPlural,
         ),
+        description: apiConfig.openApiSpec.crudDescriptions?.[action],
         tags: [tag],
         responseSchema: returnSchema,
       })(async (req) => {
@@ -258,6 +273,7 @@ export function getOpenApiRoutesForApiConfig(
           apiConfig.modelKey
         ] as unknown as MinimalApiModel;
         const result = await modelInstance[defaultHandlers[action]](req);
+        if (hasResponseOverride) return result as z.infer<typeof returnSchema>;
         return { [returnKey]: result } as z.infer<typeof returnSchema>;
       });
       routes.push(route);

@@ -145,7 +145,10 @@ export const deleteDimensionValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z.string().describe("The ID of the deleted dimension"),
+      deletedId: z
+        .string()
+        .describe("The ID of the deleted dimension")
+        .meta({ example: "dim_123abc" }),
     })
     .strict(),
   summary: "Deletes a single dimension",

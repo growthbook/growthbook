@@ -214,7 +214,10 @@ export const deleteSegmentValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z.string().describe("The ID of the deleted segment"),
+      deletedId: z
+        .string()
+        .describe("The ID of the deleted segment")
+        .meta({ example: "seg_123abc" }),
     })
     .strict(),
   summary: "Deletes a single segment",
