@@ -1,7 +1,9 @@
 import uniqid from "uniqid";
 import {
   revisionValidator,
+  activityLogEntryValidator,
   Revision,
+  ActivityLogEntry,
   RevisionTargetType,
   ReviewDecision,
   JsonPatchOperation,
@@ -9,6 +11,10 @@ import {
 import type { CreateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions/index";
+
+// Derived from the validator so the two can't drift apart.
+const VALID_ACTIVITY_LOG_ACTIONS: ReadonlySet<ActivityLogEntry["action"]> =
+  new Set(activityLogEntryValidator.shape.action.options);
 
 export const COLLECTION_NAME = "revisions";
 
@@ -53,24 +59,14 @@ const BaseClass = MakeModelClass({
 
 export class RevisionModel extends BaseClass {
   /**
-   * Filter out invalid activityLog entries (for backward compatibility with old data).
+   * Filter out invalid activityLog entries (defensive — guards against any old
+   * data with action values that are no longer in the schema).
    */
   private cleanActivityLog(
     activityLog: Revision["activityLog"],
   ): Revision["activityLog"] {
-    const validActions = [
-      "created",
-      "updated",
-      "reviewed",
-      "approved",
-      "requested-changes",
-      "commented",
-      "merged",
-      "discarded",
-      "reopened",
-    ];
-    return activityLog.filter(
-      (entry) => entry.action && validActions.includes(entry.action as string),
+    return activityLog.filter((entry) =>
+      VALID_ACTIVITY_LOG_ACTIONS.has(entry.action),
     );
   }
 
@@ -139,40 +135,32 @@ export class RevisionModel extends BaseClass {
     }
 
     if (!doc.activityLog || doc.activityLog.length === 0) {
-      const activityLog: Array<{
-        id: string;
-        userId: string;
-        action:
-          | "created"
-          | "updated"
-          | "reviewed"
-          | "approved"
-          | "requested-changes"
-          | "commented"
-          | "merged"
-          | "discarded"
-          | "reopened";
-        description?: string;
-        dateCreated: Date;
-      }> = [
+      const activityLog: ActivityLogEntry[] = [
         {
           id: uniqid("act_"),
           userId: doc.authorId,
-          action: "created" as const,
+          action: "created",
           dateCreated: doc.dateCreated,
         },
       ];
 
       // If this is a revert, add a note in the activity log with revision number
       if (doc.revertedFrom) {
-        const revisionNumber =
-          sortedRevisions.findIndex((r) => r.id === doc.revertedFrom) + 1;
+        const revertedFromIdx = sortedRevisions.findIndex(
+          (r) => r.id === doc.revertedFrom,
+        );
+        const description =
+          revertedFromIdx >= 0
+            ? `This revision reverts changes from Revision ${
+                revertedFromIdx + 1
+              }`
+            : "This revision reverts changes from a prior revision";
 
         activityLog.push({
           id: uniqid("act_"),
           userId: doc.authorId,
-          action: "created" as const,
-          description: `This revision reverts changes from Revision ${revisionNumber}`,
+          action: "created",
+          description,
           dateCreated: doc.dateCreated,
         });
       }

@@ -12,6 +12,49 @@ import { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
 
 /**
+ * Ensure a "live" merged revision exists representing the entity's current state.
+ * The first time an entity participates in the revision workflow, we backfill a
+ * baseline revision so the history view has a starting point. No-op if any
+ * revisions already exist for this target.
+ */
+export async function ensureLiveRevisionExists(
+  context: ReqContext | ApiReqContext,
+  entityType: RevisionTargetType,
+  entity: Record<string, unknown> & {
+    id: string;
+    owner?: string;
+    dateCreated?: Date;
+  },
+): Promise<void> {
+  const existing = await context.models.revisions.getByTarget(
+    entityType,
+    entity.id,
+  );
+  if (existing.length > 0) return;
+
+  const authorId = entity.owner || context.userId;
+  const snapshot = getAdapter(entityType).buildSnapshot(entity);
+
+  await context.models.revisions.create({
+    authorId,
+    target: {
+      type: entityType,
+      id: entity.id,
+      snapshot,
+      proposedChanges: [] as JsonPatchOperation[],
+    },
+    status: "merged",
+    resolution: {
+      action: "merged",
+      userId: authorId,
+      dateCreated: entity.dateCreated || new Date(),
+    },
+    activityLog: [],
+    reviews: [],
+  } as unknown as Parameters<typeof context.models.revisions.create>[0]);
+}
+
+/**
  * Check whether the approval-flow revision workflow is required for the given
  * entity type in this org. Delegates to the entity adapter so entity-specific
  * settings stay in one place.

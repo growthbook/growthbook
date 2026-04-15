@@ -1,14 +1,4 @@
 {
-  "packages/back-end/src/routers/revision/revision.controller.ts": {
-    "prettier/prettier": {
-      "count": 6
-    }
-  },
-  "packages/back-end/src/routers/saved-group/saved-group.controller.ts": {
-    "prettier/prettier": {
-      "count": 2
-    }
-  },
   "packages/back-end/src/scripts/generate-openapi.mjs": {
     "prettier/prettier": {
       "count": 1

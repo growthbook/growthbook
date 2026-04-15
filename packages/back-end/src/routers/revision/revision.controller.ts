@@ -74,7 +74,6 @@ export const postRevision = async (
   res: Response<CreateRevisionResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { userId } = context;
 
   const { target } = req.body;
   const { type: entityType, id: entityId, proposedChanges } = target;
@@ -91,7 +90,12 @@ export const postRevision = async (
   }
 
   // Verify the caller can edit the underlying entity before creating a revision
-  if (!getAdapter(entityType).canCreate(context, originalEntity as Record<string, unknown>)) {
+  if (
+    !getAdapter(entityType).canCreate(
+      context,
+      originalEntity as Record<string, unknown>,
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -553,7 +557,7 @@ export const postRebase = async (
   const context = getContextFromReq(req);
   const { userId } = context;
   const { id } = req.params;
-  const { strategies, customValues } = req.body;
+  const { strategies, customValues, mergeResultSerialized } = req.body;
 
   const revisionModel = new RevisionModel(context);
 
@@ -593,6 +597,15 @@ export const postRebase = async (
     liveSnapshot,
     existingOps,
   );
+
+  // Optimistic-lock: reject if the conflict set changed since the client computed
+  // its merge preview. Forces the user to re-review with the latest live state.
+  if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
+    return res.status(409).json({
+      message:
+        "Something changed while you were resolving conflicts. Please reload and try again.",
+    });
+  }
 
   const conflicts = mergeResult.conflicts || [];
 
@@ -642,7 +655,11 @@ export const postRebase = async (
           conflict.proposedValue != null &&
           !isEqual(conflict.proposedValue, liveSnapshot[field])
         ) {
-          newOps.push({ op: "replace", path: `/${field}`, value: conflict.proposedValue });
+          newOps.push({
+            op: "replace",
+            path: `/${field}`,
+            value: conflict.proposedValue,
+          });
         }
       } else if (strategy === "union" && conflict) {
         const custom = customValues?.[field];
@@ -670,8 +687,15 @@ export const postRebase = async (
         } else {
           resolvedValue = conflict.proposedValue;
         }
-        if (resolvedValue != null && !isEqual(resolvedValue, liveSnapshot[field])) {
-          newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });
+        if (
+          resolvedValue != null &&
+          !isEqual(resolvedValue, liveSnapshot[field])
+        ) {
+          newOps.push({
+            op: "replace",
+            path: `/${field}`,
+            value: resolvedValue,
+          });
         }
       }
       // "discard" → drop op
@@ -749,7 +773,10 @@ export const postMerge = async (
   }
 
   const approvalRequired = adapter.isApprovalRequired(context);
-  const canBypass = adapter.canBypassApproval(context, entity as Record<string, unknown>);
+  const canBypass = adapter.canBypassApproval(
+    context,
+    entity as Record<string, unknown>,
+  );
 
   // If approval is required: must be approved OR user can bypass
   // If approval is not required: can always publish
@@ -785,7 +812,10 @@ export const postMerge = async (
   const updatableFields = adapter.getUpdatableFields();
   const hasChanges = Object.keys(desiredState).some((key) => {
     if (!updatableFields.has(key)) return false;
-    return !isEqual(desiredState[key], (entity as Record<string, unknown>)[key]);
+    return !isEqual(
+      desiredState[key],
+      (entity as Record<string, unknown>)[key],
+    );
   });
 
   if (!hasChanges) {

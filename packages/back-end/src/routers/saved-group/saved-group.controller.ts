@@ -13,16 +13,16 @@ import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
 } from "shared/types/saved-group";
-import { Revision, JsonPatchOperation, normalizeProposedChanges } from "shared/enterprise";
+import { Revision, normalizeProposedChanges } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   isRevisionRequired,
   createOrUpdateRevision,
-  buildSavedGroupSnapshot,
   buildPatchOps,
   applyPatchToSnapshot,
+  ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
@@ -129,24 +129,15 @@ export const postSavedGroup = async (
   });
 
   // Create an initial "live" revision to represent the created state
-  const snapshot = buildSavedGroupSnapshot(savedGroup);
-  await context.models.revisions.create({
-    authorId: userId,
-    target: {
-      type: "saved-group",
-      id: savedGroup.id,
-      snapshot,
-      proposedChanges: [] as JsonPatchOperation[],
+  await ensureLiveRevisionExists(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
     },
-    status: "merged",
-    resolution: {
-      action: "merged",
-      userId,
-      dateCreated: new Date(),
-    },
-    activityLog: [],
-    reviews: [],
-  });
+  );
 
   return res.status(200).json({
     status: 200,
@@ -263,33 +254,15 @@ export const postSavedGroupAddItems = async (
 
   const approvalRequired = isRevisionRequired(context, "saved-group", id);
 
-  // Check if this is the first draft for this saved group
-  const allRevisions = await context.models.revisions.getByTarget(
+  await ensureLiveRevisionExists(
+    context,
     "saved-group",
-    savedGroup.id,
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
   );
-
-  // If there are no revisions yet, create an initial "live" revision first
-  if (allRevisions.length === 0) {
-    const snapshot = buildSavedGroupSnapshot(savedGroup);
-    await context.models.revisions.create({
-      authorId: savedGroup.owner || context.userId,
-      target: {
-        type: "saved-group",
-        id: savedGroup.id,
-        snapshot,
-        proposedChanges: [] as JsonPatchOperation[],
-      },
-      status: "merged",
-      resolution: {
-        action: "merged",
-        userId: savedGroup.owner || context.userId,
-        dateCreated: savedGroup.dateCreated,
-      },
-      activityLog: [],
-      reviews: [],
-    });
-  }
 
   // Always create a revision for add-items
   const existingRevision =
@@ -398,33 +371,15 @@ export const postSavedGroupRemoveItems = async (
 
   const approvalRequired = isRevisionRequired(context, "saved-group", id);
 
-  // Check if this is the first draft for this saved group
-  const allRevisions = await context.models.revisions.getByTarget(
+  await ensureLiveRevisionExists(
+    context,
     "saved-group",
-    savedGroup.id,
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
   );
-
-  // If there are no revisions yet, create an initial "live" revision first
-  if (allRevisions.length === 0) {
-    const snapshot = buildSavedGroupSnapshot(savedGroup);
-    await context.models.revisions.create({
-      authorId: savedGroup.owner || context.userId,
-      target: {
-        type: "saved-group",
-        id: savedGroup.id,
-        snapshot,
-        proposedChanges: [] as JsonPatchOperation[],
-      },
-      status: "merged",
-      resolution: {
-        action: "merged",
-        userId: savedGroup.owner || context.userId,
-        dateCreated: savedGroup.dateCreated,
-      },
-      activityLog: [],
-      reviews: [],
-    });
-  }
 
   // Always create a revision for remove-items
   const existingRevision =
@@ -661,38 +616,18 @@ export const putSavedGroup = async (
   // Always create/update revision when explicitly requested via revisionId, forceCreateRevision, bypassApproval, or autoPublish
   // This allows revisions to be used independently of approval requirements
   if (revisionId || forceCreateRevision || bypassApproval || autoPublish) {
-    // Check if this is the first draft for this saved group
-    const existingRevisions = await context.models.revisions.getByTarget(
+    await ensureLiveRevisionExists(
+      context,
       "saved-group",
-      savedGroup.id,
+      savedGroup as unknown as Record<string, unknown> & {
+        id: string;
+        owner?: string;
+        dateCreated?: Date;
+      },
     );
-
-    // If there are no revisions yet, create an initial "live" revision first
-    if (existingRevisions.length === 0) {
-      const snapshot = buildSavedGroupSnapshot(savedGroup);
-      await context.models.revisions.create({
-        authorId: savedGroup.owner || context.userId,
-        target: {
-          type: "saved-group",
-          id: savedGroup.id,
-          snapshot,
-          proposedChanges: [] as JsonPatchOperation[],
-        },
-        status: "merged",
-        resolution: {
-          action: "merged",
-          userId: savedGroup.owner || context.userId,
-          dateCreated: savedGroup.dateCreated,
-        },
-        activityLog: [],
-        reviews: [],
-      });
-    }
 
     // Convert fieldsToUpdate to JSON Patch operations
-    const patchOps = buildPatchOps(
-      fieldsToUpdate as Record<string, unknown>,
-    );
+    const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
     // When updating a revision, merge changes (don't replace) to preserve other fields
     let revision = await createOrUpdateRevision(

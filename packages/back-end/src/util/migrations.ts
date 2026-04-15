@@ -533,6 +533,7 @@ export function upgradeOrganizationDoc(
 
   // Add default approval flow settings
   if (!org.settings?.approvalFlows) {
+    org.settings = org.settings || {};
     org.settings.approvalFlows = DEFAULT_REVISION_CONFIGURATION;
   }
 

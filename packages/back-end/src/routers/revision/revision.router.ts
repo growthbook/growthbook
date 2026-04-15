@@ -1,7 +1,10 @@
 import express from "express";
 import { z } from "zod";
-import { revisionTargetType, revisionCreateValidator } from "shared/enterprise";
-import { putSavedGroupBodyValidator } from "shared/validators";
+import {
+  revisionTargetType,
+  revisionCreateValidator,
+  jsonPatchOperationValidator,
+} from "shared/enterprise";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawRevisionController from "./revision.controller";
@@ -118,7 +121,7 @@ router.put(
       .strict(),
     body: z
       .object({
-        proposedChanges: putSavedGroupBodyValidator.partial(),
+        proposedChanges: z.array(jsonPatchOperationValidator),
       })
       .strict(),
   }),
