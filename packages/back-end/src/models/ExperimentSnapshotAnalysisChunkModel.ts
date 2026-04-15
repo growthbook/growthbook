@@ -86,7 +86,7 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
       analyses.length === 0 ||
       analyses.every((analysis) => analysis.results.length === 0)
     ) {
-      // TODO: Check if this is correct or if we need to do something else
+      // Analyses without result rows have no chunk data or metadata to persist.
       return { chunkedAnalysesMeta: [], metricIds: [] };
     }
 

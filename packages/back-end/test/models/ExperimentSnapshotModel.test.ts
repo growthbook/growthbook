@@ -223,8 +223,78 @@ describe("ExperimentSnapshotModel", () => {
       },
     );
 
+    it("does not write chunks or metadata for analyses without results", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_no_results");
+      const settings = makeAnalysisSettings();
+
+      const result =
+        await context.models.experimentSnapshotAnalysisChunks.createFromAnalyses(
+          {
+            snapshotId: "snp_no_results",
+            experimentId: "exp_no_results",
+            analyses: [makeEmptyAnalysis({ settings })],
+            settings: snapshot.settings,
+          },
+        );
+
+      const chunks =
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
+          "snp_no_results",
+        );
+
+      expect(result).toEqual({ chunkedAnalysesMeta: [], metricIds: [] });
+      expect(chunks).toHaveLength(0);
+    });
+
+    it("allows empty chunk metadata on an unchunked empty snapshot", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_empty_chunk_meta");
+      const settings = makeAnalysisSettings();
+
+      snapshot.analyses = [makeEmptyAnalysis({ settings })];
+      snapshot.chunkedAnalysesMeta = [];
+
+      const created = await createExperimentSnapshotModel({
+        data: snapshot,
+        context,
+      });
+
+      expect(created.hasChunkedAnalyses).toBeFalsy();
+      expect(created.chunkedAnalysesMeta).toEqual([]);
+    });
+
+    it("creates fresh chunks from a populated chunked snapshot interface", async () => {
+      const context = getSnapshotUpdateContext();
+      const settings = makeAnalysisSettings();
+      const snapshot = makeSnapshotWithMetric("snp_populated_chunked_input");
+      const analysis = makeAnalysis({ settings, value: 10 });
+
+      snapshot.status = "success";
+      snapshot.analyses = [analysis];
+      snapshot.hasChunkedAnalyses = true;
+      snapshot.chunkedAnalysesMeta = [{ dimensions: [] }];
+
+      const created = await createExperimentSnapshotModel({
+        data: snapshot,
+        context,
+      });
+
+      expect(created.hasChunkedAnalyses).toBe(true);
+      expect(
+        created.analyses[0].results[0].variations[0].metrics.met_1.value,
+      ).toBe(10);
+
+      const chunks =
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].snapshotId).toBe(snapshot.id);
+    });
+
     it.each(["standard", "exploratory", "report"] as const)(
-      "rejects pre-chunked metadata when inserting an empty %s snapshot",
+      "rejects pre-chunked snapshots when inserting an empty %s snapshot",
       async (type) => {
         const context = getSnapshotUpdateContext();
         const snapshot = makeSnapshotWithMetric(`snp_empty_${type}`);

@@ -924,29 +924,32 @@ export async function createExperimentSnapshotModel({
   context: Context;
   data: ExperimentSnapshotInterface;
 }): Promise<ExperimentSnapshotInterface> {
-  if (data.hasChunkedAnalyses || data.chunkedAnalysesMeta) {
-    // TODO: Is this correct?
-    // Or how would we handle if hasChunkedAnalyses is passed as false?
-    // This is more of an implementation details of ExperimentSnapshotModel at the moment
-    // and no one else should be aware if things are chunked or not.
+  const hasPopulatedAnalysisResults = data.analyses.some(
+    (analysis) => analysis.results?.length > 0,
+  );
+  if (data.hasChunkedAnalyses && !hasPopulatedAnalysisResults) {
     throw new Error("Snapshot already has chunked analyses.");
   }
 
+  const snapshotData = omit(data, [
+    "hasChunkedAnalyses",
+    "chunkedAnalysesMeta",
+  ]);
   const chunkResult = await chunkAndStripAnalyses({
     context,
-    snapshotId: data.id,
-    experimentId: data.experiment,
-    analyses: data.analyses,
-    settings: data.settings,
+    snapshotId: snapshotData.id,
+    experimentId: snapshotData.experiment,
+    analyses: snapshotData.analyses,
+    settings: snapshotData.settings,
   });
   const snapshotForDb = chunkResult
     ? {
-        ...data,
+        ...snapshotData,
         analyses: chunkResult.strippedAnalyses,
         hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
         chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
       }
-    : data;
+    : snapshotData;
 
   const created = await ExperimentSnapshotModel.create(snapshotForDb);
   const createdSnapshot = toInterface(created);
@@ -956,7 +959,7 @@ export async function createExperimentSnapshotModel({
   return chunkResult
     ? {
         ...createdSnapshot,
-        analyses: data.analyses,
+        analyses: snapshotData.analyses,
       }
     : createdSnapshot;
 }
