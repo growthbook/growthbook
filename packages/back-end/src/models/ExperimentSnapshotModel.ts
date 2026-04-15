@@ -12,7 +12,9 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
+import { AnalysisMetaEntry } from "shared/snapshot-results";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
@@ -218,6 +220,59 @@ function getAnalysisIndexBySettings(
   return analyses.findIndex((analysis) => isEqual(analysis.settings, settings));
 }
 
+async function populateSnapshotAnalyses(
+  context: Context,
+  snapshot: ExperimentSnapshotInterface,
+): Promise<ExperimentSnapshotInterface>;
+async function populateSnapshotAnalyses(
+  context: Context,
+  snapshots: ExperimentSnapshotInterface[],
+): Promise<ExperimentSnapshotInterface[]>;
+async function populateSnapshotAnalyses(
+  context: Context,
+  snapshotOrSnapshots:
+    | ExperimentSnapshotInterface
+    | ExperimentSnapshotInterface[],
+): Promise<ExperimentSnapshotInterface | ExperimentSnapshotInterface[]> {
+  const snapshots = Array.isArray(snapshotOrSnapshots)
+    ? snapshotOrSnapshots
+    : [snapshotOrSnapshots];
+
+  await context.models.experimentSnapshotAnalysisChunks.populateChunkedAnalyses(
+    snapshots,
+  );
+  return snapshotOrSnapshots;
+}
+
+async function chunkAndStripAnalyses(
+  context: Context,
+  snapshotId: string,
+  analyses: ExperimentSnapshotAnalysis[],
+  settings: ExperimentSnapshotSettings,
+): Promise<{
+  strippedAnalyses: ExperimentSnapshotAnalysis[];
+  hasChunkedAnalyses: true;
+  chunkedAnalysesMeta: AnalysisMetaEntry[];
+  metricIds: string[];
+} | null> {
+  const hasResults = analyses.some((a) => a.results?.length > 0);
+  if (!hasResults) return null;
+
+  const chunkWrite =
+    await context.models.experimentSnapshotAnalysisChunks.createFromAnalyses(
+      snapshotId,
+      analyses,
+      settings,
+    );
+
+  return {
+    strippedAnalyses: analyses.map((a) => ({ ...a, results: [] })),
+    hasChunkedAnalyses: true,
+    chunkedAnalysesMeta: chunkWrite.chunkedAnalysesMeta,
+    metricIds: chunkWrite.metricIds,
+  };
+}
+
 export async function updateSnapshotsOnPhaseDelete(
   context: Context,
   experiment: string,
@@ -281,37 +336,34 @@ export async function updateSnapshot({
 
   const updatesForDb = { ...updates };
   let deleteExistingChunksAfterUpdate = false;
+  let chunkResult: Awaited<ReturnType<typeof chunkAndStripAnalyses>> = null;
   let experimentSnapshot: ExperimentSnapshotInterface = {
     ...toInterface(existingSnapshotModel),
     ...updates,
   };
-  const analysesWithResults = updates.analyses?.some(
-    (a) => a.results?.length > 0,
-  );
 
   // If analyses have results, chunk them into separate documents
-  if (analysesWithResults && updates.analyses) {
-    const chunkWrite =
-      await context.models.experimentSnapshotAnalysisChunks.createFromAnalyses(
-        id,
-        updates.analyses,
-        experimentSnapshot.settings,
-      );
-    deleteExistingChunksAfterUpdate = chunkWrite.metricIds.length === 0;
+  if (updates.analyses) {
+    chunkResult = await chunkAndStripAnalyses(
+      context,
+      id,
+      updates.analyses,
+      experimentSnapshot.settings,
+    );
+  }
 
+  if (chunkResult) {
+    deleteExistingChunksAfterUpdate = chunkResult.metricIds.length === 0;
     // Clear results from the main document while keeping the logical snapshot
     // populated for post-success side effects below.
-    updatesForDb.analyses = updates.analyses.map((a) => ({
-      ...a,
-      results: [],
-    }));
-    updatesForDb.hasChunkedAnalyses = true;
-    updatesForDb.chunkedAnalysesMeta = chunkWrite.chunkedAnalysesMeta;
+    updatesForDb.analyses = chunkResult.strippedAnalyses;
+    updatesForDb.hasChunkedAnalyses = chunkResult.hasChunkedAnalyses;
+    updatesForDb.chunkedAnalysesMeta = chunkResult.chunkedAnalysesMeta;
     experimentSnapshot = {
       ...experimentSnapshot,
-      analyses: updates.analyses,
-      hasChunkedAnalyses: true,
-      chunkedAnalysesMeta: chunkWrite.chunkedAnalysesMeta,
+      analyses: updates.analyses ?? experimentSnapshot.analyses,
+      hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
+      chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
     };
   }
 
@@ -331,10 +383,8 @@ export async function updateSnapshot({
     );
   }
 
-  if (experimentSnapshot.hasChunkedAnalyses && !analysesWithResults) {
-    await context.models.experimentSnapshotAnalysisChunks.populateChunkedAnalyses(
-      [experimentSnapshot],
-    );
+  if (experimentSnapshot.hasChunkedAnalyses && !chunkResult) {
+    await populateSnapshotAnalyses(context, experimentSnapshot);
   }
 
   const shouldUpdateExperimentAnalysisSummary =
@@ -424,41 +474,6 @@ export async function updateSnapshot({
   }
 }
 
-async function rebuildChunksForSnapshot(
-  context: Context,
-  organization: string,
-  id: string,
-  analysis: ExperimentSnapshotAnalysis,
-) {
-  const updated = await ExperimentSnapshotModel.findOne({
-    organization,
-    id,
-  });
-  if (!updated?.settings) return;
-
-  const snapshotInterface = toInterface(updated);
-  const chunkWrite =
-    await context.models.experimentSnapshotAnalysisChunks.rebuildChunksWithAnalysis(
-      snapshotInterface,
-      analysis,
-    );
-  if (chunkWrite) {
-    await ExperimentSnapshotModel.updateOne(
-      { organization, id },
-      {
-        $set: {
-          chunkedAnalysesMeta: chunkWrite.chunkedAnalysesMeta,
-        },
-      },
-    );
-    if (!chunkWrite.metricIds.length) {
-      await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(
-        id,
-      );
-    }
-  }
-}
-
 export type AddOrUpdateSnapshotAnalysisParams = {
   context: Context;
   id: string;
@@ -479,28 +494,48 @@ export async function addOrUpdateSnapshotAnalysis(
 
   if (snapshot?.hasChunkedAnalyses) {
     const snapshotInterface = toInterface(snapshot);
+    await populateSnapshotAnalyses(context, snapshotInterface);
+
     const existingAnalysisIndex = getAnalysisIndexBySettings(
       snapshotInterface.analyses,
       analysis.settings,
     );
+    const analyses =
+      existingAnalysisIndex === -1
+        ? [...snapshotInterface.analyses, analysis]
+        : snapshotInterface.analyses.map((existingAnalysis, i) =>
+            i === existingAnalysisIndex ? analysis : existingAnalysis,
+          );
 
-    if (existingAnalysisIndex === -1) {
-      await ExperimentSnapshotModel.updateOne(
-        { organization, id },
-        { $push: { analyses: { ...analysis, results: [] } } },
-      );
-    } else {
-      await ExperimentSnapshotModel.updateOne(
-        { organization, id },
-        {
-          $set: {
-            [`analyses.${existingAnalysisIndex}`]: { ...analysis, results: [] },
-          },
-        },
+    const chunkResult = await chunkAndStripAnalyses(
+      context,
+      id,
+      analyses,
+      snapshotInterface.settings,
+    );
+    const updatesForDb: Partial<ExperimentSnapshotInterface> = chunkResult
+      ? {
+          analyses: chunkResult.strippedAnalyses,
+          hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
+          chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
+        }
+      : {
+          analyses,
+          chunkedAnalysesMeta: [],
+        };
+
+    await ExperimentSnapshotModel.updateOne(
+      { organization, id },
+      {
+        $set: updatesForDb,
+      },
+    );
+
+    if (!chunkResult || chunkResult.metricIds.length === 0) {
+      await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(
+        id,
       );
     }
-
-    await rebuildChunksForSnapshot(context, organization, id, analysis);
     return;
   }
 
@@ -550,16 +585,39 @@ export async function updateSnapshotAnalysis({
       return;
     }
 
+    await populateSnapshotAnalyses(context, snapshotInterface);
+    const analyses = snapshotInterface.analyses.map((existingAnalysis, i) =>
+      i === existingAnalysisIndex ? analysis : existingAnalysis,
+    );
+    const chunkResult = await chunkAndStripAnalyses(
+      context,
+      id,
+      analyses,
+      snapshotInterface.settings,
+    );
+    const updatesForDb: Partial<ExperimentSnapshotInterface> = chunkResult
+      ? {
+          analyses: chunkResult.strippedAnalyses,
+          hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
+          chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
+        }
+      : {
+          analyses,
+          chunkedAnalysesMeta: [],
+        };
+
     await ExperimentSnapshotModel.updateOne(
       { organization, id },
       {
-        $set: {
-          [`analyses.${existingAnalysisIndex}`]: { ...analysis, results: [] },
-        },
+        $set: updatesForDb,
       },
     );
 
-    await rebuildChunksForSnapshot(context, organization, id, analysis);
+    if (!chunkResult || chunkResult.metricIds.length === 0) {
+      await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(
+        id,
+      );
+    }
     return;
   }
 
@@ -597,12 +655,7 @@ export async function findSnapshotById(
   });
   if (!doc) return null;
   const snapshot = toInterface(doc);
-  if (snapshot.hasChunkedAnalyses) {
-    await context.models.experimentSnapshotAnalysisChunks.populateChunkedAnalyses(
-      [snapshot],
-    );
-  }
-  return snapshot;
+  return populateSnapshotAnalyses(context, snapshot);
 }
 
 export async function findSnapshotsByIds(
@@ -614,10 +667,7 @@ export async function findSnapshotsByIds(
     id: { $in: ids },
   });
   const snapshots = docs.map(toInterface);
-  await context.models.experimentSnapshotAnalysisChunks.populateChunkedAnalyses(
-    snapshots,
-  );
-  return snapshots;
+  return populateSnapshotAnalyses(context, snapshots);
 }
 
 export async function findRunningSnapshotsByQueryId(ids: string[]) {
@@ -743,18 +793,6 @@ export async function getLatestSnapshot({
     },
   ).exec();
 
-  async function populateAndReturn(
-    doc: ExperimentSnapshotDocument,
-  ): Promise<ExperimentSnapshotInterface> {
-    const snapshot = toInterface(doc);
-    if (snapshot.hasChunkedAnalyses) {
-      await context.models.experimentSnapshotAnalysisChunks.populateChunkedAnalyses(
-        [snapshot],
-      );
-    }
-    return snapshot;
-  }
-
   if (all[0]) {
     const mostRecentSnapshot = all[0];
 
@@ -783,11 +821,11 @@ export async function getLatestSnapshot({
       ).exec();
 
       if (runningSnapshot) {
-        return populateAndReturn(runningSnapshot);
+        return populateSnapshotAnalyses(context, toInterface(runningSnapshot));
       }
     }
 
-    return populateAndReturn(mostRecentSnapshot);
+    return populateSnapshotAnalyses(context, toInterface(mostRecentSnapshot));
   }
 
   // Otherwise, try getting old snapshot records
@@ -800,7 +838,7 @@ export async function getLatestSnapshot({
     limit: 1,
   }).exec();
 
-  return all[0] ? populateAndReturn(all[0]) : null;
+  return all[0] ? populateSnapshotAnalyses(context, toInterface(all[0])) : null;
 }
 
 // Gets latest snapshots per experiment-phase pair
@@ -863,12 +901,7 @@ export async function getLatestSnapshotMultipleExperiments(
     });
   }
 
-  // Populate chunked analyses
-  await context.models.experimentSnapshotAnalysisChunks.populateChunkedAnalyses(
-    snapshots,
-  );
-
-  return snapshots;
+  return populateSnapshotAnalyses(context, snapshots);
 }
 
 export async function createExperimentSnapshotModel({
@@ -886,28 +919,27 @@ export async function createExperimentSnapshotModel({
     throw new Error("Snapshot already has chunked analyses.");
   }
 
-  const chunkWrite =
-    await context.models.experimentSnapshotAnalysisChunks.createFromAnalyses(
-      data.id,
-      data.analyses,
-      data.settings,
-    );
-
-  const snapshotWithChunkedAnalyses = {
-    ...data,
-    analyses: data.analyses.map((a) => ({ ...a, results: [] })),
-    hasChunkedAnalyses: true,
-    chunkedAnalysesMeta: chunkWrite.chunkedAnalysesMeta,
-  };
-
-  const created = await ExperimentSnapshotModel.create(
-    snapshotWithChunkedAnalyses,
+  const chunkResult = await chunkAndStripAnalyses(
+    context,
+    data.id,
+    data.analyses,
+    data.settings,
   );
+  const snapshotForDb = chunkResult
+    ? {
+        ...data,
+        analyses: chunkResult.strippedAnalyses,
+        hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
+        chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
+      }
+    : data;
+
+  const created = await ExperimentSnapshotModel.create(snapshotForDb);
   const createdSnapshot = toInterface(created);
 
   // Populate analyses results from memory instead of recreating
   // from chunks which would involve more DB calls
-  return data.analyses
+  return chunkResult
     ? {
         ...createdSnapshot,
         analyses: data.analyses,

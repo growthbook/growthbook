@@ -1,4 +1,3 @@
-import isEqual from "lodash/isEqual";
 import {
   encodeSnapshotResults,
   decodeSnapshotResults,
@@ -13,7 +12,6 @@ import {
 } from "shared/validators";
 import {
   ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
@@ -47,29 +45,6 @@ function getMetricOrdering(settings: ExperimentSnapshotSettings): string[] {
     settings.secondaryMetrics,
     settings.guardrailMetrics,
   );
-}
-
-function deepEqualSettings(
-  a: ExperimentSnapshotAnalysisSettings,
-  b: ExperimentSnapshotAnalysisSettings,
-): boolean {
-  return isEqual(a, b);
-}
-
-function mergeAnalysis(
-  analyses: ExperimentSnapshotAnalysis[],
-  newAnalysis: ExperimentSnapshotAnalysis,
-): ExperimentSnapshotAnalysis[] {
-  let replaced = false;
-  const merged = analyses.map((analysis) => {
-    if (!deepEqualSettings(analysis.settings, newAnalysis.settings)) {
-      return analysis;
-    }
-    replaced = true;
-    return newAnalysis;
-  });
-
-  return replaced ? merged : [...merged, newAnalysis];
 }
 
 export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
@@ -162,16 +137,10 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
 
   /**
    * Get all chunks for a snapshot.
+   * @internal
    */
   public async getAllChunksForSnapshot(snapshotId: string) {
     return this._find({ snapshotId });
-  }
-
-  /**
-   * Get only chunks for the requested metric IDs.
-   */
-  public async getChunksForMetrics(snapshotId: string, metricIds: string[]) {
-    return this._find({ snapshotId, metricId: { $in: metricIds } });
   }
 
   /**
@@ -229,36 +198,6 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
         }
       }
     }
-  }
-
-  /**
-   * Replace all chunks for a snapshot, merging in a new/updated analysis.
-   * Returns the new chunkedAnalysesMeta for storage on the snapshot document.
-   */
-  public async rebuildChunksWithAnalysis(
-    snapshot: ExperimentSnapshotInterface,
-    newAnalysis: ExperimentSnapshotAnalysis,
-  ): Promise<ChunkWriteResult | null> {
-    const existingAnalysisIndex = snapshot.analyses.findIndex((analysis) =>
-      deepEqualSettings(analysis.settings, newAnalysis.settings),
-    );
-    const newAnalysisHasResults = newAnalysis.results.length > 0;
-    const existingAnalysisHasStoredResults =
-      existingAnalysisIndex >= 0 &&
-      (snapshot.chunkedAnalysesMeta?.[existingAnalysisIndex]?.dimensions
-        .length ?? 0) > 0;
-
-    if (!newAnalysisHasResults && !existingAnalysisHasStoredResults) {
-      return null;
-    }
-
-    await this.populateChunkedAnalyses([snapshot]);
-    const mergedAnalyses = mergeAnalysis(snapshot.analyses, newAnalysis);
-    return this.createFromAnalyses(
-      snapshot.id,
-      mergedAnalyses,
-      snapshot.settings,
-    );
   }
 
   /**

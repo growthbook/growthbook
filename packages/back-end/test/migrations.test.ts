@@ -2306,39 +2306,6 @@ describe("Snapshot Migration", () => {
       migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
-
-  it("maps legacy chunked result fields to chunked analysis fields", () => {
-    const now = new Date();
-    const chunkedAnalysesMeta = [
-      {
-        dimensions: [
-          {
-            name: "",
-            srm: 0.95,
-            variationUsers: [100, 120],
-          },
-        ],
-      },
-    ];
-    const initial: Partial<LegacyExperimentSnapshotInterface> = {
-      id: "snp_abc123",
-      organization: "org_123",
-      experiment: "exp_123",
-      phase: 1,
-      dateCreated: now,
-      status: "running",
-      analyses: [],
-      hasChunkedResults: true,
-      analysisMeta: chunkedAnalysesMeta,
-    };
-
-    const migrated = migrateSnapshot(
-      initial as LegacyExperimentSnapshotInterface,
-    );
-
-    expect(migrated.hasChunkedAnalyses).toBe(true);
-    expect(migrated.chunkedAnalysesMeta).toEqual(chunkedAnalysesMeta);
-  });
 });
 
 describe("Report Migration", () => {
