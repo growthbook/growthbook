@@ -3,13 +3,13 @@ import {
   encodeSnapshotResults,
   decodeSnapshotResults,
   buildMetricOrdering,
-  getAnalysisMetaFromSnapshot,
+  getChunkedAnalysesMetaFromSnapshot,
   AnalysisMetaEntry,
 } from "shared/snapshot-results";
 import {
-  experimentSnapshotResultChunkValidator,
-  ExperimentSnapshotResultChunkInterface,
-  validateExperimentSnapshotResultChunkColumnLengths,
+  experimentSnapshotAnalysisChunkValidator,
+  ExperimentSnapshotAnalysisChunkInterface,
+  validateExperimentSnapshotAnalysisChunkColumnLengths,
 } from "shared/validators";
 import {
   ExperimentSnapshotAnalysis,
@@ -20,18 +20,15 @@ import {
 import { MakeModelClass, waitForIndexes } from "./BaseModel";
 
 type ChunkWriteResult = {
-  analysisMeta: AnalysisMetaEntry[];
+  chunkedAnalysesMeta: AnalysisMetaEntry[];
   metricIds: string[];
 };
 
 const BaseClass = MakeModelClass({
-  schema: experimentSnapshotResultChunkValidator,
-  collectionName: "experimentsnapshotresultchunks",
-  idPrefix: "snpres_",
+  schema: experimentSnapshotAnalysisChunkValidator,
+  collectionName: "experimentsnapshotanalysischunks",
+  idPrefix: "snpana_",
   globallyUniquePrimaryKeys: true,
-  indexesToRemove: [
-    "organization_1_snapshotId_1_resultChunkVersion_1_metricId_1",
-  ],
   additionalIndexes: [
     {
       fields: {
@@ -75,7 +72,7 @@ function mergeAnalysis(
   return replaced ? merged : [...merged, newAnalysis];
 }
 
-export class ExperimentSnapshotResultChunkModel extends BaseClass {
+export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
   protected canRead() {
     return true;
   }
@@ -90,22 +87,30 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
   }
 
   protected async customValidation(
-    doc: ExperimentSnapshotResultChunkInterface,
+    doc: ExperimentSnapshotAnalysisChunkInterface,
   ) {
-    validateExperimentSnapshotResultChunkColumnLengths(doc);
+    validateExperimentSnapshotAnalysisChunkColumnLengths(doc);
   }
 
   /**
    * Encode snapshot analyses and write one document per metric.
-   * Returns analysisMeta for storage on the main snapshot document.
+   * Returns chunkedAnalysesMeta for storage on the main snapshot document.
    */
   public async createFromAnalyses(
     snapshotId: string,
     analyses: ExperimentSnapshotAnalysis[],
     settings: ExperimentSnapshotSettings,
   ): Promise<ChunkWriteResult> {
+    if (
+      analyses.length === 0 ||
+      analyses.every((analysis) => analysis.results.length === 0)
+    ) {
+      // TODO: Check if this is correct or if we need to do something else
+      return { chunkedAnalysesMeta: [], metricIds: [] };
+    }
+
     const metricOrdering = getMetricOrdering(settings);
-    const { metricChunks, analysisMeta } = encodeSnapshotResults(
+    const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotResults(
       analyses,
       metricOrdering,
     );
@@ -119,7 +124,7 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
       const now = new Date();
       await this.bulkWrite(
         entries.map(([metricId, chunk]) => {
-          validateExperimentSnapshotResultChunkColumnLengths(chunk);
+          validateExperimentSnapshotAnalysisChunkColumnLengths(chunk);
 
           return {
             updateOne: {
@@ -152,7 +157,7 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
       });
     }
 
-    return { analysisMeta, metricIds };
+    return { chunkedAnalysesMeta, metricIds };
   }
 
   /**
@@ -173,11 +178,11 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
    * Populate snapshot analyses results from chunks.
    * Mutates the snapshot objects in place.
    */
-  public async populateChunkedResults(
+  public async populateChunkedAnalyses(
     snapshots: ExperimentSnapshotInterface[],
     metricIds?: string[],
   ) {
-    const chunkedSnapshots = snapshots.filter((s) => s.hasChunkedResults);
+    const chunkedSnapshots = snapshots.filter((s) => s.hasChunkedAnalyses);
     if (!chunkedSnapshots.length) return;
 
     const query: Record<string, unknown> = {
@@ -192,7 +197,7 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
     // Group chunks by snapshot ID
     const chunksBySnapshotId = new Map<
       string,
-      ExperimentSnapshotResultChunkInterface[]
+      ExperimentSnapshotAnalysisChunkInterface[]
     >();
     for (const chunk of allChunks) {
       if (!chunksBySnapshotId.has(chunk.snapshotId)) {
@@ -205,14 +210,14 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
     const filterMetricIds = metricIds ? new Set(metricIds) : undefined;
     for (const snapshot of chunkedSnapshots) {
       const chunks = chunksBySnapshotId.get(snapshot.id) ?? [];
-      if (!chunks.length && !snapshot.analysisMeta?.length) continue;
+      if (!chunks.length && !snapshot.chunkedAnalysesMeta?.length) continue;
 
-      const { analysisMeta, analysisMetadata } =
-        getAnalysisMetaFromSnapshot(snapshot);
+      const { chunkedAnalysesMeta, analysisMetadata } =
+        getChunkedAnalysesMetaFromSnapshot(snapshot);
 
       const decoded = decodeSnapshotResults(
         chunks,
-        analysisMeta,
+        chunkedAnalysesMeta,
         analysisMetadata,
         filterMetricIds,
       );
@@ -228,7 +233,7 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
 
   /**
    * Replace all chunks for a snapshot, merging in a new/updated analysis.
-   * Returns the new analysisMeta for storage on the snapshot document.
+   * Returns the new chunkedAnalysesMeta for storage on the snapshot document.
    */
   public async rebuildChunksWithAnalysis(
     snapshot: ExperimentSnapshotInterface,
@@ -240,14 +245,14 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
     const newAnalysisHasResults = newAnalysis.results.length > 0;
     const existingAnalysisHasStoredResults =
       existingAnalysisIndex >= 0 &&
-      (snapshot.analysisMeta?.[existingAnalysisIndex]?.dimensions.length ?? 0) >
-        0;
+      (snapshot.chunkedAnalysesMeta?.[existingAnalysisIndex]?.dimensions
+        .length ?? 0) > 0;
 
     if (!newAnalysisHasResults && !existingAnalysisHasStoredResults) {
       return null;
     }
 
-    await this.populateChunkedResults([snapshot]);
+    await this.populateChunkedAnalyses([snapshot]);
     const mergedAnalyses = mergeAnalysis(snapshot.analyses, newAnalysis);
     return this.createFromAnalyses(
       snapshot.id,

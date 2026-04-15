@@ -460,10 +460,10 @@ export async function createReportSnapshot({
       );
     snapshotData =
       (await getLatestSnapshot({
+        context,
         experiment: experiment.id,
         phase: Math.max(experiment.phases.length - 1, 0),
         type: "standard",
-        context,
       })) || undefined;
     if (!snapshotData)
       throw new Error("Unable to create snapshot for report: no data");
@@ -595,8 +595,8 @@ export async function createReportSnapshot({
   }
 
   const snapshot = await createExperimentSnapshotModel({
-    data: snapshotData,
     context,
+    data: snapshotData,
   });
 
   const integration = getSourceIntegrationObject(context, datasource, true);

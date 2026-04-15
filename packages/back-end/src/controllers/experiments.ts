@@ -244,10 +244,10 @@ export async function postAIExperimentAnalysis(
   const phase = experiment.phases.length - 1;
   const snapshot =
     (await getLatestSnapshot({
+      context,
       experiment: experiment.id,
       phase,
       type: "standard",
-      context,
     })) || undefined;
 
   const allVariations = getAllVariations(experiment);
@@ -822,10 +822,10 @@ export async function getExperimentPublic(
 
   const snapshot =
     (await getLatestSnapshot({
+      context,
       experiment: experiment.id,
       phase,
       type: "standard",
-      context,
     })) || undefined;
 
   const visualChangesets = await findVisualChangesetsByExperiment(
@@ -888,12 +888,12 @@ async function _getSnapshot({
   }
 
   return await getLatestSnapshot({
+    context,
     experiment: experimentObj.id,
     phase: parseInt(phase),
     dimension,
     withResults,
     type,
-    context,
   });
 }
 

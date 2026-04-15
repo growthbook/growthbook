@@ -15,7 +15,7 @@ import {
 import type { ExperimentSnapshotDocument } from "back-end/src/models/ExperimentSnapshotModel";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { ExperimentSnapshotResultChunkModel } from "back-end/src/models/ExperimentSnapshotResultChunkModel";
+import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
@@ -39,11 +39,7 @@ jest.mock("back-end/src/services/experimentTimeSeries", () => ({
 
 const snapshotTestContext = {
   org: { id: "org_1" },
-  models: {
-    experimentSnapshotResultChunks: {
-      populateChunkedResults: jest.fn(),
-    },
-  },
+  models: {},
 } as unknown as Context;
 
 function getSnapshotUpdateContext() {
@@ -59,8 +55,8 @@ function getSnapshotUpdateContext() {
     },
   } as unknown as Context;
 
-  context.models.experimentSnapshotResultChunks =
-    new ExperimentSnapshotResultChunkModel(context);
+  context.models.experimentSnapshotAnalysisChunks =
+    new ExperimentSnapshotAnalysisChunkModel(context);
 
   return context;
 }
@@ -165,6 +161,8 @@ describe("ExperimentSnapshotModel", () => {
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
     await mongoose.connect(mongod.getUri());
+    snapshotTestContext.models.experimentSnapshotAnalysisChunks =
+      new ExperimentSnapshotAnalysisChunkModel(snapshotTestContext);
   }, 60000);
 
   afterAll(async () => {
@@ -182,7 +180,7 @@ describe("ExperimentSnapshotModel", () => {
 
   describe("createExperimentSnapshotModel", () => {
     it.each(["standard", "exploratory", "report"] as const)(
-      "creates fresh result chunks when inserting a populated %s snapshot",
+      "creates fresh analysis chunks when inserting a populated %s snapshot",
       async (type) => {
         const context = getSnapshotUpdateContext();
         const snapshot = makeSnapshotWithMetric(`snp_create_${type}`);
@@ -192,8 +190,6 @@ describe("ExperimentSnapshotModel", () => {
         snapshot.type = type;
         snapshot.status = "success";
         snapshot.analyses = [analysis];
-        snapshot.hasChunkedResults = true;
-        snapshot.analysisMeta = [{ dimensions: [] }];
         if (type === "report") {
           snapshot.report = "rep_1";
         }
@@ -204,20 +200,20 @@ describe("ExperimentSnapshotModel", () => {
         });
 
         expect(created.type).toBe(type);
-        expect(created.hasChunkedResults).toBe(true);
+        expect(created.hasChunkedAnalyses).toBe(true);
         expect(
           created.analyses[0].results[0].variations[0].metrics.met_1.value,
         ).toBe(10);
 
         const result = await findSnapshotById(context, snapshot.id);
         expect(result?.type).toBe(type);
-        expect(result?.hasChunkedResults).toBe(true);
+        expect(result?.hasChunkedAnalyses).toBe(true);
         expect(
           result?.analyses[0].results[0].variations[0].metrics.met_1.value,
         ).toBe(10);
 
         const chunks =
-          await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+          await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
             snapshot.id,
           );
         expect(chunks).toHaveLength(1);
@@ -228,7 +224,7 @@ describe("ExperimentSnapshotModel", () => {
     );
 
     it.each(["standard", "exploratory", "report"] as const)(
-      "strips stale chunk metadata when inserting an empty %s snapshot",
+      "rejects pre-chunked metadata when inserting an empty %s snapshot",
       async (type) => {
         const context = getSnapshotUpdateContext();
         const snapshot = makeSnapshotWithMetric(`snp_empty_${type}`);
@@ -237,8 +233,8 @@ describe("ExperimentSnapshotModel", () => {
         snapshot.type = type;
         snapshot.status = "running";
         snapshot.analyses = [makeEmptyAnalysis({ settings })];
-        snapshot.hasChunkedResults = true;
-        snapshot.analysisMeta = [
+        snapshot.hasChunkedAnalyses = true;
+        snapshot.chunkedAnalysesMeta = [
           {
             dimensions: [
               {
@@ -253,19 +249,9 @@ describe("ExperimentSnapshotModel", () => {
           snapshot.report = "rep_1";
         }
 
-        await createExperimentSnapshotModel({ data: snapshot, context });
-
-        const result = await findSnapshotById(context, snapshot.id);
-        expect(result?.type).toBe(type);
-        expect(result?.hasChunkedResults).toBeUndefined();
-        expect(result?.analysisMeta ?? []).toEqual([]);
-        expect(result?.analyses[0].results).toEqual([]);
-
-        const chunks =
-          await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
-            snapshot.id,
-          );
-        expect(chunks).toHaveLength(0);
+        await expect(
+          createExperimentSnapshotModel({ data: snapshot, context }),
+        ).rejects.toThrow("Snapshot already has chunked analyses.");
       },
     );
   });
@@ -290,7 +276,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "running",
         dateCreated: new Date("2024-01-01T12:00:00Z"),
       });
-      await createExperimentSnapshotModel({ data: manual });
+      await createExperimentSnapshotModel({
+        data: manual,
+        context: snapshotTestContext,
+      });
 
       // Scheduled refresh on broken replica — newer dateCreated, errored
       const scheduled = snapshotFactory.build({
@@ -301,7 +290,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "error",
         dateCreated: new Date("2024-01-01T12:05:00Z"),
       });
-      await createExperimentSnapshotModel({ data: scheduled });
+      await createExperimentSnapshotModel({
+        data: scheduled,
+        context: snapshotTestContext,
+      });
 
       const result = await getLatestSnapshot({
         context: snapshotTestContext,
@@ -325,7 +317,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "running",
         dateCreated: new Date("2024-01-01T12:00:00Z"),
       });
-      await createExperimentSnapshotModel({ data: runningFromSchedule });
+      await createExperimentSnapshotModel({
+        data: runningFromSchedule,
+        context: snapshotTestContext,
+      });
 
       const scheduledError = snapshotFactory.build({
         experiment,
@@ -335,7 +330,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "error",
         dateCreated: new Date("2024-01-01T12:05:00Z"),
       });
-      await createExperimentSnapshotModel({ data: scheduledError });
+      await createExperimentSnapshotModel({
+        data: scheduledError,
+        context: snapshotTestContext,
+      });
 
       const result = await getLatestSnapshot({
         context: snapshotTestContext,
@@ -358,7 +356,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "success",
         dateCreated: new Date("2024-01-01T12:00:00Z"),
       });
-      await createExperimentSnapshotModel({ data: olderSuccess });
+      await createExperimentSnapshotModel({
+        data: olderSuccess,
+        context: snapshotTestContext,
+      });
 
       const scheduledError = snapshotFactory.build({
         experiment,
@@ -368,7 +369,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "error",
         dateCreated: new Date("2024-01-01T12:05:00Z"),
       });
-      await createExperimentSnapshotModel({ data: scheduledError });
+      await createExperimentSnapshotModel({
+        data: scheduledError,
+        context: snapshotTestContext,
+      });
 
       const result = await getLatestSnapshot({
         context: snapshotTestContext,
@@ -391,7 +395,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "running",
         dateCreated: new Date("2024-01-01T12:00:00Z"),
       });
-      await createExperimentSnapshotModel({ data: running });
+      await createExperimentSnapshotModel({
+        data: running,
+        context: snapshotTestContext,
+      });
 
       const scheduledError = snapshotFactory.build({
         experiment,
@@ -401,7 +408,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "error",
         dateCreated: new Date("2024-01-01T12:05:00Z"),
       });
-      await createExperimentSnapshotModel({ data: scheduledError });
+      await createExperimentSnapshotModel({
+        data: scheduledError,
+        context: snapshotTestContext,
+      });
 
       const result = await getLatestSnapshot({
         context: snapshotTestContext,
@@ -426,7 +436,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "running",
         dateCreated: new Date("2024-01-01T12:00:00Z"),
       });
-      await createExperimentSnapshotModel({ data: manual });
+      await createExperimentSnapshotModel({
+        data: manual,
+        context: snapshotTestContext,
+      });
 
       // Scheduled refresh that actually worked — should win (newer + success)
       const scheduled = snapshotFactory.build({
@@ -437,7 +450,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "success",
         dateCreated: new Date("2024-01-01T12:05:00Z"),
       });
-      await createExperimentSnapshotModel({ data: scheduled });
+      await createExperimentSnapshotModel({
+        data: scheduled,
+        context: snapshotTestContext,
+      });
 
       const result = await getLatestSnapshot({
         context: snapshotTestContext,
@@ -461,7 +477,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "error",
         dateCreated: new Date("2024-01-01T12:05:00Z"),
       });
-      await createExperimentSnapshotModel({ data: manualError });
+      await createExperimentSnapshotModel({
+        data: manualError,
+        context: snapshotTestContext,
+      });
 
       const result = await getLatestSnapshot({
         context: snapshotTestContext,
@@ -487,7 +506,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "error",
         dateCreated: new Date("2024-01-01T12:05:00Z"),
       });
-      await createExperimentSnapshotModel({ data: scheduled });
+      await createExperimentSnapshotModel({
+        data: scheduled,
+        context: snapshotTestContext,
+      });
 
       const result = await getLatestSnapshot({
         context: snapshotTestContext,
@@ -511,7 +533,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "error",
         dateCreated: new Date("2024-01-01T12:05:00Z"),
       });
-      await createExperimentSnapshotModel({ data: scheduledError });
+      await createExperimentSnapshotModel({
+        data: scheduledError,
+        context: snapshotTestContext,
+      });
 
       const scheduledSuccess = snapshotFactory.build({
         experiment,
@@ -521,7 +546,10 @@ describe("ExperimentSnapshotModel", () => {
         status: "success",
         dateCreated: new Date("2024-01-01T12:00:00Z"),
       });
-      await createExperimentSnapshotModel({ data: scheduledSuccess });
+      await createExperimentSnapshotModel({
+        data: scheduledSuccess,
+        context: snapshotTestContext,
+      });
 
       const result = await getLatestSnapshot({
         context: snapshotTestContext,
@@ -536,7 +564,7 @@ describe("ExperimentSnapshotModel", () => {
   });
 
   describe("updateSnapshot", () => {
-    it("passes populated chunked results to post-success side effects", async () => {
+    it("passes populated chunked analyses to post-success side effects", async () => {
       const context = getSnapshotUpdateContext();
       const experimentId = "exp_chunked_results";
       const experiment = {
@@ -551,9 +579,9 @@ describe("ExperimentSnapshotModel", () => {
       );
       (notifyExperimentChange as jest.Mock).mockResolvedValue([]);
       (updateExperimentTimeSeries as jest.Mock).mockResolvedValue(undefined);
-      const populateChunkedResultsSpy = jest.spyOn(
-        context.models.experimentSnapshotResultChunks,
-        "populateChunkedResults",
+      const populateChunkedAnalysesSpy = jest.spyOn(
+        context.models.experimentSnapshotAnalysisChunks,
+        "populateChunkedAnalyses",
       );
 
       const snapshot = snapshotFactory.build({
@@ -572,7 +600,7 @@ describe("ExperimentSnapshotModel", () => {
           { id: "1", weight: 0.5 },
         ],
       };
-      await createExperimentSnapshotModel({ data: snapshot });
+      await createExperimentSnapshotModel({ data: snapshot, context });
 
       const analysis: ExperimentSnapshotAnalysis = {
         dateCreated: new Date("2025-01-01T00:00:00Z"),
@@ -630,12 +658,12 @@ describe("ExperimentSnapshotModel", () => {
       const passedSnapshot = (updateExperimentAnalysisSummary as jest.Mock).mock
         .calls[0][0].experimentSnapshot as ExperimentSnapshotInterface;
 
-      expect(passedSnapshot.hasChunkedResults).toBe(true);
+      expect(passedSnapshot.hasChunkedAnalyses).toBe(true);
       expect(passedSnapshot.analyses[0].results[0].variations).toHaveLength(2);
       expect(
         passedSnapshot.analyses[0].results[0].variations[1].metrics.met_1.value,
       ).toBe(15);
-      expect(populateChunkedResultsSpy).not.toHaveBeenCalled();
+      expect(populateChunkedAnalysesSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -658,7 +686,7 @@ describe("ExperimentSnapshotModel", () => {
         value: 20,
       });
 
-      await createExperimentSnapshotModel({ data: snapshot });
+      await createExperimentSnapshotModel({ data: snapshot, context });
       await updateSnapshot({
         context,
         id: snapshot.id,
@@ -669,7 +697,7 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       const initialChunks =
-        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
       const updatedRelativeAnalysis = makeAnalysis({
@@ -692,7 +720,7 @@ describe("ExperimentSnapshotModel", () => {
       ).toBe(20);
 
       const chunks =
-        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
       expect(chunks).toHaveLength(1);
@@ -714,7 +742,7 @@ describe("ExperimentSnapshotModel", () => {
         value: 10,
       });
 
-      await createExperimentSnapshotModel({ data: snapshot });
+      await createExperimentSnapshotModel({ data: snapshot, context });
       await updateSnapshot({
         context,
         id: snapshot.id,
@@ -725,7 +753,7 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       const initialChunks =
-        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
 
@@ -737,7 +765,7 @@ describe("ExperimentSnapshotModel", () => {
 
       const result = await findSnapshotById(context, snapshot.id);
       const chunks =
-        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
 
@@ -747,7 +775,7 @@ describe("ExperimentSnapshotModel", () => {
       expect(result?.analyses[1].results).toEqual([]);
     });
 
-    it("clears old chunked results when an existing analysis is reset to running", async () => {
+    it("clears old chunked analyses when an existing analysis is reset to running", async () => {
       const context = getSnapshotUpdateContext();
       const snapshot = makeSnapshotWithMetric("snp_clear_existing_analysis");
       const relativeSettings = makeAnalysisSettings({
@@ -765,7 +793,7 @@ describe("ExperimentSnapshotModel", () => {
         value: 20,
       });
 
-      await createExperimentSnapshotModel({ data: snapshot });
+      await createExperimentSnapshotModel({ data: snapshot, context });
       await updateSnapshot({
         context,
         id: snapshot.id,
@@ -776,7 +804,7 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       const initialChunks =
-        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
 
@@ -794,7 +822,7 @@ describe("ExperimentSnapshotModel", () => {
       ).toBe(20);
 
       const chunks =
-        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
       expect(chunks).toHaveLength(1);
@@ -811,7 +839,7 @@ describe("ExperimentSnapshotModel", () => {
         value: 10,
       });
 
-      await createExperimentSnapshotModel({ data: snapshot });
+      await createExperimentSnapshotModel({ data: snapshot, context });
       await updateSnapshot({
         context,
         id: snapshot.id,
@@ -822,7 +850,7 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       const initialChunks =
-        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
       expect(initialChunks).toHaveLength(1);
@@ -838,7 +866,7 @@ describe("ExperimentSnapshotModel", () => {
       expect(result?.analyses[0].results).toEqual([]);
 
       const chunks =
-        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
       expect(chunks).toHaveLength(0);

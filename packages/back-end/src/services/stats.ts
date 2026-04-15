@@ -584,9 +584,9 @@ function parseStatsEngineResult({
 }
 
 export async function writeSnapshotAnalyses(
+  context: Context,
   results: MultipleExperimentMetricAnalysis[],
   paramsMap: Map<string, ExperimentAnalysisParamsContextData>,
-  context: Context,
 ) {
   const promises: (() => Promise<void>)[] = [];
   results.map((result) => {

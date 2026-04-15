@@ -28,7 +28,7 @@ export type AnalysisMetaEntry = {
 
 export interface EncodeResult {
   metricChunks: Map<string, MetricChunkData>;
-  analysisMeta: AnalysisMetaEntry[];
+  chunkedAnalysesMeta: AnalysisMetaEntry[];
 }
 
 // -- Encode --
@@ -42,8 +42,8 @@ export function encodeSnapshotResults(
   analyses: ExperimentSnapshotAnalysis[],
   metricOrdering: string[],
 ): EncodeResult {
-  // Extract analysisMeta (shared across all metrics)
-  const analysisMeta: AnalysisMetaEntry[] = analyses.map((analysis) => ({
+  // Extract chunkedAnalysesMeta (shared across all metrics)
+  const chunkedAnalysesMeta: AnalysisMetaEntry[] = analyses.map((analysis) => ({
     dimensions: analysis.results.map((dim) => ({
       name: dim.name,
       srm: dim.srm,
@@ -117,7 +117,7 @@ export function encodeSnapshotResults(
     }
   }
 
-  return { metricChunks, analysisMeta };
+  return { metricChunks, chunkedAnalysesMeta };
 }
 
 // -- Decode --
@@ -139,13 +139,13 @@ interface MetricChunkInput {
  * Decode per-metric columnar chunks back into ExperimentSnapshotAnalysis[].
  *
  * @param chunks - Per-metric chunk documents
- * @param analysisMeta - Shared dimension/variation metadata (from snapshot doc)
+ * @param chunkedAnalysesMeta - Shared dimension/variation metadata (from snapshot doc)
  * @param analysisMetadata - Per-analysis settings/status (from snapshot doc)
  * @param filterMetricIds - Optional set of metric IDs to include
  */
 export function decodeSnapshotResults(
   chunks: MetricChunkInput[],
-  analysisMeta: AnalysisMetaEntry[],
+  chunkedAnalysesMeta: AnalysisMetaEntry[],
   analysisMetadata: AnalysisMetadata[],
   filterMetricIds?: Set<string>,
 ): ExperimentSnapshotAnalysis[] {
@@ -160,9 +160,9 @@ export function decodeSnapshotResults(
   };
   const analysisMap = new Map<number, Map<string, DimData>>();
 
-  // Initialize structure from analysisMeta
-  for (let ai = 0; ai < analysisMeta.length; ai++) {
-    const meta = analysisMeta[ai];
+  // Initialize structure from chunkedAnalysesMeta
+  for (let ai = 0; ai < chunkedAnalysesMeta.length; ai++) {
+    const meta = chunkedAnalysesMeta[ai];
     if (!meta) continue;
     const dims = new Map<string, DimData>();
     for (const dim of meta.dimensions) {
@@ -208,7 +208,7 @@ export function decodeSnapshotResults(
         }
       }
 
-      // Ensure structure exists (in case analysisMeta is incomplete)
+      // Ensure structure exists (in case chunkedAnalysesMeta is incomplete)
       if (!analysisMap.has(ai)) analysisMap.set(ai, new Map());
       const dims = analysisMap.get(ai)!;
       if (!dims.has(dimName))
@@ -281,17 +281,17 @@ export function buildMetricOrdering(
 }
 
 /**
- * Helper to extract analysisMeta and analysisMetadata from a snapshot,
- * used by populateChunkedResults in the chunk model.
+ * Helper to extract chunkedAnalysesMeta and analysisMetadata from a snapshot,
+ * used by populateChunkedAnalyses in the chunk model.
  */
-export function getAnalysisMetaFromSnapshot(
+export function getChunkedAnalysesMetaFromSnapshot(
   snapshot: ExperimentSnapshotInterface,
 ): {
-  analysisMeta: AnalysisMetaEntry[];
+  chunkedAnalysesMeta: AnalysisMetaEntry[];
   analysisMetadata: AnalysisMetadata[];
 } {
   return {
-    analysisMeta: snapshot.analysisMeta ?? [],
+    chunkedAnalysesMeta: snapshot.chunkedAnalysesMeta ?? [],
     analysisMetadata: snapshot.analyses.map((a) => ({
       settings: a.settings,
       dateCreated: a.dateCreated,

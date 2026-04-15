@@ -282,10 +282,10 @@ export const computeExperimentChanges = async ({
   }
 
   const lastSnapshot = await getLatestSnapshot({
+    context,
     experiment: experiment.id,
     phase: experiment.phases.length - 1,
     beforeSnapshot: currentSnapshot,
-    context,
   });
   const lastAnalysis = lastSnapshot
     ? getSnapshotAnalysis(lastSnapshot)

@@ -66,6 +66,8 @@ export interface SnapshotVariation {
 }
 
 export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
+  hasChunkedResults?: boolean;
+  analysisMeta?: AnalysisMetaEntry[];
   activationMetric?: string;
   statsEngine?: StatsEngine;
   hasRawQueries?: boolean;
@@ -233,8 +235,8 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
-  hasChunkedResults?: boolean;
-  analysisMeta?: AnalysisMetaEntry[];
+  hasChunkedAnalyses?: boolean;
+  chunkedAnalysesMeta?: AnalysisMetaEntry[];
   banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;

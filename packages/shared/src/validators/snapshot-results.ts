@@ -1,27 +1,28 @@
 import { z } from "zod";
 
-type ExperimentSnapshotResultColumnLengthMismatch = {
+type ExperimentSnapshotAnalysisChunkColumnLengthMismatch = {
   column: string;
   actualLength: number;
   expectedLength: number;
 };
 
-type ExperimentSnapshotResultNumRowsMismatch = {
+type ExperimentSnapshotAnalysisChunkNumRowsMismatch = {
   actualLength: number;
   expectedLength: number;
 };
 
-function getExperimentSnapshotResultLengthMismatches({
+function getExperimentSnapshotAnalysisChunkLengthMismatches({
   data,
   numRows,
 }: {
   data: Record<string, unknown[]>;
   numRows: number;
 }): {
-  columnMismatches: ExperimentSnapshotResultColumnLengthMismatch[];
-  numRowsMismatch?: ExperimentSnapshotResultNumRowsMismatch;
+  columnMismatches: ExperimentSnapshotAnalysisChunkColumnLengthMismatch[];
+  numRowsMismatch?: ExperimentSnapshotAnalysisChunkNumRowsMismatch;
 } {
-  const columnMismatches: ExperimentSnapshotResultColumnLengthMismatch[] = [];
+  const columnMismatches: ExperimentSnapshotAnalysisChunkColumnLengthMismatch[] =
+    [];
   const expectedLength = Object.values(data)[0]?.length ?? 0;
 
   for (const [column, values] of Object.entries(data)) {
@@ -46,7 +47,7 @@ function getExperimentSnapshotResultLengthMismatches({
   };
 }
 
-export function validateExperimentSnapshotResultChunkColumnLengths({
+export function validateExperimentSnapshotAnalysisChunkColumnLengths({
   data,
   numRows,
 }: {
@@ -54,7 +55,7 @@ export function validateExperimentSnapshotResultChunkColumnLengths({
   numRows: number;
 }) {
   const { columnMismatches, numRowsMismatch } =
-    getExperimentSnapshotResultLengthMismatches({
+    getExperimentSnapshotAnalysisChunkLengthMismatches({
       data,
       numRows,
     });
@@ -71,12 +72,12 @@ export function validateExperimentSnapshotResultChunkColumnLengths({
   }
 
   throw new Error(
-    "Snapshot result chunk columns must have the same length and match numRows: " +
+    "Snapshot analysis chunk columns must have the same length and match numRows: " +
       messages.join("; "),
   );
 }
 
-export const experimentSnapshotResultChunkValidator = z
+export const experimentSnapshotAnalysisChunkValidator = z
   .object({
     organization: z.string(),
     dateCreated: z.date(),
@@ -91,7 +92,7 @@ export const experimentSnapshotResultChunkValidator = z
   .strict()
   .superRefine((chunk, ctx) => {
     const { columnMismatches, numRowsMismatch } =
-      getExperimentSnapshotResultLengthMismatches(chunk);
+      getExperimentSnapshotAnalysisChunkLengthMismatches(chunk);
 
     for (const mismatch of columnMismatches) {
       ctx.addIssue({
@@ -110,6 +111,6 @@ export const experimentSnapshotResultChunkValidator = z
     }
   });
 
-export type ExperimentSnapshotResultChunkInterface = z.infer<
-  typeof experimentSnapshotResultChunkValidator
+export type ExperimentSnapshotAnalysisChunkInterface = z.infer<
+  typeof experimentSnapshotAnalysisChunkValidator
 >;

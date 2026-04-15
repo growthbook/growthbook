@@ -8,12 +8,12 @@ import {
   encodeSnapshotResults,
   decodeSnapshotResults,
   buildMetricOrdering,
-  getAnalysisMetaFromSnapshot,
+  getChunkedAnalysesMetaFromSnapshot,
   AnalysisMetaEntry,
 } from "../src/snapshot-results";
 import {
-  experimentSnapshotResultChunkValidator,
-  validateExperimentSnapshotResultChunkColumnLengths,
+  experimentSnapshotAnalysisChunkValidator,
+  validateExperimentSnapshotAnalysisChunkColumnLengths,
 } from "../src/validators/snapshot-results";
 
 function makeMetric(overrides: Partial<SnapshotMetric> = {}): SnapshotMetric {
@@ -57,7 +57,10 @@ function decodeHelper(
   analyses: ExperimentSnapshotAnalysis[],
   filterMetricIds?: Set<string>,
 ) {
-  const { metricChunks, analysisMeta } = encodeSnapshotResults(analyses, []);
+  const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotResults(
+    analyses,
+    [],
+  );
   const chunks = Array.from(metricChunks.entries()).map(
     ([metricId, chunk]) => ({ metricId, ...chunk }),
   );
@@ -69,18 +72,18 @@ function decodeHelper(
   }));
   return decodeSnapshotResults(
     chunks,
-    analysisMeta,
+    chunkedAnalysesMeta,
     analysisMetadata,
     filterMetricIds,
   );
 }
 
-function makeExperimentSnapshotResultChunk(data: Record<string, unknown[]>) {
+function makeExperimentSnapshotAnalysisChunk(data: Record<string, unknown[]>) {
   return {
     organization: "org_1",
     dateCreated: new Date("2025-01-01"),
     dateUpdated: new Date("2025-01-01"),
-    id: "snpres_1",
+    id: "snpana_1",
     snapshotId: "snp_1",
     experimentId: "exp_1",
     metricId: "met_1",
@@ -89,10 +92,10 @@ function makeExperimentSnapshotResultChunk(data: Record<string, unknown[]>) {
   };
 }
 
-describe("experimentSnapshotResultChunkValidator", () => {
+describe("experimentSnapshotAnalysisChunkValidator", () => {
   it("accepts column data when all arrays match numRows", () => {
-    const result = experimentSnapshotResultChunkValidator.safeParse(
-      makeExperimentSnapshotResultChunk({
+    const result = experimentSnapshotAnalysisChunkValidator.safeParse(
+      makeExperimentSnapshotAnalysisChunk({
         a: [0, 0],
         d: ["All", "All"],
         v: [0, 1],
@@ -104,8 +107,8 @@ describe("experimentSnapshotResultChunkValidator", () => {
   });
 
   it("rejects column data when any array length differs from the other columns", () => {
-    const result = experimentSnapshotResultChunkValidator.safeParse(
-      makeExperimentSnapshotResultChunk({
+    const result = experimentSnapshotAnalysisChunkValidator.safeParse(
+      makeExperimentSnapshotAnalysisChunk({
         a: [0, 0],
         d: ["All"],
         v: [0, 1],
@@ -131,8 +134,8 @@ describe("experimentSnapshotResultChunkValidator", () => {
   });
 
   it("rejects column data when numRows does not match the common array length", () => {
-    const result = experimentSnapshotResultChunkValidator.safeParse({
-      ...makeExperimentSnapshotResultChunk({
+    const result = experimentSnapshotAnalysisChunkValidator.safeParse({
+      ...makeExperimentSnapshotAnalysisChunk({
         a: [0, 0],
         d: ["All", "All"],
         v: [0, 1],
@@ -155,7 +158,7 @@ describe("experimentSnapshotResultChunkValidator", () => {
 
   it("throws from the model-layer helper when column lengths are invalid", () => {
     expect(() =>
-      validateExperimentSnapshotResultChunkColumnLengths({
+      validateExperimentSnapshotAnalysisChunkColumnLengths({
         numRows: 2,
         data: {
           a: [0, 0],
@@ -164,7 +167,7 @@ describe("experimentSnapshotResultChunkValidator", () => {
         },
       }),
     ).toThrow(
-      "Snapshot result chunk columns must have the same length and match numRows",
+      "Snapshot analysis chunk columns must have the same length and match numRows",
     );
   });
 });
@@ -245,7 +248,7 @@ describe("encodeSnapshotResults", () => {
     expect(metricChunks.get("met_a")!.data.m).toBeUndefined();
   });
 
-  it("extracts analysisMeta correctly", () => {
+  it("extracts chunkedAnalysesMeta correctly", () => {
     const analyses = [
       makeAnalysis([
         {
@@ -267,16 +270,16 @@ describe("encodeSnapshotResults", () => {
       ]),
     ];
 
-    const { analysisMeta } = encodeSnapshotResults(analyses, ["met_1"]);
+    const { chunkedAnalysesMeta } = encodeSnapshotResults(analyses, ["met_1"]);
 
-    expect(analysisMeta).toHaveLength(1);
-    expect(analysisMeta[0].dimensions).toHaveLength(2);
-    expect(analysisMeta[0].dimensions[0]).toEqual({
+    expect(chunkedAnalysesMeta).toHaveLength(1);
+    expect(chunkedAnalysesMeta[0].dimensions).toHaveLength(2);
+    expect(chunkedAnalysesMeta[0].dimensions[0]).toEqual({
       name: "All",
       srm: 0.5,
       variationUsers: [500, 600],
     });
-    expect(analysisMeta[0].dimensions[1]).toEqual({
+    expect(chunkedAnalysesMeta[0].dimensions[1]).toEqual({
       name: "country:US",
       srm: 0.48,
       variationUsers: [200, 300],
@@ -285,10 +288,13 @@ describe("encodeSnapshotResults", () => {
 
   it("handles empty results", () => {
     const analyses = [makeAnalysis([])];
-    const { metricChunks, analysisMeta } = encodeSnapshotResults(analyses, []);
+    const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotResults(
+      analyses,
+      [],
+    );
     expect(metricChunks.size).toBe(0);
-    expect(analysisMeta).toHaveLength(1);
-    expect(analysisMeta[0].dimensions).toHaveLength(0);
+    expect(chunkedAnalysesMeta).toHaveLength(1);
+    expect(chunkedAnalysesMeta[0].dimensions).toHaveLength(0);
   });
 });
 
@@ -553,7 +559,7 @@ describe("decodeSnapshotResults", () => {
         status: "success" as const,
       },
     ];
-    const analysisMeta: AnalysisMetaEntry[] = [
+    const chunkedAnalysesMeta: AnalysisMetaEntry[] = [
       {
         dimensions: [
           {
@@ -593,7 +599,7 @@ describe("decodeSnapshotResults", () => {
           },
         },
       ],
-      analysisMeta,
+      chunkedAnalysesMeta,
       analysisMetadata,
     );
 
@@ -656,9 +662,13 @@ describe("decodeSnapshotResults", () => {
         error: "Something went wrong",
       },
     ];
-    const analysisMeta: AnalysisMetaEntry[] = [{ dimensions: [] }];
+    const chunkedAnalysesMeta: AnalysisMetaEntry[] = [{ dimensions: [] }];
 
-    const decoded = decodeSnapshotResults([], analysisMeta, analysisMetadata);
+    const decoded = decodeSnapshotResults(
+      [],
+      chunkedAnalysesMeta,
+      analysisMetadata,
+    );
     expect(decoded[0].status).toBe("error");
     expect(decoded[0].error).toBe("Something went wrong");
   });
@@ -888,9 +898,9 @@ describe("decodeSnapshotResults", () => {
       queries: [],
       unknownVariations: [],
       multipleExposures: 0,
-      // Analyses stored with results for getAnalysisMetaFromSnapshot
+      // Analyses stored with results for getChunkedAnalysesMetaFromSnapshot
       analyses,
-      hasChunkedResults: true,
+      hasChunkedAnalyses: true,
     } satisfies ExperimentSnapshotInterface;
 
     // 2. Encode: what createFromAnalyses does
@@ -899,22 +909,22 @@ describe("decodeSnapshotResults", () => {
       snapshot.settings.secondaryMetrics,
       snapshot.settings.guardrailMetrics,
     );
-    const { metricChunks, analysisMeta } = encodeSnapshotResults(
+    const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotResults(
       analyses,
       metricOrdering,
     );
 
     // 3. Simulate the snapshot as stored in DB (analyses have empty results,
-    //    analysisMeta is saved alongside)
+    //    chunkedAnalysesMeta is saved alongside)
     const storedSnapshot: ExperimentSnapshotInterface = {
       ...snapshot,
       analyses: analyses.map((a) => ({ ...a, results: [] })),
-      analysisMeta,
+      chunkedAnalysesMeta,
     };
 
-    // 4. Decode: what populateChunkedResults does via getAnalysisMetaFromSnapshot
-    const { analysisMeta: decodeMeta, analysisMetadata } =
-      getAnalysisMetaFromSnapshot(storedSnapshot);
+    // 4. Decode: what populateChunkedAnalyses does via getChunkedAnalysesMetaFromSnapshot
+    const { chunkedAnalysesMeta: decodeMeta, analysisMetadata } =
+      getChunkedAnalysesMetaFromSnapshot(storedSnapshot);
     const chunks = Array.from(metricChunks.entries()).map(
       ([metricId, chunk]) => ({ metricId, ...chunk }),
     );
