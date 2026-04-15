@@ -6,6 +6,9 @@ properties:
   description:
     description: Project description.
     type: string
+  publicId:
+    description: URL-safe slug (lowercase letters, numbers, dashes).
+    type: string
   settings:
     description: Project settings.
     type: object

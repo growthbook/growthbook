@@ -1,4 +1,14 @@
 {
+  "packages/back-end/src/routers/revision/revision.controller.ts": {
+    "prettier/prettier": {
+      "count": 6
+    }
+  },
+  "packages/back-end/src/routers/saved-group/saved-group.controller.ts": {
+    "prettier/prettier": {
+      "count": 2
+    }
+  },
   "packages/back-end/src/scripts/generate-openapi.mjs": {
     "prettier/prettier": {
       "count": 1
@@ -209,11 +219,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/ProjectTagBar.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ResultsTab.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -289,11 +294,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ConditionInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -324,11 +324,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeaturesHeader.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/ForceSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -349,22 +344,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/PrerequisiteInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/Rule.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -385,11 +370,6 @@
     }
   },
   "packages/front-end/components/Features/SafeRolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SavedGroupTargetingField.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -437,6 +417,9 @@
   "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {
     "no-restricted-imports": {
       "count": 2
+    },
+    "prettier/prettier": {
+      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/MetricsSettings.tsx": {
@@ -589,11 +572,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/MetricDrilldown/MetricDrilldownOwnerTags.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -629,8 +607,8 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Report/ReportMetaInfo.tsx": {
-    "no-restricted-imports": {
+  "packages/front-end/components/SavedGroups/CompareSavedGroupRevisionsModal.tsx": {
+    "prettier/prettier": {
       "count": 1
     }
   },
@@ -641,6 +619,14 @@
   },
   "packages/front-end/components/SavedGroups/IdLists.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/SavedGroups/SavedGroupArchiveModal.tsx": {
+    "import/order": {
+      "count": 1
+    },
+    "prettier/prettier": {
       "count": 1
     }
   },
@@ -859,8 +845,23 @@
       "count": 1
     }
   },
+  "packages/front-end/enterprise/components/ProductAnalytics/Explorer.tsx": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
+  "packages/front-end/enterprise/components/ProductAnalytics/util.ts": {
+    "import/no-unresolved": {
+      "count": 1
+    }
+  },
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/hooks/useSavedGroupRevision.ts": {
+    "prettier/prettier": {
       "count": 1
     }
   },
@@ -914,6 +915,11 @@
       "count": 2
     }
   },
+  "packages/front-end/pages/saved-groups/[sgid].tsx": {
+    "prettier/prettier": {
+      "count": 9
+    }
+  },
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -925,11 +931,6 @@
     }
   },
   "packages/front-end/pages/settings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/tags.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -950,6 +951,11 @@
     }
   },
   "packages/sdk-react/rollup.config.mjs": {
+    "prettier/prettier": {
+      "count": 2
+    }
+  },
+  "packages/shared/src/revisions/helpers.ts": {
     "prettier/prettier": {
       "count": 2
     }

@@ -21,6 +21,7 @@ type Props = {
   description?: string;
   skipMargin?: boolean;
   variant?: "badge" | "dot";
+  maxWidth?: number;
 } & MarginProps;
 
 export default function Tag({
@@ -29,11 +30,13 @@ export default function Tag({
   description,
   skipMargin,
   variant = "badge",
+  maxWidth = 200,
 }: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
+  const desc = description ?? fullTag?.description ?? "";
 
-  const displayTitle = description ?? fullTag?.description ?? "";
+  const displayTitle = tag + (desc ? `\n\n${desc}` : "");
 
   const tagColor = color ?? fullTag?.color ?? "blue";
 
@@ -45,6 +48,7 @@ export default function Tag({
         title={displayTitle}
         mr={skipMargin ? undefined : "2"}
         mb={skipMargin ? undefined : "1"}
+        style={{ maxWidth, overflow: "hidden" }}
       >
         <div
           style={{
@@ -52,20 +56,33 @@ export default function Tag({
             height: 10,
             borderRadius: 10,
             background: `var(--${tagColor}-10)`,
+            flexShrink: 0,
           }}
-        ></div>
-        <div>{tag}</div>
+        />
+        <div
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+          }}
+        >
+          {tag}
+        </div>
       </Flex>
     );
   }
+
   return (
     <Badge
       title={displayTitle}
-      label={tag}
       color={tagColor as RadixColor}
       variant="soft"
+      className="text-ellipsis d-inline-block"
+      style={{ maxWidth }}
       mr={skipMargin ? undefined : "2"}
       mb={skipMargin ? undefined : "1"}
+      label={tag}
     />
   );
 }

@@ -75,18 +75,21 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       changes.defaultValue = revision.defaultValue;
     }
 
+    // Always write all envs into changes.rules so createRevision doesn't
+    // fall back to [] for any env absent from a sparse map.
+    changes.rules = {};
     const changedEnvs: string[] = [];
     environmentIds.forEach((env) => {
-      if (
-        revision.rules[env] &&
-        !isEqual(
-          revision.rules[env],
-          feature.environmentSettings?.[env]?.rules || [],
-        )
-      ) {
+      const currentRules = feature.environmentSettings?.[env]?.rules || [];
+      // If the target revision has rules for this env, restore them;
+      // otherwise preserve current state (env didn't exist at revision time).
+      const targetRules =
+        revision.rules && env in revision.rules
+          ? revision.rules[env]
+          : currentRules;
+      changes.rules![env] = targetRules;
+      if (!isEqual(targetRules, currentRules)) {
         changedEnvs.push(env);
-        changes.rules = changes.rules || {};
-        changes.rules[env] = revision.rules[env];
       }
 
       if (
@@ -162,10 +165,14 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       if (hasMetaChange) changes.metadata = metadataChanges;
     }
 
-    const apiBypassesReviews =
-      !!req.context.org.settings?.restApiBypassesReviews;
+    // Callers bypass the review gate via either the org-level
+    // restApiBypassesReviews setting or a role/token that grants the
+    // bypassApprovalChecks permission on this feature's project.
+    const canBypass =
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
 
-    if (!apiBypassesReviews) {
+    if (!canBypass) {
       const liveRevision = await getRevision({
         context,
         organization: feature.organization,
@@ -187,7 +194,8 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       if (reviewRequired) {
         throw new PermissionError(
           "This revert requires approval before changes can be published. " +
-            "Enable 'REST API always bypasses approval requirements' in organization settings.",
+            "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+            "or use a role/token that grants bypassApprovalChecks on this project.",
         );
       }
     }
@@ -200,7 +208,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         org: req.organization,
         changes,
         comment: comment ?? `Reverted to revision #${version}`,
-        canBypassApprovalChecks: apiBypassesReviews,
+        canBypassApprovalChecks: canBypass,
       });
 
     await req.audit({

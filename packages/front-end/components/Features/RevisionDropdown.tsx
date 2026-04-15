@@ -14,7 +14,9 @@ import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import EventUser from "@/components/Avatar/EventUser";
-import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+import RevisionStatusBadge, {
+  isRampGenerated,
+} from "@/components/Features/RevisionStatusBadge";
 
 export interface Props {
   feature: FeatureInterface;
@@ -75,7 +77,11 @@ function RevisionRow({
             )
           : (r.createdBy || revDate) && (
               <Text size="small" color="text-low" whiteSpace="nowrap">
-                {r.createdBy && <EventUser user={r.createdBy} display="name" />}
+                {r.createdBy?.type === "system" ? (
+                  <em>generated</em>
+                ) : r.createdBy ? (
+                  <EventUser user={r.createdBy} display="name" />
+                ) : null}
                 {r.createdBy && revDate && <> &middot; </>}
                 {revDate && dateNoYear(revDate)}
               </Text>
@@ -124,6 +130,10 @@ export default function RevisionDropdown({
     `revisionDropdown__showDiscarded__${feature.id}`,
     false,
   );
+  const [showGenerated, setShowGenerated] = useLocalStorage(
+    `revisionDropdown__showGenerated__${feature.id}`,
+    false,
+  );
 
   const [showArchived, setShowArchived] = useLocalStorage(
     `revisionDropdown__showArchived__${feature.id}`,
@@ -137,14 +147,38 @@ export default function RevisionDropdown({
     (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
 
   let displayList = publishedOnly
-    ? withoutLive.filter((r) => r.status === "published")
+    ? withoutLive
+        .filter((r) => r.status === "published")
+        .filter(
+          (r) => showGenerated || !isRampGenerated(r) || r.version === version,
+        )
     : draftsOnly
-      ? withoutLive.filter(activeDrafts)
-      : showDiscarded
-        ? allSorted
-        : allSorted.filter(
-            (r) => r.status !== "discarded" || r.version === version,
-          );
+      ? withoutLive
+          .filter(activeDrafts)
+          .filter(
+            (r) =>
+              showGenerated ||
+              !isRampGenerated(r) ||
+              r.version === version ||
+              r.version === liveVersion,
+          )
+      : allSorted.filter((r) => {
+          if (
+            r.status === "discarded" &&
+            !showDiscarded &&
+            r.version !== version &&
+            r.version !== liveVersion
+          )
+            return false;
+          if (
+            isRampGenerated(r) &&
+            !showGenerated &&
+            r.version !== version &&
+            r.version !== liveVersion
+          )
+            return false;
+          return true;
+        });
 
   // Filter out archived revisions if toggle is off
   if (showArchivedToggle && !showArchived) {
@@ -157,10 +191,9 @@ export default function RevisionDropdown({
     draftsOnly || publishedOnly
       ? -1
       : displayList.findIndex((r) => r.version === version);
-  const baseWindow =
-    draftsOnly || publishedOnly
-      ? displayList.length
-      : Math.max(initialPageSize, selectedIndex >= 0 ? selectedIndex + 1 : 0);
+  const baseWindow = draftsOnly
+    ? displayList.length
+    : Math.max(initialPageSize, selectedIndex >= 0 ? selectedIndex + 1 : 0);
   const windowSize = baseWindow + extraShown;
   const shown = displayList.slice(0, windowSize);
   const remaining = displayList.length - windowSize;
@@ -193,12 +226,13 @@ export default function RevisionDropdown({
   const discardedCount = allSorted.filter(
     (r) => r.status === "discarded",
   ).length;
+  const generatedCount = allSorted.filter(isRampGenerated).length;
 
   const archivedCount = showArchivedToggle
     ? allSorted.filter((r) => r.archived).length
     : 0;
 
-  const triggerWidth = context === "header" ? 250 : "100%";
+  const triggerWidth = context === "header" ? 280 : "100%";
 
   const trigger = (
     <Flex
@@ -254,6 +288,20 @@ export default function RevisionDropdown({
       menuWidth="full"
       menuPlacement={menuPlacement}
     >
+      {generatedCount > 0 && (
+        <RadixDropdownMenu.Label>
+          <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
+            <Text size="small" color="text-low">
+              Show ramp-generated ({generatedCount})
+            </Text>
+            <Switch
+              size="1"
+              value={showGenerated}
+              onChange={setShowGenerated}
+            />
+          </Flex>
+        </RadixDropdownMenu.Label>
+      )}
       {!draftsOnly && !publishedOnly && discardedCount > 0 && (
         <RadixDropdownMenu.Label>
           <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>

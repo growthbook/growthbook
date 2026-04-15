@@ -15,12 +15,15 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
+  validateVariationIds,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getUserByEmail } from "back-end/src/models/UserModel";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { validateVariationIds } from "back-end/src/controllers/experiments";
-import { validateCustomFields } from "./validations";
+import {
+  assertExperimentPayloadCommercialFeatures,
+  validateCustomFields,
+} from "./validations";
 
 const TEMPLATE_FIELDS_TO_OMIT = [
   "id",
@@ -107,7 +110,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       };
     }
 
-    if (!payload.assignmentQueryId) {
+    if (payload.assignmentQueryId === undefined) {
       throw new Error(
         "assignmentQueryId is required unless provided by the template",
       );
@@ -121,6 +124,13 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     if (!req.context.permissions.canCreateExperiment(payload)) {
       req.context.permissions.throwPermissionError();
     }
+
+    assertExperimentPayloadCommercialFeatures(req.context, {
+      postStratificationEnabled: payload.postStratificationEnabled,
+      decisionFrameworkSettings: payload.decisionFrameworkSettings,
+      metricOverrides: payload.metricOverrides,
+      defaultDashboardId: payload.defaultDashboardId,
+    });
 
     const datasource = payload.datasourceId
       ? await getDataSourceById(req.context, payload.datasourceId)
@@ -160,18 +170,17 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       payload.project,
     );
 
-    const ownerId = await (async () => {
-      if (!ownerEmail) return req.context.userId;
-      const user = await getUserByEmail(ownerEmail);
-      // check if the user is a member of the organization
-      const isMember = req.organization.members.some(
-        (member) => member.id === user?.id,
+    if (payload.defaultDashboardId) {
+      const dashboard = await req.context.models.dashboards.getById(
+        payload.defaultDashboardId,
       );
-      if (!isMember || !user) {
-        throw new Error(`Unable to find user: ${ownerEmail}.`);
+      if (!dashboard) {
+        throw new Error(`Invalid dashboard: ${payload.defaultDashboardId}`);
       }
-      return user.id;
-    })();
+    }
+    const ownerId =
+      (await resolveOwnerToUserId(ownerEmail, req.context, { strict: true })) ??
+      req.context.userId;
 
     // Validate that specified metrics exist and belong to the organization
     const metricGroups = await req.context.models.metricGroups.getAll();

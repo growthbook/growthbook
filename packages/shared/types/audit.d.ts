@@ -17,6 +17,9 @@ export interface AuditUserLoggedIn {
 
 export interface AuditUserApiKey {
   apiKey: string;
+  id?: string;
+  name?: string;
+  email?: string;
 }
 
 export interface AuditUserSystem {

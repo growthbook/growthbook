@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ownerField, ownerInputField } from "./owner-field";
 
 export const savedGroupTypeValidator = z.enum(["condition", "list"]);
 
@@ -7,7 +8,7 @@ export const savedGroupValidator = z
     id: z.string(),
     organization: z.string(),
     groupName: z.string(),
-    owner: z.string(),
+    owner: ownerField,
     type: savedGroupTypeValidator,
     condition: z.string().optional(),
     attributeKey: z.string().optional(),
@@ -23,7 +24,7 @@ export const savedGroupValidator = z
 
 export const postSavedGroupBodyValidator = z.object({
   groupName: z.string(),
-  owner: z.string(),
+  owner: ownerInputField,
   type: savedGroupTypeValidator,
   condition: z.string().optional(),
   attributeKey: z.string().optional(),
@@ -34,7 +35,7 @@ export const postSavedGroupBodyValidator = z.object({
 
 export const putSavedGroupBodyValidator = z.object({
   groupName: z.string().optional(),
-  owner: z.string().optional(),
+  owner: ownerInputField.optional(),
   values: z.string().array().optional(),
   condition: z.string().optional(),
   description: z.string().optional(),

@@ -2,7 +2,7 @@ import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
-import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import {
@@ -29,7 +29,6 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -61,8 +60,6 @@ export default function FeaturesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
-  const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
-    useState<FeatureMetaInfo | null>(null);
 
   const { project, projects } = useDefinitions();
   const environments = useEnvironments();
@@ -343,11 +340,6 @@ export default function FeaturesPage() {
                           staleHook.invalidate([feature.id]);
                           await staleHook.fetchSome([feature.id]);
                         }}
-                        onDisable={
-                          permissionsUtil.canViewFeatureModal(feature.project)
-                            ? () => setFeatureToToggleStaleDetection(feature)
-                            : undefined
-                        }
                       />
                     </td>
                     <td>
@@ -477,19 +469,7 @@ export default function FeaturesPage() {
           featureToDuplicate={featureToDuplicate || undefined}
         />
       )}
-      {featureToToggleStaleDetection && (
-        <StaleDetectionModal
-          close={() => setFeatureToToggleStaleDetection(null)}
-          feature={featureToToggleStaleDetection}
-          mutate={async () => mutate()}
-          setVersion={() => undefined}
-          onEnable={async () => {
-            const id = featureToToggleStaleDetection.id;
-            staleHook.invalidate([id]);
-            await staleHook.fetchSome([id]);
-          }}
-        />
-      )}
+
       <div className="row my-3">
         <div className="col">
           <h1>Features</h1>

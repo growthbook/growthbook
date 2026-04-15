@@ -9,6 +9,7 @@ import { TemplateVariables } from "shared/types/sql";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { SQL_ROW_LIMIT } from "shared/sql";
+import { parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -515,7 +516,10 @@ export default function EditSqlModal({
                   <PanelResizeHandle />
                   <Panel minSize={20}>
                     <DisplayTestQueryResults
-                      duration={parseInt(testQueryResults.duration || "0")}
+                      duration={parseIntWithDefault(
+                        testQueryResults.duration,
+                        0,
+                      )}
                       results={testQueryResults.results || []}
                       sql={testQueryResults.sql || ""}
                       error={testQueryResults.error || ""}

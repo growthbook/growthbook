@@ -85,8 +85,12 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       };
     }
 
-    const apiBypassesReviews =
-      !!req.context.org.settings?.restApiBypassesReviews;
+    // Callers bypass the review gate via either the org-level
+    // restApiBypassesReviews setting or a role/token that grants the
+    // bypassApprovalChecks permission on this feature's project.
+    const canBypass =
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
     // Build a minimal fake revision to check whether these toggle changes need review
     const liveRevision = await getRevision({
       context: req.context,
@@ -111,7 +115,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         req.context.hasPremiumFeature("require-approvals"),
     });
 
-    if (reviewRequired && !apiBypassesReviews) {
+    if (reviewRequired && !canBypass) {
       const affectedEnvs = getDraftAffectedEnvironments(
         fakeRevision,
         liveRevision,
@@ -121,7 +125,8 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
       throw new PermissionError(
         `This feature requires a review before publishing changes to: ${envList}. ` +
-          "Enable 'REST API always bypasses approval requirements' in organization settings.",
+          "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+          "or use a role/token that grants bypassApprovalChecks on this project.",
       );
     }
 

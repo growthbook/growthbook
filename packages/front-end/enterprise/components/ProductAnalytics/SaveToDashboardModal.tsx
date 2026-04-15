@@ -11,6 +11,10 @@ import {
   DashboardUpdateSchedule,
   getBlockData,
 } from "shared/enterprise";
+import {
+  ExplorationConfig,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -24,7 +28,6 @@ import { useDashboards } from "@/hooks/useDashboards";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
   defaultUpdateSchedules,
   defaultFormInit,
@@ -47,12 +50,17 @@ function datasetTypeToBlockType(
 
 interface Props {
   close: () => void;
+  config: ExplorationConfig;
+  exploration: ProductAnalyticsExploration | null;
 }
 
-export default function SaveToDashboardModal({ close }: Props) {
+export default function SaveToDashboardModal({
+  close,
+  config,
+  exploration,
+}: Props) {
   const router = useRouter();
   const { dashboards, dashboardsMap, mutateDashboards } = useDashboards(false);
-  const { draftExploreState, exploration } = useExplorerContext();
   const { projects, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
   const { apiCall } = useAuth();
@@ -93,13 +101,13 @@ export default function SaveToDashboardModal({ close }: Props) {
   }));
 
   const handleSubmit = async () => {
-    const blockType = datasetTypeToBlockType(draftExploreState.dataset.type);
+    const blockType = datasetTypeToBlockType(config.dataset.type);
     const newBlock = {
       type: blockType,
       title: form.watch("chartTitle"),
       description: "",
       explorerAnalysisId: exploration?.id ?? "",
-      config: draftExploreState,
+      config,
     };
 
     let dashboardId: string;
@@ -191,7 +199,6 @@ export default function SaveToDashboardModal({ close }: Props) {
                 label: "New dashboard",
                 value: "new",
                 disabled:
-                  // If the user can't create a general dashboard for the current project, or globally, don't show enable the button
                   !permissionsUtil.canCreateGeneralDashboards({
                     projects: [project],
                   }) ||

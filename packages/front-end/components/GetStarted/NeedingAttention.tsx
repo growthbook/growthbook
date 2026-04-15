@@ -34,7 +34,7 @@ import {
   ExperimentDot,
   ExperimentStatusDetailsWithDot,
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import LinkButton from "@/ui/LinkButton";
 import styles from "./NeedingAttention.module.scss";
 
@@ -354,15 +354,6 @@ const NeedingAttention = (): React.ReactElement | null => {
       </Container>
     ) : null;
   };
-  const getAvatarAndName = (name: string) => {
-    if (!name) return null;
-    return (
-      <Flex align="center" gap="2">
-        <UserAvatar name={name} size="sm" variant="soft" />
-        <span className="text-truncate">{name}</span>
-      </Flex>
-    );
-  };
   const displayExperimentsRequiringAttention = () => {
     const ITEMS_PER_PAGE = 5;
     const startIndex = (experimentsPage - 1) * ITEMS_PER_PAGE;
@@ -420,7 +411,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                     {getProjectById(item?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.ownerName)}
+                    <Owner ownerId={item.owner} />
                   </td>
                   <td className="text-truncate">
                     <ExperimentStatusDetailsWithDot
@@ -549,7 +540,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                     {getProjectById(item.featureMeta?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.ownerNameDisplay)}
+                    <Owner ownerId={item.owner} />
                   </td>
                   <td className="text-truncate">{renderStatusCopy(item)}</td>
                 </tr>
