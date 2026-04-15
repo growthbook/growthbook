@@ -40,16 +40,16 @@ overrides:
 
 patchedDependencies:
   '@ephys/zod-to-ts@2.3.2':
-    hash: 9a20bc019cac7fdedd7e3e3dc15d91158a5f0dc676edef9ecd8ee4823fce522a
+    hash: gmqhichmhm246swj7562vworwm
     path: patches/@ephys__zod-to-ts@2.3.2.patch
   '@types/presto-client@1.0.2':
-    hash: 20780fa0030ee3a8a3f0b1333ae07e63c6fc7e12fc1986b7c9fefefe0a9b42ef
+    hash: bv7qcx3y4ykvpvp7odxdubazpe
     path: patches/@types__presto-client@1.0.2.patch
   agenda@5.0.0:
-    hash: 043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8
+    hash: 22tgtweyd5fuhnx2hdyly6czu4
     path: patches/agenda@5.0.0.patch
   presto-client@1.1.0:
-    hash: 9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb
+    hash: mbeixnouradmtp2ryk6uz642k4
     path: patches/presto-client@1.1.0.patch
 
 importers:
@@ -234,6 +234,12 @@ importers:
       '@sentry/node':
         specifier: ^10.44.0
         version: 10.44.0
+      '@stdlib/math-base-special-gammaln':
+        specifier: ^0.2.2
+        version: 0.2.2
+      '@stdlib/math-base-special-xlogy':
+        specifier: ^0.3.2
+        version: 0.3.2
       '@stdlib/random':
         specifier: ^0.1.1
         version: 0.1.1
@@ -245,10 +251,10 @@ importers:
         version: 4.1.0
       '@types/presto-client':
         specifier: ^1.0.2
-        version: 1.0.2(patch_hash=20780fa0030ee3a8a3f0b1333ae07e63c6fc7e12fc1986b7c9fefefe0a9b42ef)
+        version: 1.0.2(patch_hash=bv7qcx3y4ykvpvp7odxdubazpe)
       agenda:
         specifier: ^5.0.0
-        version: 5.0.0(patch_hash=043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8)
+        version: 5.0.0(patch_hash=22tgtweyd5fuhnx2hdyly6czu4)
       ai:
         specifier: ^6.0.6
         version: 6.0.6(zod@4.1.12)
@@ -398,7 +404,7 @@ importers:
         version: 10.5.0
       presto-client:
         specifier: ^1.1.0
-        version: 1.1.0(patch_hash=9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb)
+        version: 1.1.0(patch_hash=mbeixnouradmtp2ryk6uz642k4)
       proxy-agent:
         specifier: ^6.5.0
         version: 6.5.0
@@ -438,6 +444,34 @@ importers:
       zod:
         specifier: ^4.1.12
         version: 4.1.12
+    optionalDependencies:
+      '@apidevtools/swagger-parser':
+        specifier: ^10.1.0
+        version: 10.1.0
+      concurrently:
+        specifier: ^7.4.0
+        version: 7.4.0
+      json-schema-to-zod:
+        specifier: ^2.6.1
+        version: 2.6.1
+      nodemon:
+        specifier: ^2.0.20
+        version: 2.0.20
+      objects-to-csv:
+        specifier: ^1.3.6
+        version: 1.3.6
+      openapi-typescript:
+        specifier: ^6.1.1
+        version: 6.1.1
+      pino-pretty:
+        specifier: ^13.0.0
+        version: 13.0.0
+      swagger-cli:
+        specifier: ^4.0.4
+        version: 4.0.4
+      ts-node:
+        specifier: ^10.9.1
+        version: 10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)
     devDependencies:
       '@slack/types':
         specifier: ^1.7.0
@@ -583,34 +617,6 @@ importers:
       typescript:
         specifier: 5.7.3
         version: 5.7.3
-    optionalDependencies:
-      '@apidevtools/swagger-parser':
-        specifier: ^10.1.0
-        version: 10.1.0
-      concurrently:
-        specifier: ^7.4.0
-        version: 7.4.0
-      json-schema-to-zod:
-        specifier: ^2.6.1
-        version: 2.6.1
-      nodemon:
-        specifier: ^2.0.20
-        version: 2.0.20
-      objects-to-csv:
-        specifier: ^1.3.6
-        version: 1.3.6
-      openapi-typescript:
-        specifier: ^6.1.1
-        version: 6.1.1
-      pino-pretty:
-        specifier: ^13.0.0
-        version: 13.0.0
-      swagger-cli:
-        specifier: ^4.0.4
-        version: 4.0.4
-      ts-node:
-        specifier: ^10.9.1
-        version: 10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)
 
   packages/front-end:
     dependencies:
@@ -902,6 +908,10 @@ importers:
       zod:
         specifier: ^4.1.12
         version: 4.1.12
+    optionalDependencies:
+      '@babel/core':
+        specifier: ^7.26.10
+        version: 7.28.5
     devDependencies:
       '@swc/cli':
         specifier: ^0.1.57
@@ -984,10 +994,6 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@22.8.6)(jsdom@16.7.0)(sass@1.94.2)(tsx@4.21.0)
-    optionalDependencies:
-      '@babel/core':
-        specifier: ^7.26.10
-        version: 7.28.5
 
   packages/sdk-js:
     dependencies:
@@ -1209,7 +1215,7 @@ importers:
     devDependencies:
       '@ephys/zod-to-ts':
         specifier: ^2.3.2
-        version: 2.3.2(patch_hash=9a20bc019cac7fdedd7e3e3dc15d91158a5f0dc676edef9ecd8ee4823fce522a)(babel-plugin-macros@3.1.0)(typescript@5.7.3)(zod@4.1.12)
+        version: 2.3.2(patch_hash=gmqhichmhm246swj7562vworwm)(babel-plugin-macros@3.1.0)(typescript@5.7.3)(zod@4.1.12)
       '@swc-node/register':
         specifier: ^1.9.0
         version: 1.9.0(@swc/core@1.3.4)(typescript@5.7.3)
@@ -3336,105 +3342,89 @@ packages:
     resolution: {integrity: sha512-excjX8DfsIcJ10x1Kzr4RcWe1edC9PquDRRPx3YVCvQv+U5p7Yin2s32ftzikXojb1PIFc/9Mt28/y+iRklkrw==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-arm@1.2.4':
     resolution: {integrity: sha512-bFI7xcKFELdiNCVov8e44Ia4u2byA+l3XtsAj+Q8tfCwO6BQ8iDojYdvoPMqsKDkuoOo+X6HZA0s0q11ANMQ8A==}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-ppc64@1.2.4':
     resolution: {integrity: sha512-FMuvGijLDYG6lW+b/UvyilUWu5Ayu+3r2d1S8notiGCIyYU/76eig1UfMmkZ7vwgOrzKzlQbFSuQfgm7GYUPpA==}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-riscv64@1.2.4':
     resolution: {integrity: sha512-oVDbcR4zUC0ce82teubSm+x6ETixtKZBh/qbREIOcI3cULzDyb18Sr/Wcyx7NRQeQzOiHTNbZFF1UwPS2scyGA==}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-s390x@1.2.4':
     resolution: {integrity: sha512-qmp9VrzgPgMoGZyPvrQHqk02uyjA0/QrTO26Tqk6l4ZV0MPWIW6LTkqOIov+J1yEu7MbFQaDpwdwJKhbJvuRxQ==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linux-x64@1.2.4':
     resolution: {integrity: sha512-tJxiiLsmHc9Ax1bz3oaOYBURTXGIRDODBqhveVHonrHJ9/+k89qbLl0bcJns+e4t4rvaNBxaEZsFtSfAdquPrw==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-libvips-linuxmusl-arm64@1.2.4':
     resolution: {integrity: sha512-FVQHuwx1IIuNow9QAbYUzJ+En8KcVm9Lk5+uGUQJHaZmMECZmOlix9HnH7n1TRkXMS0pGxIJokIVB9SuqZGGXw==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-libvips-linuxmusl-x64@1.2.4':
     resolution: {integrity: sha512-+LpyBk7L44ZIXwz/VYfglaX/okxezESc6UxDSoyo2Ks6Jxc4Y7sGjpgU9s4PMgqgjj1gZCylTieNamqA1MF7Dg==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-linux-arm64@0.34.5':
     resolution: {integrity: sha512-bKQzaJRY/bkPOXyKx5EVup7qkaojECG6NLYswgktOZjaXecSAeCWiZwwiFf3/Y+O1HrauiE3FVsGxFg8c24rZg==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-arm@0.34.5':
     resolution: {integrity: sha512-9dLqsvwtg1uuXBGZKsxem9595+ujv0sJ6Vi8wcTANSFpwV/GONat5eCkzQo/1O6zRIkh0m/8+5BjrRr7jDUSZw==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-ppc64@0.34.5':
     resolution: {integrity: sha512-7zznwNaqW6YtsfrGGDA6BRkISKAAE1Jo0QdpNYXNMHu2+0dTrPflTLNkpc8l7MUP5M16ZJcUvysVWWrMefZquA==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-riscv64@0.34.5':
     resolution: {integrity: sha512-51gJuLPTKa7piYPaVs8GmByo7/U7/7TZOq+cnXJIHZKavIRHAP77e3N2HEl3dgiqdD/w0yUfiJnII77PuDDFdw==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-s390x@0.34.5':
     resolution: {integrity: sha512-nQtCk0PdKfho3eC5MrbQoigJ2gd1CgddUMkabUj+rBevs8tZ2cULOx46E7oyX+04WGfABgIwmMC0VqieTiR4jg==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linux-x64@0.34.5':
     resolution: {integrity: sha512-MEzd8HPKxVxVenwAa+JRPwEC7QFjoPWuS5NZnBt6B3pu7EG2Ge0id1oLHZpPJdn3OQK+BQDiw9zStiHBTJQQQQ==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@img/sharp-linuxmusl-arm64@0.34.5':
     resolution: {integrity: sha512-fprJR6GtRsMt6Kyfq44IsChVZeGN97gTD331weR1ex1c1rypDEABN6Tm2xa1wE6lYb5DdEnk03NZPqA7Id21yg==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-linuxmusl-x64@0.34.5':
     resolution: {integrity: sha512-Jg8wNT1MUzIvhBFxViqrEhWDGzqymo3sV7z7ZsaWbZNDLXRJZoRGrjulp60YYtV4wfY8VIKcWidjojlLcWrd8Q==}
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@img/sharp-wasm32@0.34.5':
     resolution: {integrity: sha512-OdWTEiVkY2PHwqkbBI8frFxQQFekHaSSkUIJkwzclWZe64O1X4UlUjqqqLaPbUpMOQk6FBu/HtlGXNblIs0huw==}
@@ -3614,28 +3604,24 @@ packages:
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@next/swc-linux-arm64-musl@16.1.7':
     resolution: {integrity: sha512-uufcze7LYv0FQg9GnNeZ3/whYfo+1Q3HnQpm16o6Uyi0OVzLlk2ZWoY7j07KADZFY8qwDbsmFnMQP3p3+Ftprw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@next/swc-linux-x64-gnu@16.1.7':
     resolution: {integrity: sha512-KWVf2gxYvHtvuT+c4MBOGxuse5TD7DsMFYSxVxRBnOzok/xryNeQSjXgxSv9QpIVlaGzEn/pIuI6Koosx8CGWA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@next/swc-linux-x64-musl@16.1.7':
     resolution: {integrity: sha512-HguhaGwsGr1YAGs68uRKc4aGWxLET+NevJskOcCAwXbwj0fYX0RgZW2gsOCzr9S11CSQPIkxmoSbuVaBp4Z3dA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@next/swc-win32-arm64-msvc@16.1.7':
     resolution: {integrity: sha512-S0n3KrDJokKTeFyM/vGGGR8+pCmXYrjNTk2ZozOL1C/JFdfUIL9O1ATaJOl5r2POe56iRChbsszrjMAdWSv7kQ==}
@@ -4497,42 +4483,36 @@ packages:
     engines: {node: '>= 10.0.0'}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-arm-musl@2.5.1':
     resolution: {integrity: sha512-6E+m/Mm1t1yhB8X412stiKFG3XykmgdIOqhjWj+VL8oHkKABfu/gjFj8DvLrYVHSBNC+/u5PeNrujiSQ1zwd1Q==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-linux-arm64-glibc@2.5.1':
     resolution: {integrity: sha512-LrGp+f02yU3BN9A+DGuY3v3bmnFUggAITBGriZHUREfNEzZh/GO06FF5u2kx8x+GBEUYfyTGamol4j3m9ANe8w==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-arm64-musl@2.5.1':
     resolution: {integrity: sha512-cFOjABi92pMYRXS7AcQv9/M1YuKRw8SZniCDw0ssQb/noPkRzA+HBDkwmyOJYp5wXcsTrhxO0zq1U11cK9jsFg==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-linux-x64-glibc@2.5.1':
     resolution: {integrity: sha512-GcESn8NZySmfwlTsIur+49yDqSny2IhPeZfXunQi48DMugKeZ7uy1FX83pO0X22sHntJ4Ub+9k34XQCX+oHt2A==}
     engines: {node: '>= 10.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-x64-musl@2.5.1':
     resolution: {integrity: sha512-n0E2EQbatQ3bXhcH2D1XIAANAcTZkQICBPVaxMeaCVBtOpBZpWJuf7LwyWPSBDITb7In8mqQgJ7gH8CILCURXg==}
     engines: {node: '>= 10.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-win32-arm64@2.5.1':
     resolution: {integrity: sha512-RFzklRvmc3PkjKjry3hLF9wD7ppR4AKcWNzH7kXR7GUe0Igb3Nz8fyPwtZCSquGrhU5HhUNDr/mKBqj7tqA2Vw==}
@@ -5304,79 +5284,66 @@ packages:
     resolution: {integrity: sha512-t4ONHboXi/3E0rT6OZl1pKbl2Vgxf9vJfWgmUoCEVQVxhW6Cw/c8I6hbbu7DAvgp82RKiH7TpLwxnJeKv2pbsw==}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-arm-musleabihf@4.59.0':
     resolution: {integrity: sha512-CikFT7aYPA2ufMD086cVORBYGHffBo4K8MQ4uPS/ZnY54GKj36i196u8U+aDVT2LX4eSMbyHtyOh7D7Zvk2VvA==}
     cpu: [arm]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-arm64-gnu@4.59.0':
     resolution: {integrity: sha512-jYgUGk5aLd1nUb1CtQ8E+t5JhLc9x5WdBKew9ZgAXg7DBk0ZHErLHdXM24rfX+bKrFe+Xp5YuJo54I5HFjGDAA==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-arm64-musl@4.59.0':
     resolution: {integrity: sha512-peZRVEdnFWZ5Bh2KeumKG9ty7aCXzzEsHShOZEFiCQlDEepP1dpUl/SrUNXNg13UmZl+gzVDPsiCwnV1uI0RUA==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-loong64-gnu@4.59.0':
     resolution: {integrity: sha512-gbUSW/97f7+r4gHy3Jlup8zDG190AuodsWnNiXErp9mT90iCy9NKKU0Xwx5k8VlRAIV2uU9CsMnEFg/xXaOfXg==}
     cpu: [loong64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-loong64-musl@4.59.0':
     resolution: {integrity: sha512-yTRONe79E+o0FWFijasoTjtzG9EBedFXJMl888NBEDCDV9I2wGbFFfJQQe63OijbFCUZqxpHz1GzpbtSFikJ4Q==}
     cpu: [loong64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-ppc64-gnu@4.59.0':
     resolution: {integrity: sha512-sw1o3tfyk12k3OEpRddF68a1unZ5VCN7zoTNtSn2KndUE+ea3m3ROOKRCZxEpmT9nsGnogpFP9x6mnLTCaoLkA==}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-ppc64-musl@4.59.0':
     resolution: {integrity: sha512-+2kLtQ4xT3AiIxkzFVFXfsmlZiG5FXYW7ZyIIvGA7Bdeuh9Z0aN4hVyXS/G1E9bTP/vqszNIN/pUKCk/BTHsKA==}
     cpu: [ppc64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-riscv64-gnu@4.59.0':
     resolution: {integrity: sha512-NDYMpsXYJJaj+I7UdwIuHHNxXZ/b/N2hR15NyH3m2qAtb/hHPA4g4SuuvrdxetTdndfj9b1WOmy73kcPRoERUg==}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-riscv64-musl@4.59.0':
     resolution: {integrity: sha512-nLckB8WOqHIf1bhymk+oHxvM9D3tyPndZH8i8+35p/1YiVoVswPid2yLzgX7ZJP0KQvnkhM4H6QZ5m0LzbyIAg==}
     cpu: [riscv64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-s390x-gnu@4.59.0':
     resolution: {integrity: sha512-oF87Ie3uAIvORFBpwnCvUzdeYUqi2wY6jRFWJAy1qus/udHFYIkplYRW+wo+GRUP4sKzYdmE1Y3+rY5Gc4ZO+w==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-gnu@4.59.0':
     resolution: {integrity: sha512-3AHmtQq/ppNuUspKAlvA8HtLybkDflkMuLK4DPo77DfthRb71V84/c4MlWJXixZz4uruIH4uaa07IqoAkG64fg==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-musl@4.59.0':
     resolution: {integrity: sha512-2UdiwS/9cTAx7qIUZB/fWtToJwvt0Vbo0zmnYt7ED35KPg13Q0ym1g442THLC7VyI6JfYTP4PiSOWyoMdV2/xg==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-openbsd-x64@4.59.0':
     resolution: {integrity: sha512-M3bLRAVk6GOwFlPTIxVBSYKUaqfLrn8l0psKinkCFxl4lQvOSz8ZrKDz2gxcBwHFpci0B6rttydI4IpS4IS/jQ==}
@@ -5940,8 +5907,193 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
+  '@stdlib/array-base-filled@0.2.3':
+    resolution: {integrity: sha512-+npZqPn297Gv+D6B/OUkDT/3JGFdrr31+d/SGTeCzm7JQ22tGCUDmixDXwqVp9fWwB+LbjrOWrXMKluUTLcNWg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/array-base-zeros@0.2.3':
+    resolution: {integrity: sha512-C+eo5MFy37TR7BJ5EDK/5O83/x1n4pozCRj3fcL3ZrURTwUHq0nwRCVCmym/DrmZuxb7MM4xHyYto/suoQOm3A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/array-float32@0.2.3':
+    resolution: {integrity: sha512-LxdKGrpsCehFDgU+nw7r3/NL+g8pe9zcDn/6fvNwiuy0AiunX/+c8lin9qUy/FEhrbU6aFXepFM2Ql/9YQD+TA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/array-float64@0.2.3':
+    resolution: {integrity: sha512-LtQOcxfE2zX5QnYfLNfptSV9q3JUGkOvGhvtO94iPXEvYTvJSEWLK7G97AJR9MK3rdL1+USjGQzUPiUd1/kAbw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/array-uint16@0.2.3':
+    resolution: {integrity: sha512-ceDGvNGOxR2kUO30USUWL8ezKw+R6wBwQNJmPOfT1HJRmCxio+eRMBygmxoRmWwoj2pj8IHC/GlC3N2kSNN0Iw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/array-uint32@0.2.3':
+    resolution: {integrity: sha512-zZGjkJjPsgp3WyKOCICOGaJ3OoVyzwgyZgyEHl3wlEqfPhUPpVJGLhy9mFx8WIoTGHsCWHs1COWZfh88bL/pSA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/array-uint8@0.2.3':
+    resolution: {integrity: sha512-+UVsdR94Qe1zXEbpE+rpXFxp/VB8+zGxH3d7RH2cUpy5eFeqcSQNvxaxfqZnbmqk2Gu5tJEv/ZBcTXkpeKH7HA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
   '@stdlib/array@0.1.1':
     resolution: {integrity: sha512-UVZu442EezB2f375tltVrNqawAQj4XocYWtRLYWLisoOdVhmxtnC5eWRifakO4s5Tz2D/Pcz2nN7rC11wUIICA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-float32array-support@0.2.3':
+    resolution: {integrity: sha512-nNRO8I4dp3CtxFXCD901IBmVc+/otaFMr/Mx1jN956nkaXaL3GZR6p12IGgN535Nj3QILoKPmOG7gOjts+uQOA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-float64array-support@0.2.3':
+    resolution: {integrity: sha512-BbHjShic68woFydK2s8ECn4uKM+Cr3lB6kBP+9wK7wkUGVzq4lo7n+Twt0cBbgwJOGLlQayJQOQAVVq/nu/wDg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-own-property@0.2.3':
+    resolution: {integrity: sha512-BnX1Lpvd9YaucQLokQrf7ppLwa3V+nTUQ9qoys5SloYhjwbYWtO61SJVT2JK+cfsCxUAx/HAh3dN1qTKxx1PIg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-symbol-support@0.2.3':
+    resolution: {integrity: sha512-yNsJnCb7HWye5xhZ/eRIpp28HwOVFF5gUCKeT1p4haoDJOn+3YEPYaXMn4mYK6kRN96tUhovlJQv9H/9jwnLpA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-to-primitive-symbol-support@0.1.1':
+    resolution: {integrity: sha512-nobeU8aB76XlDtKCC4DZWRdWSbPCoOGOOwEuVoyJ058gNacR4lRPoCA/7cxAVl3UqqLwhX3E1MSOMxNTnMyTGA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-tostringtag-support@0.2.3':
+    resolution: {integrity: sha512-9sULfRKYneF/Mq6F96xqeQrf0a9wdJc1lNZf2wfs1EtRwQHQfx5+QlYl7hp3gWI/iid5M4Npme86T0413eaBfA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-uint16array-support@0.2.3':
+    resolution: {integrity: sha512-7PjQTyXmpIczUz7Vx8c7BcdroJmMmQjyNQDF9a46Ya+nZxqH7g9jRsxmvzqVrSyXhkIyAbw1Ao2QyKocz+hZhg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-uint32array-support@0.2.3':
+    resolution: {integrity: sha512-xa/0yWs+fhp/yUZPD3/ZmQCXqv7haJGGJE75HBX9tw9CHgmqpgAihD4yGy982CtQaxEltH8icNOX8CQzZZS31w==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-has-uint8array-support@0.2.3':
+    resolution: {integrity: sha512-cgXcNtv5PS+LEV0tj8VOZ8WVjLJuvSzG0GolF+2M0u5le2hHk7BfKH9bqmrk0AzpipAEEdQgp4CGc/Mmji5s8g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-array@0.2.3':
+    resolution: {integrity: sha512-ayRsLGmssNO+8SR63tPP2+LZCxFVsSXtdN0ToSdm0kAOaGT4e0FoQus+AlFdhW5xWtvoxL8r5WKTVqJ514/rvQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-big-endian@0.2.3':
+    resolution: {integrity: sha512-+/X7ZcXFdboHIKDtxnx25fKmf9EhPRyp37qp9H9tUb0RnPT8SgmQKtYZxovp7EeBbESZOKSousg0jZKLbPqRAg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-boolean@0.2.3':
+    resolution: {integrity: sha512-36BETlRDrBeCOBLowW1/vqk9wD+OA3Wp9eQxFij/7icKiMDURH+Fiw2hfbhaZ3c3Y9uEN0rAdOT7AJlwWhXc7Q==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-buffer@0.2.3':
+    resolution: {integrity: sha512-ppnL0sC5XHSk221AYjT4zD33TDB/XuSkhbbbr5sviTH5+88KAqy7SjFlvcpqpvB2BvEVzqRE1fgVso8SjGQD+A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-float32array@0.2.3':
+    resolution: {integrity: sha512-fHPem8taZPd1YoYIB1lqju9HEPDUuY/UFKG0/PquCZtA/g32TEyMM7tb/GCcDQuxno9jnH4+6r7CTfHaa9758w==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-float64array@0.2.3':
+    resolution: {integrity: sha512-GEuYmjWDT2PY530fIO4qBDr4xO9vYWTjyszkyma0RWKzyGBdCV6GYdMj8qO+W7bOVsqeuoYNTCNebOYfpgZbSQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-function@0.2.3':
+    resolution: {integrity: sha512-6EdSkdJ1KtILdGb84MhherNtitGgzHH+u6rs1gGj+294wg/9IzLYaaHDktJVRN/viD3XLEQjPGzSTq5x5DzPbQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-little-endian@0.2.3':
+    resolution: {integrity: sha512-TvKdQhKwrWf0rik5iiurlI1hpJru+bbYGByoSJ6SScTvZIgf54MTYEsWgVyoNqMw8AQFxOyDbMRee+je65ZbMA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-number@0.2.3':
+    resolution: {integrity: sha512-6i2RoG5TYn7mfKnPmvAA1Gdhn3PxvQegb2bh2pi5k/+xXgEHoubpqBSVxZBTZ70GIkPwNFJQDRWqwOwHet6enQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-object-like@0.2.3':
+    resolution: {integrity: sha512-K6G58h5euEVSEZvFZSHADoYL7sixNTRy+ezHl/I3byJpC9PJdvTO0XWYD0CT0yVXIaqmCYU2NsPpgGdcPLELFg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-object@0.2.3':
+    resolution: {integrity: sha512-H9NaVGuPl4qA3J4gDAzy+sHCkTImVycoNd7izPF63JuAlEO6KTdpVK7stQBXgcWf1pyRHem7ZTJCzht2UMLzcA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-plain-object@0.2.3':
+    resolution: {integrity: sha512-MRdn9kuzC4Hf/2Z/911yZUso6s6f048Ck3dO1j9scHk9EKnU404XrC5NJHeZ9OaI/689Fs+JKDWyKyqyHYRV8A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-regexp@0.2.3':
+    resolution: {integrity: sha512-+QlQMHrmSmF++7gK0Jjgy7W5aa91gAfpFWPyY4gUwkrSc+mY+JPPYW4peAf+v6dXABOgfKH/JOaFPSv227SSTQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-string@0.2.3':
+    resolution: {integrity: sha512-KC2sHwnIo775uEPRG7miERHb3DMABf37jS6o2bmcMHyME+gl+HC/bnqgwYTfgOsM0YOvYMSgA1HJo6iPDXdFrw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-uint16array@0.2.3':
+    resolution: {integrity: sha512-gHnj9FpIpyiIgsDfA7exvfqqn91THgGJD6BAWqiBgQQccK++K5q3ARc31ysTBuIea1FqYfpy30vt2ZW46lIMcw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-uint32array@0.2.3':
+    resolution: {integrity: sha512-Jt9hp3iolCoQC6zC/yisTvxcuxhZ9jyiYwNzyEzgoY4GdV/WETuTpQKwTKbgQkJdUbcl/3VIQaVopEJSUaoV5w==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-is-uint8array@0.2.3':
+    resolution: {integrity: sha512-a+CzS7ffk2D8oFsswqGJk3L8zpqcnzuB5rwolilRVQtrWjQT/s2ydv5b1HbMB2rEcT6h64rYJDNAITeetGmzBA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-napi-equal-types@0.2.3':
+    resolution: {integrity: sha512-JfESREBknrUOorPQp6y0vQicG5oSrzopRs2/Uas4tXRWRWe8J+WI60W/HTNAbfow03a5k30M9b7Vg81N6zf2mw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-napi-is-type@0.2.3':
+    resolution: {integrity: sha512-EajA0tANjWepz0MVE0zZU45CXLA12/uuRpQ+680ZBfULsVc0plipSQfIMePBgHueJe9YMgyqm3r25RXzf98i7g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-napi-status-ok@0.2.3':
+    resolution: {integrity: sha512-rA+0Vo1ULn4uBHQ+FfagPAcikFT3W/t9I7HdP7SMjz71IZpkWyuxVFZi5MTv2+7hGMYA8be5FibLz20uzbZ9pA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/assert-tools-array-function@0.2.3':
+    resolution: {integrity: sha512-z2a2G6f9Exz/V0UfE00TLm1sp6W+pOdYltekRRgdEgFNPPP66WxaJfFLkXwqZv0X75U6TuQ0pp7tFq6Ac0lf5A==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -5960,6 +6112,11 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
+  '@stdlib/boolean-ctor@0.2.3':
+    resolution: {integrity: sha512-JmVu1SdJHYK5ubLl8nqi0gfYX5kAcSRRJYNQ7JuG8oU6WtkIMsC0ahQ8+3G673czRaQ7HGE+pL0IZiH/s8HSrQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
   '@stdlib/boolean@0.1.1':
     resolution: {integrity: sha512-Xmaz2oEnB2mFqC4VuPnVTHfSL7N5kKLZXJuEgeVHMCKSYYL6WD3C0NpDVAvHJ232LyZWGTCO10N4xeW/Gs8kbA==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
@@ -5975,13 +6132,213 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
+  '@stdlib/complex-float32-ctor@0.1.1':
+    resolution: {integrity: sha512-P5aJ7kJ3VkOCvtwIipYH2t/vENK8XnwQGDChQiZAgkJadrF2dKYOXa8t1vWEsy/AMVujAjamHlCXQffhafYm8A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/complex-float32-reim@0.1.4':
+    resolution: {integrity: sha512-PXnims1rRAVGARrpoeiwxkYcThjCoXv3iLhUhz8oyulcHteGkJuBAmhnrLANfkh2ro+bFlk6lC9znLt13SOM2g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/complex-float64-ctor@0.1.2':
+    resolution: {integrity: sha512-xCVE2Lv1/I7A/2mDloT3hDCpA9NP9XOqZKpyKhg3D/9D/vJnh1rnn9CK8+xzVfRborsyQbJF7OI+Ijc3szDI1A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/complex-float64-reim@0.1.4':
+    resolution: {integrity: sha512-5IxS+GqkVezTGh57Gp7pIyAHS+obDqUpq5y7KpAjrH0s6gp6oN/m+tmPh7K6Yz8yX+7FLVn5b9lZxY1otBBEJQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
   '@stdlib/complex@0.1.1':
     resolution: {integrity: sha512-w5dfqdGTddKNguY3CF95/aWx4qmDsGe33B0KG3DVCBeidGOZJHUD/h+2zumZ/Y/BAKPeUiv3ygix5AsMs8Q2zw==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
+  '@stdlib/constants-float16-eps@0.2.3':
+    resolution: {integrity: sha512-gdDE9eYNuJqIxmpWFfFsTx24uJv3BV/S+MKi3vj/TgWFeGMnsqHP+xIf46Hby2OwRbr6yYzsVwfJMAzF7ItCQQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float16-exponent-bias@0.3.1':
+    resolution: {integrity: sha512-fUqcun9eGniI8sqsZf06qa064cKcp6cARfX9dXuGnCQWSWEwn8Q/LKr8zEgUVEu6cJCVyCMHgm8VPpkTpnFPAQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float16-exponent-mask@0.1.1':
+    resolution: {integrity: sha512-5J38bgxW+UlF9AHG+C9Z7ilx25aPSOr3ECyK0LThG9H8Kw2zL+9cNbt72vRnVr0BSCv3NKvgxPza+B/bB7IJpg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float16-max@0.2.3':
+    resolution: {integrity: sha512-M1Hgv/fUdnuV6uw9yyXXOAf7Bzf7I/8naaYolXGX4h7B6XSuCT6Of/0BRxXlU9D+V6zPniGo2zdBaXUGfek28g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float16-num-significand-bits@0.0.2':
+    resolution: {integrity: sha512-qml2Wmm1/gHOGmEfrR1w5G2wYsBHKfCLBaJ8idZ4IMcBfmR8Ez4I9K3uQ3EZ6mW8QU2nUIgp0Fc99lnzLoH+7A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float16-sign-mask@0.1.1':
+    resolution: {integrity: sha512-LpLyCmkhzwotXb1mAAkAZ4sTk5lh5lW3Q1pOp6jtepEFT/marQsoeTe+0r0mIwSncGbym/eEB455qUZQsdiTBg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float16-significand-mask@0.1.1':
+    resolution: {integrity: sha512-+IA0fHkBV7X00ZTqAo0ZZSSuh9fjLGB8+4ot8iR0irC0YxPLkvyPzFHujnWFu8UD1Eu3SZcyaCY20CLcgsGr9Q==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float16-smallest-normal@0.2.3':
+    resolution: {integrity: sha512-u/EzlthAeRba4TePLQzTyivIAp4GB9jLdOwE9FdxSYmqUwAbEIODkd7vft1ArzuCILRHM4NNNESJeaLlv9Qd7w==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float32-abs-mask@0.2.3':
+    resolution: {integrity: sha512-owGGn8KvmHmne0u5ItTvOpHL6lUJP+tuUe2wzrKYiZuoUTg+7cOhNW4fPWCK8AFYxs11Ha3qPA7oAzjqlq+Log==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float32-eps@0.2.3':
+    resolution: {integrity: sha512-yJY7ipPOriceMh2zQvNVDYRrBJlQoBN+7cejox5DxTTn5zytyJn9sfdBQs2buGBqT7BiV+RJE7iE1vQdhuslcQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float32-exponent-bias@0.2.3':
+    resolution: {integrity: sha512-AdJFdh75o8cBwT/zjRebtZGGz0lYY2P/ITKrxHo4snqinm+DoMFRChkYM2s0QYn8ZgFBHQ1iEPB0cYzxTLk3tg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float32-exponent-mask@0.2.3':
+    resolution: {integrity: sha512-mkSAIakaixXJy45Ss8G7QbrS6eQemGjfIZhwmwlWDHxCJEVcfpuIijO/N0gtlF/MnGSOACwgn3Qkt1t3Eg30IQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float32-ninf@0.2.3':
+    resolution: {integrity: sha512-X0t2gw6UKfzDRRjYH8k8dqRv2C6iI2sn3UrunRIzCL4WYYR+QWn1UwjZWG4fviIE+QuEGTyoKKb4wG6gTiS8yw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float32-num-significand-bits@0.1.1':
+    resolution: {integrity: sha512-pb5IMIdVb22DP6yJc1PmsqTc3mmn02ze4P1oE5aZY/0v4bPUf9yegUmYIyCEWPfM1HX/xnW4GwXDZ3QptSgLqg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float32-pinf@0.2.3':
+    resolution: {integrity: sha512-ofzg0/NDAjALtXw0GPGzsfwpTEziENlSNln2PqoPphno6u7yfCD7BWblIinvDALFwbpsUVWuxAvarL8XnXl4mA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float32-sign-mask@0.2.3':
+    resolution: {integrity: sha512-CdGdK5nHesLEkS6TeQ/jdl3iThAZYrNCysRVshkpz15ORgvbFyHiXaYFIGkwt0a5RnA4i11e3nioHBNWxITGxQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float32-significand-mask@0.2.4':
+    resolution: {integrity: sha512-6oBi94bfEEqEPHyzgS3YNBK0fjCRsh/8A6xyaPuHBP+ltGmGfNsZmsZ5vQ+vChszKVyJG1/Bd/j4wif7GGJ/3A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-eps@0.2.3':
+    resolution: {integrity: sha512-TB4+YU9vc9RwMmSrCt9+UuFeXp+a29Q1KrzcBTcxU8uB/2totg6yYAFwhs8+48Vr5T/bQOsTQpuxXA5KEaThrg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-exponent-bias@0.2.3':
+    resolution: {integrity: sha512-GjhdDNlHP96WooqvgEvsCPcK64ZsfpU6DlAsjRMJAPuh/QJ+Ut4WC7vMxuLp/Qio/N3AEsRvCOWIqa5jTvEWUw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-high-word-abs-mask@0.2.3':
+    resolution: {integrity: sha512-AXa286EisR1y71U71M18QvzldmIWsh1TNimoBjrUdCQn5jELOJAQPriTKt0H8kngfOUYfy/+EJwCpuQEL/VWrg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-high-word-exponent-mask@0.2.3':
+    resolution: {integrity: sha512-/q5YMZwugOvQGCXp2kusJY04/KHDzAKMv/QEFBB98fDhN6Ux2VWbVyBESJzn55zVGQvb9XhULwkBy/KdB6YuqQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-high-word-sign-mask@0.2.1':
+    resolution: {integrity: sha512-Fep/Ccgvz5i9d5k96zJsDjgXGno8HJfmH7wihLmziFmA2z9t7NSacH4/BH4rPJ5yXFHLkacNLDxaF1gO1XpcLA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-high-word-significand-mask@0.2.3':
+    resolution: {integrity: sha512-SGQfHBnS71PFGQt7Tv6ptAHStJy0sTXmUEjOOXoJlnlClizsgdHXwkeho4xIvycxyNe7L4nT34cFPDMRFguT7w==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-max-base2-exponent-subnormal@0.2.1':
+    resolution: {integrity: sha512-D1wBNn54Hu2pK6P/yBz0FtPBI3/7HdgK8igYjWDKWUKzC92R/6PHZ9q5NzedcGxoBs8MUk1zNpP0tZyYj9Y4YQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-max-base2-exponent@0.2.3':
+    resolution: {integrity: sha512-DXOhw/QF63NCeB7o7zAgq2g6IeT7jGDT5kBoRP67qbOeHm+NpZdrFdHXo7acH+pwLJXf5iECnVdyQ/axDLQ5mQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-min-base2-exponent-subnormal@0.2.1':
+    resolution: {integrity: sha512-fTXfvctXWj/48gK+gbRBrHuEHEKY4QOJoXSGp414Sz6vUxHusHJJ686p8ze3XqM7CY6fmL09ZgdGz/uhJl/7lw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-ninf@0.2.3':
+    resolution: {integrity: sha512-1yBmgdNkvxWR0IfebDnhS4KOHPNgTpe3j6CCRt3qUW98l45tUkjuqyKKu8jNvjJCq+qKaNHNNk8xAl+/eDuABg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-pi@0.2.3':
+    resolution: {integrity: sha512-1s/4TBYzAj+tOgi2yRX6Iecos8SUn968Vymsl8U7+5pDpJzicfBpB9ZIbWNVMQVkBRWFnMx/T3BUzW1+g/dEsA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-pinf@0.2.3':
+    resolution: {integrity: sha512-8kRy0XOvW7QiJlxdy8MXx7rM3S4H/ZsUI+q9dNoarKVDBtWzkqnEG/u5QYouVjGHaSVL8C7b7qwL1FdpSD+24g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-float64-smallest-normal@0.2.3':
+    resolution: {integrity: sha512-z2IDWJD7s6QwrfzI5o4q3OnZ7mEzUIs1V1PdTuHDofyWkpFGEr7GgwGI/0cZbuhW3aY3xydvM3rZ5SxT+6KQoQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-uint16-max@0.2.3':
+    resolution: {integrity: sha512-QLqt85JMBnL8ozliswgAeR9oWrsmWeaeWjr10P0zbGV1dKhM2HoRK3VXjO4SCtNWUwiV4w8Wa5ylSYdJhORDjA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-uint32-max@0.2.3':
+    resolution: {integrity: sha512-NYQIGMA3Z8+1gp2qUfmr90whvZJLDq737ipNeujrFm98/RcbBlCRmXCLlj0WMwxniw2T35ysfclAcFSE7caUCA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/constants-uint8-max@0.2.3':
+    resolution: {integrity: sha512-B4VzHho0T43dJk3m1x9V3GZ1OOK9AKNojo3jOweixBLLlofaEIe0E9f4Gihc2ef7+M4azYptsJdPY1jPy7kK2g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
   '@stdlib/constants@0.1.1':
     resolution: {integrity: sha512-dx9LMY4avY/RNiDIyDu+qJt/KXG/XhQd5LXwv3g2NUFgvX2rND+6jQ6v0BaHKfn9/dLjulqKAgL/OEMhCElXSQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/error-tools-fmtprodmsg@0.2.3':
+    resolution: {integrity: sha512-mt4YRp52oCkNWhxkUIJkeGaFnSvZkyfl4rOJX8Drz99xFiIdanXcSacckhrXXu6NQvMDKidCGr6DvrhHHx15LQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/fs-exists@0.2.3':
+    resolution: {integrity: sha512-kfHok9sKxvCftgWriVtNjqezNZA72Q/rJh78lcrGCLPvSHGIAL460olzl7D1OgAgQvM3Cwdoupay0o3dBCCwVQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/fs-resolve-parent-path@0.2.3':
+    resolution: {integrity: sha512-bof7pQQewv8LLaSi2Ut77mkEv4v45Z/w/hYocG0UUzmXhu4lXIiCcXz9ZAMJC4tdN5hwBReJGfJ0mQryddhGGA==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -6000,8 +6357,158 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
+  '@stdlib/math-base-assert-is-finite@0.2.3':
+    resolution: {integrity: sha512-PqqxkiubjHe9jdIfAf/PTHZLbYIk1wcFwPGALM+PR3kjRngEkti7NbbkTQX3sByZCCfRwOf7VxLPWDlGo3EmLw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-assert-is-finitef@0.2.3':
+    resolution: {integrity: sha512-FiP4w+PjwD6zapXgrD0hLEtnUMi+uCcBQw+tU9cAGyB+7NrhnUoKSWgHsjtLGLMD08gWsFOIjZzZRavx4PocfA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-assert-is-infinite@0.2.3':
+    resolution: {integrity: sha512-tWQoN9z7j56DIop5cBnbdkP/o1MGQ0K8bX4v6Nxsgqngk7YBXYlxGRVw+46FVyxNButJY20VwxpMhrv4fQg35g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-assert-is-nan@0.2.3':
+    resolution: {integrity: sha512-mj1p+JUSfbsiBI3+hwRV7bS0qgI2nWdzrFtBJUSLk+17MJSdA4aboUsXM12wIV1kg5JNfEAn+5eh4NF/sMvaoQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-assert-is-nanf@0.2.3':
+    resolution: {integrity: sha512-sWMMFhTrkeYu/t5bv7KZ8Rm7H4pD+O1+wYYNu1CsJ4y1Q6HwSDeHBNIH7Z4zHOOSFiOidb04jnqMGSsL5UCFRg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-napi-binary@0.3.3':
+    resolution: {integrity: sha512-rLBojVTK0GRhy5v0MEKLmamggOrosEMaDcMS5ITuUe6Jgz4DM3lsiB/EHhd0TamPdqo+5HPjqSo10zpFVbLZbA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-napi-unary@0.2.7':
+    resolution: {integrity: sha512-eEu0nAq8WzCGe15ppGJWtLGhKOoG4OcMJQpsfbjwaa3sZ9h1sREmV1iiAFWyi/mHy8C0y6PiG2szx4D/F0ywmg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-abs@0.2.3':
+    resolution: {integrity: sha512-0n2Jb1NQv/siPL5EJFf6/cCuK63zqgqFjQwPujJI8B+dDizlHJKF4jR6yOtavrB5RvVf37/3Ibpdjf8UPf3uzA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-absf@0.2.3':
+    resolution: {integrity: sha512-lUEEnIo6jpR397bn4mphlihPBMncdgKYQQYZ8nwnL/wGNE9InwqLqrO6otM+CO2nkG/kOyt0dSAhSSffqBZU6g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-ceil@0.2.3':
+    resolution: {integrity: sha512-QJsGAxftN8RLjDkqKqyOcWh8tGFauyXMvqLxoq4C22tm+1ABJ+1rU5wEATOgvOHaDVc7HvHA7fakHTB0UsDUyw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-copysign@0.2.3':
+    resolution: {integrity: sha512-kOPVuWHQht53FcFXO4L1yqXSZy4emdI6qITJAWRENDuW9YZ6QRTONBqOaDC5uU/dRZg3LcMUpQ7iuqYqa/pbeQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-cos@0.2.1':
+    resolution: {integrity: sha512-Yre+ASwsv4pQJk5dqY6488ZfmYDA6vtUTdapAVjCx28NluSFhXw1+S8EmsqnzYnqp/4x7Y1H7V2UPZfw+AdnbQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-floor@0.2.4':
+    resolution: {integrity: sha512-YSDt9gHSp8SeVBVzHfpZZ1HFEQDPihHUF92zTDCRGKeKBC4BTFlw9Q4/fNWqS1mtuBGli1zgpRbiTv3atQ5EjQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-gammaln@0.2.2':
+    resolution: {integrity: sha512-opG6HUlspi/GLvQAr4pcwyAevm7BYuymlopgNZ1VulWUvksDpytalaX3zva0idlD2HvniKrDmzHngT1N9p0J1A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-kernel-cos@0.2.4':
+    resolution: {integrity: sha512-DFaoDJCFhPXiOuiGPSU1tmlUQ2UzRWMMB7lKKARjUoxbFpNLwB1TAqAnlx/rguQcCMf7uSZYALpTfxYlJHDPyg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-kernel-sin@0.2.4':
+    resolution: {integrity: sha512-mMXh47MXZd4gB45747Y+6Z5G4oQW0Uaqo5sx+HmJ7JPol/Sp3B6JSqahT+OtAf7oZVBAJ7qWmNlmib6IiueosQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-ldexp@0.2.5':
+    resolution: {integrity: sha512-ZbuCayeY8zsmptOxDsTnDmRGmEt10wjOXOdsKTCNGZwLP7h7e0ImTRbJ8wpKiLWv8JKef/xE+rp61wQrjZHS3A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-ln@0.2.5':
+    resolution: {integrity: sha512-ki+/tyoi767DsNyaw95O5NDMt1MbmRp5PI5ZfZo11AE6yUDKeS1H5cm3N3SE2GdwtuKyT3ZBc5/d8MtWzTPObA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-rempio2@0.2.1':
+    resolution: {integrity: sha512-ErV5EAe3SQCSijg4Pi4Z0sRPOGrODF3jkyCeiLM+iYj2TMOwDaOWQ0xCTME0p9G45TDrbZCLM5arxN83TfzgXQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-round@0.2.1':
+    resolution: {integrity: sha512-ibeKiN9z//6wS4H4uaa+vGnh/t1vJtZYXz+NqRVtwoP+nnE/mtL+fIrBlAnkIWVIH+smQPNNo8qsohjyGLBvUQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-sin@0.2.1':
+    resolution: {integrity: sha512-IQ6+bzfiZ6/VUn5DIe6iwCsYERE1pwtAOsAWkgNZ1Ih3FzXUxdEOyHtv1zraPrVUb8mR+V5q7OfAGy8TCTnkUg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-sinpi@0.2.1':
+    resolution: {integrity: sha512-Q3yCp1CoD7gemIILO28bU7iBn8OFiCgXm9vP/9q0tRBxmjtiUnjqbFd+3jRXdAmiCc/B/bPjwGBtVnCnrEMY9g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-trunc@0.2.3':
+    resolution: {integrity: sha512-ga3rqr82G7Q3eqpF/aFR4v2Bj3meKhbuWRiEWrJwWARTqQa0e8aWTI7p9qYeQ0mFsKVoXH21oESjAHuJ1WfsQg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/math-base-special-xlogy@0.3.2':
+    resolution: {integrity: sha512-5k900KvhsV2kZt+S1S89Hdzno4zv3CjHvmfNFqa43y024iKkDdz4o7wQIHC7AN3nIr6ollhYlpwQmxUh49vEiQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
   '@stdlib/math@0.1.1':
     resolution: {integrity: sha512-WW9hxKWU3kB/3sYP0Ds4hBwVtJH1LnpMWSsC0Am5rJAZ3c6a1VFifIXfg6nVZVeW3jPAjC/ngbeOzHkPmUff4g==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/napi-argv-double@0.2.2':
+    resolution: {integrity: sha512-QJrnt4CTS8x7WHny4s8eHvGT2u5x8BSH6RWVaPg6ZrnHwqz9Jz48JGTawFKLgcyvZyeE9kCwKDkPIN7MbXcHKQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/napi-argv-float@0.2.3':
+    resolution: {integrity: sha512-2hNFgenY7M5iVfIbRw+xccutxtKfk89VQb1RMGbSAOrRcR53J5OENAaddohrCp1zT1FKe14LCG/k+LlZR5jEdA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/napi-argv-int32@0.2.3':
+    resolution: {integrity: sha512-Set5AdSIUePU/Y0gT+WC4lerzahwaAQJd1USCgnKQD55xmDfXAPMyJliZnZPNUyjQ6SsWN6PaiOfJluq+oVcVQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/napi-argv@0.2.3':
+    resolution: {integrity: sha512-JQe8cqcCmxVhAMZ6z7Ysx0hmY8DtIGEXcM7Ymmjxl5VNaVXq/grw3HEQm5Fcb+TdqJIb7xEbsRHCiowRzvk0Pg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/napi-create-int32@0.0.3':
+    resolution: {integrity: sha512-tIT9BWA3jmOjzz4XTwVplkKETI3dyTK4BZoMtbQGnTxfsHz+pNdgepbp8hEx7wJADHKO2L8YTqddTHij4H3Ptw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/napi-export@0.3.1':
+    resolution: {integrity: sha512-JQaR2FYyIGprLgjg02JwgGGbjaYgRsWJpF72T748AiUQMd8SEN/mjUkqPq4zYLRjYATpKxnDUQNvP642z9JnIg==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -6020,8 +6527,93 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
+  '@stdlib/number-ctor@0.2.3':
+    resolution: {integrity: sha512-T4xeLGny/gBRe4ZJcS5ugluT8E7Y/LCEHycTQingYWqbBK+5XJED7zJrcawkneewXd7CgqypCtVuI0BOxBBzcQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float16-base-to-float32@0.1.2':
+    resolution: {integrity: sha512-OClMQYz6GJEiSxrzhNp2LK4K8j75Rq6HCk+ReRBNQjXYdvNfzzaYoqnv3ZSzrXdvqUoGz+19XaVTLLzkKT1GCg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float16-base-to-float64@0.1.2':
+    resolution: {integrity: sha512-1MNdMfThDFEIMeJHKmum343x9sbiRplRmsjEHojVGyMQNuxOamzbzw+Gw3xl04GrfOIUG673KZEljwUwDFgtUA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float16-ctor@0.1.2':
+    resolution: {integrity: sha512-bdBhgwgtRClxBU9Ef8puY/WQ+DMqUr0oXfkfCrYKUATmqVQghv3bDw/dMggz01AguJo2ZtdjGp3PjQwNZlmHcg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float32-base-exponent@0.2.4':
+    resolution: {integrity: sha512-JUuSZCPD6yWA2jJhtS5MIYSZGerJJCXfwStz0Mqsh76x166mSkiZ4dH3VpDz2OMrZk6rvt35UB2HhAZecTqFAw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float32-base-to-float16@0.1.1':
+    resolution: {integrity: sha512-phYWBtfheX0c/pXtbiK/xr6lVwU5HKYVNgmol8y0HE8NvwXG3oCXLySa2p0jr+Xi7G9xtMdXW4Eq0rShs4lTmQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float32-base-to-word@0.2.3':
+    resolution: {integrity: sha512-E42KOQ+jqVDElwvFtrDMEkXYl03btIPan3g/YAScCibfmYDkYRDT9iuaydyYS/O3+m/MPM1Jhn+U/B8+f+C1HQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float64-base-exponent@0.2.3':
+    resolution: {integrity: sha512-KRicBsOMrVCIB2veebT+mPpTrxyXCP6eknJTs8A59E/ATU2/gKYbMKzkdEX/FzxSBcdw5thvuuqmmwJKGZYSkA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float64-base-from-words@0.2.3':
+    resolution: {integrity: sha512-7v0bOW1AjsoWqkiVFqljLxCWmGA+iZ3OA/NwuIFBsYOEOpZqMIevu6TkJkWYaP6YYUJUrSG0w6t7b1P9JuzBgw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float64-base-get-high-word@0.2.3':
+    resolution: {integrity: sha512-yyJJR8+8BK88ldB5rM3GaM6S7vfUXZ3ib2VPse7Jb/ecd9r9gE6ojJv9v7N/M4STmKVrWWcggFEHzAVe/KMhrQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float64-base-get-low-word@0.2.3':
+    resolution: {integrity: sha512-e2OcnZ8wAYU5w/sFXY5d8bOFyjWYHW4UxdxLUsf24nVKyBPvS2Rhib8NbOETPeT8WYqFN6yrL2L4VlXO3Mz6ig==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float64-base-normalize@0.2.4':
+    resolution: {integrity: sha512-WVtJYkAt1zZXRlcjmbGEYVlZUd6dpSsOKACmVLEWyI9kMlegRAwibAKGMRtAcuYFSOyRVONwJbYar35McmabHg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float64-base-set-high-word@0.2.3':
+    resolution: {integrity: sha512-tWyEAJlbINvxcGMK5wgOlfFcZP9ILpqdBWLrc9HCpbUul41pmWEZi7+zI7dwe5zWIlACzguykdY0cEe7raceIw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float64-base-to-float16@0.1.2':
+    resolution: {integrity: sha512-d+ZJYGoykrzI3H0GRCI3qqyjspgNcIvECQ4OjyC1qdy1haT3cgoj1rwWkJS9uFKD/QgWlFGMrcmRzf0MVj17zg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float64-base-to-float32@0.2.3':
+    resolution: {integrity: sha512-+Lu8vk1oLCxO8RaRzw8pEY+BP2TWROweNFiML0w7TP4i9ZyG5E6EJdxZ2J3c29LVPfsf+oLOOxyySHH2kjwIsw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/number-float64-base-to-words@0.2.3':
+    resolution: {integrity: sha512-G63YuysfTKRP3Tkn19zBxTseS+uYnnOYZSN9VRTWrx5iNE8IYDzanAJIolSBZ7PuFMoE+HmjEZ0E9SX3NsLKvg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
   '@stdlib/number@0.1.1':
     resolution: {integrity: sha512-kUCKmIrTeugvJjX5GycAv8rjXCVhoL2QWUZSANXFTfYO5/DOsHBJUp3lAKYFAdlTXj7792MkdRkAL3yuxt349Q==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/object-ctor@0.2.2':
+    resolution: {integrity: sha512-3zkUkzZ9LdX+J5fEyU/D7I2c+0qG+ejNI3tCtSFek35bezdqWs9tOAAUiU6HeQJcGgqOmkakB4apIxvN+eehCA==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -6030,8 +6622,23 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
+  '@stdlib/os-byte-order@0.2.3':
+    resolution: {integrity: sha512-QU4JY7WN4inoLVz+ML92TOevgyxZa+d2RcA1EmaDC0y0TNrXez1GmIn1t7+L7UTJEdf39IUm6VfdMmYdcDwFTw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/os-float-word-order@0.2.3':
+    resolution: {integrity: sha512-5dLZBCNn9Fge3kq7uHIh7S1qshfe5L7pjLYLSUGxxKa7gecAbsaQBPLxDkFiFwMytr6tnGGjWQfyVbhq/+RjlQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
   '@stdlib/os@0.1.1':
     resolution: {integrity: sha512-MaWFctJrhfg7nWFFzzmvsVFEgmzgSDy8Cgi5QSo6swg/hm2517l5j0xZchr9Ke+oi/bmfvebzvhwKCBXFb1EMw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/process-cwd@0.2.3':
+    resolution: {integrity: sha512-T/sYVJjs9iHAOK9B8yGymGY+59eAz20G7eL/G4cObT6sWssAF7s/2+KgzAvWB0maE9qX6qnP4zBg2msCsWwvVg==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -6047,6 +6654,16 @@ packages:
 
   '@stdlib/random@0.1.1':
     resolution: {integrity: sha512-k4yg98BkAjiJaTg1wybw+LJsSfkCmdS65OCwhyt9xHQf15FtHSl9Ip67Nqp0DmP4h6lbnBzAQ2/j6RKAs3wgAg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/regexp-extended-length-path@0.2.3':
+    resolution: {integrity: sha512-3HYXiSzBpKz4nSOCtrYtMw9/OXN4EmTvq0owXv6HMvvDweFskieBcdNlVcOl0ViezjvUuvUL0DHJHdGp6SQEIw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/regexp-function-name@0.2.3':
+    resolution: {integrity: sha512-ER1C2rUW5Kzu5w4W0gbrJdIj5STNO5RfNy4GeiqycezeiXT99G393QeN4irqcOItYkeZhwbpY2ZzwlLxQvod1A==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -6075,8 +6692,48 @@ packages:
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
+  '@stdlib/string-base-format-interpolate@0.2.4':
+    resolution: {integrity: sha512-POG725+DPEmzEJbMFTFPdKM4vA5i+t7juNYs+H2cQz5JXiPV1+5+P3epnO+/DqHWzLhiMlsKDCZq03C3WcBkSA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-format-tokenize@0.2.4':
+    resolution: {integrity: sha512-qYHSmqFv7vloLFvjBAbZCn5qtxj7M+Qru3VqBooJTxWMcUeZOEBZg18/PFgfUrZhji5MVWDXbRTAx5Bu5M5nQA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-lowercase@0.4.1':
+    resolution: {integrity: sha512-3NcDy2j6HtvKrC2GRCt5mKiYaWWHLLSQRSbuu28WEzA98/2izmiHYkR0i9IeEd4Tqrxqof/FXP4gWj1f14RXTQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-base-replace@0.2.3':
+    resolution: {integrity: sha512-FJdh2GzIkgMlr0v/ZZKD5cWRs+SMOhBTWxAexmWoYFL3WL1YMDgwI5hRtYh/ySyOy94MjJmYwRMpIVdxeclrAw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-format@0.2.3':
+    resolution: {integrity: sha512-uE0LHUUnWKfxFeipyfb9yWbs+iczz6dHaolSGC1WBzMVyeHqx8xvq+yP3f2POYWgEcknmxNgU21WSqToSNrxdA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/string-replace@0.2.3':
+    resolution: {integrity: sha512-CXJhl/L2TfRrkVUNVp8OfNsKeuUzOZXzJLUDoopHtQalbWBww1fDSDj1fwGpzgZV4IODs8LCsiIxLBnLRP6emg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
   '@stdlib/string@0.1.1':
     resolution: {integrity: sha512-nQ5bUo2jp1E5AoZL0DMiK1AD3qHVbtgab/3eHR+1ycFjuSGASmzbB/rYGsrZkOZaWif2EqW5THsaO5vjZbiJXw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/symbol-ctor@0.2.3':
+    resolution: {integrity: sha512-wnuFrxnmhg2p6QQP0B/j97LD5ys2d1bHuwVvh9yuUSCLoX/GankaVyGSufk2ROlsxrcm2HPhSDB/ILBHeUmamA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/symbol-to-primitive@0.1.2':
+    resolution: {integrity: sha512-//r52ighL35HprZrK5Pdiz1L27l47X9o+0LOJ84mTk5eB89i9shVRjOpHauKyx/uy9VkDoxUkMY0PwPrAIp4aw==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -6092,6 +6749,66 @@ packages:
 
   '@stdlib/types@0.2.0':
     resolution: {integrity: sha512-+/GP8FvDt9nTxeo9idmpfhU5bbaGiPtBX/dXExvt3CaqIWw4OjAyyNBNnvgJC8j4pZToAKPbtQiU4S0FlCPKTw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/types@0.4.3':
+    resolution: {integrity: sha512-9GCqS2eni2VSwa5/CCniAJ4I1eWLtvior1z6hoPJp6VTNMgW9Lh4BiI84IO0xun/0qAclJ+mTGTiCTZxZLK13A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-constructor-name@0.2.3':
+    resolution: {integrity: sha512-/ApogDUIFxndcmnEeI6ctsqWt66c40g1T7R0nS9aOoYgnDOdmpUFSflzf++MDWksBycGsqgm1UD7IU54m4u7jg==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-convert-path@0.2.3':
+    resolution: {integrity: sha512-fmqJ6Qvce0HV7D+uYrram/+iAHB3u2gMys9zeh0uc/h411sB8Hw9X7i1w2cJevCpouMzqTnpzp75C+swkoQlKA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-define-nonenumerable-read-only-property@0.2.3':
+    resolution: {integrity: sha512-W0rqnRsXgW3GjcwEcOMi0mI/CXn3TVqmFvcxItLUZPJNYmwrU6+t+9kGldhMw845DyOtv8uYASrnNoVE/VfiDw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-define-property@0.2.5':
+    resolution: {integrity: sha512-WpbXc2uq8vtSqmWFzVrFifNj6HGoGHIZHolxX5GfRFbj4RNme1u/wtklmiOvcHE0s6SwPX764tuFXIgHBR5Vag==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-define-read-only-property@0.2.3':
+    resolution: {integrity: sha512-3sGMpmmSlErHup+Y6YwIgN075GW3t1FD8ARS+zHaU1U1IKEaiOVKMH49WfBGiSsVfV7sfieoZC5B//MrSWQjaA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-escape-regexp-string@0.2.3':
+    resolution: {integrity: sha512-ZQAq5HHF+C1fmK+RvqeMO0iIQf5kGl2Ofx9LYloURUPZD2zVMX+2hxDLFBTPAusqYxffQAjj3ap4LE/J0+YiRQ==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-get-prototype-of@0.2.3':
+    resolution: {integrity: sha512-unEoKhhAnV4AbQ87oPo1v+4xLjd00nQxJLSvl43PkdoBn/GKNv/B6SMnQWmM5b62esWTbxBu/uWCYoglbprxkA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-global@0.2.3':
+    resolution: {integrity: sha512-e8gyuENhSeF8udH7vlZMDbNVQ/ZxZ4vWOcpB2iw06z1HSFZWc31Coh19ScfgagLfofo2GQYPJI3tJtZQYsUS6A==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-library-manifest@0.2.4':
+    resolution: {integrity: sha512-sNzEclCbpRRa35DBv8ZOcOjCesBLczkOFX8o7mMrG9VWhyZuJUCBtgSPmzGIIBLAsVEYJuguEk4iYoMqFnCwnw==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-native-class@0.2.3':
+    resolution: {integrity: sha512-UGXCPhgmOjwMpEQ5fFiifcqrhUnP8ICyWzEkHphUrh2/0pHyK0zilZvcODfROgzoy6L9ivUUuR6NjrAI+j14hA==}
+    engines: {node: '>=0.10.0', npm: '>2.7.0'}
+    os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
+
+  '@stdlib/utils-type-of@0.2.3':
+    resolution: {integrity: sha512-2KmDUfqIv0g4lrWtnyR5xw82NvdsEwUHON43JAe55XRlLWnk1V1troiyJiM9fccENtl524kVRBnD7RMohmUyyQ==}
     engines: {node: '>=0.10.0', npm: '>2.7.0'}
     os: [aix, darwin, freebsd, linux, macos, openbsd, sunos, win32, windows]
 
@@ -6179,28 +6896,24 @@ packages:
     engines: {node: '>=10'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@swc/core-linux-arm64-musl@1.3.4':
     resolution: {integrity: sha512-F9hW6g5l4YesJJH/JMznaLGdLeCV4FKq5MN5DaZfuB8qrCZGLmAasGgvSNbXh1oZnDu1PD2ZxMYivkf2n8/4OA==}
     engines: {node: '>=10'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@swc/core-linux-x64-gnu@1.3.4':
     resolution: {integrity: sha512-rRqDtxktiVaxO8NQeEZSX0kNSFkI5Ft+4fZcFTbWhDO0vknC0+ZYbWpverfQ8yAwo7aA9jKWupwc3I7iZ1EQQQ==}
     engines: {node: '>=10'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@swc/core-linux-x64-musl@1.3.4':
     resolution: {integrity: sha512-stVnU7KXQxSbh67UiIVxZsgjkRSXApPTEU3CYnwsdH7G+ynfO1WocSatzjIKpJfhcY2Nss8/33yDaOKZXVhbIA==}
     engines: {node: '>=10'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@swc/core-win32-arm64-msvc@1.3.4':
     resolution: {integrity: sha512-qc3UIdAQfLTA1mJsFkX3ISqJDU02qtcjUbnLI8sl6oedCAOFF66TcecJvwl4iO+BTO04+KoZc5rJovSTOb3eQA==}
@@ -6883,49 +7596,41 @@ packages:
     resolution: {integrity: sha512-34gw7PjDGB9JgePJEmhEqBhWvCiiWCuXsL9hYphDF7crW7UgI05gyBAi6MF58uGcMOiOqSJ2ybEeCvHcq0BCmQ==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-arm64-musl@1.11.1':
     resolution: {integrity: sha512-RyMIx6Uf53hhOtJDIamSbTskA99sPHS96wxVE/bJtePJJtpdKGXO1wY90oRdXuYOGOTuqjT8ACccMc4K6QmT3w==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@unrs/resolver-binding-linux-ppc64-gnu@1.11.1':
     resolution: {integrity: sha512-D8Vae74A4/a+mZH0FbOkFJL9DSK2R6TFPC9M+jCWYia/q2einCubX10pecpDiTmkJVUH+y8K3BZClycD8nCShA==}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-riscv64-gnu@1.11.1':
     resolution: {integrity: sha512-frxL4OrzOWVVsOc96+V3aqTIQl1O2TjgExV4EKgRY09AJ9leZpEg8Ak9phadbuX0BA4k8U5qtvMSQQGGmaJqcQ==}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-riscv64-musl@1.11.1':
     resolution: {integrity: sha512-mJ5vuDaIZ+l/acv01sHoXfpnyrNKOk/3aDoEdLO/Xtn9HuZlDD6jKxHlkN8ZhWyLJsRBxfv9GYM2utQ1SChKew==}
     cpu: [riscv64]
     os: [linux]
-    libc: [musl]
 
   '@unrs/resolver-binding-linux-s390x-gnu@1.11.1':
     resolution: {integrity: sha512-kELo8ebBVtb9sA7rMe1Cph4QHreByhaZ2QEADd9NzIQsYNQpt9UkM9iqr2lhGr5afh885d/cB5QeTXSbZHTYPg==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-x64-gnu@1.11.1':
     resolution: {integrity: sha512-C3ZAHugKgovV5YvAMsxhq0gtXuwESUKc5MhEtjBpLoHPLYM+iuwSj3lflFwK3DPm68660rZ7G8BMcwSro7hD5w==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-x64-musl@1.11.1':
     resolution: {integrity: sha512-rV0YSoyhK2nZ4vEswT/QwqzqQXw5I6CjoaYMOX0TqBlWhojUf8P94mvI7nuJTeaCkkds3QE4+zS8Ko+GdXuZtA==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@unrs/resolver-binding-wasm32-wasi@1.11.1':
     resolution: {integrity: sha512-5u4RkfxJm+Ng7IWgkzi3qrFOvLvQYnPBmjmZQ8+szTK/b31fQCnleNl1GgEt7nIsZRIf5PLhPwT0WM+q45x/UQ==}
@@ -7399,6 +8104,7 @@ packages:
   aws-sdk@2.1693.0:
     resolution: {integrity: sha512-cJmb8xEnVLT+R6fBS5sn/EFJiX7tUnDaPtOPZ1vFbOJtd0fnZn/Ky2XGgsvvoeliWeH7mL3TWSX5zXXGSQV6gQ==}
     engines: {node: '>= 10.0.0'}
+    deprecated: The AWS SDK for JavaScript (v2) has reached end-of-support, and no longer receives updates. Please migrate your code to use AWS SDK for JavaScript (v3). More info https://a.co/cUPnyil
 
   aws-ssl-profiles@1.1.2:
     resolution: {integrity: sha512-NZKeq9AfyQvEeNlN0zSYAaWrmBffJh3IELMZfRpJVWgrpEbtEpnjvzqBPf+mxoI287JohRDoa+/nsfqqiZmF6g==}
@@ -9331,6 +10037,7 @@ packages:
 
   glob@10.5.0:
     resolution: {integrity: sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   glob@13.0.2:
@@ -9343,7 +10050,7 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   global-modules@1.0.0:
     resolution: {integrity: sha512-sKzpEkf11GpOFuw0Zzjzmt4B4UZwjOcG757PPvrfhxcLFbq0wpsgpOqxpxtxFiCG4DtG93M6XRVbF2oGdev7bg==}
@@ -11698,6 +12405,7 @@ packages:
   prebuild-install@7.1.3:
     resolution: {integrity: sha512-8Mf2cbV7x1cXPUILADGI3wuhfqWvtiLA1iclTDbFRZkgRQS0NqsPZphna9V+HyTEadheuPmjaJMsbzKQFOzLug==}
     engines: {node: '>=10'}
+    deprecated: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
     hasBin: true
 
   prelude-ls@1.2.1:
@@ -11817,6 +12525,7 @@ packages:
     engines: {node: '>=0.6.0', teleport: '>=0.2.0'}
     deprecated: |-
       You or someone you depend on is using Q, the JavaScript Promise library that gave JavaScript developers strong feelings about promises. They can almost certainly migrate to the native JavaScript promise now. Thank you literally everyone for joining me in this bet against the odds. Be excellent to each other.
+
       (For a CapTP with native promises, see @endo/eventual-send and @endo/captp)
 
   qs@6.15.0:
@@ -12958,6 +13667,7 @@ packages:
   tar@7.5.7:
     resolution: {integrity: sha512-fov56fJiRuThVFXD6o6/Q354S7pnWMJIVlDBYijsTNx6jKSE4pvrDTs6lUnmGvNyfJwFQQwWy3owKz1ucIhveQ==}
     engines: {node: '>=18'}
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   tarn@3.0.2:
     resolution: {integrity: sha512-51LAVKUSZSVfI05vjPESNc5vwqqZpbXCsU+/+wxlOrUjk2SnFTt97v9ZgQrD4YmxYW1Px6w2KjaDitCfkvgxMQ==}
@@ -16783,7 +17493,7 @@ snapshots:
 
   '@emotion/weak-memoize@0.2.5': {}
 
-  '@ephys/zod-to-ts@2.3.2(patch_hash=9a20bc019cac7fdedd7e3e3dc15d91158a5f0dc676edef9ecd8ee4823fce522a)(babel-plugin-macros@3.1.0)(typescript@5.7.3)(zod@4.1.12)':
+  '@ephys/zod-to-ts@2.3.2(patch_hash=gmqhichmhm246swj7562vworwm)(babel-plugin-macros@3.1.0)(typescript@5.7.3)(zod@4.1.12)':
     dependencies:
       '@sequelize/utils': 7.0.0-alpha.47
       dedent: 1.7.1(babel-plugin-macros@3.1.0)
@@ -20464,6 +21174,32 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
+  '@stdlib/array-base-filled@0.2.3': {}
+
+  '@stdlib/array-base-zeros@0.2.3':
+    dependencies:
+      '@stdlib/array-base-filled': 0.2.3
+
+  '@stdlib/array-float32@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-float32array-support': 0.2.3
+
+  '@stdlib/array-float64@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-float64array-support': 0.2.3
+
+  '@stdlib/array-uint16@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-uint16array-support': 0.2.3
+
+  '@stdlib/array-uint32@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-uint32array-support': 0.2.3
+
+  '@stdlib/array-uint8@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-uint8array-support': 0.2.3
+
   '@stdlib/array@0.1.1':
     dependencies:
       '@stdlib/assert': 0.1.1
@@ -20481,6 +21217,150 @@ snapshots:
       '@stdlib/utils': 0.1.1
     transitivePeerDependencies:
       - supports-color
+
+  '@stdlib/assert-has-float32array-support@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-float32array': 0.2.3
+      '@stdlib/constants-float64-pinf': 0.2.3
+
+  '@stdlib/assert-has-float64array-support@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-float64array': 0.2.3
+
+  '@stdlib/assert-has-own-property@0.2.3': {}
+
+  '@stdlib/assert-has-symbol-support@0.2.3': {}
+
+  '@stdlib/assert-has-to-primitive-symbol-support@0.1.1':
+    dependencies:
+      '@stdlib/assert-has-own-property': 0.2.3
+      '@stdlib/symbol-ctor': 0.2.3
+
+  '@stdlib/assert-has-tostringtag-support@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-symbol-support': 0.2.3
+
+  '@stdlib/assert-has-uint16array-support@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-uint16array': 0.2.3
+      '@stdlib/constants-uint16-max': 0.2.3
+
+  '@stdlib/assert-has-uint32array-support@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-uint32array': 0.2.3
+      '@stdlib/constants-uint32-max': 0.2.3
+
+  '@stdlib/assert-has-uint8array-support@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-uint8array': 0.2.3
+      '@stdlib/constants-uint8-max': 0.2.3
+
+  '@stdlib/assert-is-array@0.2.3':
+    dependencies:
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-big-endian@0.2.3':
+    dependencies:
+      '@stdlib/array-uint16': 0.2.3
+      '@stdlib/array-uint8': 0.2.3
+
+  '@stdlib/assert-is-boolean@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-tostringtag-support': 0.2.3
+      '@stdlib/boolean-ctor': 0.2.3
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-buffer@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-object-like': 0.2.3
+
+  '@stdlib/assert-is-float32array@0.2.3':
+    dependencies:
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-float64array@0.2.3':
+    dependencies:
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-function@0.2.3':
+    dependencies:
+      '@stdlib/utils-type-of': 0.2.3
+
+  '@stdlib/assert-is-little-endian@0.2.3':
+    dependencies:
+      '@stdlib/array-uint16': 0.2.3
+      '@stdlib/array-uint8': 0.2.3
+
+  '@stdlib/assert-is-number@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-tostringtag-support': 0.2.3
+      '@stdlib/number-ctor': 0.2.3
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-object-like@0.2.3':
+    dependencies:
+      '@stdlib/assert-tools-array-function': 0.2.3
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+
+  '@stdlib/assert-is-object@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-array': 0.2.3
+
+  '@stdlib/assert-is-plain-object@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-own-property': 0.2.3
+      '@stdlib/assert-is-function': 0.2.3
+      '@stdlib/assert-is-object': 0.2.3
+      '@stdlib/utils-get-prototype-of': 0.2.3
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-regexp@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-tostringtag-support': 0.2.3
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-string@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-tostringtag-support': 0.2.3
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-uint16array@0.2.3':
+    dependencies:
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-uint32array@0.2.3':
+    dependencies:
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-is-uint8array@0.2.3':
+    dependencies:
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/assert-napi-equal-types@0.2.3':
+    dependencies:
+      '@stdlib/assert-napi-status-ok': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/assert-napi-is-type@0.2.3':
+    dependencies:
+      '@stdlib/assert-napi-equal-types': 0.2.3
+      '@stdlib/assert-napi-status-ok': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/assert-napi-status-ok@0.2.3': {}
+
+  '@stdlib/assert-tools-array-function@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-array': 0.2.3
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/string-format': 0.2.3
 
   '@stdlib/assert@0.1.1':
     dependencies:
@@ -20528,6 +21408,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@stdlib/boolean-ctor@0.2.3': {}
+
   '@stdlib/boolean@0.1.1':
     dependencies:
       '@stdlib/utils': 0.1.1
@@ -20553,6 +21435,34 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@stdlib/complex-float32-ctor@0.1.1':
+    dependencies:
+      '@stdlib/assert-is-number': 0.2.3
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/number-float64-base-to-float32': 0.2.3
+      '@stdlib/string-format': 0.2.3
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+      '@stdlib/utils-define-read-only-property': 0.2.3
+
+  '@stdlib/complex-float32-reim@0.1.4':
+    dependencies:
+      '@stdlib/array-float32': 0.2.3
+      '@stdlib/complex-float32-ctor': 0.1.1
+
+  '@stdlib/complex-float64-ctor@0.1.2':
+    dependencies:
+      '@stdlib/assert-is-number': 0.2.3
+      '@stdlib/complex-float32-ctor': 0.1.1
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/string-format': 0.2.3
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+      '@stdlib/utils-define-read-only-property': 0.2.3
+
+  '@stdlib/complex-float64-reim@0.1.4':
+    dependencies:
+      '@stdlib/array-float64': 0.2.3
+      '@stdlib/complex-float64-ctor': 0.1.2
+
   '@stdlib/complex@0.1.1':
     dependencies:
       '@stdlib/array': 0.1.1
@@ -20564,6 +21474,82 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@stdlib/constants-float16-eps@0.2.3': {}
+
+  '@stdlib/constants-float16-exponent-bias@0.3.1': {}
+
+  '@stdlib/constants-float16-exponent-mask@0.1.1': {}
+
+  '@stdlib/constants-float16-max@0.2.3': {}
+
+  '@stdlib/constants-float16-num-significand-bits@0.0.2': {}
+
+  '@stdlib/constants-float16-sign-mask@0.1.1': {}
+
+  '@stdlib/constants-float16-significand-mask@0.1.1': {}
+
+  '@stdlib/constants-float16-smallest-normal@0.2.3': {}
+
+  '@stdlib/constants-float32-abs-mask@0.2.3': {}
+
+  '@stdlib/constants-float32-eps@0.2.3':
+    dependencies:
+      '@stdlib/number-float64-base-to-float32': 0.2.3
+
+  '@stdlib/constants-float32-exponent-bias@0.2.3': {}
+
+  '@stdlib/constants-float32-exponent-mask@0.2.3': {}
+
+  '@stdlib/constants-float32-ninf@0.2.3':
+    dependencies:
+      '@stdlib/array-float32': 0.2.3
+      '@stdlib/array-uint32': 0.2.3
+
+  '@stdlib/constants-float32-num-significand-bits@0.1.1': {}
+
+  '@stdlib/constants-float32-pinf@0.2.3':
+    dependencies:
+      '@stdlib/array-float32': 0.2.3
+      '@stdlib/array-uint32': 0.2.3
+
+  '@stdlib/constants-float32-sign-mask@0.2.3': {}
+
+  '@stdlib/constants-float32-significand-mask@0.2.4': {}
+
+  '@stdlib/constants-float64-eps@0.2.3': {}
+
+  '@stdlib/constants-float64-exponent-bias@0.2.3': {}
+
+  '@stdlib/constants-float64-high-word-abs-mask@0.2.3': {}
+
+  '@stdlib/constants-float64-high-word-exponent-mask@0.2.3': {}
+
+  '@stdlib/constants-float64-high-word-sign-mask@0.2.1': {}
+
+  '@stdlib/constants-float64-high-word-significand-mask@0.2.3': {}
+
+  '@stdlib/constants-float64-max-base2-exponent-subnormal@0.2.1': {}
+
+  '@stdlib/constants-float64-max-base2-exponent@0.2.3': {}
+
+  '@stdlib/constants-float64-min-base2-exponent-subnormal@0.2.1': {}
+
+  '@stdlib/constants-float64-ninf@0.2.3':
+    dependencies:
+      '@stdlib/number-ctor': 0.2.3
+
+  '@stdlib/constants-float64-pi@0.2.3': {}
+
+  '@stdlib/constants-float64-pinf@0.2.3': {}
+
+  '@stdlib/constants-float64-smallest-normal@0.2.3': {}
+
+  '@stdlib/constants-uint16-max@0.2.3': {}
+
+  '@stdlib/constants-uint32-max@0.2.3': {}
+
+  '@stdlib/constants-uint8-max@0.2.3': {}
+
   '@stdlib/constants@0.1.1':
     dependencies:
       '@stdlib/array': 0.1.1
@@ -20572,6 +21558,24 @@ snapshots:
       '@stdlib/utils': 0.1.1
     transitivePeerDependencies:
       - supports-color
+
+  '@stdlib/error-tools-fmtprodmsg@0.2.3': {}
+
+  '@stdlib/fs-exists@0.2.3':
+    dependencies:
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+
+  '@stdlib/fs-resolve-parent-path@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-own-property': 0.2.3
+      '@stdlib/assert-is-function': 0.2.3
+      '@stdlib/assert-is-plain-object': 0.2.3
+      '@stdlib/assert-is-string': 0.2.3
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/fs-exists': 0.2.3
+      '@stdlib/process-cwd': 0.2.3
+      '@stdlib/string-format': 0.2.3
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
 
   '@stdlib/fs@0.1.1':
     dependencies:
@@ -20606,6 +21610,246 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@stdlib/math-base-assert-is-finite@0.2.3':
+    dependencies:
+      '@stdlib/constants-float64-ninf': 0.2.3
+      '@stdlib/constants-float64-pinf': 0.2.3
+      '@stdlib/napi-argv': 0.2.3
+      '@stdlib/napi-argv-double': 0.2.2
+      '@stdlib/napi-create-int32': 0.0.3
+      '@stdlib/napi-export': 0.3.1
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-assert-is-finitef@0.2.3':
+    dependencies:
+      '@stdlib/constants-float32-ninf': 0.2.3
+      '@stdlib/constants-float32-pinf': 0.2.3
+      '@stdlib/napi-argv': 0.2.3
+      '@stdlib/napi-argv-float': 0.2.3
+      '@stdlib/napi-create-int32': 0.0.3
+      '@stdlib/napi-export': 0.3.1
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-assert-is-infinite@0.2.3':
+    dependencies:
+      '@stdlib/constants-float64-ninf': 0.2.3
+      '@stdlib/constants-float64-pinf': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-assert-is-nan@0.2.3':
+    dependencies:
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-assert-is-nanf@0.2.3':
+    dependencies:
+      '@stdlib/napi-argv': 0.2.3
+      '@stdlib/napi-argv-float': 0.2.3
+      '@stdlib/napi-create-int32': 0.0.3
+      '@stdlib/napi-export': 0.3.1
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-napi-binary@0.3.3':
+    dependencies:
+      '@stdlib/complex-float32-ctor': 0.1.1
+      '@stdlib/complex-float32-reim': 0.1.4
+      '@stdlib/complex-float64-ctor': 0.1.2
+      '@stdlib/complex-float64-reim': 0.1.4
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-napi-unary@0.2.7':
+    dependencies:
+      '@stdlib/complex-float32-ctor': 0.1.1
+      '@stdlib/complex-float32-reim': 0.1.4
+      '@stdlib/complex-float64-ctor': 0.1.2
+      '@stdlib/complex-float64-reim': 0.1.4
+      '@stdlib/number-float16-base-to-float64': 0.1.2
+      '@stdlib/number-float16-ctor': 0.1.2
+      '@stdlib/number-float64-base-to-float16': 0.1.2
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-abs@0.2.3':
+    dependencies:
+      '@stdlib/constants-float64-high-word-abs-mask': 0.2.3
+      '@stdlib/math-base-napi-unary': 0.2.7
+      '@stdlib/number-float64-base-to-words': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-absf@0.2.3':
+    dependencies:
+      '@stdlib/constants-float32-abs-mask': 0.2.3
+      '@stdlib/math-base-napi-unary': 0.2.7
+      '@stdlib/number-float32-base-to-word': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-ceil@0.2.3':
+    dependencies:
+      '@stdlib/math-base-napi-unary': 0.2.7
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-copysign@0.2.3':
+    dependencies:
+      '@stdlib/constants-float64-high-word-abs-mask': 0.2.3
+      '@stdlib/constants-float64-high-word-sign-mask': 0.2.1
+      '@stdlib/math-base-napi-binary': 0.3.3
+      '@stdlib/number-float64-base-from-words': 0.2.3
+      '@stdlib/number-float64-base-get-high-word': 0.2.3
+      '@stdlib/number-float64-base-to-words': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-cos@0.2.1':
+    dependencies:
+      '@stdlib/math-base-special-kernel-cos': 0.2.4
+      '@stdlib/math-base-special-kernel-sin': 0.2.4
+      '@stdlib/math-base-special-rempio2': 0.2.1
+      '@stdlib/number-float64-base-get-high-word': 0.2.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-floor@0.2.4':
+    dependencies:
+      '@stdlib/math-base-napi-unary': 0.2.7
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-gammaln@0.2.2':
+    dependencies:
+      '@stdlib/constants-float64-pi': 0.2.3
+      '@stdlib/constants-float64-pinf': 0.2.3
+      '@stdlib/math-base-assert-is-infinite': 0.2.3
+      '@stdlib/math-base-assert-is-nan': 0.2.3
+      '@stdlib/math-base-special-abs': 0.2.3
+      '@stdlib/math-base-special-ln': 0.2.5
+      '@stdlib/math-base-special-sinpi': 0.2.1
+      '@stdlib/math-base-special-trunc': 0.2.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-kernel-cos@0.2.4':
+    dependencies:
+      '@stdlib/math-base-napi-binary': 0.3.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-kernel-sin@0.2.4':
+    dependencies:
+      '@stdlib/math-base-napi-binary': 0.3.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-ldexp@0.2.5':
+    dependencies:
+      '@stdlib/constants-float64-exponent-bias': 0.2.3
+      '@stdlib/constants-float64-max-base2-exponent': 0.2.3
+      '@stdlib/constants-float64-max-base2-exponent-subnormal': 0.2.1
+      '@stdlib/constants-float64-min-base2-exponent-subnormal': 0.2.1
+      '@stdlib/constants-float64-ninf': 0.2.3
+      '@stdlib/constants-float64-pinf': 0.2.3
+      '@stdlib/math-base-assert-is-infinite': 0.2.3
+      '@stdlib/math-base-assert-is-nan': 0.2.3
+      '@stdlib/math-base-special-copysign': 0.2.3
+      '@stdlib/number-float64-base-exponent': 0.2.3
+      '@stdlib/number-float64-base-from-words': 0.2.3
+      '@stdlib/number-float64-base-normalize': 0.2.4
+      '@stdlib/number-float64-base-to-words': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-ln@0.2.5':
+    dependencies:
+      '@stdlib/constants-float64-exponent-bias': 0.2.3
+      '@stdlib/constants-float64-ninf': 0.2.3
+      '@stdlib/math-base-assert-is-nan': 0.2.3
+      '@stdlib/math-base-napi-unary': 0.2.7
+      '@stdlib/number-float64-base-get-high-word': 0.2.3
+      '@stdlib/number-float64-base-set-high-word': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-rempio2@0.2.1':
+    dependencies:
+      '@stdlib/array-base-zeros': 0.2.3
+      '@stdlib/constants-float64-high-word-abs-mask': 0.2.3
+      '@stdlib/constants-float64-high-word-exponent-mask': 0.2.3
+      '@stdlib/constants-float64-high-word-significand-mask': 0.2.3
+      '@stdlib/math-base-special-floor': 0.2.4
+      '@stdlib/math-base-special-ldexp': 0.2.5
+      '@stdlib/math-base-special-round': 0.2.1
+      '@stdlib/number-float64-base-from-words': 0.2.3
+      '@stdlib/number-float64-base-get-high-word': 0.2.3
+      '@stdlib/number-float64-base-get-low-word': 0.2.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-round@0.2.1': {}
+
+  '@stdlib/math-base-special-sin@0.2.1':
+    dependencies:
+      '@stdlib/constants-float64-high-word-abs-mask': 0.2.3
+      '@stdlib/constants-float64-high-word-exponent-mask': 0.2.3
+      '@stdlib/math-base-special-kernel-cos': 0.2.4
+      '@stdlib/math-base-special-kernel-sin': 0.2.4
+      '@stdlib/math-base-special-rempio2': 0.2.1
+      '@stdlib/number-float64-base-get-high-word': 0.2.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-sinpi@0.2.1':
+    dependencies:
+      '@stdlib/constants-float64-pi': 0.2.3
+      '@stdlib/math-base-assert-is-infinite': 0.2.3
+      '@stdlib/math-base-assert-is-nan': 0.2.3
+      '@stdlib/math-base-special-abs': 0.2.3
+      '@stdlib/math-base-special-copysign': 0.2.3
+      '@stdlib/math-base-special-cos': 0.2.1
+      '@stdlib/math-base-special-sin': 0.2.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-trunc@0.2.3':
+    dependencies:
+      '@stdlib/math-base-napi-unary': 0.2.7
+      '@stdlib/math-base-special-ceil': 0.2.3
+      '@stdlib/math-base-special-floor': 0.2.4
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/math-base-special-xlogy@0.3.2':
+    dependencies:
+      '@stdlib/math-base-assert-is-nan': 0.2.3
+      '@stdlib/math-base-napi-binary': 0.3.3
+      '@stdlib/math-base-special-ln': 0.2.5
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
   '@stdlib/math@0.1.1':
     dependencies:
       '@stdlib/array': 0.1.1
@@ -20624,6 +21868,48 @@ snapshots:
       debug: 2.6.9
     transitivePeerDependencies:
       - supports-color
+
+  '@stdlib/napi-argv-double@0.2.2':
+    dependencies:
+      '@stdlib/assert-napi-is-type': 0.2.3
+      '@stdlib/assert-napi-status-ok': 0.2.3
+      '@stdlib/napi-argv': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/napi-argv-float@0.2.3':
+    dependencies:
+      '@stdlib/assert-napi-is-type': 0.2.3
+      '@stdlib/assert-napi-status-ok': 0.2.3
+      '@stdlib/napi-argv': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/napi-argv-int32@0.2.3':
+    dependencies:
+      '@stdlib/assert-napi-is-type': 0.2.3
+      '@stdlib/assert-napi-status-ok': 0.2.3
+      '@stdlib/napi-argv': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/napi-argv@0.2.3':
+    dependencies:
+      '@stdlib/assert-napi-status-ok': 0.2.3
+
+  '@stdlib/napi-create-int32@0.0.3':
+    dependencies:
+      '@stdlib/assert-napi-status-ok': 0.2.3
+      '@stdlib/napi-argv': 0.2.3
+      '@stdlib/napi-argv-int32': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/napi-export@0.3.1': {}
 
   '@stdlib/napi@0.1.1':
     dependencies:
@@ -20662,6 +21948,177 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@stdlib/number-ctor@0.2.3': {}
+
+  '@stdlib/number-float16-base-to-float32@0.1.2':
+    dependencies:
+      '@stdlib/constants-float16-exponent-bias': 0.3.1
+      '@stdlib/constants-float16-exponent-mask': 0.1.1
+      '@stdlib/constants-float16-num-significand-bits': 0.0.2
+      '@stdlib/constants-float16-sign-mask': 0.1.1
+      '@stdlib/constants-float16-significand-mask': 0.1.1
+      '@stdlib/constants-float32-exponent-bias': 0.2.3
+      '@stdlib/constants-float32-exponent-mask': 0.2.3
+      '@stdlib/constants-float32-num-significand-bits': 0.1.1
+      '@stdlib/number-float16-ctor': 0.1.2
+      '@stdlib/number-float32-base-to-float16': 0.1.1
+      '@stdlib/number-float64-base-to-float16': 0.1.2
+      '@stdlib/number-float64-base-to-float32': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float16-base-to-float64@0.1.2':
+    dependencies:
+      '@stdlib/number-float16-base-to-float32': 0.1.2
+      '@stdlib/number-float16-ctor': 0.1.2
+      '@stdlib/number-float64-base-to-float16': 0.1.2
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float16-ctor@0.1.2':
+    dependencies:
+      '@stdlib/assert-has-to-primitive-symbol-support': 0.1.1
+      '@stdlib/assert-is-number': 0.2.3
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/number-float64-base-to-float16': 0.1.2
+      '@stdlib/string-format': 0.2.3
+      '@stdlib/symbol-to-primitive': 0.1.2
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+      '@stdlib/utils-define-read-only-property': 0.2.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float32-base-exponent@0.2.4':
+    dependencies:
+      '@stdlib/constants-float32-exponent-bias': 0.2.3
+      '@stdlib/constants-float32-exponent-mask': 0.2.3
+      '@stdlib/number-float32-base-to-word': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float32-base-to-float16@0.1.1':
+    dependencies:
+      '@stdlib/constants-float16-eps': 0.2.3
+      '@stdlib/constants-float16-max': 0.2.3
+      '@stdlib/constants-float16-smallest-normal': 0.2.3
+      '@stdlib/constants-float32-eps': 0.2.3
+      '@stdlib/constants-float32-exponent-mask': 0.2.3
+      '@stdlib/constants-float32-num-significand-bits': 0.1.1
+      '@stdlib/constants-float32-pinf': 0.2.3
+      '@stdlib/constants-float32-sign-mask': 0.2.3
+      '@stdlib/constants-float32-significand-mask': 0.2.4
+      '@stdlib/math-base-assert-is-finitef': 0.2.3
+      '@stdlib/math-base-assert-is-nanf': 0.2.3
+      '@stdlib/math-base-special-absf': 0.2.3
+      '@stdlib/number-float16-ctor': 0.1.2
+      '@stdlib/number-float32-base-exponent': 0.2.4
+      '@stdlib/number-float64-base-to-float32': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float32-base-to-word@0.2.3':
+    dependencies:
+      '@stdlib/array-float32': 0.2.3
+      '@stdlib/array-uint32': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float64-base-exponent@0.2.3':
+    dependencies:
+      '@stdlib/constants-float64-exponent-bias': 0.2.3
+      '@stdlib/constants-float64-high-word-exponent-mask': 0.2.3
+      '@stdlib/number-float64-base-get-high-word': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float64-base-from-words@0.2.3':
+    dependencies:
+      '@stdlib/array-float64': 0.2.3
+      '@stdlib/array-uint32': 0.2.3
+      '@stdlib/assert-is-little-endian': 0.2.3
+      '@stdlib/number-float64-base-to-words': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float64-base-get-high-word@0.2.3':
+    dependencies:
+      '@stdlib/array-float64': 0.2.3
+      '@stdlib/array-uint32': 0.2.3
+      '@stdlib/assert-is-little-endian': 0.2.3
+      '@stdlib/number-float64-base-to-words': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float64-base-get-low-word@0.2.3':
+    dependencies:
+      '@stdlib/array-float64': 0.2.3
+      '@stdlib/array-uint32': 0.2.3
+      '@stdlib/assert-is-little-endian': 0.2.3
+      '@stdlib/number-float64-base-to-words': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float64-base-normalize@0.2.4':
+    dependencies:
+      '@stdlib/constants-float64-smallest-normal': 0.2.3
+      '@stdlib/math-base-assert-is-infinite': 0.2.3
+      '@stdlib/math-base-assert-is-nan': 0.2.3
+      '@stdlib/math-base-special-abs': 0.2.3
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float64-base-set-high-word@0.2.3':
+    dependencies:
+      '@stdlib/array-float64': 0.2.3
+      '@stdlib/array-uint32': 0.2.3
+      '@stdlib/assert-is-little-endian': 0.2.3
+      '@stdlib/number-float64-base-to-words': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float64-base-to-float16@0.1.2':
+    dependencies:
+      '@stdlib/constants-float16-eps': 0.2.3
+      '@stdlib/constants-float16-max': 0.2.3
+      '@stdlib/constants-float16-smallest-normal': 0.2.3
+      '@stdlib/constants-float64-eps': 0.2.3
+      '@stdlib/constants-float64-pinf': 0.2.3
+      '@stdlib/math-base-assert-is-finite': 0.2.3
+      '@stdlib/math-base-special-abs': 0.2.3
+      '@stdlib/number-float16-ctor': 0.1.2
+      '@stdlib/number-float32-base-to-float16': 0.1.1
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/number-float64-base-to-float32@0.2.3':
+    dependencies:
+      '@stdlib/array-float32': 0.2.3
+
+  '@stdlib/number-float64-base-to-words@0.2.3':
+    dependencies:
+      '@stdlib/array-float64': 0.2.3
+      '@stdlib/array-uint32': 0.2.3
+      '@stdlib/assert-is-little-endian': 0.2.3
+      '@stdlib/os-byte-order': 0.2.3
+      '@stdlib/os-float-word-order': 0.2.3
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+      '@stdlib/utils-library-manifest': 0.2.4
+    transitivePeerDependencies:
+      - supports-color
+
   '@stdlib/number@0.1.1':
     dependencies:
       '@stdlib/array': 0.1.1
@@ -20675,6 +22132,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@stdlib/object-ctor@0.2.2': {}
+
   '@stdlib/object@0.1.1':
     dependencies:
       '@stdlib/assert': 0.1.1
@@ -20682,6 +22141,15 @@ snapshots:
       '@stdlib/utils': 0.1.1
     transitivePeerDependencies:
       - supports-color
+
+  '@stdlib/os-byte-order@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-big-endian': 0.2.3
+      '@stdlib/assert-is-little-endian': 0.2.3
+
+  '@stdlib/os-float-word-order@0.2.3':
+    dependencies:
+      '@stdlib/os-byte-order': 0.2.3
 
   '@stdlib/os@0.1.1':
     dependencies:
@@ -20693,6 +22161,8 @@ snapshots:
       '@stdlib/utils': 0.1.1
     transitivePeerDependencies:
       - supports-color
+
+  '@stdlib/process-cwd@0.2.3': {}
 
   '@stdlib/process@0.1.1':
     dependencies:
@@ -20736,6 +22206,14 @@ snapshots:
       readable-stream: 2.3.8
     transitivePeerDependencies:
       - supports-color
+
+  '@stdlib/regexp-extended-length-path@0.2.3':
+    dependencies:
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
+
+  '@stdlib/regexp-function-name@0.2.3':
+    dependencies:
+      '@stdlib/utils-define-nonenumerable-read-only-property': 0.2.3
 
   '@stdlib/regexp@0.1.1':
     dependencies:
@@ -20801,6 +22279,29 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@stdlib/string-base-format-interpolate@0.2.4': {}
+
+  '@stdlib/string-base-format-tokenize@0.2.4': {}
+
+  '@stdlib/string-base-lowercase@0.4.1': {}
+
+  '@stdlib/string-base-replace@0.2.3': {}
+
+  '@stdlib/string-format@0.2.3':
+    dependencies:
+      '@stdlib/string-base-format-interpolate': 0.2.4
+      '@stdlib/string-base-format-tokenize': 0.2.4
+
+  '@stdlib/string-replace@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-function': 0.2.3
+      '@stdlib/assert-is-regexp': 0.2.3
+      '@stdlib/assert-is-string': 0.2.3
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/string-base-replace': 0.2.3
+      '@stdlib/string-format': 0.2.3
+      '@stdlib/utils-escape-regexp-string': 0.2.3
+
   '@stdlib/string@0.1.1':
     dependencies:
       '@stdlib/array': 0.1.1
@@ -20819,6 +22320,13 @@ snapshots:
       '@stdlib/utils': 0.1.1
     transitivePeerDependencies:
       - supports-color
+
+  '@stdlib/symbol-ctor@0.2.3': {}
+
+  '@stdlib/symbol-to-primitive@0.1.2':
+    dependencies:
+      '@stdlib/assert-has-to-primitive-symbol-support': 0.1.1
+      '@stdlib/symbol-ctor': 0.2.3
 
   '@stdlib/symbol@0.1.1':
     dependencies:
@@ -20843,6 +22351,75 @@ snapshots:
       - supports-color
 
   '@stdlib/types@0.2.0': {}
+
+  '@stdlib/types@0.4.3': {}
+
+  '@stdlib/utils-constructor-name@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-buffer': 0.2.3
+      '@stdlib/regexp-function-name': 0.2.3
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/utils-convert-path@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-string': 0.2.3
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/regexp-extended-length-path': 0.2.3
+      '@stdlib/string-base-lowercase': 0.4.1
+      '@stdlib/string-format': 0.2.3
+      '@stdlib/string-replace': 0.2.3
+
+  '@stdlib/utils-define-nonenumerable-read-only-property@0.2.3':
+    dependencies:
+      '@stdlib/types': 0.4.3
+      '@stdlib/utils-define-property': 0.2.5
+
+  '@stdlib/utils-define-property@0.2.5':
+    dependencies:
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/string-format': 0.2.3
+
+  '@stdlib/utils-define-read-only-property@0.2.3':
+    dependencies:
+      '@stdlib/utils-define-property': 0.2.5
+
+  '@stdlib/utils-escape-regexp-string@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-string': 0.2.3
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/string-format': 0.2.3
+
+  '@stdlib/utils-get-prototype-of@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-function': 0.2.3
+      '@stdlib/object-ctor': 0.2.2
+      '@stdlib/utils-native-class': 0.2.3
+
+  '@stdlib/utils-global@0.2.3':
+    dependencies:
+      '@stdlib/assert-is-boolean': 0.2.3
+      '@stdlib/error-tools-fmtprodmsg': 0.2.3
+      '@stdlib/string-format': 0.2.3
+
+  '@stdlib/utils-library-manifest@0.2.4':
+    dependencies:
+      '@stdlib/fs-resolve-parent-path': 0.2.3
+      '@stdlib/utils-convert-path': 0.2.3
+      debug: 2.6.9
+      resolve: 1.22.11
+    transitivePeerDependencies:
+      - supports-color
+
+  '@stdlib/utils-native-class@0.2.3':
+    dependencies:
+      '@stdlib/assert-has-own-property': 0.2.3
+      '@stdlib/assert-has-tostringtag-support': 0.2.3
+      '@stdlib/symbol-ctor': 0.2.3
+
+  '@stdlib/utils-type-of@0.2.3':
+    dependencies:
+      '@stdlib/utils-constructor-name': 0.2.3
+      '@stdlib/utils-global': 0.2.3
 
   '@stdlib/utils@0.1.1':
     dependencies:
@@ -21363,7 +22940,7 @@ snapshots:
       pg-protocol: 1.6.0
       pg-types: 2.2.0
 
-  '@types/presto-client@1.0.2(patch_hash=20780fa0030ee3a8a3f0b1333ae07e63c6fc7e12fc1986b7c9fefefe0a9b42ef)': {}
+  '@types/presto-client@1.0.2(patch_hash=bv7qcx3y4ykvpvp7odxdubazpe)': {}
 
   '@types/prettier@2.3.2': {}
 
@@ -22039,7 +23616,7 @@ snapshots:
 
   acorn@8.15.0: {}
 
-  agenda@5.0.0(patch_hash=043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8):
+  agenda@5.0.0(patch_hash=22tgtweyd5fuhnx2hdyly6czu4):
     dependencies:
       cron-parser: 3.5.0
       date.js: 0.3.3
@@ -23836,7 +25413,7 @@ snapshots:
       eslint: 9.39.2
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.32.0)(eslint@9.39.2)
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-typescript@3.6.1)(eslint@9.39.2)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.32.0)(eslint@9.39.2))(eslint@9.39.2)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2)
       eslint-plugin-react: 7.37.5(eslint@9.39.2)
       eslint-plugin-react-hooks: 7.0.1(eslint@9.39.2)
@@ -23873,7 +25450,7 @@ snapshots:
       debug: 4.4.3(supports-color@8.1.1)
       enhanced-resolve: 5.18.4
       eslint: 9.39.2
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@9.39.2)
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.32.0)(eslint@9.39.2))(eslint@9.39.2)
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-typescript@4.4.4)(eslint@9.39.2)
       fast-glob: 3.3.2
       get-tsconfig: 4.13.0
@@ -23900,7 +25477,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@9.39.2):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.32.0)(eslint@9.39.2))(eslint@9.39.2):
     dependencies:
       debug: 3.2.7(supports-color@5.5.0)
     optionalDependencies:
@@ -23922,7 +25499,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-typescript@3.6.1)(eslint@9.39.2):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.32.0)(eslint@9.39.2))(eslint@9.39.2):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -23933,7 +25510,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.39.2
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@9.39.2)
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@8.53.1(eslint@9.39.2)(typescript@5.7.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.32.0)(eslint@9.39.2))(eslint@9.39.2)
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
@@ -27738,7 +29315,7 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
-  presto-client@1.1.0(patch_hash=9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb):
+  presto-client@1.1.0(patch_hash=mbeixnouradmtp2ryk6uz642k4):
     dependencies:
       follow-redirects: 1.15.6(debug@4.3.4)
     transitivePeerDependencies:

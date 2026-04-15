@@ -93,7 +93,7 @@ In addition, GrowthBook performs automatic data quality
 checks to ensure the statistical inferences are valid and ready for interpretation.
 We currently run a number of checks and plan to add even more in the future.
 
-1.  **Sample Ratio Mismatch** (SRM) detects when the traffic split doesn't match what you are expecting (e.g. a 48/52 split when you expect it to be 50/50)
+1.  **[Sample Ratio Mismatch](/statistics/srm)** (SRM) detects when the traffic split doesn't match what you are expecting (e.g. a 48/52 split when you expect it to be 50/50). GrowthBook supports both a standard chi-squared test and a sequential Bayes factor test that provides anytime-valid detection under continuous monitoring.
 2.  **Multiple Exposures** which alerts you if too many users were exposed to multiple variations of a single experiment (e.g. someone saw both A and B)
 3.  **Guardrail Metrics** help ensure an experiment isn't inadvertently hurting core metrics like error rate or page load time
 4.  **Minimum Data Thresholds** so you aren't drawing conclusions too early (e.g. when it's 5 vs 2 conversions)

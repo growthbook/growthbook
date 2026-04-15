@@ -1,0 +1,169 @@
+---
+title: Sample Ratio Mismatch (SRM) Detection
+description: How GrowthBook detects sample ratio mismatch in experiments
+sidebar_label: SRM Detection
+slug: srm
+---
+
+# Sample Ratio Mismatch (SRM) Detection
+
+A Sample Ratio Mismatch (SRM) occurs when the observed traffic split between experiment variations differs significantly from the expected split. For example, if you expect a 50/50 split but observe 46/54, something may be wrong with your experiment — perhaps a bug in assignment logic, differential bot traffic, or a broken tracking callback. When SRM is detected, experiment results should not be trusted.
+
+GrowthBook automatically checks for SRM on every experiment and supports two detection methods: **chi-squared** (the default) and **sequential**.
+
+:::note The default SRM threshold is 0.001, much stricter than the typical 0.05 used for treatment effects. The reason is that SRM is rare — suppose only 5% of experiments have a true traffic imbalance. Even with a perfectly powerful test, at $\alpha = 0.05$ roughly half (49%) of all SRM warnings would be false discoveries: $\text{FDR} = \frac{0.95 \times 0.05}{0.95 \times 0.05 + 0.05 \times 1} \approx 0.49$. At $\alpha = 0.001$, the false discovery rate drops to about 2%: $\text{FDR} = \frac{0.95 \times 0.001}{0.95 \times 0.001 + 0.05 \times 1} \approx 0.019$. Since each SRM warning triggers a manual investigation, keeping the false discovery rate low saves substantial debugging effort. This threshold is configurable in your organization settings.
+:::
+
+## Chi-Squared Test (Default)
+
+The default SRM detection method uses a chi-squared goodness-of-fit test. It compares the total observed user counts per variation against the expected counts implied by the traffic weights.
+
+This is a standard, well-understood test that works well for fixed-horizon analyses. The p-value answers the question: "If the true traffic split matched the expected weights, how likely would we be to see a split at least this extreme?"
+
+GrowthBook flags an SRM warning when the p-value falls below the SRM threshold (default 0.001).
+
+## Sequential SRM Test
+
+:::info Sequential SRM detection is separate from [Sequential Testing](/statistics/sequential) for metric analysis. Sequential metric testing uses frequentist confidence sequences and requires the Frequentist engine. Sequential SRM detection uses a Bayesian approach and works with any statistics engine.
+:::
+
+### Why use sequential SRM detection?
+
+The chi-squared test works well when you check for SRM at a single, pre-determined time. But in practice, most teams monitor experiments continuously — checking results daily or even more frequently. Each time you check the chi-squared SRM p-value and decide whether to trust the experiment, you are effectively running another hypothesis test. This repeated testing inflates the false positive rate, just as [peeking at metric results](/statistics/sequential#the-peeking-problem) inflates false positives for treatment effect estimates.
+
+For example, if you check the chi-squared SRM p-value once per day for 30 days at the SRM threshold of 0.001, the probability of a false SRM alarm over the course of the experiment is substantially higher than 0.1% — even if traffic is perfectly balanced. The more often you check, the worse the inflation becomes.
+
+Sequential SRM detection solves this by producing an **anytime-valid p-value**: one that controls the false positive rate at the stated level no matter how many times you check, or when you choose to check. You get the safety of continuous monitoring without the statistical cost.
+
+This is particularly useful when:
+
+- You monitor experiments continuously and want SRM detection that remains valid under repeated checking
+- You want to detect SRM as early as possible, without waiting for a fixed sample size
+- You want a principled way to accumulate evidence for or against SRM over time
+
+### How it works
+
+The sequential test processes daily traffic counts incrementally, comparing two models at each day of the experiment:
+
+- **M0 (null):** Daily user counts follow a Multinomial distribution with the expected traffic proportions $p_0$ (no SRM).
+- **M1 (alternative):** Daily user counts follow a Multinomial whose proportions are drawn from a Dirichlet prior centered on $p_0$ (SRM may be present).
+
+At each time step $t$, the test computes a **Bayes factor** — the likelihood ratio of the observed data under the two models. A Bayes factor greater than 1 means the data are more consistent with M1 (SRM present) than M0 (no SRM).
+
+The Bayes factor sequence forms a **test martingale** under the null, which means its reciprocal can be used as a sequential p-value via Ville's inequality. GrowthBook reports the **running minimum** of $1/BF_t$, which can only decrease over time. Once this value crosses below the SRM threshold, it stays below — matching the intuition that a traffic imbalance doesn't "go away" by collecting more data.
+
+For the full mathematical details, see Lindon, Semmens, & Gotwalt (2022) in [References](#references).
+
+<details>
+<summary>Mathematical details</summary>
+
+Let $x_t = (x_{t,1}, \ldots, x_{t,K})$ denote the vector of user counts assigned to $K$ variations during time period $t$, and let $n_t = \sum_k x_{t,k}$.
+
+**Null model (M0).** Under the null, each day's counts follow a Multinomial with fixed probabilities:
+
+$$p(x_t \mid M_0) = \frac{n_t!}{\prod_{k} x_{t,k}!} \prod_{k} p_{0,k}^{x_{t,k}}$$
+
+**Alternative model (M1).** Under the alternative, counts follow a Dirichlet-Multinomial. For a Dirichlet prior with parameter vector $\alpha$, the marginal likelihood of observing $x_t$ is:
+
+$$p(x_t \mid \alpha) = \frac{n_t!}{\prod_{k} x_{t,k}!} \cdot \frac{B(\alpha + x_t)}{B(\alpha)}$$
+
+where $B(\cdot)$ is the multivariate Beta function expressed via the Gamma function:
+
+$$B(\alpha) = \frac{\prod_k \Gamma(\alpha_k)}{\Gamma\!\left(\sum_k \alpha_k\right)}$$
+
+Because the Dirichlet is the conjugate prior for the Multinomial, the posterior after observing $x_t$ is simply $\text{Dirichlet}(\alpha + x_t)$. The test exploits this conjugacy: at each step, it computes the marginal likelihood under the current posterior, then updates the posterior for the next step.
+
+**Bayes factor.** The cumulative Bayes factor after $T$ time periods is:
+
+$$BF_T = \prod_{t=1}^{T} \frac{p(x_t \mid M_1, x_{1:t-1})}{p(x_t \mid M_0)} = \frac{p(x_{1:T} \mid M_1)}{p(x_{1:T} \mid M_0)}$$
+
+**Sequential p-value.** The anytime-valid p-value at step $T$ is:
+
+$$p_T = \min\!\left(1,\; \min_{1 \le t \le T} \frac{1}{BF_t}\right)$$
+
+Under the null (no SRM), the probability that $p_T$ ever drops below $\alpha$ is at most $\alpha$, for any $\alpha$ and any stopping rule.
+
+</details>
+
+### Prior specification
+
+The alternative model (M1) uses a Dirichlet prior centered on the expected traffic proportions. Two parameters control this prior:
+
+**Dirichlet concentration** (default: 10,000): The Dirichlet parameter vector is $\alpha = c \cdot p_0$ where $c$ is the concentration and $p_0$ is the expected traffic split. The concentration determines the magnitude of SRM the test is most sensitive to. Choose it to match the typical range of historically observed SRMs you want to detect:
+
+- **Higher values** (e.g., 50,000–100,000) make the test more sensitive to small deviations (e.g., a 49.5/50.5 split when 50/50 is expected), but slower to detect large ones.
+- **Lower values** (e.g., 1,000–5,000) make the test respond faster to large deviations, but reduce sensitivity to subtle imbalances.
+- **The default of 10,000** is a reasonable middle ground for most experiments.
+
+**Slab weight** (default: 0.0): Adding a slab weight (e.g., 0.01–0.5) gives the test robustness against large SRM without meaningfully reducing sensitivity to small SRM. This is useful when you want to detect both subtle and severe traffic imbalances. When set to 0 (the default), only the concentrated spike prior is used.
+
+<details>
+<summary>How the spike-and-slab mixture works</summary>
+
+When the slab weight $w > 0$, the per-step marginal likelihood under M1 becomes a weighted mixture of two Dirichlet-Multinomial likelihoods, each maintaining its own posterior:
+
+$$p(x_t \mid M_1, x_{1:t-1}) = (1 - w) \cdot p(x_t \mid \alpha^{\text{spike}}_{t}) + w \cdot p(x_t \mid \alpha^{\text{slab}}_{t})$$
+
+where $\alpha^{\text{spike}}_t$ is the spike posterior (initialized at $c \cdot p_0$) and $\alpha^{\text{slab}}_t$ is the slab posterior (initialized at a near-uniform Dirichlet with concentration 1). Both posteriors are updated independently after each observation. The spike component is sensitive to small deviations near the expected proportions, while the slab component covers large deviations.
+
+</details>
+
+### Configuring sequential SRM
+
+Sequential SRM can be configured at two levels:
+
+**Organization level:** Go to **Settings > Experiment Settings > Experiment Health Settings**. Here you can set the SRM test method, p-value threshold, and (when sequential is selected) the Dirichlet concentration and slab weight.
+
+**Experiment level:** In an experiment's analysis settings, you can override the organization defaults for SRM method, p-value threshold, concentration, and slab weight. Each override includes a "Reset to Organization Default" option.
+
+| Setting                 | Default       | Description                                                             |
+| ----------------------- | ------------- | ----------------------------------------------------------------------- |
+| SRM method              | `chi_squared` | Set to `sequential` to enable sequential SRM detection                  |
+| SRM p-value threshold   | 0.001         | P-value below which SRM is flagged                                      |
+| Dirichlet concentration | 10,000        | Prior concentration for the spike component                             |
+| Slab weight             | 0.0           | Mixture weight for the diffuse (slab) component; 0 disables the mixture |
+
+### Interpreting sequential SRM results
+
+The sequential p-value has the same interpretation as the chi-squared p-value: values below the SRM threshold (default 0.001) indicate a likely sample ratio mismatch. The key difference is that the sequential p-value can only decrease over time (it is a running minimum), so once SRM is detected it stays detected.
+
+Because the test is anytime-valid, you do not need to worry about inflating the false positive rate by checking the SRM p-value repeatedly throughout the experiment.
+
+## Which method should I use?
+
+For most users, the **chi-squared test** (default) is a good choice. It is simple, well-understood, and works well for standard experiment analyses.
+
+Consider switching to the **sequential test** if:
+
+- You run long experiments and check results frequently
+- You want the earliest possible detection of traffic imbalances
+- You want formal guarantees that repeated checking does not inflate the SRM false alarm rate
+
+Both methods use the same threshold (default 0.001) and produce the same type of warning when SRM is detected.
+
+## References
+
+- Lindon, M., Semmens, S., & Gotwalt, C. (2022). [Anytime-valid sequential testing for sample ratio mismatch](https://arxiv.org/abs/2011.01808). The methodological basis for GrowthBook's sequential SRM test.
+
+## Troubleshooting SRM
+
+When GrowthBook detects an SRM, the experiment results should be treated with caution. Common causes include:
+
+1. **Decoupled assignment and tracking** — The experiment assignment and exposure tracking happen in different places
+2. **Misconfigured trackingCallback** — The tracking callback only fires under certain conditions
+3. **Misconfigured Activation Metric** — An activation metric that is triggered differently across variations
+4. **Hash attribute mismatch** — The hash attribute doesn't match the identifier type in your data source
+5. **Mid-experiment targeting changes** — Changes to targeting after the experiment started
+
+See the [Troubleshooting Experiments](/kb/experiments/troubleshooting-experiments#problem-2-srm-errors-traffic-imbalance-in-the-experiment) guide for detailed solutions.
+
+### Sequential SRM FAQ
+
+**Why is my sequential p-value stuck at 1.0?**
+The test needs enough data to accumulate evidence. With a high concentration prior and balanced traffic, it may take several days before the Bayes factor moves meaningfully. This is expected — it means the test has not yet seen evidence of SRM.
+
+**Can the sequential p-value go back up?**
+No. The reported value is a running minimum, so it can only stay the same or decrease. Once SRM is detected, it stays detected.
+
+**I switched from chi-squared to sequential mid-experiment — what happens?**
+The sequential test processes all available daily traffic counts from the start of the experiment. It does not depend on when you enabled it — it will recompute over the full history.

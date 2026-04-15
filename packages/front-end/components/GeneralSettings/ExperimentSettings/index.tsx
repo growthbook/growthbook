@@ -447,6 +447,66 @@ export default function ExperimentSettings({
                     />
                   </Box>
                 </Box>
+                <Box mb="4">
+                  <Text className="font-weight-semibold mb-1">
+                    SRM test method
+                  </Text>
+                  <RadioGroup
+                    disabled={hasFileConfig()}
+                    options={[
+                      {
+                        label: "Chi-squared",
+                        value: "chi_squared",
+                        description:
+                          "Classic chi-squared test. Fast and works well for completed experiments.",
+                      },
+                      {
+                        label: "Sequential",
+                        value: "sequential",
+                        description:
+                          "Sequential SSRM. Better suited for experiments monitored continuously over time.",
+                      },
+                    ]}
+                    value={form.watch("srmMethod") ?? "chi_squared"}
+                    gap="2"
+                    descriptionSize="2"
+                    setValue={(v) => form.setValue("srmMethod", v)}
+                  />
+                  {form.watch("srmMethod") === "sequential" && (
+                    <Flex gap="4" mt="3">
+                      <Box style={{ flex: 1 }}>
+                        <Field
+                          label="Slab Weight"
+                          helpText="Mixture weight for the diffuse (slab) prior component. 0 uses only the informative spike."
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1"
+                          disabled={hasFileConfig()}
+                          {...form.register("srmSlabWeight", {
+                            valueAsNumber: true,
+                            min: 0,
+                            max: 1,
+                          })}
+                        />
+                      </Box>
+                      <Box style={{ flex: 1 }}>
+                        <Field
+                          label="Spike Concentration"
+                          helpText="Dirichlet concentration for the spike (informative) prior. Higher values = tighter prior around expected weights."
+                          type="number"
+                          step="100"
+                          min="1"
+                          disabled={hasFileConfig()}
+                          {...form.register("srmDirichletConcentration", {
+                            valueAsNumber: true,
+                            min: 1,
+                          })}
+                        />
+                      </Box>
+                    </Flex>
+                  )}
+                </Box>
                 <Box>
                   <Text className="font-weight-semibold" size="2">
                     <label>

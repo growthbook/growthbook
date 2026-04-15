@@ -59,6 +59,8 @@
     "@opentelemetry/winston-transport": "~0.21.0",
     "@sentry/cli-linux-x64": "^2.58.4",
     "@sentry/node": "^10.44.0",
+    "@stdlib/math-base-special-gammaln": "^0.2.2",
+    "@stdlib/math-base-special-xlogy": "^0.3.2",
     "@stdlib/random": "^0.1.1",
     "@stdlib/stats": "^0.1.1",
     "@types/handlebars": "^4.1.0",

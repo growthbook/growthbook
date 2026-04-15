@@ -127,6 +127,8 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
         rows: rows,
         error: healthQuery.error,
         variations: this.model.settings.variations,
+        // SafeRollouts always use chi-squared
+        srmSettings: undefined,
       });
 
       result.health = {

@@ -82,7 +82,7 @@ from gbstats.models.statistics import (
     TestStatistic,
     BanditStatistic,
 )
-from gbstats.utils import check_srm
+from gbstats.ssrm import compute_srm_p_value
 
 from gbstats.models.tests import EffectMomentsResult
 
@@ -512,6 +512,7 @@ def analyze_metric_df(
     num_variations: int,
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
+    srm_daily_users: Optional[List[List[int]]] = None,
 ) -> List[DimensionResponseIndividual]:
 
     def analyze_dimension(
@@ -600,12 +601,14 @@ def analyze_metric_df(
             else:
                 raise ValueError(f"Unexpected test result type: {type(res)}")
 
-        # TODO check front-end SRM matches this SRM
-        srm_p = check_srm(
-            [d["baseline_users"].sum()]
-            + [d[f"v{i}_users"].sum() for i in range(1, num_variations)],
-            analysis.weights,
-        )
+        if srm_daily_users:
+            daily_users = srm_daily_users
+        else:
+            daily_users = [
+                [d["baseline_users"].sum()]
+                + [d[f"v{i}_users"].sum() for i in range(1, num_variations)]
+            ]
+        srm_p = compute_srm_p_value(analysis, daily_users, num_variations)
 
         # insert baseline data in the appropriate position, uses test from last variation
         # but should be the same for the baseline (stat_a is the control/baseline statistic)
@@ -801,6 +804,7 @@ def process_analysis(
     var_id_map: VarIdMap,
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
+    srm_daily_users: Optional[List[List[int]]] = None,
 ) -> List[DimensionResponse]:
     # diff data, convert raw sql into df of dimensions, and get rid of extra dimensions
     var_names = analysis.var_names
@@ -837,6 +841,7 @@ def process_analysis(
         num_variations=num_variations,
         metric=metric,
         analysis=analysis,
+        srm_daily_users=srm_daily_users,
     )
     return result
 
@@ -873,6 +878,7 @@ def create_core_and_supplemental_results(
     num_variations: int,
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
+    srm_daily_users: Optional[List[List[int]]] = None,
 ) -> List[DimensionResponse]:
 
     core_result = analyze_metric_df(
@@ -880,6 +886,7 @@ def create_core_and_supplemental_results(
         num_variations=num_variations,
         metric=metric,
         analysis=analysis,
+        srm_daily_users=srm_daily_users,
     )
 
     cuped_adjusted = metric.statistic_type in ["ratio_ra", "mean_ra"]
@@ -1048,6 +1055,7 @@ def process_single_metric(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
     analyses: List[AnalysisSettingsForStatsEngine],
+    srm_daily_users: Optional[List[List[int]]] = None,
 ) -> ExperimentMetricAnalysis:
     # If no data return blank results
     if len(rows) == 0:
@@ -1092,6 +1100,7 @@ def process_single_metric(
                 var_id_map=get_var_id_map(a.var_ids),
                 metric=metric,
                 analysis=a,
+                srm_daily_users=srm_daily_users,
             )
         )
     return ExperimentMetricAnalysis(
@@ -1283,6 +1292,7 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
             if "bandit_settings" in data
             else None
         ),
+        srm_daily_users=data.get("srm_daily_users", []),
     )
 
 
@@ -1325,6 +1335,7 @@ def process_experiment_results(
                                 rows=rows,
                                 metric=metric_settings_bandit,
                                 analyses=d.analyses,
+                                srm_daily_users=d.srm_daily_users or None,
                             )
                         )
                     else:
@@ -1333,6 +1344,7 @@ def process_experiment_results(
                                 rows=rows,
                                 metric=this_metric,
                                 analyses=d.analyses,
+                                srm_daily_users=d.srm_daily_users or None,
                             )
                         )
 

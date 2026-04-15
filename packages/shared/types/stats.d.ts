@@ -177,6 +177,9 @@ export interface AnalysisSettingsForStatsEngine {
   num_goal_metrics: number;
   one_sided_intervals?: boolean;
   post_stratification_enabled?: boolean;
+  srm_method?: "chi_squared" | "sequential";
+  srm_slab_weight?: number;
+  srm_dirichlet_concentration?: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -235,6 +238,7 @@ export interface DataForStatsEngine {
   metrics: Record<string, MetricSettingsForStatsEngine>;
   query_results: QueryResultsForStatsEngine[];
   bandit_settings?: BanditSettingsForStatsEngine;
+  srm_daily_users?: number[][];
 }
 
 export interface ExperimentDataForStatsEngine {

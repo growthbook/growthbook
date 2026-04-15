@@ -3,6 +3,9 @@ import {
   BANDIT_SRM_DIMENSION_NAME,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_SRM_DIRICHLET_CONCENTRATION,
+  DEFAULT_SRM_METHOD,
+  DEFAULT_SRM_SLAB_WEIGHT,
   DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
@@ -53,6 +56,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { BanditResult } from "shared/types/experiment";
 import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
+import { sequentialPValues } from "back-end/src/util/ssrm";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -64,6 +68,149 @@ import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
 
 export const MAX_DIMENSIONS = 20;
+
+// ---------------------------------------------------------------------------
+// SRM helpers (sequential + chi-squared dispatch)
+// ---------------------------------------------------------------------------
+
+export interface SrmSettings {
+  srmMethod: "chi_squared" | "sequential";
+  srmSlabWeight: number;
+  srmDirichletConcentration: number;
+}
+
+const DEFAULT_SRM_SETTINGS: SrmSettings = {
+  srmMethod: DEFAULT_SRM_METHOD,
+  srmSlabWeight: DEFAULT_SRM_SLAB_WEIGHT,
+  srmDirichletConcentration: DEFAULT_SRM_DIRICHLET_CONCENTRATION,
+};
+
+export function extractSrmSettings(
+  settings:
+    | Pick<
+        ExperimentSnapshotAnalysisSettings,
+        "srmMethod" | "srmSlabWeight" | "srmDirichletConcentration"
+      >
+    | undefined,
+): SrmSettings {
+  if (!settings) return DEFAULT_SRM_SETTINGS;
+  return {
+    srmMethod: settings.srmMethod ?? DEFAULT_SRM_METHOD,
+    srmSlabWeight: settings.srmSlabWeight ?? DEFAULT_SRM_SLAB_WEIGHT,
+    srmDirichletConcentration:
+      settings.srmDirichletConcentration ?? DEFAULT_SRM_DIRICHLET_CONCENTRATION,
+  };
+}
+
+export function extractSrmDailyUsers(
+  rows: ExperimentAggregateUnitsQueryResponseRows | undefined,
+  variations: SnapshotSettingsVariation[],
+): number[][] {
+  if (!rows?.length) return [];
+  const variationIdMap: Record<string, number> = {};
+  variations.forEach((v, i) => {
+    variationIdMap[v.id] = i;
+  });
+
+  const byDate = new Map<string, number[]>();
+  rows.forEach((r) => {
+    if (r.dimension_name !== EXPOSURE_DATE_DIMENSION_NAME) return;
+    const varIdx = variationIdMap[r.variation];
+    if (varIdx === undefined) return;
+    const units =
+      byDate.get(r.dimension_value) ?? Array(variations.length).fill(0);
+    units[varIdx] = r.units;
+    byDate.set(r.dimension_value, units);
+  });
+
+  return Array.from(byDate.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, units]) => units);
+}
+
+/** Filter out zero-weight variations and return normalized null probabilities. */
+function filterZeroWeightVariations(
+  data: number[][],
+  weights: number[],
+): { filtered: number[][]; nullProbs: number[] } | null {
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  const validIndices = weights
+    .map((w, i) => (w > 0 ? i : -1))
+    .filter((i) => i >= 0);
+  if (validIndices.length === 0) return null;
+  const nullProbs = validIndices.map((i) => weights[i] / totalWeight);
+  const filtered = data.map((row) => validIndices.map((i) => row[i]));
+  if (!filtered.some((row) => row.reduce((a, b) => a + b, 0) > 0)) return null;
+  return { filtered, nullProbs };
+}
+
+/** Run sequential Bayes factor test on a daily matrix, returning p-values. */
+function runSequentialSrm(
+  dailyMatrix: number[][],
+  weights: number[],
+  settings: SrmSettings,
+): number[] {
+  const prepared = filterZeroWeightVariations(dailyMatrix, weights);
+  if (!prepared) return dailyMatrix.map(() => 1.0);
+  return sequentialPValues(prepared.filtered, prepared.nullProbs, {
+    slabWeight: settings.srmSlabWeight,
+    dirichletConcentration: settings.srmDirichletConcentration,
+  });
+}
+
+export function computeTrafficSrm(
+  overallVariationUnits: number[],
+  dailyEntries: { variationUnits: number[] }[],
+  variationWeights: number[],
+  settings: SrmSettings = DEFAULT_SRM_SETTINGS,
+): number {
+  if (settings.srmMethod === "sequential") {
+    const matrix =
+      dailyEntries.length > 0
+        ? dailyEntries.map((d) => d.variationUnits)
+        : [overallVariationUnits];
+    const pValues = runSequentialSrm(matrix, variationWeights, settings);
+    return pValues[pValues.length - 1] ?? 1.0;
+  }
+  // Chi-squared
+  if (dailyEntries.length > 0) {
+    const totalUsers = Array(variationWeights.length).fill(0) as number[];
+    dailyEntries.forEach((d) =>
+      d.variationUnits.forEach((u, i) => {
+        totalUsers[i] += u;
+      }),
+    );
+    return checkSrm(totalUsers, variationWeights);
+  }
+  return checkSrm(overallVariationUnits, variationWeights);
+}
+
+export function computeDimensionSrm(
+  variationUnits: number[],
+  variationWeights: number[],
+  settings: SrmSettings = DEFAULT_SRM_SETTINGS,
+): number {
+  if (settings.srmMethod === "sequential") {
+    const pValues = runSequentialSrm(
+      [variationUnits],
+      variationWeights,
+      settings,
+    );
+    return pValues[0] ?? 1.0;
+  }
+  return checkSrm(variationUnits, variationWeights);
+}
+
+export function computePerDaySequentialSrm(
+  dailyMatrix: number[][],
+  weights: number[],
+  settings: SrmSettings,
+): number[] {
+  if (settings.srmMethod !== "sequential" || dailyMatrix.length === 0) {
+    return dailyMatrix.map((row) => checkSrm(row, weights));
+  }
+  return runSequentialSrm(dailyMatrix, weights, settings);
+}
 
 export function getAnalysisSettingsForStatsEngine(
   settings: ExperimentSnapshotAnalysisSettings,
@@ -103,6 +250,10 @@ export function getAnalysisSettingsForStatsEngine(
     num_goal_metrics: settings.numGoalMetrics,
     one_sided_intervals: !!settings.oneSidedIntervals,
     post_stratification_enabled: !!settings.postStratificationEnabled,
+    srm_method: settings.srmMethod ?? DEFAULT_SRM_METHOD,
+    srm_slab_weight: settings.srmSlabWeight ?? DEFAULT_SRM_SLAB_WEIGHT,
+    srm_dirichlet_concentration:
+      settings.srmDirichletConcentration ?? DEFAULT_SRM_DIRICHLET_CONCENTRATION,
   };
 
   return analysisData;
@@ -181,6 +332,7 @@ function createStatsEngineData(
     analyses,
     queryResults,
     banditSettings,
+    srmDailyUsers,
   } = params;
 
   const phaseLengthDays = Number(phaseLengthHours / 24);
@@ -199,6 +351,7 @@ function createStatsEngineData(
     bandit_settings: banditSettings
       ? getBanditSettingsForStatsEngine(banditSettings, analyses[0], variations)
       : undefined,
+    ...(srmDailyUsers?.length ? { srm_daily_users: srmDailyUsers } : {}),
   };
 }
 
@@ -651,6 +804,13 @@ export async function analyzeExperimentResults({
   const { queryResults, metricSettings } = mdat;
   const { unknownVariations } = mdat;
 
+  const srmDailyUsers = extractSrmDailyUsers(
+    queryData.get("traffic")?.result as
+      | ExperimentAggregateUnitsQueryResponseRows
+      | undefined,
+    snapshotSettings.variations,
+  );
+
   const params: ExperimentMetricAnalysisParams = {
     id: snapshotSettings.experimentId,
     coverage: snapshotSettings.coverage ?? 1,
@@ -667,6 +827,7 @@ export async function analyzeExperimentResults({
     queryResults: queryResults,
     metrics: metricSettings,
     banditSettings: snapshotSettings.banditSettings,
+    srmDailyUsers: srmDailyUsers.length ? srmDailyUsers : undefined,
   };
   const { results: analysis, banditResult } = await runSnapshotAnalysis(params);
 
@@ -684,10 +845,12 @@ export function analyzeExperimentTraffic({
   rows,
   error,
   variations,
+  srmSettings,
 }: {
   rows: ExperimentAggregateUnitsQueryResponseRows;
   error?: string;
   variations: SnapshotSettingsVariation[];
+  srmSettings?: SrmSettings;
 }): ExperimentSnapshotTraffic {
   const overallResult: ExperimentSnapshotTrafficDimension = {
     name: "All",
@@ -768,24 +931,59 @@ export function analyzeExperimentTraffic({
     }
   });
 
-  // compute SRM for non-bandits
+  // Compute SRM for non-bandits using daily time-series when available
   if (!banditSrmSet) {
-    trafficResults.overall.srm = checkSrm(
+    // Sort daily entries chronologically — order matters for sequential Bayes factor
+    const dailyEntries = Array.from(
+      dimTrafficResults.get(EXPOSURE_DATE_DIMENSION_NAME)?.values() ?? [],
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    trafficResults.overall.srm = computeTrafficSrm(
       trafficResults.overall.variationUnits,
+      dailyEntries,
       variationWeights,
+      srmSettings,
     );
   }
 
   for (const [dimName, dimTraffic] of dimTrafficResults) {
-    for (const dimValueTraffic of dimTraffic.values()) {
-      dimValueTraffic.srm = checkSrm(
-        dimValueTraffic.variationUnits,
-        variationWeights,
+    // For the date dimension, compute cumulative sequential p-values so
+    // each day's SRM reflects all data up to that day
+    if (
+      dimName === EXPOSURE_DATE_DIMENSION_NAME &&
+      srmSettings?.srmMethod === "sequential"
+    ) {
+      // Sort date entries chronologically
+      const sortedEntries = Array.from(dimTraffic.entries()).sort(([a], [b]) =>
+        a.localeCompare(b),
       );
-      if (dimName in trafficResults.dimension) {
-        trafficResults.dimension[dimName].push(dimValueTraffic);
-      } else {
-        trafficResults.dimension[dimName] = [dimValueTraffic];
+      const dailyMatrix = sortedEntries.map(([, d]) => d.variationUnits);
+      const perDayPValues = computePerDaySequentialSrm(
+        dailyMatrix,
+        variationWeights,
+        srmSettings,
+      );
+      sortedEntries.forEach(([, dimValueTraffic], i) => {
+        dimValueTraffic.srm = perDayPValues[i];
+        if (dimName in trafficResults.dimension) {
+          trafficResults.dimension[dimName].push(dimValueTraffic);
+        } else {
+          trafficResults.dimension[dimName] = [dimValueTraffic];
+        }
+      });
+    } else {
+      // For non-date dimensions, use the sequential calculation on
+      // aggregated counts rather than per-day breakdown
+      for (const dimValueTraffic of dimTraffic.values()) {
+        dimValueTraffic.srm = computeDimensionSrm(
+          dimValueTraffic.variationUnits,
+          variationWeights,
+          srmSettings,
+        );
+        if (dimName in trafficResults.dimension) {
+          trafficResults.dimension[dimName].push(dimValueTraffic);
+        } else {
+          trafficResults.dimension[dimName] = [dimValueTraffic];
+        }
       }
     }
   }

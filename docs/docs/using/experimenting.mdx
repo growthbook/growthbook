@@ -181,6 +181,8 @@ experiment health page.
   ![Sample Ratio Mismatch](/images/using/srm-check-health-page.png)
 </MaxWidthImage>
 
+GrowthBook supports two SRM detection methods: a standard **chi-squared test** (default) and a **sequential Bayes factor test** that provides anytime-valid detection under continuous monitoring. The sequential method processes daily traffic counts incrementally and is especially useful for long-running experiments where you check results frequently. You can read more in the [SRM Detection documentation](/statistics/srm).
+
 Like the warning says, you shouldn't trust the results since they are likely misleading. Instead, find and
 fix the source of the bug and restart the experiment. You can find more information about potential sources
 of the problems in our [troubleshooting guide](/kb/experiments/troubleshooting-experiments#problem-2-srm-errors-traffic-imbalance-in-the-experiment).

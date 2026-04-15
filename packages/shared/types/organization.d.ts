@@ -214,6 +214,9 @@ export interface OrganizationSettings {
   regressionAdjustmentDays?: number;
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
+  srmMethod?: "chi_squared" | "sequential";
+  srmSlabWeight?: number;
+  srmDirichletConcentration?: number;
   aiEnabled?: boolean;
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;

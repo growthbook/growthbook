@@ -56,9 +56,8 @@ def variance_of_ratios(mean_m, var_m, mean_d, var_d, cov_m_d) -> float:
     )
 
 
-# Run a chi-squared test to make sure the observed traffic split matches the expected one
 def check_srm(users: List[int], weights: List[float]) -> float:
-    # Convert count of users into ratios
+    """Run a chi-squared test to make sure the observed traffic split matches the expected one."""
     total_observed = sum(users)
     if not total_observed:
         return 1

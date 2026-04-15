@@ -39,6 +39,7 @@ import { updateReport } from "back-end/src/models/ReportModel";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
+  extractSrmSettings,
 } from "back-end/src/services/stats";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
@@ -965,6 +966,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         rows: rows,
         error: healthQuery.error,
         variations: this.model.settings.variations,
+        srmSettings: extractSrmSettings(this.model.analyses[0]?.settings),
       });
 
       result.health = {

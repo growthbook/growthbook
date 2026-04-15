@@ -15,6 +15,9 @@ import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
   DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_SRM_DIRICHLET_CONCENTRATION,
+  DEFAULT_SRM_METHOD,
+  DEFAULT_SRM_SLAB_WEIGHT,
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
@@ -111,6 +114,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
+      srmMethod: settings.srmMethod ?? DEFAULT_SRM_METHOD,
+      srmSlabWeight: settings.srmSlabWeight ?? DEFAULT_SRM_SLAB_WEIGHT,
+      srmDirichletConcentration:
+        settings.srmDirichletConcentration ??
+        DEFAULT_SRM_DIRICHLET_CONCENTRATION,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
@@ -207,6 +215,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     updateSchedule: form.watch("updateSchedule"),
     runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
     srmThreshold: form.watch("srmThreshold"),
+    srmMethod: form.watch("srmMethod"),
+    srmSlabWeight: form.watch("srmSlabWeight"),
+    srmDirichletConcentration: form.watch("srmDirichletConcentration"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),

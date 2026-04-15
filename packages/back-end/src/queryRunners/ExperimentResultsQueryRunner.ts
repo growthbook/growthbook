@@ -47,6 +47,7 @@ import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
+  extractSrmSettings,
 } from "back-end/src/services/stats";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
@@ -430,6 +431,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         rows: rows,
         error: healthQuery.error,
         variations: this.model.settings.variations,
+        srmSettings: extractSrmSettings(this.model.analyses[0]?.settings),
       });
 
       result.health = {

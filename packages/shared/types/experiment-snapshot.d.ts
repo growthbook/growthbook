@@ -139,6 +139,9 @@ export interface ExperimentSnapshotAnalysisSettings {
     start: Date;
     end: Date;
   };
+  srmMethod?: "chi_squared" | "sequential";
+  srmSlabWeight?: number;
+  srmDirichletConcentration?: number;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
@@ -272,6 +275,7 @@ export interface ExperimentMetricAnalysisParams {
   metrics: Record<string, MetricSettingsForStatsEngine>;
 
   queryResults: QueryResultsForStatsEngine[];
+  srmDailyUsers?: number[][];
 }
 
 export type ExperimentMetricAnalysisContext = {

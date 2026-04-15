@@ -15,6 +15,9 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_SRM_DIRICHLET_CONCENTRATION,
+  DEFAULT_SRM_METHOD,
+  DEFAULT_SRM_SLAB_WEIGHT,
   DEFAULT_STATS_ENGINE,
   PRECOMPUTED_DIMENSION_PREFIX,
 } from "shared/constants";
@@ -342,6 +345,18 @@ export function getDefaultExperimentAnalysisSettings({
     differenceType: "relative",
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    srmMethod:
+      experiment?.srmMethod ??
+      organization.settings?.srmMethod ??
+      DEFAULT_SRM_METHOD,
+    srmSlabWeight:
+      experiment?.srmSlabWeight ??
+      organization.settings?.srmSlabWeight ??
+      DEFAULT_SRM_SLAB_WEIGHT,
+    srmDirichletConcentration:
+      experiment?.srmDirichletConcentration ??
+      organization.settings?.srmDirichletConcentration ??
+      DEFAULT_SRM_DIRICHLET_CONCENTRATION,
     numGoalMetrics: experiment.goalMetrics.length,
   };
 }
