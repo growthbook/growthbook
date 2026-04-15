@@ -110,3 +110,4 @@ Three tiers: global (manageTeam, manageBilling), project-scoped (manageFeatures,
 - **Logging** — back-end uses `import { logger } from "util/logger"` (not `console.log`)
 - **Testing policy** — write tests for utility/helper functions; do NOT write tests for front-end components or back-end routers/controllers/models
 - **Zod as source of truth** — infer types from schemas (`z.infer<typeof mySchema>`), don't duplicate type definitions
+- **ESLint suppression** — never suppress lint errors by prefixing variables, params, or imports with `_`, remove unused code

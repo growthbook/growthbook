@@ -7307,6 +7307,11 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   /**
                    * @example [
                    *   {
@@ -7445,6 +7450,11 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   /**
                    * @example [
                    *   {
@@ -7495,6 +7505,11 @@ export interface operations {
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
                       })[];
                     /**
                      * @example [
@@ -7634,6 +7649,11 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     /**
                      * @example [
                      *   {
@@ -9352,6 +9372,11 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   /**
                    * @example [
                    *   {
@@ -9490,6 +9515,11 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   /**
                    * @example [
                    *   {
@@ -9540,6 +9570,11 @@ export interface operations {
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
                       })[];
                     /**
                      * @example [
@@ -9679,6 +9714,11 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     /**
                      * @example [
                      *   {

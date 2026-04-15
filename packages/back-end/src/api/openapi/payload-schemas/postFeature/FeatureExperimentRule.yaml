@@ -47,6 +47,19 @@ properties:
         maxItems: 2
   coverage:
     type: number
+  prerequisites:
+    type: array
+    items:
+      type: object
+      required:
+        - id
+        - condition
+      properties:
+        id:
+          type: string
+          description: "Feature ID"
+        condition:
+          type: string
   scheduleRules:
     type: array
     items:

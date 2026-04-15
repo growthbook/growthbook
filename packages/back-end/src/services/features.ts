@@ -2004,6 +2004,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
+        ...(r.prerequisites && { prerequisites: r.prerequisites }),
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRefRule;
@@ -2023,6 +2024,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
         values: values,
+        ...(r.prerequisites && { prerequisites: r.prerequisites }),
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRule;
@@ -2039,6 +2041,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           match: s.matchType,
         })),
         enabled: r.enabled != null ? r.enabled : true,
+        ...(r.prerequisites && { prerequisites: r.prerequisites }),
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return forceRule;
@@ -2057,6 +2060,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         match: s.matchType,
       })),
       enabled: r.enabled != null ? r.enabled : true,
+      ...(r.prerequisites && { prerequisites: r.prerequisites }),
       ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
     };
     return rolloutRule;
