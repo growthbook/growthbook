@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const memberRoleInfo = z.strictObject({
   role: z.string(),
   limitAccessByEnvironment: z.boolean(),
@@ -50,30 +52,33 @@ export const expandedMember = member.safeExtend(expandedMemberInfo);
 // --- API validators (correspond to openapi YAML specs) ---
 
 // Corresponds to schemas/Organization.yaml
-export const apiOrganizationValidator = z
-  .object({
-    id: z
-      .string()
-      .describe("The Growthbook unique identifier for the organization")
-      .optional(),
-    externalId: z
-      .string()
-      .describe(
-        "An optional identifier that you use within your company for the organization",
-      )
-      .optional(),
-    dateCreated: z
-      .string()
-      .meta({ format: "date-time" })
-      .describe("The date the organization was created")
-      .optional(),
-    name: z.string().describe("The name of the organization").optional(),
-    ownerEmail: z
-      .string()
-      .describe("The email address of the organization owner")
-      .optional(),
-  })
-  .strict();
+export const apiOrganizationValidator = namedSchema(
+  "Organization",
+  z
+    .object({
+      id: z
+        .string()
+        .describe("The Growthbook unique identifier for the organization")
+        .optional(),
+      externalId: z
+        .string()
+        .describe(
+          "An optional identifier that you use within your company for the organization",
+        )
+        .optional(),
+      dateCreated: z
+        .string()
+        .meta({ format: "date-time" })
+        .describe("The date the organization was created")
+        .optional(),
+      name: z.string().describe("The name of the organization").optional(),
+      ownerEmail: z
+        .string()
+        .describe("The email address of the organization owner")
+        .optional(),
+    })
+    .strict(),
+);
 
 export type ApiOrganization = z.infer<typeof apiOrganizationValidator>;
 

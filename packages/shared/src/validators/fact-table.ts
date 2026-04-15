@@ -2,6 +2,8 @@ import { z } from "zod";
 import { ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 // If you change these types, also update the factTableColumnTypeValidator to match
 export const factTableColumnTypes = [
   "number",
@@ -283,131 +285,156 @@ export const testFactFilterPropsValidator = z
 // ---- API Validators (migrated from openapi.ts) ----
 
 // Corresponds to schemas/FactTableColumn.yaml
-export const apiFactTableColumnValidator = z
-  .object({
-    column: z
-      .string()
-      .describe("The actual column name in the database/SQL query"),
-    datatype: z.enum([
-      "number",
-      "string",
-      "date",
-      "boolean",
-      "json",
-      "other",
-      "",
-    ]),
-    numberFormat: z
-      .enum([
+export const apiFactTableColumnValidator = namedSchema(
+  "FactTableColumn",
+  z
+    .object({
+      column: z
+        .string()
+        .describe("The actual column name in the database/SQL query"),
+      datatype: z.enum([
+        "number",
+        "string",
+        "date",
+        "boolean",
+        "json",
+        "other",
         "",
-        "currency",
-        "time:seconds",
-        "memory:bytes",
-        "memory:kilobytes",
-      ])
-      .optional(),
-    jsonFields: z
-      .record(
-        z.string(),
-        z.object({
-          datatype: z
-            .enum(["number", "string", "date", "boolean", "json", "other", ""])
-            .optional(),
-        }),
-      )
-      .describe("For JSON columns, defines the structure of nested fields")
-      .optional(),
-    name: z
-      .string()
-      .describe(
-        "Display name for the column (can be different from the actual column name)",
-      )
-      .optional(),
-    description: z.string().optional(),
-    alwaysInlineFilter: z
-      .boolean()
-      .describe(
-        "Whether this column should always be included as an inline filter in queries",
-      )
-      .optional()
-      .meta({ default: false }),
-    deleted: z.boolean().optional().meta({ default: false }),
-    isAutoSliceColumn: z
-      .boolean()
-      .describe(
-        "Whether this column can be used for auto slice analysis. This is an enterprise feature.",
-      )
-      .optional()
-      .meta({ default: false }),
-    autoSlices: z
-      .array(z.string())
-      .describe("Specific slices to automatically analyze for this column.")
-      .optional(),
-    lockedAutoSlices: z
-      .array(z.string())
-      .describe(
-        "Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results.",
-      )
-      .optional(),
-    dateCreated: z.string().meta({ format: "date-time" }).readonly().optional(),
-    dateUpdated: z.string().meta({ format: "date-time" }).readonly().optional(),
-  })
-  .strict();
+      ]),
+      numberFormat: z
+        .enum([
+          "",
+          "currency",
+          "time:seconds",
+          "memory:bytes",
+          "memory:kilobytes",
+        ])
+        .optional(),
+      jsonFields: z
+        .record(
+          z.string(),
+          z.object({
+            datatype: z
+              .enum([
+                "number",
+                "string",
+                "date",
+                "boolean",
+                "json",
+                "other",
+                "",
+              ])
+              .optional(),
+          }),
+        )
+        .describe("For JSON columns, defines the structure of nested fields")
+        .optional(),
+      name: z
+        .string()
+        .describe(
+          "Display name for the column (can be different from the actual column name)",
+        )
+        .optional(),
+      description: z.string().optional(),
+      alwaysInlineFilter: z
+        .boolean()
+        .describe(
+          "Whether this column should always be included as an inline filter in queries",
+        )
+        .optional()
+        .meta({ default: false }),
+      deleted: z.boolean().optional().meta({ default: false }),
+      isAutoSliceColumn: z
+        .boolean()
+        .describe(
+          "Whether this column can be used for auto slice analysis. This is an enterprise feature.",
+        )
+        .optional()
+        .meta({ default: false }),
+      autoSlices: z
+        .array(z.string())
+        .describe("Specific slices to automatically analyze for this column.")
+        .optional(),
+      lockedAutoSlices: z
+        .array(z.string())
+        .describe(
+          "Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results.",
+        )
+        .optional(),
+      dateCreated: z
+        .string()
+        .meta({ format: "date-time" })
+        .readonly()
+        .optional(),
+      dateUpdated: z
+        .string()
+        .meta({ format: "date-time" })
+        .readonly()
+        .optional(),
+    })
+    .strict(),
+);
 
 // Corresponds to schemas/FactTable.yaml
-export const apiFactTableValidator = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string(),
-    owner: ownerField,
-    projects: z.array(z.string()),
-    tags: z.array(z.string()),
-    datasource: z.string(),
-    userIdTypes: z.array(z.string()),
-    sql: z.string(),
-    eventName: z
-      .string()
-      .describe("The event name used in SQL template variables")
-      .optional(),
-    columns: z
-      .array(apiFactTableColumnValidator)
-      .describe("Array of column definitions for this fact table")
-      .optional(),
-    columnsError: z
-      .string()
-      .nullable()
-      .describe("Error message if there was an issue parsing the SQL schema")
-      .optional(),
-    archived: z.boolean().optional(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe(
-        "Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.",
-      ),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-  })
-  .strict();
+export const apiFactTableValidator = namedSchema(
+  "FactTable",
+  z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string(),
+      owner: ownerField,
+      projects: z.array(z.string()),
+      tags: z.array(z.string()),
+      datasource: z.string(),
+      userIdTypes: z.array(z.string()),
+      sql: z.string(),
+      eventName: z
+        .string()
+        .describe("The event name used in SQL template variables")
+        .optional(),
+      columns: z
+        .array(apiFactTableColumnValidator)
+        .describe("Array of column definitions for this fact table")
+        .optional(),
+      columnsError: z
+        .string()
+        .nullable()
+        .describe("Error message if there was an issue parsing the SQL schema")
+        .optional(),
+      archived: z.boolean().optional(),
+      managedBy: z
+        .enum(["", "api", "admin"])
+        .describe(
+          "Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.",
+        ),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+    })
+    .strict(),
+);
 
 export type ApiFactTable = z.infer<typeof apiFactTableValidator>;
 
 // Corresponds to schemas/FactTableFilter.yaml
-export const apiFactTableFilterValidator = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string(),
-    value: z.string(),
-    managedBy: z
-      .enum(["", "api"])
-      .describe(
-        "Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere.",
-      ),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-  })
-  .strict();
+export const apiFactTableFilterValidator = namedSchema(
+  "FactTableFilter",
+  z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string(),
+      value: z.string(),
+      managedBy: z
+        .enum(["", "api"])
+        .describe(
+          "Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere.",
+        ),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+    })
+    .strict(),
+);
 
 export type ApiFactTableFilter = z.infer<typeof apiFactTableFilterValidator>;
 

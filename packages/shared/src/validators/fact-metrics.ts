@@ -2,6 +2,8 @@ import { z } from "zod";
 import { ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 // Shared sub-schemas for fact metric column references
 
 const apiRowFilterValidator = z.object({
@@ -213,71 +215,77 @@ const apiMetricTypeEnum = z.enum([
 ]);
 
 // Corresponds to schemas/FactMetric.yaml
-export const apiFactMetricValidator = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string(),
-    owner: ownerField,
-    projects: z.array(z.string()),
-    tags: z.array(z.string()),
-    datasource: z.string(),
-    metricType: apiMetricTypeEnum,
-    numerator: apiNumeratorRef,
-    denominator: apiDenominatorRef.optional(),
-    inverse: z
-      .boolean()
-      .describe(
-        "Set to true for things like Bounce Rate, where you want the metric to decrease",
-      ),
-    quantileSettings: apiQuantileSettings.optional(),
-    cappingSettings: apiCappingSettings,
-    windowSettings: apiWindowSettings,
-    priorSettings: apiPriorSettings,
-    regressionAdjustmentSettings: apiRegressionAdjustmentSettings,
-    riskThresholdSuccess: z.coerce.number(),
-    riskThresholdDanger: z.coerce.number(),
-    displayAsPercentage: z
-      .boolean()
-      .describe(
-        "If true and the metric is a ratio metric, variation means will be displayed as a percentage",
-      )
-      .optional(),
-    minPercentChange: z.coerce.number(),
-    maxPercentChange: z.coerce.number(),
-    minSampleSize: z.coerce.number(),
-    targetMDE: z.coerce.number(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe(
-        "Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.",
-      ),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-    archived: z.boolean().optional(),
-    metricAutoSlices: z
-      .array(z.string())
-      .describe(
-        "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
-      )
-      .optional(),
-  })
-  .strict();
+export const apiFactMetricValidator = namedSchema(
+  "FactMetric",
+  z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string(),
+      owner: ownerField,
+      projects: z.array(z.string()),
+      tags: z.array(z.string()),
+      datasource: z.string(),
+      metricType: apiMetricTypeEnum,
+      numerator: apiNumeratorRef,
+      denominator: apiDenominatorRef.optional(),
+      inverse: z
+        .boolean()
+        .describe(
+          "Set to true for things like Bounce Rate, where you want the metric to decrease",
+        ),
+      quantileSettings: apiQuantileSettings.optional(),
+      cappingSettings: apiCappingSettings,
+      windowSettings: apiWindowSettings,
+      priorSettings: apiPriorSettings,
+      regressionAdjustmentSettings: apiRegressionAdjustmentSettings,
+      riskThresholdSuccess: z.coerce.number(),
+      riskThresholdDanger: z.coerce.number(),
+      displayAsPercentage: z
+        .boolean()
+        .describe(
+          "If true and the metric is a ratio metric, variation means will be displayed as a percentage",
+        )
+        .optional(),
+      minPercentChange: z.coerce.number(),
+      maxPercentChange: z.coerce.number(),
+      minSampleSize: z.coerce.number(),
+      targetMDE: z.coerce.number(),
+      managedBy: z
+        .enum(["", "api", "admin"])
+        .describe(
+          "Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.",
+        ),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+      archived: z.boolean().optional(),
+      metricAutoSlices: z
+        .array(z.string())
+        .describe(
+          "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
+        )
+        .optional(),
+    })
+    .strict(),
+);
 
 export type ApiFactMetric = z.infer<typeof apiFactMetricValidator>;
 
 // Corresponds to schemas/MetricAnalysis.yaml
-export const apiMetricAnalysisValidator = z
-  .object({
-    id: z.string().describe("The ID of the created metric analysis"),
-    status: z
-      .string()
-      .describe(
-        'The status of the analysis (e.g., "running", "completed", "error")',
-      ),
-    settings: z.record(z.string(), z.any()).optional(),
-  })
-  .strict();
+export const apiMetricAnalysisValidator = namedSchema(
+  "MetricAnalysis",
+  z
+    .object({
+      id: z.string().describe("The ID of the created metric analysis"),
+      status: z
+        .string()
+        .describe(
+          'The status of the analysis (e.g., "running", "completed", "error")',
+        ),
+      settings: z.record(z.string(), z.any()).optional(),
+    })
+    .strict(),
+);
 
 // Shared sub-schemas for post/update numerator and denominator
 

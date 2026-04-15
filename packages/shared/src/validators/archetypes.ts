@@ -1,22 +1,26 @@
 import { z } from "zod";
 import { ownerField } from "./owner-field";
+import { namedSchema } from "./openapi-helpers";
 
 // Corresponds to schemas/Archetype.yaml
-export const apiArchetypeValidator = z
-  .object({
-    id: z.string(),
-    dateCreated: z.string(),
-    dateUpdated: z.string(),
-    name: z.string(),
-    description: z.string().optional(),
-    owner: ownerField,
-    isPublic: z.boolean(),
-    attributes: z
-      .record(z.string(), z.any())
-      .describe("The attributes to set when using this Archetype"),
-    projects: z.array(z.string()).optional(),
-  })
-  .strict();
+export const apiArchetypeValidator = namedSchema(
+  "Archetype",
+  z
+    .object({
+      id: z.string(),
+      dateCreated: z.string(),
+      dateUpdated: z.string(),
+      name: z.string(),
+      description: z.string().optional(),
+      owner: ownerField,
+      isPublic: z.boolean(),
+      attributes: z
+        .record(z.string(), z.any())
+        .describe("The attributes to set when using this Archetype"),
+      projects: z.array(z.string()).optional(),
+    })
+    .strict(),
+);
 
 export type ApiArchetype = z.infer<typeof apiArchetypeValidator>;
 

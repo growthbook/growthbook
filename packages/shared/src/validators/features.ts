@@ -12,6 +12,8 @@ import { safeRolloutStatusArray } from "./safe-rollout";
 import { ownerField, ownerInputField } from "./owner-field";
 import { rampStep, rampStepAction } from "./ramp-schedule";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
   type: z.enum(["integer", "float", "string", "boolean"]),
@@ -405,258 +407,290 @@ export type ComputedFeatureInterface = z.infer<typeof computedFeatureInterface>;
 // ---------------------------------------------------------------------------
 
 // ---- ScheduleRule (schemas/ScheduleRule.yaml) ----
-export const apiScheduleRuleValidator = z
-  .object({
-    enabled: z
-      .boolean()
-      .describe(
-        "Whether the rule should be enabled or disabled at the specified timestamp.",
-      ),
-    timestamp: z
-      .string()
-      .meta({ format: "date-time" })
-      .nullable()
-      .describe("ISO timestamp when the rule should activate."),
-  })
-  .describe(
-    "An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule.",
-  )
-  .strict();
+export const apiScheduleRuleValidator = namedSchema(
+  "ScheduleRule",
+  z
+    .object({
+      enabled: z
+        .boolean()
+        .describe(
+          "Whether the rule should be enabled or disabled at the specified timestamp.",
+        ),
+      timestamp: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe("ISO timestamp when the rule should activate."),
+    })
+    .describe(
+      "An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule.",
+    )
+    .strict(),
+);
 
 // ---- FeatureBaseRule (schemas/FeatureBaseRule.yaml) ----
-export const apiFeatureBaseRuleValidator = z
-  .object({
-    description: z.string(),
-    condition: z.string().optional(),
-    id: z.string(),
-    enabled: z.boolean(),
-    scheduleRules: z
-      .array(apiScheduleRuleValidator)
-      .describe("Simple time-based on/off schedule for this rule")
-      .optional(),
-    scheduleType: z
-      .enum(["none", "schedule", "ramp"])
-      .describe(
-        "UI hint for which scheduling mode is active:\n- `none` \u2013 no schedule\n- `schedule` \u2013 simple time-based enable/disable via `scheduleRules`\n- `ramp` \u2013 multi-step ramp-up controlled by an associated RampSchedule document\n",
-      )
-      .optional(),
-    savedGroupTargeting: z
-      .array(
-        z.object({
-          matchType: z.enum(["all", "any", "none"]),
-          savedGroups: z.array(z.string()),
-        }),
-      )
-      .optional(),
-    prerequisites: z
-      .array(
-        z.object({
-          id: z.string().describe("Feature ID of the prerequisite"),
-          condition: z.string(),
-        }),
-      )
-      .optional(),
-  })
-  .describe(
-    "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
-  )
-  .strict();
-
-// ---- FeatureForceRule (schemas/FeatureForceRule.yaml) ----
-export const apiFeatureForceRuleValidator = z.intersection(
-  apiFeatureBaseRuleValidator
-    .omit({})
+export const apiFeatureBaseRuleValidator = namedSchema(
+  "FeatureBaseRule",
+  z
+    .object({
+      description: z.string(),
+      condition: z.string().optional(),
+      id: z.string(),
+      enabled: z.boolean(),
+      scheduleRules: z
+        .array(apiScheduleRuleValidator)
+        .describe("Simple time-based on/off schedule for this rule")
+        .optional(),
+      scheduleType: z
+        .enum(["none", "schedule", "ramp"])
+        .describe(
+          "UI hint for which scheduling mode is active:\n- `none` \u2013 no schedule\n- `schedule` \u2013 simple time-based enable/disable via `scheduleRules`\n- `ramp` \u2013 multi-step ramp-up controlled by an associated RampSchedule document\n",
+        )
+        .optional(),
+      savedGroupTargeting: z
+        .array(
+          z.object({
+            matchType: z.enum(["all", "any", "none"]),
+            savedGroups: z.array(z.string()),
+          }),
+        )
+        .optional(),
+      prerequisites: z
+        .array(
+          z.object({
+            id: z.string().describe("Feature ID of the prerequisite"),
+            condition: z.string(),
+          }),
+        )
+        .optional(),
+    })
     .describe(
       "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
-    ),
-  z.object({
-    type: z.literal("force"),
-    value: z.string(),
-  }),
+    )
+    .strict(),
+);
+
+// ---- FeatureForceRule (schemas/FeatureForceRule.yaml) ----
+export const apiFeatureForceRuleValidator = namedSchema(
+  "FeatureForceRule",
+  z.intersection(
+    apiFeatureBaseRuleValidator
+      .omit({})
+      .describe(
+        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+      ),
+    z.object({
+      type: z.literal("force"),
+      value: z.string(),
+    }),
+  ),
 );
 
 // ---- FeatureRolloutRule (schemas/FeatureRolloutRule.yaml) ----
-export const apiFeatureRolloutRuleValidator = z.intersection(
-  apiFeatureBaseRuleValidator
-    .omit({})
-    .describe(
-      "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
-    ),
-  z.object({
-    type: z.literal("rollout"),
-    value: z.string(),
-    coverage: z.coerce.number().gte(0).lte(1),
-    hashAttribute: z.string(),
-    seed: z
-      .string()
-      .describe("Optional seed for the hash function; defaults to the rule id")
-      .optional(),
-  }),
+export const apiFeatureRolloutRuleValidator = namedSchema(
+  "FeatureRolloutRule",
+  z.intersection(
+    apiFeatureBaseRuleValidator
+      .omit({})
+      .describe(
+        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+      ),
+    z.object({
+      type: z.literal("rollout"),
+      value: z.string(),
+      coverage: z.coerce.number().gte(0).lte(1),
+      hashAttribute: z.string(),
+      seed: z
+        .string()
+        .describe(
+          "Optional seed for the hash function; defaults to the rule id",
+        )
+        .optional(),
+    }),
+  ),
 );
 
 // ---- FeatureExperimentRule (schemas/FeatureExperimentRule.yaml) ----
-export const apiFeatureExperimentRuleValidator = z.intersection(
-  apiFeatureBaseRuleValidator
-    .omit({})
-    .describe(
-      "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
-    ),
-  z.object({
-    type: z.literal("experiment"),
-    trackingKey: z.string().optional(),
-    hashAttribute: z.string().optional(),
-    fallbackAttribute: z.string().optional(),
-    disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.coerce.number().optional(),
-    minBucketVersion: z.coerce.number().optional(),
-    namespace: z
-      .object({
-        enabled: z.boolean(),
-        name: z.string(),
-        range: z.array(z.coerce.number()).min(2).max(2),
-      })
-      .optional(),
-    coverage: z.coerce.number().gte(0).lte(1).optional(),
-    value: z
-      .array(
-        z.object({
-          value: z.string(),
-          weight: z.coerce.number(),
-          name: z.string().optional(),
-        }),
-      )
-      .describe("Variation values with weights")
-      .optional(),
-  }),
+export const apiFeatureExperimentRuleValidator = namedSchema(
+  "FeatureExperimentRule",
+  z.intersection(
+    apiFeatureBaseRuleValidator
+      .omit({})
+      .describe(
+        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+      ),
+    z.object({
+      type: z.literal("experiment"),
+      trackingKey: z.string().optional(),
+      hashAttribute: z.string().optional(),
+      fallbackAttribute: z.string().optional(),
+      disableStickyBucketing: z.boolean().optional(),
+      bucketVersion: z.coerce.number().optional(),
+      minBucketVersion: z.coerce.number().optional(),
+      namespace: z
+        .object({
+          enabled: z.boolean(),
+          name: z.string(),
+          range: z.array(z.coerce.number()).min(2).max(2),
+        })
+        .optional(),
+      coverage: z.coerce.number().gte(0).lte(1).optional(),
+      value: z
+        .array(
+          z.object({
+            value: z.string(),
+            weight: z.coerce.number(),
+            name: z.string().optional(),
+          }),
+        )
+        .describe("Variation values with weights")
+        .optional(),
+    }),
+  ),
 );
 
 // ---- FeatureExperimentRefRule (schemas/FeatureExperimentRefRule.yaml) ----
-export const apiFeatureExperimentRefRuleValidator = z.intersection(
-  apiFeatureBaseRuleValidator
-    .omit({})
-    .describe(
-      "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
-    ),
-  z.object({
-    type: z.literal("experiment-ref"),
-    variations: z.array(
-      z.object({
-        value: z.string(),
-        variationId: z.string(),
-      }),
-    ),
-    experimentId: z.string(),
-  }),
+export const apiFeatureExperimentRefRuleValidator = namedSchema(
+  "FeatureExperimentRefRule",
+  z.intersection(
+    apiFeatureBaseRuleValidator
+      .omit({})
+      .describe(
+        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+      ),
+    z.object({
+      type: z.literal("experiment-ref"),
+      variations: z.array(
+        z.object({
+          value: z.string(),
+          variationId: z.string(),
+        }),
+      ),
+      experimentId: z.string(),
+    }),
+  ),
 );
 
 // ---- FeatureSafeRolloutRule (schemas/FeatureSafeRolloutRule.yaml) ----
-export const apiFeatureSafeRolloutRuleValidator = z.intersection(
-  apiFeatureBaseRuleValidator
-    .omit({})
-    .describe(
-      "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
-    ),
-  z.object({
-    type: z.literal("safe-rollout"),
-    controlValue: z.string(),
-    variationValue: z.string(),
-    seed: z.string().optional(),
-    hashAttribute: z.string().optional(),
-    trackingKey: z.string().optional(),
-    safeRolloutId: z.string().optional(),
-    status: z
-      .enum(["running", "released", "rolled-back", "stopped"])
-      .optional(),
-  }),
+export const apiFeatureSafeRolloutRuleValidator = namedSchema(
+  "FeatureSafeRolloutRule",
+  z.intersection(
+    apiFeatureBaseRuleValidator
+      .omit({})
+      .describe(
+        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+      ),
+    z.object({
+      type: z.literal("safe-rollout"),
+      controlValue: z.string(),
+      variationValue: z.string(),
+      seed: z.string().optional(),
+      hashAttribute: z.string().optional(),
+      trackingKey: z.string().optional(),
+      safeRolloutId: z.string().optional(),
+      status: z
+        .enum(["running", "released", "rolled-back", "stopped"])
+        .optional(),
+    }),
+  ),
 );
 
 // ---- FeatureRule (schemas/FeatureRule.yaml) - anyOf / discriminated by type ----
-export const apiFeatureRuleValidator = z.union([
-  apiFeatureForceRuleValidator,
-  apiFeatureRolloutRuleValidator,
-  apiFeatureExperimentRuleValidator,
-  apiFeatureExperimentRefRuleValidator,
-  apiFeatureSafeRolloutRuleValidator,
-]);
+export const apiFeatureRuleValidator = namedSchema(
+  "FeatureRule",
+  z.union([
+    apiFeatureForceRuleValidator,
+    apiFeatureRolloutRuleValidator,
+    apiFeatureExperimentRuleValidator,
+    apiFeatureExperimentRefRuleValidator,
+    apiFeatureSafeRolloutRuleValidator,
+  ]),
+);
 
 export type ApiFeatureRule = z.infer<typeof apiFeatureRuleValidator>;
 
 // ---- FeatureDefinition (schemas/FeatureDefinition.yaml) ----
-export const apiFeatureDefinitionValidator = z
-  .object({
-    defaultValue: z.union([
-      z.string(),
-      z.coerce.number(),
-      z.array(z.any()),
-      z.record(z.string(), z.any()),
-      z.null(),
-    ]),
-    rules: z
-      .array(
-        z.object({
-          force: z
-            .union([
-              z.string(),
-              z.coerce.number(),
-              z.array(z.any()),
-              z.record(z.string(), z.any()),
-              z.null(),
-            ])
-            .optional(),
-          weights: z.array(z.coerce.number()).optional(),
-          variations: z
-            .array(
-              z.union([
+export const apiFeatureDefinitionValidator = namedSchema(
+  "FeatureDefinition",
+  z
+    .object({
+      defaultValue: z.union([
+        z.string(),
+        z.coerce.number(),
+        z.array(z.any()),
+        z.record(z.string(), z.any()),
+        z.null(),
+      ]),
+      rules: z
+        .array(
+          z.object({
+            force: z
+              .union([
                 z.string(),
                 z.coerce.number(),
                 z.array(z.any()),
                 z.record(z.string(), z.any()),
                 z.null(),
-              ]),
-            )
-            .optional(),
-          hashAttribute: z.string().optional(),
-          namespace: z
-            .array(z.union([z.coerce.number(), z.string()]))
-            .min(3)
-            .max(3)
-            .optional(),
-          key: z.string().optional(),
-          coverage: z.coerce.number().optional(),
-          condition: z.record(z.string(), z.any()).optional(),
-        }),
-      )
-      .optional(),
-  })
-  .strict();
+              ])
+              .optional(),
+            weights: z.array(z.coerce.number()).optional(),
+            variations: z
+              .array(
+                z.union([
+                  z.string(),
+                  z.coerce.number(),
+                  z.array(z.any()),
+                  z.record(z.string(), z.any()),
+                  z.null(),
+                ]),
+              )
+              .optional(),
+            hashAttribute: z.string().optional(),
+            namespace: z
+              .array(z.union([z.coerce.number(), z.string()]))
+              .min(3)
+              .max(3)
+              .optional(),
+            key: z.string().optional(),
+            coverage: z.coerce.number().optional(),
+            condition: z.record(z.string(), z.any()).optional(),
+          }),
+        )
+        .optional(),
+    })
+    .strict(),
+);
 
 // ---- FeatureEnvironment (schemas/FeatureEnvironment.yaml) ----
-export const apiFeatureEnvironmentValidator = z
-  .object({
-    enabled: z.boolean(),
-    defaultValue: z.string(),
-    rules: z.array(apiFeatureRuleValidator),
-    definition: z
-      .string()
-      .describe(
-        "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
-      )
-      .optional(),
-    draft: z
-      .object({
-        enabled: z.boolean(),
-        defaultValue: z.string(),
-        rules: z.array(apiFeatureRuleValidator),
-        definition: z
-          .string()
-          .describe(
-            "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
-          )
-          .optional(),
-      })
-      .optional(),
-  })
-  .strict();
+export const apiFeatureEnvironmentValidator = namedSchema(
+  "FeatureEnvironment",
+  z
+    .object({
+      enabled: z.boolean(),
+      defaultValue: z.string(),
+      rules: z.array(apiFeatureRuleValidator),
+      definition: z
+        .string()
+        .describe(
+          "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
+        )
+        .optional(),
+      draft: z
+        .object({
+          enabled: z.boolean(),
+          defaultValue: z.string(),
+          rules: z.array(apiFeatureRuleValidator),
+          definition: z
+            .string()
+            .describe(
+              "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
+            )
+            .optional(),
+        })
+        .optional(),
+    })
+    .strict(),
+);
 
 export type ApiFeatureEnvironment = z.infer<
   typeof apiFeatureEnvironmentValidator
@@ -706,88 +740,97 @@ const apiRevisionMetadata = z
   );
 
 // ---- FeatureRevision (schemas/FeatureRevision.yaml) ----
-export const apiFeatureRevisionValidator = z
-  .object({
-    baseVersion: z.coerce.number().int(),
-    version: z.coerce.number().int(),
-    comment: z.string(),
-    date: z.string().meta({ format: "date-time" }),
-    status: z.string(),
-    createdBy: z.string().optional(),
-    publishedBy: z.string().optional(),
-    defaultValue: z
-      .string()
-      .describe("The default value at the time this revision was created")
-      .optional(),
-    rules: z.record(z.string(), z.array(apiFeatureRuleValidator)),
-    definitions: z
-      .record(
-        z.string(),
-        z
-          .string()
-          .describe(
-            "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
-          ),
-      )
-      .optional(),
-    environmentsEnabled: z
-      .record(z.string(), z.boolean())
-      .describe(
-        "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)",
-      )
-      .optional(),
-    envPrerequisites: z
-      .record(z.string(), z.array(apiRevisionPrerequisite))
-      .describe(
-        "Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)",
-      )
-      .optional(),
-    prerequisites: z
-      .array(apiRevisionPrerequisite)
-      .describe(
-        "Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)",
-      )
-      .optional(),
-    metadata: apiRevisionMetadata.optional(),
-  })
-  .strict();
-
-// ---- Feature (schemas/Feature.yaml) ----
-export const apiFeatureValidator = z
-  .object({
-    id: z.string(),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-    archived: z.boolean(),
-    description: z.string(),
-    owner: ownerField,
-    project: z.string(),
-    valueType: z.enum(["boolean", "string", "number", "json"]),
-    defaultValue: z.string(),
-    tags: z.array(z.string()),
-    environments: z.record(z.string(), apiFeatureEnvironmentValidator),
-    prerequisites: z
-      .array(z.string())
-      .describe("Feature IDs. Each feature must evaluate to `true`")
-      .optional(),
-    revision: z.object({
+export const apiFeatureRevisionValidator = namedSchema(
+  "FeatureRevision",
+  z
+    .object({
+      baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
-      createdBy: z.string(),
-      publishedBy: z.string(),
-    }),
-    customFields: z.record(z.string(), z.any()).optional(),
-    holdout: apiFeatureHoldout,
-  })
-  .strict();
+      status: z.string(),
+      createdBy: z.string().optional(),
+      publishedBy: z.string().optional(),
+      defaultValue: z
+        .string()
+        .describe("The default value at the time this revision was created")
+        .optional(),
+      rules: z.record(z.string(), z.array(apiFeatureRuleValidator)),
+      definitions: z
+        .record(
+          z.string(),
+          z
+            .string()
+            .describe(
+              "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
+            ),
+        )
+        .optional(),
+      environmentsEnabled: z
+        .record(z.string(), z.boolean())
+        .describe(
+          "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)",
+        )
+        .optional(),
+      envPrerequisites: z
+        .record(z.string(), z.array(apiRevisionPrerequisite))
+        .describe(
+          "Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)",
+        )
+        .optional(),
+      prerequisites: z
+        .array(apiRevisionPrerequisite)
+        .describe(
+          "Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)",
+        )
+        .optional(),
+      metadata: apiRevisionMetadata.optional(),
+    })
+    .strict(),
+);
+
+// ---- Feature (schemas/Feature.yaml) ----
+export const apiFeatureValidator = namedSchema(
+  "Feature",
+  z
+    .object({
+      id: z.string(),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+      archived: z.boolean(),
+      description: z.string(),
+      owner: ownerField,
+      project: z.string(),
+      valueType: z.enum(["boolean", "string", "number", "json"]),
+      defaultValue: z.string(),
+      tags: z.array(z.string()),
+      environments: z.record(z.string(), apiFeatureEnvironmentValidator),
+      prerequisites: z
+        .array(z.string())
+        .describe("Feature IDs. Each feature must evaluate to `true`")
+        .optional(),
+      revision: z.object({
+        version: z.coerce.number().int(),
+        comment: z.string(),
+        date: z.string().meta({ format: "date-time" }),
+        createdBy: z.string(),
+        publishedBy: z.string(),
+      }),
+      customFields: z.record(z.string(), z.any()).optional(),
+      holdout: apiFeatureHoldout,
+    })
+    .strict(),
+);
 
 // ---- FeatureWithRevisions (schemas/FeatureWithRevisions.yaml) ----
-export const apiFeatureWithRevisionsValidator = z.intersection(
-  apiFeatureValidator,
-  z.object({
-    revisions: z.array(apiFeatureRevisionValidator).optional(),
-  }),
+export const apiFeatureWithRevisionsValidator = namedSchema(
+  "FeatureWithRevisions",
+  z.intersection(
+    apiFeatureValidator,
+    z.object({
+      revisions: z.array(apiFeatureRevisionValidator).optional(),
+    }),
+  ),
 );
 
 export type ApiFeature = z.infer<typeof apiFeatureValidator>;

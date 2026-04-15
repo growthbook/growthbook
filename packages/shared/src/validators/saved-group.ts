@@ -2,6 +2,8 @@ import { z } from "zod";
 import { ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const savedGroupTypeValidator = z.enum(["condition", "list"]);
 
 export const savedGroupValidator = z
@@ -45,36 +47,39 @@ export const putSavedGroupBodyValidator = z.object({
 // --- External API validators (correspond to YAML specs) ---
 
 // Corresponds to schemas/SavedGroup.yaml
-export const apiSavedGroupValidator = z
-  .object({
-    id: z.string(),
-    type: z.enum(["condition", "list"]),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-    name: z.string(),
-    owner: ownerField.optional(),
-    condition: z
-      .string()
-      .describe(
-        "When type = 'condition', this is the JSON-encoded condition for the group",
-      )
-      .optional(),
-    attributeKey: z
-      .string()
-      .describe(
-        "When type = 'list', this is the attribute key the group is based on",
-      )
-      .optional(),
-    values: z
-      .array(z.string())
-      .describe(
-        "When type = 'list', this is the list of values for the attribute key",
-      )
-      .optional(),
-    description: z.string().optional(),
-    projects: z.array(z.string()).optional(),
-  })
-  .strict();
+export const apiSavedGroupValidator = namedSchema(
+  "SavedGroup",
+  z
+    .object({
+      id: z.string(),
+      type: z.enum(["condition", "list"]),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+      name: z.string(),
+      owner: ownerField.optional(),
+      condition: z
+        .string()
+        .describe(
+          "When type = 'condition', this is the JSON-encoded condition for the group",
+        )
+        .optional(),
+      attributeKey: z
+        .string()
+        .describe(
+          "When type = 'list', this is the attribute key the group is based on",
+        )
+        .optional(),
+      values: z
+        .array(z.string())
+        .describe(
+          "When type = 'list', this is the list of values for the attribute key",
+        )
+        .optional(),
+      description: z.string().optional(),
+      projects: z.array(z.string()).optional(),
+    })
+    .strict(),
+);
 
 export type ApiSavedGroup = z.infer<typeof apiSavedGroupValidator>;
 

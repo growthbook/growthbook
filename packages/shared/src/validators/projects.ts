@@ -4,6 +4,8 @@ import { managedByValidator } from "./managed-by";
 import { baseSchema } from "./base-model";
 import { paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const statsEnginesValidator = z.enum(statsEngines);
 
 export const projectSettingsValidator = z.object({
@@ -27,26 +29,29 @@ export type ProjectInterface = z.infer<typeof projectValidator>;
 // --- API validators (migrated from openapi.ts) ---
 
 // Corresponds to schemas/Project.yaml
-export const apiProjectValidator = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-    description: z.string().optional(),
-    publicId: z
-      .string()
-      .describe(
-        "URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided.",
-      )
-      .optional(),
-    settings: z
-      .object({
-        statsEngine: z.string().optional(),
-      })
-      .optional(),
-  })
-  .strict();
+export const apiProjectValidator = namedSchema(
+  "Project",
+  z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+      description: z.string().optional(),
+      publicId: z
+        .string()
+        .describe(
+          "URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided.",
+        )
+        .optional(),
+      settings: z
+        .object({
+          statsEngine: z.string().optional(),
+        })
+        .optional(),
+    })
+    .strict(),
+);
 
 export type ApiProject = z.infer<typeof apiProjectValidator>;
 

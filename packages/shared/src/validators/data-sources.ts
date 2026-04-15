@@ -1,50 +1,55 @@
 import { z } from "zod";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 // Corresponds to schemas/DataSource.yaml
-export const apiDataSourceValidator = z
-  .object({
-    id: z.string(),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-    type: z.string(),
-    name: z.string(),
-    description: z.string(),
-    projectIds: z.array(z.string()),
-    eventTracker: z.string(),
-    identifierTypes: z.array(
-      z.object({
-        id: z.string(),
-        description: z.string(),
-      }),
-    ),
-    assignmentQueries: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        description: z.string(),
-        identifierType: z.string(),
-        sql: z.string(),
-        includesNameColumns: z.boolean(),
-        dimensionColumns: z.array(z.string()),
-      }),
-    ),
-    identifierJoinQueries: z.array(
-      z.object({
-        identifierTypes: z.array(z.string()),
-        sql: z.string(),
-      }),
-    ),
-    mixpanelSettings: z
-      .object({
-        viewedExperimentEventName: z.string(),
-        experimentIdProperty: z.string(),
-        variationIdProperty: z.string(),
-        extraUserIdProperty: z.string(),
-      })
-      .optional(),
-  })
-  .strict();
+export const apiDataSourceValidator = namedSchema(
+  "DataSource",
+  z
+    .object({
+      id: z.string(),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+      type: z.string(),
+      name: z.string(),
+      description: z.string(),
+      projectIds: z.array(z.string()),
+      eventTracker: z.string(),
+      identifierTypes: z.array(
+        z.object({
+          id: z.string(),
+          description: z.string(),
+        }),
+      ),
+      assignmentQueries: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          description: z.string(),
+          identifierType: z.string(),
+          sql: z.string(),
+          includesNameColumns: z.boolean(),
+          dimensionColumns: z.array(z.string()),
+        }),
+      ),
+      identifierJoinQueries: z.array(
+        z.object({
+          identifierTypes: z.array(z.string()),
+          sql: z.string(),
+        }),
+      ),
+      mixpanelSettings: z
+        .object({
+          viewedExperimentEventName: z.string(),
+          experimentIdProperty: z.string(),
+          variationIdProperty: z.string(),
+          extraUserIdProperty: z.string(),
+        })
+        .optional(),
+    })
+    .strict(),
+);
 
 export type ApiDataSource = z.infer<typeof apiDataSourceValidator>;
 

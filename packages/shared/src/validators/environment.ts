@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const updateEnvOrderValidator = z
   .object({
     envId: z.string(),
@@ -43,16 +45,19 @@ export const deleteEnvValidator = z.object({ id: z.string() }).strict();
 // --- External REST API validators ---
 
 // Corresponds to schemas/Environment.yaml
-export const apiEnvironmentValidator = z
-  .object({
-    id: z.string(),
-    description: z.string(),
-    toggleOnList: z.boolean(),
-    defaultState: z.boolean(),
-    projects: z.array(z.string()),
-    parent: z.string().optional(),
-  })
-  .strict();
+export const apiEnvironmentValidator = namedSchema(
+  "Environment",
+  z
+    .object({
+      id: z.string(),
+      description: z.string(),
+      toggleOnList: z.boolean(),
+      defaultState: z.boolean(),
+      projects: z.array(z.string()),
+      parent: z.string().optional(),
+    })
+    .strict(),
+);
 
 // Corresponds to paths/postEnvironment.yaml requestBody
 const postEnvironmentBody = z

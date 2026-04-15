@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
+import { namedSchemaRegistry } from "shared/validators";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
 
 const openApiTags = [
@@ -679,9 +680,51 @@ curl https://api.growthbook.io/api/v1 \
   Object.entries(parameterRefs).forEach(([name, parameter]) => {
     openapiSpec.components.parameters[name] = parameter;
   });
+  // Ensure every namedSchema()-registered validator appears in componentSchemas,
+  // even if it was never referenced as a sub-schema of a response body.
+  for (const [name, zodSchema] of namedSchemaRegistry) {
+    if (!componentSchemas[name]) {
+      const {
+        $schema: _,
+        id: _id,
+        ...rest
+      } = z.toJSONSchema(zodSchema, {
+        unrepresentable: "any",
+      }) as Record<string, unknown>;
+      componentSchemas[name] = rewriteRefs(rest);
+    }
+  }
+
+  // Named schemas (from namedSchema() calls) take precedence over deduped schemas
+  Object.entries(componentSchemas).forEach(([name, schema]) => {
+    openapiSpec.components.schemas[name] =
+      schema as z.core.JSONSchema.BaseSchema;
+  });
   Object.entries(schemaRefs).forEach(([name, schema]) => {
     openapiSpec.components.schemas[name] = schema;
   });
+
+  // Generate _model tags for each named component schema (powers the "Models" section in docs)
+  const modelTags: string[] = [];
+  for (const name of Object.keys(componentSchemas).sort()) {
+    const tagName = `${name}_model`;
+    modelTags.push(tagName);
+    openapiSpec.tags.push({
+      name: tagName,
+      "x-displayName": name,
+      description: `<SchemaDefinition schemaRef="#/components/schemas/${name}" />`,
+    });
+  }
+
+  // Build x-tagGroups for docs navigation
+  const endpointTags: string[] = [
+    ...openApiTags,
+    ...Array.from(discoveredTags),
+  ];
+  (openapiSpec as Record<string, unknown>)["x-tagGroups"] = [
+    { name: "Endpoints", tags: endpointTags },
+    { name: "Models", tags: modelTags },
+  ];
 
   fs.writeFileSync(
     path.join(__dirname, "..", "..", "generated", "spec.yaml"),

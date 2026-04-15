@@ -1,32 +1,37 @@
 import { z } from "zod";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 // Corresponds to schemas/Member.yaml
-export const apiMemberValidator = z
-  .object({
-    id: z.string(),
-    name: z.string().optional(),
-    email: z.string(),
-    globalRole: z.string(),
-    environments: z.array(z.string()).optional(),
-    limitAccessByEnvironment: z.boolean().optional(),
-    managedbyIdp: z.boolean().optional(),
-    teams: z.array(z.string()).optional(),
-    projectRoles: z
-      .array(
-        z.object({
-          project: z.string(),
-          role: z.string(),
-          limitAccessByEnvironment: z.boolean(),
-          environments: z.array(z.string()),
-        }),
-      )
-      .optional(),
-    lastLoginDate: z.string().meta({ format: "date-time" }).optional(),
-    dateCreated: z.string().meta({ format: "date-time" }).optional(),
-    dateUpdated: z.string().meta({ format: "date-time" }).optional(),
-  })
-  .strict();
+export const apiMemberValidator = namedSchema(
+  "Member",
+  z
+    .object({
+      id: z.string(),
+      name: z.string().optional(),
+      email: z.string(),
+      globalRole: z.string(),
+      environments: z.array(z.string()).optional(),
+      limitAccessByEnvironment: z.boolean().optional(),
+      managedbyIdp: z.boolean().optional(),
+      teams: z.array(z.string()).optional(),
+      projectRoles: z
+        .array(
+          z.object({
+            project: z.string(),
+            role: z.string(),
+            limitAccessByEnvironment: z.boolean(),
+            environments: z.array(z.string()),
+          }),
+        )
+        .optional(),
+      lastLoginDate: z.string().meta({ format: "date-time" }).optional(),
+      dateCreated: z.string().meta({ format: "date-time" }).optional(),
+      dateUpdated: z.string().meta({ format: "date-time" }).optional(),
+    })
+    .strict(),
+);
 
 // Corresponds to payload-schemas/UpdateMemberRolePayload.yaml
 const updateMemberRoleBody = z

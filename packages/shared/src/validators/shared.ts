@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const namespaceValue = z
   .object({
     enabled: z.boolean(),
@@ -26,14 +28,17 @@ export const savedGroupTargeting = z
 export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
 
 /** Response-side pagination fields returned by list endpoints. */
-export const apiPaginationFieldsValidator = z.object({
-  limit: z.number().int(),
-  offset: z.number().int(),
-  count: z.number().int(),
-  total: z.number().int(),
-  hasMore: z.boolean(),
-  nextOffset: z.union([z.number().int(), z.null()]),
-});
+export const apiPaginationFieldsValidator = namedSchema(
+  "PaginationFields",
+  z.object({
+    limit: z.number().int(),
+    offset: z.number().int(),
+    count: z.number().int(),
+    total: z.number().int(),
+    hasMore: z.boolean(),
+    nextOffset: z.union([z.number().int(), z.null()]),
+  }),
+);
 
 export type ApiPaginationFields = z.infer<typeof apiPaginationFieldsValidator>;
 

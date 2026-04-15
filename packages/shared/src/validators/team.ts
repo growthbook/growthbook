@@ -3,6 +3,8 @@ import { apiBaseSchema, baseSchema } from "./base-model";
 import { managedByValidator } from "./managed-by";
 import { projectMemberRole } from "./organization";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const teamSchema = baseSchema.safeExtend({
   name: z.string(),
   createdBy: z.string(),
@@ -17,19 +19,22 @@ export const teamSchema = baseSchema.safeExtend({
   defaultProject: z.string().optional(),
 });
 
-export const apiTeamValidator = apiBaseSchema.safeExtend({
-  name: z.string(),
-  createdBy: z.string(),
-  description: z.string(),
-  role: z.string(),
-  limitAccessByEnvironment: z.boolean(),
-  environments: z.array(z.string()),
-  projectRoles: z.array(projectMemberRole).optional(),
-  members: z.array(z.string()).readonly(),
-  managedByIdp: z.boolean(),
-  managedBy: managedByValidator.optional(),
-  defaultProject: z.string().optional(),
-});
+export const apiTeamValidator = namedSchema(
+  "Team",
+  apiBaseSchema.safeExtend({
+    name: z.string(),
+    createdBy: z.string(),
+    description: z.string(),
+    role: z.string(),
+    limitAccessByEnvironment: z.boolean(),
+    environments: z.array(z.string()),
+    projectRoles: z.array(projectMemberRole).optional(),
+    members: z.array(z.string()).readonly(),
+    managedByIdp: z.boolean(),
+    managedBy: managedByValidator.optional(),
+    defaultProject: z.string().optional(),
+  }),
+);
 
 export const apiCreateTeamBody = z.strictObject({
   name: z.string(),

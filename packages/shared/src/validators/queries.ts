@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const queryStatusValidator = z.enum([
   "queued",
   "running",
@@ -30,28 +32,31 @@ export const sqlResultChunkValidator = z
   .strict();
 
 // Corresponds to schemas/Query.yaml
-export const apiQueryValidator = z
-  .object({
-    id: z.string(),
-    organization: z.string(),
-    datasource: z.string(),
-    language: z.string(),
-    query: z.string(),
-    queryType: z.string(),
-    createdAt: z.string(),
-    startedAt: z.string(),
-    status: z.enum([
-      "running",
-      "queued",
-      "failed",
-      "partially-succeeded",
-      "succeeded",
-    ]),
-    externalId: z.string(),
-    dependencies: z.array(z.string()),
-    runAtEnd: z.boolean(),
-  })
-  .strict();
+export const apiQueryValidator = namedSchema(
+  "Query",
+  z
+    .object({
+      id: z.string(),
+      organization: z.string(),
+      datasource: z.string(),
+      language: z.string(),
+      query: z.string(),
+      queryType: z.string(),
+      createdAt: z.string(),
+      startedAt: z.string(),
+      status: z.enum([
+        "running",
+        "queued",
+        "failed",
+        "partially-succeeded",
+        "succeeded",
+      ]),
+      externalId: z.string(),
+      dependencies: z.array(z.string()),
+      runAtEnd: z.boolean(),
+    })
+    .strict(),
+);
 
 export type ApiQuery = z.infer<typeof apiQueryValidator>;
 

@@ -1,36 +1,41 @@
 import { z } from "zod";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 // Corresponds to schemas/CodeRef.yaml
-export const apiCodeRefValidator = z
-  .object({
-    organization: z.string().describe("The organization name"),
-    dateUpdated: z
-      .string()
-      .meta({ format: "date-time" })
-      .describe("When the code references were last updated"),
-    feature: z.string().describe("Feature identifier"),
-    repo: z.string().describe("Repository name"),
-    branch: z.string().describe("Branch name"),
-    platform: z
-      .enum(["github", "gitlab", "bitbucket"])
-      .describe("Source control platform")
-      .optional(),
-    refs: z.array(
-      z.object({
-        filePath: z
-          .string()
-          .describe("Path to the file containing the reference"),
-        startingLineNumber: z.coerce
-          .number()
-          .int()
-          .describe("Line number where the reference starts"),
-        lines: z.string().describe("The code lines containing the reference"),
-        flagKey: z.string().describe("The feature flag key referenced"),
-      }),
-    ),
-  })
-  .strict();
+export const apiCodeRefValidator = namedSchema(
+  "CodeRef",
+  z
+    .object({
+      organization: z.string().describe("The organization name"),
+      dateUpdated: z
+        .string()
+        .meta({ format: "date-time" })
+        .describe("When the code references were last updated"),
+      feature: z.string().describe("Feature identifier"),
+      repo: z.string().describe("Repository name"),
+      branch: z.string().describe("Branch name"),
+      platform: z
+        .enum(["github", "gitlab", "bitbucket"])
+        .describe("Source control platform")
+        .optional(),
+      refs: z.array(
+        z.object({
+          filePath: z
+            .string()
+            .describe("Path to the file containing the reference"),
+          startingLineNumber: z.coerce
+            .number()
+            .int()
+            .describe("Line number where the reference starts"),
+          lines: z.string().describe("The code lines containing the reference"),
+          flagKey: z.string().describe("The feature flag key referenced"),
+        }),
+      ),
+    })
+    .strict(),
+);
 
 export type ApiCodeRef = z.infer<typeof apiCodeRefValidator>;
 

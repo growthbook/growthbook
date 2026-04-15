@@ -2,6 +2,8 @@ import { z } from "zod";
 import { ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 const TYPES = ["SQL", "FACT"] as const;
 
 export const segmentValidator = z
@@ -41,29 +43,32 @@ export const updateSegmentModelValidator = segmentValidator.omit({
 // --- API validators (migrated from openapi.ts) ---
 
 // Corresponds to schemas/Segment.yaml
-export const apiSegmentValidator = z
-  .object({
-    id: z.string(),
-    owner: ownerField,
-    datasourceId: z.string(),
-    identifierType: z.string(),
-    name: z.string(),
-    description: z.string().optional(),
-    query: z.string().optional(),
-    dateCreated: z.string(),
-    dateUpdated: z.string(),
-    managedBy: z
-      .enum(["", "api", "config"])
-      .describe(
-        "Where this segment must be managed from. If not set (empty string), it can be managed from anywhere.",
-      )
-      .optional(),
-    type: z.enum(["SQL", "FACT"]).optional(),
-    factTableId: z.string().optional(),
-    filters: z.array(z.string()).optional(),
-    projects: z.array(z.string()).optional(),
-  })
-  .strict();
+export const apiSegmentValidator = namedSchema(
+  "Segment",
+  z
+    .object({
+      id: z.string(),
+      owner: ownerField,
+      datasourceId: z.string(),
+      identifierType: z.string(),
+      name: z.string(),
+      description: z.string().optional(),
+      query: z.string().optional(),
+      dateCreated: z.string(),
+      dateUpdated: z.string(),
+      managedBy: z
+        .enum(["", "api", "config"])
+        .describe(
+          "Where this segment must be managed from. If not set (empty string), it can be managed from anywhere.",
+        )
+        .optional(),
+      type: z.enum(["SQL", "FACT"]).optional(),
+      factTableId: z.string().optional(),
+      filters: z.array(z.string()).optional(),
+      projects: z.array(z.string()).optional(),
+    })
+    .strict(),
+);
 
 export type ApiSegment = z.infer<typeof apiSegmentValidator>;
 

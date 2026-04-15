@@ -1,71 +1,79 @@
 import { z } from "zod";
 
+import { namedSchema } from "./openapi-helpers";
+
 // Corresponds to schemas/InformationSchema.yaml
-export const apiInformationSchemaValidator = z
-  .object({
-    id: z.string(),
-    datasourceId: z.string(),
-    status: z.enum(["PENDING", "COMPLETE"]),
-    error: z
-      .object({
-        errorType: z.enum(["generic", "not_supported", "missing_params"]),
-        message: z.string(),
-      })
-      .optional(),
-    databases: z.array(
-      z.object({
-        databaseName: z.string(),
-        path: z.string().optional(),
-        dateCreated: z.string().meta({ format: "date-time" }),
-        dateUpdated: z.string().meta({ format: "date-time" }),
-        schemas: z.array(
-          z.object({
-            schemaName: z.string(),
-            path: z.string().optional(),
-            dateCreated: z.string().meta({ format: "date-time" }),
-            dateUpdated: z.string().meta({ format: "date-time" }),
-            tables: z.array(
-              z.object({
-                tableName: z.string(),
-                path: z.string().optional(),
-                id: z.string(),
-                numOfColumns: z.coerce.number(),
-                dateCreated: z.string().meta({ format: "date-time" }),
-                dateUpdated: z.string().meta({ format: "date-time" }),
-              }),
-            ),
-          }),
-        ),
-      }),
-    ),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-  })
-  .strict();
+export const apiInformationSchemaValidator = namedSchema(
+  "InformationSchema",
+  z
+    .object({
+      id: z.string(),
+      datasourceId: z.string(),
+      status: z.enum(["PENDING", "COMPLETE"]),
+      error: z
+        .object({
+          errorType: z.enum(["generic", "not_supported", "missing_params"]),
+          message: z.string(),
+        })
+        .optional(),
+      databases: z.array(
+        z.object({
+          databaseName: z.string(),
+          path: z.string().optional(),
+          dateCreated: z.string().meta({ format: "date-time" }),
+          dateUpdated: z.string().meta({ format: "date-time" }),
+          schemas: z.array(
+            z.object({
+              schemaName: z.string(),
+              path: z.string().optional(),
+              dateCreated: z.string().meta({ format: "date-time" }),
+              dateUpdated: z.string().meta({ format: "date-time" }),
+              tables: z.array(
+                z.object({
+                  tableName: z.string(),
+                  path: z.string().optional(),
+                  id: z.string(),
+                  numOfColumns: z.coerce.number(),
+                  dateCreated: z.string().meta({ format: "date-time" }),
+                  dateUpdated: z.string().meta({ format: "date-time" }),
+                }),
+              ),
+            }),
+          ),
+        }),
+      ),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+    })
+    .strict(),
+);
 export type ApiInformationSchema = z.infer<
   typeof apiInformationSchemaValidator
 >;
 
 // Corresponds to schemas/InformationSchemaTable.yaml
-export const apiInformationSchemaTableValidator = z
-  .object({
-    id: z.string(),
-    datasourceId: z.string(),
-    informationSchemaId: z.string(),
-    tableName: z.string(),
-    tableSchema: z.string(),
-    databaseName: z.string(),
-    columns: z.array(
-      z.object({
-        columnName: z.string(),
-        dataType: z.string(),
-      }),
-    ),
-    refreshMS: z.coerce.number(),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-  })
-  .strict();
+export const apiInformationSchemaTableValidator = namedSchema(
+  "InformationSchemaTable",
+  z
+    .object({
+      id: z.string(),
+      datasourceId: z.string(),
+      informationSchemaId: z.string(),
+      tableName: z.string(),
+      tableSchema: z.string(),
+      databaseName: z.string(),
+      columns: z.array(
+        z.object({
+          columnName: z.string(),
+          dataType: z.string(),
+        }),
+      ),
+      refreshMS: z.coerce.number(),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+    })
+    .strict(),
+);
 
 const dataSourceIdParams = z
   .object({

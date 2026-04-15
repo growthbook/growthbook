@@ -10,6 +10,8 @@ import {
 import { windowTypeValidator } from "./fact-table";
 import { ownerField, ownerInputField } from "./owner-field";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const customMetricSlice = z.object({
   slices: z.array(
     z.object({
@@ -421,98 +423,112 @@ const apiExperimentMetricOverrides = z.object({
 });
 
 // Corresponds to schemas/ExperimentMetric.yaml
-export const apiExperimentMetricValidator = z
-  .object({
-    metricId: z.string(),
-    overrides: apiExperimentMetricOverrides,
-  })
-  .strict();
+export const apiExperimentMetricValidator = namedSchema(
+  "ExperimentMetric",
+  z
+    .object({
+      metricId: z.string(),
+      overrides: apiExperimentMetricOverrides,
+    })
+    .strict(),
+);
 
 export type ApiExperimentMetric = z.infer<typeof apiExperimentMetricValidator>;
 
 // Corresponds to schemas/ExperimentMetricOverrideEntry.yaml
-export const apiExperimentMetricOverrideEntryValidator = z
-  .object({
-    id: z.string().describe("ID of the metric to override settings for."),
-    windowType: z.enum(["conversion", "lookback", ""]).optional(),
-    windowHours: z.coerce.number().optional(),
-    delayHours: z.coerce.number().optional(),
-    properPriorOverride: z
-      .boolean()
-      .describe(
-        "Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present.",
-      )
-      .optional(),
-    properPriorEnabled: z.boolean().optional(),
-    properPriorMean: z.coerce.number().optional(),
-    properPriorStdDev: z.coerce.number().optional(),
-    regressionAdjustmentOverride: z
-      .boolean()
-      .describe(
-        "Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present.",
-      )
-      .optional(),
-    regressionAdjustmentEnabled: z.boolean().optional(),
-    regressionAdjustmentDays: z.coerce.number().optional(),
-  })
-  .strict()
-  .describe(
-    "Per-metric analysis overrides stored on the experiment (matches internal metricOverrides).",
-  );
+export const apiExperimentMetricOverrideEntryValidator = namedSchema(
+  "ExperimentMetricOverrideEntry",
+  z
+    .object({
+      id: z.string().describe("ID of the metric to override settings for."),
+      windowType: z.enum(["conversion", "lookback", ""]).optional(),
+      windowHours: z.coerce.number().optional(),
+      delayHours: z.coerce.number().optional(),
+      properPriorOverride: z
+        .boolean()
+        .describe(
+          "Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present.",
+        )
+        .optional(),
+      properPriorEnabled: z.boolean().optional(),
+      properPriorMean: z.coerce.number().optional(),
+      properPriorStdDev: z.coerce.number().optional(),
+      regressionAdjustmentOverride: z
+        .boolean()
+        .describe(
+          "Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present.",
+        )
+        .optional(),
+      regressionAdjustmentEnabled: z.boolean().optional(),
+      regressionAdjustmentDays: z.coerce.number().optional(),
+    })
+    .strict()
+    .describe(
+      "Per-metric analysis overrides stored on the experiment (matches internal metricOverrides).",
+    ),
+);
 
 // Corresponds to schemas/ExperimentDecisionFrameworkSettings.yaml
-export const apiExperimentDecisionFrameworkSettingsValidator = z
-  .object({
-    decisionCriteriaId: z.string().optional(),
-    decisionFrameworkMetricOverrides: z
-      .array(
-        z.object({
-          id: z.string().describe("ID of the metric to override settings for."),
-          targetMDE: z.coerce
-            .number()
-            .gt(0)
-            .describe(
-              "The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0.",
-            )
-            .optional(),
-        }),
-      )
-      .optional(),
-  })
-  .describe(
-    "Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields).",
-  )
-  .strict();
+export const apiExperimentDecisionFrameworkSettingsValidator = namedSchema(
+  "ExperimentDecisionFrameworkSettings",
+  z
+    .object({
+      decisionCriteriaId: z.string().optional(),
+      decisionFrameworkMetricOverrides: z
+        .array(
+          z.object({
+            id: z
+              .string()
+              .describe("ID of the metric to override settings for."),
+            targetMDE: z.coerce
+              .number()
+              .gt(0)
+              .describe(
+                "The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0.",
+              )
+              .optional(),
+          }),
+        )
+        .optional(),
+    })
+    .strict()
+    .describe(
+      "Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields).",
+    ),
+);
 
 // Corresponds to schemas/LookbackOverride.yaml (API version)
-const apiLookbackOverride = z
-  .object({
-    type: z.enum(["date", "window"]),
-    value: z
-      .union([
-        z.coerce
-          .number()
-          .describe(
-            'For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.',
-          ),
-        z
-          .string()
-          .meta({ format: "date-time" })
-          .describe(
-            'For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.',
-          ),
-      ])
-      .describe(
-        'For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.',
-      ),
-    valueUnit: z
-      .enum(["minutes", "hours", "days", "weeks"])
-      .describe('Used when type is "window". Defaults to "days".')
-      .optional(),
-  })
-  .describe(
-    'Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required.',
-  );
+export const apiLookbackOverride = namedSchema(
+  "LookbackOverride",
+  z
+    .object({
+      type: z.enum(["date", "window"]),
+      value: z
+        .union([
+          z.coerce
+            .number()
+            .describe(
+              'For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.',
+            ),
+          z
+            .string()
+            .meta({ format: "date-time" })
+            .describe(
+              'For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.',
+            ),
+        ])
+        .describe(
+          'For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.',
+        ),
+      valueUnit: z
+        .enum(["minutes", "hours", "days", "weeks"])
+        .describe('Used when type is "window". Defaults to "days".')
+        .optional(),
+    })
+    .describe(
+      'Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required.',
+    ),
+);
 
 // Non-coerced version for request bodies
 const apiLookbackOverrideInput = z
@@ -545,48 +561,51 @@ const apiLookbackOverrideInput = z
   );
 
 // Corresponds to schemas/ExperimentAnalysisSettings.yaml (API version)
-export const apiExperimentAnalysisSettingsValidator = z
-  .object({
-    datasourceId: z.string(),
-    assignmentQueryId: z.string(),
-    experimentId: z.string(),
-    segmentId: z.string(),
-    queryFilter: z.string(),
-    inProgressConversions: z.enum(["include", "exclude"]),
-    attributionModel: z
-      .enum(["firstExposure", "experimentDuration", "lookbackOverride"])
-      .describe(
-        'Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.',
-      ),
-    lookbackOverride: apiLookbackOverride.optional(),
-    statsEngine: z.enum(["bayesian", "frequentist"]),
-    regressionAdjustmentEnabled: z.boolean().optional(),
-    sequentialTestingEnabled: z.boolean().optional(),
-    sequentialTestingTuningParameter: z.coerce.number().optional(),
-    postStratificationEnabled: z
-      .union([
-        z.boolean().describe("When null, the organization default is used."),
-        z.null().describe("When null, the organization default is used."),
-      ])
-      .describe("When null, the organization default is used.")
-      .optional(),
-    decisionFrameworkSettings: apiExperimentDecisionFrameworkSettingsValidator
-      .describe(
-        "Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields).",
-      )
-      .optional(),
-    metricOverrides: z
-      .array(apiExperimentMetricOverrideEntryValidator)
-      .describe(
-        "Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries).",
-      )
-      .optional(),
-    goals: z.array(apiExperimentMetricValidator),
-    secondaryMetrics: z.array(apiExperimentMetricValidator),
-    guardrails: z.array(apiExperimentMetricValidator),
-    activationMetric: apiExperimentMetricValidator.optional(),
-  })
-  .strict();
+export const apiExperimentAnalysisSettingsValidator = namedSchema(
+  "ExperimentAnalysisSettings",
+  z
+    .object({
+      datasourceId: z.string(),
+      assignmentQueryId: z.string(),
+      experimentId: z.string(),
+      segmentId: z.string(),
+      queryFilter: z.string(),
+      inProgressConversions: z.enum(["include", "exclude"]),
+      attributionModel: z
+        .enum(["firstExposure", "experimentDuration", "lookbackOverride"])
+        .describe(
+          'Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.',
+        ),
+      lookbackOverride: apiLookbackOverride.optional(),
+      statsEngine: z.enum(["bayesian", "frequentist"]),
+      regressionAdjustmentEnabled: z.boolean().optional(),
+      sequentialTestingEnabled: z.boolean().optional(),
+      sequentialTestingTuningParameter: z.coerce.number().optional(),
+      postStratificationEnabled: z
+        .union([
+          z.boolean().describe("When null, the organization default is used."),
+          z.null().describe("When null, the organization default is used."),
+        ])
+        .describe("When null, the organization default is used.")
+        .optional(),
+      decisionFrameworkSettings: apiExperimentDecisionFrameworkSettingsValidator
+        .describe(
+          "Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields).",
+        )
+        .optional(),
+      metricOverrides: z
+        .array(apiExperimentMetricOverrideEntryValidator)
+        .describe(
+          "Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries).",
+        )
+        .optional(),
+      goals: z.array(apiExperimentMetricValidator),
+      secondaryMetrics: z.array(apiExperimentMetricValidator),
+      guardrails: z.array(apiExperimentMetricValidator),
+      activationMetric: apiExperimentMetricValidator.optional(),
+    })
+    .strict(),
+);
 
 // Variation sub-schema for API responses
 const apiExperimentVariation = z.object({
@@ -706,22 +725,28 @@ const apiExperimentShape = z.object({
     .optional(),
   templateId: z.string().optional(),
 });
-export const apiExperimentValidator = apiExperimentShape.strict();
+export const apiExperimentValidator = namedSchema(
+  "Experiment",
+  apiExperimentShape.strict(),
+);
 
 export type ApiExperiment = z.infer<typeof apiExperimentValidator>;
 
 // Corresponds to schemas/ExperimentWithEnhancedStatus.yaml (allOf Experiment + enhancedStatus)
 // Uses the non-strict shape so z.intersection can add enhancedStatus.
-const apiExperimentWithEnhancedStatus = z.intersection(
-  apiExperimentShape,
-  z.object({
-    enhancedStatus: z
-      .object({
-        status: z.enum(["Running", "Stopped", "Draft", "Archived"]),
-        detailedStatus: z.string().optional(),
-      })
-      .optional(),
-  }),
+export const apiExperimentWithEnhancedStatus = namedSchema(
+  "ExperimentWithEnhancedStatus",
+  z.intersection(
+    apiExperimentShape,
+    z.object({
+      enhancedStatus: z
+        .object({
+          status: z.enum(["Running", "Stopped", "Draft", "Archived"]),
+          detailedStatus: z.string().optional(),
+        })
+        .optional(),
+    }),
+  ),
 );
 
 // Corresponds to schemas/ExperimentSnapshot.yaml
@@ -730,61 +755,66 @@ const apiExperimentSnapshotShape = z.object({
   experiment: z.string(),
   status: z.string(),
 });
-export const apiExperimentSnapshotValidator =
-  apiExperimentSnapshotShape.strict();
+export const apiExperimentSnapshotValidator = namedSchema(
+  "ExperimentSnapshot",
+  apiExperimentSnapshotShape.strict(),
+);
 
 // Corresponds to schemas/ExperimentResults.yaml
-export const apiExperimentResultsValidator = z
-  .object({
-    id: z.string(),
-    dateUpdated: z.string(),
-    experimentId: z.string(),
-    phase: z.string(),
-    dateStart: z.string(),
-    dateEnd: z.string(),
-    dimension: z.object({
-      type: z.string(),
-      id: z.string().optional(),
-    }),
-    settings: apiExperimentAnalysisSettingsValidator,
-    queryIds: z.array(z.string()),
-    results: z.array(
-      z.object({
-        dimension: z.string(),
-        totalUsers: z.coerce.number(),
-        checks: z.object({
-          srm: z.coerce.number(),
-        }),
-        metrics: z.array(
-          z.object({
-            metricId: z.string(),
-            variations: z.array(
-              z.object({
-                variationId: z.string(),
-                users: z.coerce.number().optional(),
-                analyses: z.array(
-                  z.object({
-                    engine: z.enum(["bayesian", "frequentist"]),
-                    numerator: z.coerce.number(),
-                    denominator: z.coerce.number(),
-                    mean: z.coerce.number(),
-                    stddev: z.coerce.number(),
-                    percentChange: z.coerce.number(),
-                    ciLow: z.coerce.number(),
-                    ciHigh: z.coerce.number(),
-                    pValue: z.coerce.number().optional(),
-                    risk: z.coerce.number().optional(),
-                    chanceToBeatControl: z.coerce.number().optional(),
-                  }),
-                ),
-              }),
-            ),
-          }),
-        ),
+export const apiExperimentResultsValidator = namedSchema(
+  "ExperimentResults",
+  z
+    .object({
+      id: z.string(),
+      dateUpdated: z.string(),
+      experimentId: z.string(),
+      phase: z.string(),
+      dateStart: z.string(),
+      dateEnd: z.string(),
+      dimension: z.object({
+        type: z.string(),
+        id: z.string().optional(),
       }),
-    ),
-  })
-  .strict();
+      settings: apiExperimentAnalysisSettingsValidator,
+      queryIds: z.array(z.string()),
+      results: z.array(
+        z.object({
+          dimension: z.string(),
+          totalUsers: z.coerce.number(),
+          checks: z.object({
+            srm: z.coerce.number(),
+          }),
+          metrics: z.array(
+            z.object({
+              metricId: z.string(),
+              variations: z.array(
+                z.object({
+                  variationId: z.string(),
+                  users: z.coerce.number().optional(),
+                  analyses: z.array(
+                    z.object({
+                      engine: z.enum(["bayesian", "frequentist"]),
+                      numerator: z.coerce.number(),
+                      denominator: z.coerce.number(),
+                      mean: z.coerce.number(),
+                      stddev: z.coerce.number(),
+                      percentChange: z.coerce.number(),
+                      ciLow: z.coerce.number(),
+                      ciHigh: z.coerce.number(),
+                      pValue: z.coerce.number().optional(),
+                      risk: z.coerce.number().optional(),
+                      chanceToBeatControl: z.coerce.number().optional(),
+                    }),
+                  ),
+                }),
+              ),
+            }),
+          ),
+        }),
+      ),
+    })
+    .strict(),
+);
 
 export type ApiExperimentResults = z.infer<
   typeof apiExperimentResultsValidator

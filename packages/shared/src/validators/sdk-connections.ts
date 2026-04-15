@@ -1,44 +1,49 @@
 import { z } from "zod";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 // Corresponds to schemas/SdkConnection.yaml
-export const apiSdkConnectionValidator = z
-  .object({
-    id: z.string(),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-    name: z.string(),
-    organization: z.string(),
-    languages: z.array(z.string()),
-    sdkVersion: z.string().optional(),
-    environment: z.string(),
-    project: z
-      .string()
-      .describe(
-        "Use 'projects' instead. This is only for backwards compatibility and contains the first project only.",
-      ),
-    projects: z.array(z.string()).optional(),
-    encryptPayload: z.boolean(),
-    encryptionKey: z.string(),
-    includeVisualExperiments: z.boolean().optional(),
-    includeDraftExperiments: z.boolean().optional(),
-    includeExperimentNames: z.boolean().optional(),
-    includeRedirectExperiments: z.boolean().optional(),
-    includeRuleIds: z.boolean().optional(),
-    includeProjectIdInMetadata: z.boolean().optional(),
-    includeCustomFieldsInMetadata: z.boolean().optional(),
-    allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
-    includeTagsInMetadata: z.boolean().optional(),
-    key: z.string(),
-    proxyEnabled: z.boolean(),
-    proxyHost: z.string(),
-    proxySigningKey: z.string(),
-    sseEnabled: z.boolean().optional(),
-    hashSecureAttributes: z.boolean().optional(),
-    remoteEvalEnabled: z.boolean().optional(),
-    savedGroupReferencesEnabled: z.boolean().optional(),
-  })
-  .strict();
+export const apiSdkConnectionValidator = namedSchema(
+  "SdkConnection",
+  z
+    .object({
+      id: z.string(),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+      name: z.string(),
+      organization: z.string(),
+      languages: z.array(z.string()),
+      sdkVersion: z.string().optional(),
+      environment: z.string(),
+      project: z
+        .string()
+        .describe(
+          "Use 'projects' instead. This is only for backwards compatibility and contains the first project only.",
+        ),
+      projects: z.array(z.string()).optional(),
+      encryptPayload: z.boolean(),
+      encryptionKey: z.string(),
+      includeVisualExperiments: z.boolean().optional(),
+      includeDraftExperiments: z.boolean().optional(),
+      includeExperimentNames: z.boolean().optional(),
+      includeRedirectExperiments: z.boolean().optional(),
+      includeRuleIds: z.boolean().optional(),
+      includeProjectIdInMetadata: z.boolean().optional(),
+      includeCustomFieldsInMetadata: z.boolean().optional(),
+      allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
+      includeTagsInMetadata: z.boolean().optional(),
+      key: z.string(),
+      proxyEnabled: z.boolean(),
+      proxyHost: z.string(),
+      proxySigningKey: z.string(),
+      sseEnabled: z.boolean().optional(),
+      hashSecureAttributes: z.boolean().optional(),
+      remoteEvalEnabled: z.boolean().optional(),
+      savedGroupReferencesEnabled: z.boolean().optional(),
+    })
+    .strict(),
+);
 
 export type ApiSdkConnection = z.infer<typeof apiSdkConnectionValidator>;
 
@@ -161,7 +166,7 @@ export const deleteSdkConnectionValidator = {
     .strict(),
   summary: "Deletes a single SDK connection",
   operationId: "deleteSdkConnection",
-  tags: ["sdk-connection"],
+  tags: ["sdk-connections"],
   method: "delete" as const,
   path: "/sdk-connections/:id",
   exampleRequest: { params: { id: "abc123" } },

@@ -132,6 +132,8 @@ export type OpenApiModelSpec<
   navDescription?: string;
   /** If set, inserts this resource's nav tag immediately after the named tag in the left nav. */
   navAfterTag?: string;
+  /** Override the tag used on endpoints. Defaults to capitalizeFirstCharacter(modelPlural). Use when the spec-based model must share a tag with legacy hand-written routes (e.g. "ramp-schedules"). */
+  tag?: string;
 };
 
 /**
@@ -235,7 +237,9 @@ export function getOpenApiRoutesForApiConfig(
 ): OpenApiRoute[] {
   const routes: OpenApiRoute[] = [];
 
-  const tag = capitalizeFirstCharacter(apiConfig.openApiSpec.modelPlural);
+  const tag =
+    apiConfig.openApiSpec.tag ??
+    capitalizeFirstCharacter(apiConfig.openApiSpec.modelPlural);
 
   const crudConfig = getCrudConfig(apiConfig.openApiSpec);
   crudConfig.forEach(

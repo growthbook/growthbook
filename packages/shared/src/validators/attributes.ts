@@ -1,28 +1,33 @@
 import { z } from "zod";
 
+import { namedSchema } from "./openapi-helpers";
+
 // Corresponds to schemas/Attribute.yaml
-export const apiAttributeValidator = z
-  .object({
-    property: z.string(),
-    datatype: z.enum([
-      "boolean",
-      "string",
-      "number",
-      "secureString",
-      "enum",
-      "string[]",
-      "number[]",
-      "secureString[]",
-    ]),
-    description: z.string().optional(),
-    hashAttribute: z.boolean().optional(),
-    archived: z.boolean().optional(),
-    enum: z.string().optional(),
-    format: z.enum(["", "version", "date", "isoCountryCode"]).optional(),
-    projects: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
-  })
-  .strict();
+export const apiAttributeValidator = namedSchema(
+  "Attribute",
+  z
+    .object({
+      property: z.string(),
+      datatype: z.enum([
+        "boolean",
+        "string",
+        "number",
+        "secureString",
+        "enum",
+        "string[]",
+        "number[]",
+        "secureString[]",
+      ]),
+      description: z.string().optional(),
+      hashAttribute: z.boolean().optional(),
+      archived: z.boolean().optional(),
+      enum: z.string().optional(),
+      format: z.enum(["", "version", "date", "isoCountryCode"]).optional(),
+      projects: z.array(z.string()).optional(),
+      tags: z.array(z.string()).optional(),
+    })
+    .strict(),
+);
 
 // Corresponds to postAttribute path requestBody
 const postAttributeBody = z

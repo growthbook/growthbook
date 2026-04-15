@@ -1,48 +1,19 @@
 import { z } from "zod";
 import { apiExperimentValidator } from "./experiments";
 
-// Corresponds to schemas/VisualChange.yaml
-export const apiVisualChangeValidator = z
-  .object({
-    description: z.string().optional(),
-    css: z.string().optional(),
-    js: z.string().optional(),
-    variation: z.string(),
-    domMutations: z
-      .array(
-        z.object({
-          selector: z.string(),
-          action: z.enum(["append", "set", "remove"]),
-          attribute: z.string(),
-          value: z.string().optional(),
-          parentSelector: z.string().optional(),
-          insertBeforeSelector: z.string().optional(),
-        }),
-      )
-      .optional(),
-  })
-  .strict();
+import { namedSchema } from "./openapi-helpers";
 
-// Corresponds to schemas/VisualChangeset.yaml
-export const apiVisualChangesetValidator = z
-  .object({
-    id: z.string().optional(),
-    urlPatterns: z.array(
-      z.object({
-        include: z.boolean().optional(),
-        type: z.enum(["simple", "regex"]),
-        pattern: z.string(),
-      }),
-    ),
-    editorUrl: z.string(),
-    experiment: z.string(),
-    visualChanges: z.array(
-      z.object({
-        description: z.string().optional(),
-        css: z.string().optional(),
-        js: z.string().optional(),
-        variation: z.string(),
-        domMutations: z.array(
+// Corresponds to schemas/VisualChange.yaml
+export const apiVisualChangeValidator = namedSchema(
+  "VisualChange",
+  z
+    .object({
+      description: z.string().optional(),
+      css: z.string().optional(),
+      js: z.string().optional(),
+      variation: z.string(),
+      domMutations: z
+        .array(
           z.object({
             selector: z.string(),
             action: z.enum(["append", "set", "remove"]),
@@ -51,11 +22,48 @@ export const apiVisualChangesetValidator = z
             parentSelector: z.string().optional(),
             insertBeforeSelector: z.string().optional(),
           }),
-        ),
-      }),
-    ),
-  })
-  .strict();
+        )
+        .optional(),
+    })
+    .strict(),
+);
+
+// Corresponds to schemas/VisualChangeset.yaml
+export const apiVisualChangesetValidator = namedSchema(
+  "VisualChangeset",
+  z
+    .object({
+      id: z.string().optional(),
+      urlPatterns: z.array(
+        z.object({
+          include: z.boolean().optional(),
+          type: z.enum(["simple", "regex"]),
+          pattern: z.string(),
+        }),
+      ),
+      editorUrl: z.string(),
+      experiment: z.string(),
+      visualChanges: z.array(
+        z.object({
+          description: z.string().optional(),
+          css: z.string().optional(),
+          js: z.string().optional(),
+          variation: z.string(),
+          domMutations: z.array(
+            z.object({
+              selector: z.string(),
+              action: z.enum(["append", "set", "remove"]),
+              attribute: z.string(),
+              value: z.string().optional(),
+              parentSelector: z.string().optional(),
+              insertBeforeSelector: z.string().optional(),
+            }),
+          ),
+        }),
+      ),
+    })
+    .strict(),
+);
 
 export type ApiVisualChangeset = z.infer<typeof apiVisualChangesetValidator>;
 

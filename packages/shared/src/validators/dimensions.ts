@@ -2,26 +2,31 @@ import { z } from "zod";
 import { ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
+import { namedSchema } from "./openapi-helpers";
+
 // Corresponds to schemas/Dimension.yaml
-export const apiDimensionValidator = z
-  .object({
-    id: z.string(),
-    dateCreated: z.string(),
-    dateUpdated: z.string(),
-    owner: ownerField,
-    datasourceId: z.string(),
-    identifierType: z.string(),
-    name: z.string(),
-    description: z.string().optional(),
-    query: z.string(),
-    managedBy: z
-      .enum(["", "api", "config"])
-      .describe(
-        "Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.",
-      )
-      .optional(),
-  })
-  .strict();
+export const apiDimensionValidator = namedSchema(
+  "Dimension",
+  z
+    .object({
+      id: z.string(),
+      dateCreated: z.string(),
+      dateUpdated: z.string(),
+      owner: ownerField,
+      datasourceId: z.string(),
+      identifierType: z.string(),
+      name: z.string(),
+      description: z.string().optional(),
+      query: z.string(),
+      managedBy: z
+        .enum(["", "api", "config"])
+        .describe(
+          "Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.",
+        )
+        .optional(),
+    })
+    .strict(),
+);
 
 export type ApiDimension = z.infer<typeof apiDimensionValidator>;
 

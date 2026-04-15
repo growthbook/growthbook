@@ -174,6 +174,7 @@ API_MODELS.forEach((modelClass) => {
 
   const spec = apiConfig.openApiSpec;
   const tag =
+    spec.tag ??
     spec.modelPlural.charAt(0).toUpperCase() + spec.modelPlural.slice(1);
   apiModelTagMeta[tag] = {
     displayName: spec.navDisplayName,
