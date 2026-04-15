@@ -386,6 +386,11 @@ paths:
                 project:
                   type: string
                   description: An associated project ID
+                additionalProjects:
+                  type: array
+                  items:
+                    type: string
+                  description: Additional project IDs for SDK payload visibility
                 valueType:
                   type: string
                   description: The data type of the feature payload. Boolean by default.
@@ -807,6 +812,11 @@ paths:
                 project:
                   type: string
                   description: An associated project ID
+                additionalProjects:
+                  type: array
+                  items:
+                    type: string
+                  description: Additional project IDs for SDK payload visibility
                 owner:
                   $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 defaultValue:
@@ -2119,6 +2129,11 @@ paths:
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
+                additionalProjects:
+                  type: array
+                  items:
+                    type: string
+                  description: Additional project IDs for SDK payload visibility
                 templateId:
                   type: string
                   description: 'ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields.'
@@ -2511,6 +2526,11 @@ paths:
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
+                additionalProjects:
+                  type: array
+                  items:
+                    type: string
+                  description: Additional project IDs for SDK payload visibility
                 hypothesis:
                   type: string
                   description: Hypothesis of the experiment
@@ -21355,6 +21375,8 @@ paths:
                                       const: scheduled
                                     at:
                                       type: string
+                                      format: date-time
+                                      pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                                   required:
                                     - type
                                     - at
@@ -21576,6 +21598,8 @@ paths:
                                 const: scheduled
                               at:
                                 type: string
+                                format: date-time
+                                pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                             required:
                               - type
                               - at
@@ -21765,6 +21789,8 @@ paths:
                                       const: scheduled
                                     at:
                                       type: string
+                                      format: date-time
+                                      pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                                   required:
                                     - type
                                     - at
@@ -21956,6 +21982,8 @@ paths:
                                 const: scheduled
                               at:
                                 type: string
+                                format: date-time
+                                pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                             required:
                               - type
                               - at
@@ -22148,6 +22176,8 @@ paths:
                                       const: scheduled
                                     at:
                                       type: string
+                                      format: date-time
+                                      pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                                   required:
                                     - type
                                     - at
@@ -22355,6 +22385,8 @@ paths:
                                         const: scheduled
                                       at:
                                         type: string
+                                        format: date-time
+                                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                                     required:
                                       - type
                                       - at
@@ -25993,6 +26025,8 @@ components:
                         const: scheduled
                       at:
                         type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                     required:
                       - type
                       - at
@@ -26947,6 +26981,10 @@ components:
           $ref: '#/components/schemas/Metric/properties/owner'
         project:
           type: string
+        additionalProjects:
+          type: array
+          items:
+            type: string
         valueType:
           type: string
           enum:
@@ -27586,6 +27624,10 @@ components:
             - multi-armed-bandit
         project:
           type: string
+        additionalProjects:
+          type: array
+          items:
+            type: string
         hypothesis:
           type: string
         description:

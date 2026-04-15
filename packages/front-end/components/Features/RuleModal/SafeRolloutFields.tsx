@@ -294,6 +294,7 @@ export default function SafeRolloutFields({
               datasource={form.watch("safeRolloutFields.datasourceId")}
               exposureQueryId={form.watch("safeRolloutFields.exposureQueryId")}
               project={feature.project}
+              additionalProjects={feature.additionalProjects}
               includeFacts={true}
               forceSingleMetric={false}
               includeGroups={true}

@@ -319,6 +319,7 @@ export const experimentInterface = z
     uid: z.string().optional(),
     organization: z.string(),
     project: z.string().optional(),
+    additionalProjects: z.array(z.string()).optional(),
     owner: ownerField,
     /** @deprecated Always set to 'code' */
     implementation: z.enum(implementationType),

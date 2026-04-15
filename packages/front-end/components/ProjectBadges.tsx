@@ -22,6 +22,7 @@ export interface Props {
     | "custom field"
     | "experiment";
   projectIds?: string[];
+  primaryProjectId?: string;
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;
   sort?: boolean;
@@ -34,6 +35,7 @@ const singularProjectTypes = ["feature", "experiment"];
 export default function ProjectBadges({
   resourceType,
   projectIds,
+  primaryProjectId,
   invalidProjectIds = [],
   invalidProjectMessage = "This project is invalid",
   sort = true,
@@ -63,7 +65,7 @@ export default function ProjectBadges({
     projects.find((p) => p.id === pid),
   );
   if (!filteredProjects.length) return null;
-  if (sort) {
+  if (sort && !primaryProjectId) {
     filteredProjects = filteredProjects.sort((a, b) => {
       if (!a) return -1;
       if (!b) return 1;
@@ -71,6 +73,12 @@ export default function ProjectBadges({
         new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime()
       );
     });
+  } else if (primaryProjectId) {
+    // Primary project renders first
+    filteredProjects = [
+      ...filteredProjects.filter((p) => p?.id === primaryProjectId),
+      ...filteredProjects.filter((p) => p?.id !== primaryProjectId),
+    ];
   }
 
   const showMissingProjectErr = filteredProjects.some((p) => !p);
@@ -78,6 +86,34 @@ export default function ProjectBadges({
     <>
       {filteredProjects.map((p, i) => {
         if (!p?.name) return;
+        const isAdditional = primaryProjectId && p.id !== primaryProjectId;
+        if (isAdditional) {
+          return (
+            <Tooltip key={p.name} body="Additional project">
+              <Badge
+                label={
+                  invalidProjectIds.includes(p.id) ? (
+                    <Tooltip
+                      popperClassName="text-left"
+                      popperStyle={{ lineHeight: 1.5 }}
+                      body={invalidProjectMessage}
+                    >
+                      <del className="text-danger">
+                        <FaExclamationTriangle className="mr-1" />
+                        {p.name}
+                      </del>
+                    </Tooltip>
+                  ) : (
+                    p.name
+                  )
+                }
+                color="gray"
+                variant="outline"
+                ml={skipMargin || i === 0 ? "0" : "2"}
+              />
+            </Tooltip>
+          );
+        }
         return (
           <Badge
             label={

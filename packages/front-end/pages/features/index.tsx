@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
-import { featureHasEnvironment } from "shared/util";
+import { featureHasEnvironment, getAllEntityProjects } from "shared/util";
 import {
   FaTriangleExclamation,
   FaRegCircleCheck,
@@ -260,7 +260,8 @@ export default function FeaturesPage() {
                         {feature.project ? (
                           <ProjectBadges
                             resourceType="feature"
-                            projectIds={[feature.project]}
+                            projectIds={getAllEntityProjects(feature)}
+                            primaryProjectId={feature.project}
                           />
                         ) : null}
                       </td>

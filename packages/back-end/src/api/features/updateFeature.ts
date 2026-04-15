@@ -41,6 +41,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       archived,
       description,
       project,
+      additionalProjects,
       tags,
       customFields,
     } = req.body;
@@ -178,6 +179,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(archived != null ? { archived } : {}),
       ...(description != null ? { description } : {}),
       ...(project != null ? { project } : {}),
+      ...(additionalProjects != null ? { additionalProjects } : {}),
       ...(tags != null ? { tags } : {}),
       ...(defaultValue != null ? { defaultValue } : {}),
       ...(environmentSettings != null ? { environmentSettings } : {}),

@@ -39,6 +39,10 @@ properties:
       - "multi-armed-bandit"
   project:
     type: string
+  additionalProjects:
+    type: array
+    items:
+      type: string
   hypothesis:
     type: string
   description:

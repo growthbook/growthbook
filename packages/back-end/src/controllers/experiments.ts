@@ -1062,6 +1062,25 @@ export async function postExperiments(
     context.permissions.throwPermissionError();
   }
 
+  // Validate additionalProjects on create
+  if (data.additionalProjects && data.additionalProjects.length > 0) {
+    const deduped = [...new Set(data.additionalProjects)];
+    if (data.project && deduped.includes(data.project)) {
+      throw new Error(
+        "The primary project cannot also be listed in additionalProjects",
+      );
+    }
+    data.additionalProjects = deduped;
+    await context.models.projects.ensureProjectsExist(deduped);
+    for (const p of deduped) {
+      if (!context.permissions.canCreateExperiment({ project: p })) {
+        throw new Error(
+          `You do not have permission to add project ${p} to this experiment`,
+        );
+      }
+    }
+  }
+
   let result:
     | {
         metricIds: string[];
@@ -1123,6 +1142,7 @@ export async function postExperiments(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     project: data.project,
+    additionalProjects: data.additionalProjects,
     owner: data.owner || userId,
     trackingKey: data.trackingKey || "",
     datasource: data.datasource || "",
@@ -1365,6 +1385,31 @@ export async function postExperiment(
 
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
+  }
+
+  // Validate and permission-check additionalProjects changes
+  if (data.additionalProjects) {
+    const primaryProject =
+      "project" in data ? data.project : experiment.project;
+    const deduped = [...new Set(data.additionalProjects)];
+    if (primaryProject && deduped.includes(primaryProject)) {
+      throw new Error(
+        "The primary project cannot also be listed in additionalProjects",
+      );
+    }
+    data.additionalProjects = deduped;
+    if (deduped.length > 0) {
+      await context.models.projects.ensureProjectsExist(deduped);
+    }
+    const previous = new Set(experiment.additionalProjects ?? []);
+    const added = deduped.filter((p) => !previous.has(p));
+    for (const p of added) {
+      if (!context.permissions.canCreateExperiment({ project: p })) {
+        throw new Error(
+          `You do not have permission to add project ${p} to this experiment`,
+        );
+      }
+    }
   }
 
   // FIXME: We skip validation because project is updated in a different place than where

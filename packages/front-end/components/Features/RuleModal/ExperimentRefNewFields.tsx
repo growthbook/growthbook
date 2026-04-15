@@ -611,6 +611,7 @@ export default function ExperimentRefNewFields({
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
             project={project}
+            additionalProjects={feature?.additionalProjects}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
             guardrailMetrics={form.watch("guardrailMetrics") ?? []}
@@ -654,6 +655,7 @@ export default function ExperimentRefNewFields({
                   datasource={form.watch("datasource")}
                   exposureQueryId={exposureQueryId}
                   project={project}
+                  additionalProjects={feature?.additionalProjects}
                   includeFacts={true}
                   labelClassName="font-weight-bold"
                   label={

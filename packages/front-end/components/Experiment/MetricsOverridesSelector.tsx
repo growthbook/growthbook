@@ -700,6 +700,7 @@ export default function MetricsOverridesSelector({
               datasource={experiment.datasource}
               availableIds={unusedMetrics}
               project={experiment.project}
+              additionalProjects={experiment.additionalProjects}
               includeFacts={true}
               value={selectedMetricId}
               onChange={(m) => setSelectedMetricId(m)}

@@ -7,7 +7,11 @@ import {
   RampStepAction,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
-import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getAllEntityProjects,
+  MergeResultChanges,
+} from "shared/util";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -598,7 +602,7 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
     if ("targets" in schedule && schedule.entityType === "feature") {
       const feature = await getFeature(ctx, schedule.entityId);
       if (feature) {
-        projects = feature.project ? [feature.project] : [];
+        projects = getAllEntityProjects(feature);
         tags = feature.tags ?? [];
         // Targets with a specific environment use that; targets with environment=null
         // (multi-env ramps) fall back to all environments the feature is active in.

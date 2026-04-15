@@ -1,5 +1,8 @@
 import { FC } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  isProjectListValidForEntity,
+} from "shared/util";
 import { isBinomialMetric, isMetricJoinable } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
@@ -22,6 +25,7 @@ const MetricSelector: FC<
     datasource?: string;
     exposureQueryId?: string;
     project?: string;
+    additionalProjects?: string[];
     projects?: string[]; // will only filter if project is not set
     includeFacts?: boolean;
     availableIds?: string[];
@@ -35,6 +39,7 @@ const MetricSelector: FC<
   datasource,
   exposureQueryId,
   project,
+  additionalProjects,
   projects,
   includeFacts,
   placeholder,
@@ -114,7 +119,10 @@ const MetricSelector: FC<
           projects.some((p) => isProjectListValidForProject(m.projects, p))
         );
       }
-      return isProjectListValidForProject(m.projects, project);
+      return isProjectListValidForEntity(m.projects, {
+        project,
+        additionalProjects,
+      });
     })
     .filter((m) => {
       if (filterConversionWindowMetrics) {

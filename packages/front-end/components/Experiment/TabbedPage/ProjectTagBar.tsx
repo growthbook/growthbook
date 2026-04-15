@@ -172,9 +172,20 @@ export default function ProjectTagBar({
     }
   };
   const renderProjectMetaDataValue = () => {
+    const additionalProjectIds = (experiment.additionalProjects ?? []).filter(
+      (p) => p !== experiment.project,
+    );
     return (
-      <Flex gap="1">
+      <Flex gap="1" wrap="wrap">
         {RenderToolTipsAndValue()}
+        {additionalProjectIds.length > 0 && (
+          <ProjectBadges
+            resourceType="experiment"
+            projectIds={additionalProjectIds}
+            primaryProjectId={experiment.project}
+            skipMargin
+          />
+        )}
         {canUpdateExperimentProject(project) && !projectId && (
           <Link
             onClick={(e) => {

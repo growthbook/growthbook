@@ -92,6 +92,7 @@ export type FeatureMetaInfo = Pick<
   FeatureInterface,
   | "id"
   | "project"
+  | "additionalProjects"
   | "archived"
   | "description"
   | "dateCreated"

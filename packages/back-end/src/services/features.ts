@@ -12,6 +12,7 @@ import {
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
   filterProjectsByEnvironmentWithNull,
+  getAllEntityProjects,
   isDefined,
   PrerequisiteStateResult,
   validateCondition,
@@ -1069,13 +1070,19 @@ export async function buildSDKPayloadForConnection(
   const projectList = projects && projects.length > 0 ? projects : [];
   const filteredFeatures =
     projectList.length > 0
-      ? data.features.filter((f) => projectList.includes(f.project || ""))
+      ? data.features.filter(
+          (f) =>
+            getAllEntityProjects(f).some((p) => projectList.includes(p)) ||
+            !f.project,
+        )
       : data.features;
   const filteredExperimentMap =
     projectList.length > 0
       ? new Map(
-          [...data.experimentMap.entries()].filter(([, exp]) =>
-            projectList.includes(exp.project || ""),
+          [...data.experimentMap.entries()].filter(
+            ([, exp]) =>
+              getAllEntityProjects(exp).some((p) => projectList.includes(p)) ||
+              !exp.project,
           ),
         )
       : data.experimentMap;
@@ -1760,6 +1767,7 @@ export function getApiFeatureObj({
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
+    additionalProjects: feature.additionalProjects ?? [],
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {

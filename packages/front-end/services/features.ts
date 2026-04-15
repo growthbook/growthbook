@@ -185,11 +185,15 @@ export function useFeatureSearch({
       const projectId = f.project;
       const projectName = projectId ? getProjectById(projectId)?.name : "";
       const projectIsDeReferenced = projectId && !projectName;
+      const additionalProjectNames = (f.additionalProjects ?? [])
+        .map((pid) => getProjectById(pid)?.name)
+        .filter(Boolean) as string[];
       return {
         ...f,
         projectId,
         projectName,
         projectIsDeReferenced,
+        additionalProjectNames,
         ownerName: getOwnerDisplay(f.owner),
       };
     },
@@ -239,9 +243,13 @@ export function useFeatureSearch({
         return has;
       },
       key: (item) => item.id,
-      project: (item: ComputedFeatureInterface) => [
+      project: (
+        item: ComputedFeatureInterface & { additionalProjectNames?: string[] },
+      ) => [
         item.project,
         item.projectName,
+        ...(item.additionalProjects ?? []),
+        ...(item.additionalProjectNames ?? []),
       ],
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),

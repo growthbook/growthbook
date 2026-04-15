@@ -19,6 +19,11 @@ properties:
   project:
     type: string
     description: An associated project ID
+  additionalProjects:
+    type: array
+    items:
+      type: string
+    description: Additional project IDs for SDK payload visibility
   valueType:
     type: string
     description: The data type of the feature payload. Boolean by default.

@@ -5,6 +5,7 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import {
   MergeResultChanges,
+  getAllEntityProjects,
   getApiFeatureEnabledEnvs,
   getApiFeatureAllEnvs,
   checkIfRevisionNeedsReview,
@@ -96,6 +97,7 @@ const featureSchema = new mongoose.Schema({
   nextScheduledUpdate: Date,
   owner: String,
   project: String,
+  additionalProjects: [String],
   dateCreated: Date,
   dateUpdated: Date,
   version: Number,
@@ -175,6 +177,7 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
+featureSchema.index({ organization: 1, additionalProjects: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -207,10 +210,11 @@ export async function getAllFeatures(
   }: { projects?: string[]; includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (projects && projects.length === 1) {
-    q.project = projects[0];
-  } else if (projects && projects.length > 1) {
-    q.project = { $in: projects };
+  if (projects && projects.length > 0) {
+    q.$or = [
+      { project: { $in: projects } },
+      { additionalProjects: { $elemMatch: { $in: projects } } },
+    ];
   }
 
   if (!includeArchived) {
@@ -222,7 +226,9 @@ export async function getAllFeatures(
   );
 
   return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
+    context.permissions.canReadMultiProjectResource(
+      getAllEntityProjects(feature),
+    ),
   );
 }
 
@@ -231,13 +237,22 @@ function featureListQuery(
   opts: { project?: string; projectIds?: string[]; includeArchived?: boolean },
 ): FilterQuery<FeatureDocument> {
   const { project, projectIds, includeArchived = false } = opts;
+  const projectFilter =
+    project != null
+      ? {
+          $or: [{ project }, { additionalProjects: project }],
+        }
+      : projectIds != null
+        ? {
+            $or: [
+              { project: { $in: projectIds } },
+              { additionalProjects: { $elemMatch: { $in: projectIds } } },
+            ],
+          }
+        : {};
   return {
     organization: orgId,
-    ...(project != null
-      ? { project }
-      : projectIds != null
-        ? { project: { $in: projectIds } }
-        : {}),
+    ...projectFilter,
     ...(includeArchived ? {} : { archived: { $ne: true } }),
   };
 }
@@ -271,7 +286,9 @@ export async function getFeaturesPage(
   return docs
     .map((m) => upgradeFeatureInterface(toInterface(m, context)))
     .filter((feature) =>
-      context.permissions.canReadSingleProjectResource(feature.project),
+      context.permissions.canReadMultiProjectResource(
+        getAllEntityProjects(feature),
+      ),
     );
 }
 
@@ -298,7 +315,7 @@ export async function hasArchivedFeatures(
     archived: true,
   };
   if (project) {
-    q.project = project;
+    q.$or = [{ project }, { additionalProjects: project }];
   }
 
   const f = await FeatureModel.findOne(q);
@@ -315,8 +332,11 @@ export async function getFeature(
   });
   if (!feature) return null;
 
-  return context.permissions.canReadSingleProjectResource(feature.project)
-    ? upgradeFeatureInterface(toInterface(feature, context))
+  const upgraded = upgradeFeatureInterface(toInterface(feature, context));
+  return context.permissions.canReadMultiProjectResource(
+    getAllEntityProjects(upgraded),
+  )
+    ? upgraded
     : null;
 }
 
@@ -356,7 +376,9 @@ export async function getFeaturesByIds(
   ).map((m) => upgradeFeatureInterface(toInterface(m, context)));
 
   return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
+    context.permissions.canReadMultiProjectResource(
+      getAllEntityProjects(feature),
+    ),
   );
 }
 
@@ -495,7 +517,7 @@ export const createFeatureEvent = async <
         data: {
           object: currentApiFeature,
         },
-        projects: [currentApiFeature.project],
+        projects: getAllEntityProjects(currentApiFeature),
         tags: currentApiFeature.tags,
         environments:
           eventData.event === "deleted"
@@ -547,7 +569,10 @@ export const createFeatureEvent = async <
         changes,
       },
       projects: Array.from(
-        new Set([previousApiFeature.project, currentApiFeature.project]),
+        new Set([
+          ...getAllEntityProjects(previousApiFeature),
+          ...getAllEntityProjects(currentApiFeature),
+        ]),
       ),
       tags: Array.from(
         new Set([...previousApiFeature.tags, ...currentApiFeature.tags]),
@@ -1067,6 +1092,7 @@ export async function removeProjectFromFeatures(
   context: ReqContext | ApiReqContext,
   project: string,
 ) {
+  // Clear primary project
   const query = { organization: context.org.id, project };
 
   const featureDocs = await FeatureModel.find(query);
@@ -1078,6 +1104,33 @@ export async function removeProjectFromFeatures(
     const updatedFeature = {
       ...feature,
       project: "",
+    };
+
+    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on feature update");
+    });
+  });
+
+  // Pull from additionalProjects
+  const additionalQuery = {
+    organization: context.org.id,
+    additionalProjects: project,
+  };
+  const additionalDocs = await FeatureModel.find(additionalQuery);
+  const additionalFeatures = (additionalDocs || []).map((m) =>
+    toInterface(m, context),
+  );
+
+  await FeatureModel.updateMany(additionalQuery, {
+    $pull: { additionalProjects: project },
+  });
+
+  additionalFeatures.forEach((feature) => {
+    const updatedFeature = {
+      ...feature,
+      additionalProjects: (feature.additionalProjects ?? []).filter(
+        (p) => p !== project,
+      ),
     };
 
     onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
@@ -1812,7 +1865,7 @@ export async function getFeatureMetaInfoById(
 
   const query: Record<string, unknown> = { organization: context.org.id };
   if (project) {
-    query.project = project;
+    query.$or = [{ project }, { additionalProjects: project }];
   }
   if (ids?.length) {
     query.id = { $in: ids };
@@ -1821,6 +1874,7 @@ export async function getFeatureMetaInfoById(
   const projection: Record<string, number> = {
     id: 1,
     project: 1,
+    additionalProjects: 1,
     archived: 1,
     description: 1,
     dateCreated: 1,
@@ -1841,10 +1895,15 @@ export async function getFeatureMetaInfoById(
   const features = await FeatureModel.find(query, projection);
 
   return features
-    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .filter((f) =>
+      context.permissions.canReadMultiProjectResource(
+        getAllEntityProjects(f as unknown as FeatureInterface),
+      ),
+    )
     .map((f) => ({
       id: f.id,
       project: f.project,
+      additionalProjects: f.additionalProjects,
       archived: f.archived,
       description: f.description,
       dateCreated: f.dateCreated,
@@ -1871,6 +1930,7 @@ export async function getFeatureMetaInfoByIds(
     {
       id: 1,
       project: 1,
+      additionalProjects: 1,
       archived: 1,
       description: 1,
       dateCreated: 1,
@@ -1887,10 +1947,15 @@ export async function getFeatureMetaInfoByIds(
   );
 
   return features
-    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .filter((f) =>
+      context.permissions.canReadMultiProjectResource(
+        getAllEntityProjects(f as unknown as FeatureInterface),
+      ),
+    )
     .map((f) => ({
       id: f.id,
       project: f.project,
+      additionalProjects: f.additionalProjects,
       archived: f.archived,
       description: f.description,
       dateCreated: f.dateCreated,
@@ -1925,6 +1990,7 @@ export async function getFeatureEnvStatus(
     // Also include features with no project — they're globally accessible
     q.$or = [
       { project: { $in: allowedProjects } },
+      { additionalProjects: { $elemMatch: { $in: allowedProjects } } },
       { project: { $in: ["", null] } },
     ];
   }

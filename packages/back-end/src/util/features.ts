@@ -4,6 +4,7 @@ import {
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
+  getAllEntityProjects,
   includeExperimentInPayload,
   isDefined,
   recursiveWalk,
@@ -51,6 +52,7 @@ export function buildPayloadMetadata<
 >(
   entity: {
     project?: string;
+    additionalProjects?: string[];
     customFields?: Record<string, unknown>;
     tags?: string[];
   },
@@ -59,10 +61,16 @@ export function buildPayloadMetadata<
 ): T | undefined {
   const metadata: T = {} as T;
 
-  if (opts.includeProjectIdInMetadata && entity.project && projectsMap) {
-    const project = projectsMap.get(entity.project);
-    if (project) {
-      metadata.projects = [project.publicId || project.id];
+  if (opts.includeProjectIdInMetadata && projectsMap) {
+    const entityProjects = getAllEntityProjects(entity);
+    const projectPublicIds = entityProjects
+      .map((pid) => {
+        const project = projectsMap.get(pid);
+        return project ? project.publicId || project.id : undefined;
+      })
+      .filter((id): id is string => !!id);
+    if (projectPublicIds.length > 0) {
+      metadata.projects = projectPublicIds;
     }
   }
 
@@ -282,6 +290,7 @@ export function getSDKPayloadKeysByDiff(
     "archived",
     "defaultValue",
     "project",
+    "additionalProjects",
     "valueType",
     "nextScheduledUpdate",
     "holdout",
@@ -318,8 +327,8 @@ export function getSDKPayloadKeysByDiff(
 
   const projects = new Set([
     "",
-    originalFeature.project || "",
-    updatedFeature.project || "",
+    ...getAllEntityProjects(originalFeature),
+    ...getAllEntityProjects(updatedFeature),
   ]);
 
   return getSDKPayloadKeys(environments, projects);
@@ -338,7 +347,7 @@ export function getAffectedSDKPayloadKeys(
       allowedEnvs,
       ruleFilter,
     );
-    const projects = new Set(["", feature.project || ""]);
+    const projects = new Set(["", ...getAllEntityProjects(feature)]);
     keys.push(...getSDKPayloadKeys(environments, projects));
   });
 

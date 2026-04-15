@@ -12,7 +12,7 @@ import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { isProjectListValidForProject } from "shared/util";
+import { isProjectListValidForEntity } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -456,7 +456,7 @@ const AnalysisForm: FC<{
             .filter(
               (ds) =>
                 ds.id === experiment.datasource ||
-                isProjectListValidForProject(ds.projects, experiment.project),
+                isProjectListValidForEntity(ds.projects, experiment),
             )
             .map((d) => ({
               value: d.id,
@@ -598,6 +598,7 @@ const AnalysisForm: FC<{
                 datasource={form.watch("datasource")}
                 exposureQueryId={exposureQueryId}
                 project={experiment.project}
+                additionalProjects={experiment.additionalProjects}
                 includeFacts={true}
                 labelClassName="font-weight-bold"
                 label={
@@ -850,6 +851,7 @@ const AnalysisForm: FC<{
                       setDisableBanditConversionWindow
                     }
                     project={experiment.project}
+                    additionalProjects={experiment.additionalProjects}
                   />
                 </FormProvider>
                 {experiment.status !== "draft" && <Separator my="5" size="4" />}
@@ -860,6 +862,7 @@ const AnalysisForm: FC<{
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
               project={experiment.project}
+              additionalProjects={experiment.additionalProjects}
               goalMetrics={form.watch("goalMetrics")}
               secondaryMetrics={form.watch("secondaryMetrics")}
               guardrailMetrics={form.watch("guardrailMetrics")}

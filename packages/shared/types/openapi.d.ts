@@ -1479,6 +1479,7 @@ export interface components {
           } | {
             /** @constant */
             type: "scheduled";
+            /** Format: date-time */
             at: string;
           };
           actions: ({
@@ -1867,6 +1868,7 @@ export interface components {
       /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       project: string;
+      additionalProjects?: (string)[];
       /** @enum {string} */
       valueType: "boolean" | "string" | "number" | "json";
       defaultValue: string;
@@ -2492,6 +2494,7 @@ export interface components {
       /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       project: string;
+      additionalProjects?: (string)[];
       /** @enum {string} */
       valueType: "boolean" | "string" | "number" | "json";
       defaultValue: string;
@@ -5081,6 +5084,7 @@ export interface components {
       /** @enum {string} */
       type: "standard" | "multi-armed-bandit";
       project: string;
+      additionalProjects?: (string)[];
       hypothesis: string;
       description: string;
       tags: (string)[];
@@ -5717,6 +5721,7 @@ export interface components {
       /** @enum {string} */
       type: "standard" | "multi-armed-bandit";
       project: string;
+      additionalProjects?: (string)[];
       hypothesis: string;
       description: string;
       tags: (string)[];
@@ -6645,6 +6650,7 @@ export interface operations {
                 /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 project: string;
+                additionalProjects?: (string)[];
                 /** @enum {string} */
                 valueType: "boolean" | "string" | "number" | "json";
                 defaultValue: string;
@@ -7285,6 +7291,8 @@ export interface operations {
           owner: string;
           /** @description An associated project ID */
           project?: string;
+          /** @description Additional project IDs for SDK payload visibility */
+          additionalProjects?: (string)[];
           /**
            * @description The data type of the feature payload. Boolean by default. 
            * @enum {string}
@@ -7701,6 +7709,7 @@ export interface operations {
               /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
+              additionalProjects?: (string)[];
               /** @enum {string} */
               valueType: "boolean" | "string" | "number" | "json";
               defaultValue: string;
@@ -8347,6 +8356,7 @@ export interface operations {
               /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
+              additionalProjects?: (string)[];
               /** @enum {string} */
               valueType: "boolean" | "string" | "number" | "json";
               defaultValue: string;
@@ -9335,6 +9345,8 @@ export interface operations {
           archived?: boolean;
           /** @description An associated project ID */
           project?: string;
+          /** @description Additional project IDs for SDK payload visibility */
+          additionalProjects?: (string)[];
           /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           defaultValue?: string;
@@ -9753,6 +9765,7 @@ export interface operations {
               /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
+              additionalProjects?: (string)[];
               /** @enum {string} */
               valueType: "boolean" | "string" | "number" | "json";
               defaultValue: string;
@@ -10431,6 +10444,7 @@ export interface operations {
               /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
+              additionalProjects?: (string)[];
               /** @enum {string} */
               valueType: "boolean" | "string" | "number" | "json";
               defaultValue: string;
@@ -11080,6 +11094,7 @@ export interface operations {
               /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               project: string;
+              additionalProjects?: (string)[];
               /** @enum {string} */
               valueType: "boolean" | "string" | "number" | "json";
               defaultValue: string;
@@ -13253,6 +13268,7 @@ export interface operations {
                 /** @enum {string} */
                 type: "standard" | "multi-armed-bandit";
                 project: string;
+                additionalProjects?: (string)[];
                 hypothesis: string;
                 description: string;
                 tags: (string)[];
@@ -13511,6 +13527,8 @@ export interface operations {
           type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
+          /** @description Additional project IDs for SDK payload visibility */
+          additionalProjects?: (string)[];
           /** @description ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields. */
           templateId?: string;
           /** @description Hypothesis of the experiment */
@@ -13687,6 +13705,7 @@ export interface operations {
               /** @enum {string} */
               type: "standard" | "multi-armed-bandit";
               project: string;
+              additionalProjects?: (string)[];
               hypothesis: string;
               description: string;
               tags: (string)[];
@@ -13964,6 +13983,7 @@ export interface operations {
               /** @enum {string} */
               type: "standard" | "multi-armed-bandit";
               project: string;
+              additionalProjects?: (string)[];
               hypothesis: string;
               description: string;
               tags: (string)[];
@@ -14226,6 +14246,8 @@ export interface operations {
           type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
+          /** @description Additional project IDs for SDK payload visibility */
+          additionalProjects?: (string)[];
           /** @description Hypothesis of the experiment */
           hypothesis?: string;
           /** @description Description of the experiment */
@@ -14415,6 +14437,7 @@ export interface operations {
               /** @enum {string} */
               type: "standard" | "multi-armed-bandit";
               project: string;
+              additionalProjects?: (string)[];
               hypothesis: string;
               description: string;
               tags: (string)[];
@@ -15865,6 +15888,7 @@ export interface operations {
               /** @enum {string} */
               type: "standard" | "multi-armed-bandit";
               project: string;
+              additionalProjects?: (string)[];
               hypothesis: string;
               description: string;
               tags: (string)[];
@@ -25158,6 +25182,7 @@ export interface operations {
                   } | {
                     /** @constant */
                     type: "scheduled";
+                    /** Format: date-time */
                     at: string;
                   };
                   actions: ({
@@ -25224,6 +25249,7 @@ export interface operations {
               } | {
                 /** @constant */
                 type: "scheduled";
+                /** Format: date-time */
                 at: string;
               };
               actions: ({
@@ -25287,6 +25313,7 @@ export interface operations {
                   } | {
                     /** @constant */
                     type: "scheduled";
+                    /** Format: date-time */
                     at: string;
                   };
                   actions: ({
@@ -25372,6 +25399,7 @@ export interface operations {
                     } | {
                       /** @constant */
                       type: "scheduled";
+                      /** Format: date-time */
                       at: string;
                     };
                     actions: ({
@@ -25433,6 +25461,7 @@ export interface operations {
               } | {
                 /** @constant */
                 type: "scheduled";
+                /** Format: date-time */
                 at: string;
               };
               actions: ({
@@ -25496,6 +25525,7 @@ export interface operations {
                   } | {
                     /** @constant */
                     type: "scheduled";
+                    /** Format: date-time */
                     at: string;
                   };
                   actions: ({

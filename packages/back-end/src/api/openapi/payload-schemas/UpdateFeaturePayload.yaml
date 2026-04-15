@@ -8,6 +8,11 @@ properties:
   project:
     type: string
     description: An associated project ID
+  additionalProjects:
+    type: array
+    items:
+      type: string
+    description: Additional project IDs for SDK payload visibility
   owner:
     $ref: "../fields/OwnerInputField.yaml"
   defaultValue:

@@ -21,6 +21,11 @@ properties:
   project:
     type: string
     description: Project ID which the experiment belongs to
+  additionalProjects:
+    type: array
+    items:
+      type: string
+    description: Additional project IDs for SDK payload visibility
   hypothesis:
     type: string
     description: Hypothesis of the experiment
