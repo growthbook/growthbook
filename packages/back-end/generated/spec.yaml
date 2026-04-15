@@ -12575,6 +12575,36 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/teams/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteTeam
+      summary: Delete a single team
+      tags:
+        - Teams
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/deleteMembers'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/teams/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /teams:
     post:
       operationId: createTeam
@@ -12690,14 +12720,19 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/teams' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /teams/{teamId}/members:
+  /teams/{id}/members:
     post:
       operationId: addTeamMembers
       summary: Add members to team
       tags:
         - Teams
       parameters:
-        - $ref: '#/components/parameters/teamId'
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -12726,9 +12761,8 @@ paths:
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/teams/{teamId}/members' \
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/teams/{id}/members' \
               -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: removeTeamMember
@@ -12736,7 +12770,12 @@ paths:
       tags:
         - Teams
       parameters:
-        - $ref: '#/components/parameters/teamId'
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -12766,34 +12805,8 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X DELETE
-            'https://api.growthbook.io/api/v1/teams/{teamId}/members' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /teams/{teamId}:
-    delete:
-      operationId: deleteTeam
-      summary: Delete a single team
-      tags:
-        - Teams
-      parameters:
-        - $ref: '#/components/parameters/teamId'
-        - $ref: '#/components/parameters/deleteMembers'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  deletedId:
-                    type: string
-                required:
-                  - deletedId
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: |-
-            curl -X DELETE 'https://api.growthbook.io/api/v1/teams/{teamId}' \
+            curl -X DELETE 'https://api.growthbook.io/api/v1/teams/{id}/members'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /experiment-templates/{id}:
     get:
@@ -16870,13 +16883,6 @@ components:
     index:
       name: index
       in: query
-      description: ''
-      schema:
-        type: string
-    teamId:
-      name: teamId
-      in: path
-      required: true
       description: ''
       schema:
         type: string

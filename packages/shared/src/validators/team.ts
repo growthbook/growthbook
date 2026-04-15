@@ -64,9 +64,9 @@ export const apiDeleteTeamValidator = {
       .optional()
       .describe("When 'true', enables deleting a team that contains members"),
   }),
-  paramsSchema: z.strictObject({ teamId: z.string() }),
+  paramsSchema: z.strictObject({ id: z.string() }),
   responseSchema: apiDeleteTeamReturn,
-  path: "/:teamId/",
+  path: "/:id/",
   method: "delete" as const,
   operationId: "deleteTeam",
   summary: "Delete a single team",
@@ -75,11 +75,11 @@ export const apiDeleteTeamValidator = {
 export const apiAddTeamMembersValidator = {
   bodySchema: z.strictObject({ members: z.array(z.string()) }),
   querySchema: z.never(),
-  paramsSchema: z.strictObject({ teamId: z.string() }),
+  paramsSchema: z.strictObject({ id: z.string() }),
 };
 
 export const apiRemoveTeamMemberValidator = {
   bodySchema: z.strictObject({ members: z.array(z.string()) }),
   querySchema: z.never(),
-  paramsSchema: z.strictObject({ teamId: z.string() }),
+  paramsSchema: z.strictObject({ id: z.string() }),
 };
