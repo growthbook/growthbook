@@ -114,18 +114,28 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
     const experimentId = settings.experimentId;
     const entries = Array.from(metricChunks.entries());
     await waitForIndexes();
-    await promiseAllChunks(
-      entries.map(([metricId, chunk]) => async () => {
-        await this.create({
-          snapshotId,
-          experimentId,
-          metricId,
-          resultChunkVersion,
-          ...chunk,
-        });
-      }),
-      10,
-    );
+    try {
+      await promiseAllChunks(
+        entries.map(([metricId, chunk]) => async () => {
+          await this.create({
+            snapshotId,
+            experimentId,
+            metricId,
+            resultChunkVersion,
+            ...chunk,
+          });
+        }),
+        10,
+      );
+    } catch (e) {
+      // Clean up any partially-written chunks from this version
+      await this._dangerousGetCollection().deleteMany({
+        organization: this.context.org.id,
+        snapshotId,
+        resultChunkVersion,
+      });
+      throw e;
+    }
 
     return { analysisMeta, resultChunkVersion };
   }

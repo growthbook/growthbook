@@ -219,6 +219,27 @@ function getAnalysisIndexBySettings(
   return analyses.findIndex((analysis) => isEqual(analysis.settings, settings));
 }
 
+function hasAnalysisResults(analyses: ExperimentSnapshotAnalysis[]) {
+  return analyses.some((a) => a.results?.length > 0);
+}
+
+function clearAnalysisResults(analyses: ExperimentSnapshotAnalysis[]) {
+  return analyses.map((a) => ({
+    ...a,
+    results: [],
+  }));
+}
+
+function stripChunkedResultMetadata(
+  snapshot: ExperimentSnapshotInterface,
+): ExperimentSnapshotInterface {
+  const cleanSnapshot = { ...snapshot };
+  delete cleanSnapshot.hasChunkedResults;
+  delete cleanSnapshot.resultChunkVersion;
+  delete cleanSnapshot.analysisMeta;
+  return cleanSnapshot;
+}
+
 export async function updateSnapshotsOnPhaseDelete(
   context: Context,
   experiment: string,
@@ -428,6 +449,41 @@ export async function updateSnapshot({
   }
 }
 
+async function rebuildChunksForSnapshot(
+  context: Context,
+  organization: string,
+  id: string,
+  analysis: ExperimentSnapshotAnalysis,
+) {
+  const updated = await ExperimentSnapshotModel.findOne({
+    organization,
+    id,
+  });
+  if (!updated?.settings) return;
+
+  const snapshotInterface = toInterface(updated);
+  const chunkWrite =
+    await context.models.experimentSnapshotResultChunks.rebuildChunksWithAnalysis(
+      snapshotInterface,
+      analysis,
+    );
+  if (chunkWrite) {
+    await ExperimentSnapshotModel.updateOne(
+      { organization, id },
+      {
+        $set: {
+          analysisMeta: chunkWrite.analysisMeta,
+          resultChunkVersion: chunkWrite.resultChunkVersion,
+        },
+      },
+    );
+    await context.models.experimentSnapshotResultChunks.deleteOldVersions(
+      id,
+      chunkWrite.resultChunkVersion,
+    );
+  }
+}
+
 export type AddOrUpdateSnapshotAnalysisParams = {
   context: Context;
   id: string;
@@ -447,8 +503,6 @@ export async function addOrUpdateSnapshotAnalysis(
   });
 
   if (snapshot?.hasChunkedResults) {
-    // Store the results in chunks, clear them from the analysis doc
-    const analysisForDoc = { ...analysis, results: [] };
     const snapshotInterface = toInterface(snapshot);
     const existingAnalysisIndex = getAnalysisIndexBySettings(
       snapshotInterface.analyses,
@@ -457,56 +511,21 @@ export async function addOrUpdateSnapshotAnalysis(
 
     if (existingAnalysisIndex === -1) {
       await ExperimentSnapshotModel.updateOne(
-        {
-          organization,
-          id,
-        },
-        {
-          $push: { analyses: analysisForDoc },
-        },
+        { organization, id },
+        { $push: { analyses: { ...analysis, results: [] } } },
       );
     } else {
       await ExperimentSnapshotModel.updateOne(
-        {
-          organization,
-          id,
-        },
+        { organization, id },
         {
           $set: {
-            [`analyses.${existingAnalysisIndex}`]: analysisForDoc,
+            [`analyses.${existingAnalysisIndex}`]: { ...analysis, results: [] },
           },
         },
       );
     }
 
-    // Re-fetch to get all analyses, then rebuild chunks with the new analysis merged in
-    const updated = await ExperimentSnapshotModel.findOne({
-      organization,
-      id,
-    });
-    if (updated?.settings) {
-      const snapshotInterface = toInterface(updated);
-      const chunkWrite =
-        await context.models.experimentSnapshotResultChunks.rebuildChunksWithAnalysis(
-          snapshotInterface,
-          analysis,
-        );
-      if (chunkWrite) {
-        await ExperimentSnapshotModel.updateOne(
-          { organization, id },
-          {
-            $set: {
-              analysisMeta: chunkWrite.analysisMeta,
-              resultChunkVersion: chunkWrite.resultChunkVersion,
-            },
-          },
-        );
-        await context.models.experimentSnapshotResultChunks.deleteOldVersions(
-          id,
-          chunkWrite.resultChunkVersion,
-        );
-      }
-    }
+    await rebuildChunksForSnapshot(context, organization, id, analysis);
     return;
   }
 
@@ -540,15 +559,13 @@ export async function updateSnapshotAnalysis({
 }) {
   const organization = context.org.id;
 
-  // For chunked snapshots, delegate to addOrUpdateSnapshotAnalysis
-  // which handles chunk recreation
+  // For chunked snapshots, update the analysis doc and rebuild chunks
   const snapshot = await ExperimentSnapshotModel.findOne({
     organization,
     id,
   });
 
   if (snapshot?.hasChunkedResults) {
-    const analysisForDoc = { ...analysis, results: [] };
     const snapshotInterface = toInterface(snapshot);
     const existingAnalysisIndex = getAnalysisIndexBySettings(
       snapshotInterface.analyses,
@@ -559,45 +576,15 @@ export async function updateSnapshotAnalysis({
     }
 
     await ExperimentSnapshotModel.updateOne(
-      {
-        organization,
-        id,
-      },
+      { organization, id },
       {
         $set: {
-          [`analyses.${existingAnalysisIndex}`]: analysisForDoc,
+          [`analyses.${existingAnalysisIndex}`]: { ...analysis, results: [] },
         },
       },
     );
 
-    // Re-fetch and rebuild chunks with the updated analysis merged in
-    const updated = await ExperimentSnapshotModel.findOne({
-      organization,
-      id,
-    });
-    if (updated?.settings) {
-      const snapshotInterface = toInterface(updated);
-      const chunkWrite =
-        await context.models.experimentSnapshotResultChunks.rebuildChunksWithAnalysis(
-          snapshotInterface,
-          analysis,
-        );
-      if (chunkWrite) {
-        await ExperimentSnapshotModel.updateOne(
-          { organization, id },
-          {
-            $set: {
-              analysisMeta: chunkWrite.analysisMeta,
-              resultChunkVersion: chunkWrite.resultChunkVersion,
-            },
-          },
-        );
-        await context.models.experimentSnapshotResultChunks.deleteOldVersions(
-          id,
-          chunkWrite.resultChunkVersion,
-        );
-      }
-    }
+    await rebuildChunksForSnapshot(context, organization, id, analysis);
     return;
   }
 
@@ -911,11 +898,49 @@ export async function getLatestSnapshotMultipleExperiments(
 
 export async function createExperimentSnapshotModel({
   data,
+  context,
 }: {
   data: ExperimentSnapshotInterface;
+  context?: Context;
 }): Promise<ExperimentSnapshotInterface> {
-  const created = await ExperimentSnapshotModel.create(data);
-  return toInterface(created);
+  const analysesWithResults = hasAnalysisResults(data.analyses);
+  let dataForDb = data;
+  let populatedAnalyses: ExperimentSnapshotAnalysis[] | null = null;
+
+  if (analysesWithResults && context) {
+    const chunkWrite =
+      await context.models.experimentSnapshotResultChunks.createFromAnalyses(
+        data.id,
+        data.analyses,
+        data.settings,
+      );
+    dataForDb = {
+      ...data,
+      analyses: clearAnalysisResults(data.analyses),
+      hasChunkedResults: true,
+      resultChunkVersion: chunkWrite.resultChunkVersion,
+      analysisMeta: chunkWrite.analysisMeta,
+    };
+    populatedAnalyses = data.analyses;
+  } else if (
+    data.hasChunkedResults ||
+    data.resultChunkVersion ||
+    data.analysisMeta
+  ) {
+    // A snapshot with a new id cannot point at chunks that belonged to a
+    // different snapshot. Keep inline results if present, otherwise create a
+    // plain unchunked running/error snapshot.
+    dataForDb = stripChunkedResultMetadata(data);
+  }
+
+  const created = await ExperimentSnapshotModel.create(dataForDb);
+  const createdSnapshot = toInterface(created);
+  return populatedAnalyses
+    ? {
+        ...createdSnapshot,
+        analyses: populatedAnalyses,
+      }
+    : createdSnapshot;
 }
 
 export const getDefaultAnalysisResults = (
