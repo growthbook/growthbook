@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports, no-console */
 /**
  * Removes diff entries from diff.txt that have already been categorized
  * in spec-diff-explained.txt.
