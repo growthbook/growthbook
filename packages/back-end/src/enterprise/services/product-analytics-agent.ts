@@ -34,44 +34,87 @@ import { runColumnsTopValuesQuery } from "back-end/src/jobs/refreshFactTableColu
 // Constants & system prompt
 // =============================================================================
 
-const METRICS_PREVIEW_COUNT = 5;
 const MAX_RESULT_ROWS = 200;
 
-const PA_SYSTEM_INSTRUCTIONS =
-  "Answer questions about metrics, the current configuration, and result data clearly and concisely.\n" +
-  "When discussing data, reference specific numbers from the results.\n" +
-  "When the user asks you to build or change a chart, use the runExploration tool with the full valid config.\n" +
-  "Chart mode vs time dimension: line, area, and timeseries-table charts are always timeseries — include a date dimension. " +
-  "Bar charts (bar, stackedBar, horizontalBar, stackedHorizontalBar), the plain table chart, and bigNumber are cumulative — do not use a date dimension. " +
-  "When switching between timeseries and cumulative chart types, add or remove the date dimension accordingly.\n" +
-  "When the user does not specify a chart style, default to chartType line for timeseries and chartType bar for cumulative.\n" +
-  "The runExploration tool will execute the query and automatically display the chart to the user — you do not need to embed config in your text response.\n" +
-  "runExploration returns the full exploration payload (including structured result data) plus resultCsv: use that return value for analysis, insights, and answering questions about the run you just executed.\n" +
-  'Never use dateRange.predefined="last14Days". For 2 weeks use predefined="customLookback" with lookbackValue=14 and lookbackUnit="day".\n' +
-  "Use getSnapshot only when you need rows or CSV for a snapshot whose tool result is no longer fully available in the conversation — e.g. older runs after prior tool outputs were compacted, or when the user references a specific snapshotId from history.\n" +
-  "Use the search tool to discover metrics and fact tables. " +
-  "Each result includes an 'explorerType' field ('metric' or 'fact_table') indicating which exploration type to use, and a 'kind' field with the specific result type.\n" +
-  "For fact_table explorations: use search to find a fact table, then getAvailableColumns({ source: 'fact_table', factTableId }) to discover valid columns and userIdTypes before building the config.\n" +
-  "For metric explorations with filters, group-by dimensions, or before setting unit: use getAvailableColumns({ source: 'metric', metricIds }) to discover valid columns and which metrics need a unit.\n" +
-  "Unit field rules — always follow the unitNote returned by getAvailableColumns:\n" +
-  '  - fact_table valueType "unit_count": set unit to userIdTypes[0] (e.g. "user_id") unless the user specifies otherwise.\n' +
-  '  - fact_table valueType "count" or "sum": unit must be null.\n' +
-  "  - metric: set unit for proportion, retention, dailyParticipation, and ratio-distinct metrics using userIdTypes[0]; null for all others.\n" +
-  "Dimension rules for breakdowns / group-by:\n" +
-  "  - Only use dimensionType 'dynamic'. Never use 'static' or 'slice'.\n" +
-  "  - 'dynamic' shows the top N values for a column — set maxValues (1-20, default 5).\n" +
-  "  - Maximum 2 total dimensions (including the date dimension for timeseries). If the dataset has more than 1 value, max is 1 dimension.\n" +
-  "  - bigNumber charts: no dimensions at all and only 1 value.\n" +
-  "CRITICAL — never guess column values. Whenever you need a specific column value — for row filters or any other purpose — " +
-  "you MUST call getColumnValues first to discover the actual values stored in that column. " +
-  "Pass a searchTerm when you have a partial guess (e.g. searchTerm='US' to find 'United States'). " +
-  "getColumnValues only works on string-typed columns. " +
-  "Do not fabricate or assume values like country codes, browser names, or status strings.\n" +
-  "Use getCurrentConfig and getConfigSchema when you need to reason about valid config edits.\n" +
-  "If asked about metrics, fact tables, or tables that don't exist, let the user know.\n" +
-  "If a tool call returns an error, analyze the error, fix the config, and retry. " +
-  "If you get the same or a very similar error 2 times in a row, stop retrying — explain briefly what went wrong and suggest what the user can do differently.\n" +
-  "Keep responses brief and actionable.";
+const PA_SYSTEM_INSTRUCTIONS = `
+<workflow>
+Standard workflow for building a chart:
+1. search — find the metric or fact table by name (or browse with an empty query).
+2. getAvailableColumns — discover valid columns, userIdTypes, and unit requirements.
+3. getColumnValues — (if filters or specific values needed) look up actual column values. NEVER guess.
+4. runExploration — execute with a complete config. The chart is displayed automatically.
+
+For follow-up modifications ("break down by country", "change to last 90 days", etc.), start from the config returned by the previous runExploration and apply the requested changes — do not rebuild from scratch.
+</workflow>
+
+<chart_rules>
+Timeseries charts (line, area, timeseries-table): always include a date dimension.
+Cumulative charts (bar, stackedBar, horizontalBar, stackedHorizontalBar, table, bigNumber): never include a date dimension.
+When switching between timeseries and cumulative, add or remove the date dimension accordingly.
+Default chartType: line for timeseries, bar for cumulative (when user doesn't specify).
+Prefer a single chart with multiple values in dataset.values over calling runExploration twice.
+The only exception is when the user asks for data from both a fact table and a metric — those use different exploration types and cannot share a chart.
+</chart_rules>
+
+<dimension_rules>
+Only use dimensionType 'dynamic'. Never use 'static' or 'slice'.
+'dynamic' shows the top N values for a column — set maxValues (1–20, default 5).
+Use dateGranularity 'auto' by default for date dimensions; only use a specific granularity (hour/day/week/month/year) when the user requests it.
+Maximum 2 total dimensions (including the date dimension for timeseries). If dataset has more than 1 value, max 1 dimension.
+bigNumber charts: 0 dimensions and exactly 1 value.
+</dimension_rules>
+
+<unit_rules>
+Always follow the unitNote returned by getAvailableColumns:
+- fact_table valueType "unit_count": set unit to userIdTypes[0] (e.g. "user_id") unless user specifies otherwise.
+- fact_table valueType "count" or "sum": unit must be null.
+- metric: set unit for proportion, retention, dailyParticipation, and ratio-distinct metrics using userIdTypes[0]; null for all others.
+- denominatorUnit: always null.
+</unit_rules>
+
+<value_column_rules>
+For fact_table values:
+- valueType "count": valueColumn must be null.
+- valueType "unit_count": valueColumn must be null.
+- valueType "sum": valueColumn must be a numeric column from getAvailableColumns.
+</value_column_rules>
+
+<row_filter_rules>
+rowFilters shape: { operator, column, values }
+Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts_with", "ends_with", "is_null", "not_null".
+CRITICAL — never guess column values for filters. Always call getColumnValues first. Pass a searchTerm for partial matches (e.g. 'US' to find 'United States').
+getColumnValues only works on string-typed columns.
+</row_filter_rules>
+
+<date_range_rules>
+"last14Days" is NOT a valid predefined value. For 14 days use: { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }.
+Valid predefined values: "today", "last7Days", "last30Days", "last90Days", "customLookback", "customDateRange".
+</date_range_rules>
+
+<search_rules>
+Always use the search tool to discover metrics and fact tables.
+Pass an empty query to browse all items, or a search term to filter. Use skip and limit to paginate through large result sets.
+Each result includes an 'explorerType' field ('metric' or 'fact_table') indicating which exploration type to use, and a 'kind' field with the specific result type.
+Prefer metrics over fact tables when both could satisfy the user's request — metrics are pre-defined with curated logic and are more reliable.
+Results include an 'official' field: prefer official resources (official: true) over non-official ones, as they are vetted and authoritative.
+</search_rules>
+
+<tool_notes>
+runExploration returns resultCsv, config, snapshotId, and rowCount. Use resultCsv for analysis and insights. The chart is displayed automatically — do not embed config JSON in your text.
+getSnapshot retrieves config and CSV for older/compacted snapshots by snapshotId. Prefer the runExploration return value for the current run.
+</tool_notes>
+
+<response_style>
+Keep responses brief and actionable. When discussing data, reference specific numbers.
+After running an exploration, respond with 1–2 sentences highlighting the key insight. Do not repeat the config or enumerate all data points.
+If asked about metrics, fact tables, or tables that don't exist, let the user know.
+</response_style>
+
+<error_handling>
+If a tool call returns an error, analyze the error, fix the config, and retry.
+If you get the same or very similar error 3 times in a row, stop retrying — explain briefly what went wrong and suggest what the user can do differently.
+</error_handling>
+`.trim();
 
 async function buildProductAnalyticsSystemPrompt(
   ctx: ReqContext,
@@ -81,12 +124,10 @@ async function buildProductAnalyticsSystemPrompt(
   const metrics = datasourceId
     ? allMetrics.filter((m) => m.datasource === datasourceId)
     : allMetrics;
-  const metricsPreview = buildMetricsPreview(metrics);
 
   const allFactTables = datasourceId
     ? await getFactTablesForDatasource(ctx, datasourceId)
     : await getAllFactTablesForOrganization(ctx);
-  const factTablesPreview = buildFactTablesPreview(allFactTables);
 
   return (
     "You are an expert product analytics assistant for GrowthBook.\n" +
@@ -95,12 +136,8 @@ async function buildProductAnalyticsSystemPrompt(
       ? `Datasource ID for this session: ${datasourceId}\n` +
         "Always use this datasource ID in the config.datasource field when calling runExploration.\n\n"
       : "") +
-    "Available metrics (sample):\n" +
-    metricsPreview +
-    "\n\n" +
-    "Available fact tables (sample):\n" +
-    factTablesPreview +
-    "\n\n" +
+    `There are ${metrics.length} metrics and ${allFactTables.length} fact tables available. ` +
+    "Use the search tool to discover them — pass an empty query to browse, or a search term to filter.\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
     PA_SYSTEM_INSTRUCTIONS
@@ -129,64 +166,21 @@ export function findSnapshot(
 
 function buildConfigSchemaSummary(): string {
   return [
-    "Exploration config schema:",
-    "- Top-level fields: type, datasource, chartType, dateRange, dimensions, dataset",
-    '- type: "metric" | "fact_table"',
-    '- chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"',
-    '- dateRange.predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange"',
-    '- IMPORTANT: "last14Days" is not valid. For 14 days use { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }',
-    "- dimensions[]: use column values returned by getAvailableColumns for dimension columns and rowFilter columns",
-    "  - date: { dimensionType: 'date', column: null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' } — only for timeseries charts (line, area, timeseries-table)",
-    "  - dynamic: { dimensionType: 'dynamic', column: string, maxValues: number (1-20) } — use for all breakdowns / group-by",
-    "  - Never use dimensionType 'static' or 'slice'.",
-    "  - Max 2 total dimensions (including date). Max 1 if dataset has multiple values. bigNumber: 0 dimensions.",
-    '- dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters[] }] }',
-    "  Use search to find metricId. Use getAvailableColumns({ source: 'metric', metricIds }) to discover valid columns and unit options.",
-    "  unit: one of userIdTypes for proportion/retention/dailyParticipation/ratio-distinct metrics; null for all others.",
-    '- dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters[] }] }',
-    "  Use search to find factTableId (result kind=\"fact_table\"). Use getAvailableColumns({ source: 'fact_table', factTableId }) to discover valid columns and unit options.",
-    '  unit: one of userIdTypes (e.g. "user_id") when valueType is "unit_count"; null for "count" or "sum".',
-    "Always return a complete config object when calling runExploration.",
+    "<config_schema>",
+    "Top-level: { type, datasource, chartType, dateRange, dimensions, dataset }",
+    'type: "metric" | "fact_table"',
+    'chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"',
+    "dateRange: { predefined, lookbackValue?, lookbackUnit?, startDate?, endDate? }",
+    '  lookbackUnit: "hour" | "day" | "week" | "month"',
+    "dimensions: array of dimension objects:",
+    "  date: { dimensionType: 'date', column: null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
+    "  dynamic: { dimensionType: 'dynamic', column: string, maxValues: number (1-20) }",
+    'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters }] }',
+    'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
+    'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"is_null"|"not_null", column: string, values: string[] }]',
+    "Always pass a complete config object to runExploration.",
+    "</config_schema>",
   ].join("\n");
-}
-
-function buildMetricsPreview(metrics: FactMetricInterface[]): string {
-  if (!metrics.length) return "No metrics are configured for this datasource.";
-
-  const preview = metrics.slice(0, METRICS_PREVIEW_COUNT);
-  const lines = preview.map((m) => {
-    const parts = [`- "${m.name}" (id: ${m.id}, type: ${m.metricType})`];
-    if (m.description) parts.push(`  Description: ${m.description}`);
-    if (m.tags.length) parts.push(`  Tags: ${m.tags.join(", ")}`);
-    return parts.join("\n");
-  });
-
-  if (metrics.length > METRICS_PREVIEW_COUNT) {
-    lines.push(
-      `... and ${metrics.length - METRICS_PREVIEW_COUNT} more. Use the search tool to discover additional metrics.`,
-    );
-  }
-
-  return lines.join("\n");
-}
-
-function buildFactTablesPreview(factTables: FactTableInterface[]): string {
-  if (!factTables.length)
-    return "No fact tables are configured for this datasource.";
-
-  const preview = factTables.slice(0, METRICS_PREVIEW_COUNT);
-  const lines = preview.map((ft) => {
-    const colCount = (ft.columns ?? []).filter((c) => !c.deleted).length;
-    return `- "${ft.name}" (id: ${ft.id}, columns: ${colCount})`;
-  });
-
-  if (factTables.length > METRICS_PREVIEW_COUNT) {
-    lines.push(
-      `... and ${factTables.length - METRICS_PREVIEW_COUNT} more. Use the search tool to discover additional fact tables.`,
-    );
-  }
-
-  return lines.join("\n");
 }
 
 function buildSnapshotSummary(
@@ -352,17 +346,32 @@ function explorationConfigFromLatestRun(
 async function executeSearch(
   getMetrics: () => Promise<FactMetricInterface[]>,
   getFactTables: () => Promise<FactTableInterface[]>,
-  input: { query: string; limit: number },
+  input: { query: string; limit: number; skip: number },
 ): Promise<string> {
-  const { query, limit } = input;
+  const { query, limit, skip } = input;
   const q = query.trim().toLowerCase();
+  const isBlank = q.length === 0;
 
   type ScoredResult = { score: number; name: string; result: unknown };
   const all: ScoredResult[] = [];
 
-  // Search metrics
   const metrics = await getMetrics();
   for (const m of metrics) {
+    const metricResult = {
+      kind: "metric" as const,
+      explorerType: "metric" as const,
+      id: m.id,
+      name: m.name,
+      type: m.metricType,
+      official: m.managedBy === "admin",
+      description: m.description ?? null,
+      owner: m.owner ?? null,
+      tags: m.tags ?? [],
+    };
+    if (isBlank) {
+      all.push({ score: 0, name: m.name, result: metricResult });
+      continue;
+    }
     const haystack = [
       m.id,
       m.name,
@@ -376,26 +385,25 @@ async function executeSearch(
     const includes = haystack.includes(q);
     const score = exact ? 3 : includes ? 1 : 0;
     if (score > 0) {
-      all.push({
-        score,
-        name: m.name,
-        result: {
-          kind: "metric",
-          explorerType: "metric",
-          id: m.id,
-          name: m.name,
-          type: m.metricType,
-          description: m.description ?? null,
-          owner: m.owner ?? null,
-          tags: m.tags ?? [],
-        },
-      });
+      all.push({ score, name: m.name, result: metricResult });
     }
   }
 
-  // Search fact tables
   const factTables = await getFactTables();
   for (const ft of factTables) {
+    const ftResult = {
+      kind: "fact_table" as const,
+      explorerType: "fact_table" as const,
+      id: ft.id,
+      name: ft.name,
+      official: ft.managedBy === "admin",
+      eventName: ft.eventName ?? null,
+      columnCount: (ft.columns ?? []).filter((c) => !c.deleted).length,
+    };
+    if (isBlank) {
+      all.push({ score: 0, name: ft.name, result: ftResult });
+      continue;
+    }
     const haystack = [ft.id, ft.name, ft.eventName ?? ""]
       .join(" ")
       .toLowerCase();
@@ -403,44 +411,54 @@ async function executeSearch(
     const includes = haystack.includes(q);
     const score = exact ? 3 : includes ? 1 : 0;
     if (score > 0) {
-      all.push({
-        score,
-        name: ft.name,
-        result: {
-          kind: "fact_table",
-          explorerType: "fact_table",
-          id: ft.id,
-          name: ft.name,
-          eventName: ft.eventName ?? null,
-          columnCount: (ft.columns ?? []).filter((c) => !c.deleted).length,
-        },
-      });
+      all.push({ score, name: ft.name, result: ftResult });
     }
   }
 
-  const matches = all
-    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-    .slice(0, limit)
-    .map((x) => x.result);
+  const sorted = isBlank
+    ? all.sort((a, b) => a.name.localeCompare(b.name))
+    : all.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+  const totalMatches = sorted.length;
+  const matches = sorted.slice(skip, skip + limit).map((x) => x.result);
 
   if (!matches.length) {
-    return `No results found for "${query}".`;
+    if (isBlank) {
+      return JSON.stringify(
+        {
+          matches: [],
+          totalMetrics: metrics.length,
+          totalFactTables: factTables.length,
+          totalMatches: 0,
+        },
+        null,
+        2,
+      );
+    }
+    return JSON.stringify(
+      {
+        matches: [],
+        totalMetrics: metrics.length,
+        totalFactTables: factTables.length,
+        totalMatches: 0,
+        message: `No results found for "${query}".`,
+      },
+      null,
+      2,
+    );
   }
-  return JSON.stringify({ matches }, null, 2);
-}
-
-async function executeGetCurrentConfig(
-  buffer: ConversationBuffer,
-): Promise<string> {
-  const latest = buffer.getLatestToolResult("runExploration");
-  const cfg = explorationConfigFromLatestRun(latest);
-  return cfg
-    ? JSON.stringify(cfg, null, 2)
-    : "No current exploration config is available yet.";
-}
-
-async function executeGetConfigSchema(): Promise<string> {
-  return buildConfigSchemaSummary();
+  return JSON.stringify(
+    {
+      matches,
+      totalMetrics: metrics.length,
+      totalFactTables: factTables.length,
+      totalMatches,
+      skip,
+      limit,
+    },
+    null,
+    2,
+  );
 }
 
 type RunExplorationToolResult =
@@ -450,10 +468,11 @@ type RunExplorationToolResult =
       status: "success";
       snapshotId: string;
       rowCount: number;
+      config: ExplorationConfig;
+      resultCsv: string | null;
       exploration: Awaited<
         ReturnType<typeof runProductAnalyticsExploration>
       > | null;
-      resultCsv: string | null;
     }
   | { status: "error"; message: string };
 
@@ -588,8 +607,9 @@ async function executeRunExploration(
       status: "success",
       snapshotId,
       rowCount: exploration?.result?.rows?.length ?? 0,
-      exploration: exploration ?? null,
+      config,
       resultCsv,
+      exploration: exploration ?? null,
     };
   } catch (err) {
     return {
@@ -676,6 +696,18 @@ async function executeGetAvailableColumns(
         needsUnit: boolean;
       }[] = [];
 
+      const ftIds = [
+        ...new Set(
+          metrics
+            .map((m) => m.numerator.factTableId)
+            .filter((id): id is string => !!id),
+        ),
+      ];
+      const factTables = await Promise.all(
+        ftIds.map((id) => getFactTable(ctx, id)),
+      );
+      const ftMap = new Map(ftIds.map((id, i) => [id, factTables[i]] as const));
+
       for (const m of metrics) {
         const needsUnit =
           m.metricType === "proportion" ||
@@ -691,7 +723,7 @@ async function executeGetAvailableColumns(
         });
 
         if (!m.numerator.factTableId) continue;
-        const ft = await getFactTable(ctx, m.numerator.factTableId);
+        const ft = ftMap.get(m.numerator.factTableId) ?? null;
         if (!userIdTypes.length && ft?.userIdTypes?.length) {
           userIdTypes = ft.userIdTypes;
         }
@@ -849,11 +881,20 @@ async function executeGetColumnValues(
 const searchInputSchema = z.object({
   query: z
     .string()
-    .min(1)
+    .default("")
     .describe(
-      "Search term to match against metrics and fact tables, e.g. 'revenue' or 'pageviews'",
+      "Search term to match against metrics and fact tables, e.g. 'revenue' or 'pageviews'. " +
+        "Pass an empty string to browse all available metrics and fact tables.",
     ),
   limit: z.number().int().min(1).max(20).default(10),
+  skip: z
+    .number()
+    .int()
+    .min(0)
+    .default(0)
+    .describe(
+      "Number of results to skip for pagination. Use with limit to page through results.",
+    ),
 });
 
 const columnSourceValues = ["fact_table", "metric"] as const;
@@ -917,8 +958,6 @@ const getColumnValuesInputSchema = z
     message: "Provide the ID field matching the selected source",
   });
 
-const emptyInputSchema = z.object({});
-
 const runExplorationInputSchema = z.object({
   config: explorationConfigValidator,
 });
@@ -933,6 +972,8 @@ const getSnapshotInputSchema = z.object({
 
 const SEARCH_DESCRIPTION =
   "Search across metrics and fact tables by name, description, or ID. " +
+  "Pass an empty query to browse all available items. Use skip and limit to paginate through results. " +
+  "Returns totalMetrics, totalFactTables, and totalMatches counts for pagination. " +
   "Each result includes a 'kind' field ('metric' or 'fact_table') and an 'explorerType' field " +
   "('metric' or 'fact_table') indicating which exploration type to use. " +
   "Use the 'id' field from results as metricId or factTableId.";
@@ -949,17 +990,13 @@ const GET_COLUMN_VALUES_DESCRIPTION =
   "Pass an optional searchTerm to narrow results when you have a partial guess (e.g. searchTerm='US' to find 'United States'). " +
   "Set source to match the exploration type ('fact_table' or 'metric') and provide the corresponding ID field, same as getAvailableColumns.";
 
-const GET_CURRENT_CONFIG_DESCRIPTION =
-  "Get the current exploration config as JSON. Returns the latest executed config, or null if no exploration has been run yet.";
-
-const GET_CONFIG_SCHEMA_DESCRIPTION =
-  "Get a concise schema reference for valid exploration config objects.";
-
 const RUN_EXPLORATION_DESCRIPTION =
   "Execute a product analytics exploration with the given config. " +
   "Use this when the user asks to build, change, or rerun a chart. " +
   "The chart will be automatically displayed to the user after execution. " +
-  "Returns exploration (full result rows and config), resultCsv for tabular analysis, rowCount, snapshotId, and summary — use this return value for insights on the current run; call getSnapshot only for older or compacted snapshots.";
+  "Returns config (the normalized config used), resultCsv (CSV of the results for analysis), rowCount, snapshotId, and summary. " +
+  "Use config and resultCsv for analysis and follow-up modifications. Ignore the exploration field (internal use). " +
+  "Call getSnapshot only for older or compacted snapshots.";
 
 const GET_SNAPSHOT_DESCRIPTION =
   "Retrieve configuration and result CSV for a snapshot by snapshotId from conversation history. " +
@@ -1020,18 +1057,6 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
         execute: (input) => executeGetColumnValues(ctx, input),
       }),
 
-      getCurrentConfig: aiTool({
-        description: GET_CURRENT_CONFIG_DESCRIPTION,
-        inputSchema: emptyInputSchema,
-        execute: () => executeGetCurrentConfig(buffer),
-      }),
-
-      getConfigSchema: aiTool({
-        description: GET_CONFIG_SCHEMA_DESCRIPTION,
-        inputSchema: emptyInputSchema,
-        execute: () => executeGetConfigSchema(),
-      }),
-
       runExploration: aiTool({
         description: RUN_EXPLORATION_DESCRIPTION,
         inputSchema: runExplorationInputSchema,
@@ -1046,8 +1071,9 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
     };
   },
 
-  temperature: 0.3,
-  maxSteps: 15,
+  temperature: 0.1,
+  maxSteps: 20,
+  maxConsecutiveToolErrors: 5,
 };
 
 export const postChat = createAgentHandler(productAnalyticsAgentConfig);

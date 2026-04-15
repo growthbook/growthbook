@@ -40,8 +40,6 @@ export const TOOL_STATUS_LABELS: Record<string, string> = {
   search: "Searching...",
   getAvailableColumns: "Inspecting data shape...",
   getColumnValues: "Inspecting values...",
-  getCurrentConfig: "Reading current config...",
-  getConfigSchema: "Loading config schema...",
 };
 
 function groupIntoBlocks(
