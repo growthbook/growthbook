@@ -50,7 +50,11 @@ export interface ExplorerContextValue {
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
-  handleSubmit: (options?: { force?: boolean }) => Promise<void>;
+  handleSubmit: (options?: {
+    force?: boolean;
+    config?: ExplorationConfig;
+    setDraft?: boolean;
+  }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
@@ -62,6 +66,21 @@ const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
 export const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
   "product-analytics:explorer:datasource" as const;
+
+export function useDefaultDataSourceId(): string | undefined {
+  const { datasources } = useDefinitions();
+
+  const [defaultDataSourceId] = useLocalStorage<string | undefined>(
+    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
+    datasources[0]?.id ?? "",
+  );
+
+  return useMemo(() => {
+    return datasources.some((d) => d.id === defaultDataSourceId)
+      ? defaultDataSourceId
+      : (datasources[0]?.id ?? "");
+  }, [datasources, defaultDataSourceId]);
+}
 
 interface ExplorerProviderProps {
   children: ReactNode;
@@ -99,6 +118,8 @@ export function ExplorerProvider({
   });
   const [isStale, setIsStale] = useState(false);
   const hasEverFetchedRef = useRef(false);
+  const skipNextAutoSubmitRef = useRef(false);
+  const submitRequestIdRef = useRef(0);
 
   const draftExploreState: ExplorationConfig = explorerState.draftState;
 
@@ -169,8 +190,11 @@ export function ExplorerProvider({
   }, [cleanedDraftExploreState]);
 
   const doSubmit = useCallback(
-    async (options?: { cache?: CacheOption }) => {
-      if (!isSubmittable) return;
+    async (options?: { cache?: CacheOption; config?: ExplorationConfig }) => {
+      const configToSubmit = cleanConfigForSubmission(
+        options?.config ?? draftExploreState,
+      );
+      if (!isSubmittableConfig(configToSubmit)) return;
 
       let cache: CacheOption;
       if (options?.cache) {
@@ -184,13 +208,17 @@ export function ExplorerProvider({
         cache = "required";
       }
       hasEverFetchedRef.current = true;
+      const requestId = ++submitRequestIdRef.current;
 
       // Do the fetch (we keep previous exploration/submitted state visible until result arrives)
       const {
         data: fetchResult,
         query,
         error: fetchError,
-      } = await fetchData(cleanedDraftExploreState, { cache });
+      } = await fetchData(configToSubmit, { cache });
+
+      // Ignore out-of-order responses from older in-flight requests.
+      if (requestId !== submitRequestIdRef.current) return;
 
       // Cache miss when cache=required
       if (cache === "required" && fetchResult === null && !fetchError) {
@@ -201,12 +229,12 @@ export function ExplorerProvider({
       // Clear staleness when there is an error
       if (fetchError) {
         setIsStale(false);
-        setSubmittedExploreState(cleanedDraftExploreState);
+        setSubmittedExploreState(configToSubmit);
       }
 
       // Set staleness to false and update submitted state when there is a result
       if (fetchResult) {
-        setSubmittedExploreState(cleanedDraftExploreState);
+        setSubmittedExploreState(configToSubmit);
         setIsStale(false);
       }
 
@@ -219,29 +247,41 @@ export function ExplorerProvider({
       if (fetchResult) onRunComplete?.(fetchResult);
     },
     [
+      draftExploreState,
       setSubmittedExploreState,
       fetchData,
-      isSubmittable,
-      cleanedDraftExploreState,
       onRunComplete,
       isManagedWarehouse,
     ],
   );
 
   const handleSubmit = useCallback(
-    async (submitOptions?: { force?: boolean }) => {
+    async (submitOptions?: {
+      force?: boolean;
+      config?: ExplorationConfig;
+      setDraft?: boolean;
+    }) => {
+      if (submitOptions?.setDraft && submitOptions.config) {
+        skipNextAutoSubmitRef.current = true;
+        setDraftExploreState(submitOptions.config);
+      }
+
       if (submitOptions?.force) {
-        await doSubmit({ cache: "never" });
+        await doSubmit({ cache: "never", config: submitOptions?.config });
       } else {
-        await doSubmit();
+        await doSubmit({ config: submitOptions?.config });
       }
     },
-    [doSubmit],
+    [doSubmit, setDraftExploreState],
   );
 
   /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
     if (!isSubmittable) return;
+    if (skipNextAutoSubmitRef.current) {
+      skipNextAutoSubmitRef.current = false;
+      return;
+    }
     if (needsFetch) {
       doSubmit();
     } else if (needsUpdate && !needsFetch) {

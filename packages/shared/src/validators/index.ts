@@ -53,6 +53,7 @@ export * from "./sdk-connection-cache";
 export * from "./metric-group";
 export * from "./metrics";
 export * from "./product-analytics";
+export * from "./ai-conversation";
 export * from "./organization";
 export * from "./team";
 export * from "./visual-changesets";

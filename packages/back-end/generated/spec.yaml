@@ -10663,10 +10663,6 @@ paths:
                                           - type: 'null'
                                     required:
                                       - predefined
-                                      - lookbackValue
-                                      - lookbackUnit
-                                      - startDate
-                                      - endDate
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -10948,10 +10944,6 @@ paths:
                                           - type: 'null'
                                     required:
                                       - predefined
-                                      - lookbackValue
-                                      - lookbackUnit
-                                      - startDate
-                                      - endDate
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -11242,10 +11234,6 @@ paths:
                                           - type: 'null'
                                     required:
                                       - predefined
-                                      - lookbackValue
-                                      - lookbackUnit
-                                      - startDate
-                                      - endDate
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -13602,10 +13590,6 @@ paths:
                         - type: 'null'
                   required:
                     - predefined
-                    - lookbackValue
-                    - lookbackUnit
-                    - startDate
-                    - endDate
                   additionalProperties: false
                 type:
                   type: string
@@ -13938,10 +13922,6 @@ paths:
                                       - type: 'null'
                                 required:
                                   - predefined
-                                  - lookbackValue
-                                  - lookbackUnit
-                                  - startDate
-                                  - endDate
                                 additionalProperties: false
                               type:
                                 type: string
@@ -14243,10 +14223,6 @@ paths:
                         - type: 'null'
                   required:
                     - predefined
-                    - lookbackValue
-                    - lookbackUnit
-                    - startDate
-                    - endDate
                   additionalProperties: false
                 type:
                   type: string
@@ -14588,10 +14564,6 @@ paths:
                                       - type: 'null'
                                 required:
                                   - predefined
-                                  - lookbackValue
-                                  - lookbackUnit
-                                  - startDate
-                                  - endDate
                                 additionalProperties: false
                               type:
                                 type: string
@@ -14902,10 +14874,6 @@ paths:
                         - type: 'null'
                   required:
                     - predefined
-                    - lookbackValue
-                    - lookbackUnit
-                    - startDate
-                    - endDate
                   additionalProperties: false
                 type:
                   type: string
@@ -15264,10 +15232,6 @@ paths:
                                       - type: 'null'
                                 required:
                                   - predefined
-                                  - lookbackValue
-                                  - lookbackUnit
-                                  - startDate
-                                  - endDate
                                 additionalProperties: false
                               type:
                                 type: string
@@ -21984,10 +21948,6 @@ components:
                               - type: 'null'
                         required:
                           - predefined
-                          - lookbackValue
-                          - lookbackUnit
-                          - startDate
-                          - endDate
                         additionalProperties: false
                       type:
                         type: string
@@ -22269,10 +22229,6 @@ components:
                               - type: 'null'
                         required:
                           - predefined
-                          - lookbackValue
-                          - lookbackUnit
-                          - startDate
-                          - endDate
                         additionalProperties: false
                       type:
                         type: string
@@ -22563,10 +22519,6 @@ components:
                               - type: 'null'
                         required:
                           - predefined
-                          - lookbackValue
-                          - lookbackUnit
-                          - startDate
-                          - endDate
                         additionalProperties: false
                       type:
                         type: string
@@ -23701,10 +23653,6 @@ components:
                         - type: 'null'
                   required:
                     - predefined
-                    - lookbackValue
-                    - lookbackUnit
-                    - startDate
-                    - endDate
                   additionalProperties: false
                 type:
                   type: string
@@ -23956,10 +23904,6 @@ components:
                         - type: 'null'
                   required:
                     - predefined
-                    - lookbackValue
-                    - lookbackUnit
-                    - startDate
-                    - endDate
                   additionalProperties: false
                 type:
                   type: string
@@ -24220,10 +24164,6 @@ components:
                         - type: 'null'
                   required:
                     - predefined
-                    - lookbackValue
-                    - lookbackUnit
-                    - startDate
-                    - endDate
                   additionalProperties: false
                 type:
                   type: string
