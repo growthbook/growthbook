@@ -915,11 +915,6 @@
       "count": 2
     }
   },
-  "packages/front-end/pages/saved-groups/[sgid].tsx": {
-    "prettier/prettier": {
-      "count": 9
-    }
-  },
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
       "count": 2

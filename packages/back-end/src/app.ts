@@ -810,6 +810,10 @@ app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
 
+// Must be registered before mounting revisionRouter — the router's GET /:id
+// catch-all would otherwise consume this path and resolve `id = "feature"`.
+app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
+
 app.use("/revision", revisionRouter);
 
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
@@ -904,8 +908,6 @@ app.post(
   "/feature/:id/:version/copyEnvironment",
   featuresController.postCopyEnvironmentRules,
 );
-
-app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);

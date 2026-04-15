@@ -1,8 +1,12 @@
 import type { ApprovalFlowConfigurations } from "../../../types/organization";
+import type { TeamInterface } from "../../../types/team";
 import {
   getRevisionKey,
   canUserReviewEntity,
   checkMergeConflicts,
+  normalizeProposedChanges,
+  applyTopLevelPatchOps,
+  patchOpsToPartial,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -202,6 +206,353 @@ describe("revisions helpers", () => {
       const result = checkMergeConflicts(base, live, proposed);
       expect(result.success).toBe(true);
       expect(result.fieldsChanged).toHaveLength(0);
+    });
+
+    it("treats add ops the same as replace ops", () => {
+      const base = { name: "old" };
+      const live = { name: "old" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "add", path: "/description", value: "new desc" },
+      ];
+      const result = checkMergeConflicts(base, live, proposed);
+      expect(result.success).toBe(true);
+      expect(result.fieldsChanged).toEqual(["description"]);
+      expect(result.mergedChanges).toEqual({
+        name: "old",
+        description: "new desc",
+      });
+    });
+
+    it("treats remove ops as setting field to undefined", () => {
+      const base = { name: "old", description: "to-remove" };
+      const live = { name: "old", description: "to-remove" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "remove", path: "/description" },
+      ];
+      const result = checkMergeConflicts(base, live, proposed);
+      // remove sets the proposed value to undefined; hasChanged sees val1==null and bails,
+      // so it ends up as "no change" (a quirky but documented behaviour)
+      expect(result.success).toBe(true);
+    });
+
+    it("uses last-write-wins when multiple ops target the same field", () => {
+      const base = { name: "old" };
+      const live = { name: "old" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/name", value: "first" },
+        { op: "replace", path: "/name", value: "winner" },
+      ];
+      const result = checkMergeConflicts(base, live, proposed);
+      expect(result.success).toBe(true);
+      expect(result.mergedChanges).toEqual({ name: "winner" });
+    });
+
+    it("collects multiple conflicts across multiple fields", () => {
+      const base = { name: "n0", color: "c0" };
+      const live = { name: "n-live", color: "c-live" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/name", value: "n-prop" },
+        { op: "replace", path: "/color", value: "c-prop" },
+      ];
+      const result = checkMergeConflicts(base, live, proposed);
+      expect(result.success).toBe(false);
+      expect(result.conflicts.map((c) => c.field).sort()).toEqual([
+        "color",
+        "name",
+      ]);
+      expect(result.canAutoMerge).toBe(false);
+      expect(result.mergedChanges).toBeUndefined();
+    });
+
+    it("ignores nested paths when grouping by top-level field", () => {
+      const base = { values: ["a", "b"] };
+      const live = { values: ["a", "b"] };
+      // Nested path /values/0 — top-level field is still "values"
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/values/0", value: "z" },
+      ];
+      const result = checkMergeConflicts(base, live, proposed);
+      // proposedValue for "values" becomes "z" (not the array), differs from base — counted as change
+      expect(result.fieldsChanged).toContain("values");
+    });
+
+    it("ignores legacy plain-object proposedChanges (treats as empty)", () => {
+      const base = { name: "old" };
+      const live = { name: "live" };
+      // Legacy DB documents stored a plain object instead of an array.
+      // checkMergeConflicts uses normalizeProposedChanges → empty.
+      const proposed = { name: "new" } as unknown as JsonPatchOperation[];
+      const result = checkMergeConflicts(base, live, proposed);
+      expect(result.success).toBe(true);
+      expect(result.fieldsChanged).toHaveLength(0);
+      expect(result.mergedChanges).toEqual(live);
+    });
+  });
+
+  describe("normalizeProposedChanges", () => {
+    it("returns the array unchanged when given an array", () => {
+      const ops: JsonPatchOperation[] = [
+        { op: "replace", path: "/a", value: 1 },
+      ];
+      expect(normalizeProposedChanges(ops)).toBe(ops);
+    });
+
+    it("returns an empty array for null/undefined", () => {
+      expect(normalizeProposedChanges(null)).toEqual([]);
+      expect(normalizeProposedChanges(undefined)).toEqual([]);
+    });
+
+    it("returns an empty array for plain-object legacy values", () => {
+      expect(normalizeProposedChanges({ name: "x" })).toEqual([]);
+    });
+
+    it("returns an empty array for primitives", () => {
+      expect(normalizeProposedChanges("string")).toEqual([]);
+      expect(normalizeProposedChanges(123)).toEqual([]);
+    });
+  });
+
+  describe("applyTopLevelPatchOps", () => {
+    it("returns the snapshot unchanged when no ops", () => {
+      const snap = { a: 1, b: 2 };
+      expect(applyTopLevelPatchOps(snap, [])).toBe(snap);
+    });
+
+    it("applies replace and add ops", () => {
+      const snap = { a: 1, b: 2 };
+      const result = applyTopLevelPatchOps(snap, [
+        { op: "replace", path: "/a", value: 99 },
+        { op: "add", path: "/c", value: 3 },
+      ]);
+      expect(result).toEqual({ a: 99, b: 2, c: 3 });
+    });
+
+    it("applies remove ops", () => {
+      const snap = { a: 1, b: 2 };
+      const result = applyTopLevelPatchOps(snap, [
+        { op: "remove", path: "/b" },
+      ]);
+      expect(result).toEqual({ a: 1 });
+    });
+
+    it("does not mutate the original snapshot", () => {
+      const snap = { a: 1 };
+      applyTopLevelPatchOps(snap, [{ op: "replace", path: "/a", value: 2 }]);
+      expect(snap).toEqual({ a: 1 });
+    });
+
+    it("ignores nested paths", () => {
+      const snap = { values: ["a", "b"] };
+      const result = applyTopLevelPatchOps(snap, [
+        { op: "replace", path: "/values/0", value: "z" },
+      ]);
+      expect(result).toEqual({ values: ["a", "b"] });
+    });
+
+    it("ignores ops with empty top-level field", () => {
+      const snap = { a: 1 };
+      const result = applyTopLevelPatchOps(snap, [
+        { op: "replace", path: "/", value: "x" },
+      ]);
+      expect(result).toEqual({ a: 1 });
+    });
+
+    it("returns snapshot unchanged for legacy plain-object input", () => {
+      const snap = { a: 1 };
+      const result = applyTopLevelPatchOps(snap, {
+        a: 99,
+      } as unknown as JsonPatchOperation[]);
+      expect(result).toBe(snap);
+    });
+  });
+
+  describe("patchOpsToPartial", () => {
+    it("converts replace and add ops to a partial object", () => {
+      const ops: JsonPatchOperation[] = [
+        { op: "replace", path: "/name", value: "x" },
+        { op: "add", path: "/desc", value: "d" },
+      ];
+      expect(patchOpsToPartial(ops)).toEqual({ name: "x", desc: "d" });
+    });
+
+    it("converts remove ops to undefined fields", () => {
+      const ops: JsonPatchOperation[] = [{ op: "remove", path: "/name" }];
+      expect(patchOpsToPartial(ops)).toEqual({ name: undefined });
+    });
+
+    it("returns the legacy plain object unchanged", () => {
+      const legacy = { name: "x", desc: "d" };
+      expect(patchOpsToPartial(legacy as unknown as JsonPatchOperation[])).toBe(
+        legacy,
+      );
+    });
+
+    it("ignores nested paths", () => {
+      const ops: JsonPatchOperation[] = [
+        { op: "replace", path: "/values/0", value: "z" },
+      ];
+      expect(patchOpsToPartial(ops)).toEqual({});
+    });
+
+    it("returns empty object for null/undefined and arrays", () => {
+      // null is also an "object" in JS — function should treat it as empty
+      expect(
+        patchOpsToPartial(null as unknown as JsonPatchOperation[]),
+      ).toEqual({});
+      expect(patchOpsToPartial([])).toEqual({});
+    });
+  });
+
+  describe("canUserReviewEntity - non-saved-group entity types", () => {
+    // We simulate a hypothetical future entity type to exercise the
+    // managedBy team/admin code paths. Cast to the union as needed.
+    const otherType = "feature" as unknown as RevisionTargetType;
+
+    const teamMember: TeamInterface = {
+      id: "team-1",
+      organization: "org-1",
+      createdBy: "creator-1",
+      name: "Team A",
+      members: ["user-reviewer"],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      role: "engineer",
+      limitAccessByEnvironment: false,
+      environments: [],
+      projectRoles: [],
+      managedByIdp: false,
+    };
+
+    it("managedBy=team: allows team member reviewer", () => {
+      const result = canUserReviewEntity({
+        entityType: otherType,
+        revision: createRevision({ authorId: "author-1" }),
+        entity: { managedBy: "team", ownerTeam: "team-1" },
+        approvalFlowSettings: {} as ApprovalFlowConfigurations,
+        userId: "user-reviewer",
+        teams: [teamMember],
+      });
+      expect(result).toBe(true);
+    });
+
+    it("managedBy=team: rejects non-team-member reviewer", () => {
+      const result = canUserReviewEntity({
+        entityType: otherType,
+        revision: createRevision({ authorId: "author-1" }),
+        entity: { managedBy: "team", ownerTeam: "team-1" },
+        approvalFlowSettings: {} as ApprovalFlowConfigurations,
+        userId: "stranger",
+        teams: [teamMember],
+      });
+      expect(result).toBe(false);
+    });
+
+    it("managedBy=team: rejects when no ownerTeam set", () => {
+      const result = canUserReviewEntity({
+        entityType: otherType,
+        revision: createRevision({ authorId: "author-1" }),
+        entity: { managedBy: "team" },
+        approvalFlowSettings: {} as ApprovalFlowConfigurations,
+        userId: "user-reviewer",
+        teams: [teamMember],
+      });
+      expect(result).toBe(false);
+    });
+
+    it("managedBy=admin: allows reviewer with manageOfficialResources permission", () => {
+      const result = canUserReviewEntity({
+        entityType: otherType,
+        revision: createRevision({ authorId: "author-1" }),
+        entity: { managedBy: "admin" },
+        approvalFlowSettings: {} as ApprovalFlowConfigurations,
+        userId: "user-reviewer",
+        userPermissions: { manageOfficialResources: true },
+      });
+      expect(result).toBe(true);
+    });
+
+    it("managedBy=admin: rejects reviewer without manageOfficialResources", () => {
+      const result = canUserReviewEntity({
+        entityType: otherType,
+        revision: createRevision({ authorId: "author-1" }),
+        entity: { managedBy: "admin" },
+        approvalFlowSettings: {} as ApprovalFlowConfigurations,
+        userId: "user-reviewer",
+        userPermissions: { manageOfficialResources: false },
+      });
+      expect(result).toBe(false);
+    });
+
+    it("managedBy=admin: still rejects the author even if they have permission", () => {
+      const result = canUserReviewEntity({
+        entityType: otherType,
+        revision: createRevision({ authorId: "user-reviewer" }),
+        entity: { managedBy: "admin" },
+        approvalFlowSettings: {} as ApprovalFlowConfigurations,
+        userId: "user-reviewer",
+        userPermissions: { manageOfficialResources: true },
+      });
+      expect(result).toBe(false);
+    });
+
+    it("returns false when managedBy is unset", () => {
+      const result = canUserReviewEntity({
+        entityType: otherType,
+        revision: createRevision({ authorId: "author-1" }),
+        entity: {},
+        approvalFlowSettings: {} as ApprovalFlowConfigurations,
+        userId: "user-reviewer",
+      });
+      expect(result).toBe(false);
+    });
+
+    it("uses the latest proposed managedBy value when resolving review eligibility", () => {
+      const revision = createRevision({
+        authorId: "author-1",
+        target: {
+          type: "saved-group" as const,
+          id: "sg-1",
+          snapshot: {} as Record<string, unknown>,
+          proposedChanges: [
+            { op: "replace", path: "/managedBy", value: "admin" },
+          ] as JsonPatchOperation[],
+        },
+      });
+      // Live entity says team — but the revision proposes "admin",
+      // so the admin path should be used.
+      const result = canUserReviewEntity({
+        entityType: otherType,
+        revision,
+        entity: { managedBy: "team", ownerTeam: "team-1" },
+        approvalFlowSettings: {} as ApprovalFlowConfigurations,
+        userId: "user-reviewer",
+        userPermissions: { manageOfficialResources: true },
+      });
+      expect(result).toBe(true);
+    });
+
+    it("uses the latest proposed ownerTeam value when resolving review eligibility", () => {
+      const revision = createRevision({
+        authorId: "author-1",
+        target: {
+          type: "saved-group" as const,
+          id: "sg-1",
+          snapshot: {} as Record<string, unknown>,
+          proposedChanges: [
+            { op: "replace", path: "/ownerTeam", value: "team-1" },
+          ] as JsonPatchOperation[],
+        },
+      });
+      const result = canUserReviewEntity({
+        entityType: otherType,
+        revision,
+        entity: { managedBy: "team" }, // no ownerTeam on live entity
+        approvalFlowSettings: {} as ApprovalFlowConfigurations,
+        userId: "user-reviewer",
+        teams: [teamMember],
+      });
+      expect(result).toBe(true);
     });
   });
 });

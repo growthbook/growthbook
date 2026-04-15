@@ -25,6 +25,9 @@ export function getStatusBadge(
     return <Badge label={config.label} color={config.color} variant="soft" />;
   }
   const config = STATUS_CONFIG[status];
+  if (!config) {
+    return <Badge label={String(status)} color="gray" variant="soft" />;
+  }
   return <Badge label={config.label} color={config.color} variant="soft" />;
 }
 

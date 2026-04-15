@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision, applyTopLevelPatchOps, patchOpsToPartial } from "shared/enterprise";
+import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
 import { ago, datetime } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
 import {
@@ -41,7 +41,6 @@ import {
   SavedGroupConflictModal,
   useSavedGroupMergeResult,
 } from "@/components/SavedGroups/useSavedGroupConflictModal";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
@@ -123,6 +122,12 @@ export default function EditSavedGroupPage() {
   const [addItemsDraftSelectedId, setAddItemsDraftSelectedId] = useState<
     string | null
   >(null);
+  const [deleteItemsModal, setDeleteItemsModal] = useState(false);
+  const [deleteItemsDraftMode, setDeleteItemsDraftMode] =
+    useState<DraftMode>("new");
+  const [deleteItemsDraftSelectedId, setDeleteItemsDraftSelectedId] = useState<
+    string | null
+  >(null);
   const [isCreatingNewRevision, setIsCreatingNewRevision] =
     useState<boolean>(false);
   const [confirmRevert, setConfirmRevert] = useState<boolean>(false);
@@ -173,13 +178,16 @@ export default function EditSavedGroupPage() {
     approvalRequired &&
     (settings.approvalFlows?.savedGroups?.requireMetadataReview ?? true);
 
-  const revisionState = useSavedGroupRevision(savedGroup?.id, mutate, savedGroup);
+  const revisionState = useSavedGroupRevision(
+    savedGroup?.id,
+    mutate,
+    savedGroup,
+  );
   const {
     selectedApprovalFlow: selectedRevision,
     selectedApprovalFlowId: selectedRevisionId,
     openApprovalFlows: openRevisions,
     allApprovalFlows: allRevisions,
-    hasRealRevisions,
     selectFlow,
     onApprovalFlowCreated: onRevisionCreated,
     handleDiscard,
@@ -188,9 +196,6 @@ export default function EditSavedGroupPage() {
     mutateApprovalFlows: mutateRevisions,
     userOpenFlow: userOpenRevision,
   } = revisionState;
-
-  // When the user already has an open revision, block edits to the live version
-  const editBlocked = !!userOpenRevision;
 
   // Revision state variables for UI logic
   const isLive = !selectedRevision;
@@ -286,19 +291,6 @@ export default function EditSavedGroupPage() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  const mutateValues = useCallback(
-    (newValues: string[]) => {
-      if (!savedGroup) return;
-      mutate({
-        savedGroup: {
-          ...savedGroup,
-          values: newValues,
-        },
-      });
-    },
-    [mutate, savedGroup],
-  );
 
   const attr = (attributeSchema || []).find(
     (attr) => attr.property === savedGroup?.attributeKey,
@@ -448,6 +440,72 @@ export default function EditSavedGroupPage() {
           onClose={() => setShowAuditModal(false)}
         />
       )}
+      {deleteItemsModal && (
+        <Modal
+          trackingEventModalType="delete-saved-group-items"
+          close={() => setDeleteItemsModal(false)}
+          open={deleteItemsModal}
+          header={`Delete ${selected.size} item${selected.size !== 1 ? "s" : ""}`}
+          cta={
+            deleteItemsDraftMode === "publish"
+              ? approvalRequired && canAdminPublish
+                ? "Bypass approval & publish"
+                : "Publish"
+              : deleteItemsDraftMode === "existing"
+                ? "Update draft"
+                : approvalRequired
+                  ? "Propose changes"
+                  : "Create draft"
+          }
+          submit={async () => {
+            const newValues = displayedValues.filter((v) => !selected.has(v));
+
+            const params = new URLSearchParams();
+            if (deleteItemsDraftMode === "publish") {
+              params.set("autoPublish", "1");
+              if (approvalRequired && canAdminPublish) {
+                params.set("bypassApproval", "1");
+              }
+            } else if (
+              deleteItemsDraftMode === "existing" &&
+              deleteItemsDraftSelectedId
+            ) {
+              params.set("revisionId", deleteItemsDraftSelectedId);
+            } else {
+              params.set("forceCreateRevision", "1");
+            }
+
+            const res = await apiCall<{
+              status: number;
+              revision?: Revision;
+            }>(`/saved-groups/${savedGroup.id}?${params.toString()}`, {
+              method: "PUT",
+              body: JSON.stringify({ values: newValues }),
+            });
+
+            if (res?.revision) {
+              onRevisionCreated(res.revision);
+            } else {
+              mutate();
+            }
+            setSelected(new Set());
+            setDeleteItemsModal(false);
+          }}
+        >
+          <SavedGroupDraftSelectorForChanges
+            savedGroup={savedGroup}
+            openRevisions={openRevisions}
+            allRevisions={allRevisions}
+            mode={deleteItemsDraftMode}
+            setMode={setDeleteItemsDraftMode}
+            selectedDraftId={deleteItemsDraftSelectedId}
+            setSelectedDraftId={setDeleteItemsDraftSelectedId}
+            canAutoPublish={canAutoPublish}
+            approvalRequired={approvalRequired}
+            defaultExpanded={!canAutoPublish}
+          />
+        </Modal>
+      )}
       {addItems && (
         <Modal
           trackingEventModalType={`edit-saved-group-${importOperation}-items`}
@@ -502,13 +560,10 @@ export default function EditSavedGroupPage() {
               status: number;
               requiresApproval?: boolean;
               revision?: Revision;
-            }>(
-              `/saved-groups/${savedGroup.id}?${params.toString()}`,
-              {
-                method: "PUT",
-                body: JSON.stringify({ values: newValues }),
-              },
-            );
+            }>(`/saved-groups/${savedGroup.id}?${params.toString()}`, {
+              method: "PUT",
+              body: JSON.stringify({ values: newValues }),
+            });
 
             if (res?.revision) {
               onRevisionCreated(res.revision);
@@ -1242,9 +1297,7 @@ export default function EditSavedGroupPage() {
                                   await commitTitleEdit();
                                 } else if (e.key === "Escape") {
                                   setEditingTitle(false);
-                                  setTitleDraft(
-                                    selectedRevision?.title || "",
-                                  );
+                                  setTitleDraft(selectedRevision?.title || "");
                                 }
                               }}
                               onBlur={commitTitleEdit}
@@ -1569,39 +1622,25 @@ export default function EditSavedGroupPage() {
               </Box>
               <Flex gap="4" align="center">
                 {selected.size > 0 && (
-                  <DeleteButton
-                    text={`Delete Selected (${selected.size})`}
-                    title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
-                    disabled={editBlocked}
-                    getConfirmationContent={async () => ""}
-                    onClick={async () => {
-                      const res = await apiCall<{
-                        status: number;
-                        requiresApproval?: boolean;
-                        revision?: import("shared/enterprise").Revision;
-                      }>(`/saved-groups/${savedGroup.id}/remove-items`, {
-                        method: "POST",
-                        body: JSON.stringify({ items: [...selected] }),
-                      });
-                      if (res?.requiresApproval) {
-                        if (res.revision) {
-                          onRevisionCreated(res.revision);
-                        }
-                        setSelected(new Set());
-                        return;
-                      }
-                      const newValues = values.filter(
-                        (value) => !selected.has(value),
+                  <Button
+                    variant="ghost"
+                    color="red"
+                    onClick={() => {
+                      setDeleteItemsDraftMode(
+                        canAutoPublish
+                          ? "publish"
+                          : userOpenRevision
+                            ? "existing"
+                            : "new",
                       );
-                      mutateValues(newValues);
-                      setSelected(new Set());
+                      setDeleteItemsDraftSelectedId(
+                        userOpenRevision?.id ?? null,
+                      );
+                      setDeleteItemsModal(true);
                     }}
-                    link={true}
-                    useIcon={true}
-                    displayName={`${selected.size} selected item${
-                      selected.size > 1 ? "s" : ""
-                    }`}
-                  />
+                  >
+                    Delete Selected ({selected.size})
+                  </Button>
                 )}
                 <Tooltip
                   body={
@@ -1631,9 +1670,7 @@ export default function EditSavedGroupPage() {
                             ? "existing"
                             : "new",
                       );
-                      setAddItemsDraftSelectedId(
-                        userOpenRevision?.id ?? null,
-                      );
+                      setAddItemsDraftSelectedId(userOpenRevision?.id ?? null);
                       setAddItems(true);
                     }}
                   >
@@ -1667,9 +1704,7 @@ export default function EditSavedGroupPage() {
                             ? "existing"
                             : "new",
                       );
-                      setAddItemsDraftSelectedId(
-                        userOpenRevision?.id ?? null,
-                      );
+                      setAddItemsDraftSelectedId(userOpenRevision?.id ?? null);
                       setAddItems(true);
                     }}
                   >

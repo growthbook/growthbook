@@ -2,7 +2,9 @@ import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
-import { Revision } from "shared/enterprise";
+import { Revision, RevisionStatus } from "shared/enterprise";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { FeatureMetaInfo } from "shared/types/feature";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -18,50 +20,121 @@ import {
 } from "@/components/Search/SearchFilters";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import { useRevisions } from "@/hooks/useRevisions";
+import useApi from "@/hooks/useApi";
 
 const ITEMS_PER_PAGE = 10;
 
-function getEntityName(revision: Revision): string {
-  if (revision.target.type === "saved-group") {
-    return revision.target.snapshot?.groupName || revision.target.id;
-  }
-  return revision.target.id;
-}
+type FeatureRevisionWithMeta = FeatureRevisionInterface & {
+  featureMeta?: FeatureMetaInfo;
+};
+
+// Unified row shape so saved-group revisions and feature revisions can be
+// listed/filtered/sorted together.
+type ApprovalRow = {
+  id: string;
+  title: string;
+  entityName: string;
+  entityType: string;
+  authorId: string;
+  authorDisplay: string;
+  status: RevisionStatus;
+  dateCreated: Date;
+  url: string;
+};
 
 function getEntityTypeLabel(entityType: string): string {
   const labels: Record<string, string> = {
     "saved-group": "Saved Group",
+    feature: "Feature",
   };
   return labels[entityType] || entityType;
 }
 
-function getEntityUrl(revision: Revision): string {
-  if (revision.target.type === "saved-group") {
-    return `/saved-groups/${revision.target.id}?flow=${revision.id}`;
-  }
-  return "#";
+function revisionToRow(revision: Revision): ApprovalRow {
+  const entityName =
+    revision.target.type === "saved-group"
+      ? revision.target.snapshot?.groupName || revision.target.id
+      : revision.target.id;
+
+  return {
+    id: revision.id,
+    title: revision.title || "",
+    entityName,
+    entityType: revision.target.type,
+    authorId: revision.authorId,
+    authorDisplay: "",
+    status: revision.status,
+    dateCreated: new Date(revision.dateCreated),
+    url: `/saved-groups/${revision.target.id}?flow=${revision.id}`,
+  };
+}
+
+function featureRevisionToRow(
+  revision: FeatureRevisionWithMeta,
+): ApprovalRow | null {
+  // Only show revisions with an identifiable logged-in author (matches the
+  // shape expected by the "Requested by" column).
+  const createdBy = revision.createdBy;
+  const authorId =
+    createdBy && createdBy.type === "dashboard" ? createdBy.id : "";
+  const authorDisplay =
+    createdBy && createdBy.type === "dashboard" ? createdBy.name : "";
+
+  // Feature revisions use "published" where unified revisions use "merged".
+  const status: RevisionStatus =
+    revision.status === "published" ? "merged" : revision.status;
+
+  return {
+    id: `${revision.featureId}-v${revision.version}`,
+    title: revision.title || revision.comment || "",
+    entityName: revision.featureId,
+    entityType: "feature",
+    authorId,
+    authorDisplay,
+    status,
+    dateCreated: new Date(revision.dateCreated),
+    url: `/features/${revision.featureId}?v=${revision.version}`,
+  };
 }
 
 const ApprovalRequests: FC = () => {
   const router = useRouter();
   const { getUserDisplay, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("require-approvals");
-  const { revisions, isLoading } = useRevisions();
+  const { revisions, isLoading: revisionsLoading } = useRevisions();
+  const { data: featureRevisionsData, error: featureRevisionsError } = useApi<{
+    revisions: FeatureRevisionWithMeta[];
+  }>(`/revision/feature?sparse=true`);
+
+  // Don't block the page on the feature-revisions request — if it errors or is
+  // slow, still render the saved-group revisions we already have.
+  const featureRevisionsLoading =
+    !featureRevisionsError && !featureRevisionsData;
+  const isLoading = revisionsLoading && featureRevisionsLoading;
+
+  const rows: ApprovalRow[] = useMemo(() => {
+    const all: ApprovalRow[] = [
+      ...revisions.map(revisionToRow),
+      ...(featureRevisionsData?.revisions || [])
+        .map(featureRevisionToRow)
+        .filter((r): r is ApprovalRow => r !== null),
+    ];
+    return all;
+  }, [revisions, featureRevisionsData]);
 
   const entityTypes = useMemo(() => {
-    const types = new Set(revisions.map((f) => f.target.type));
+    const types = new Set(rows.map((r) => r.entityType));
     return Array.from(types);
-  }, [revisions]);
+  }, [rows]);
 
   const authors = useMemo(() => {
-    const authorSet = new Set(revisions.map((f) => f.authorId));
+    const authorSet = new Set(rows.map((r) => r.authorId));
     return Array.from(authorSet).filter(Boolean);
-  }, [revisions]);
+  }, [rows]);
 
-  const approvalItems = useAddComputedFields(revisions, (item) => ({
+  const approvalItems = useAddComputedFields(rows, (item) => ({
     ...item,
-    entityName: getEntityName(item),
-    entityType: item.target.type,
+    authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
   }));
 
   const { items, searchInputProps, SortableTH, syntaxFilters, setSearchValue } =
@@ -70,11 +143,11 @@ const ApprovalRequests: FC = () => {
       localStorageKey: "approvalRequestsList",
       defaultSortField: "dateCreated",
       defaultSortDir: -1,
-      searchFields: ["entityName", "authorId", "title"],
+      searchFields: ["entityName", "authorId", "title", "authorDisplay"],
       searchTermFilters: {
         status: (item) => item.status,
-        type: (item) => item.target.type,
-        author: (item) => [item.authorId, getUserDisplay(item.authorId)],
+        type: (item) => item.entityType,
+        author: (item) => [item.authorId, item.authorDisplay],
       },
     });
 
@@ -89,7 +162,7 @@ const ApprovalRequests: FC = () => {
   const defaultApplied = useRef(false);
   useEffect(() => {
     if (!defaultApplied.current && !router.query.q) {
-      setSearchValue("status:pending-review,approved,changes-requested");
+      setSearchValue("status:draft,pending-review,approved,changes-requested");
       defaultApplied.current = true;
     }
   }, [router.query.q, setSearchValue]);
@@ -113,6 +186,7 @@ const ApprovalRequests: FC = () => {
       id: "changes-requested",
       searchValue: "changes-requested",
     },
+    { name: "Draft", id: "draft", searchValue: "draft" },
     { name: "Published", id: "merged", searchValue: "merged" },
     { name: "Discarded", id: "discarded", searchValue: "discarded" },
   ];
@@ -168,9 +242,9 @@ const ApprovalRequests: FC = () => {
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
             items={authors.map((a) => ({
-              name: getUserDisplay(a),
+              name: getUserDisplay(a) || a,
               id: a,
-              searchValue: getUserDisplay(a),
+              searchValue: getUserDisplay(a) || a,
             }))}
             updateQuery={updateQuery}
           />
@@ -203,38 +277,41 @@ const ApprovalRequests: FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedItems.map((revision) => (
-                <tr
-                  key={revision.id}
-                  onClick={() => router.push(getEntityUrl(revision))}
-                  style={{ cursor: "pointer" }}
-                  className="hover-highlight"
-                >
-                  <td>
-                    {revision.title || (
-                      <span style={{ color: "var(--gray-9)" }}>Untitled</span>
-                    )}
-                  </td>
-                  <td>{getEntityName(revision)}</td>
-                  <td>{getEntityTypeLabel(revision.target.type)}</td>
-                  <td>
-                    {revision.authorId ? (
-                      <Flex align="center" gap="2">
-                        <UserAvatar
-                          name={getUserDisplay(revision.authorId)}
-                          size="sm"
-                          variant="soft"
-                        />
-                        <span>{getUserDisplay(revision.authorId)}</span>
-                      </Flex>
-                    ) : (
-                      "--"
-                    )}
-                  </td>
-                  <td>{datetime(revision.dateCreated)}</td>
-                  <td>{getStatusBadge(revision.status)}</td>
-                </tr>
-              ))}
+              {paginatedItems.map((row) => {
+                const displayName = row.authorDisplay || row.authorId;
+                return (
+                  <tr
+                    key={row.id}
+                    onClick={() => router.push(row.url)}
+                    style={{ cursor: "pointer" }}
+                    className="hover-highlight"
+                  >
+                    <td>
+                      {row.title || (
+                        <span style={{ color: "var(--gray-9)" }}>Untitled</span>
+                      )}
+                    </td>
+                    <td>{row.entityName}</td>
+                    <td>{getEntityTypeLabel(row.entityType)}</td>
+                    <td>
+                      {displayName ? (
+                        <Flex align="center" gap="2">
+                          <UserAvatar
+                            name={displayName}
+                            size="sm"
+                            variant="soft"
+                          />
+                          <span>{displayName}</span>
+                        </Flex>
+                      ) : (
+                        "--"
+                      )}
+                    </td>
+                    <td>{datetime(row.dateCreated)}</td>
+                    <td>{getStatusBadge(row.status)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 

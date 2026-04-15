@@ -578,28 +578,30 @@ function RevisionDetail<T>({
                     </Button>
                   </span>
                 </Tooltip>
-                {bypassApproval && (
-                  <Tooltip
-                    content={
-                      diffs.length === 0 ? "No changes to publish" : undefined
-                    }
-                    enabled={!canMerge() && !isSubmitting}
-                  >
-                    <span style={{ display: "inline-block" }}>
-                      <Button
-                        variant="solid"
-                        color="violet"
-                        onClick={handleMerge}
-                        disabled={isSubmitting || !canMerge()}
-                        style={
-                          !canMerge() ? { pointerEvents: "none" } : undefined
-                        }
-                      >
-                        Publish
-                      </Button>
-                    </span>
-                  </Tooltip>
-                )}
+                {bypassApproval ||
+                  canMerge() ||
+                  (!requiresApproval && (
+                    <Tooltip
+                      content={
+                        diffs.length === 0 ? "No changes to publish" : undefined
+                      }
+                      enabled={!canMerge() && !isSubmitting}
+                    >
+                      <span style={{ display: "inline-block" }}>
+                        <Button
+                          variant="ghost"
+                          color="red"
+                          onClick={handleMerge}
+                          disabled={isSubmitting || !canMerge()}
+                          style={
+                            !canMerge() ? { pointerEvents: "none" } : undefined
+                          }
+                        >
+                          Publish
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  ))}
               </>
             ) : (
               <Tooltip
@@ -731,8 +733,12 @@ function RevisionDetail<T>({
               >
                 <span style={{ display: "inline-block" }}>
                   <Button
-                    variant="solid"
-                    color="violet"
+                    variant={
+                      bypassApproval && requiresApproval ? "ghost" : "solid"
+                    }
+                    color={
+                      bypassApproval && requiresApproval ? "red" : "violet"
+                    }
                     onClick={() =>
                       bypassApproval ? handleMerge() : setConfirmPublish(true)
                     }
