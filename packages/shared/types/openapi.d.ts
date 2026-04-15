@@ -816,10 +816,10 @@ export interface components {
         dateRange: {
           /** @enum {string} */
           predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-          startDate: string | null;
-          endDate: string | null;
+          lookbackValue?: number | null;
+          lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+          startDate?: string | null;
+          endDate?: string | null;
         };
         /** @constant */
         type: "metric";
@@ -878,10 +878,10 @@ export interface components {
         dateRange: {
           /** @enum {string} */
           predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-          startDate: string | null;
-          endDate: string | null;
+          lookbackValue?: number | null;
+          lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+          startDate?: string | null;
+          endDate?: string | null;
         };
         /** @constant */
         type: "fact_table";
@@ -942,10 +942,10 @@ export interface components {
         dateRange: {
           /** @enum {string} */
           predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-          startDate: string | null;
-          endDate: string | null;
+          lookbackValue?: number | null;
+          lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+          startDate?: string | null;
+          endDate?: string | null;
         };
         /** @constant */
         type: "data_source";
@@ -1208,10 +1208,10 @@ export interface components {
             dateRange: {
               /** @enum {string} */
               predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-              lookbackValue: number | null;
-              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-              startDate: string | null;
-              endDate: string | null;
+              lookbackValue?: number | null;
+              lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+              startDate?: string | null;
+              endDate?: string | null;
             };
             /** @constant */
             type: "metric";
@@ -1281,10 +1281,10 @@ export interface components {
             dateRange: {
               /** @enum {string} */
               predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-              lookbackValue: number | null;
-              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-              startDate: string | null;
-              endDate: string | null;
+              lookbackValue?: number | null;
+              lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+              startDate?: string | null;
+              endDate?: string | null;
             };
             /** @constant */
             type: "fact_table";
@@ -1356,10 +1356,10 @@ export interface components {
             dateRange: {
               /** @enum {string} */
               predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-              lookbackValue: number | null;
-              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-              startDate: string | null;
-              endDate: string | null;
+              lookbackValue?: number | null;
+              lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+              startDate?: string | null;
+              endDate?: string | null;
             };
             /** @constant */
             type: "data_source";
@@ -21055,10 +21055,10 @@ export interface operations {
           dateRange: {
             /** @enum {string} */
             predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            lookbackValue: number | null;
-            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-            startDate: string | null;
-            endDate: string | null;
+            lookbackValue?: number | null;
+            lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+            startDate?: string | null;
+            endDate?: string | null;
           };
           /** @constant */
           type: "metric";
@@ -21146,10 +21146,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "metric";
@@ -21243,10 +21243,10 @@ export interface operations {
           dateRange: {
             /** @enum {string} */
             predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            lookbackValue: number | null;
-            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-            startDate: string | null;
-            endDate: string | null;
+            lookbackValue?: number | null;
+            lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+            startDate?: string | null;
+            endDate?: string | null;
           };
           /** @constant */
           type: "fact_table";
@@ -21336,10 +21336,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "fact_table";
@@ -21435,10 +21435,10 @@ export interface operations {
           dateRange: {
             /** @enum {string} */
             predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            lookbackValue: number | null;
-            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-            startDate: string | null;
-            endDate: string | null;
+            lookbackValue?: number | null;
+            lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+            startDate?: string | null;
+            endDate?: string | null;
           };
           /** @constant */
           type: "data_source";
@@ -21533,10 +21533,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "data_source";
@@ -22008,10 +22008,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "metric";
@@ -22081,10 +22081,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "fact_table";
@@ -22156,10 +22156,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "data_source";
@@ -22523,10 +22523,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "metric";
@@ -22596,10 +22596,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "fact_table";
@@ -22671,10 +22671,10 @@ export interface operations {
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
+                  lookbackValue?: number | null;
+                  lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                  startDate?: string | null;
+                  endDate?: string | null;
                 };
                 /** @constant */
                 type: "data_source";
@@ -22925,10 +22925,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "metric";
@@ -22998,10 +22998,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "fact_table";
@@ -23073,10 +23073,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "data_source";
@@ -23349,10 +23349,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "metric";
@@ -23422,10 +23422,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "fact_table";
@@ -23497,10 +23497,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "data_source";
@@ -23901,10 +23901,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "metric";
@@ -23974,10 +23974,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "fact_table";
@@ -24049,10 +24049,10 @@ export interface operations {
                     dateRange: {
                       /** @enum {string} */
                       predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                      lookbackValue: number | null;
-                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                      startDate: string | null;
-                      endDate: string | null;
+                      lookbackValue?: number | null;
+                      lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                      startDate?: string | null;
+                      endDate?: string | null;
                     };
                     /** @constant */
                     type: "data_source";
@@ -24313,10 +24313,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "metric";
@@ -24386,10 +24386,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "fact_table";
@@ -24461,10 +24461,10 @@ export interface operations {
                       dateRange: {
                         /** @enum {string} */
                         predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                        lookbackValue: number | null;
-                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                        startDate: string | null;
-                        endDate: string | null;
+                        lookbackValue?: number | null;
+                        lookbackUnit?: ("hour" | "day" | "week" | "month") | null;
+                        startDate?: string | null;
+                        endDate?: string | null;
                       };
                       /** @constant */
                       type: "data_source";

@@ -135,10 +135,11 @@ export const startPopulationDataQueries = async (
         name: m.id,
         query: integration.getPopulationMetricQuery(queryParams),
         dependencies: [],
-        run: (query, setExternalId) =>
+        run: (query, setExternalId, queryMetadata) =>
           (integration as SqlIntegration).runPopulationMetricQuery(
             query,
             setExternalId,
+            queryMetadata,
           ),
         queryType: "populationMetric",
       }),
@@ -169,10 +170,11 @@ export const startPopulationDataQueries = async (
         name: `group_${i}`,
         query: integration.getPopulationFactMetricsQuery(queryParams),
         dependencies: [],
-        run: (query, setExternalId) =>
+        run: (query, setExternalId, queryMetadata) =>
           (integration as SqlIntegration).runPopulationFactMetricsQuery(
             query,
             setExternalId,
+            queryMetadata,
           ),
         queryType: "populationMultiMetric",
       }),

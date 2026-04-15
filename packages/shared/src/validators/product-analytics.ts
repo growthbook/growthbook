@@ -154,10 +154,10 @@ export const baseExplorationConfigValidator = z.object({
   chartType: z.enum(chartTypes),
   dateRange: z.object({
     predefined: z.enum(dateRangePredefined),
-    lookbackValue: z.number().nullable(),
-    lookbackUnit: z.enum(lookbackUnit).nullable(),
-    startDate: z.string().nullable(),
-    endDate: z.string().nullable(),
+    lookbackValue: z.number().nullish(),
+    lookbackUnit: z.enum(lookbackUnit).nullish(),
+    startDate: z.string().nullish(),
+    endDate: z.string().nullish(),
   }),
 });
 

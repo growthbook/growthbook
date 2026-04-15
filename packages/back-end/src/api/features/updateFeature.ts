@@ -25,7 +25,8 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
-import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
+import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
@@ -169,7 +170,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
-        ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
+        ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
         : null;
 
     const updates: Partial<FeatureInterface> = {

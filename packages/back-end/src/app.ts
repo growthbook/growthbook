@@ -140,6 +140,14 @@ import { productAnalyticsRouter } from "./routers/product-analytics/product-anal
 
 const app = express();
 
+const shouldCompress = (req: Request, res: Response): boolean => {
+  // Allow clients to opt out for token-by-token streaming endpoints.
+  if (req.headers["x-no-compression"]) {
+    return false;
+  }
+  return compression.filter(req, res);
+};
+
 if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
 }
@@ -162,7 +170,7 @@ if (ENVIRONMENT !== "production") {
 }
 
 if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
-  app.use(compression());
+  app.use(compression({ filter: shouldCompress }));
   app.use(httpLogger);
   app.post(
     "/stats",
@@ -220,7 +228,7 @@ app.get("/robots.txt", (_req, res) => {
   res.send(robotsTxt);
 });
 
-app.use(compression());
+app.use(compression({ filter: shouldCompress }));
 
 app.get("/", (req, res) => {
   if (DISABLE_API_ROOT_PATH) {

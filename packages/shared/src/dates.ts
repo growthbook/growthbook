@@ -107,6 +107,20 @@ export function getValidDateOffsetByUTC(
   return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
 }
 
+// Compact relative time using single-char units: "5s ago", "3m ago", "2h ago", "7d ago"
+export function formatShortAgo(dateOrTimestamp: Date | number): string {
+  const ts =
+    typeof dateOrTimestamp === "number"
+      ? dateOrTimestamp
+      : dateOrTimestamp.getTime();
+  const seconds = Math.floor((Date.now() - ts) / 1000);
+  if (seconds < 1) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
 // returns an abbreviated version of the "ago" string.
 // ex: "about 5 minutes ago" -> "5 min ago"
 export function abbreviateAgo(date: string | Date | null | undefined): string {

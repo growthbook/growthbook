@@ -45,5 +45,6 @@ export * from "./url-redirects";
 export * from "./sdk-connection-cache";
 export * from "./metric-group";
 export * from "./product-analytics";
+export * from "./ai-conversation";
 export * from "./organization";
 export * from "./team";

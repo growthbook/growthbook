@@ -1,4 +1,12 @@
-import { generateText, embed, Output } from "ai";
+import {
+  generateText,
+  streamText,
+  embed,
+  Output,
+  tool as aiTool,
+  stepCountIs,
+} from "ai";
+import type { ToolSet, ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createXai } from "@ai-sdk/xai";
@@ -241,6 +249,69 @@ export const simpleCompletion = async ({
 
   return result;
 };
+
+export const streamingChatCompletion = async ({
+  context,
+  system,
+  messages,
+  temperature,
+  type,
+  isDefaultPrompt,
+  overrideModel,
+  tools,
+  maxSteps = 1,
+  abortSignal,
+}: {
+  context: ReqContext | ApiReqContext;
+  system: string;
+  messages: ModelMessage[];
+  temperature?: number;
+  type: AIPromptType;
+  isDefaultPrompt: boolean;
+  overrideModel?: AIModel;
+  tools?: ToolSet;
+  maxSteps?: number;
+  abortSignal?: AbortSignal;
+}) => {
+  const { defaultAIModel } = getAISettingsForOrg(context, true);
+  const model = overrideModel || defaultAIModel;
+  const aiProvider = getAIProviderClass(context, model);
+
+  if (aiProvider == null) {
+    throw new Error("AI provider not enabled or key not set");
+  }
+
+  const result = streamText({
+    model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
+    system,
+    messages,
+    ...(temperature != null ? { temperature } : {}),
+    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+    ...(abortSignal ? { abortSignal } : {}),
+    onFinish: async ({ usage }) => {
+      if (IS_CLOUD) {
+        const numTokensUsed = usage?.totalTokens ?? 0;
+        if (numTokensUsed) {
+          await updateTokenUsage({ numTokensUsed, organization: context.org });
+        }
+
+        logCloudAIUsage({
+          organization: context.org.id,
+          type,
+          model,
+          numPromptTokensUsed: usage?.inputTokens,
+          numCompletionTokensUsed: usage?.outputTokens,
+          temperature,
+          usedDefaultPrompt: isDefaultPrompt,
+        });
+      }
+    },
+  });
+
+  return result;
+};
+
+export { aiTool };
 
 export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   context,

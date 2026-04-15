@@ -167,6 +167,7 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
+import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
 
 /**
  * Routes an envelope change through the revision system.
@@ -607,8 +608,14 @@ export async function postFeatures(
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { id, environmentSettings, holdout, customFields, ...otherProps } =
-    req.body;
+  const {
+    id,
+    environmentSettings,
+    holdout,
+    customFields,
+    jsonSchema,
+    ...otherProps
+  } = req.body;
 
   if (
     !context.permissions.canCreateFeature(req.body) ||
@@ -662,6 +669,8 @@ export async function postFeatures(
     );
   }
 
+  const initialJsonSchema = getInitialFeatureJsonSchema(jsonSchema);
+
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
@@ -678,16 +687,7 @@ export async function postFeatures(
     archived: false,
     version: 1,
     holdout: holdout?.id ? holdout : undefined,
-    jsonSchema: {
-      schemaType: "schema",
-      simple: {
-        type: "object",
-        fields: [],
-      },
-      schema: "",
-      date: new Date(),
-      enabled: false,
-    },
+    jsonSchema: initialJsonSchema,
   };
 
   const allEnvironments = getEnvironments(org);
