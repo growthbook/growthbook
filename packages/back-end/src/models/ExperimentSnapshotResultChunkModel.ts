@@ -17,12 +17,11 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
-import { promiseAllChunks } from "back-end/src/util/promise";
 import { MakeModelClass, waitForIndexes } from "./BaseModel";
 
 type ChunkWriteResult = {
   analysisMeta: AnalysisMetaEntry[];
-  resultChunkVersion: string;
+  metricIds: string[];
 };
 
 const BaseClass = MakeModelClass({
@@ -30,13 +29,14 @@ const BaseClass = MakeModelClass({
   collectionName: "experimentsnapshotresultchunks",
   idPrefix: "snpres_",
   globallyUniquePrimaryKeys: true,
-  indexesToRemove: ["organization_1_snapshotId_1_metricId_1"],
+  indexesToRemove: [
+    "organization_1_snapshotId_1_resultChunkVersion_1_metricId_1",
+  ],
   additionalIndexes: [
     {
       fields: {
         organization: 1,
         snapshotId: 1,
-        resultChunkVersion: 1,
         metricId: 1,
       },
       unique: true,
@@ -104,7 +104,6 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
     analyses: ExperimentSnapshotAnalysis[],
     settings: ExperimentSnapshotSettings,
   ): Promise<ChunkWriteResult> {
-    const resultChunkVersion = this._generateUid();
     const metricOrdering = getMetricOrdering(settings);
     const { metricChunks, analysisMeta } = encodeSnapshotResults(
       analyses,
@@ -113,31 +112,47 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
 
     const experimentId = settings.experimentId;
     const entries = Array.from(metricChunks.entries());
+    const metricIds = entries.map(([metricId]) => metricId);
     await waitForIndexes();
-    try {
-      await promiseAllChunks(
-        entries.map(([metricId, chunk]) => async () => {
-          await this.create({
-            snapshotId,
-            experimentId,
-            metricId,
-            resultChunkVersion,
-            ...chunk,
-          });
+
+    if (entries.length) {
+      const now = new Date();
+      await this.bulkWrite(
+        entries.map(([metricId, chunk]) => {
+          validateExperimentSnapshotResultChunkColumnLengths(chunk);
+
+          return {
+            updateOne: {
+              filter: {
+                snapshotId,
+                metricId,
+              },
+              update: {
+                $set: {
+                  experimentId,
+                  numRows: chunk.numRows,
+                  data: chunk.data,
+                  dateUpdated: now,
+                },
+                $setOnInsert: {
+                  id: this._generateId(),
+                  dateCreated: now,
+                },
+              },
+              upsert: true,
+            },
+          };
         }),
-        10,
       );
-    } catch (e) {
-      // Clean up any partially-written chunks from this version
+
       await this._dangerousGetCollection().deleteMany({
         organization: this.context.org.id,
         snapshotId,
-        resultChunkVersion,
+        metricId: { $nin: metricIds },
       });
-      throw e;
     }
 
-    return { analysisMeta, resultChunkVersion };
+    return { analysisMeta, metricIds };
   }
 
   /**
@@ -165,27 +180,9 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
     const chunkedSnapshots = snapshots.filter((s) => s.hasChunkedResults);
     if (!chunkedSnapshots.length) return;
 
-    const chunkFilters: Record<string, unknown>[] = [];
-    const legacySnapshotIds: string[] = [];
-    for (const snapshot of chunkedSnapshots) {
-      if (snapshot.resultChunkVersion) {
-        chunkFilters.push({
-          snapshotId: snapshot.id,
-          resultChunkVersion: snapshot.resultChunkVersion,
-        });
-      } else {
-        legacySnapshotIds.push(snapshot.id);
-      }
-    }
-    if (legacySnapshotIds.length) {
-      chunkFilters.push({
-        snapshotId: { $in: legacySnapshotIds },
-        resultChunkVersion: { $exists: false },
-      });
-    }
-
-    const query: Record<string, unknown> =
-      chunkFilters.length === 1 ? chunkFilters[0] : { $or: chunkFilters };
+    const query: Record<string, unknown> = {
+      snapshotId: { $in: chunkedSnapshots.map((snapshot) => snapshot.id) },
+    };
     if (metricIds?.length) {
       query.metricId = { $in: metricIds };
     }
@@ -277,20 +274,6 @@ export class ExperimentSnapshotResultChunkModel extends BaseClass {
     await this._dangerousGetCollection().deleteMany({
       organization: this.context.org.id,
       snapshotId: { $in: snapshotIds },
-    });
-  }
-
-  /**
-   * Remove chunk generations that are no longer referenced by the snapshot.
-   */
-  public async deleteOldVersions(
-    snapshotId: string,
-    activeResultChunkVersion: string,
-  ) {
-    await this._dangerousGetCollection().deleteMany({
-      organization: this.context.org.id,
-      snapshotId,
-      resultChunkVersion: { $ne: activeResultChunkVersion },
     });
   }
 }

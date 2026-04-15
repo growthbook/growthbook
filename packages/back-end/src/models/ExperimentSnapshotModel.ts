@@ -79,7 +79,6 @@ const experimentSnapshotSchema = new mongoose.Schema({
   settings: {},
   analyses: {},
   hasChunkedResults: Boolean,
-  resultChunkVersion: String,
   analysisMeta: [
     {
       _id: false,
@@ -235,7 +234,6 @@ function stripChunkedResultMetadata(
 ): ExperimentSnapshotInterface {
   const cleanSnapshot = { ...snapshot };
   delete cleanSnapshot.hasChunkedResults;
-  delete cleanSnapshot.resultChunkVersion;
   delete cleanSnapshot.analysisMeta;
   return cleanSnapshot;
 }
@@ -302,7 +300,7 @@ export async function updateSnapshot({
   if (!existingSnapshotModel) throw "Internal error";
 
   const updatesForDb = { ...updates };
-  let newResultChunkVersion: string | undefined;
+  let deleteExistingChunksAfterUpdate = false;
   let experimentSnapshot: ExperimentSnapshotInterface = {
     ...toInterface(existingSnapshotModel),
     ...updates,
@@ -319,7 +317,7 @@ export async function updateSnapshot({
         updates.analyses,
         experimentSnapshot.settings,
       );
-    newResultChunkVersion = chunkWrite.resultChunkVersion;
+    deleteExistingChunksAfterUpdate = chunkWrite.metricIds.length === 0;
 
     // Clear results from the main document while keeping the logical snapshot
     // populated for post-success side effects below.
@@ -328,13 +326,11 @@ export async function updateSnapshot({
       results: [],
     }));
     updatesForDb.hasChunkedResults = true;
-    updatesForDb.resultChunkVersion = chunkWrite.resultChunkVersion;
     updatesForDb.analysisMeta = chunkWrite.analysisMeta;
     experimentSnapshot = {
       ...experimentSnapshot,
       analyses: updates.analyses,
       hasChunkedResults: true,
-      resultChunkVersion: chunkWrite.resultChunkVersion,
       analysisMeta: chunkWrite.analysisMeta,
     };
   }
@@ -349,11 +345,8 @@ export async function updateSnapshot({
     },
   );
 
-  if (newResultChunkVersion) {
-    await context.models.experimentSnapshotResultChunks.deleteOldVersions(
-      id,
-      newResultChunkVersion,
-    );
+  if (deleteExistingChunksAfterUpdate) {
+    await context.models.experimentSnapshotResultChunks.deleteBySnapshotId(id);
   }
 
   if (experimentSnapshot.hasChunkedResults && !analysesWithResults) {
@@ -473,14 +466,14 @@ async function rebuildChunksForSnapshot(
       {
         $set: {
           analysisMeta: chunkWrite.analysisMeta,
-          resultChunkVersion: chunkWrite.resultChunkVersion,
         },
       },
     );
-    await context.models.experimentSnapshotResultChunks.deleteOldVersions(
-      id,
-      chunkWrite.resultChunkVersion,
-    );
+    if (!chunkWrite.metricIds.length) {
+      await context.models.experimentSnapshotResultChunks.deleteBySnapshotId(
+        id,
+      );
+    }
   }
 }
 
@@ -918,15 +911,10 @@ export async function createExperimentSnapshotModel({
       ...data,
       analyses: clearAnalysisResults(data.analyses),
       hasChunkedResults: true,
-      resultChunkVersion: chunkWrite.resultChunkVersion,
       analysisMeta: chunkWrite.analysisMeta,
     };
     populatedAnalyses = data.analyses;
-  } else if (
-    data.hasChunkedResults ||
-    data.resultChunkVersion ||
-    data.analysisMeta
-  ) {
+  } else if (data.hasChunkedResults || data.analysisMeta) {
     // A snapshot with a new id cannot point at chunks that belonged to a
     // different snapshot. Keep inline results if present, otherwise create a
     // plain unchunked running/error snapshot.

@@ -193,7 +193,6 @@ describe("ExperimentSnapshotModel", () => {
         snapshot.status = "success";
         snapshot.analyses = [analysis];
         snapshot.hasChunkedResults = true;
-        snapshot.resultChunkVersion = "old_version";
         snapshot.analysisMeta = [{ dimensions: [] }];
         if (type === "report") {
           snapshot.report = "rep_1";
@@ -206,8 +205,6 @@ describe("ExperimentSnapshotModel", () => {
 
         expect(created.type).toBe(type);
         expect(created.hasChunkedResults).toBe(true);
-        expect(created.resultChunkVersion).toBeTruthy();
-        expect(created.resultChunkVersion).not.toBe("old_version");
         expect(
           created.analyses[0].results[0].variations[0].metrics.met_1.value,
         ).toBe(10);
@@ -215,7 +212,6 @@ describe("ExperimentSnapshotModel", () => {
         const result = await findSnapshotById(context, snapshot.id);
         expect(result?.type).toBe(type);
         expect(result?.hasChunkedResults).toBe(true);
-        expect(result?.resultChunkVersion).toBe(created.resultChunkVersion);
         expect(
           result?.analyses[0].results[0].variations[0].metrics.met_1.value,
         ).toBe(10);
@@ -227,7 +223,7 @@ describe("ExperimentSnapshotModel", () => {
         expect(chunks).toHaveLength(1);
         expect(chunks[0].snapshotId).toBe(snapshot.id);
         expect(chunks[0].metricId).toBe("met_1");
-        expect(chunks[0].resultChunkVersion).toBe(created.resultChunkVersion);
+        expect(chunks[0].numRows).toBe(2);
       },
     );
 
@@ -242,7 +238,6 @@ describe("ExperimentSnapshotModel", () => {
         snapshot.status = "running";
         snapshot.analyses = [makeEmptyAnalysis({ settings })];
         snapshot.hasChunkedResults = true;
-        snapshot.resultChunkVersion = "old_version";
         snapshot.analysisMeta = [
           {
             dimensions: [
@@ -263,7 +258,6 @@ describe("ExperimentSnapshotModel", () => {
         const result = await findSnapshotById(context, snapshot.id);
         expect(result?.type).toBe(type);
         expect(result?.hasChunkedResults).toBeUndefined();
-        expect(result?.resultChunkVersion).toBeUndefined();
         expect(result?.analysisMeta ?? []).toEqual([]);
         expect(result?.analyses[0].results).toEqual([]);
 
@@ -674,8 +668,10 @@ describe("ExperimentSnapshotModel", () => {
         },
       });
 
-      const initialSnapshot = await findSnapshotById(context, snapshot.id);
-      const initialVersion = initialSnapshot?.resultChunkVersion;
+      const initialChunks =
+        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
       const updatedRelativeAnalysis = makeAnalysis({
         settings: relativeSettings,
         value: 30,
@@ -688,8 +684,6 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       const result = await findSnapshotById(context, snapshot.id);
-      expect(result?.resultChunkVersion).toBeTruthy();
-      expect(result?.resultChunkVersion).not.toBe(initialVersion);
       expect(
         result?.analyses[0].results[0].variations[0].metrics.met_1.value,
       ).toBe(30);
@@ -701,9 +695,9 @@ describe("ExperimentSnapshotModel", () => {
         await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
-      expect(chunks.map((c) => c.resultChunkVersion)).toEqual([
-        result?.resultChunkVersion,
-      ]);
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].id).toBe(initialChunks[0].id);
+      expect(chunks[0].metricId).toBe("met_1");
     });
 
     it("skips chunk rewrites for a new empty running analysis", async () => {
@@ -730,7 +724,6 @@ describe("ExperimentSnapshotModel", () => {
         },
       });
 
-      const initialSnapshot = await findSnapshotById(context, snapshot.id);
       const initialChunks =
         await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
           snapshot.id,
@@ -748,9 +741,6 @@ describe("ExperimentSnapshotModel", () => {
           snapshot.id,
         );
 
-      expect(result?.resultChunkVersion).toBe(
-        initialSnapshot?.resultChunkVersion,
-      );
       expect(chunks.map((c) => c.id)).toEqual(initialChunks.map((c) => c.id));
       expect(result?.analyses).toHaveLength(2);
       expect(result?.analyses[0].results).toHaveLength(1);
@@ -785,7 +775,10 @@ describe("ExperimentSnapshotModel", () => {
         },
       });
 
-      const initialSnapshot = await findSnapshotById(context, snapshot.id);
+      const initialChunks =
+        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
 
       await updateSnapshotAnalysis({
         context,
@@ -794,10 +787,6 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       const result = await findSnapshotById(context, snapshot.id);
-      expect(result?.resultChunkVersion).toBeTruthy();
-      expect(result?.resultChunkVersion).not.toBe(
-        initialSnapshot?.resultChunkVersion,
-      );
       expect(result?.analyses[0].status).toBe("running");
       expect(result?.analyses[0].results).toEqual([]);
       expect(
@@ -808,9 +797,51 @@ describe("ExperimentSnapshotModel", () => {
         await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
           snapshot.id,
         );
-      expect(chunks.map((c) => c.resultChunkVersion)).toEqual([
-        result?.resultChunkVersion,
-      ]);
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].id).toBe(initialChunks[0].id);
+      expect(chunks[0].metricId).toBe("met_1");
+    });
+
+    it("deletes chunks when the last populated analysis is reset to running", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_clear_only_analysis");
+      const settings = makeAnalysisSettings();
+      const analysis = makeAnalysis({
+        settings,
+        value: 10,
+      });
+
+      await createExperimentSnapshotModel({ data: snapshot });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [analysis],
+        },
+      });
+
+      const initialChunks =
+        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(initialChunks).toHaveLength(1);
+
+      await updateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis: makeEmptyAnalysis({ settings }),
+      });
+
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.analyses[0].status).toBe("running");
+      expect(result?.analyses[0].results).toEqual([]);
+
+      const chunks =
+        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(chunks).toHaveLength(0);
     });
   });
 });

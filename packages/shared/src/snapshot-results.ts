@@ -3,6 +3,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   SnapshotMetric,
+  SnapshotVariation,
 } from "shared/types/experiment-snapshot";
 import { ExperimentReportResultDimension } from "shared/types/report";
 
@@ -229,7 +230,7 @@ export function decodeSnapshotResults(
     if (dims) {
       for (const [name, dimData] of dims) {
         const maxVi = Math.max(...Array.from(dimData.variations.keys()), -1);
-        const variations = [];
+        const variations: SnapshotVariation[] = [];
         for (let vi = 0; vi <= maxVi; vi++) {
           const varData = dimData.variations.get(vi);
           variations.push({

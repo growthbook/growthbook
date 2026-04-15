@@ -83,7 +83,6 @@ export const experimentSnapshotResultChunkValidator = z
     dateUpdated: z.date(),
     id: z.string(),
     snapshotId: z.string(),
-    resultChunkVersion: z.string().optional(),
     experimentId: z.string(),
     metricId: z.string(),
     numRows: z.number(),
