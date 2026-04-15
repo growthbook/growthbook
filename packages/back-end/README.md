@@ -332,73 +332,13 @@ Let's say you want to add a REST endpoint to get a list of projects.
 
 ### OpenAPI Spec
 
-First, you would document the endpoint using OpenAPI:
-
-1. Describe the resource (Project) with a JSON schema: `src/api/openapi/schemas/Project.yaml`
-   ```yml
-   type: object
-   required:
-     - id
-     - name
-   properties:
-     id:
-       type: string
-     name:
-       type: string
-   ```
-2. Reference your schema in `src/api/openapi/schemas/_index.yaml`
-   ```yml
-   Project:
-     $ref: "./Project.yaml"
-   ```
-3. Describe the API endpoint in `src/api/openapi/paths/listProjects.yaml`
-   ```yml
-   get:
-     summary: Get all projects
-     tags:
-       - projects
-     parameters:
-       - $ref: "../parameters.yaml#/limit"
-       - $ref: "../parameters.yaml#/offset"
-     operationId: listProjects
-     x-codeSamples:
-       - lang: "cURL"
-         source: |
-           curl https://api.growthbook.io/api/v1/projects \
-             -u secret_abc123DEF456:
-     responses:
-       "200":
-         content:
-           application/json:
-             schema:
-               allOf:
-                 - type: object
-                   required:
-                     - projects
-                   properties:
-                     projects:
-                       type: array
-                       items:
-                         $ref: "../schemas/Project.yaml"
-                 - $ref: "../schemas/PaginationFields.yaml"
-   ```
-4. Add the endpoint to `src/api/openapi/openapi.yaml` under `paths`
-   ```yml
-   /projects:
-     $ref: "./paths/listProjects.yaml"
-   ```
-5. In the same `src/api/openapi/openapi.yaml` file, define the `projects` tag:
-   ```yml
-   - name: projects
-     x-displayName: Projects
-     description: Projects are used to organize your feature flags and experiments
-   ```
-
-The OpenAPI spec is generated from Zod validators. Any time you edit validators or API endpoints, regenerate the spec:
+The OpenAPI spec is auto-generated from Zod validators. Define your request/response schemas in `packages/shared/src/validators/` and the spec will be derived from them. After making changes to validators or API endpoints, regenerate the spec:
 
 ```bash
 pnpm generate-openapi
 ```
+
+See `.cursor/rules/backend/api-patterns.md` for details on the spec-based pattern and `namedSchema` for model documentation.
 
 ### Router and Business Logic
 
