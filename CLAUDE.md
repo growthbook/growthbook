@@ -31,6 +31,9 @@ pnpm --filter front-end type-check
 pnpm --filter back-end type-check
 pnpm --filter shared type-check
 
+# OpenAPI spec generation
+pnpm --filter back-end generate-openapi  # Regenerate spec from Zod validators
+
 # Testing
 pnpm test             # All packages
 pnpm --filter front-end test    # Front-end only (Vitest)

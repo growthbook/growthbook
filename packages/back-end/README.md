@@ -394,10 +394,10 @@ First, you would document the endpoint using OpenAPI:
      description: Projects are used to organize your feature flags and experiments
    ```
 
-We use a generator to automatically create Typescript types, Zod validators, and API documentation for all of our resources and endpoints. Any time you edit the `yaml` files, you will need to re-run this generator.
+The OpenAPI spec is generated from Zod validators. Any time you edit validators or API endpoints, regenerate the spec:
 
 ```bash
-pnpm generate-api-types
+pnpm generate-openapi
 ```
 
 ### Router and Business Logic
@@ -406,7 +406,7 @@ Next, you'll need to create a helper function to convert from our internal DB in
 
 ```ts
 // src/models/ProjectModel.ts
-import { ApiProject } from "shared/types/openapi";
+import { ApiProject } from "shared/validators";
 import { ProjectInterface } from "back-end/types/project";
 
 export class ProjectModel extends BaseClass {
@@ -424,7 +424,7 @@ export class ProjectModel extends BaseClass {
 Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
 
 ```ts
-import { ListProjectsResponse } from "shared/types/openapi";
+import { ListProjectsResponse } from "shared/validators";
 import {
   applyPagination,
   createApiRequestHandler,

@@ -607,6 +607,7 @@ export const apiFeatureRuleValidator = namedSchema(
   ]),
 );
 
+export type ApiFeatureForceRule = z.infer<typeof apiFeatureForceRuleValidator>;
 export type ApiFeatureRule = z.infer<typeof apiFeatureRuleValidator>;
 
 // ---- FeatureDefinition (schemas/FeatureDefinition.yaml) ----

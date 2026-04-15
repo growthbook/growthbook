@@ -1,5 +1,8 @@
-import { ExperimentWarningNotificationPayload } from "shared/validators";
-import { ApiExperiment, ApiFeature } from "shared/types/openapi";
+import {
+  ExperimentWarningNotificationPayload,
+  ApiExperiment,
+  ApiFeature,
+} from "shared/validators";
 import { LegacyNotificationEventPayload } from "./base-types";
 import { UserLoginEventProperties } from "./event-types";
 

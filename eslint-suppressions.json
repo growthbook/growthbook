@@ -1,9 +1,4 @@
 {
-  "packages/back-end/src/scripts/generate-openapi.mjs": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Archetype/AssignmentTester.tsx": {
     "no-restricted-imports": {
       "count": 2
