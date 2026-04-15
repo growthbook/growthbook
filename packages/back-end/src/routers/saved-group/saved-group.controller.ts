@@ -24,6 +24,7 @@ import {
   applyPatchToSnapshot,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { getAdapter } from "back-end/src/revisions";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 
@@ -644,12 +645,12 @@ export const putSavedGroup = async (
 
     // If bypassing approval or auto-publishing, immediately merge the revision
     if (bypassApproval || autoPublish) {
-      const canBypass =
-        (savedGroup.projects?.length ?? 0) === 0
-          ? context.permissions.canBypassApprovalChecks({ project: "" })
-          : savedGroup.projects!.every((p) =>
-              context.permissions.canBypassApprovalChecks({ project: p }),
-            );
+      // Delegate to the adapter so the multi-project bypass rule has a single
+      // source of truth (also used by the generic revision controller).
+      const canBypass = getAdapter("saved-group").canBypassApproval(
+        context,
+        savedGroup as unknown as Record<string, unknown>,
+      );
 
       // bypassApproval is an explicit admin override — enforce the permission server-side.
       // autoPublish is used when metadata review is disabled; no bypass permission needed.
@@ -657,7 +658,10 @@ export const putSavedGroup = async (
         context.permissions.throwPermissionError();
       }
 
-      const isBypass = approvalRequired && bypassApproval && !canBypass;
+      // canBypass is guaranteed true here (the !canBypass branch above throws),
+      // so `isBypass` purely reflects whether the caller used bypassApproval
+      // when approval was required.
+      const isBypass = approvalRequired && bypassApproval;
 
       // Apply entity update
       await context.models.savedGroups.update(savedGroup, fieldsToUpdate);

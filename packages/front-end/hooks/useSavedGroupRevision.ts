@@ -173,7 +173,8 @@ export function useSavedGroupRevision(
     [openRevisions, userId],
   );
 
-  const hasRealRevisions = data !== undefined && (data.revisions?.length ?? 0) > 0;
+  const hasRealRevisions =
+    data !== undefined && (data.revisions?.length ?? 0) > 0;
 
   // When no real revisions exist yet, synthesize a dummy "Revision 1" representing
   // the initial saved state. This is frontend-only and never persisted.

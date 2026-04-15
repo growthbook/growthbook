@@ -106,6 +106,11 @@ export const revisionValidator = z.object({
   target: revisionTargetValidator,
   status: z.enum(revisionStatus),
   reviews: z.array(reviewValidator),
+  // Users who have edited this revision's content beyond the original author.
+  // Always includes the author. Used by the `blockSelfApproval` setting to
+  // prevent contributors from approving their own work.
+  // Optional for backward compatibility with revisions created before this field existed.
+  contributors: z.array(z.string()).optional(),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
     .object({

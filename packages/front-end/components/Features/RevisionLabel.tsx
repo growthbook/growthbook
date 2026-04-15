@@ -5,7 +5,11 @@ export function revisionLabelText(
   title: string | null | undefined,
   numbered?: boolean,
 ): string {
-  return `${numbered ? `${version}. ` : ""}${title ?? ""}`;
+  // Fall back to "Revision <n>" when there's no title — e.g. for the HTML
+  // `title` tooltip on truncated revision labels, which would otherwise be
+  // empty for untitled revisions.
+  const labelTitle = title ?? `Revision ${version}`;
+  return `${numbered ? `${version}. ` : ""}${labelTitle}`;
 }
 
 export default function RevisionLabel({

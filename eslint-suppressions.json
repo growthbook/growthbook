@@ -597,11 +597,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/CompareSavedGroupRevisionsModal.tsx": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SavedGroups/IdListItemInput.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -609,14 +604,6 @@
   },
   "packages/front-end/components/SavedGroups/IdLists.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SavedGroups/SavedGroupArchiveModal.tsx": {
-    "import/order": {
-      "count": 1
-    },
-    "prettier/prettier": {
       "count": 1
     }
   },
@@ -850,11 +837,6 @@
       "count": 1
     }
   },
-  "packages/front-end/hooks/useSavedGroupRevision.ts": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/correlations.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -936,11 +918,6 @@
     }
   },
   "packages/sdk-react/rollup.config.mjs": {
-    "prettier/prettier": {
-      "count": 2
-    }
-  },
-  "packages/shared/src/revisions/helpers.ts": {
     "prettier/prettier": {
       "count": 2
     }

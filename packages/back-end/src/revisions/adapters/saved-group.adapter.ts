@@ -15,6 +15,29 @@ const UPDATABLE_FIELDS = new Set<string>([
   "archived",
 ]);
 
+// User must be able to bypass approval in EVERY project the saved group
+// belongs to (treats the empty-projects case as the global "" project).
+// Used both for the bypass-approval gate and for non-author revision deletion,
+// since discarding someone else's in-flight revision is an admin-level action.
+function canBypassAcrossProjects(
+  context: Context,
+  snapshot: SavedGroupInterface,
+): boolean {
+  const projects = snapshot.projects?.length ? snapshot.projects : [""];
+  return projects.every((project) =>
+    context.permissions.canBypassApprovalChecks({ project }),
+  );
+}
+
+// canCreate and canUpdate both gate on the saved-group edit permission;
+// extract so the two stay in sync.
+function canEditSavedGroup(
+  context: Context,
+  snapshot: SavedGroupInterface,
+): boolean {
+  return context.permissions.canUpdateSavedGroup(snapshot, {});
+}
+
 export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   getModel(context: Context) {
     return context.models.savedGroups as {
@@ -50,21 +73,19 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   },
 
   canCreate(context: Context, snapshot: SavedGroupInterface): boolean {
-    return context.permissions.canUpdateSavedGroup(snapshot, {});
+    return canEditSavedGroup(context, snapshot);
   },
 
   canUpdate(context: Context, snapshot: SavedGroupInterface): boolean {
-    return context.permissions.canUpdateSavedGroup(snapshot, {});
+    return canEditSavedGroup(context, snapshot);
   },
 
+  // Gates non-author deletion of a revision document (authors can always
+  // delete their own — see RevisionModel.canDelete). Restricted to users who
+  // can bypass approval, since discarding another user's in-flight revision
+  // is an admin-level action.
   canDelete(context: Context, snapshot: SavedGroupInterface): boolean {
-    const projects = snapshot.projects ?? [];
-    if (projects.length === 0) {
-      return context.permissions.canBypassApprovalChecks({ project: "" });
-    }
-    return projects.every((p) =>
-      context.permissions.canBypassApprovalChecks({ project: p }),
-    );
+    return canBypassAcrossProjects(context, snapshot);
   },
 
   isApprovalRequired(context: Context): boolean {
@@ -72,13 +93,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   },
 
   canBypassApproval(context: Context, snapshot: SavedGroupInterface): boolean {
-    const projects = snapshot.projects ?? [];
-    if (projects.length === 0) {
-      return context.permissions.canBypassApprovalChecks({ project: "" });
-    }
-    return projects.every((p) =>
-      context.permissions.canBypassApprovalChecks({ project: p }),
-    );
+    return canBypassAcrossProjects(context, snapshot);
   },
 
   async applyChanges(

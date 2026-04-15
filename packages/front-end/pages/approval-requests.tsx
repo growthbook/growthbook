@@ -7,6 +7,14 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureMetaInfo } from "shared/types/feature";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Frame from "@/ui/Frame";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
@@ -101,7 +109,17 @@ const ApprovalRequests: FC = () => {
   const router = useRouter();
   const { getUserDisplay, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("require-approvals");
-  const { revisions, isLoading: revisionsLoading } = useRevisions();
+  // Server-side status filter is driven by the page's local search filter
+  // state (see the useEffect below) so that selecting a status from the
+  // FilterDropdown actually triggers a refetch. Defaults to the "open" alias
+  // (non-merged/non-discarded) to keep the inbox payload bounded.
+  const [serverStatusFilter, setServerStatusFilter] = useState<
+    string | undefined
+  >("open");
+  const { revisions, isLoading: revisionsLoading } = useRevisions({
+    status: serverStatusFilter,
+    limit: 500,
+  });
   const { data: featureRevisionsData, error: featureRevisionsError } = useApi<{
     revisions: FeatureRevisionWithMeta[];
   }>(`/revision/feature?sparse=true`);
@@ -166,6 +184,25 @@ const ApprovalRequests: FC = () => {
       defaultApplied.current = true;
     }
   }, [router.query.q, setSearchValue]);
+
+  // Derive the server-side status filter from the parsed search filters so
+  // changes from FilterDropdown / typing in the search box trigger a refetch.
+  // - No status filter → default to "open" (bounded, default inbox view).
+  // - Negated status filter → fetch all (server can't easily express NOT-in;
+  //   the client filter still narrows the view).
+  // - Otherwise → join the explicit status values for the server.
+  useEffect(() => {
+    const f = syntaxFilters.find((x) => x.field === "status");
+    let next: string | undefined;
+    if (!f || f.values.length === 0) {
+      next = "open";
+    } else if (f.negated) {
+      next = undefined;
+    } else {
+      next = f.values.join(",");
+    }
+    setServerStatusFilter((prev) => (prev === next ? prev : next));
+  }, [syntaxFilters]);
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -265,55 +302,57 @@ const ApprovalRequests: FC = () => {
         <Callout status="info">No approval requests found.</Callout>
       ) : (
         <>
-          <table className="table gbtable">
-            <thead>
-              <tr>
-                <SortableTH field="title">Revision</SortableTH>
-                <SortableTH field="entityName">Name</SortableTH>
-                <SortableTH field="entityType">Type</SortableTH>
-                <th>Requested by</th>
-                <SortableTH field="dateCreated">Date Requested</SortableTH>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedItems.map((row) => {
-                const displayName = row.authorDisplay || row.authorId;
-                return (
-                  <tr
-                    key={row.id}
-                    onClick={() => router.push(row.url)}
-                    style={{ cursor: "pointer" }}
-                    className="hover-highlight"
-                  >
-                    <td>
-                      {row.title || (
-                        <span style={{ color: "var(--gray-9)" }}>Untitled</span>
-                      )}
-                    </td>
-                    <td>{row.entityName}</td>
-                    <td>{getEntityTypeLabel(row.entityType)}</td>
-                    <td>
-                      {displayName ? (
-                        <Flex align="center" gap="2">
-                          <UserAvatar
-                            name={displayName}
-                            size="sm"
-                            variant="soft"
-                          />
-                          <span>{displayName}</span>
-                        </Flex>
-                      ) : (
-                        "--"
-                      )}
-                    </td>
-                    <td>{datetime(row.dateCreated)}</td>
-                    <td>{getStatusBadge(row.status)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <Frame p="0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableTH field="title">Revision</SortableTH>
+                  <SortableTH field="entityName">Name</SortableTH>
+                  <SortableTH field="entityType">Type</SortableTH>
+                  <TableColumnHeader>Requested by</TableColumnHeader>
+                  <SortableTH field="dateCreated">Date Requested</SortableTH>
+                  <TableColumnHeader>Status</TableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedItems.map((row) => {
+                  const displayName = row.authorDisplay || row.authorId;
+                  return (
+                    <TableRow
+                      key={row.id}
+                      onClick={() => router.push(row.url)}
+                      style={{ cursor: "pointer" }}
+                      className="hover-highlight"
+                    >
+                      <TableCell>
+                        {row.title || <Text color="text-low">Untitled</Text>}
+                      </TableCell>
+                      <TableCell>{row.entityName}</TableCell>
+                      <TableCell>
+                        {getEntityTypeLabel(row.entityType)}
+                      </TableCell>
+                      <TableCell>
+                        {displayName ? (
+                          <Flex align="center" gap="2">
+                            <UserAvatar
+                              name={displayName}
+                              size="sm"
+                              variant="soft"
+                            />
+                            <span>{displayName}</span>
+                          </Flex>
+                        ) : (
+                          "--"
+                        )}
+                      </TableCell>
+                      <TableCell>{datetime(row.dateCreated)}</TableCell>
+                      <TableCell>{getStatusBadge(row.status)}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Frame>
 
           {items.length > ITEMS_PER_PAGE && (
             <Pagination

@@ -75,7 +75,7 @@ export default function ApprovalFlowSettings() {
     <Frame>
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
-          <Heading size="4" as="h4">
+          <Heading size="medium" as="h4">
             <PremiumTooltip commercialFeature="require-approvals">
               Approval Flows
             </PremiumTooltip>
@@ -85,12 +85,12 @@ export default function ApprovalFlowSettings() {
 
       <Flex align="start" direction="column" gap="5" mt="7">
         <Box mb="6" width="100%">
-          <Box className="appbox p-3">
-            <Heading size="3" className="font-weight-semibold" mb="4">
+          <Frame p="3" mb="0">
+            <Heading as="h4" size="small" weight="semibold" mb="4">
               Features
             </Heading>
 
-            <Text as="p" size="2" mb="4" color="gray">
+            <Text as="p" size="medium" mb="4" color="text-low">
               All changes to features are tracked as revisions. Kill switch
               changes always open a modal where you can choose to save to a
               draft or auto-publish.
@@ -198,8 +198,29 @@ export default function ApprovalFlowSettings() {
                             )
                           }
                         />
+                        <Checkbox
+                          id={`toggle-block-self-approval-${i}`}
+                          label="Require approval from a non-editor"
+                          description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
+                          value={
+                            !!form.watch(
+                              `requireReviews.${i}.blockSelfApproval`,
+                            )
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `requireReviews.${i}.blockSelfApproval`,
+                              v,
+                            )
+                          }
+                        />
                         <Box mt="2">
-                          <Text as="label" size="2" weight="bold" mb="2">
+                          <Text
+                            as="label"
+                            size="medium"
+                            weight="semibold"
+                            mb="2"
+                          >
                             Require approval for
                           </Text>
                           <Flex direction="column" gap="2" align="start">
@@ -264,12 +285,12 @@ export default function ApprovalFlowSettings() {
                 ))}
               </>
             )}
-          </Box>
+          </Frame>
         </Box>
 
         <Box mb="6" width="100%">
-          <Box className="appbox p-3">
-            <Heading size="3" className="font-weight-semibold" mb="4">
+          <Frame p="3" mb="0">
+            <Heading as="h4" size="small" weight="semibold" mb="4">
               Saved Groups
             </Heading>
 
@@ -286,10 +307,17 @@ export default function ApprovalFlowSettings() {
             {!!form.watch("approvalFlows.savedGroups.required") && (
               <Flex direction="column" gap="3" mt="2" ml="5">
                 <Box mt="2">
-                  <Text as="label" size="2" weight="bold" mb="2">
+                  <Text as="label" size="medium" weight="semibold" mb="2">
                     Require approval for
                   </Text>
                   <Flex direction="column" gap="2" align="start">
+                    <Checkbox
+                      id="toggle-saved-group-values-conditions"
+                      label="Values and conditions"
+                      value={true}
+                      disabled={true}
+                      setValue={() => undefined}
+                    />
                     <Checkbox
                       id="toggle-saved-group-metadata-review"
                       label="Metadata changes (description, owner, project, tags, etc.)"
@@ -307,9 +335,39 @@ export default function ApprovalFlowSettings() {
                     />
                   </Flex>
                 </Box>
+                <Checkbox
+                  id="toggle-saved-group-reset-review-on-change"
+                  label="Reset review on changes"
+                  description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
+                  value={
+                    !!form.watch(
+                      `approvalFlows.savedGroups.resetReviewOnChange`,
+                    )
+                  }
+                  setValue={(v) =>
+                    form.setValue(
+                      `approvalFlows.savedGroups.resetReviewOnChange`,
+                      v,
+                    )
+                  }
+                />
+                <Checkbox
+                  id="toggle-saved-group-block-self-approval"
+                  label="Require approval from a non-editor"
+                  description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
+                  value={
+                    !!form.watch(`approvalFlows.savedGroups.blockSelfApproval`)
+                  }
+                  setValue={(v) =>
+                    form.setValue(
+                      `approvalFlows.savedGroups.blockSelfApproval`,
+                      v,
+                    )
+                  }
+                />
               </Flex>
             )}
-          </Box>
+          </Frame>
         </Box>
       </Flex>
     </Frame>

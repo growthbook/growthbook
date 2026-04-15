@@ -16,6 +16,11 @@ import { getAdapter } from "back-end/src/revisions/index";
  * The first time an entity participates in the revision workflow, we backfill a
  * baseline revision so the history view has a starting point. No-op if any
  * revisions already exist for this target.
+ *
+ * Callers must already have verified that the current user can edit the
+ * underlying entity — `RevisionModel.canCreate` delegates to the entity
+ * adapter's `canCreate` (which mirrors the "edit entity" permission), so a
+ * caller who lacks update permission will get a permission error here.
  */
 export async function ensureLiveRevisionExists(
   context: ReqContext | ApiReqContext,
@@ -35,23 +40,28 @@ export async function ensureLiveRevisionExists(
   const authorId = entity.owner || context.userId;
   const snapshot = getAdapter(entityType).buildSnapshot(entity);
 
-  await context.models.revisions.create({
-    authorId,
-    target: {
-      type: entityType,
-      id: entity.id,
-      snapshot,
-      proposedChanges: [] as JsonPatchOperation[],
-    },
-    status: "merged",
-    resolution: {
-      action: "merged",
-      userId: authorId,
-      dateCreated: entity.dateCreated || new Date(),
-    },
-    activityLog: [],
-    reviews: [],
-  } as unknown as Parameters<typeof context.models.revisions.create>[0]);
+  // Wrapped in createWithVersionRetry so that two concurrent backfill calls
+  // (e.g. two users editing the same untracked entity at the same time) don't
+  // collide on the unique (target.type, target.id, version) index.
+  await context.models.revisions.createWithVersionRetry(() =>
+    context.models.revisions.create({
+      authorId,
+      target: {
+        type: entityType,
+        id: entity.id,
+        snapshot,
+        proposedChanges: [] as JsonPatchOperation[],
+      },
+      status: "merged",
+      resolution: {
+        action: "merged",
+        userId: authorId,
+        dateCreated: entity.dateCreated || new Date(),
+      },
+      activityLog: [],
+      reviews: [],
+    } as unknown as Parameters<typeof context.models.revisions.create>[0]),
+  );
 }
 
 /**
@@ -65,29 +75,6 @@ export function isRevisionRequired(
   _resourceId: string,
 ): boolean {
   return getAdapter(resourceType).isRevisionRequired(context);
-}
-
-/**
- * Build a clean snapshot of a saved group for use in revision targets.
- * Converts null/undefined optional fields to undefined so they don't persist as null in MongoDB.
- *
- * @deprecated Prefer `getAdapter("saved-group").buildSnapshot(entity)` for new code.
- */
-export function buildSavedGroupSnapshot(
-  savedGroup: SavedGroupInterface,
-): SavedGroupInterface {
-  const { _id, ...rest } = savedGroup as SavedGroupInterface & {
-    _id?: unknown;
-  };
-  return {
-    ...rest,
-    values: savedGroup.values ?? undefined,
-    condition: savedGroup.condition ?? undefined,
-    attributeKey: savedGroup.attributeKey ?? undefined,
-    description: savedGroup.description ?? undefined,
-    projects: savedGroup.projects ?? undefined,
-    useEmptyListGroup: savedGroup.useEmptyListGroup ?? undefined,
-  };
 }
 
 /**

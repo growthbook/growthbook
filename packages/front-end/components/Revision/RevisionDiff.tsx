@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
@@ -29,9 +30,11 @@ export function RevisionDiff({
           {/* Summary of changes */}
           {(badges.length > 0 || customRenderGroups.length > 0) && (
             <>
-              <h4 className="mb-3">Summary of changes</h4>
+              <Heading as="h4" size="medium" mb="3">
+                Summary of changes
+              </Heading>
               {badges.length > 0 && (
-                <Flex wrap="wrap" gap="2" className="mb-3">
+                <Flex wrap="wrap" gap="2" mb="3">
                   {badges.map(({ label, action }, i) => (
                     <Badge
                       key={`${label}-${i}`}
@@ -46,32 +49,58 @@ export function RevisionDiff({
               {customRenderGroups.some(
                 ({ renders }) => renders.length > 0 && renders[0] != null,
               ) && (
-                <div className="list-group mb-4">
+                <Flex
+                  direction="column"
+                  mb="4"
+                  style={{
+                    border: "1px solid var(--gray-a5)",
+                    borderRadius: "var(--radius-2)",
+                    overflow: "hidden",
+                  }}
+                >
                   {customRenderGroups
                     .filter(
                       ({ renders }) => renders.length > 0 && renders[0] != null,
                     )
-                    .map(({ label, renders, suppressCardLabel }) => (
-                      <div
+                    .map(({ label, renders, suppressCardLabel }, idx) => (
+                      <Box
                         key={label}
-                        className="list-group-item list-group-item-light pb-3"
+                        px="3"
+                        pt="3"
+                        pb="3"
+                        style={{
+                          background: "var(--gray-2)",
+                          borderTop:
+                            idx > 0 ? "1px solid var(--gray-a5)" : undefined,
+                        }}
                       >
                         {!suppressCardLabel && (
-                          <strong className="d-block mb-2">{label}</strong>
+                          <Text as="div" weight="semibold" mb="2">
+                            {label}
+                          </Text>
                         )}
                         {renders.map((r, i) => (
                           <div key={i}>{r}</div>
                         ))}
-                      </div>
+                      </Box>
                     ))}
-                </div>
+                </Flex>
               )}
             </>
           )}
 
           {/* Change details */}
-          <h4 className="mb-3">Change details</h4>
-          <div className="list-group mb-4">
+          <Heading as="h4" size="medium" mb="3">
+            Change details
+          </Heading>
+          <Flex
+            direction="column"
+            mb="4"
+            style={{
+              border: diffs.length > 0 ? undefined : "1px solid var(--gray-a5)",
+              borderRadius: diffs.length > 0 ? undefined : "var(--radius-2)",
+            }}
+          >
             {diffs.length > 0 ? (
               diffs.map((d, i) => (
                 <ExpandableDiff
@@ -84,13 +113,13 @@ export function RevisionDiff({
                 />
               ))
             ) : (
-              <div className="list-group-item">
+              <Box p="3">
                 <Text size="medium" color="text-low">
                   No material changes detected
                 </Text>
-              </div>
+              </Box>
             )}
-          </div>
+          </Flex>
         </>
       )}
     </Box>

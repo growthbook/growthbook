@@ -1,5 +1,8 @@
 import isEqual from "lodash/isEqual";
-import type { ApprovalFlowConfigurations } from "shared/types/organization";
+import type {
+  ApprovalFlowConfiguration,
+  ApprovalFlowConfigurations,
+} from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
 import type {
   RevisionTargetType,
@@ -9,6 +12,55 @@ import type {
   MergeResult,
   JsonPatchOperation,
 } from "../validators/revisions";
+
+/**
+ * Resolve the approval-flow configuration for a given entity type.
+ *
+ * Extension point: when introducing a new RevisionTargetType, add a `case`
+ * mapping it to the corresponding key on `ApprovalFlowConfigurations`.
+ *
+ * Returns `undefined` if no approval-flow config exists for the entity type
+ * yet (treat the same as "no approval flow features enabled").
+ */
+export const getApprovalFlowSettings = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  entityType: RevisionTargetType,
+): ApprovalFlowConfiguration | undefined => {
+  if (!approvalFlows) return undefined;
+  switch (entityType) {
+    case "saved-group":
+      return approvalFlows.savedGroups;
+    // case "feature": return approvalFlows.features;  ← add future entity types here
+    default:
+      return undefined;
+  }
+};
+
+/**
+ * Returns true when `userId` contributed to the revision and the entity-type's
+ * `blockSelfApproval` setting is enabled — meaning the user must NOT be allowed
+ * to approve.
+ *
+ * Legacy revisions written before `contributors` existed fall back to
+ * `[authorId]`, so the existing author-self-review guard remains the only
+ * effective gate for them.
+ */
+export const isUserBlockedFromApproving = ({
+  approvalFlows,
+  entityType,
+  revision,
+  userId,
+}: {
+  approvalFlows: ApprovalFlowConfigurations | undefined;
+  entityType: RevisionTargetType;
+  revision: Pick<Revision, "authorId" | "contributors">;
+  userId: string;
+}): boolean => {
+  const settings = getApprovalFlowSettings(approvalFlows, entityType);
+  if (!settings?.blockSelfApproval) return false;
+  const contributors = revision.contributors ?? [revision.authorId];
+  return contributors.includes(userId);
+};
 
 /**
  * Map entity types to a key used for logging/identification.
@@ -78,7 +130,9 @@ export const canUserReviewEntity = ({
     const found = ops
       .slice()
       .reverse()
-      .find((op) => op.path === path && (op.op === "replace" || op.op === "add"));
+      .find(
+        (op) => op.path === path && (op.op === "replace" || op.op === "add"),
+      );
     return found && (found.op === "replace" || found.op === "add")
       ? found.value
       : undefined;
@@ -111,7 +165,9 @@ export const canUserReviewEntity = ({
 export function normalizeProposedChanges(
   proposedChanges: unknown,
 ): JsonPatchOperation[] {
-  return Array.isArray(proposedChanges) ? (proposedChanges as JsonPatchOperation[]) : [];
+  return Array.isArray(proposedChanges)
+    ? (proposedChanges as JsonPatchOperation[])
+    : [];
 }
 
 /**

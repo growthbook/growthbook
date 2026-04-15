@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { Box, Flex } from "@radix-ui/themes";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -24,21 +25,29 @@ const INLINE_LIMIT = 200;
 function ValuesBox({
   values,
   marker,
-  colorClass,
+  color,
 }: {
   values: string[];
   marker: string;
-  colorClass: string;
+  color: "danger" | "success";
 }) {
+  const textColor = color === "danger" ? "var(--red-11)" : "var(--green-11)";
   return (
-    <div className={`d-flex align-items-start mb-1 ${colorClass}`}>
-      <div
-        className="text-center font-weight-bold mr-2 mt-1"
-        style={{ width: 16, flexShrink: 0, lineHeight: "1.6" }}
+    <Flex align="start" mb="1" style={{ color: textColor }}>
+      <Box
+        mr="2"
+        mt="1"
+        style={{
+          width: 16,
+          flexShrink: 0,
+          textAlign: "center",
+          fontWeight: 600,
+          lineHeight: "1.6",
+        }}
       >
         {marker}
-      </div>
-      <div
+      </Box>
+      <Box
         style={{
           flex: 1,
           border: "1px solid var(--gray-5)",
@@ -57,10 +66,12 @@ function ValuesBox({
         {values.length ? (
           values.join("\n")
         ) : (
-          <em className="text-muted">None</em>
+          <Text fontStyle="italic" color="text-low">
+            None
+          </Text>
         )}
-      </div>
-    </div>
+      </Box>
+    </Flex>
   );
 }
 
@@ -93,27 +104,35 @@ function ValueChangedField({
       );
     }
     return (
-      <div className="d-flex align-items-start mb-2">
-        <div className="text-danger d-flex align-items-start">
-          <div className="text-center mr-2" style={{ width: 16 }}>
+      <Flex align="start" mb="2">
+        <Flex align="start" style={{ color: "var(--red-11)" }}>
+          <Box mr="2" style={{ width: 16, textAlign: "center" }}>
             Δ
-          </div>
-          <div>{displayVal(pre)}</div>
-        </div>
-        <div className="font-weight-bold text-success d-flex align-items-start ml-4">
-          <div className="text-center mx-2" style={{ width: 16 }}>
+          </Box>
+          <Box>{displayVal(pre)}</Box>
+        </Flex>
+        <Flex
+          align="start"
+          ml="4"
+          style={{ color: "var(--green-11)", fontWeight: 600 }}
+        >
+          <Box mx="2" style={{ width: 16, textAlign: "center" }}>
             →
-          </div>
-          <div>{displayVal(post)}</div>
-        </div>
-      </div>
+          </Box>
+          <Box>{displayVal(post)}</Box>
+        </Flex>
+      </Flex>
     );
   }
   // Multi-line content — use inline diff viewer.
   return (
-    <div className="mb-2">
-      {label && <div className="font-weight-bold mb-1">{label}</div>}
-      <div
+    <Box mb="2">
+      {label && (
+        <Box mb="1">
+          <Text weight="semibold">{label}</Text>
+        </Box>
+      )}
+      <Box
         className="diff-wrapper diff-wrapper-compact"
         style={{ maxHeight: 250, overflowY: "auto" }}
       >
@@ -123,8 +142,8 @@ function ValueChangedField({
           compareMethod={DiffMethod.LINES}
           styles={COMPACT_DIFF_STYLES}
         />
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
@@ -172,7 +191,7 @@ export function renderSavedGroupTargeting(
     ),
   );
 
-  return <div className="mt-1">{rows}</div>;
+  return <Box mt="1">{rows}</Box>;
 }
 
 // Shows values array and attributeKey for list-type saved groups.
@@ -213,13 +232,13 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
 
       if (deltaCount > 0 && deltaCount <= 20) {
         rows.push(
-          <div key="values-badges" className="mb-2">
-            <div className="mb-1">
+          <Box key="values-badges" mb="2">
+            <Box mb="1">
               <Text size="medium" weight="medium" color="text-mid">
                 Values
               </Text>
-            </div>
-            <div className="d-flex flex-wrap" style={{ gap: 4 }}>
+            </Box>
+            <Flex wrap="wrap" gap="1">
               {removed.slice(0, 10).map((v) => (
                 <Badge
                   key={`removed-${v}`}
@@ -250,21 +269,21 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
                   variant="soft"
                 />
               )}
-            </div>
-          </div>,
+            </Flex>
+          </Box>,
         );
       } else {
         // Large delta or complete replacement - show side-by-side boxes
         rows.push(
-          <div key="values" className="mb-2">
-            <div className="mb-1">
+          <Box key="values" mb="2">
+            <Box mb="1">
               <Text size="medium" weight="medium" color="text-mid">
                 Values
               </Text>
-            </div>
-            <ValuesBox values={preVals} marker="Δ" colorClass="text-danger" />
-            <ValuesBox values={postVals} marker="→" colorClass="text-success" />
-          </div>,
+            </Box>
+            <ValuesBox values={preVals} marker="Δ" color="danger" />
+            <ValuesBox values={postVals} marker="→" color="success" />
+          </Box>,
         );
       }
     } else {
@@ -302,7 +321,7 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
     ),
   );
 
-  return rows.length ? <div className="mt-1">{rows}</div> : null;
+  return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
 // "Settings" — name and any other metadata.
@@ -372,7 +391,7 @@ export function renderSavedGroupSettings(
     ),
   );
 
-  return rows.length ? <div className="mt-1">{rows}</div> : null;
+  return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
 // "Projects" — projects array with resolved names.
@@ -394,13 +413,13 @@ export function renderSavedGroupProjects(
   // If there are additions/removals, show them as badges
   if (added.length || removed.length) {
     rows.push(
-      <div key="projects-badges" className="mb-2">
-        <div className="mb-1">
+      <Box key="projects-badges" mb="2">
+        <Box mb="1">
           <Text size="medium" weight="medium" color="text-mid">
             Projects
           </Text>
-        </div>
-        <div className="d-flex flex-wrap" style={{ gap: 4 }}>
+        </Box>
+        <Flex wrap="wrap" gap="1">
           {removed.map((id) => (
             <Badge
               key={id}
@@ -425,8 +444,8 @@ export function renderSavedGroupProjects(
               variant="soft"
             />
           ))}
-        </div>
-      </div>,
+        </Flex>
+      </Box>,
     );
   } else {
     // No additions/removals, just show the change
@@ -484,7 +503,7 @@ export function renderSavedGroupProjects(
     ),
   );
 
-  return rows.length ? <div className="mt-1">{rows}</div> : null;
+  return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
 // ─── Badge getters ────────────────────────────────────────────────────────────

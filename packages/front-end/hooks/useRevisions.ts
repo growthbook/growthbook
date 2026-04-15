@@ -1,26 +1,71 @@
 import { RevisionTargetType, Revision } from "shared/enterprise";
 import useApi from "./useApi";
 
-export function useRevisions() {
+type RevisionListOptions = {
+  // Comma-separated status list, or the alias "open" for non-merged/non-discarded.
+  status?: string;
+  limit?: number;
+  offset?: number;
+};
+
+function buildQueryString(opts: RevisionListOptions): string {
+  const params = new URLSearchParams();
+  if (opts.status) params.set("status", opts.status);
+  if (opts.limit != null) params.set("limit", String(opts.limit));
+  if (opts.offset != null) params.set("offset", String(opts.offset));
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export function useRevisions(opts: RevisionListOptions = {}) {
   const { data, error, mutate } = useApi<{
     revisions: Revision[];
-  }>(`/revision`);
+    total: number;
+    limit: number;
+    offset: number;
+  }>(`/revision${buildQueryString(opts)}`);
 
   return {
     revisions: data?.revisions || [],
+    total: data?.total ?? 0,
     isLoading: !error && !data,
     error,
     mutate,
   };
 }
 
-export function useRevisionsEntityType(entityType: RevisionTargetType) {
+/**
+ * Lightweight count of open revisions (non-merged/non-discarded), optionally
+ * scoped to an entity type. Used by the top-nav badge so it doesn't have to
+ * fetch full revision documents.
+ */
+export function useOpenRevisionCount(entityType?: RevisionTargetType) {
+  const qs = entityType ? `?entityType=${entityType}` : "";
+  const { data, error, mutate } = useApi<{ count: number }>(
+    `/revision/count${qs}`,
+  );
+  return {
+    count: data?.count ?? 0,
+    isLoading: !error && !data,
+    error,
+    mutate,
+  };
+}
+
+export function useRevisionsEntityType(
+  entityType: RevisionTargetType,
+  opts: RevisionListOptions = {},
+) {
   const { data, error, mutate } = useApi<{
     revisions: Revision[];
-  }>(`/revision/entity/${entityType}`);
+    total: number;
+    limit: number;
+    offset: number;
+  }>(`/revision/entity/${entityType}${buildQueryString(opts)}`);
 
   return {
     revisions: data?.revisions || [],
+    total: data?.total ?? 0,
     isLoading: !error && !data,
     error,
     mutate,

@@ -8,45 +8,137 @@ import {
   checkMergeConflicts,
   JsonPatchOperation,
   normalizeProposedChanges,
+  isUserBlockedFromApproving,
 } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { RevisionModel } from "back-end/src/models/RevisionModel";
-import { getAdapter, getEntityModel } from "back-end/src/revisions";
+import {
+  getAdapter,
+  getApprovalEnabledEntityTypes,
+  getEntityModel,
+} from "back-end/src/revisions";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 
 // region GET /revision
 
-type GetAllRevisionsRequest = AuthRequest;
+type RevisionListQuery = {
+  status?: string;
+  limit?: number;
+  offset?: number;
+};
+
+type GetAllRevisionsRequest = AuthRequest<
+  never,
+  Record<string, never>,
+  RevisionListQuery
+>;
 
 type GetAllRevisionsResponse = {
   status: 200;
   revisions: Revision[];
+  total: number;
+  limit: number;
+  offset: number;
 };
+
+const DEFAULT_REVISION_PAGE_SIZE = 100;
+const MAX_REVISION_PAGE_SIZE = 500;
+
+function parseStatusParam(status?: string): string[] | undefined {
+  if (!status) return undefined;
+  return status
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function resolvePagination(query: RevisionListQuery) {
+  const limit = Math.min(
+    query.limit ?? DEFAULT_REVISION_PAGE_SIZE,
+    MAX_REVISION_PAGE_SIZE,
+  );
+  const offset = query.offset ?? 0;
+  return { limit, offset };
+}
 
 /**
  * GET /revision
- * Get all revisions for the organization
- * @param req
- * @param res
+ * Get a paginated list of revisions for the organization. Pass `?status=open`
+ * to restrict to non-merged/non-discarded revisions, or a comma-separated list
+ * of explicit statuses.
  */
 export const getAllRevisions = async (
   req: GetAllRevisionsRequest,
   res: Response<GetAllRevisionsResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
+  const { limit, offset } = resolvePagination(req.query);
+  const status = parseStatusParam(req.query.status);
 
-  const revisionModel = new RevisionModel(context);
-  const revisions = await revisionModel.getAll();
+  const { revisions, total } = await context.models.revisions.getAllPaginated({
+    status,
+    limit,
+    skip: offset,
+  });
 
   res.status(200).json({
     status: 200,
     revisions,
+    total,
+    limit,
+    offset,
   });
 };
 
 // endregion GET /revision
+
+// region GET /revision/count
+
+type GetOpenRevisionCountRequest = AuthRequest<
+  never,
+  Record<string, never>,
+  { entityType?: RevisionTargetType }
+>;
+
+type GetOpenRevisionCountResponse = {
+  status: 200;
+  count: number;
+};
+
+/**
+ * GET /revision/count
+ * Lightweight count of open revisions across the org. Used by the top-nav
+ * badge so it doesn't have to fetch full revision documents.
+ *
+ * When `entityType` is not specified, the count is restricted to entity types
+ * whose approval flow is currently enabled in the org settings — otherwise
+ * stale drafts for a disabled type would inflate the badge.
+ */
+export const getOpenRevisionCount = async (
+  req: GetOpenRevisionCountRequest,
+  res: Response<GetOpenRevisionCountResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { entityType } = req.query;
+
+  if (entityType) {
+    const count =
+      await context.models.revisions.getOpenRevisionCount(entityType);
+    return res.status(200).json({ status: 200, count });
+  }
+
+  const enabledTypes = getApprovalEnabledEntityTypes(context);
+  if (enabledTypes.length === 0) {
+    return res.status(200).json({ status: 200, count: 0 });
+  }
+
+  const count =
+    await context.models.revisions.getOpenRevisionCountByTypes(enabledTypes);
+  res.status(200).json({ status: 200, count });
+};
+
+// endregion GET /revision/count
 
 // region POST /revision
 
@@ -99,7 +191,7 @@ export const postRevision = async (
     context.permissions.throwPermissionError();
   }
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
 
   const revision = await revisionModel.createRequest({
     type: entityType,
@@ -120,19 +212,22 @@ export const postRevision = async (
 
 type GetRevisionsByEntityTypeRequest = AuthRequest<
   never,
-  { entityType: RevisionTargetType }
+  { entityType: RevisionTargetType },
+  RevisionListQuery
 >;
 
 type GetRevisionsByEntityTypeResponse = {
   status: 200;
   revisions: Revision[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 /**
  * GET /revision/entity/:entityType
- * Get all revisions for a specific entity type
- * @param req
- * @param res
+ * Get a paginated list of revisions for a specific entity type. Same query
+ * params as GET /revision (`status`, `limit`, `offset`).
  */
 export const getRevisionsByEntityType = async (
   req: GetRevisionsByEntityTypeRequest,
@@ -140,13 +235,22 @@ export const getRevisionsByEntityType = async (
 ) => {
   const context = getContextFromReq(req);
   const { entityType } = req.params;
+  const { limit, offset } = resolvePagination(req.query);
+  const status = parseStatusParam(req.query.status);
 
-  const revisionModel = new RevisionModel(context);
-  const revisions = await revisionModel.getByTargetType(entityType);
+  const { revisions, total } =
+    await context.models.revisions.getByTargetTypePaginated(entityType, {
+      status,
+      limit,
+      skip: offset,
+    });
 
   res.status(200).json({
     status: 200,
     revisions,
+    total,
+    limit,
+    offset,
   });
 };
 // endregion GET /revision/entity/:entityType
@@ -175,7 +279,7 @@ export const getRevisionBeacon = async (
   const context = getContextFromReq(req);
   const { entityType } = req.params;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
   const openRevisionTargetIds =
     await revisionModel.getOpenRevisionTargetIds(entityType);
 
@@ -212,7 +316,7 @@ export const getRevisionsByEntity = async (
   const context = getContextFromReq(req);
   const { entityType, entityId } = req.params;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
   const revisions = await revisionModel.getByTarget(entityType, entityId);
 
   res.status(200).json({
@@ -245,7 +349,7 @@ export const getRevision = async (
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
   const revision = await revisionModel.getById(id);
 
   if (!revision) {
@@ -285,7 +389,7 @@ export const postSubmit = async (
   const { userId } = context;
   const { id } = req.params;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
 
   const existingRevision = await revisionModel.getById(id);
   if (!existingRevision) {
@@ -356,7 +460,7 @@ export const postReview = async (
   const { id } = req.params;
   const { decision, comment } = req.body;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
 
   const existingRevision = await revisionModel.getById(id);
   if (!existingRevision) {
@@ -377,6 +481,26 @@ export const postReview = async (
   if (existingRevision.authorId === userId && decision !== "comment") {
     return res.status(403).json({
       message: "Cannot approve or request changes on your own revision",
+    });
+  }
+
+  // When `blockSelfApproval` is enabled for this entity type, anyone in the
+  // contributors[] list (in addition to the author) is barred from approving.
+  // Only `approve` is gated; `request-changes` and `comment` remain open.
+  // Legacy revisions with no `contributors` field fall back to `[authorId]`,
+  // which means the existing author check above is the only effective guard.
+  if (
+    decision === "approve" &&
+    isUserBlockedFromApproving({
+      approvalFlows: context.org.settings?.approvalFlows,
+      entityType: existingRevision.target.type,
+      revision: existingRevision,
+      userId,
+    })
+  ) {
+    return res.status(403).json({
+      message:
+        "You contributed to this revision and cannot approve it. A separate reviewer is required.",
     });
   }
 
@@ -429,7 +553,7 @@ export const putProposedChanges = async (
   const { id } = req.params;
   const { proposedChanges } = req.body;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
 
   const existingRevision = await revisionModel.getById(id);
   if (!existingRevision) {
@@ -492,7 +616,7 @@ export const patchTitle = async (
   const { id } = req.params;
   const { title } = req.body;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
 
   const existingRevision = await revisionModel.getById(id);
   if (!existingRevision) {
@@ -559,7 +683,7 @@ export const postRebase = async (
   const { id } = req.params;
   const { strategies, customValues, mergeResultSerialized } = req.body;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
 
   const revision = await revisionModel.getById(id);
   if (!revision) {
@@ -741,7 +865,7 @@ export const postMerge = async (
   const { userId } = context;
   const { id } = req.params;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
   const revision = await revisionModel.getById(id);
 
   if (!revision) {
@@ -824,7 +948,18 @@ export const postMerge = async (
     });
   }
 
-  // Apply entity update FIRST, then mark revision as merged (defensive write ordering)
+  // Two-step merge: update the live entity first, then mark the revision merged.
+  // These writes are NOT wrapped in a transaction (Mongo multi-document
+  // transactions aren't guaranteed to be available across our deployment
+  // targets). Failure modes:
+  //   1. applyChanges throws -> revision stays in its current status; the
+  //      entity is unchanged. The user can retry safely.
+  //   2. applyChanges succeeds, merge() throws -> entity is updated but the
+  //      revision is still flagged as approved/pending. The next merge attempt
+  //      is a no-op (hasChanges check above returns false) and the operator
+  //      can manually mark the revision merged, or another publish will close
+  //      it via the same path. This is preferred over the inverse ordering,
+  //      which would mark the revision merged without persisting the change.
   await adapter.applyChanges(
     context,
     entity as Record<string, unknown>,
@@ -868,7 +1003,7 @@ export const postClose = async (
   const { id } = req.params;
   const { reason } = req.body;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
 
   const existingRevision = await revisionModel.getById(id);
   if (!existingRevision) {
@@ -929,7 +1064,7 @@ export const postReopen = async (
   const { userId } = context;
   const { id } = req.params;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
 
   const existingRevision = await revisionModel.getById(id);
   if (!existingRevision) {
@@ -990,7 +1125,7 @@ export const getRevisionHistory = async (
   const context = getContextFromReq(req);
   const { entityType, entityId } = req.params;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
   const revisions = await revisionModel.getEntityRevisionHistory(
     entityType,
     entityId,
@@ -1028,7 +1163,7 @@ export const getConflicts = async (
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const revisionModel = new RevisionModel(context);
+  const revisionModel = context.models.revisions;
   const revision = await revisionModel.getById(id);
   if (!revision) {
     return res.status(404).json({ message: "Revision not found" });
@@ -1045,6 +1180,8 @@ export const getConflicts = async (
     return res.status(404).json({ message: "Entity not found" });
   }
 
+  // The Zod-typed snapshot widens to a generic object so checkMergeConflicts
+  // can compare arbitrary entity shapes; the adapter owns the concrete type.
   const result = checkMergeConflicts(
     revision.target.snapshot as unknown as Record<string, unknown>,
     liveEntity as Record<string, unknown>,

@@ -2,6 +2,7 @@ import express from "express";
 import { z } from "zod";
 import {
   revisionTargetType,
+  revisionStatus,
   revisionCreateValidator,
   jsonPatchOperationValidator,
 } from "shared/enterprise";
@@ -13,8 +14,61 @@ const router = express.Router();
 
 const revisionController = wrapController(rawRevisionController);
 
-// Get all revisions for the organization
-router.get("/", revisionController.getAllRevisions);
+// Allowed `status` query values: any individual revision status, or the alias
+// "open" for non-merged/non-discarded. Validated server-side so a typo
+// (e.g. "?status=garabge") returns a 400 instead of silently matching nothing.
+const revisionStatusQueryValues = [...revisionStatus, "open"] as const;
+
+// Shared pagination/filtering query schema for revision list endpoints.
+// `status` can be a single value or a comma-separated list of values from
+// `revisionStatusQueryValues`.
+const revisionListQuery = z
+  .object({
+    status: z
+      .string()
+      .optional()
+      .refine(
+        (val) => {
+          if (!val) return true;
+          const parts = val
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return parts.every((p) =>
+            (revisionStatusQueryValues as readonly string[]).includes(p),
+          );
+        },
+        {
+          message: `status must be a comma-separated list of: ${revisionStatusQueryValues.join(
+            ", ",
+          )}`,
+        },
+      ),
+    limit: z.coerce.number().int().min(1).max(500).optional(),
+    offset: z.coerce.number().int().min(0).optional(),
+  })
+  .strict();
+
+// Get all revisions for the organization (paginated; status filter optional)
+router.get(
+  "/",
+  validateRequestMiddleware({ query: revisionListQuery }),
+  revisionController.getAllRevisions,
+);
+
+// Lightweight count of open revisions across the org (optionally scoped to a type).
+// Used by the top-nav badge.
+router.get(
+  "/count",
+  validateRequestMiddleware({
+    query: z
+      .object({
+        entityType: z.enum(revisionTargetType).optional(),
+      })
+      .strict(),
+  }),
+  revisionController.getOpenRevisionCount,
+);
 
 // Create a new revision (or update existing one if user has an open draft)
 router.post(
@@ -52,7 +106,7 @@ router.get(
   revisionController.getRevisionsByEntity,
 );
 
-// Get all revisions for a specific entity type
+// Get all revisions for a specific entity type (paginated; status filter optional)
 router.get(
   "/entity/:entityType",
   validateRequestMiddleware({
@@ -61,6 +115,7 @@ router.get(
         entityType: z.enum(revisionTargetType),
       })
       .strict(),
+    query: revisionListQuery,
   }),
   revisionController.getRevisionsByEntityType,
 );

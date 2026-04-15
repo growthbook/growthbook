@@ -868,7 +868,9 @@ export default function CompareSavedGroupRevisionsModal({
               <Text size="medium" weight="medium" color="text-mid">
                 Select range of revisions
               </Text>
-              {(hasDraftRevisions || hasDiscardedRevisions || hasMergedRevisions) &&
+              {(hasDraftRevisions ||
+                hasDiscardedRevisions ||
+                hasMergedRevisions) &&
                 (() => {
                   const opts = [
                     ...(hasMergedRevisions

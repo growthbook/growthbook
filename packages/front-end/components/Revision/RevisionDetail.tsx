@@ -7,6 +7,7 @@ import {
   checkMergeConflicts,
   MergeResult,
   applyTopLevelPatchOps,
+  isUserBlockedFromApproving,
 } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import Text from "@/ui/Text";
@@ -27,6 +28,7 @@ import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import FixRevisionConflictsModal from "./FixRevisionConflictsModal";
 import { getStatusBadge } from "./revisionUtils";
 import { RevisionDiff } from "./RevisionDiff";
+import { useRevisionReview, reviewMessages } from "./useRevisionReview";
 
 interface RevisionDetailProps<T> {
   revision: Revision;
@@ -53,19 +55,12 @@ function RevisionDetail<T>({
   requiresApproval = true,
   closeModal,
 }: RevisionDetailProps<T>) {
-  const { getUserDisplay, userId, user } = useUser();
+  const { getUserDisplay, userId, user, organization } = useUser();
   const { apiCall } = useAuth();
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [bypassApproval, setBypassApproval] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
   const [showFixConflicts, setShowFixConflicts] = useState(false);
-  const [reviewDropdownOpen, setReviewDropdownOpen] = useState(false);
-  const [reviewComment, setReviewComment] = useState("");
-  const [reviewDecision, setReviewDecision] = useState<
-    "approve" | "request-changes" | "comment"
-  >("comment");
-  const [reviewError, setReviewError] = useState<string | null>(null);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [mergeResult, setMergeResult] = useState<MergeResult | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -172,90 +167,35 @@ function RevisionDetail<T>({
       {},
     );
   const isRevisionAuthor = !!userId && revision.authorId === userId;
-  const approveOwnChangesMessage =
-    "You cannot approve your own proposed changes.";
-  const requestOwnChangesMessage =
-    "You cannot request changes on your own proposed changes.";
+  const isBlockedContributor =
+    !!userId &&
+    isUserBlockedFromApproving({
+      approvalFlows: organization?.settings?.approvalFlows,
+      entityType: revision.target.type,
+      revision,
+      userId,
+    });
 
-  useEffect(() => {
-    if (isRevisionAuthor && reviewDecision !== "comment") {
-      setReviewDecision("comment");
-    }
-  }, [isRevisionAuthor, reviewDecision]);
-
-  // Handle submitting a review
-  const handleSubmitForReview = async () => {
-    setIsSubmitting(true);
-    setReviewError(null);
-    try {
-      const response = await apiCall<{ revision: Revision }>(
-        `/revision/${revision.id}/submit`,
-        {
-          method: "POST",
-        },
-      );
-
-      // Update the current revision with the response
-      if (response.revision) {
-        setCurrentRevision(response.revision);
-      }
-      mutate?.();
-      closeModal?.();
-    } catch (error) {
-      setReviewError(
-        error instanceof Error ? error.message : "Failed to submit for review",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSubmitReview = async (
-    decision: "approve" | "request-changes" | "comment",
-    reviewCommentText: string,
-  ) => {
-    if (isRevisionAuthor && decision !== "comment") {
-      setReviewError(
-        decision === "approve"
-          ? approveOwnChangesMessage
-          : requestOwnChangesMessage,
-      );
-      return;
-    }
-
-    setIsSubmitting(true);
-    setReviewError(null);
-    try {
-      const response = await apiCall<{ revision: Revision }>(
-        `/revision/${revision.id}/review`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            decision,
-            comment: reviewCommentText,
-          }),
-        },
-      );
-
-      // Update the current revision with the response
-      if (response.revision) {
-        setCurrentRevision(response.revision);
-      }
-
-      // Also refresh the list in the background
-      mutate?.();
-
-      setReviewComment("");
-      setReviewDecision("comment");
-      setReviewDropdownOpen(false);
-    } catch (error) {
-      setReviewError(
-        error instanceof Error ? error.message : "Failed to submit review",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const {
+    isSubmitting,
+    setIsSubmitting,
+    reviewError,
+    reviewComment,
+    setReviewComment,
+    reviewDecision,
+    setReviewDecision,
+    reviewDropdownOpen,
+    setReviewDropdownOpen,
+    submitForReview: handleSubmitForReview,
+    submitReview: handleSubmitReview,
+  } = useRevisionReview({
+    revision,
+    isRevisionAuthor,
+    isBlockedContributor,
+    setCurrentRevision,
+    mutate,
+    closeModal,
+  });
 
   // Prepare diff data
   const baseSnapshot =
@@ -550,6 +490,26 @@ function RevisionDetail<T>({
             {`${getUserDisplay(revision.authorId)} on ${date(revision.dateCreated)}`}
           </Text>
           {getStatusBadge(revision.status, requiresApproval)}
+          {(() => {
+            // Show contributors other than the author. Hides on legacy revisions
+            // where contributors[] is missing or only contains the author.
+            const others = (revision.contributors ?? []).filter(
+              (id) => id !== revision.authorId,
+            );
+            if (others.length === 0) return null;
+            return (
+              <Tooltip
+                content={others
+                  .map((id) => getUserDisplay(id) || id)
+                  .join(", ")}
+              >
+                <Text size="small" color="text-low">
+                  + {others.length} co-author
+                  {others.length === 1 ? "" : "s"}
+                </Text>
+              </Tooltip>
+            );
+          })()}
         </Flex>
         <Flex gap="2">
           {revision.status === "draft" ? (
@@ -578,30 +538,28 @@ function RevisionDetail<T>({
                     </Button>
                   </span>
                 </Tooltip>
-                {bypassApproval ||
-                  canMerge() ||
-                  (!requiresApproval && (
-                    <Tooltip
-                      content={
-                        diffs.length === 0 ? "No changes to publish" : undefined
-                      }
-                      enabled={!canMerge() && !isSubmitting}
-                    >
-                      <span style={{ display: "inline-block" }}>
-                        <Button
-                          variant="ghost"
-                          color="red"
-                          onClick={handleMerge}
-                          disabled={isSubmitting || !canMerge()}
-                          style={
-                            !canMerge() ? { pointerEvents: "none" } : undefined
-                          }
-                        >
-                          Publish
-                        </Button>
-                      </span>
-                    </Tooltip>
-                  ))}
+                {canMerge() && (
+                  <Tooltip
+                    content={
+                      diffs.length === 0 ? "No changes to publish" : undefined
+                    }
+                    enabled={!canMerge() && !isSubmitting}
+                  >
+                    <span style={{ display: "inline-block" }}>
+                      <Button
+                        variant="ghost"
+                        color="red"
+                        onClick={handleMerge}
+                        disabled={isSubmitting || !canMerge()}
+                        style={
+                          !canMerge() ? { pointerEvents: "none" } : undefined
+                        }
+                      >
+                        Publish
+                      </Button>
+                    </span>
+                  </Tooltip>
+                )}
               </>
             ) : (
               <Tooltip
@@ -679,14 +637,18 @@ function RevisionDetail<T>({
                             description:
                               "Submit feedback that must be addressed",
                             disabled: isRevisionAuthor,
-                            disabledReason: requestOwnChangesMessage,
+                            disabledReason: reviewMessages.requestOwnChanges,
                           },
                           {
                             value: "approve",
                             label: "Approve",
                             description: "Approve and allow merging",
-                            disabled: isRevisionAuthor,
-                            disabledReason: approveOwnChangesMessage,
+                            disabled: isRevisionAuthor || isBlockedContributor,
+                            disabledReason: isRevisionAuthor
+                              ? reviewMessages.approveOwnChanges
+                              : isBlockedContributor
+                                ? reviewMessages.blockedContributorApprove
+                                : undefined,
                           },
                         ]}
                       />

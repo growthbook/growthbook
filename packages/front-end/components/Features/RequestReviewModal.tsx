@@ -77,8 +77,11 @@ export default function RequestReviewModal({
   const user = getCurrentUser();
   const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const canAdminPublish =
-    user?.role === "admin" || permissionsUtil.canBypassApprovalChecks(feature);
+  // Use the bypass-approval permission as the single source of truth — admins
+  // get this permission automatically, and projects/.cursor/rules/permissions.md
+  // forbids hardcoded role checks (gives admins a backdoor that the permission
+  // system can't see or revoke).
+  const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||

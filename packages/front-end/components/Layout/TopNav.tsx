@@ -44,7 +44,7 @@ import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
-import { useRevisions } from "@/hooks/useRevisions";
+import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -68,12 +68,10 @@ const TopNav: FC<{
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
 
   const hasApprovalFlows = hasCommercialFeature("require-approvals");
-  const { revisions } = useRevisions();
-  const pendingReviewCount = useMemo(() => {
-    if (!hasApprovalFlows) return 0;
-    return revisions.filter((f) => !["merged", "discarded"].includes(f.status))
-      .length;
-  }, [hasApprovalFlows, revisions]);
+  // Lightweight count endpoint — avoids fetching every open revision document
+  // just to render a badge. Filtered server-side to non-merged/non-discarded.
+  const { count: openRevisionCount } = useOpenRevisionCount();
+  const pendingReviewCount = hasApprovalFlows ? openRevisionCount : 0;
 
   // The current org might not be in the organizations list if the user is a superAdmin
   // and selected the org from the /admin page. So we add it here.

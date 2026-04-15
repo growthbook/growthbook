@@ -54,21 +54,22 @@ export function ExpandableConflict({
   const proposedStr = formatValue(conflict.proposedValue);
 
   return (
-    <div
-      className="diff-wrapper mb-4"
+    <Box
+      className="diff-wrapper"
+      mb="4"
       style={{
         border: "1px solid var(--gray-a6)",
         overflow: "hidden",
       }}
     >
-      <div
-        className="list-group-item list-group-item-action d-flex align-items-center"
+      <Flex
+        align="center"
+        gap="2"
+        px="3"
+        py="2"
         style={{
           cursor: "pointer",
-          gap: "0.5rem",
-          border: "none",
           borderBottom: "1px solid var(--gray-a6)",
-          borderRadius: 0,
         }}
         onClick={() => setOpen((o) => !o)}
       >
@@ -77,14 +78,12 @@ export function ExpandableConflict({
             <PiCheckBold size={20} />
           </span>
         )}
-        <span className="text-muted" style={{ whiteSpace: "nowrap" }}>
+        <Text color="text-low" whiteSpace="nowrap">
           Conflict:
-        </span>
-        <strong>{conflict.field}</strong>
-        <div className="ml-auto">
-          {open ? <FaAngleDown /> : <FaAngleRight />}
-        </div>
-      </div>
+        </Text>
+        <Text weight="semibold">{conflict.field}</Text>
+        <Box ml="auto">{open ? <FaAngleDown /> : <FaAngleRight />}</Box>
+      </Flex>
 
       <Collapsible
         open={open}
@@ -93,7 +92,7 @@ export function ExpandableConflict({
         transitionTime={250}
         easing="ease-out"
       >
-        <div className="p-0" style={{ background: "var(--color-surface)" }}>
+        <Box style={{ background: "var(--color-surface)" }}>
           {/* External Change vs Your Change columns */}
           <Grid columns="2">
             <Box
@@ -162,9 +161,9 @@ export function ExpandableConflict({
               />
             </Box>
           </Grid>
-        </div>
+        </Box>
       </Collapsible>
-    </div>
+    </Box>
   );
 }
 
@@ -360,9 +359,9 @@ export default function FixRevisionConflictsModal({
         </Box>
         {hasChanges ? (
           <Flex direction="column" gap="4">
-            <div className="mb-3">
-              <strong>Fields changed:</strong>
-              <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+            <Box mb="3">
+              <Text weight="semibold">Fields changed:</Text>
+              <Flex direction="column" gap="5" mt="2">
                 {Object.keys(mergeResult.newProposedChanges || {}).map(
                   (field) => {
                     const formatValue = (value: unknown): string => {
@@ -378,9 +377,11 @@ export default function FixRevisionConflictsModal({
                     };
 
                     return (
-                      <li key={field} style={{ marginBottom: "1.5rem" }}>
-                        <strong style={{ fontSize: "1.1em" }}>{field}</strong>
-                        <div className="diff-wrapper mt-2">
+                      <Box key={field}>
+                        <Text weight="semibold" size="large">
+                          {field}
+                        </Text>
+                        <Box className="diff-wrapper" mt="2">
                           <ReactDiffViewer
                             oldValue={formatValue(liveSnapshot[field])}
                             newValue={formatValue(
@@ -390,13 +391,13 @@ export default function FixRevisionConflictsModal({
                             styles={COMPACT_DIFF_STYLES}
                             splitView={true}
                           />
-                        </div>
-                      </li>
+                        </Box>
+                      </Box>
                     );
                   },
                 )}
-              </ul>
-            </div>
+              </Flex>
+            </Box>
           </Flex>
         ) : (
           <Text as="p" color="text-low">

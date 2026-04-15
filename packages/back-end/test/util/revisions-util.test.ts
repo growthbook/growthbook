@@ -1,9 +1,7 @@
 import type { JsonPatchOperation } from "shared/enterprise";
-import type { SavedGroupInterface } from "shared/types/saved-group";
 import {
   applyPatchToSnapshot,
   buildPatchOps,
-  buildSavedGroupSnapshot,
 } from "back-end/src/revisions/util";
 
 describe("back-end revisions/util", () => {
@@ -135,74 +133,6 @@ describe("back-end revisions/util", () => {
     });
   });
 
-  describe("buildSavedGroupSnapshot", () => {
-    const baseGroup: SavedGroupInterface = {
-      id: "sg-1",
-      organization: "org-1",
-      groupName: "My Group",
-      owner: "user-1",
-      type: "list",
-      values: ["a", "b"],
-      attributeKey: "userId",
-      description: "desc",
-      projects: ["prj-1"],
-      useEmptyListGroup: true,
-      dateCreated: new Date("2025-01-01"),
-      dateUpdated: new Date("2025-01-02"),
-    };
-
-    it("returns a clean snapshot identical to the input minus _id", () => {
-      const snap = buildSavedGroupSnapshot(baseGroup);
-      expect(snap).toEqual(baseGroup);
-    });
-
-    it("strips the mongoose _id field if present", () => {
-      const withId = {
-        ...baseGroup,
-        _id: "mongoose-internal-id",
-      } as SavedGroupInterface & { _id?: unknown };
-      const snap = buildSavedGroupSnapshot(
-        withId as unknown as SavedGroupInterface,
-      );
-      expect(snap).not.toHaveProperty("_id");
-      expect(snap.id).toBe("sg-1");
-    });
-
-    it("normalises null optional fields to undefined", () => {
-      const groupWithNulls = {
-        ...baseGroup,
-        values: null as unknown as string[],
-        condition: null as unknown as string,
-        attributeKey: null as unknown as string,
-        description: null as unknown as string,
-        projects: null as unknown as string[],
-        useEmptyListGroup: null as unknown as boolean,
-      } as SavedGroupInterface;
-
-      const snap = buildSavedGroupSnapshot(groupWithNulls);
-      expect(snap.values).toBeUndefined();
-      expect(snap.condition).toBeUndefined();
-      expect(snap.attributeKey).toBeUndefined();
-      expect(snap.description).toBeUndefined();
-      expect(snap.projects).toBeUndefined();
-      expect(snap.useEmptyListGroup).toBeUndefined();
-    });
-
-    it("preserves non-null optional fields", () => {
-      const snap = buildSavedGroupSnapshot(baseGroup);
-      expect(snap.values).toEqual(["a", "b"]);
-      expect(snap.attributeKey).toBe("userId");
-      expect(snap.description).toBe("desc");
-      expect(snap.projects).toEqual(["prj-1"]);
-      expect(snap.useEmptyListGroup).toBe(true);
-    });
-
-    it("does not mutate the input object", () => {
-      const withId = { ...baseGroup, _id: "x" } as SavedGroupInterface & {
-        _id?: unknown;
-      };
-      buildSavedGroupSnapshot(withId as unknown as SavedGroupInterface);
-      expect(withId._id).toBe("x");
-    });
-  });
+  // Snapshot-building behavior is now exercised against the saved-group
+  // adapter directly — see test/revisions/saved-group.adapter.test.ts.
 });

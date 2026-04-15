@@ -1,4 +1,4 @@
-import { RevisionTargetType } from "shared/enterprise";
+import { RevisionTargetType, revisionTargetType } from "shared/enterprise";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -20,6 +20,19 @@ const registry: Record<RevisionTargetType, EntityRevisionAdapter> = {
  */
 export function getAdapter(type: RevisionTargetType): EntityRevisionAdapter {
   return registry[type];
+}
+
+/**
+ * Return the entity types whose approval flow is enabled in this org.
+ * Used by inbox/badge queries so we don't surface revisions for types that
+ * the org has disabled the approval flow for.
+ */
+export function getApprovalEnabledEntityTypes(
+  context: ReqContext | ApiReqContext,
+): RevisionTargetType[] {
+  return revisionTargetType.filter((type) =>
+    getAdapter(type).isApprovalRequired(context as Context),
+  );
 }
 
 /**

@@ -7,6 +7,8 @@ import {
   normalizeProposedChanges,
   applyTopLevelPatchOps,
   patchOpsToPartial,
+  getApprovalFlowSettings,
+  isUserBlockedFromApproving,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -553,6 +555,153 @@ describe("revisions helpers", () => {
         teams: [teamMember],
       });
       expect(result).toBe(true);
+    });
+  });
+
+  describe("getApprovalFlowSettings", () => {
+    it("returns undefined when approvalFlows is undefined", () => {
+      expect(getApprovalFlowSettings(undefined, "saved-group")).toBeUndefined();
+    });
+
+    it("returns the savedGroups config for saved-group entityType", () => {
+      const cfg = {
+        savedGroups: {
+          required: true,
+          requireMetadataReview: false,
+          blockSelfApproval: true,
+        },
+      } as ApprovalFlowConfigurations;
+      expect(getApprovalFlowSettings(cfg, "saved-group")).toEqual(
+        cfg.savedGroups,
+      );
+    });
+
+    it("returns undefined for unknown entityType", () => {
+      const cfg = {
+        savedGroups: { required: true, requireMetadataReview: false },
+      } as ApprovalFlowConfigurations;
+      expect(
+        getApprovalFlowSettings(cfg, "unknown" as RevisionTargetType),
+      ).toBeUndefined();
+    });
+  });
+
+  describe("isUserBlockedFromApproving", () => {
+    const baseRevision = createRevision({
+      authorId: "author-1",
+      contributors: ["author-1", "user-2"],
+    });
+
+    it("returns false when blockSelfApproval is not enabled", () => {
+      expect(
+        isUserBlockedFromApproving({
+          approvalFlows: {
+            savedGroups: { required: true, requireMetadataReview: false },
+          } as ApprovalFlowConfigurations,
+          entityType: "saved-group",
+          revision: baseRevision,
+          userId: "user-2",
+        }),
+      ).toBe(false);
+    });
+
+    it("returns true when user is in contributors and blockSelfApproval is on", () => {
+      expect(
+        isUserBlockedFromApproving({
+          approvalFlows: {
+            savedGroups: {
+              required: true,
+              requireMetadataReview: false,
+              blockSelfApproval: true,
+            },
+          } as ApprovalFlowConfigurations,
+          entityType: "saved-group",
+          revision: baseRevision,
+          userId: "user-2",
+        }),
+      ).toBe(true);
+    });
+
+    it("returns true for the author when blockSelfApproval is on", () => {
+      expect(
+        isUserBlockedFromApproving({
+          approvalFlows: {
+            savedGroups: {
+              required: true,
+              requireMetadataReview: false,
+              blockSelfApproval: true,
+            },
+          } as ApprovalFlowConfigurations,
+          entityType: "saved-group",
+          revision: baseRevision,
+          userId: "author-1",
+        }),
+      ).toBe(true);
+    });
+
+    it("returns false for a non-contributor reviewer", () => {
+      expect(
+        isUserBlockedFromApproving({
+          approvalFlows: {
+            savedGroups: {
+              required: true,
+              requireMetadataReview: false,
+              blockSelfApproval: true,
+            },
+          } as ApprovalFlowConfigurations,
+          entityType: "saved-group",
+          revision: baseRevision,
+          userId: "user-3",
+        }),
+      ).toBe(false);
+    });
+
+    it("falls back to [authorId] for legacy revisions with no contributors field", () => {
+      const legacy = createRevision({
+        authorId: "author-1",
+        contributors: undefined,
+      });
+      // Author falls back as contributor → blocked
+      expect(
+        isUserBlockedFromApproving({
+          approvalFlows: {
+            savedGroups: {
+              required: true,
+              requireMetadataReview: false,
+              blockSelfApproval: true,
+            },
+          } as ApprovalFlowConfigurations,
+          entityType: "saved-group",
+          revision: legacy,
+          userId: "author-1",
+        }),
+      ).toBe(true);
+      // Other users are not blocked, since legacy revisions only know about the author
+      expect(
+        isUserBlockedFromApproving({
+          approvalFlows: {
+            savedGroups: {
+              required: true,
+              requireMetadataReview: false,
+              blockSelfApproval: true,
+            },
+          } as ApprovalFlowConfigurations,
+          entityType: "saved-group",
+          revision: legacy,
+          userId: "user-2",
+        }),
+      ).toBe(false);
+    });
+
+    it("returns false when approvalFlows is undefined", () => {
+      expect(
+        isUserBlockedFromApproving({
+          approvalFlows: undefined,
+          entityType: "saved-group",
+          revision: baseRevision,
+          userId: "author-1",
+        }),
+      ).toBe(false);
     });
   });
 });

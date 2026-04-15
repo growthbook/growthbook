@@ -9,9 +9,9 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
-import SavedGroupReferencesList from "./SavedGroupReferencesList";
 import DraftSelector, { DraftMode } from "@/components/DraftSelector";
 import SavedGroupRevisionDropdown from "@/components/SavedGroups/SavedGroupRevisionDropdown";
+import SavedGroupReferencesList from "./SavedGroupReferencesList";
 
 interface SavedGroupArchiveModalProps {
   savedGroup: SavedGroupInterface;
@@ -75,7 +75,7 @@ export default function SavedGroupArchiveModal({
   const selectedDraftRevision = useMemo(
     () =>
       selectedDraftId
-        ? allRevisions.find((r) => r.id === selectedDraftId) ?? null
+        ? (allRevisions.find((r) => r.id === selectedDraftId) ?? null)
         : null,
     [selectedDraftId, allRevisions],
   );
