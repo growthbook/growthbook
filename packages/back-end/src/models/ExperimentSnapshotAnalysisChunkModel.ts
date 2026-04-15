@@ -25,7 +25,7 @@ type ChunkWriteResult = {
 const BaseClass = MakeModelClass({
   schema: experimentSnapshotAnalysisChunkValidator,
   collectionName: "experimentsnapshotanalysischunks",
-  idPrefix: "snpana_",
+  idPrefix: "snpac_",
   globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
@@ -71,11 +71,17 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
    * Encode snapshot analyses and write one document per metric.
    * Returns chunkedAnalysesMeta for storage on the main snapshot document.
    */
-  public async createFromAnalyses(
-    snapshotId: string,
-    analyses: ExperimentSnapshotAnalysis[],
-    settings: ExperimentSnapshotSettings,
-  ): Promise<ChunkWriteResult> {
+  public async createFromAnalyses({
+    snapshotId,
+    experimentId,
+    analyses,
+    settings,
+  }: {
+    snapshotId: string;
+    experimentId: string;
+    analyses: ExperimentSnapshotAnalysis[];
+    settings: ExperimentSnapshotSettings;
+  }): Promise<ChunkWriteResult> {
     if (
       analyses.length === 0 ||
       analyses.every((analysis) => analysis.results.length === 0)
@@ -89,8 +95,6 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
       analyses,
       metricOrdering,
     );
-
-    const experimentId = settings.experimentId;
     const entries = Array.from(metricChunks.entries());
     const metricIds = entries.map(([metricId]) => metricId);
     await waitForIndexes();

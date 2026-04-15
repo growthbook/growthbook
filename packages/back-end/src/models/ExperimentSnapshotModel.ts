@@ -244,12 +244,19 @@ async function populateSnapshotAnalyses(
   return snapshotOrSnapshots;
 }
 
-async function chunkAndStripAnalyses(
-  context: Context,
-  snapshotId: string,
-  analyses: ExperimentSnapshotAnalysis[],
-  settings: ExperimentSnapshotSettings,
-): Promise<{
+async function chunkAndStripAnalyses({
+  context,
+  snapshotId,
+  experimentId,
+  analyses,
+  settings,
+}: {
+  context: Context;
+  snapshotId: string;
+  experimentId: string;
+  analyses: ExperimentSnapshotAnalysis[];
+  settings: ExperimentSnapshotSettings;
+}): Promise<{
   strippedAnalyses: ExperimentSnapshotAnalysis[];
   hasChunkedAnalyses: true;
   chunkedAnalysesMeta: AnalysisMetaEntry[];
@@ -259,11 +266,12 @@ async function chunkAndStripAnalyses(
   if (!hasResults) return null;
 
   const chunkWrite =
-    await context.models.experimentSnapshotAnalysisChunks.createFromAnalyses(
+    await context.models.experimentSnapshotAnalysisChunks.createFromAnalyses({
       snapshotId,
+      experimentId,
       analyses,
       settings,
-    );
+    });
 
   return {
     strippedAnalyses: analyses.map((a) => ({ ...a, results: [] })),
@@ -346,12 +354,13 @@ export async function updateSnapshot({
 
   // If analyses have results, chunk them into separate documents
   if (updates.analyses) {
-    chunkResult = await chunkAndStripAnalyses(
+    chunkResult = await chunkAndStripAnalyses({
       context,
-      id,
-      updates.analyses,
-      experimentSnapshot.settings,
-    );
+      snapshotId: id,
+      experimentId: experimentSnapshot.experiment,
+      analyses: updates.analyses,
+      settings: experimentSnapshot.settings,
+    });
   }
 
   if (chunkResult) {
@@ -509,12 +518,13 @@ export async function addOrUpdateSnapshotAnalysis(
             i === existingAnalysisIndex ? analysis : existingAnalysis,
           );
 
-    const chunkResult = await chunkAndStripAnalyses(
+    const chunkResult = await chunkAndStripAnalyses({
       context,
-      id,
+      snapshotId: id,
+      experimentId: snapshotInterface.experiment,
       analyses,
-      snapshotInterface.settings,
-    );
+      settings: snapshotInterface.settings,
+    });
     const updatesForDb: Partial<ExperimentSnapshotInterface> = chunkResult
       ? {
           analyses: chunkResult.strippedAnalyses,
@@ -591,12 +601,13 @@ export async function updateSnapshotAnalysis({
     const analyses = snapshotInterface.analyses.map((existingAnalysis, i) =>
       i === existingAnalysisIndex ? analysis : existingAnalysis,
     );
-    const chunkResult = await chunkAndStripAnalyses(
+    const chunkResult = await chunkAndStripAnalyses({
       context,
-      id,
+      snapshotId: id,
+      experimentId: snapshotInterface.experiment,
       analyses,
-      snapshotInterface.settings,
-    );
+      settings: snapshotInterface.settings,
+    });
     const updatesForDb: Partial<ExperimentSnapshotInterface> = chunkResult
       ? {
           analyses: chunkResult.strippedAnalyses,
@@ -921,12 +932,13 @@ export async function createExperimentSnapshotModel({
     throw new Error("Snapshot already has chunked analyses.");
   }
 
-  const chunkResult = await chunkAndStripAnalyses(
+  const chunkResult = await chunkAndStripAnalyses({
     context,
-    data.id,
-    data.analyses,
-    data.settings,
-  );
+    snapshotId: data.id,
+    experimentId: data.experiment,
+    analyses: data.analyses,
+    settings: data.settings,
+  });
   const snapshotForDb = chunkResult
     ? {
         ...data,
