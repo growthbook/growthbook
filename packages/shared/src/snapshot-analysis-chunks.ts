@@ -38,7 +38,7 @@ export interface EncodeResult {
  * Each metric gets its own chunk. Meta data (srm, variation users) is
  * extracted once and returned separately for storage on the snapshot doc.
  */
-export function encodeSnapshotResults(
+export function encodeSnapshotAnalysisChunks(
   analyses: ExperimentSnapshotAnalysis[],
   metricOrdering: string[],
 ): EncodeResult {
@@ -143,7 +143,7 @@ interface MetricChunkInput {
  * @param analysisMetadata - Per-analysis settings/status (from snapshot doc)
  * @param filterMetricIds - Optional set of metric IDs to include
  */
-export function decodeSnapshotResults(
+export function decodeSnapshotAnalysisChunks(
   chunks: MetricChunkInput[],
   chunkedAnalysesMeta: AnalysisMetaEntry[],
   analysisMetadata: AnalysisMetadata[],

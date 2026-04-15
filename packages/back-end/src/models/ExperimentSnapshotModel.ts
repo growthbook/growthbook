@@ -14,7 +14,7 @@ import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
-import { AnalysisMetaEntry } from "shared/snapshot-results";
+import { AnalysisMetaEntry } from "shared/snapshot-analysis-chunks";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
@@ -332,7 +332,9 @@ export async function updateSnapshot({
     organization,
     id,
   });
-  if (!existingSnapshotModel) throw "Internal error";
+  if (!existingSnapshotModel) {
+    throw "Cannot update snapshot that does not exist.";
+  }
 
   const updatesForDb = { ...updates };
   let deleteExistingChunksAfterUpdate = false;

@@ -5,16 +5,16 @@ import {
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import {
-  encodeSnapshotResults,
-  decodeSnapshotResults,
+  encodeSnapshotAnalysisChunks,
+  decodeSnapshotAnalysisChunks,
   buildMetricOrdering,
   getChunkedAnalysesMetaFromSnapshot,
   AnalysisMetaEntry,
-} from "../src/snapshot-results";
+} from "../src/snapshot-analysis-chunks";
 import {
   experimentSnapshotAnalysisChunkValidator,
   validateExperimentSnapshotAnalysisChunkColumnLengths,
-} from "../src/validators/snapshot-results";
+} from "../src/validators/snapshot-analysis-chunks";
 
 function makeMetric(overrides: Partial<SnapshotMetric> = {}): SnapshotMetric {
   return {
@@ -57,7 +57,7 @@ function decodeHelper(
   analyses: ExperimentSnapshotAnalysis[],
   filterMetricIds?: Set<string>,
 ) {
-  const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotResults(
+  const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotAnalysisChunks(
     analyses,
     [],
   );
@@ -70,7 +70,7 @@ function decodeHelper(
     status: a.status as "success" | "running" | "error",
     ...(a.error ? { error: a.error } : {}),
   }));
-  return decodeSnapshotResults(
+  return decodeSnapshotAnalysisChunks(
     chunks,
     chunkedAnalysesMeta,
     analysisMetadata,
@@ -204,7 +204,7 @@ describe("buildMetricOrdering", () => {
   });
 });
 
-describe("encodeSnapshotResults", () => {
+describe("encodeSnapshotAnalysisChunks", () => {
   it("produces one chunk per metric", () => {
     const analyses = [
       makeAnalysis([
@@ -231,7 +231,7 @@ describe("encodeSnapshotResults", () => {
       ]),
     ];
 
-    const { metricChunks } = encodeSnapshotResults(analyses, [
+    const { metricChunks } = encodeSnapshotAnalysisChunks(analyses, [
       "met_a",
       "met_b",
     ]);
@@ -270,7 +270,9 @@ describe("encodeSnapshotResults", () => {
       ]),
     ];
 
-    const { chunkedAnalysesMeta } = encodeSnapshotResults(analyses, ["met_1"]);
+    const { chunkedAnalysesMeta } = encodeSnapshotAnalysisChunks(analyses, [
+      "met_1",
+    ]);
 
     expect(chunkedAnalysesMeta).toHaveLength(1);
     expect(chunkedAnalysesMeta[0].dimensions).toHaveLength(2);
@@ -288,7 +290,7 @@ describe("encodeSnapshotResults", () => {
 
   it("handles empty results", () => {
     const analyses = [makeAnalysis([])];
-    const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotResults(
+    const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotAnalysisChunks(
       analyses,
       [],
     );
@@ -298,7 +300,7 @@ describe("encodeSnapshotResults", () => {
   });
 });
 
-describe("decodeSnapshotResults", () => {
+describe("decodeSnapshotAnalysisChunks", () => {
   it("round-trips a simple case", () => {
     const analyses = [
       makeAnalysis([
@@ -498,7 +500,10 @@ describe("decodeSnapshotResults", () => {
     ];
 
     const metricOrdering = Array.from({ length: 50 }, (_, i) => `met_${i}`);
-    const { metricChunks } = encodeSnapshotResults(analyses, metricOrdering);
+    const { metricChunks } = encodeSnapshotAnalysisChunks(
+      analyses,
+      metricOrdering,
+    );
 
     // 1 chunk per metric
     expect(metricChunks.size).toBe(50);
@@ -570,7 +575,7 @@ describe("decodeSnapshotResults", () => {
         ],
       },
     ];
-    const decoded = decodeSnapshotResults(
+    const decoded = decodeSnapshotAnalysisChunks(
       [
         {
           metricId: "met_1",
@@ -664,7 +669,7 @@ describe("decodeSnapshotResults", () => {
     ];
     const chunkedAnalysesMeta: AnalysisMetaEntry[] = [{ dimensions: [] }];
 
-    const decoded = decodeSnapshotResults(
+    const decoded = decodeSnapshotAnalysisChunks(
       [],
       chunkedAnalysesMeta,
       analysisMetadata,
@@ -909,7 +914,7 @@ describe("decodeSnapshotResults", () => {
       snapshot.settings.secondaryMetrics,
       snapshot.settings.guardrailMetrics,
     );
-    const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotResults(
+    const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotAnalysisChunks(
       analyses,
       metricOrdering,
     );
@@ -928,7 +933,7 @@ describe("decodeSnapshotResults", () => {
     const chunks = Array.from(metricChunks.entries()).map(
       ([metricId, chunk]) => ({ metricId, ...chunk }),
     );
-    const chunkedPathResult = decodeSnapshotResults(
+    const chunkedPathResult = decodeSnapshotAnalysisChunks(
       chunks,
       decodeMeta,
       analysisMetadata,
@@ -957,7 +962,9 @@ describe("decodeSnapshotResults", () => {
       ]),
     ];
 
-    const { metricChunks } = encodeSnapshotResults(analyses, ["met_known"]);
+    const { metricChunks } = encodeSnapshotAnalysisChunks(analyses, [
+      "met_known",
+    ]);
     expect(metricChunks.has("met_known")).toBe(true);
     expect(metricChunks.has("met_unknown")).toBe(true);
 

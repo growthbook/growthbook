@@ -1,10 +1,10 @@
 import {
-  encodeSnapshotResults,
-  decodeSnapshotResults,
+  encodeSnapshotAnalysisChunks,
+  decodeSnapshotAnalysisChunks,
   buildMetricOrdering,
   getChunkedAnalysesMetaFromSnapshot,
   AnalysisMetaEntry,
-} from "shared/snapshot-results";
+} from "shared/snapshot-analysis-chunks";
 import {
   experimentSnapshotAnalysisChunkValidator,
   ExperimentSnapshotAnalysisChunkInterface,
@@ -85,7 +85,7 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
     }
 
     const metricOrdering = getMetricOrdering(settings);
-    const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotResults(
+    const { metricChunks, chunkedAnalysesMeta } = encodeSnapshotAnalysisChunks(
       analyses,
       metricOrdering,
     );
@@ -184,7 +184,7 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
       const { chunkedAnalysesMeta, analysisMetadata } =
         getChunkedAnalysesMetaFromSnapshot(snapshot);
 
-      const decoded = decodeSnapshotResults(
+      const decoded = decodeSnapshotAnalysisChunks(
         chunks,
         chunkedAnalysesMeta,
         analysisMetadata,
