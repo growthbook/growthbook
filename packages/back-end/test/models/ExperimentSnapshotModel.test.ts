@@ -900,6 +900,53 @@ describe("ExperimentSnapshotModel", () => {
       expect(chunks[0].metricId).toBe("met_1");
     });
 
+    it("deletes stale chunks when updateSnapshot resets analyses to empty results", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_clear_update_snapshot");
+      const settings = makeAnalysisSettings();
+      const analysis = makeAnalysis({
+        settings,
+        value: 10,
+      });
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [analysis],
+        },
+      });
+
+      const initialChunks =
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(initialChunks).toHaveLength(1);
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "running",
+          analyses: [makeEmptyAnalysis({ settings })],
+        },
+      });
+
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.hasChunkedAnalyses).toBe(false);
+      expect(result?.chunkedAnalysesMeta).toEqual([]);
+      expect(result?.analyses[0].status).toBe("running");
+      expect(result?.analyses[0].results).toEqual([]);
+
+      const chunks =
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(chunks).toHaveLength(0);
+    });
+
     it("deletes chunks when the last populated analysis is reset to running", async () => {
       const context = getSnapshotUpdateContext();
       const snapshot = makeSnapshotWithMetric("snp_clear_only_analysis");
@@ -932,6 +979,52 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.hasChunkedAnalyses).toBe(false);
+      expect(result?.chunkedAnalysesMeta).toEqual([]);
+      expect(result?.analyses[0].status).toBe("running");
+      expect(result?.analyses[0].results).toEqual([]);
+
+      const chunks =
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(chunks).toHaveLength(0);
+    });
+
+    it("clears chunk metadata when addOrUpdate resets the last populated analysis", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_clear_add_or_update");
+      const settings = makeAnalysisSettings();
+      const analysis = makeAnalysis({
+        settings,
+        value: 10,
+      });
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [analysis],
+        },
+      });
+
+      const initialChunks =
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(initialChunks).toHaveLength(1);
+
+      await addOrUpdateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis: makeEmptyAnalysis({ settings }),
+      });
+
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.hasChunkedAnalyses).toBe(false);
+      expect(result?.chunkedAnalysesMeta).toEqual([]);
       expect(result?.analyses[0].status).toBe("running");
       expect(result?.analyses[0].results).toEqual([]);
 

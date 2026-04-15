@@ -352,13 +352,16 @@ export async function updateSnapshot({
     ...updates,
   };
 
+  const analysisUpdates = updates.analyses;
+  const hasAnalysisUpdates = analysisUpdates !== undefined;
+
   // If analyses have results, chunk them into separate documents
-  if (updates.analyses) {
+  if (hasAnalysisUpdates) {
     chunkResult = await chunkAndStripAnalyses({
       context,
       snapshotId: id,
       experimentId: experimentSnapshot.experiment,
-      analyses: updates.analyses,
+      analyses: analysisUpdates,
       settings: experimentSnapshot.settings,
     });
   }
@@ -372,9 +375,18 @@ export async function updateSnapshot({
     updatesForDb.chunkedAnalysesMeta = chunkResult.chunkedAnalysesMeta;
     experimentSnapshot = {
       ...experimentSnapshot,
-      analyses: updates.analyses ?? experimentSnapshot.analyses,
+      analyses: analysisUpdates ?? experimentSnapshot.analyses,
       hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
       chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
+    };
+  } else if (hasAnalysisUpdates) {
+    deleteExistingChunksAfterUpdate = true;
+    updatesForDb.hasChunkedAnalyses = false;
+    updatesForDb.chunkedAnalysesMeta = [];
+    experimentSnapshot = {
+      ...experimentSnapshot,
+      hasChunkedAnalyses: false,
+      chunkedAnalysesMeta: [],
     };
   }
 
@@ -533,6 +545,7 @@ export async function addOrUpdateSnapshotAnalysis(
         }
       : {
           analyses,
+          hasChunkedAnalyses: false,
           chunkedAnalysesMeta: [],
         };
 
@@ -616,6 +629,7 @@ export async function updateSnapshotAnalysis({
         }
       : {
           analyses,
+          hasChunkedAnalyses: false,
           chunkedAnalysesMeta: [],
         };
 
