@@ -5074,17 +5074,10 @@ export default abstract class SqlIntegration
       return [];
     }
     const cs = m.metric.cappingSettings;
-    const upper =
-      isPercentileCappedMetric(m.metric) &&
-      cs.value != null &&
-      cs.value > 0 &&
-      cs.value < 1
-        ? { pct: cs.value }
-        : undefined;
-    const lower =
-      isLowerPercentileCappedMetric(m.metric) && cs.lowerValue !== null
-        ? { pct: cs.lowerValue }
-        : undefined;
+    const upper = isPercentileCappedMetric(m.metric) ? cs.value : undefined;
+    const lower = isLowerPercentileCappedMetric(m.metric)
+      ? cs.lowerValue
+      : undefined;
     if (!upper && !lower) {
       return [];
     }
@@ -5098,8 +5091,8 @@ export default abstract class SqlIntegration
       outputCol,
       sourceIndex,
       ignoreZeros: percentileIgnoreZeros,
-      ...(upper ? { upperPercentile: upper.pct } : {}),
-      ...(lower ? { lowerPercentile: lower.pct } : {}),
+      ...(upper != null ? { upperPercentile: upper } : {}),
+      ...(lower != null ? { lowerPercentile: lower } : {}),
     });
     const out: FactMetricPercentileData[] = [
       row(`${m.alias}_value`, `${m.alias}_value_cap`, m.numeratorSourceIndex),
