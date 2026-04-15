@@ -54,6 +54,8 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
   }
 
   // Block contributors from self-approving when the org setting is enabled.
+  // request-changes and comment are intentionally not restricted — providing
+  // feedback on a draft you edited is legitimate and not a rubber-stamp risk.
   if (action === "approve") {
     const requireReviews = req.context.org.settings?.requireReviews;
     const reviewSetting = Array.isArray(requireReviews)

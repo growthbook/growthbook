@@ -8,8 +8,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getEnvironments } from "back-end/src/services/organizations";
-import { isDraftStatus } from "./validations";
+import { assertValidEnvironment, isDraftStatus } from "./validations";
 
 export const postFeatureRevisionToggle = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -22,20 +21,12 @@ export const postFeatureRevisionToggle = createApiRequestHandler({
   if (!feature) throw new NotFoundError("Could not find feature");
 
   const { environment, enabled } = req.body;
-
-  const allEnvironments = getEnvironments(req.context.org);
-  if (!allEnvironments.some((e) => e.id === environment)) {
-    throw new BadRequestError(`Invalid environment: "${environment}"`);
-  }
+  assertValidEnvironment(req.context, environment);
 
   if (
     !req.context.permissions.canUpdateFeature(feature, {}) ||
     !req.context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  if (!req.context.permissions.canPublishFeature(feature, [environment])) {
     req.context.permissions.throwPermissionError();
   }
 

@@ -24,9 +24,10 @@ export const putFeatureRevisionPrerequisites = createApiRequestHandler({
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Match controller postPrerequisite/putPrerequisite/deletePrerequisite —
-  // prerequisite edits only require canUpdateFeature, not canManageFeatureDrafts.
-  if (!req.context.permissions.canUpdateFeature(feature, {})) {
+  if (
+    !req.context.permissions.canUpdateFeature(feature, {}) ||
+    !req.context.permissions.canManageFeatureDrafts(feature)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
