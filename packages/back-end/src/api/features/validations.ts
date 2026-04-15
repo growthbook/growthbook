@@ -6,8 +6,13 @@ import {
 } from "shared/validators";
 import { z } from "zod";
 import { validateCondition } from "shared/util";
+import type { FeatureInterface } from "shared/types/feature";
 import { getSavedGroupMap } from "back-end/src/services/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -79,6 +84,54 @@ export function normalizeInlineRampSchedule(
 
 export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * Zod schema for the `:version` path parameter on draft-mutation endpoints.
+ * Accepts an integer revision version or the literal string `"new"`.
+ */
+export const versionOrNew = z.union([
+  z.coerce.number().int(),
+  z.literal("new"),
+]);
+
+/**
+ * Resolve or create a draft revision.
+ *
+ * - When `version` is a number, looks up the existing revision and throws
+ *   `NotFoundError` if it doesn't exist.
+ * - When `version` is `"new"`, creates a blank draft based on the feature's
+ *   current published version, so callers can add/edit content in one call
+ *   without pre-fetching a version number.
+ */
+export async function resolveOrCreateRevision(
+  context: ApiReqContext,
+  organizationId: string,
+  feature: FeatureInterface,
+  version: number | "new",
+) {
+  if (version === "new") {
+    return createRevision({
+      context,
+      feature,
+      user: context.auditUser,
+      baseVersion: feature.version,
+      comment: "",
+      environments: getEnvironmentIdsFromOrg(context.org),
+      publish: false,
+      changes: {},
+      org: context.org,
+      canBypassApprovalChecks: false,
+    });
+  }
+  const revision = await getRevision({
+    context,
+    organization: organizationId,
+    featureId: feature.id,
+    version,
+  });
+  if (!revision) throw new NotFoundError("Could not find feature revision");
+  return revision;
 }
 
 /**

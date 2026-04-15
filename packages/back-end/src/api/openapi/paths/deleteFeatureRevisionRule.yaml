@@ -7,11 +7,7 @@ parameters:
     required: true
     schema:
       type: string
-  - in: path
-    name: version
-    required: true
-    schema:
-      type: integer
+  - $ref: "../parameters.yaml#/revisionVersion"
   - in: path
     name: ruleId
     required: true

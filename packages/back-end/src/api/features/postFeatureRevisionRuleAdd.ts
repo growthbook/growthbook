@@ -23,9 +23,11 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
+  createRevision,
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   BadRequestError,
@@ -192,7 +194,10 @@ function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
 }
 
 export const postFeatureRevisionRuleAdd = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
+  paramsSchema: z.object({
+    id: z.string(),
+    version: z.union([z.coerce.number().int(), z.literal("new")]),
+  }),
   bodySchema: z.object({
     environment: z.string(),
     rule: ruleCreateInput,
@@ -215,12 +220,26 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: req.params.version,
-  });
+  const revision =
+    req.params.version === "new"
+      ? await createRevision({
+          context: req.context,
+          feature,
+          user: req.context.auditUser,
+          baseVersion: feature.version,
+          comment: "",
+          environments: getEnvironmentIdsFromOrg(req.context.org),
+          publish: false,
+          changes: {},
+          org: req.context.org,
+          canBypassApprovalChecks: false,
+        })
+      : await getRevision({
+          context: req.context,
+          organization: req.organization.id,
+          featureId: feature.id,
+          version: req.params.version,
+        });
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
@@ -405,7 +424,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
-    version: req.params.version,
+    version: revision.version,
   });
 
   return { revision: omit(updated ?? revision, "organization") };

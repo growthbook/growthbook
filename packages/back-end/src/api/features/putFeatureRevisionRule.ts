@@ -29,6 +29,8 @@ import {
   buildScheduleRampAction,
   validateRuleConditions,
   validateRuleReferences,
+  resolveOrCreateRevision,
+  versionOrNew,
 } from "./validations";
 
 const scheduleRuleInput = z.object({
@@ -213,7 +215,7 @@ function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
 export const putFeatureRevisionRule = createApiRequestHandler({
   paramsSchema: z.object({
     id: z.string(),
-    version: z.coerce.number().int(),
+    version: versionOrNew,
     ruleId: z.string(),
   }),
   bodySchema: z.object({
@@ -238,13 +240,12 @@ export const putFeatureRevisionRule = createApiRequestHandler({
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: req.params.version,
-  });
-  if (!revision) throw new NotFoundError("Could not find feature revision");
+  const revision = await resolveOrCreateRevision(
+    req.context,
+    req.organization.id,
+    feature,
+    req.params.version,
+  );
 
   if (!isDraftStatus(revision.status)) {
     throw new BadRequestError(
@@ -424,7 +425,7 @@ export const putFeatureRevisionRule = createApiRequestHandler({
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
-    version: req.params.version,
+    version: revision.version,
   });
 
   return { revision: omit(updated ?? revision, "organization") };

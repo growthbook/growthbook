@@ -1547,12 +1547,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
       operationId: postFeatureRevisionRuleAdd
       requestBody:
         required: true
@@ -1862,12 +1857,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
       operationId: postFeatureRevisionRulesReorder
       requestBody:
         required: true
@@ -1926,11 +1916,7 @@ paths:
           required: true
           schema:
             type: string
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/revisionVersion'
         - in: path
           name: ruleId
           required: true
@@ -2108,11 +2094,7 @@ paths:
           required: true
           schema:
             type: string
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/revisionVersion'
         - in: path
           name: ruleId
           required: true
@@ -2171,12 +2153,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
         - in: path
           name: ruleId
           required: true
@@ -2231,12 +2208,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
         - in: path
           name: ruleId
           required: true
@@ -2279,12 +2251,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
       operationId: postFeatureRevisionToggle
       requestBody:
         required: true
@@ -2323,12 +2290,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
       operationId: putFeatureRevisionDefaultValue
       requestBody:
         required: true
@@ -2364,12 +2326,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
       operationId: putFeatureRevisionPrerequisites
       requestBody:
         required: true
@@ -2419,12 +2376,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
       operationId: putFeatureRevisionMetadata
       requestBody:
         required: true
@@ -2479,12 +2431,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
       operationId: putFeatureRevisionArchive
       requestBody:
         required: true
@@ -2522,12 +2469,7 @@ paths:
           schema:
             type: string
           description: Feature ID
-        - in: path
-          name: version
-          required: true
-          schema:
-            type: integer
-          description: Revision version number
+        - $ref: '#/components/parameters/revisionVersion'
       operationId: putFeatureRevisionHoldout
       requestBody:
         required: true
@@ -25036,6 +24978,21 @@ components:
         default: false
       x-selfHostedOnly: true
       x-requiresEnv: API_ALLOW_SKIP_PAGINATION
+    revisionVersion:
+      name: version
+      in: path
+      required: true
+      description: |
+        The revision version number, or the string `new` to automatically create a
+        blank draft and apply the operation to it in a single request.
+      schema:
+        oneOf:
+          - type: integer
+            description: An existing draft revision version number
+          - type: string
+            enum:
+              - new
+            description: Pass `new` to create a new draft revision automatically
   schemas:
     AnalyticsExploration:
       $schema: 'https://json-schema.org/draft/2020-12/schema'

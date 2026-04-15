@@ -121,3 +121,17 @@ skipPagination:
     default: false
   x-selfHostedOnly: true
   x-requiresEnv: API_ALLOW_SKIP_PAGINATION
+revisionVersion:
+  name: version
+  in: path
+  required: true
+  description: |
+    The revision version number, or the string `new` to automatically create a
+    blank draft and apply the operation to it in a single request.
+  schema:
+    oneOf:
+      - type: integer
+        description: An existing draft revision version number
+      - type: string
+        enum: [new]
+        description: Pass `new` to create a new draft revision automatically

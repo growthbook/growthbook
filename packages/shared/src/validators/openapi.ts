@@ -338,13 +338,47 @@ export const postFeatureRevisionRuleAddValidator = {
     }
   }), "actions": z.array(z.object({ "targetType": z.literal("feature-rule").describe("Auto-injected — omit unless overriding.").optional(), "targetId": z.string().describe("Auto-injected — omit unless overriding.").optional(), "patch": z.object({ "coverage": z.number().gte(0).lte(1).describe("Rollout percent (0–1)").optional(), "condition": z.string().describe("Targeting condition as a JSON string (MongoDB-style)").optional(), "savedGroups": z.array(z.object({ "match": z.enum(["all","any","none"]), "ids": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string(), "condition": z.string() })).optional(), "force": z.any().nullable().describe("Force value (any JSON type — boolean, string, number, or object)").optional(), "enabled": z.boolean().describe("Enable/disable the rule at this step").optional() }).describe("Sparse rule patch applied at this step.") })).describe("Patches applied at this step. `targetType` and `targetId` are auto-injected from context.").optional(), "approvalNotes": z.string().nullable().optional() })).describe("Ordered ramp steps. Omit when using `templateId`.").optional(), "endActions": z.array(z.object({ "targetType": z.literal("feature-rule").describe("Auto-injected — omit unless overriding.").optional(), "targetId": z.string().describe("Auto-injected — omit unless overriding.").optional(), "patch": z.object({ "coverage": z.number().gte(0).lte(1).optional(), "condition": z.string().optional(), "savedGroups": z.array(z.object({ "match": z.enum(["all","any","none"]), "ids": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string(), "condition": z.string() })).optional(), "force": z.any().nullable().describe("Force value (any JSON type)").optional(), "enabled": z.boolean().optional() }) })).describe("Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected.").optional(), "endCondition": z.object({ "trigger": z.object({ "type": z.literal("scheduled").optional(), "at": z.string().optional() }).optional() }).describe("Condition that terminates the ramp when met").optional() }).describe("Advanced ramp schedule to create alongside this rule.\n`ruleId` and `environment` are inferred from context — do not include them.\n\n**Priority:** `rampSchedule` > `schedule`. When `rampSchedule` is provided, `schedule` is ignored.\n\nFor simple start/end date automation, prefer the `schedule` shorthand instead.\n").optional(), "schedule": z.object({ "startDate": z.string().nullable().optional(), "endDate": z.string().nullable().optional() }).describe("Simple date-based schedule shorthand. Creates a ramp schedule with `ruleId` and\n`environment` inferred from context.\n- `startDate` — enables the rule at this time (rule is initially set to disabled)\n- `endDate` — disables the rule at this time\n\n**Priority:** `rampSchedule` > `schedule`. Ignored when `rampSchedule` is also provided.\n").optional() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }) }).strict(),
 };
 
 export const postFeatureRevisionRulesReorderValidator = {
   bodySchema: z.object({ "environment": z.string(), "ruleIds": z.array(z.string()).describe("The complete desired order of rules for the environment, expressed as a list of every rule ID. Must include all existing rule IDs — no more, no less, no duplicates. Omitting a rule ID or including an unknown ID is an error; the revision is never partially reordered.\n") }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }) }).strict(),
 };
 
 export const putFeatureRevisionRuleValidator = {
@@ -367,13 +401,47 @@ export const putFeatureRevisionRuleValidator = {
     }
   }), "actions": z.array(z.object({ "targetType": z.literal("feature-rule").describe("Auto-injected — omit unless overriding.").optional(), "targetId": z.string().describe("Auto-injected — omit unless overriding.").optional(), "patch": z.object({ "coverage": z.number().gte(0).lte(1).describe("Rollout percent (0–1)").optional(), "condition": z.string().describe("Targeting condition as a JSON string (MongoDB-style)").optional(), "savedGroups": z.array(z.object({ "match": z.enum(["all","any","none"]), "ids": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string(), "condition": z.string() })).optional(), "force": z.any().nullable().describe("Force value (any JSON type — boolean, string, number, or object)").optional(), "enabled": z.boolean().describe("Enable/disable the rule at this step").optional() }).describe("Sparse rule patch applied at this step.") })).describe("Patches applied at this step. `targetType` and `targetId` are auto-injected from context.").optional(), "approvalNotes": z.string().nullable().optional() })).describe("Ordered ramp steps. Omit when using `templateId`.").optional(), "endActions": z.array(z.object({ "targetType": z.literal("feature-rule").describe("Auto-injected — omit unless overriding.").optional(), "targetId": z.string().describe("Auto-injected — omit unless overriding.").optional(), "patch": z.object({ "coverage": z.number().gte(0).lte(1).optional(), "condition": z.string().optional(), "savedGroups": z.array(z.object({ "match": z.enum(["all","any","none"]), "ids": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string(), "condition": z.string() })).optional(), "force": z.any().nullable().describe("Force value (any JSON type)").optional(), "enabled": z.boolean().optional() }) })).describe("Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected.").optional(), "endCondition": z.object({ "trigger": z.object({ "type": z.literal("scheduled").optional(), "at": z.string().optional() }).optional() }).describe("Condition that terminates the ramp when met").optional() }).describe("Advanced ramp schedule to create or replace on this rule. `ruleId` and `environment`\nare inferred from context.\n\n**Priority:** `rampSchedule` > `schedule`. When `rampSchedule` is provided, `schedule` is ignored.\n\nProviding `rampSchedule` replaces any existing pending ramp schedule action for this\nrule in the revision. If the rule already has a **live** schedule, a 400 is returned —\nupdate it directly via `PUT /api/v1/ramp-schedules/{id}`.\n\nTo detach a ramp schedule, use `DELETE .../rules/{ruleId}/ramp-schedule`.\n").optional(), "schedule": z.object({ "startDate": z.string().nullable().optional(), "endDate": z.string().nullable().optional() }).describe("Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules` directly.\nIgnored when `rampSchedule` is also provided.\n- `startDate` — enables the rule at this time (rule is set to disabled until then)\n- `endDate` — disables the rule at this time\nIf the existing rule already uses legacy `scheduleRules`, those are updated in-place\ninstead of creating a ramp schedule.\n\n**Error:** If this rule already has a **live** ramp schedule, a 400 is returned with\nthe schedule ID. Update the schedule directly via `PUT /api/v1/ramp-schedules/{id}` instead.\n").optional() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int(), "ruleId": z.string() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }), "ruleId": z.string() }).strict(),
 };
 
 export const deleteFeatureRevisionRuleValidator = {
   bodySchema: z.object({ "environment": z.string() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int(), "ruleId": z.string() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }), "ruleId": z.string() }).strict(),
 };
 
 export const putFeatureRevisionRuleRampScheduleValidator = {
@@ -396,49 +464,185 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
     }
   }), "actions": z.array(z.object({ "targetType": z.literal("feature-rule").describe("Auto-injected — omit unless overriding.").optional(), "targetId": z.string().describe("Auto-injected — omit unless overriding.").optional(), "patch": z.object({ "coverage": z.number().gte(0).lte(1).describe("Rollout percent (0–1)").optional(), "condition": z.string().describe("Targeting condition as a JSON string (MongoDB-style)").optional(), "savedGroups": z.array(z.object({ "match": z.enum(["all","any","none"]), "ids": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string(), "condition": z.string() })).optional(), "force": z.any().nullable().describe("Force value (any JSON type — boolean, string, number, or object)").optional(), "enabled": z.boolean().describe("Enable/disable the rule at this step").optional() }).describe("Sparse rule patch applied at this step.") })).describe("Patches applied at this step. `targetType` and `targetId` are auto-injected from context.").optional(), "approvalNotes": z.string().nullable().optional() })).describe("Ordered ramp steps. Omit when using `templateId`.").optional(), "endActions": z.array(z.object({ "targetType": z.literal("feature-rule").describe("Auto-injected — omit unless overriding.").optional(), "targetId": z.string().describe("Auto-injected — omit unless overriding.").optional(), "patch": z.object({ "coverage": z.number().gte(0).lte(1).optional(), "condition": z.string().optional(), "savedGroups": z.array(z.object({ "match": z.enum(["all","any","none"]), "ids": z.array(z.string()) })).optional(), "prerequisites": z.array(z.object({ "id": z.string(), "condition": z.string() })).optional(), "force": z.any().nullable().describe("Force value (any JSON type)").optional(), "enabled": z.boolean().optional() }) })).describe("Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected.").optional(), "endCondition": z.object({ "trigger": z.object({ "type": z.literal("scheduled").optional(), "at": z.string().optional() }).optional() }).describe("Condition that terminates the ramp when met").optional() }).describe("Ramp schedule configuration. `mode`, `ruleId`, and `environment` are inferred from context —\ndo not include them. For simple start/end date automation, use the `schedule` shorthand instead.\n"), z.object({ "environment": z.string().describe("Environment the rule lives in") })),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int(), "ruleId": z.string() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }), "ruleId": z.string() }).strict(),
 };
 
 export const deleteFeatureRevisionRuleRampScheduleValidator = {
   bodySchema: z.object({ "environment": z.string().describe("Environment the rule lives in") }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int(), "ruleId": z.string() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }), "ruleId": z.string() }).strict(),
 };
 
 export const postFeatureRevisionToggleValidator = {
   bodySchema: z.object({ "environment": z.string(), "enabled": z.boolean() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }) }).strict(),
 };
 
 export const putFeatureRevisionDefaultValueValidator = {
   bodySchema: z.object({ "defaultValue": z.string() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }) }).strict(),
 };
 
 export const putFeatureRevisionPrerequisitesValidator = {
   bodySchema: z.object({ "prerequisites": z.array(z.object({ "id": z.string().describe("Feature ID of the prerequisite"), "condition": z.string() })) }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }) }).strict(),
 };
 
 export const putFeatureRevisionMetadataValidator = {
   bodySchema: z.object({ "comment": z.string().optional(), "title": z.string().optional(), "description": z.string().optional(), "owner": z.string().optional(), "project": z.string().optional(), "tags": z.array(z.string()).optional(), "neverStale": z.boolean().optional(), "valueType": z.enum(["boolean","string","number","json"]).optional() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }) }).strict(),
 };
 
 export const putFeatureRevisionArchiveValidator = {
   bodySchema: z.object({ "archived": z.boolean() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }) }).strict(),
 };
 
 export const putFeatureRevisionHoldoutValidator = {
   bodySchema: z.object({ "holdout": z.object({ "id": z.string().describe("Holdout experiment ID"), "value": z.string().describe("Value to serve to users in the holdout") }).nullable() }).strict(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.any().superRefine((x, ctx) => {
+    const schemas = [z.coerce.number().int().describe("An existing draft revision version number"), z.literal("new").describe("Pass `new` to create a new draft revision automatically")];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) =>
+          result.error ? [...errors, result.error] : errors)(
+          schema.safeParse(x),
+        ),
+      [],
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        code: "invalid_union",
+        errors: errors.map(e => e.issues),
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }) }).strict(),
 };
 
 export const getFeatureStaleValidator = {

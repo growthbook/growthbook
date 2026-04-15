@@ -11,12 +11,7 @@ parameters:
     schema:
       type: string
     description: "Feature ID"
-  - in: path
-    name: version
-    required: true
-    schema:
-      type: integer
-    description: "Revision version number"
+  - $ref: "../parameters.yaml#/revisionVersion"
 operationId: putFeatureRevisionMetadata
 requestBody:
   required: true

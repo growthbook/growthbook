@@ -7086,6 +7086,11 @@ export interface components {
      * Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.
      */
     skipPagination: boolean;
+    /**
+     * @description The revision version number, or the string `new` to automatically create a
+     * blank draft and apply the operation to it in a single request.
+     */
+    revisionVersion: number | "new";
   };
   requestBodies: never;
   headers: never;
@@ -17204,10 +17209,13 @@ export interface operations {
     /** Add a rule to a draft revision */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
       };
     };
     requestBody: {
@@ -17921,10 +17929,13 @@ export interface operations {
     /** Reorder rules in a draft revision */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
       };
     };
     requestBody: {
@@ -18409,9 +18420,13 @@ export interface operations {
      *   evaluated against `{"value": <flag_value>}`. Example: `{"value": true}`
      */
     parameters: {
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
         ruleId: string;
       };
     };
@@ -19061,9 +19076,13 @@ export interface operations {
   deleteFeatureRevisionRule: {
     /** Delete a rule from a draft revision */
     parameters: {
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
         ruleId: string;
       };
     };
@@ -19549,11 +19568,14 @@ export interface operations {
      */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
         /** @description Rule ID */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
         ruleId: string;
       };
     };
@@ -20126,11 +20148,14 @@ export interface operations {
      */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
         /** @description Rule ID */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
         ruleId: string;
       };
     };
@@ -20598,10 +20623,13 @@ export interface operations {
     /** Toggle an environment in a draft revision */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
       };
     };
     requestBody: {
@@ -21068,10 +21096,13 @@ export interface operations {
     /** Set the default value in a draft revision */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
       };
     };
     requestBody: {
@@ -21537,10 +21568,13 @@ export interface operations {
     /** Set prerequisites in a draft revision */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
       };
     };
     requestBody: {
@@ -22014,10 +22048,13 @@ export interface operations {
      */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
       };
     };
     requestBody: {
@@ -22491,10 +22528,13 @@ export interface operations {
     /** Set archived state in a draft revision */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
       };
     };
     requestBody: {
@@ -22963,10 +23003,13 @@ export interface operations {
      */
     parameters: {
         /** @description Feature ID */
-        /** @description Revision version number */
+        /**
+         * @description The revision version number, or the string `new` to automatically create a
+         * blank draft and apply the operation to it in a single request.
+         */
       path: {
         id: string;
-        version: number;
+        version: number | "new";
       };
     };
     requestBody: {

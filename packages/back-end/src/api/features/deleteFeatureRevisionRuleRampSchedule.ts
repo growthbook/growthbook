@@ -8,12 +8,17 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { assertValidEnvironment, isDraftStatus } from "./validations";
+import {
+  assertValidEnvironment,
+  isDraftStatus,
+  resolveOrCreateRevision,
+  versionOrNew,
+} from "./validations";
 
 export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler({
   paramsSchema: z.object({
     id: z.string(),
-    version: z.coerce.number().int(),
+    version: versionOrNew,
     ruleId: z.string(),
   }),
   bodySchema: z.object({
@@ -30,13 +35,12 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler({
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: req.params.version,
-  });
-  if (!revision) throw new NotFoundError("Could not find feature revision");
+  const revision = await resolveOrCreateRevision(
+    req.context,
+    req.organization.id,
+    feature,
+    req.params.version,
+  );
 
   if (!isDraftStatus(revision.status)) {
     throw new BadRequestError(
@@ -95,7 +99,7 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler({
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
-    version: req.params.version,
+    version: revision.version,
   });
 
   return { revision: omit(updated ?? revision, "organization") };
