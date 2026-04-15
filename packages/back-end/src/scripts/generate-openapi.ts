@@ -343,12 +343,11 @@ You first need to generate a new API Key in GrowthBook. Different keys have diff
 - **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization. These can be created by going to \`Personal Access Tokens\` under the your user menu.
 - **Secret Keys**: These are sensitive and provide the level of access for the role, which currently is either \`admin\` or \`readonly\`. Only Admins with the \`manageApiKeys\` permission can manage Secret Keys on behalf of an organization. These can be created by going to \`Settings -> API Keys\`
 
-If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
+If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank (when using curl, add \`:\` at the end of the secret to indicate an empty password)
 
 \`\`\`bash
 curl https://api.growthbook.io/api/v1 \\
   -u secret_abc123DEF456:
-# The ":" at the end stops curl from asking for a password
 \`\`\`
 
 If using Bearer auth, pass the Secret Key as the token:

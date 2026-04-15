@@ -38,15 +38,14 @@ info:
 
 
     If using HTTP Basic auth, pass the Secret Key as the username and leave the
-    password blank:
+    password blank (when using curl, add `:` at the end of the secret to
+    indicate an empty password)
 
 
     ```bash
 
     curl https://api.growthbook.io/api/v1 \
       -u secret_abc123DEF456:
-    # The ":" at the end stops curl from asking for a password
-
     ```
 
 
