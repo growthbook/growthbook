@@ -2304,6 +2304,7 @@ export async function toExperimentApiInterface(
     customFields: experiment.customFields ?? {},
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
+    maxExperimentDuration: experiment.maxExperimentDuration,
   };
 }
 
@@ -3412,6 +3413,9 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.defaultDashboardId !== undefined
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
+    ...(payload.maxExperimentDuration !== undefined
+      ? { maxExperimentDuration: payload.maxExperimentDuration }
+      : {}),
   };
 
   const { settings } = getScopedSettings({
@@ -3648,6 +3652,7 @@ export function updateExperimentApiPayloadToInterface(
     decisionFrameworkSettings,
     postStratificationEnabled,
     defaultDashboardId,
+    maxExperimentDuration,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -3723,6 +3728,7 @@ export function updateExperimentApiPayloadToInterface(
       ? { postStratificationEnabled }
       : {}),
     ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
+    ...(maxExperimentDuration !== undefined ? { maxExperimentDuration } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

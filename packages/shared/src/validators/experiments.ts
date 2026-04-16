@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
+import { MAX_EXPERIMENT_DURATION_UNITS } from "../experiments/maxExperimentDuration";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -221,6 +222,24 @@ export const lookbackOverride = z.discriminatedUnion("type", [
 ]);
 export type LookbackOverride = z.infer<typeof lookbackOverride>;
 
+export const maxExperimentDurationValidator = z
+  .object({
+    value: z
+      .number()
+      .int()
+      .positive()
+      .describe(
+        "Length of the maximum experiment window (combined with `unit`).",
+      ),
+    unit: z
+      .enum(MAX_EXPERIMENT_DURATION_UNITS)
+      .describe("Unit for `value` (hours, days, weeks, or months)."),
+  })
+  .strict()
+  .describe(
+    "Maximum calendar duration for the experiment from the phase (or bandit) start. Used for shipping deadlines, EDF, and scheduled result updates.",
+  );
+
 export const experimentAnalysisSettings = z
   .object({
     trackingKey: z.string(),
@@ -388,6 +407,7 @@ export const experimentInterface = z
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
+    maxExperimentDuration: maxExperimentDurationValidator.optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -724,6 +744,7 @@ const apiExperimentShape = z.object({
     .describe("ID of the default dashboard for this experiment.")
     .optional(),
   templateId: z.string().optional(),
+  maxExperimentDuration: maxExperimentDurationValidator.optional(),
 });
 export const apiExperimentValidator = namedSchema(
   "Experiment",
@@ -1055,6 +1076,7 @@ const postExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    maxExperimentDuration: maxExperimentDurationValidator.optional(),
   })
   .strict();
 
@@ -1239,6 +1261,7 @@ const updateExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    maxExperimentDuration: maxExperimentDurationValidator.optional(),
   })
   .strict();
 

@@ -30,6 +30,7 @@ import {
   ExperimentInterface,
   LegacyExperimentInterface,
 } from "shared/types/experiment";
+import { MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION } from "shared/experiments";
 import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
@@ -685,6 +686,14 @@ export function upgradeExperimentDoc(
   }
   if (!("uid" in experiment)) {
     experiment.uid = uuidv4().replace(/-/g, "");
+  }
+
+  // Running experiments created before max duration: treat as uncapped (100y) until edited
+  if (
+    experiment.maxExperimentDuration === undefined &&
+    experiment.status === "running"
+  ) {
+    experiment.maxExperimentDuration = MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION;
   }
 
   return experiment as ExperimentInterface;

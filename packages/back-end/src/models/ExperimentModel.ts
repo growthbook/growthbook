@@ -4,6 +4,7 @@ import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import {
+  DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
   generateTrackingKey,
   getLatestPhaseVariations,
 } from "shared/experiments";
@@ -350,6 +351,14 @@ const experimentSchema = new mongoose.Schema({
       ],
     },
   ],
+  maxExperimentDuration: {
+    _id: false,
+    value: Number,
+    unit: {
+      type: String,
+      enum: ["hours", "days", "weeks", "months"],
+    },
+  },
 });
 
 // Compound indexes for API list filtering
@@ -575,6 +584,8 @@ export async function createExperiment({
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
+    maxExperimentDuration:
+      data.maxExperimentDuration ?? DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
     //set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
