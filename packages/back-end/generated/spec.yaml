@@ -107,6 +107,14 @@ tags:
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
+  - name: feature-revisions
+    x-displayName: Feature Revisions
+    description: >-
+      Draft revisions for feature flags, including rules, scheduling, and
+      approval workflows.
+
+
+      These endpoints are in beta and are subject to change.
   - name: ramp-schedules
     x-displayName: Ramp Schedules
     description: >-
@@ -180,9 +188,6 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
-  - name: feature-revisions
-    x-displayName: feature-revisions
-    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -2245,6 +2250,39 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/features/{id}/revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}:
+    get:
+      operationId: getFeatureRevision
+      summary: Get a single feature revision
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /features/{id}/revisions/latest:
     get:
       operationId: getFeatureRevisionLatest
@@ -2279,10 +2317,10 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/features/{id}/revisions/latest' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}:
-    get:
-      operationId: getFeatureRevision
-      summary: Get a single feature revision
+  /features/{id}/revisions/{version}/metadata:
+    put:
+      operationId: putFeatureRevisionMetadata
+      summary: Update revision metadata (comment, title, feature metadata)
       tags:
         - feature-revisions
       parameters:
@@ -2292,85 +2330,15 @@ paths:
           description: ''
           schema:
             type: string
-        - $ref: '#/components/parameters/version'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/FeatureRevision'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X GET
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/discard:
-    post:
-      operationId: postFeatureRevisionDiscard
-      summary: Discard a draft revision
-      tags:
-        - feature-revisions
-      parameters:
-        - name: id
+        - name: version
           in: path
           required: true
           description: ''
           schema:
-            type: string
-        - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/FeatureRevision'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/discard'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/publish:
-    post:
-      operationId: postFeatureRevisionPublish
-      summary: Publish a draft revision
-      description: >-
-        Immediately publishes a draft revision, making it the live version of
-        the feature. Blocked if the org requires approvals and
-        `bypassApprovalChecks` is off.
-      tags:
-        - feature-revisions
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - $ref: '#/components/parameters/version'
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
       requestBody:
         required: true
         content:
@@ -2378,152 +2346,109 @@ paths:
             schema:
               type: object
               properties:
-                comment:
-                  type: string
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/FeatureRevision'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/publish'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/revert:
-    post:
-      operationId: postFeatureRevisionRevert
-      summary: Revert the feature to a prior revision
-      description: >-
-        Creates a new draft (or immediately publishes) whose content matches the
-        specified historical revision.
-      tags:
-        - feature-revisions
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                strategy:
-                  type: string
-                  enum:
-                    - draft
-                    - publish
                 comment:
                   type: string
                 title:
                   type: string
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/FeatureRevision'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/revert'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/merge-status:
-    get:
-      operationId: getFeatureRevisionMergeStatus
-      summary: Get merge status for a draft revision
-      description: >-
-        Runs a dry-run merge of the draft against the current live revision and
-        returns any conflicts.
-      tags:
-        - feature-revisions
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - $ref: '#/components/parameters/version'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  conflicts:
-                    type: array
-                    items: {}
-                  result: {}
-                required:
-                  - success
-                  - conflicts
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X GET
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/merge-status'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/rebase:
-    post:
-      operationId: postFeatureRevisionRebase
-      summary: Rebase a draft revision onto the current live version
-      tags:
-        - feature-revisions
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                conflictResolutions:
+                description:
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                project:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                neverStale:
+                  type: boolean
+                customFields:
                   type: object
                   propertyNames:
                     type: string
-                  additionalProperties:
-                    type: string
-                    enum:
-                      - overwrite
-                      - discard
+                  additionalProperties: {}
+                jsonSchema:
+                  type: object
+                  properties:
+                    schemaType:
+                      type: string
+                      enum:
+                        - schema
+                        - simple
+                    schema:
+                      type: string
+                    simple:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - object
+                            - object[]
+                            - primitive
+                            - primitive[]
+                        fields:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              key:
+                                type: string
+                                maxLength: 64
+                              type:
+                                type: string
+                                enum:
+                                  - integer
+                                  - float
+                                  - string
+                                  - boolean
+                              required:
+                                type: boolean
+                              default:
+                                type: string
+                                maxLength: 256
+                              description:
+                                type: string
+                                maxLength: 256
+                              enum:
+                                maxItems: 256
+                                type: array
+                                items:
+                                  type: string
+                                  maxLength: 256
+                              min:
+                                type: number
+                              max:
+                                type: number
+                            required:
+                              - key
+                              - type
+                              - required
+                              - default
+                              - description
+                              - enum
+                              - min
+                              - max
+                            additionalProperties: false
+                      required:
+                        - type
+                        - fields
+                      additionalProperties: false
+                    date: {}
+                    enabled:
+                      type: boolean
+                  required:
+                    - schemaType
+                    - schema
+                    - simple
+                    - date
+                    - enabled
+                  additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -2540,14 +2465,14 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rebase'
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/request-review:
-    post:
-      operationId: postFeatureRevisionRequestReview
-      summary: Request review for a draft revision
+  /features/{id}/revisions/{version}/default-value:
+    put:
+      operationId: putFeatureRevisionDefaultValue
+      summary: Set the default value in a draft revision
       tags:
         - feature-revisions
       parameters:
@@ -2557,7 +2482,15 @@ paths:
           description: ''
           schema:
             type: string
-        - $ref: '#/components/parameters/version'
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
       requestBody:
         required: true
         content:
@@ -2565,8 +2498,10 @@ paths:
             schema:
               type: object
               properties:
-                comment:
+                defaultValue:
                   type: string
+              required:
+                - defaultValue
               additionalProperties: false
       responses:
         '200':
@@ -2583,14 +2518,14 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/request-review'
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/default-value'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/submit-review:
-    post:
-      operationId: postFeatureRevisionSubmitReview
-      summary: Submit a review on a draft revision
+  /features/{id}/revisions/{version}/prerequisites:
+    put:
+      operationId: putFeatureRevisionPrerequisites
+      summary: Set feature-level prerequisites in a draft revision
       tags:
         - feature-revisions
       parameters:
@@ -2600,7 +2535,15 @@ paths:
           description: ''
           schema:
             type: string
-        - $ref: '#/components/parameters/version'
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
       requestBody:
         required: true
         content:
@@ -2608,14 +2551,194 @@ paths:
             schema:
               type: object
               properties:
-                comment:
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+              required:
+                - prerequisites
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/prerequisites'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/holdout:
+    put:
+      operationId: putFeatureRevisionHoldout
+      summary: Set holdout in a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                holdout:
+                  anyOf:
+                    - type: object
+                      properties:
+                        id:
+                          type: string
+                        value:
+                          type: string
+                      required:
+                        - id
+                        - value
+                      additionalProperties: false
+                    - type: 'null'
+              required:
+                - holdout
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/holdout'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/archive:
+    put:
+      operationId: putFeatureRevisionArchive
+      summary: Set archived state in a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                archived:
+                  type: boolean
+              required:
+                - archived
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/archive'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/toggle:
+    post:
+      operationId: postFeatureRevisionToggle
+      summary: Toggle an environment on/off in a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment:
                   type: string
-                action:
-                  type: string
-                  enum:
-                    - approve
-                    - request-changes
-                    - comment
+                enabled:
+                  type: boolean
+              required:
+                - environment
+                - enabled
               additionalProperties: false
       responses:
         '200':
@@ -2633,7 +2756,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/submit-review'
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/toggle'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /features/{id}/revisions/{version}/rules:
@@ -3205,64 +3328,6 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/rules/reorder:
-    post:
-      operationId: postFeatureRevisionRulesReorder
-      summary: Reorder rules in an environment
-      tags:
-        - feature-revisions
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: version
-          in: path
-          required: true
-          description: ''
-          schema:
-            anyOf:
-              - type: integer
-              - type: string
-                const: new
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                environment:
-                  type: string
-                ruleIds:
-                  type: array
-                  items:
-                    type: string
-              required:
-                - environment
-                - ruleIds
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/FeatureRevision'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/reorder'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
   /features/{id}/revisions/{version}/rules/{ruleId}:
     put:
       operationId: putFeatureRevisionRule
@@ -3696,6 +3761,64 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/rules/reorder:
+    post:
+      operationId: postFeatureRevisionRulesReorder
+      summary: Reorder rules in an environment
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment:
+                  type: string
+                ruleIds:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - environment
+                - ruleIds
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/reorder'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule:
     put:
       operationId: putFeatureRevisionRuleRampSchedule
@@ -4013,10 +4136,10 @@ paths:
             'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/toggle:
+  /features/{id}/revisions/{version}/request-review:
     post:
-      operationId: postFeatureRevisionToggle
-      summary: Toggle an environment on/off in a draft revision
+      operationId: postFeatureRevisionRequestReview
+      summary: Request review for a draft revision
       tags:
         - feature-revisions
       parameters:
@@ -4026,15 +4149,7 @@ paths:
           description: ''
           schema:
             type: string
-        - name: version
-          in: path
-          required: true
-          description: ''
-          schema:
-            anyOf:
-              - type: integer
-              - type: string
-                const: new
+        - $ref: '#/components/parameters/version'
       requestBody:
         required: true
         content:
@@ -4042,13 +4157,8 @@ paths:
             schema:
               type: object
               properties:
-                environment:
+                comment:
                   type: string
-                enabled:
-                  type: boolean
-              required:
-                - environment
-                - enabled
               additionalProperties: false
       responses:
         '200':
@@ -4066,13 +4176,13 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/toggle'
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/default-value:
-    put:
-      operationId: putFeatureRevisionDefaultValue
-      summary: Set the default value in a draft revision
+  /features/{id}/revisions/{version}/submit-review:
+    post:
+      operationId: postFeatureRevisionSubmitReview
+      summary: Submit a review on a draft revision
       tags:
         - feature-revisions
       parameters:
@@ -4082,132 +4192,7 @@ paths:
           description: ''
           schema:
             type: string
-        - name: version
-          in: path
-          required: true
-          description: ''
-          schema:
-            anyOf:
-              - type: integer
-              - type: string
-                const: new
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                defaultValue:
-                  type: string
-              required:
-                - defaultValue
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/FeatureRevision'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X PUT
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/default-value'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/prerequisites:
-    put:
-      operationId: putFeatureRevisionPrerequisites
-      summary: Set feature-level prerequisites in a draft revision
-      tags:
-        - feature-revisions
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: version
-          in: path
-          required: true
-          description: ''
-          schema:
-            anyOf:
-              - type: integer
-              - type: string
-                const: new
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                prerequisites:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      condition:
-                        type: string
-                    required:
-                      - id
-                      - condition
-                    additionalProperties: false
-              required:
-                - prerequisites
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/FeatureRevision'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X PUT
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/prerequisites'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/metadata:
-    put:
-      operationId: putFeatureRevisionMetadata
-      summary: Update revision metadata (comment, title, feature metadata)
-      tags:
-        - feature-revisions
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: version
-          in: path
-          required: true
-          description: ''
-          schema:
-            anyOf:
-              - type: integer
-              - type: string
-                const: new
+        - $ref: '#/components/parameters/version'
       requestBody:
         required: true
         content:
@@ -4217,107 +4202,103 @@ paths:
               properties:
                 comment:
                   type: string
-                title:
+                action:
                   type: string
-                description:
-                  type: string
-                owner:
-                  description: >-
-                    The userId or email address of the owner. If an email
-                    address is provided, it will be used to look up the userId
-                    of the matching organization member. If an ID is provided,
-                    it will be validated as existing in the organization.
-                  type: string
-                project:
-                  type: string
-                tags:
-                  type: array
-                  items:
-                    type: string
-                neverStale:
-                  type: boolean
-                customFields:
+                  enum:
+                    - approve
+                    - request-changes
+                    - comment
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/submit-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/merge-status:
+    get:
+      operationId: getFeatureRevisionMergeStatus
+      summary: Get merge status for a draft revision
+      description: >-
+        Runs a dry-run merge of the draft against the current live revision and
+        returns any conflicts.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  conflicts:
+                    type: array
+                    items: {}
+                  result: {}
+                required:
+                  - success
+                  - conflicts
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/merge-status'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/rebase:
+    post:
+      operationId: postFeatureRevisionRebase
+      summary: Rebase a draft revision onto the current live version
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conflictResolutions:
                   type: object
                   propertyNames:
                     type: string
-                  additionalProperties: {}
-                jsonSchema:
-                  type: object
-                  properties:
-                    schemaType:
-                      type: string
-                      enum:
-                        - schema
-                        - simple
-                    schema:
-                      type: string
-                    simple:
-                      type: object
-                      properties:
-                        type:
-                          type: string
-                          enum:
-                            - object
-                            - object[]
-                            - primitive
-                            - primitive[]
-                        fields:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              key:
-                                type: string
-                                maxLength: 64
-                              type:
-                                type: string
-                                enum:
-                                  - integer
-                                  - float
-                                  - string
-                                  - boolean
-                              required:
-                                type: boolean
-                              default:
-                                type: string
-                                maxLength: 256
-                              description:
-                                type: string
-                                maxLength: 256
-                              enum:
-                                maxItems: 256
-                                type: array
-                                items:
-                                  type: string
-                                  maxLength: 256
-                              min:
-                                type: number
-                              max:
-                                type: number
-                            required:
-                              - key
-                              - type
-                              - required
-                              - default
-                              - description
-                              - enum
-                              - min
-                              - max
-                            additionalProperties: false
-                      required:
-                        - type
-                        - fields
-                      additionalProperties: false
-                    date: {}
-                    enabled:
-                      type: boolean
-                  required:
-                    - schemaType
-                    - schema
-                    - simple
-                    - date
-                    - enabled
-                  additionalProperties: false
+                  additionalProperties:
+                    type: string
+                    enum:
+                      - overwrite
+                      - discard
               additionalProperties: false
       responses:
         '200':
@@ -4334,14 +4315,18 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X PUT
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/metadata'
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/archive:
-    put:
-      operationId: putFeatureRevisionArchive
-      summary: Set archived state in a draft revision
+  /features/{id}/revisions/{version}/publish:
+    post:
+      operationId: postFeatureRevisionPublish
+      summary: Publish a draft revision
+      description: >-
+        Immediately publishes a draft revision, making it the live version of
+        the feature. Blocked if the org requires approvals and
+        `bypassApprovalChecks` is off.
       tags:
         - feature-revisions
       parameters:
@@ -4351,15 +4336,7 @@ paths:
           description: ''
           schema:
             type: string
-        - name: version
-          in: path
-          required: true
-          description: ''
-          schema:
-            anyOf:
-              - type: integer
-              - type: string
-                const: new
+        - $ref: '#/components/parameters/version'
       requestBody:
         required: true
         content:
@@ -4367,10 +4344,8 @@ paths:
             schema:
               type: object
               properties:
-                archived:
-                  type: boolean
-              required:
-                - archived
+                comment:
+                  type: string
               additionalProperties: false
       responses:
         '200':
@@ -4387,14 +4362,14 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X PUT
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/archive'
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}/holdout:
-    put:
-      operationId: putFeatureRevisionHoldout
-      summary: Set holdout in a draft revision
+  /features/{id}/revisions/{version}/discard:
+    post:
+      operationId: postFeatureRevisionDiscard
+      summary: Discard a draft revision
       tags:
         - feature-revisions
       parameters:
@@ -4404,37 +4379,14 @@ paths:
           description: ''
           schema:
             type: string
-        - name: version
-          in: path
-          required: true
-          description: ''
-          schema:
-            anyOf:
-              - type: integer
-              - type: string
-                const: new
+        - $ref: '#/components/parameters/version'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              properties:
-                holdout:
-                  anyOf:
-                    - type: object
-                      properties:
-                        id:
-                          type: string
-                        value:
-                          type: string
-                      required:
-                        - id
-                        - value
-                      additionalProperties: false
-                    - type: 'null'
-              required:
-                - holdout
+              properties: {}
               additionalProperties: false
       responses:
         '200':
@@ -4451,8 +4403,61 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: >-
-            curl -X PUT
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/holdout'
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/discard'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/revert:
+    post:
+      operationId: postFeatureRevisionRevert
+      summary: Revert the feature to a prior revision
+      description: >-
+        Creates a new draft (or immediately publishes) whose content matches the
+        specified historical revision.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                strategy:
+                  type: string
+                  enum:
+                    - draft
+                    - publish
+                comment:
+                  type: string
+                title:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /archetypes:
@@ -26969,6 +26974,7 @@ x-tagGroups:
       - projects
       - environments
       - features
+      - feature-revisions
       - ramp-schedules
       - data-sources
       - fact-tables
@@ -26989,7 +26995,6 @@ x-tagGroups:
       - settings
       - attributes
       - usage
-      - feature-revisions
       - Dashboards
       - CustomFields
       - MetricGroups

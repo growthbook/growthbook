@@ -45,47 +45,37 @@ export const featureRoutes: OpenApiRoute[] = [
   getFeatureKeys,
   getFeatureStale,
 
-  // Cross-feature revision list
+  // Reading & listing
   listRevisions,
-
-  // Revision list + create
   getFeatureRevisions,
-  postFeatureRevision,
-
-  // Latest active draft shortcut
+  getFeatureRevision,
   getFeatureRevisionLatest,
 
-  // Single revision
-  getFeatureRevision,
+  // Draft creation
+  postFeatureRevision,
 
-  // Lifecycle
-  postFeatureRevisionDiscard,
-  postFeatureRevisionPublish,
-  postFeatureRevisionRevert,
+  // Feature-level edits
+  putFeatureRevisionMetadata,
+  putFeatureRevisionDefaultValue,
+  putFeatureRevisionPrerequisites,
+  putFeatureRevisionHoldout,
+  putFeatureRevisionArchive,
+  postFeatureRevisionToggle,
 
-  // Conflict resolution
-  getFeatureRevisionMergeStatus,
-  postFeatureRevisionRebase,
-
-  // Review flow
-  postFeatureRevisionRequestReview,
-  postFeatureRevisionSubmitReview,
-
-  // Rule edits
+  // Rules
   postFeatureRevisionRuleAdd,
-  postFeatureRevisionRulesReorder,
   putFeatureRevisionRule,
   deleteFeatureRevisionRule,
-
-  // Rule ramp schedule
+  postFeatureRevisionRulesReorder,
   putFeatureRevisionRuleRampSchedule,
   deleteFeatureRevisionRuleRampSchedule,
 
-  // Field edits
-  postFeatureRevisionToggle,
-  putFeatureRevisionDefaultValue,
-  putFeatureRevisionPrerequisites,
-  putFeatureRevisionMetadata,
-  putFeatureRevisionArchive,
-  putFeatureRevisionHoldout,
+  // Review & lifecycle
+  postFeatureRevisionRequestReview,
+  postFeatureRevisionSubmitReview,
+  getFeatureRevisionMergeStatus,
+  postFeatureRevisionRebase,
+  postFeatureRevisionPublish,
+  postFeatureRevisionDiscard,
+  postFeatureRevisionRevert,
 ];
