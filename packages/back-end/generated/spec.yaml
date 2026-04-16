@@ -4652,6 +4652,15 @@ paths:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/datasourceId'
         - $ref: '#/components/parameters/experimentId'
+        - name: status
+          in: query
+          description: ''
+          schema:
+            type: string
+            enum:
+              - draft
+              - running
+              - stopped
       responses:
         '200':
           content:
