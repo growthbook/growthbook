@@ -582,6 +582,23 @@ export async function postCancelSubscriptionToLicenseServer(licenseId: string) {
   return license;
 }
 
+export async function notifyLicenseServerExperimentStarted(
+  organizationId: string,
+  experimentId: string,
+  timestamp: string,
+) {
+  const url = `${LICENSE_SERVER_URL}events/experiment-started`;
+  await callLicenseServer({
+    url,
+    body: JSON.stringify({
+      organizationId,
+      experimentId,
+      timestamp,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
 export async function postResendEmailVerificationEmailToLicenseServer(
   organizationId: string,
 ) {

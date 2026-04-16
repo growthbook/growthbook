@@ -53,6 +53,10 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import {
+  isAirGappedLicenseKey,
+  notifyLicenseServerExperimentStarted,
+} from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -1876,6 +1880,20 @@ const onExperimentUpdate = async ({
       experiment: newExperiment,
       organization: context.org,
     });
+
+  if (
+    oldExperiment.status !== "running" &&
+    newExperiment.status === "running" &&
+    !isAirGappedLicenseKey(context.org.licenseKey)
+  ) {
+    notifyLicenseServerExperimentStarted(
+      context.org.id,
+      newExperiment.id,
+      new Date().toISOString(),
+    ).catch((e) => {
+      logger.error(e, "Failed to notify license server of experiment start");
+    });
+  }
 };
 
 const onExperimentDelete = async (
