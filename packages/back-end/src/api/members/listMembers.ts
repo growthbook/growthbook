@@ -9,7 +9,10 @@ import {
 export const listMembers = createApiRequestHandler(listMembersValidator)(async (
   req,
 ) => {
-  if (!req.context.permissions.canManageTeam()) {
+  const readableProjects =
+    req.context.permissions.getProjectsWithPermission("readData");
+  // readableProjects = [], that means the user has no access to any projects
+  if (readableProjects !== null && readableProjects.length === 0) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -30,6 +33,11 @@ export const listMembers = createApiRequestHandler(listMembersValidator)(async (
 
   return {
     members: filtered.map((member) => {
+      // Strip project roles for projects the requester doesn't have readAccess to.
+      const filteredProjectRoles = (member.projectRoles ?? []).filter((pr) =>
+        req.context.permissions.canReadSingleProjectResource(pr.project),
+      );
+
       return {
         id: member.id,
         name: member.name,
@@ -38,7 +46,7 @@ export const listMembers = createApiRequestHandler(listMembersValidator)(async (
         teams: member.teams,
         environments: member.environments,
         limitAccessByEnvironment: member.limitAccessByEnvironment,
-        projectRoles: member.projectRoles,
+        projectRoles: filteredProjectRoles,
         lastLoginDate: member.lastLoginDate?.toISOString(),
         dateCreated: member.dateCreated?.toISOString(),
         managedbyIdp: member.managedByIdp || false,
