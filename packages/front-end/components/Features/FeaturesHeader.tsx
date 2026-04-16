@@ -419,7 +419,7 @@ export default function FeaturesHeader({
             <div ref={headerSlotRef} />
             {portalHost && createPortal(revisionAndSettingsGroup, portalHost)}
           </Flex>
-          <Flex gap="4">
+          <Flex gap="4" align="center">
             {holdout?.id && (
               <Box>
                 <Text weight="medium">Holdout: </Text>
