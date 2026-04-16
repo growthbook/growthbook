@@ -44,6 +44,21 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
   const { environment, ...scheduleInput } = req.body;
   assertValidEnvironment(req.context, environment);
 
+  // Verify the rule exists — check the draft first, then fall back to the
+  // published feature rules (a ramp schedule may target a live rule that the
+  // draft hasn't touched).
+  const inDraft =
+    revision.rules?.[environment]?.some((r) => r.id === ruleId) ?? false;
+  const inLive =
+    feature.environmentSettings?.[environment]?.rules?.some(
+      (r) => r.id === ruleId,
+    ) ?? false;
+  if (!inDraft && !inLive) {
+    throw new NotFoundError(
+      `Rule "${ruleId}" not found in environment "${environment}"`,
+    );
+  }
+
   // Block if the rule already has a live schedule — must update it directly.
   const liveSchedules = await req.context.models.rampSchedules.findByTargetRule(
     ruleId,

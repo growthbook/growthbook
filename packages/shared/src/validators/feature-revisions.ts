@@ -3,6 +3,7 @@ import {
   featurePrerequisite,
   savedGroupTargeting,
   paginationQueryFields,
+  apiPaginationFieldsValidator,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
@@ -54,6 +55,8 @@ export const getFeatureRevisionValidator = {
   path: "/features/:id/revisions/:version",
   operationId: "getFeatureRevision",
   summary: "Get a single feature revision",
+  description:
+    "Returns the revision at the specified version for this feature. Use `GET /revisions/latest` for the most recent active draft.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
@@ -80,6 +83,8 @@ export const postFeatureRevisionValidator = {
   path: "/features/:id/revisions",
   operationId: "postFeatureRevision",
   summary: "Create a draft revision",
+  description:
+    "Creates a new draft revision branched from the current live revision. A feature can have multiple concurrent drafts; use this to start an isolated line of edits.",
   tags: ["feature-revisions"],
   paramsSchema: idParams,
   bodySchema: z
@@ -97,6 +102,8 @@ export const postFeatureRevisionDiscardValidator = {
   path: "/features/:id/revisions/:version/discard",
   operationId: "postFeatureRevisionDiscard",
   summary: "Discard a draft revision",
+  description:
+    "Permanently discards a draft revision. Only drafts (never published revisions) can be discarded. Any pending ramp actions staged on the draft are dropped.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),
@@ -148,7 +155,7 @@ export const getFeatureRevisionMergeStatusValidator = {
   operationId: "getFeatureRevisionMergeStatus",
   summary: "Get merge status for a draft revision",
   description:
-    "Runs a dry-run merge of the draft against the current live revision and returns any conflicts.",
+    "Runs a dry-run merge of the draft against the current live revision and returns any conflicts. Use this before publishing to preview changes and detect conflicting edits.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
@@ -165,6 +172,8 @@ export const postFeatureRevisionRebaseValidator = {
   path: "/features/:id/revisions/:version/rebase",
   operationId: "postFeatureRevisionRebase",
   summary: "Rebase a draft revision onto the current live version",
+  description:
+    "Updates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields (keyed by `envName.ruleId` or `defaultValue`).",
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -183,6 +192,8 @@ export const postFeatureRevisionRequestReviewValidator = {
   path: "/features/:id/revisions/:version/request-review",
   operationId: "postFeatureRevisionRequestReview",
   summary: "Request review for a draft revision",
+  description:
+    "Moves the draft into the `pending-review` state and notifies reviewers.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -199,6 +210,8 @@ export const postFeatureRevisionSubmitReviewValidator = {
   path: "/features/:id/revisions/:version/submit-review",
   operationId: "postFeatureRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
+  description:
+    "Submits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts, but may submit comments or request changes.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -213,15 +226,19 @@ export const postFeatureRevisionSubmitReviewValidator = {
 
 // ---- Rule validators ----
 
-const scheduleRuleInput = z.object({
-  timestamp: z.string().nullable(),
-  enabled: z.boolean(),
-});
+const scheduleRuleInput = z
+  .object({
+    timestamp: z.string().nullable(),
+    enabled: z.boolean(),
+  })
+  .strict();
 
-const scheduleShorthand = z.object({
-  startDate: z.string().optional().nullable(),
-  endDate: z.string().optional().nullable(),
-});
+const scheduleShorthand = z
+  .object({
+    startDate: z.string().optional().nullable(),
+    endDate: z.string().optional().nullable(),
+  })
+  .strict();
 
 const commonRuleFields = {
   description: z.string().optional(),
@@ -233,44 +250,56 @@ const commonRuleFields = {
   scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
 };
 
-const forceRolloutCreateInput = z.object({
-  ...commonRuleFields,
-  type: z.enum(["force", "rollout"]).optional(),
-  value: z.string(),
-  coverage: z.number().min(0).max(1).optional(),
-  hashAttribute: z.string().optional(),
-  seed: z.string().optional(),
-});
+const forceRolloutCreateInput = z
+  .object({
+    ...commonRuleFields,
+    type: z.enum(["force", "rollout"]).optional(),
+    value: z.string(),
+    coverage: z.number().min(0).max(1).optional(),
+    hashAttribute: z.string().optional(),
+    seed: z.string().optional(),
+  })
+  .strict();
 
-const experimentRefCreateInput = z.object({
-  ...commonRuleFields,
-  type: z.literal("experiment-ref"),
-  experimentId: z.string(),
-  variations: z.array(
-    z.object({ variationId: z.string().optional(), value: z.string() }),
-  ),
-});
+const experimentRefCreateInput = z
+  .object({
+    ...commonRuleFields,
+    type: z.literal("experiment-ref"),
+    experimentId: z.string(),
+    variations: z.array(
+      z
+        .object({ variationId: z.string().optional(), value: z.string() })
+        .strict(),
+    ),
+  })
+  .strict();
 
-const safeRolloutCreateInput = z.object({
-  ...commonRuleFields,
-  type: z.literal("safe-rollout"),
-  controlValue: z.string(),
-  variationValue: z.string(),
-  hashAttribute: z.string(),
-  trackingKey: z.string().optional(),
-  seed: z.string().optional(),
-  safeRolloutFields: z.object({
-    datasourceId: z.string(),
-    exposureQueryId: z.string(),
-    guardrailMetricIds: z.array(z.string()),
-    maxDuration: z.object({
-      amount: z.number().positive(),
-      unit: z.enum(["weeks", "days", "hours", "minutes"]),
-    }),
-    autoRollback: z.boolean().optional(),
-    rampUpSchedule: z.object({ enabled: z.boolean() }).optional(),
-  }),
-});
+const safeRolloutCreateInput = z
+  .object({
+    ...commonRuleFields,
+    type: z.literal("safe-rollout"),
+    controlValue: z.string(),
+    variationValue: z.string(),
+    hashAttribute: z.string(),
+    trackingKey: z.string().optional(),
+    seed: z.string().optional(),
+    safeRolloutFields: z
+      .object({
+        datasourceId: z.string(),
+        exposureQueryId: z.string(),
+        guardrailMetricIds: z.array(z.string()),
+        maxDuration: z
+          .object({
+            amount: z.number().positive(),
+            unit: z.enum(["weeks", "days", "hours", "minutes"]),
+          })
+          .strict(),
+        autoRollback: z.boolean().optional(),
+        rampUpSchedule: z.object({ enabled: z.boolean() }).strict().optional(),
+      })
+      .strict(),
+  })
+  .strict();
 
 const ruleCreateInput = z.union([
   experimentRefCreateInput,
@@ -283,14 +312,18 @@ export const postFeatureRevisionRuleAddValidator = {
   path: "/features/:id/revisions/:version/rules",
   operationId: "postFeatureRevisionRuleAdd",
   summary: "Add a rule to a draft revision",
+  description:
+    "Appends a new rule to the end of the rule list for the given environment. A `rule.type` of `force`, `rollout`, `experiment-ref`, or `safe-rollout` determines the accepted shape. Use `rampSchedule` for ramp configuration or `schedule` for a simple start/end window; if both are provided, `rampSchedule` wins.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({
-    environment: z.string(),
-    rule: ruleCreateInput,
-    rampSchedule: inlineRampScheduleInput.optional(),
-    schedule: scheduleShorthand.optional(),
-  }),
+  bodySchema: z
+    .object({
+      environment: z.string(),
+      rule: ruleCreateInput,
+      rampSchedule: inlineRampScheduleInput.optional(),
+      schedule: scheduleShorthand.optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -300,46 +333,56 @@ export const postFeatureRevisionRulesReorderValidator = {
   path: "/features/:id/revisions/:version/rules/reorder",
   operationId: "postFeatureRevisionRulesReorder",
   summary: "Reorder rules in an environment",
+  description:
+    "Replaces the rule order for the environment. `ruleIds` must contain **exactly** the set of existing rule IDs in that environment — no additions, omissions, or duplicates.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({
-    environment: z.string(),
-    ruleIds: z.array(z.string()),
-  }),
+  bodySchema: z
+    .object({
+      environment: z.string(),
+      ruleIds: z.array(z.string()),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
 
-const rulePatchSchema = z.object({
-  ...commonRuleFields,
-  type: z
-    .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
-    .optional(),
-  value: z.string().optional(),
-  coverage: z.number().min(0).max(1).optional(),
-  hashAttribute: z.string().optional(),
-  seed: z.string().optional(),
-  experimentId: z.string().optional(),
-  variations: z
-    .array(z.object({ variationId: z.string(), value: z.string() }))
-    .optional(),
-  controlValue: z.string().optional(),
-  variationValue: z.string().optional(),
-});
+const rulePatchSchema = z
+  .object({
+    ...commonRuleFields,
+    type: z
+      .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
+      .optional(),
+    value: z.string().optional(),
+    coverage: z.number().min(0).max(1).optional(),
+    hashAttribute: z.string().optional(),
+    seed: z.string().optional(),
+    experimentId: z.string().optional(),
+    variations: z
+      .array(z.object({ variationId: z.string(), value: z.string() }).strict())
+      .optional(),
+    controlValue: z.string().optional(),
+    variationValue: z.string().optional(),
+  })
+  .strict();
 
 export const putFeatureRevisionRuleValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
   operationId: "putFeatureRevisionRule",
   summary: "Update a rule in a draft revision",
+  description:
+    "Patches fields on an existing rule. The rule `type` cannot be changed — to convert types, delete and re-add. Fields that don't apply to the current rule type are rejected.",
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
-  bodySchema: z.object({
-    environment: z.string(),
-    rule: rulePatchSchema,
-    rampSchedule: inlineRampScheduleInput.optional(),
-    schedule: scheduleShorthand.optional(),
-  }),
+  bodySchema: z
+    .object({
+      environment: z.string(),
+      rule: rulePatchSchema,
+      rampSchedule: inlineRampScheduleInput.optional(),
+      schedule: scheduleShorthand.optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -349,9 +392,11 @@ export const deleteFeatureRevisionRuleValidator = {
   path: "/features/:id/revisions/:version/rules/:ruleId",
   operationId: "deleteFeatureRevisionRule",
   summary: "Delete a rule from a draft revision",
+  description:
+    "Removes the rule from the specified environment. Any pending ramp actions on the draft for this rule are also cleared.",
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
-  bodySchema: z.object({ environment: z.string() }),
+  bodySchema: z.object({ environment: z.string() }).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -361,6 +406,8 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
   operationId: "putFeatureRevisionRuleRampSchedule",
   summary: "Set ramp schedule for a rule",
+  description:
+    "Attaches (or replaces) a ramp schedule for the rule. Rejects if the rule already has a live ramp schedule — update that directly via PUT /ramp-schedules/{id}. The schedule is created at publish time.",
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
   bodySchema: standaloneRampScheduleInput,
@@ -373,9 +420,11 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
   operationId: "deleteFeatureRevisionRuleRampSchedule",
   summary: "Remove ramp schedule from a rule",
+  description:
+    "Removes a pending ramp schedule attached by the draft. If the rule currently has a live ramp schedule, a detach action is queued and applied at publish time.",
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
-  bodySchema: z.object({ environment: z.string() }),
+  bodySchema: z.object({ environment: z.string() }).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -387,12 +436,16 @@ export const postFeatureRevisionToggleValidator = {
   path: "/features/:id/revisions/:version/toggle",
   operationId: "postFeatureRevisionToggle",
   summary: "Toggle an environment on/off in a draft revision",
+  description:
+    "Sets whether the feature is enabled in the given environment as part of the draft. Takes effect on publish.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({
-    environment: z.string(),
-    enabled: z.boolean(),
-  }),
+  bodySchema: z
+    .object({
+      environment: z.string(),
+      enabled: z.boolean(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -402,9 +455,11 @@ export const putFeatureRevisionDefaultValueValidator = {
   path: "/features/:id/revisions/:version/default-value",
   operationId: "putFeatureRevisionDefaultValue",
   summary: "Set the default value in a draft revision",
+  description:
+    "Replaces the feature's default value for this revision. The value must be a string representation matching the feature's value type (e.g. `\"true\"` for booleans, `42` for numbers, a JSON string for JSON features).",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({ defaultValue: z.string() }),
+  bodySchema: z.object({ defaultValue: z.string() }).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -414,11 +469,15 @@ export const putFeatureRevisionPrerequisitesValidator = {
   path: "/features/:id/revisions/:version/prerequisites",
   operationId: "putFeatureRevisionPrerequisites",
   summary: "Set feature-level prerequisites in a draft revision",
+  description:
+    "Replaces the feature's prerequisite list for this revision. Each prerequisite condition is evaluated against `{ value: <prereq-flag-value> }` at SDK eval time — use `value` as the condition key.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({
-    prerequisites: z.array(featurePrerequisite),
-  }),
+  bodySchema: z
+    .object({
+      prerequisites: z.array(featurePrerequisite),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -428,19 +487,23 @@ export const putFeatureRevisionMetadataValidator = {
   path: "/features/:id/revisions/:version/metadata",
   operationId: "putFeatureRevisionMetadata",
   summary: "Update revision metadata (comment, title, feature metadata)",
+  description:
+    "Updates draft-level metadata (`comment`, `title`) and/or feature-level metadata (owner, project, tags, customFields, jsonSchema, etc.). Feature metadata changes are staged on the revision and applied to the feature on publish. Changing `project` requires publish permission on both the old and new project.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({
-    comment: z.string().optional(),
-    title: z.string().optional(),
-    description: z.string().optional(),
-    owner: ownerInputField.optional(),
-    project: z.string().optional(),
-    tags: z.array(z.string()).optional(),
-    neverStale: z.boolean().optional(),
-    customFields: z.record(z.string(), z.unknown()).optional(),
-    jsonSchema: JSONSchemaDef.optional(),
-  }),
+  bodySchema: z
+    .object({
+      comment: z.string().optional(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      owner: ownerInputField.optional(),
+      project: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      neverStale: z.boolean().optional(),
+      customFields: z.record(z.string(), z.unknown()).optional(),
+      jsonSchema: JSONSchemaDef.optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -450,9 +513,11 @@ export const putFeatureRevisionArchiveValidator = {
   path: "/features/:id/revisions/:version/archive",
   operationId: "putFeatureRevisionArchive",
   summary: "Set archived state in a draft revision",
+  description:
+    "Sets whether the feature is archived. Archived features are excluded from SDK payloads on publish.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({ archived: z.boolean() }),
+  bodySchema: z.object({ archived: z.boolean() }).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -462,11 +527,18 @@ export const putFeatureRevisionHoldoutValidator = {
   path: "/features/:id/revisions/:version/holdout",
   operationId: "putFeatureRevisionHoldout",
   summary: "Set holdout in a draft revision",
+  description:
+    "Sets (or clears, via `holdout: null`) the holdout experiment bound to the feature. Holdout linkage side-effects (updating the holdout's linked feature list) are applied on publish.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({
-    holdout: z.object({ id: z.string(), value: z.string() }).nullable(),
-  }),
+  bodySchema: z
+    .object({
+      holdout: z
+        .object({ id: z.string(), value: z.string() })
+        .strict()
+        .nullable(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -497,7 +569,11 @@ export const listRevisionsValidator = {
       .optional(),
     author: z.string().optional(),
   }),
-  responseSchema: z.unknown(),
+  responseSchema: z
+    .object({
+      revisions: z.array(apiFeatureRevisionValidator),
+    })
+    .extend(apiPaginationFieldsValidator.shape),
 };
 
 // ---- Exported types for use in back-end handlers ----

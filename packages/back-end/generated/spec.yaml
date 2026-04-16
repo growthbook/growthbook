@@ -2164,7 +2164,36 @@ paths:
         '200':
           content:
             application/json:
-              schema: {}
+              schema:
+                type: object
+                properties:
+                  revisions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeatureRevision'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                required:
+                  - revisions
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -2211,6 +2240,10 @@ paths:
     post:
       operationId: postFeatureRevision
       summary: Create a draft revision
+      description: >-
+        Creates a new draft revision branched from the current live revision. A
+        feature can have multiple concurrent drafts; use this to start an
+        isolated line of edits.
       tags:
         - feature-revisions
       parameters:
@@ -2250,39 +2283,6 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/features/{id}/revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /features/{id}/revisions/{version}:
-    get:
-      operationId: getFeatureRevision
-      summary: Get a single feature revision
-      tags:
-        - feature-revisions
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - $ref: '#/components/parameters/version'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/FeatureRevision'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X GET
-            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
   /features/{id}/revisions/latest:
     get:
       operationId: getFeatureRevisionLatest
@@ -2317,10 +2317,52 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/features/{id}/revisions/latest' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}:
+    get:
+      operationId: getFeatureRevision
+      summary: Get a single feature revision
+      description: >-
+        Returns the revision at the specified version for this feature. Use `GET
+        /revisions/latest` for the most recent active draft.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /features/{id}/revisions/{version}/metadata:
     put:
       operationId: putFeatureRevisionMetadata
       summary: Update revision metadata (comment, title, feature metadata)
+      description: >-
+        Updates draft-level metadata (`comment`, `title`) and/or feature-level
+        metadata (owner, project, tags, customFields, jsonSchema, etc.). Feature
+        metadata changes are staged on the revision and applied to the feature
+        on publish. Changing `project` requires publish permission on both the
+        old and new project.
       tags:
         - feature-revisions
       parameters:
@@ -2473,6 +2515,11 @@ paths:
     put:
       operationId: putFeatureRevisionDefaultValue
       summary: Set the default value in a draft revision
+      description: >-
+        Replaces the feature's default value for this revision. The value must
+        be a string representation matching the feature's value type (e.g.
+        `"true"` for booleans, `42` for numbers, a JSON string for JSON
+        features).
       tags:
         - feature-revisions
       parameters:
@@ -2526,6 +2573,11 @@ paths:
     put:
       operationId: putFeatureRevisionPrerequisites
       summary: Set feature-level prerequisites in a draft revision
+      description: >-
+        Replaces the feature's prerequisite list for this revision. Each
+        prerequisite condition is evaluated against `{ value:
+        <prereq-flag-value> }` at SDK eval time — use `value` as the condition
+        key.
       tags:
         - feature-revisions
       parameters:
@@ -2590,6 +2642,10 @@ paths:
     put:
       operationId: putFeatureRevisionHoldout
       summary: Set holdout in a draft revision
+      description: >-
+        Sets (or clears, via `holdout: null`) the holdout experiment bound to
+        the feature. Holdout linkage side-effects (updating the holdout's linked
+        feature list) are applied on publish.
       tags:
         - feature-revisions
       parameters:
@@ -2654,6 +2710,9 @@ paths:
     put:
       operationId: putFeatureRevisionArchive
       summary: Set archived state in a draft revision
+      description: >-
+        Sets whether the feature is archived. Archived features are excluded
+        from SDK payloads on publish.
       tags:
         - feature-revisions
       parameters:
@@ -2707,6 +2766,9 @@ paths:
     post:
       operationId: postFeatureRevisionToggle
       summary: Toggle an environment on/off in a draft revision
+      description: >-
+        Sets whether the feature is enabled in the given environment as part of
+        the draft. Takes effect on publish.
       tags:
         - feature-revisions
       parameters:
@@ -2763,6 +2825,12 @@ paths:
     post:
       operationId: postFeatureRevisionRuleAdd
       summary: Add a rule to a draft revision
+      description: >-
+        Appends a new rule to the end of the rule list for the given
+        environment. A `rule.type` of `force`, `rollout`, `experiment-ref`, or
+        `safe-rollout` determines the accepted shape. Use `rampSchedule` for
+        ramp configuration or `schedule` for a simple start/end window; if both
+        are provided, `rampSchedule` wins.
       tags:
         - feature-revisions
       parameters:
@@ -3332,6 +3400,10 @@ paths:
     put:
       operationId: putFeatureRevisionRule
       summary: Update a rule in a draft revision
+      description: >-
+        Patches fields on an existing rule. The rule `type` cannot be changed —
+        to convert types, delete and re-add. Fields that don't apply to the
+        current rule type are rejected.
       tags:
         - feature-revisions
       parameters:
@@ -3711,6 +3783,9 @@ paths:
     delete:
       operationId: deleteFeatureRevisionRule
       summary: Delete a rule from a draft revision
+      description: >-
+        Removes the rule from the specified environment. Any pending ramp
+        actions on the draft for this rule are also cleared.
       tags:
         - feature-revisions
       parameters:
@@ -3765,6 +3840,10 @@ paths:
     post:
       operationId: postFeatureRevisionRulesReorder
       summary: Reorder rules in an environment
+      description: >-
+        Replaces the rule order for the environment. `ruleIds` must contain
+        **exactly** the set of existing rule IDs in that environment — no
+        additions, omissions, or duplicates.
       tags:
         - feature-revisions
       parameters:
@@ -3823,6 +3902,10 @@ paths:
     put:
       operationId: putFeatureRevisionRuleRampSchedule
       summary: Set ramp schedule for a rule
+      description: >-
+        Attaches (or replaces) a ramp schedule for the rule. Rejects if the rule
+        already has a live ramp schedule — update that directly via PUT
+        /ramp-schedules/{id}. The schedule is created at publish time.
       tags:
         - feature-revisions
       parameters:
@@ -4086,6 +4169,10 @@ paths:
     delete:
       operationId: deleteFeatureRevisionRuleRampSchedule
       summary: Remove ramp schedule from a rule
+      description: >-
+        Removes a pending ramp schedule attached by the draft. If the rule
+        currently has a live ramp schedule, a detach action is queued and
+        applied at publish time.
       tags:
         - feature-revisions
       parameters:
@@ -4140,6 +4227,7 @@ paths:
     post:
       operationId: postFeatureRevisionRequestReview
       summary: Request review for a draft revision
+      description: Moves the draft into the `pending-review` state and notifies reviewers.
       tags:
         - feature-revisions
       parameters:
@@ -4183,6 +4271,10 @@ paths:
     post:
       operationId: postFeatureRevisionSubmitReview
       summary: Submit a review on a draft revision
+      description: >-
+        Submits an `approve`, `request-changes`, or `comment` review on the
+        draft. Contributors cannot approve their own drafts, but may submit
+        comments or request changes.
       tags:
         - feature-revisions
       parameters:
@@ -4234,7 +4326,8 @@ paths:
       summary: Get merge status for a draft revision
       description: >-
         Runs a dry-run merge of the draft against the current live revision and
-        returns any conflicts.
+        returns any conflicts. Use this before publishing to preview changes and
+        detect conflicting edits.
       tags:
         - feature-revisions
       parameters:
@@ -4273,6 +4366,11 @@ paths:
     post:
       operationId: postFeatureRevisionRebase
       summary: Rebase a draft revision onto the current live version
+      description: >-
+        Updates the draft's base revision to match the currently-live revision,
+        applying the draft's changes on top. Supply `conflictResolutions` to
+        resolve any conflicting fields (keyed by `envName.ruleId` or
+        `defaultValue`).
       tags:
         - feature-revisions
       parameters:
@@ -4370,6 +4468,10 @@ paths:
     post:
       operationId: postFeatureRevisionDiscard
       summary: Discard a draft revision
+      description: >-
+        Permanently discards a draft revision. Only drafts (never published
+        revisions) can be discarded. Any pending ramp actions staged on the
+        draft are dropped.
       tags:
         - feature-revisions
       parameters:

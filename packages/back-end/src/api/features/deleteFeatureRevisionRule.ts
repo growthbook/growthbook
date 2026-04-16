@@ -1,6 +1,7 @@
 import cloneDeep from "lodash/cloneDeep";
 import { deleteFeatureRevisionRuleValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import { RevisionChanges } from "shared/types/feature-revision";
 import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -54,11 +55,23 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
     );
   }
 
+  const changes: RevisionChanges = { rules: newRules };
+
+  // Strip any pending ramp actions targeting this rule so we don't leave
+  // orphan create/detach actions that would fail at publish time.
+  const existingActions = revision.rampActions ?? [];
+  const filteredActions = existingActions.filter(
+    (a) => a.ruleId !== req.params.ruleId,
+  );
+  if (filteredActions.length !== existingActions.length) {
+    changes.rampActions = filteredActions;
+  }
+
   await updateRevision(
     req.context,
     feature,
     revision,
-    { rules: newRules },
+    changes,
     {
       user: req.context.auditUser,
       action: "delete rule",

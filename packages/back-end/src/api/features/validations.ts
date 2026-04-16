@@ -23,7 +23,15 @@ export { inlineRampScheduleInput };
 
 type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 
-/** Normalize API input (optional targetType/targetId) to the stored type (required fields). */
+/**
+ * Normalize API input (optional targetType/targetId) to the stored type (required fields).
+ *
+ * Note on targetId: RevisionRampCreateAction always has exactly one target
+ * (the rule being ramped), and the real target UUID is generated and injected
+ * at publish time in `createRampSchedulesForRevision` — so whatever we store
+ * here is overwritten before the schedule is ever persisted. We set an empty
+ * string to keep the stored type happy.
+ */
 function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
 ): RevisionRampCreateAction {
@@ -33,7 +41,7 @@ function normalizeRevisionRampCreateAction(
       trigger: s.trigger,
       actions: (s.actions ?? []).map((a) => ({
         targetType: a.targetType ?? ("feature-rule" as const),
-        targetId: a.targetId ?? "t1",
+        targetId: a.targetId ?? "",
         patch:
           a.patch as RevisionRampCreateAction["steps"][number]["actions"][number]["patch"],
       })),
@@ -41,7 +49,7 @@ function normalizeRevisionRampCreateAction(
     })),
     endActions: input.endActions?.map((a) => ({
       targetType: a.targetType ?? ("feature-rule" as const),
-      targetId: a.targetId ?? "t1",
+      targetId: a.targetId ?? "",
       patch:
         a.patch as RevisionRampCreateAction["steps"][number]["actions"][number]["patch"],
     })),
@@ -138,6 +146,9 @@ export function buildScheduleRampAction(
   startDate?: string | null,
   endDate?: string | null,
 ): RevisionRampCreateAction {
+  // targetId is overwritten at publish time with the generated UUID (see
+  // createRampSchedulesForRevision); the empty string here is a placeholder
+  // that keeps the stored type happy.
   const steps: RevisionRampCreateAction["steps"] = startDate
     ? [
         {
@@ -145,7 +156,7 @@ export function buildScheduleRampAction(
           actions: [
             {
               targetType: "feature-rule",
-              targetId: "t1",
+              targetId: "",
               patch: { ruleId, enabled: true },
             },
           ],
@@ -168,7 +179,7 @@ export function buildScheduleRampAction(
     action.endActions = [
       {
         targetType: "feature-rule",
-        targetId: "t1",
+        targetId: "",
         patch: { ruleId, enabled: false },
       },
     ];

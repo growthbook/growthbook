@@ -1,9 +1,14 @@
 import { z } from "zod";
-import { RampScheduleInterface } from "shared/validators";
+import {
+  apiPaginationFieldsValidator,
+  apiRampScheduleInterface,
+  RampScheduleInterface,
+} from "shared/validators";
 import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 
 const listRampSchedulesValidator = {
   method: "get" as const,
@@ -11,7 +16,11 @@ const listRampSchedulesValidator = {
   operationId: "listRampSchedules",
   summary: "List ramp schedules",
   tags: ["ramp-schedules"],
-  responseSchema: z.unknown(),
+  responseSchema: z
+    .object({
+      rampSchedules: z.array(apiRampScheduleInterface),
+    })
+    .extend(apiPaginationFieldsValidator.shape),
   querySchema: z.object({
     featureId: z.string().optional(),
     ruleId: z.string().optional(),
@@ -58,7 +67,7 @@ export const listRampSchedules = createApiRequestHandler(
   );
 
   return {
-    rampSchedules: filtered,
+    rampSchedules: filtered.map(rampScheduleToApiInterface),
     ...returnFields,
   };
 });

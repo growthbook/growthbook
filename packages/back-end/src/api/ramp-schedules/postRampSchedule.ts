@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import {
+  apiRampScheduleInterface,
   featureRulePatch,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
@@ -9,6 +10,7 @@ import {
 import type { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import {
   dispatchRampEvent,
   remapTemplateActions,
@@ -40,7 +42,7 @@ const postRampScheduleValidator = {
   operationId: "postRampSchedule",
   summary: "Create a ramp schedule",
   tags: ["ramp-schedules"],
-  responseSchema: z.unknown(),
+  responseSchema: z.object({ rampSchedule: apiRampScheduleInterface }),
   bodySchema: z
     .object({
       name: z.string().optional(),
@@ -285,5 +287,5 @@ export const postRampSchedule = createApiRequestHandler(
     },
   });
 
-  return { rampSchedule: schedule };
+  return { rampSchedule: rampScheduleToApiInterface(schedule) };
 });
