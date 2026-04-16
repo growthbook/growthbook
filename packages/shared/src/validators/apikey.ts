@@ -45,6 +45,16 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Org API keys only. Project-specific role overrides, same shape as member projectRoles",
     ),
+  disabled: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the key is rejected on authentication but not deleted",
+    ),
+  lastUsed: z
+    .date()
+    .optional()
+    .describe("Timestamp of the most recent successful authentication"),
 });
 
 export const secretApiKey = apiKeySchema

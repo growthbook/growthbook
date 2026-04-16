@@ -2,6 +2,7 @@ import React, { FC } from "react";
 import { FaCheck, FaFilter, FaTimes } from "react-icons/fa";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { getRoleDisplayName } from "shared/permissions";
+import { ago, datetime } from "shared/dates";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -11,6 +12,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
 import { roleHasAccessToEnv } from "@/services/auth";
 import Tooltip from "@/ui/Tooltip";
+import Badge from "@/ui/Badge";
 
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
@@ -18,6 +20,10 @@ type ApiKeysTableProps = {
   canCreateKeys: boolean;
   canDeleteKeys: boolean;
   onReveal: (keyId: string | undefined) => () => Promise<string>;
+  onToggleDisabled?: (
+    keyId: string | undefined,
+    disabled: boolean,
+  ) => () => Promise<void>;
 };
 
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
@@ -26,6 +32,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   canCreateKeys,
   canDeleteKeys,
   onReveal,
+  onToggleDisabled,
 }) => {
   const { organization } = useUser();
   const { projects } = useDefinitions();
@@ -42,14 +49,22 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
             ))}
-
+            <th>Last Used</th>
             {canDeleteKeys && <th style={{ width: 30 }}></th>}
           </tr>
         </thead>
         <tbody>
           {keys.map((key) => (
-            <tr key={key.id}>
-              <td>{key.description}</td>
+            <tr
+              key={key.id}
+              style={key.disabled ? { opacity: 0.55 } : undefined}
+            >
+              <td>
+                {key.description}
+                {key.disabled && (
+                  <Badge ml="2" color="red" variant="soft" label="Disabled" />
+                )}
+              </td>
               <td style={{ minWidth: 270 }}>
                 {canCreateKeys ? (
                   <ClickToReveal
@@ -113,9 +128,29 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   </td>
                 );
               })}
+              <td>
+                {key.lastUsed ? (
+                  <Tooltip content={datetime(key.lastUsed)}>
+                    <span>{ago(key.lastUsed)}</span>
+                  </Tooltip>
+                ) : (
+                  <span className="text-muted">Never</span>
+                )}
+              </td>
               {canDeleteKeys && (
                 <td>
                   <MoreMenu>
+                    {onToggleDisabled && (
+                      <button
+                        className="dropdown-item"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          await onToggleDisabled(key.id, !key.disabled)();
+                        }}
+                      >
+                        {key.disabled ? "Enable key" : "Disable key"}
+                      </button>
+                    )}
                     <DeleteButton
                       onClick={onDelete(key.id)}
                       className="dropdown-item"

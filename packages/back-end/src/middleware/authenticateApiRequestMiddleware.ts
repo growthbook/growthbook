@@ -61,11 +61,14 @@ export default function authenticateApiRequestMiddleware(
   // Lookup organization by secret key and store in req
   dangerousLookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyDoc) => {
-      const { organization, secret, id, userId, role } = apiKeyDoc;
+      const { organization, secret, id, userId, role, disabled } = apiKeyDoc;
       if (!secret) {
         throw new Error(
           "Must use a Secret API Key for this request, SDK Endpoint key given instead.",
         );
+      }
+      if (disabled) {
+        throw new Error("This API key has been disabled");
       }
       req.apiKey = id || "";
 
@@ -178,6 +181,13 @@ export default function authenticateApiRequestMiddleware(
 
       // init license for org if it exists
       await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+
+      // Fire-and-forget: record this key's usage timestamp
+      req.context.models.apiKeys
+        .dangerousRecordUsageByKey(secretKey)
+        .catch((err) => {
+          req.log.warn({ err, apiKeyId: id }, "Failed to record API key usage");
+        });
 
       // Continue to the actual request handler
       next();

@@ -18,6 +18,7 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
   additionalIndexes: [{ fields: { id: 1 } }],
+  skipDateUpdatedFields: ["lastUsed"],
   defaultValues: {
     limitAccessByEnvironment: false,
     environments: [],
@@ -41,9 +42,11 @@ export class ApiKeyModel extends BaseClass {
       );
     }
   }
-  protected canUpdate(_existing: ApiKeyInterface): boolean {
-    // ApiKeys should be immutable
-    return false;
+  protected canUpdate(apiKey: ApiKeyInterface): boolean {
+    // The only user-driven updates allowed are toggling `disabled`;
+    // lastUsed is written via the dangerous bypass from auth middleware.
+    // Reuse the delete permission — anyone who could delete should be able to disable.
+    return this.canDelete(apiKey);
   }
   protected canDelete(apiKey: ApiKeyInterface): boolean {
     if (apiKey.secret) {
@@ -214,6 +217,23 @@ export class ApiKeyModel extends BaseClass {
     if (!doc) this.context.throwNotFoundError();
 
     await this.delete(doc);
+  }
+
+  public async setDisabled(
+    id: string,
+    disabled: boolean,
+  ): Promise<ApiKeyInterface> {
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    if (!doc) this.context.throwNotFoundError();
+    return this.update(doc, { disabled });
+  }
+
+  // Called from authentication middleware on every authenticated API request.
+  // Runs without a user-scoped context, so it intentionally bypasses permission checks.
+  public async dangerousRecordUsageByKey(key: string): Promise<void> {
+    const doc = await this._findOne({ key }, { bypassSanitization: true });
+    if (!doc) return;
+    await this.dangerousUpdateBypassPermission(doc, { lastUsed: new Date() });
   }
 
   public async getVisualEditorApiKey(
