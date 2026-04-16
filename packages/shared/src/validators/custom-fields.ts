@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { apiBaseSchema } from "./base-model";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const customFieldSectionValues = ["feature", "experiment"] as const;
 export const customFieldSectionTypes = z.enum(customFieldSectionValues);
 // All valid sections — use as the default when no section is specified.
@@ -80,19 +82,22 @@ const apiDefaultValueTypes = z.union([
   z.array(z.iso.date()),
 ]);
 
-export const apiCustomFieldInterface = apiBaseSchema.safeExtend({
-  name: z.string(),
-  description: z.string().optional(),
-  placeholder: z.string().optional(),
-  defaultValue: apiDefaultValueTypes.optional(),
-  type: customFieldTypes,
-  values: z.string().optional(),
-  required: z.boolean(),
-  creator: z.string().optional(),
-  projects: z.array(z.string()).optional(),
-  sections: z.array(customFieldSectionTypes),
-  active: z.boolean().optional(),
-});
+export const apiCustomFieldInterface = namedSchema(
+  "CustomField",
+  apiBaseSchema.safeExtend({
+    name: z.string(),
+    description: z.string().optional(),
+    placeholder: z.string().optional(),
+    defaultValue: apiDefaultValueTypes.optional(),
+    type: customFieldTypes,
+    values: z.string().optional(),
+    required: z.boolean(),
+    creator: z.string().optional(),
+    projects: z.array(z.string()).optional(),
+    sections: z.array(customFieldSectionTypes),
+    active: z.boolean().optional(),
+  }),
+);
 
 export type ApiCustomField = z.infer<typeof apiCustomFieldInterface>;
 

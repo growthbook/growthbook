@@ -1,4 +1,3 @@
-import { PutSdkConnectionResponse } from "shared/types/openapi";
 import { putSdkConnectionValidator } from "shared/validators";
 import {
   findSDKConnectionById,
@@ -10,7 +9,7 @@ import { validatePutPayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(
   putSdkConnectionValidator,
-)(async (req): Promise<PutSdkConnectionResponse> => {
+)(async (req) => {
   const sdkConnection = await findSDKConnectionById(req.context, req.params.id);
   if (!sdkConnection) {
     throw new Error("Could not find sdkConnection with that id");

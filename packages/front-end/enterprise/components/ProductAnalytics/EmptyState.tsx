@@ -4,7 +4,7 @@ import React, { useCallback, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
 import {
   PiArrowRightBold,
-  PiChats,
+  PiCaretRightBold,
   PiChartBar,
   PiCode,
   PiDatabase,
@@ -218,19 +218,19 @@ export default function EmptyState() {
                       </Button>
                     </span>
                   </Tooltip>
-                  {!chatDisabledReason && (
-                    <LinkButton
-                      href="/product-analytics/explore/ai-chat"
-                      variant="outline"
-                      size="md"
-                    >
-                      <Flex align="center" gap="2">
-                        <PiChats size={14} />
-                        Past Chats
-                      </Flex>
-                    </LinkButton>
-                  )}
                 </Flex>
+                {!chatDisabledReason && (
+                  <LinkButton
+                    href="/product-analytics/explore/ai-chat"
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <Flex align="center" gap="1">
+                      View Chat History
+                      <PiCaretRightBold size={12} />
+                    </Flex>
+                  </LinkButton>
+                )}
               </Flex>
 
               <Flex justify="center" direction="column" gap="5" mt="3">

@@ -6,7 +6,8 @@ import {
   ResourceEvents,
   WebhookEntry,
 } from "shared/types/events/base-types";
-import { apiExperimentValidator, apiFeatureValidator } from "./openapi";
+import { apiExperimentValidator } from "./experiments";
+import { apiFeatureValidator } from "./features";
 import {
   safeRolloutDecisionNotificationPayload,
   safeRolloutUnhealthyNotificationPayload,

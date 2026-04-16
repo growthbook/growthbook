@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { validateFeatureValue, validateScheduleRules } from "shared/util";
-import { PostFeatureResponse } from "shared/types/openapi";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -45,7 +44,7 @@ export const validateEnvKeys = (
 
 export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
-): Promise<PostFeatureResponse> => {
+) => {
   if (!req.context.permissions.canCreateFeature(req.body)) {
     req.context.permissions.throwPermissionError();
   }

@@ -1,4 +1,3 @@
-import { GetCodeRefsResponse } from "shared/types/openapi";
 import { getCodeRefsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -8,7 +7,7 @@ import {
 
 export const getCodeRefs = createApiRequestHandler(getCodeRefsValidator)(async (
   req,
-): Promise<GetCodeRefsResponse> => {
+) => {
   const codeRefs = (
     await getAllCodeRefsForFeature({
       organization: req.context.org,

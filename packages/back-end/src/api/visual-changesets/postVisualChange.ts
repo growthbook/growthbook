@@ -1,4 +1,3 @@
-import { PostVisualChangeResponse } from "shared/types/openapi";
 import { postVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -8,7 +7,7 @@ import {
 
 export const postVisualChange = createApiRequestHandler(
   postVisualChangeValidator,
-)(async (req): Promise<PostVisualChangeResponse> => {
+)(async (req) => {
   const experiment = await findExperimentByVisualChangesetId(
     req.context,
     req.params.id,

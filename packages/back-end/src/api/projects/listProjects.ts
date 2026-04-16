@@ -1,4 +1,3 @@
-import { ListProjectsResponse } from "shared/types/openapi";
 import { listProjectsValidator } from "shared/validators";
 import {
   applyPagination,
@@ -6,7 +5,7 @@ import {
 } from "back-end/src/util/handler";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
-  async (req): Promise<ListProjectsResponse> => {
+  async (req) => {
     const projects = await req.context.models.projects.getAll();
 
     // TODO: Move sorting/limiting to the database query for better performance
