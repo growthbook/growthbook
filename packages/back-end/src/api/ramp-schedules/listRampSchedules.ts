@@ -6,6 +6,12 @@ import {
 } from "back-end/src/util/handler";
 
 const listRampSchedulesValidator = {
+  method: "get" as const,
+  path: "/ramp-schedules",
+  operationId: "listRampSchedules",
+  summary: "List ramp schedules",
+  tags: ["ramp-schedules"],
+  responseSchema: z.unknown(),
   querySchema: z.object({
     featureId: z.string().optional(),
     ruleId: z.string().optional(),

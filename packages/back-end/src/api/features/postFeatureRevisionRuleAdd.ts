@@ -1,11 +1,9 @@
-import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
-import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import {
-  savedGroupTargeting,
-  featurePrerequisite,
   RevisionRampCreateAction,
+  postFeatureRevisionRuleAddValidator,
+  RuleCreateInput,
 } from "shared/validators";
 import type {
   ExperimentRefRule,
@@ -16,6 +14,7 @@ import type {
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -23,11 +22,9 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
-  createRevision,
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   BadRequestError,
@@ -37,87 +34,14 @@ import {
 import {
   assertValidEnvironment,
   isDraftStatus,
-  inlineRampScheduleInput,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
+  resolveOrCreateRevision,
   validateRuleConditions,
   validateRuleReferences,
 } from "./validations";
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
-
-const scheduleRuleInput = z.object({
-  timestamp: z.string().nullable(),
-  enabled: z.boolean(),
-});
-
-// Optional fields shared by every rule type
-const commonCreateFields = {
-  description: z.string().optional(),
-  enabled: z.boolean().optional(),
-  condition: z.string().optional(),
-  savedGroups: z.array(savedGroupTargeting).optional(),
-  prerequisites: z.array(featurePrerequisite).optional(),
-  scheduleRules: z.array(scheduleRuleInput).optional(),
-  scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
-};
-
-// Force / rollout — type inferred from coverage:
-//   coverage < 1  →  rollout  (hashAttribute required)
-//   otherwise     →  force
-const forceRolloutCreateInput = z.object({
-  ...commonCreateFields,
-  type: z.enum(["force", "rollout"]).optional(),
-  value: z.string(),
-  coverage: z.number().min(0).max(1).optional(),
-  hashAttribute: z.string().optional(),
-  seed: z.string().optional(),
-});
-
-const experimentRefCreateInput = z.object({
-  ...commonCreateFields,
-  type: z.literal("experiment-ref"),
-  experimentId: z.string(),
-  variations: z.array(
-    z.object({ variationId: z.string().optional(), value: z.string() }),
-  ),
-});
-
-// Safe rollout — safeRolloutId is server-generated; caller supplies monitoring config
-const safeRolloutCreateInput = z.object({
-  ...commonCreateFields,
-  type: z.literal("safe-rollout"),
-  controlValue: z.string(),
-  variationValue: z.string(),
-  hashAttribute: z.string(),
-  trackingKey: z.string().optional(),
-  seed: z.string().optional(),
-  safeRolloutFields: z.object({
-    datasourceId: z.string(),
-    exposureQueryId: z.string(),
-    guardrailMetricIds: z.array(z.string()),
-    maxDuration: z.object({
-      amount: z.number().positive(),
-      unit: z.enum(["weeks", "days", "hours", "minutes"]),
-    }),
-    autoRollback: z.boolean().optional().default(false),
-    rampUpSchedule: z
-      .object({
-        enabled: z.boolean(),
-      })
-      .optional(),
-  }),
-});
-
-// Union tries experiment-ref/safe-rollout first (explicit `type` literal);
-// forceRollout is the fallback — also catches type: undefined.
-const ruleCreateInput = z.union([
-  experimentRefCreateInput,
-  safeRolloutCreateInput,
-  forceRolloutCreateInput,
-]);
-
-type RuleCreateInput = z.infer<typeof ruleCreateInput>;
 
 function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
   const base = {
@@ -193,23 +117,9 @@ function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
   return rule;
 }
 
-export const postFeatureRevisionRuleAdd = createApiRequestHandler({
-  paramsSchema: z.object({
-    id: z.string(),
-    version: z.union([z.coerce.number().int(), z.literal("new")]),
-  }),
-  bodySchema: z.object({
-    environment: z.string(),
-    rule: ruleCreateInput,
-    rampSchedule: inlineRampScheduleInput.optional(),
-    schedule: z
-      .object({
-        startDate: z.string().optional().nullable(),
-        endDate: z.string().optional().nullable(),
-      })
-      .optional(),
-  }),
-})(async (req) => {
+export const postFeatureRevisionRuleAdd = createApiRequestHandler(
+  postFeatureRevisionRuleAddValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -220,26 +130,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
     req.context.permissions.throwPermissionError();
   }
 
-  const revision =
-    req.params.version === "new"
-      ? await createRevision({
-          context: req.context,
-          feature,
-          user: req.context.auditUser,
-          baseVersion: feature.version,
-          comment: "",
-          environments: getEnvironmentIdsFromOrg(req.context.org),
-          publish: false,
-          changes: {},
-          org: req.context.org,
-          canBypassApprovalChecks: false,
-        })
-      : await getRevision({
-          context: req.context,
-          organization: req.organization.id,
-          featureId: feature.id,
-          version: req.params.version,
-        });
+  const revision = await resolveOrCreateRevision(
+    req.context,
+    req.organization.id,
+    feature,
+    req.params.version,
+  );
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
@@ -427,5 +323,5 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
     version: revision.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

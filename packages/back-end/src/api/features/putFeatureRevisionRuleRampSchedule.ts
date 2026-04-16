@@ -1,5 +1,5 @@
-import omit from "lodash/omit";
-import { z } from "zod";
+import { putFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -10,20 +10,13 @@ import {
 import {
   assertValidEnvironment,
   isDraftStatus,
-  standaloneRampScheduleInput,
   normalizeInlineRampSchedule,
   resolveOrCreateRevision,
-  versionOrNew,
 } from "./validations";
 
-export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler({
-  paramsSchema: z.object({
-    id: z.string(),
-    version: versionOrNew,
-    ruleId: z.string(),
-  }),
-  bodySchema: standaloneRampScheduleInput,
-})(async (req) => {
+export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
+  putFeatureRevisionRuleRampScheduleValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -96,5 +89,5 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler({
     version: revision.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

@@ -1,10 +1,10 @@
-import { z } from "zod";
 import {
   autoMerge,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
 } from "shared/util";
+import { getFeatureRevisionMergeStatusValidator } from "shared/validators";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -12,9 +12,9 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 
-export const getFeatureRevisionMergeStatus = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
-})(async (req) => {
+export const getFeatureRevisionMergeStatus = createApiRequestHandler(
+  getFeatureRevisionMergeStatusValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 

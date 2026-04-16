@@ -1,6 +1,6 @@
-import omit from "lodash/omit";
-import { z } from "zod";
+import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
 import { getReviewSetting } from "shared/util";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -16,15 +16,9 @@ const actionToReviewType: Record<string, ReviewSubmittedType> = {
   comment: "Comment",
 };
 
-export const postFeatureRevisionSubmitReview = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
-  bodySchema: z.object({
-    comment: z.string().optional().default(""),
-    action: z
-      .enum(["approve", "request-changes", "comment"])
-      .default("comment"),
-  }),
-})(async (req) => {
+export const postFeatureRevisionSubmitReview = createApiRequestHandler(
+  postFeatureRevisionSubmitReviewValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -40,7 +34,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
-  const { action, comment } = req.body;
+  const { action = "comment", comment } = req.body;
   const review = actionToReviewType[action];
 
   // Block the creator from any non-comment review action.
@@ -99,5 +93,5 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
     version: req.params.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

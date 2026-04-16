@@ -23,9 +23,13 @@ const deleteVariationScreenshotValidator = {
     })
     .strict(),
   querySchema: z.never(),
+  responseSchema: z.object({}).describe("Screenshot deleted successfully"),
+  method: "delete" as const,
+  path: "/experiments/:id/variation/:variationId/screenshot",
+  operationId: "deleteVariationScreenshot",
+  summary: "Delete a variation screenshot",
+  tags: ["experiments"],
 };
-
-export type DeleteVariationScreenshotResponse = Record<string, never>;
 
 /** Strip query params for comparison - GET returns signed S3 URLs with ?X-Amz-... */
 function normalizeScreenshotPath(path: string): string {
@@ -34,7 +38,7 @@ function normalizeScreenshotPath(path: string): string {
 
 export const deleteVariationScreenshot = createApiRequestHandler(
   deleteVariationScreenshotValidator,
-)(async (req): Promise<DeleteVariationScreenshotResponse> => {
+)(async (req) => {
   const context = req.context;
   const { id, variationId } = req.params;
   const { path } = req.body;

@@ -1,6 +1,6 @@
-import omit from "lodash/omit";
-import { z } from "zod";
+import { putFeatureRevisionArchiveValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -8,18 +8,11 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import {
-  isDraftStatus,
-  resolveOrCreateRevision,
-  versionOrNew,
-} from "./validations";
+import { isDraftStatus, resolveOrCreateRevision } from "./validations";
 
-export const putFeatureRevisionArchive = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: versionOrNew }),
-  bodySchema: z.object({
-    archived: z.boolean(),
-  }),
-})(async (req) => {
+export const putFeatureRevisionArchive = createApiRequestHandler(
+  putFeatureRevisionArchiveValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -69,5 +62,5 @@ export const putFeatureRevisionArchive = createApiRequestHandler({
     version: revision.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

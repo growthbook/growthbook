@@ -35,6 +35,12 @@ const postBodyStep = z.object({
 });
 
 const postRampScheduleValidator = {
+  method: "post" as const,
+  path: "/ramp-schedules",
+  operationId: "postRampSchedule",
+  summary: "Create a ramp schedule",
+  tags: ["ramp-schedules"],
+  responseSchema: z.unknown(),
   bodySchema: z
     .object({
       name: z.string().optional(),

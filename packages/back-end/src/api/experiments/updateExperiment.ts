@@ -4,7 +4,6 @@ import {
   Variation,
   updateExperimentValidator,
 } from "shared/validators";
-import { UpdateExperimentResponse } from "shared/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateExperiment as updateExperimentToDb,
@@ -20,6 +19,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -27,7 +27,7 @@ import {
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
-)(async (req): Promise<UpdateExperimentResponse> => {
+)(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
     throw new Error("Could not find the experiment to update");
@@ -223,11 +223,15 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
+  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   const updatedExperiment = await updateExperimentToDb({
     context: req.context,
     experiment: experiment,
     changes: updateExperimentApiPayloadToInterface(
-      req.body,
+      {
+        ...req.body,
+        ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+      },
       experiment,
       map,
       req.organization,

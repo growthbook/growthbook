@@ -71,14 +71,12 @@ import {
   SafeRolloutSnapshotAnalysis,
   IncrementalRefreshInterface,
   LookbackOverrideValueUnit,
-} from "shared/validators";
-import { Dimension } from "shared/types/integrations";
-import {
   ApiExperiment,
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
-} from "shared/types/openapi";
+} from "shared/validators";
+import { Dimension } from "shared/types/integrations";
 import {
   ConversionWindowUnit,
   MetricPriorSettings,

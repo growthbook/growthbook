@@ -6,7 +6,6 @@ import {
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
-import { PostExperimentResponse } from "shared/types/openapi";
 import {
   createExperiment,
   getExperimentByTrackingKey,
@@ -18,7 +17,7 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getUserByEmail } from "back-end/src/models/UserModel";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   assertExperimentPayloadCommercialFeatures,
@@ -80,7 +79,7 @@ function templateToPostExperimentDefaults(
 }
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
-  async (req): Promise<PostExperimentResponse> => {
+  async (req) => {
     const { owner: ownerEmail, templateId } = req.body;
     let payload = req.body;
 
@@ -178,19 +177,9 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         throw new Error(`Invalid dashboard: ${payload.defaultDashboardId}`);
       }
     }
-
-    const ownerId = await (async () => {
-      if (!ownerEmail) return req.context.userId;
-      const user = await getUserByEmail(ownerEmail);
-      // check if the user is a member of the organization
-      const isMember = req.organization.members.some(
-        (member) => member.id === user?.id,
-      );
-      if (!isMember || !user) {
-        throw new Error(`Unable to find user: ${ownerEmail}.`);
-      }
-      return user.id;
-    })();
+    const ownerId =
+      (await resolveOwnerToUserId(ownerEmail, req.context, { strict: true })) ??
+      req.context.userId;
 
     // Validate that specified metrics exist and belong to the organization
     const metricGroups = await req.context.models.metricGroups.getAll();

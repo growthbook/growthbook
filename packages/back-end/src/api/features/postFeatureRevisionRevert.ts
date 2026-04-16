@@ -1,5 +1,3 @@
-import omit from "lodash/omit";
-import { z } from "zod";
 import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
@@ -7,6 +5,8 @@ import {
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { postFeatureRevisionRevertValidator } from "shared/validators";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import {
   BadRequestError,
   InternalServerError,
@@ -24,17 +24,9 @@ import {
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
-export const postFeatureRevisionRevert = createApiRequestHandler({
-  paramsSchema: z.object({
-    id: z.string(),
-    version: z.coerce.number().int(),
-  }),
-  bodySchema: z.object({
-    strategy: z.enum(["draft", "publish"]).default("draft"),
-    comment: z.string().optional(),
-    title: z.string().optional(),
-  }),
-})(async (req) => {
+export const postFeatureRevisionRevert = createApiRequestHandler(
+  postFeatureRevisionRevertValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -217,7 +209,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     revisionChanges.metadata = targetRevision.metadata;
   }
 
-  const { strategy, comment, title } = req.body;
+  const { strategy = "draft", comment, title } = req.body;
   const defaultComment = `Revert to revision #${targetRevision.version}`;
 
   if (strategy === "draft") {
@@ -239,7 +231,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
       canBypassApprovalChecks: false,
     });
 
-    return { revision: omit(newDraft, "organization") };
+    return { revision: revisionToApiInterface(newDraft) };
   }
 
   // strategy === "publish"
@@ -297,5 +289,5 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     version: publishedRevision.version,
   });
 
-  return { revision: omit(updated ?? publishedRevision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? publishedRevision) };
 });

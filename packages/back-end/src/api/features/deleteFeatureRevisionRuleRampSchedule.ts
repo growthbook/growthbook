@@ -1,6 +1,6 @@
-import omit from "lodash/omit";
-import { z } from "zod";
 import type { RevisionRampDetachAction } from "shared/validators";
+import { deleteFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -12,19 +12,11 @@ import {
   assertValidEnvironment,
   isDraftStatus,
   resolveOrCreateRevision,
-  versionOrNew,
 } from "./validations";
 
-export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler({
-  paramsSchema: z.object({
-    id: z.string(),
-    version: versionOrNew,
-    ruleId: z.string(),
-  }),
-  bodySchema: z.object({
-    environment: z.string(),
-  }),
-})(async (req) => {
+export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
+  deleteFeatureRevisionRuleRampScheduleValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -102,5 +94,5 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler({
     version: revision.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

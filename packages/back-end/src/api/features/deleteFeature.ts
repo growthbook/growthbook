@@ -1,6 +1,5 @@
 import { filterEnvironmentsByFeature, PermissionError } from "shared/util";
 import { deleteFeatureValidator } from "shared/validators";
-import { DeleteFeatureResponse } from "shared/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
@@ -9,7 +8,7 @@ import { getEnabledEnvironments } from "back-end/src/util/features";
 
 export const deleteFeatureById = createApiRequestHandler(
   deleteFeatureValidator,
-)(async (req): Promise<DeleteFeatureResponse> => {
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
 
   if (!feature) {

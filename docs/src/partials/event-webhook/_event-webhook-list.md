@@ -46,6 +46,7 @@ Triggered when a feature is created
             dateUpdated: string;
             archived: boolean;
             description: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
@@ -116,7 +117,6 @@ Triggered when a feature is created
                 } & {
                     type: "rollout";
                     value: string;
-                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -162,7 +162,6 @@ Triggered when a feature is created
                         name: string;
                         range: number[];
                     } | undefined;
-                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -310,7 +309,6 @@ Triggered when a feature is created
                     } & {
                         type: "rollout";
                         value: string;
-                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -356,7 +354,6 @@ Triggered when a feature is created
                             name: string;
                             range: number[];
                         } | undefined;
-                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -503,6 +500,7 @@ Triggered when a feature is updated
             dateUpdated: string;
             archived: boolean;
             description: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
@@ -573,7 +571,6 @@ Triggered when a feature is updated
                 } & {
                     type: "rollout";
                     value: string;
-                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -619,7 +616,6 @@ Triggered when a feature is updated
                         name: string;
                         range: number[];
                     } | undefined;
-                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -767,7 +763,6 @@ Triggered when a feature is updated
                     } & {
                         type: "rollout";
                         value: string;
-                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -813,7 +808,6 @@ Triggered when a feature is updated
                             name: string;
                             range: number[];
                         } | undefined;
-                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -921,6 +915,7 @@ Triggered when a feature is updated
             dateUpdated?: string | undefined;
             archived?: boolean | undefined;
             description?: string | undefined;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
             project?: string | undefined;
             valueType?: ("boolean" | "string" | "number" | "json") | undefined;
@@ -991,7 +986,6 @@ Triggered when a feature is updated
                 } & {
                     type: "rollout";
                     value: string;
-                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -1037,7 +1031,6 @@ Triggered when a feature is updated
                         name: string;
                         range: number[];
                     } | undefined;
-                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -1185,7 +1178,6 @@ Triggered when a feature is updated
                     } & {
                         type: "rollout";
                         value: string;
-                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -1231,7 +1223,6 @@ Triggered when a feature is updated
                             name: string;
                             range: number[];
                         } | undefined;
-                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -1383,6 +1374,7 @@ Triggered when a feature is deleted
             dateUpdated: string;
             archived: boolean;
             description: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
@@ -1453,7 +1445,6 @@ Triggered when a feature is deleted
                 } & {
                     type: "rollout";
                     value: string;
-                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -1499,7 +1490,6 @@ Triggered when a feature is deleted
                         name: string;
                         range: number[];
                     } | undefined;
-                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -1647,7 +1637,6 @@ Triggered when a feature is deleted
                     } & {
                         type: "rollout";
                         value: string;
-                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -1693,7 +1682,6 @@ Triggered when a feature is deleted
                             name: string;
                             range: number[];
                         } | undefined;
-                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -2347,6 +2335,7 @@ Triggered when an experiment is created
             hypothesis: string;
             description: string;
             tags: string[];
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             archived: boolean;
             status: string;
@@ -2370,7 +2359,6 @@ Triggered when an experiment is created
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
-                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2378,7 +2366,7 @@ Triggered when an experiment is created
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: any[];
+                    range: number[];
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -2589,6 +2577,7 @@ Triggered when an experiment is updated
             hypothesis: string;
             description: string;
             tags: string[];
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             archived: boolean;
             status: string;
@@ -2612,7 +2601,6 @@ Triggered when an experiment is updated
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
-                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2620,7 +2608,7 @@ Triggered when an experiment is updated
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: any[];
+                    range: number[];
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -2792,6 +2780,7 @@ Triggered when an experiment is updated
             hypothesis?: string | undefined;
             description?: string | undefined;
             tags?: string[] | undefined;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
             archived?: boolean | undefined;
             status?: string | undefined;
@@ -2815,7 +2804,6 @@ Triggered when an experiment is updated
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
-                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2823,7 +2811,7 @@ Triggered when an experiment is updated
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: any[];
+                    range: number[];
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -3039,6 +3027,7 @@ Triggered when an experiment is deleted
             hypothesis: string;
             description: string;
             tags: string[];
+            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             archived: boolean;
             status: string;
@@ -3062,7 +3051,6 @@ Triggered when an experiment is deleted
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
-                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -3070,7 +3058,7 @@ Triggered when an experiment is deleted
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: any[];
+                    range: number[];
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {

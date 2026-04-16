@@ -1,9 +1,0 @@
-anyOf:
-  - $ref: "./FeatureForceRule.yaml"
-    title: "Force Rule"
-  - $ref: "./FeatureRolloutRule.yaml"
-    title: "Rollout Rule"
-  - $ref: "./FeatureExperimentRefRule.yaml"
-    title: "Experiment Rule"
-  - $ref: "./FeatureSafeRolloutRule.yaml"
-    title: "Safe Rollout Rule"

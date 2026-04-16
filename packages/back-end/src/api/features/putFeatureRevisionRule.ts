@@ -1,19 +1,18 @@
-import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
-import { z } from "zod";
 import {
-  savedGroupTargeting,
-  featurePrerequisite,
   RevisionRampCreateAction,
   ExperimentRefRule,
   RolloutRule,
   ForceRule,
   SafeRolloutRule,
   FeatureRule,
+  RulePatchInput,
+  putFeatureRevisionRuleValidator,
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -24,58 +23,14 @@ import {
 import {
   assertValidEnvironment,
   isDraftStatus,
-  inlineRampScheduleInput,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
-  versionOrNew,
 } from "./validations";
 
-const scheduleRuleInput = z.object({
-  timestamp: z.string().nullable(),
-  enabled: z.boolean(),
-});
-
-// Common editable fields shared by all rule types
-const commonPatch = {
-  description: z.string().optional(),
-  enabled: z.boolean().optional(),
-  condition: z.string().optional(),
-  savedGroups: z.array(savedGroupTargeting).optional(),
-  prerequisites: z.array(featurePrerequisite).optional(),
-  scheduleRules: z.array(scheduleRuleInput).optional(),
-  scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
-};
-
-// Type-specific editable fields. All optional so callers send only what they want to change.
-// `type` may be included as a re-assertion hint (must match the existing rule's type — it cannot
-// be changed). Providing it enables client-side schema selection in codegen / IDE tooling.
-const rulePatchSchema = z.object({
-  ...commonPatch,
-  // Optional re-assertion: if provided, must match the existing rule type
-  type: z
-    .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
-    .optional(),
-  // Force / rollout fields (coverage re-infers the type post-patch)
-  value: z.string().optional(),
-  coverage: z.number().min(0).max(1).optional(),
-  hashAttribute: z.string().optional(),
-  seed: z.string().optional(),
-  // Experiment-ref fields
-  experimentId: z.string().optional(),
-  variations: z
-    .array(z.object({ variationId: z.string(), value: z.string() }))
-    .optional(),
-  // Safe-rollout fields
-  controlValue: z.string().optional(),
-  variationValue: z.string().optional(),
-});
-
-type RulePatch = z.infer<typeof rulePatchSchema>;
-
-function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
+function applyPatch(existing: FeatureRule, patch: RulePatchInput): FeatureRule {
   const type = existing.type;
 
   if (patch.type !== undefined && patch.type !== type) {
@@ -212,24 +167,9 @@ function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
   throw new BadRequestError(`Unknown rule type: ${type}`);
 }
 
-export const putFeatureRevisionRule = createApiRequestHandler({
-  paramsSchema: z.object({
-    id: z.string(),
-    version: versionOrNew,
-    ruleId: z.string(),
-  }),
-  bodySchema: z.object({
-    environment: z.string(),
-    rule: rulePatchSchema,
-    rampSchedule: inlineRampScheduleInput.optional(),
-    schedule: z
-      .object({
-        startDate: z.string().optional().nullable(),
-        endDate: z.string().optional().nullable(),
-      })
-      .optional(),
-  }),
-})(async (req) => {
+export const putFeatureRevisionRule = createApiRequestHandler(
+  putFeatureRevisionRuleValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -428,5 +368,5 @@ export const putFeatureRevisionRule = createApiRequestHandler({
     version: revision.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

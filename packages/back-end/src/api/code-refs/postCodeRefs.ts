@@ -1,5 +1,4 @@
 import { groupBy, values } from "lodash";
-import { PostCodeRefsResponse } from "shared/types/openapi";
 import { postCodeRefsValidator } from "shared/validators";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -10,7 +9,7 @@ import {
 } from "back-end/src/models/FeatureCodeRefs";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
-  async (req): Promise<PostCodeRefsResponse> => {
+  async (req) => {
     const { deleteMissing: deleteMissingString } = req.query;
     const { branch, repoName: repo } = req.body;
     const refsByFeature = groupBy(req.body.refs, "flagKey");

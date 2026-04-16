@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { listFeatures } from "./listFeatures";
 import { toggleFeature } from "./toggleFeature";
 import { revertFeature } from "./revertFeature";
@@ -7,6 +7,8 @@ import { postFeature } from "./postFeature";
 import { updateFeature } from "./updateFeature";
 import { deleteFeatureById } from "./deleteFeature";
 import { getFeatureRevisions } from "./getFeatureRevisions";
+import { getFeatureKeys } from "./getFeatureKeys";
+import { getFeatureStale } from "./getFeatureStale";
 import { getFeatureRevision } from "./getFeatureRevision";
 import { getFeatureRevisionLatest } from "./getFeatureRevisionLatest";
 import { postFeatureRevision } from "./postFeatureRevision";
@@ -29,85 +31,61 @@ import { putFeatureRevisionMetadata } from "./putFeatureRevisionMetadata";
 import { putFeatureRevisionArchive } from "./putFeatureRevisionArchive";
 import { putFeatureRevisionHoldout } from "./putFeatureRevisionHoldout";
 import { postFeatureRevisionRevert } from "./postFeatureRevisionRevert";
+import { listRevisions } from "./listRevisions";
 
-const router = Router();
+export const featureRoutes: OpenApiRoute[] = [
+  // Feature CRUD
+  listFeatures,
+  postFeature,
+  getFeature,
+  updateFeature,
+  deleteFeatureById,
+  toggleFeature,
+  revertFeature,
+  getFeatureKeys,
+  getFeatureStale,
 
-// Feature Endpoints
-// Mounted at /api/v1/features
-router.get("/", listFeatures);
-router.post("/", postFeature);
-router.get("/:id", getFeature);
-router.post("/:id", updateFeature);
-router.delete("/:id", deleteFeatureById);
-router.post("/:id/toggle", toggleFeature);
-router.post("/:id/revert", revertFeature);
+  // Cross-feature revision list
+  listRevisions,
 
-// Revision list + create
-router.get("/:id/revisions", getFeatureRevisions);
-router.post("/:id/revisions", postFeatureRevision);
+  // Revision list + create
+  getFeatureRevisions,
+  postFeatureRevision,
 
-// Latest active draft shortcut — registered before /:version to avoid shadowing
-router.get("/:id/revisions/latest", getFeatureRevisionLatest);
+  // Latest active draft shortcut
+  getFeatureRevisionLatest,
 
-// Single revision
-router.get("/:id/revisions/:version", getFeatureRevision);
+  // Single revision
+  getFeatureRevision,
 
-// Lifecycle
-router.post("/:id/revisions/:version/discard", postFeatureRevisionDiscard);
-router.post("/:id/revisions/:version/publish", postFeatureRevisionPublish);
-router.post("/:id/revisions/:version/revert", postFeatureRevisionRevert);
+  // Lifecycle
+  postFeatureRevisionDiscard,
+  postFeatureRevisionPublish,
+  postFeatureRevisionRevert,
 
-// Conflict resolution
-router.get(
-  "/:id/revisions/:version/merge-status",
+  // Conflict resolution
   getFeatureRevisionMergeStatus,
-);
-router.post("/:id/revisions/:version/rebase", postFeatureRevisionRebase);
+  postFeatureRevisionRebase,
 
-// Review flow
-router.post(
-  "/:id/revisions/:version/request-review",
+  // Review flow
   postFeatureRevisionRequestReview,
-);
-router.post(
-  "/:id/revisions/:version/submit-review",
   postFeatureRevisionSubmitReview,
-);
 
-// Rule edits — register static paths before :ruleId param to avoid shadowing
-router.post("/:id/revisions/:version/rules", postFeatureRevisionRuleAdd);
-router.post(
-  "/:id/revisions/:version/rules/reorder",
+  // Rule edits
+  postFeatureRevisionRuleAdd,
   postFeatureRevisionRulesReorder,
-);
-router.put("/:id/revisions/:version/rules/:ruleId", putFeatureRevisionRule);
-router.delete(
-  "/:id/revisions/:version/rules/:ruleId",
+  putFeatureRevisionRule,
   deleteFeatureRevisionRule,
-);
 
-// Rule ramp schedule — set or remove the pending ramp schedule for a specific rule
-router.put(
-  "/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  // Rule ramp schedule
   putFeatureRevisionRuleRampSchedule,
-);
-router.delete(
-  "/:id/revisions/:version/rules/:ruleId/ramp-schedule",
   deleteFeatureRevisionRuleRampSchedule,
-);
 
-// Field edits
-router.post("/:id/revisions/:version/toggle", postFeatureRevisionToggle);
-router.put(
-  "/:id/revisions/:version/default-value",
+  // Field edits
+  postFeatureRevisionToggle,
   putFeatureRevisionDefaultValue,
-);
-router.put(
-  "/:id/revisions/:version/prerequisites",
   putFeatureRevisionPrerequisites,
-);
-router.put("/:id/revisions/:version/metadata", putFeatureRevisionMetadata);
-router.put("/:id/revisions/:version/archive", putFeatureRevisionArchive);
-router.put("/:id/revisions/:version/holdout", putFeatureRevisionHoldout);
-
-export default router;
+  putFeatureRevisionMetadata,
+  putFeatureRevisionArchive,
+  putFeatureRevisionHoldout,
+];

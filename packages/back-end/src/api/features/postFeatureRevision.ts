@@ -1,18 +1,14 @@
-import omit from "lodash/omit";
-import { z } from "zod";
+import { postFeatureRevisionValidator } from "shared/validators";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { createRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
-export const postFeatureRevision = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string() }),
-  bodySchema: z.object({
-    comment: z.string().optional().default(""),
-    title: z.string().optional(),
-  }),
-})(async (req) => {
+export const postFeatureRevision = createApiRequestHandler(
+  postFeatureRevisionValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -30,7 +26,7 @@ export const postFeatureRevision = createApiRequestHandler({
     feature,
     user: req.context.auditUser,
     baseVersion: feature.version,
-    comment: req.body.comment,
+    comment: req.body.comment ?? "",
     title: req.body.title,
     environments,
     publish: false,
@@ -39,5 +35,5 @@ export const postFeatureRevision = createApiRequestHandler({
     canBypassApprovalChecks: false,
   });
 
-  return { revision: omit(newDraft, "organization") };
+  return { revision: revisionToApiInterface(newDraft) };
 });

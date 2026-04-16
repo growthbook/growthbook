@@ -97,67 +97,6 @@ module.exports = function (plop) {
         path: "./packages/back-end/src/api/{{kebabCase object}}s/delete{{pascalCase object}}.ts",
         templateFile: "./plop-templates/back-end/api/delete.hbs",
       },
-      {
-        type: "add",
-        skipIfExists: true,
-        path: "./packages/back-end/src/api/openapi/schemas/{{pascalCase object}}.yaml",
-        templateFile: "./plop-templates/back-end/api/openapi_model.hbs",
-      },
-      {
-        type: "add",
-        skipIfExists: true,
-        path: "./packages/back-end/src/api/openapi/paths/list{{pascalCase object}}s.yaml",
-        templateFile: "./plop-templates/back-end/api/openapi_list.hbs",
-      },
-      {
-        type: "add",
-        skipIfExists: true,
-        path: "./packages/back-end/src/api/openapi/paths/post{{pascalCase object}}.yaml",
-        templateFile: "./plop-templates/back-end/api/openapi_post.hbs",
-      },
-      {
-        type: "add",
-        skipIfExists: true,
-        path: "./packages/back-end/src/api/openapi/paths/update{{pascalCase object}}.yaml",
-        templateFile: "./plop-templates/back-end/api/openapi_update.hbs",
-      },
-      {
-        type: "add",
-        skipIfExists: true,
-        path: "./packages/back-end/src/api/openapi/paths/get{{pascalCase object}}.yaml",
-        templateFile: "./plop-templates/back-end/api/openapi_get.hbs",
-      },
-      {
-        type: "add",
-        skipIfExists: true,
-        path: "./packages/back-end/src/api/openapi/paths/delete{{pascalCase object}}.yaml",
-        templateFile: "./plop-templates/back-end/api/openapi_delete.hbs",
-      },
-      {
-        type: "append",
-        path: "./packages/back-end/src/api/openapi/schemas/_index.yaml",
-        template: `
-{{pascalCase object}}:
-  $ref: './{{pascalCase object}}.yaml'
-`.trim(),
-      },
-      {
-        type: "append",
-        path: "./packages/back-end/src/api/openapi/openapi.yaml",
-        pattern: /PLOP_INSERT_PATHS_HERE/,
-        template: `  /{{kebabCase object}}s:
-    get:
-      $ref: "./paths/list{{pascalCase object}}s.yaml"
-    post:
-      $ref: "./paths/post{{pascalCase object}}.yaml"
-  /{{kebabCase object}}s/{id}:
-    get:
-      $ref: "./paths/get{{pascalCase object}}.yaml"
-    post:
-      $ref: "./paths/update{{pascalCase object}}.yaml"
-    delete:
-      $ref: "./paths/delete{{pascalCase object}}.yaml"`,
-      },
     ],
   });
 

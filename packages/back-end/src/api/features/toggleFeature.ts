@@ -1,4 +1,3 @@
-import { ToggleFeatureResponse } from "shared/types/openapi";
 import { toggleFeatureValidator } from "shared/validators";
 import {
   checkIfRevisionNeedsReview,
@@ -23,7 +22,7 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
-  async (req): Promise<ToggleFeatureResponse> => {
+  async (req) => {
     const feature = await getFeature(req.context, req.params.id);
     if (!feature) {
       throw new Error("Could not find a feature with that key");

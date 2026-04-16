@@ -3,6 +3,7 @@ import {
   apiRevisionRampCreateAction,
   RevisionRampCreateAction,
   ACTIVE_DRAFT_STATUSES,
+  inlineRampScheduleInput,
 } from "shared/validators";
 import { z } from "zod";
 import { validateCondition } from "shared/util";
@@ -18,24 +19,9 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 
-/**
- * Inline ramp schedule input — no mode/ruleId/environment needed; all inferred from context.
- * Used for the `rampSchedule` field on rule add/edit endpoints.
- */
-export const inlineRampScheduleInput = apiRevisionRampCreateAction.omit({
-  mode: true,
-  ruleId: true,
-  environment: true,
-});
-type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
+export { inlineRampScheduleInput };
 
-/**
- * Standalone ramp schedule input — same as inline but adds environment.
- * Used for PUT /rules/:ruleId/ramp-schedule (ruleId is in the path).
- */
-export const standaloneRampScheduleInput = inlineRampScheduleInput.extend({
-  environment: z.string(),
-});
+type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 
 /** Normalize API input (optional targetType/targetId) to the stored type (required fields). */
 function normalizeRevisionRampCreateAction(
@@ -85,15 +71,6 @@ export function normalizeInlineRampSchedule(
 export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
 }
-
-/**
- * Zod schema for the `:version` path parameter on draft-mutation endpoints.
- * Accepts an integer revision version or the literal string `"new"`.
- */
-export const versionOrNew = z.union([
-  z.coerce.number().int(),
-  z.literal("new"),
-]);
 
 /**
  * Resolve or create a draft revision.

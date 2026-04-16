@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ApiDimension } from "shared/types/openapi";
+import { ApiDimension } from "shared/validators";
 import { DimensionInterface } from "shared/types/dimension";
 import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";

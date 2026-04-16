@@ -1,6 +1,6 @@
-import omit from "lodash/omit";
-import { z } from "zod";
+import { postFeatureRevisionToggleValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -12,16 +12,11 @@ import {
   assertValidEnvironment,
   isDraftStatus,
   resolveOrCreateRevision,
-  versionOrNew,
 } from "./validations";
 
-export const postFeatureRevisionToggle = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: versionOrNew }),
-  bodySchema: z.object({
-    environment: z.string(),
-    enabled: z.boolean(),
-  }),
-})(async (req) => {
+export const postFeatureRevisionToggle = createApiRequestHandler(
+  postFeatureRevisionToggleValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -79,5 +74,5 @@ export const postFeatureRevisionToggle = createApiRequestHandler({
     version: revision.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

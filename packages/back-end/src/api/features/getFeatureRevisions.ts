@@ -1,4 +1,3 @@
-import omit from "lodash/omit";
 import { getFeatureRevisionsValidator } from "shared/validators";
 import {
   getFeatureRevisionsByStatus,
@@ -6,6 +5,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { NotFoundError } from "back-end/src/util/errors";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import {
   createApiRequestHandler,
   validatePagination,
@@ -40,14 +40,14 @@ export const getFeatureRevisions = createApiRequestHandler(
     }),
   ]);
 
-  const cleaned = pagedRevisions.map((rev) => omit(rev, "organization"));
+  const revisions = pagedRevisions.map(revisionToApiInterface);
   const nextOffset = offset + limit;
   const hasMore = nextOffset < total;
   return {
-    revisions: cleaned,
+    revisions,
     limit,
     offset,
-    count: cleaned.length,
+    count: revisions.length,
     total,
     hasMore,
     nextOffset: hasMore ? nextOffset : null,

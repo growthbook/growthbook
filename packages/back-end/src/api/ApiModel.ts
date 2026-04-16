@@ -1,11 +1,13 @@
-import { Router } from "express";
-import { z } from "zod";
+import { z, ZodType } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { apiBaseSchema } from "shared/validators";
+import { capitalizeFirstCharacter } from "shared/util";
 import { ModelName } from "back-end/src/services/context";
 import {
-  ApiRequestValidator,
+  ApiRequest,
+  RequestSchemas,
   createApiRequestHandler,
+  OpenApiRoute,
 } from "back-end/src/util/handler";
 import {
   CustomApiHandler,
@@ -15,6 +17,15 @@ import {
   HttpVerb,
 } from "./apiModelHandlers";
 
+// Avoids TypeScript intersecting all model handler signatures when resolving
+// the union returned by context.models[modelKey].
+type MinimalApiModel = Record<
+  (typeof defaultHandlers)[CrudAction],
+  (
+    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  ) => Promise<unknown>
+>;
+
 export type ApiBaseSchema = typeof apiBaseSchema;
 type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<
   CreateProps<z.infer<T>>
@@ -22,21 +33,56 @@ type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<
 type ApiUpdateZodObject<T extends ApiBaseSchema> = z.ZodType<
   UpdateProps<z.infer<T>>
 >;
-type CrudValidatorShapes<T extends ApiBaseSchema> = {
-  create: ApiRequestValidator<z.ZodNever, ApiCreateZodObject<T>, z.ZodNever>;
-  delete: ApiRequestValidator<
-    z.ZodType<{ id: string }>,
-    z.ZodNever,
-    z.ZodNever
-  >;
-  get: ApiRequestValidator<z.ZodType<{ id: string }>, z.ZodNever, z.ZodNever>;
-  list: ApiRequestValidator<z.ZodNever, z.ZodNever, z.ZodTypeAny>;
-  update: ApiRequestValidator<
-    z.ZodType<{ id: string }>,
-    ApiUpdateZodObject<T>,
-    z.ZodNever
-  >;
-};
+/**
+ * The actual default validators used when no crudValidatorOverride is specified.
+ * Single source of truth for default schemas — types are inferred from these values
+ * via DefaultCrudValidators.
+ * Body schemas for create/update are wide (z.unknown) because the model-specific
+ * schema is applied at routing time by getDefaultValidator.
+ */
+const defaultCrudValidators = {
+  get: {
+    paramsSchema: z.object({ id: z.string() }).strict(),
+    bodySchema: z.never(),
+    querySchema: z.never(),
+  },
+  create: {
+    paramsSchema: z.never(),
+    bodySchema: z.unknown(), // overridden per-model at routing time
+    querySchema: z.never(),
+  },
+  list: {
+    paramsSchema: z.never(),
+    bodySchema: z.never(),
+    querySchema: z.never(), // TODO: pagination?
+  },
+  delete: {
+    paramsSchema: z.object({ id: z.string() }).strict(),
+    bodySchema: z.never(),
+    querySchema: z.never(),
+  },
+  update: {
+    paramsSchema: z.object({ id: z.string() }).strict(),
+    bodySchema: z.unknown(), // overridden per-model at routing time
+    querySchema: z.never(),
+  },
+} satisfies Record<
+  CrudAction,
+  RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>
+>;
+
+/** Narrow type derived from the default CRUD validators, used as fallback in ExtractCrudSchema. */
+export type DefaultCrudValidators = typeof defaultCrudValidators;
+
+/** Wide type constraining crudValidatorOverrides — allows any Zod schema for each slot. */
+export type CrudValidatorOverrides = Partial<
+  Record<
+    CrudAction,
+    RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> & {
+      responseSchema?: ZodType;
+    }
+  >
+>;
 
 /**
  * Spec-only definition for a custom API endpoint, used for OpenAPI doc generation.
@@ -46,7 +92,7 @@ export type OpenApiEndpointSpec = {
   pathFragment: string;
   verb: HttpVerb;
   operationId: string;
-  validator: ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
+  validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
   zodReturnObject: z.ZodTypeAny;
   summary: string;
 };
@@ -76,14 +122,18 @@ export type OpenApiModelSpec<
   pathBase: string;
   includeDefaultCrud?: boolean;
   crudActions?: CrudAction[];
-  crudValidatorOverrides?: Partial<CrudValidatorShapes<T>>;
+  crudValidatorOverrides?: CrudValidatorOverrides;
   customEndpoints?: OpenApiEndpointSpec[];
+  /** Per-CRUD-action descriptions (longer form text shown below the summary in docs). */
+  crudDescriptions?: Partial<Record<CrudAction, string>>;
   /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
   navDisplayName?: string;
   /** Short description shown under the nav label in the docs. */
   navDescription?: string;
   /** If set, inserts this resource's nav tag immediately after the named tag in the left nav. */
   navAfterTag?: string;
+  /** Override the tag used on endpoints. Defaults to capitalizeFirstCharacter(modelPlural). Use when the spec-based model must share a tag with legacy hand-written routes (e.g. "ramp-schedules"). */
+  tag?: string;
 };
 
 /**
@@ -128,20 +178,17 @@ const crudDefaults: Record<
     pathFragment: "/:id",
   },
 };
-type CrudActionConfig<
-  T extends ApiBaseSchema,
-  A extends CrudAction = CrudAction,
-> = {
+type CrudActionConfig<A extends CrudAction = CrudAction> = {
   action: A;
   verb: HttpVerb;
   pathFragment: string;
-  validator: CrudValidatorShapes<T>[A];
+  validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
   returnKey: string;
+  returnSchema: ZodType;
   plural: boolean | undefined;
+  hasResponseOverride: boolean;
 };
-export function getCrudConfig<T extends ApiBaseSchema>(
-  spec: OpenApiModelSpec<T>,
-): CrudActionConfig<T>[] {
+export function getCrudConfig(spec: OpenApiModelSpec): CrudActionConfig[] {
   const actions = spec.includeDefaultCrud
     ? crudActions
     : (spec.crudActions ?? []);
@@ -154,35 +201,119 @@ export function getCrudConfig<T extends ApiBaseSchema>(
         : plural
           ? spec.modelPlural
           : spec.modelSingular;
-    return { action, verb, pathFragment, validator, returnKey, plural };
+    const overrideResponse =
+      spec.crudValidatorOverrides?.[action]?.responseSchema;
+    const returnSchema =
+      overrideResponse ??
+      z.object({
+        [returnKey]:
+          action === "delete"
+            ? z.string()
+            : plural
+              ? z.array(spec.apiInterface)
+              : spec.apiInterface,
+      });
+    return {
+      action,
+      verb,
+      pathFragment,
+      validator,
+      returnKey,
+      returnSchema,
+      plural,
+      hasResponseOverride: !!overrideResponse,
+    };
   });
 }
 
-export function defineRouterForApiConfig(apiConfig: ApiModelConfig) {
-  const r = Router();
+function getFullPath(basePath: string, pathFragment: string): string {
+  return ("/" + basePath + "/" + pathFragment)
+    .replace(/\/{2,}/g, "/")
+    .replace(/\/$/, "");
+}
+
+export function getOpenApiRoutesForApiConfig(
+  apiConfig: ApiModelConfig,
+): OpenApiRoute[] {
+  const routes: OpenApiRoute[] = [];
+
+  const tag =
+    apiConfig.openApiSpec.tag ??
+    capitalizeFirstCharacter(apiConfig.openApiSpec.modelPlural);
+
   const crudConfig = getCrudConfig(apiConfig.openApiSpec);
-  crudConfig.forEach(({ action, verb, pathFragment, validator, returnKey }) => {
-    const handler = createApiRequestHandler(validator)(async (req) => {
-      const modelInstance = req.context.models[apiConfig.modelKey];
-      const result = await modelInstance[defaultHandlers[action]](req);
-      return { [returnKey]: result };
-    });
-    r[verb](pathFragment, handler);
-  });
-  if (!apiConfig.customHandlers) return r;
-  apiConfig.customHandlers.forEach(
-    ({ pathFragment, validator, reqHandler, verb }) => {
-      const wrappedHandler = createApiRequestHandler(validator)(reqHandler);
-      r[verb](pathFragment, wrappedHandler);
+  crudConfig.forEach(
+    ({
+      action,
+      verb,
+      pathFragment,
+      validator,
+      returnKey,
+      returnSchema,
+      plural,
+      hasResponseOverride,
+    }) => {
+      const singularCapitalized = capitalizeFirstCharacter(
+        apiConfig.openApiSpec.modelSingular,
+      );
+      const pluralCapitalized = capitalizeFirstCharacter(
+        apiConfig.openApiSpec.modelPlural,
+      );
+      const route = createApiRequestHandler({
+        ...validator,
+        method: verb,
+        path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
+        operationId: `${action}${plural ? pluralCapitalized : singularCapitalized}`,
+        summary: getDefaultCrudActionSummary(
+          action,
+          apiConfig.openApiSpec.modelSingular,
+          apiConfig.openApiSpec.modelPlural,
+        ),
+        description: apiConfig.openApiSpec.crudDescriptions?.[action],
+        tags: [tag],
+        responseSchema: returnSchema,
+      })(async (req) => {
+        const modelInstance = req.context.models[
+          apiConfig.modelKey
+        ] as unknown as MinimalApiModel;
+        const result = await modelInstance[defaultHandlers[action]](req);
+        if (hasResponseOverride) return result as z.infer<typeof returnSchema>;
+        return { [returnKey]: result } as z.infer<typeof returnSchema>;
+      });
+      routes.push(route);
     },
   );
-  return r;
+
+  apiConfig.customHandlers?.forEach(
+    ({
+      pathFragment,
+      validator,
+      reqHandler,
+      verb,
+      operationId,
+      summary,
+      zodReturnObject,
+    }) => {
+      const route = createApiRequestHandler({
+        ...validator,
+        method: verb,
+        path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
+        operationId,
+        summary,
+        tags: [tag],
+        responseSchema: zodReturnObject,
+      })(reqHandler);
+      routes.push(route);
+    },
+  );
+
+  return routes;
 }
 
-export function getCrudValidator<T extends ApiBaseSchema, A extends CrudAction>(
-  action: A,
-  spec: OpenApiModelSpec<T>,
-): CrudValidatorShapes<T>[A] {
+export function getCrudValidator(
+  action: CrudAction,
+  spec: OpenApiModelSpec,
+): RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> {
   return (
     spec.crudValidatorOverrides?.[action] ??
     getDefaultValidator(
@@ -193,41 +324,15 @@ export function getCrudValidator<T extends ApiBaseSchema, A extends CrudAction>(
   );
 }
 
-function getDefaultValidator<
-  A extends CrudAction,
-  T extends ApiBaseSchema = ApiBaseSchema,
->(
-  action: A,
-  createBodySchema: ApiCreateZodObject<T>,
-  updateBodySchema: ApiUpdateZodObject<T>,
-): CrudValidatorShapes<T>[A] {
-  return {
-    create: {
-      bodySchema: createBodySchema,
-      querySchema: z.never(),
-      paramsSchema: z.never(),
-    },
-    delete: {
-      bodySchema: z.never(),
-      querySchema: z.never(),
-      paramsSchema: z.object({ id: z.string() }).strict(),
-    },
-    get: {
-      bodySchema: z.never(),
-      querySchema: z.never(),
-      paramsSchema: z.object({ id: z.string() }).strict(),
-    },
-    list: {
-      bodySchema: z.never(),
-      querySchema: z.never(), // TODO: pagination?
-      paramsSchema: z.never(),
-    },
-    update: {
-      bodySchema: updateBodySchema,
-      querySchema: z.never(),
-      paramsSchema: z.object({ id: z.string() }).strict(),
-    },
-  }[action];
+function getDefaultValidator(
+  action: CrudAction,
+  createBodySchema: z.ZodTypeAny,
+  updateBodySchema: z.ZodTypeAny,
+): RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> {
+  const base = defaultCrudValidators[action];
+  if (action === "create") return { ...base, bodySchema: createBodySchema };
+  if (action === "update") return { ...base, bodySchema: updateBodySchema };
+  return base;
 }
 
 export function getDefaultCrudActionSummary(
@@ -260,7 +365,7 @@ export function generateYamlForPath({
 }: {
   path: string;
   verb: HttpVerb;
-  validator: ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
+  validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
   returnSchema: object;
   operationId: string;
   summary?: string;

@@ -1,9 +1,9 @@
-import { ApiProject } from "shared/types/openapi";
 import {
   ManagedBy,
   ProjectInterface,
   ProjectSettings,
   projectValidator,
+  ApiProject,
 } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";

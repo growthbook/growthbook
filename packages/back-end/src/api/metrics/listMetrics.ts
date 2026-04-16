@@ -1,4 +1,3 @@
-import { ListMetricsResponse } from "shared/types/openapi";
 import { listMetricsValidator } from "shared/validators";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
@@ -10,7 +9,7 @@ import {
 
 export const listMetrics = createApiRequestHandler(listMetricsValidator)(async (
   req,
-): Promise<ListMetricsResponse> => {
+) => {
   // Filter at the database level for better performance
   const metrics = await getMetricsByOrganization(req.context, {
     datasourceId: req.query.datasourceId,

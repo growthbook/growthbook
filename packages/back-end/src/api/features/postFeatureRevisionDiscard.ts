@@ -1,5 +1,5 @@
-import omit from "lodash/omit";
-import { z } from "zod";
+import { postFeatureRevisionDiscardValidator } from "shared/validators";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -8,15 +8,9 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 
-const revisionParamsSchema = z.object({
-  id: z.string(),
-  version: z.coerce.number().int(),
-});
-
-export const postFeatureRevisionDiscard = createApiRequestHandler({
-  paramsSchema: revisionParamsSchema,
-  bodySchema: z.object({}),
-})(async (req) => {
+export const postFeatureRevisionDiscard = createApiRequestHandler(
+  postFeatureRevisionDiscardValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -48,5 +42,5 @@ export const postFeatureRevisionDiscard = createApiRequestHandler({
     version: req.params.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

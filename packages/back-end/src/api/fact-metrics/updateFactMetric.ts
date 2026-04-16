@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { UpdateFactMetricResponse } from "shared/types/openapi";
 import { updateFactMetricValidator } from "shared/validators";
 import {
   FactMetricInterface,
@@ -132,7 +131,7 @@ export async function getUpdateFactMetricPropsFromBody(
 
 export const updateFactMetric = createApiRequestHandler(
   updateFactMetricValidator,
-)(async (req): Promise<UpdateFactMetricResponse> => {
+)(async (req) => {
   const factMetric = await req.context.models.factMetrics.getById(
     req.params.id,
   );

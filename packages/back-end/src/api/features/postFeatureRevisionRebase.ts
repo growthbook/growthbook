@@ -1,5 +1,3 @@
-import omit from "lodash/omit";
-import { z } from "zod";
 import {
   autoMerge,
   fillRevisionFromFeature,
@@ -8,14 +6,20 @@ import {
   MergeStrategy,
 } from "shared/util";
 import type { FeatureRule } from "shared/types/feature";
-import { RevisionMetadata } from "shared/validators";
+import {
+  RevisionMetadata,
+  postFeatureRevisionRebaseValidator,
+} from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import {
+  getLiveAndBaseRevisionsForFeature,
+  revisionToApiInterface,
+} from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
@@ -24,15 +28,9 @@ import {
 } from "back-end/src/util/errors";
 import { isDraftStatus } from "./validations";
 
-export const postFeatureRevisionRebase = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
-  bodySchema: z.object({
-    conflictResolutions: z
-      .record(z.string(), z.enum(["overwrite", "discard"]))
-      .optional()
-      .default({}),
-  }),
-})(async (req) => {
+export const postFeatureRevisionRebase = createApiRequestHandler(
+  postFeatureRevisionRebaseValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -72,7 +70,7 @@ export const postFeatureRevisionRebase = createApiRequestHandler({
     fillRevisionFromFeature(base, feature),
     revision,
     environmentIds,
-    req.body.conflictResolutions as Record<string, MergeStrategy>,
+    (req.body.conflictResolutions ?? {}) as Record<string, MergeStrategy>,
   );
 
   if (!mergeResult.success) {
@@ -144,5 +142,5 @@ export const postFeatureRevisionRebase = createApiRequestHandler({
     version: req.params.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

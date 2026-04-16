@@ -1,7 +1,6 @@
-import omit from "lodash/omit";
-import { z } from "zod";
-import { featurePrerequisite } from "shared/validators";
+import { putFeatureRevisionPrerequisitesValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import { revisionToApiInterface } from "back-end/src/services/features";
 import { NotFoundError, BadRequestError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -14,15 +13,11 @@ import {
   validatePrerequisiteConditions,
   validatePrerequisiteReferences,
   resolveOrCreateRevision,
-  versionOrNew,
 } from "./validations";
 
-export const putFeatureRevisionPrerequisites = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: versionOrNew }),
-  bodySchema: z.object({
-    prerequisites: z.array(featurePrerequisite),
-  }),
-})(async (req) => {
+export const putFeatureRevisionPrerequisites = createApiRequestHandler(
+  putFeatureRevisionPrerequisitesValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -75,5 +70,5 @@ export const putFeatureRevisionPrerequisites = createApiRequestHandler({
     version: revision.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

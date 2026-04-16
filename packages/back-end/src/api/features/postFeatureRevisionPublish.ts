@@ -1,5 +1,4 @@
-import omit from "lodash/omit";
-import { z } from "zod";
+import { postFeatureRevisionPublishValidator } from "shared/validators";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -11,7 +10,10 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import {
+  getLiveAndBaseRevisionsForFeature,
+  revisionToApiInterface,
+} from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
@@ -20,12 +22,9 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 
-export const postFeatureRevisionPublish = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
-  bodySchema: z.object({
-    comment: z.string().optional().default(""),
-  }),
-})(async (req) => {
+export const postFeatureRevisionPublish = createApiRequestHandler(
+  postFeatureRevisionPublishValidator,
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -135,7 +134,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
     feature,
     revision,
     mergeResult.result,
-    req.body.comment,
+    req.body.comment ?? "",
   );
 
   await req.audit({
@@ -146,7 +145,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
     },
     details: auditDetailsUpdate(feature, updatedFeature, {
       revision: revision.version,
-      comment: req.body.comment,
+      comment: req.body.comment ?? "",
     }),
   });
 
@@ -157,5 +156,5 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
     version: req.params.version,
   });
 
-  return { revision: omit(updated ?? revision, "organization") };
+  return { revision: revisionToApiInterface(updated ?? revision) };
 });

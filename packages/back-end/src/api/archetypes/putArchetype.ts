@@ -1,4 +1,3 @@
-import { PutArchetypeResponse } from "shared/types/openapi";
 import { putArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -10,7 +9,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { validatePayload } from "./validations";
 
 export const putArchetype = createApiRequestHandler(putArchetypeValidator)(
-  async (req): Promise<PutArchetypeResponse> => {
+  async (req) => {
     const { id } = req.params;
     const orgId = req.organization.id;
     const archetype = await getArchetypeById(id, orgId);
