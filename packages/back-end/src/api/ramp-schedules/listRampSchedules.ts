@@ -38,9 +38,11 @@ export const listRampSchedules = createApiRequestHandler(
   const { featureId, ruleId, environment, status } = req.query;
 
   if (ruleId) {
+    // Omit environment when not provided so results span every env the rule
+    // controls (including wildcard targets).
     schedules = await req.context.models.rampSchedules.findByTargetRule(
       ruleId,
-      environment ?? "",
+      environment,
     );
     if (featureId) {
       schedules = schedules.filter((s) => s.entityId === featureId);

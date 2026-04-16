@@ -339,7 +339,18 @@ const safeRolloutCreateInput = z
           })
           .strict(),
         autoRollback: z.boolean().optional(),
-        rampUpSchedule: z.object({ enabled: z.boolean() }).strict().optional(),
+        rampUpSchedule: z
+          .object({
+            enabled: z.boolean(),
+            // Optional custom ramp steps (percentages as 0..1). When omitted, a
+            // default 5-step ramp (10%, 25%, 50%, 75%, 100%) is used.
+            steps: z
+              .array(z.object({ percent: z.number().min(0).max(1) }).strict())
+              .min(1)
+              .optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict(),
   })
@@ -557,7 +568,7 @@ export const putFeatureRevisionMetadataValidator = {
   operationId: "putFeatureRevisionMetadata",
   summary: "Update revision metadata (comment, title, feature metadata)",
   description:
-    "Updates draft-level metadata (`comment`, `title`) and/or feature-level metadata (owner, project, tags, customFields, jsonSchema, etc.). Feature metadata changes are staged on the revision and applied to the feature on publish. Changing `project` requires publish permission on both the old and new project.",
+    "Updates draft-level metadata (`comment`, `title`) and/or feature-level metadata (owner, project, tags, customFields, jsonSchema, etc.). Merge semantics: omitted fields are left unchanged; any provided field replaces the current value (pass an empty string/array/object to clear). Feature metadata changes are staged on the revision and applied to the feature on publish. Changing `project` requires publish permission on both the old and new project.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z

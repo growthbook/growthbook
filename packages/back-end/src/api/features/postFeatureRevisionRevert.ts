@@ -22,6 +22,7 @@ import {
   createAndPublishRevision,
   getFeature,
 } from "back-end/src/models/FeatureModel";
+import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
@@ -185,6 +186,10 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
       metadataChanges.jsonSchema = m.jsonSchema;
       hasMetaChange = true;
     }
+    if (m.valueType !== undefined && m.valueType !== feature.valueType) {
+      metadataChanges.valueType = m.valueType;
+      hasMetaChange = true;
+    }
     if (hasMetaChange) {
       if (
         isPublish &&
@@ -291,6 +296,17 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
       comment: comment ?? defaultComment,
       canBypassApprovalChecks: canBypass,
     });
+
+  if (
+    revisionChanges.metadata?.tags !== undefined &&
+    Array.isArray(revisionChanges.metadata.tags)
+  ) {
+    await addTagsDiff(
+      req.organization.id,
+      feature.tags || [],
+      revisionChanges.metadata.tags,
+    );
+  }
 
   await req.audit({
     event: "feature.revert",

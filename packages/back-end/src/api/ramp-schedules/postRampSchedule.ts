@@ -238,10 +238,7 @@ export const postRampSchedule = createApiRequestHandler(
 
   const rawEndTrigger = body.endCondition?.trigger;
   const endTrigger = rawEndTrigger
-    ? {
-        type: "scheduled" as const,
-        at: new Date((rawEndTrigger as { type: string; at: string | Date }).at),
-      }
+    ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
     : undefined;
   const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
 

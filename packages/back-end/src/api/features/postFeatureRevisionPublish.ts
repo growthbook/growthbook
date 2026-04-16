@@ -10,6 +10,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getLiveAndBaseRevisionsForFeature,
   revisionToApiInterface,
@@ -108,20 +109,27 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     );
   }
 
-  // Publish-permission scope: affected envs for rules-only changes; all
-  // enabled envs otherwise (other fields aren't env-scoped).
+  // Publish-permission scope: env-scoped for env-only changes (rules and/or
+  // toggles); all enabled envs otherwise (other fields aren't env-scoped).
   const allEnabledEnvs = Array.from(
     getEnabledEnvironments(feature, environmentIds),
   );
-  const changedEnvs = Object.keys(mergeResult.result.rules || {});
-  const isRulesOnlyChange =
+  const changedRuleEnvs = Object.keys(mergeResult.result.rules || {});
+  const changedToggleEnvs = Object.keys(
+    mergeResult.result.environmentsEnabled || {},
+  );
+  const changedEnvs = Array.from(
+    new Set([...changedRuleEnvs, ...changedToggleEnvs]),
+  );
+  const isEnvScopedOnlyChange =
     mergeResult.result.defaultValue === undefined &&
     !mergeResult.result.prerequisites &&
-    mergeResult.result.environmentsEnabled === undefined &&
     mergeResult.result.archived === undefined &&
     !mergeResult.result.metadata;
   const envsToCheck =
-    isRulesOnlyChange && changedEnvs.length > 0 ? changedEnvs : allEnabledEnvs;
+    isEnvScopedOnlyChange && changedEnvs.length > 0
+      ? changedEnvs
+      : allEnabledEnvs;
   if (!req.context.permissions.canPublishFeature(feature, envsToCheck)) {
     req.context.permissions.throwPermissionError();
   }
@@ -133,6 +141,17 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     mergeResult.result,
     req.body.comment ?? "",
   );
+
+  if (
+    mergeResult.result.metadata?.tags !== undefined &&
+    Array.isArray(mergeResult.result.metadata.tags)
+  ) {
+    await addTagsDiff(
+      req.organization.id,
+      feature.tags || [],
+      mergeResult.result.metadata.tags,
+    );
+  }
 
   await req.audit({
     event: "feature.publish",

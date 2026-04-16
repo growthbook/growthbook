@@ -574,15 +574,21 @@ export class RampScheduleModel extends BaseClass {
     return this._find({ entityType: "feature", entityId: featureId });
   }
 
-  // Active (non-terminal) schedules controlling the given rule/environment.
-  // Terminal statuses are excluded so they don't block creating a new one.
+  // Active (non-terminal) schedules controlling the given rule. Environment
+  // is optional: when omitted, any env matches; when provided, targets scoped
+  // to that env OR to a wildcard (null/empty env) both match, since a wildcard
+  // target applies to every environment.
   public async findByTargetRule(
     ruleId: string,
-    environment: string,
+    environment?: string | null,
   ): Promise<RampScheduleInterface[]> {
+    const targetMatch: Record<string, unknown> = { ruleId };
+    if (environment) {
+      targetMatch.environment = { $in: [environment, null, ""] };
+    }
     return this._find({
       status: { $nin: ["completed", "rolled-back"] },
-      targets: { $elemMatch: { ruleId, environment } },
+      targets: { $elemMatch: targetMatch },
     });
   }
 

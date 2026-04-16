@@ -8,7 +8,6 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import {
@@ -102,17 +101,8 @@ export const putFeatureRevisionMetadata = createApiRequestHandler(
       return { revision: revisionToApiInterface(revision) };
     }
 
-    if (
-      metadataFields.tags !== undefined &&
-      Array.isArray(metadataFields.tags)
-    ) {
-      await addTagsDiff(
-        req.organization.id,
-        feature.tags || [],
-        metadataFields.tags,
-      );
-    }
-
+    // Tags are registered in the org's tag collection on publish (not here)
+    // so discarded drafts don't leak orphaned tags.
     await updateRevision(
       req.context,
       feature,

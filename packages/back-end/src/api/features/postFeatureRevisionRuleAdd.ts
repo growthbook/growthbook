@@ -145,8 +145,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   );
 
   // Track side effects so we can compensate on downstream failure (discard
-  // draft, delete orphan SafeRollout).
+  // draft, delete orphan SafeRollout, revert experiment/holdout auto-link).
   let createdSafeRolloutId: string | undefined;
+  let linkedExperimentId: string | undefined;
+  let linkedHoldoutId: string | undefined;
   try {
     if (!isDraftStatus(revision.status)) {
       throw new BadRequestError(
@@ -211,6 +213,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
               experiment,
               changes: { holdoutId: feature.holdout.id },
             });
+            linkedExperimentId = experiment.id;
             const holdout = await req.context.models.holdout.getById(
               feature.holdout.id,
             );
@@ -223,6 +226,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
                 },
               },
             });
+            linkedHoldoutId = feature.holdout.id;
           }
         }
       }
@@ -250,6 +254,13 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         req.context,
       );
 
+      const defaultRampSteps = [
+        { percent: 0.1 },
+        { percent: 0.25 },
+        { percent: 0.5 },
+        { percent: 0.75 },
+        { percent: 1 },
+      ];
       const safeRollout = await req.context.models.safeRollout.create({
         ...validatedFields,
         environment,
@@ -259,13 +270,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         rampUpSchedule: {
           enabled: rampUpSchedule?.enabled ?? false,
           step: 0,
-          steps: [
-            { percent: 0.1 },
-            { percent: 0.25 },
-            { percent: 0.5 },
-            { percent: 0.75 },
-            { percent: 1 },
-          ],
+          steps: rampUpSchedule?.steps ?? defaultRampSteps,
           rampUpCompleted: false,
           nextUpdate: undefined,
         },
@@ -337,6 +342,35 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     if (createdSafeRolloutId) {
       try {
         await req.context.models.safeRollout.deleteById(createdSafeRolloutId);
+      } catch {
+        // best effort
+      }
+    }
+    if (linkedExperimentId) {
+      try {
+        const exp = await getExperimentById(req.context, linkedExperimentId);
+        if (exp) {
+          await updateExperiment({
+            context: req.context,
+            experiment: exp,
+            changes: { holdoutId: "" },
+          });
+        }
+      } catch {
+        // best effort
+      }
+    }
+    if (linkedHoldoutId && linkedExperimentId) {
+      try {
+        const holdout =
+          await req.context.models.holdout.getById(linkedHoldoutId);
+        if (holdout?.linkedExperiments?.[linkedExperimentId]) {
+          const { [linkedExperimentId]: _omit, ...rest } =
+            holdout.linkedExperiments;
+          await req.context.models.holdout.updateById(linkedHoldoutId, {
+            linkedExperiments: rest,
+          });
+        }
       } catch {
         // best effort
       }

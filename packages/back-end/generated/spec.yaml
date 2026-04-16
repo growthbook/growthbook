@@ -2378,10 +2378,12 @@ paths:
       summary: Update revision metadata (comment, title, feature metadata)
       description: >-
         Updates draft-level metadata (`comment`, `title`) and/or feature-level
-        metadata (owner, project, tags, customFields, jsonSchema, etc.). Feature
-        metadata changes are staged on the revision and applied to the feature
-        on publish. Changing `project` requires publish permission on both the
-        old and new project.
+        metadata (owner, project, tags, customFields, jsonSchema, etc.). Merge
+        semantics: omitted fields are left unchanged; any provided field
+        replaces the current value (pass an empty string/array/object to clear).
+        Feature metadata changes are staged on the revision and applied to the
+        feature on publish. Changing `project` requires publish permission on
+        both the old and new project.
       tags:
         - feature-revisions
       parameters:
@@ -3091,6 +3093,19 @@ paths:
                               properties:
                                 enabled:
                                   type: boolean
+                                steps:
+                                  minItems: 1
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      percent:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    required:
+                                      - percent
+                                    additionalProperties: false
                               required:
                                 - enabled
                               additionalProperties: false
