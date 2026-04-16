@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSearchParams } from "next/navigation";
 import { getValidDate } from "shared/dates";
@@ -67,21 +67,7 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     useExperimentSearch({
       allExperiments,
       filterResults,
-      defaultSortField: "date",
-      defaultSortDir: -1,
-      // Keep timeline ordering independent from experiments table sort preferences.
-      localStorageKey: "experiment-timeline",
     });
-
-  // Always render timeline rows in descending experiment date order so
-  // the chart remains chronological regardless of external list sort settings.
-  const timelineItems = useMemo(
-    () =>
-      [...items].sort((a, b) =>
-        experimentDate(b).localeCompare(experimentDate(a)),
-      ),
-    [items],
-  );
 
   if (error) {
     return (
@@ -172,7 +158,7 @@ const ExperimentTimelinePage = (): React.ReactElement => {
               </Box>
               <Box pt="5">
                 <ExperimentTimeline
-                  experiments={timelineItems}
+                  experiments={items}
                   startDate={startDate}
                   endDate={endDate}
                 />
