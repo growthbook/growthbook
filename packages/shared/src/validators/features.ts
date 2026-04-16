@@ -253,6 +253,7 @@ const minimalFeatureRevisionInterface = z
     status: revisionStatusSchema,
     comment: z.string(),
     title: z.string().optional(),
+    contributors: z.array(eventUser).optional(),
   })
   .strict();
 

@@ -43,6 +43,7 @@ function toMinimalRevision(
     status: r.status,
     comment: r.comment || "",
     ...(r.title ? { title: r.title } : {}),
+    ...(r.contributors?.length ? { contributors: r.contributors } : {}),
   };
 }
 
@@ -51,6 +52,7 @@ function toMinimalRevision(
 export function useFeaturePageData(
   fid: string | string[] | undefined,
   versionQueryParam: string | string[] | undefined,
+  userId?: string,
 ) {
   const [version, setVersion] = useState<number | null>(null);
   const forcedVersionFromQuery = useMemo(
@@ -290,23 +292,34 @@ export function useFeaturePageData(
       // Invalid/unknown version — fall through to draft/live default below.
     }
 
-    // Search revisionList (200 items) not revisions (5 items) to find all drafts.
-    // Skip ramp-generated revisions so the page defaults to human-authored drafts.
-    const draft =
-      data?.revisionList &&
-      data.revisionList.find(
-        (r) =>
-          !(
-            r.createdBy?.type === "system" &&
-            r.createdBy.subtype === "ramp-schedule"
-          ) &&
-          (r.status === "draft" ||
-            r.status === "approved" ||
-            r.status === "changes-requested" ||
-            r.status === "pending-review"),
-      );
-    setVersion(draft ? draft.version : baseFeatureVersion);
-  }, [cacheSeeded, data, version, forcedVersionFromQuery, baseFeatureVersion]);
+    // Prefer the user's own draft; if none, fall back to live.
+    const isActiveDraft = (r: MinimalFeatureRevisionInterface) =>
+      !(
+        r.createdBy?.type === "system" &&
+        r.createdBy.subtype === "ramp-schedule"
+      ) &&
+      (r.status === "draft" ||
+        r.status === "approved" ||
+        r.status === "changes-requested" ||
+        r.status === "pending-review");
+
+    const isMine = (r: MinimalFeatureRevisionInterface) =>
+      !!userId &&
+      (r.createdBy?.id === userId ||
+        r.contributors?.some((c) => c?.id === userId));
+
+    const drafts = data?.revisionList?.filter(isActiveDraft) ?? [];
+    const myDraft = drafts.find(isMine) ?? null;
+
+    setVersion(myDraft ? myDraft.version : baseFeatureVersion);
+  }, [
+    cacheSeeded,
+    data,
+    version,
+    forcedVersionFromQuery,
+    baseFeatureVersion,
+    userId,
+  ]);
 
   const allEnvironments = useEnvironments();
   const environments = useMemo(

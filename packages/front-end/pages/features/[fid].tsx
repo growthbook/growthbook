@@ -11,6 +11,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
@@ -39,6 +40,7 @@ export default function FeaturePage() {
   }, [fid]);
 
   const { apiCall } = useAuth();
+  const { userId } = useUser();
 
   const {
     data,
@@ -49,7 +51,7 @@ export default function FeaturePage() {
     revision,
     version,
     setVersion,
-  } = useFeaturePageData(fid, router.query.v);
+  } = useFeaturePageData(fid, router.query.v, userId);
 
   const queryV = router.query.v;
   useEffect(() => {
