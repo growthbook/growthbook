@@ -53,6 +53,29 @@ export default function FeaturePage() {
     setVersion,
   } = useFeaturePageData(fid, router.query.v);
 
+  const queryV = router.query.v;
+  useEffect(() => {
+    if (!router.isReady || queryV === undefined) return;
+    const parsed = parseInt(String(queryV), 10);
+    if (!isNaN(parsed) && parsed !== version) setVersion(parsed);
+  }, [queryV]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (version === null || !router.isReady) return;
+    if (queryV === String(version)) return;
+    const method = queryV === undefined ? router.replace : router.push;
+    const hash = new URL(router.asPath, "http://x").hash.slice(1) || undefined;
+    void method(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, v: version },
+        hash,
+      },
+      undefined,
+      { shallow: true },
+    );
+  }, [version]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const experiments = data?.experiments;
   const safeRollouts = data?.safeRollouts;
   const holdout = data?.holdout;
@@ -67,26 +90,21 @@ export default function FeaturePage() {
 
   const setTabAndScroll = (tab: FeatureTab) => {
     setTab(tab);
-    const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
-    if (newUrl === window.location.href) return;
-    router.push(newUrl, undefined, { shallow: true });
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    void router.push(
+      { pathname: router.pathname, query: router.query, hash: tab },
+      undefined,
+      { shallow: true },
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
-    const handler = () => {
-      const hash = window.location.hash.replace(/^#/, "") as FeatureTab;
-      if (featureTabs.includes(hash)) {
-        setTab(hash);
-      }
-    };
-    handler();
-    window.addEventListener("hashchange", handler, false);
-    return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab]);
+    const hash = (new URL(router.asPath, "http://x").hash.slice(1) ||
+      undefined) as FeatureTab | undefined;
+    if (hash && featureTabs.includes(hash)) {
+      setTab(hash);
+    }
+  }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dependents =
     (dependentsData?.features.length ?? 0) +
