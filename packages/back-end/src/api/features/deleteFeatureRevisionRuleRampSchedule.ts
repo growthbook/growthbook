@@ -1,5 +1,6 @@
 import type { RevisionRampDetachAction } from "shared/validators";
 import { deleteFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
+import { resetReviewOnChange } from "shared/util";
 import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -88,7 +89,12 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
         subject: ruleId,
         value: JSON.stringify({ ruleId, environment }),
       },
-      false,
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: [environment],
+        defaultValueChanged: false,
+        settings: req.organization.settings,
+      }),
     );
 
     const updated = await getRevision({

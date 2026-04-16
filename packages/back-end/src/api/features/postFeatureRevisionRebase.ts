@@ -4,6 +4,7 @@ import {
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
   MergeStrategy,
+  resetReviewOnChange,
 } from "shared/util";
 import type { FeatureRule } from "shared/types/feature";
 import {
@@ -107,6 +108,21 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
     : featureMetadataSnapshot;
 
+  // A rebase that actually pulls in upstream changes must re-trigger review
+  // per org policy — the prior approval was for pre-rebase content.
+  const changedEnvsFromRebase = Array.from(
+    new Set([
+      ...Object.keys(mergeResult.result.rules ?? {}),
+      ...Object.keys(mergeResult.result.environmentsEnabled ?? {}),
+    ]),
+  );
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: changedEnvsFromRebase,
+    defaultValueChanged: mergeResult.result.defaultValue !== undefined,
+    settings: req.organization.settings,
+  });
+
   await updateRevision(
     req.context,
     feature,
@@ -131,7 +147,7 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
       subject: `on top of revision #${live.version}`,
       value: JSON.stringify(mergeResult.result),
     },
-    false,
+    resetReview,
   );
 
   const updated = await getRevision({

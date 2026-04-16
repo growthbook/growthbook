@@ -42,6 +42,12 @@ export const putFeatureRevisionArchive = createApiRequestHandler(
       );
     }
 
+    const currentArchived = revision.archived ?? feature.archived ?? false;
+    if (currentArchived === req.body.archived) {
+      await discardIfJustCreated(req.context, revision, created);
+      return { revision: revisionToApiInterface(revision) };
+    }
+
     await updateRevision(
       req.context,
       feature,

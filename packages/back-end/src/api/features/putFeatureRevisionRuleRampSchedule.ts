@@ -1,4 +1,5 @@
 import { putFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
+import { resetReviewOnChange } from "shared/util";
 import { revisionToApiInterface } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -98,7 +99,12 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
         subject: ruleId,
         value: JSON.stringify(action),
       },
-      false,
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: [environment],
+        defaultValueChanged: false,
+        settings: req.organization.settings,
+      }),
     );
 
     const updated = await getRevision({

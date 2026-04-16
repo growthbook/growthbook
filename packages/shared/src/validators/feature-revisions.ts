@@ -108,17 +108,33 @@ export const getFeatureRevisionValidator = {
   responseSchema: revisionResponse,
 };
 
+const booleanQueryField = z
+  .union([
+    z.literal("true"),
+    z.literal("false"),
+    z.literal("0"),
+    z.literal("1"),
+    z.boolean(),
+  ])
+  .optional();
+
 export const getFeatureRevisionLatestValidator = {
   method: "get" as const,
   path: "/features/:id/revisions/latest",
   operationId: "getFeatureRevisionLatest",
   summary: "Get the most recent active draft revision",
   description:
-    "Returns the most recently updated draft revision for the feature. Returns 404 if there is no active draft.",
+    "Returns the most recently updated draft revision for the feature. Returns 404 if there is no active draft. Pass `mine=true` to return the most recent draft authored by or contributed to by the calling user (requires a user-scoped API key).",
   tags: ["feature-revisions"],
   paramsSchema: idParams,
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({
+      mine: booleanQueryField.describe(
+        "If true, return only the most recent active draft authored by or contributed to by the calling user. Requires a user-scoped API key.",
+      ),
+    })
+    .strict(),
   responseSchema: revisionResponse,
 };
 
@@ -632,7 +648,7 @@ export const listRevisionsValidator = {
   operationId: "listRevisions",
   summary: "List feature revisions",
   description:
-    "Returns a paginated list of feature revisions across all features in the organization. Optionally filtered by feature, status, and/or author. Results are sorted newest-first.",
+    "Returns a paginated list of feature revisions across all features in the organization. Optionally filtered by feature, status, author, and/or the calling user's involvement. Results are sorted newest-first.",
   tags: ["feature-revisions"],
   paramsSchema: z.never(),
   bodySchema: z.never(),
@@ -643,6 +659,9 @@ export const listRevisionsValidator = {
       featureId: z.string().optional(),
       status: revisionStatusSchema.optional(),
       author: z.string().optional(),
+      mine: booleanQueryField.describe(
+        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+      ),
     })
     .strict(),
   responseSchema: z

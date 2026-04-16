@@ -113,11 +113,13 @@ export async function countDocuments(
     featureIds,
     status,
     author,
+    involvedUserId,
   }: {
     featureId?: string;
     featureIds?: string[];
     status?: string | string[];
     author?: string;
+    involvedUserId?: string;
   } = {},
 ): Promise<number> {
   const filter: Record<string, unknown> = { organization };
@@ -127,6 +129,12 @@ export async function countDocuments(
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
   if (author) filter["createdBy.id"] = author;
+  if (involvedUserId) {
+    filter.$or = [
+      { "createdBy.id": involvedUserId },
+      { "contributors.id": involvedUserId },
+    ];
+  }
   return FeatureRevisionModel.countDocuments(filter);
 }
 
@@ -250,6 +258,7 @@ export async function getFeatureRevisionsByStatus({
   featureIds,
   status,
   author,
+  involvedUserId,
   limit = 10,
   offset = 0,
   sort = "desc",
@@ -261,6 +270,7 @@ export async function getFeatureRevisionsByStatus({
   featureIds?: string[];
   status?: string | string[];
   author?: string;
+  involvedUserId?: string;
   limit?: number;
   offset?: number;
   sort?: "asc" | "desc";
@@ -273,6 +283,12 @@ export async function getFeatureRevisionsByStatus({
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
   if (author) filter["createdBy.id"] = author;
+  if (involvedUserId) {
+    filter.$or = [
+      { "createdBy.id": involvedUserId },
+      { "contributors.id": involvedUserId },
+    ];
+  }
   let query = FeatureRevisionModel.find(filter)
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: sort === "desc" ? -1 : 1 });
@@ -288,15 +304,22 @@ export async function getLatestActiveDraftForFeature(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
+  { involvedUserId }: { involvedUserId?: string } = {},
 ): Promise<FeatureRevisionInterface | null> {
-  const doc = await FeatureRevisionModel.findOne(
-    {
-      organization,
-      featureId,
-      status: { $in: ACTIVE_DRAFT_STATUSES },
-    },
-    { log: 0 },
-  ).sort({ dateUpdated: -1 });
+  const filter: Record<string, unknown> = {
+    organization,
+    featureId,
+    status: { $in: ACTIVE_DRAFT_STATUSES },
+  };
+  if (involvedUserId) {
+    filter.$or = [
+      { "createdBy.id": involvedUserId },
+      { "contributors.id": involvedUserId },
+    ];
+  }
+  const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
+    dateUpdated: -1,
+  });
 
   return doc ? toInterface(doc, context) : null;
 }

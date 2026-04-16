@@ -46,6 +46,15 @@ export const postFeatureRevisionToggle = createApiRequestHandler(
       );
     }
 
+    const currentEnabled =
+      revision.environmentsEnabled?.[environment] ??
+      feature.environmentSettings?.[environment]?.enabled ??
+      false;
+    if (currentEnabled === enabled) {
+      await discardIfJustCreated(req.context, revision, created);
+      return { revision: revisionToApiInterface(revision) };
+    }
+
     const newEnabled = {
       ...(revision.environmentsEnabled ?? {}),
       [environment]: enabled,

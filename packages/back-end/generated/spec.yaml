@@ -2150,8 +2150,8 @@ paths:
       summary: List feature revisions
       description: >-
         Returns a paginated list of feature revisions across all features in the
-        organization. Optionally filtered by feature, status, and/or author.
-        Results are sorted newest-first.
+        organization. Optionally filtered by feature, status, author, and/or the
+        calling user's involvement. Results are sorted newest-first.
       tags:
         - feature-revisions
       parameters:
@@ -2161,6 +2161,7 @@ paths:
         - $ref: '#/components/parameters/featureId'
         - $ref: '#/components/parameters/status'
         - $ref: '#/components/parameters/author'
+        - $ref: '#/components/parameters/mine'
       responses:
         '200':
           content:
@@ -2308,7 +2309,9 @@ paths:
       summary: Get the most recent active draft revision
       description: >-
         Returns the most recently updated draft revision for the feature.
-        Returns 404 if there is no active draft.
+        Returns 404 if there is no active draft. Pass `mine=true` to return the
+        most recent draft authored by or contributed to by the calling user
+        (requires a user-scoped API key).
       tags:
         - feature-revisions
       parameters:
@@ -2318,6 +2321,26 @@ paths:
           description: ''
           schema:
             type: string
+        - name: mine
+          in: query
+          description: >-
+            If true, return only the most recent active draft authored by or
+            contributed to by the calling user. Requires a user-scoped API key.
+          schema:
+            description: >-
+              If true, return only the most recent active draft authored by or
+              contributed to by the calling user. Requires a user-scoped API
+              key.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
       responses:
         '200':
           content:
@@ -19370,6 +19393,28 @@ components:
       description: ''
       schema:
         type: string
+    mine:
+      name: mine
+      in: query
+      description: >-
+        If true, return only revisions authored by or contributed to by the
+        calling user. Requires a user-scoped API key. Mutually exclusive with
+        `author`.
+      schema:
+        description: >-
+          If true, return only revisions authored by or contributed to by the
+          calling user. Requires a user-scoped API key. Mutually exclusive with
+          `author`.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     version:
       name: version
       in: path

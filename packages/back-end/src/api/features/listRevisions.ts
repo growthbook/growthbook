@@ -11,6 +11,7 @@ import {
 } from "back-end/src/util/handler";
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
 import { revisionToApiInterface } from "back-end/src/services/features";
+import { BadRequestError } from "back-end/src/util/errors";
 
 const emptyListResponse = (limit: number, offset: number) => ({
   revisions: [],
@@ -25,6 +26,19 @@ const emptyListResponse = (limit: number, offset: number) => ({
 export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
   async (req) => {
     const { featureId, status, author } = req.query;
+
+    const mine = stringToBoolean(req.query.mine?.toString());
+    if (mine && author) {
+      throw new BadRequestError(
+        "`mine` and `author` are mutually exclusive. Pass one or the other.",
+      );
+    }
+    if (mine && !req.context.userId) {
+      throw new BadRequestError(
+        "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
+      );
+    }
+    const involvedUserId = mine ? req.context.userId : undefined;
 
     const skipPagination = stringToBoolean(
       req.query.skipPagination?.toString(),
@@ -75,6 +89,7 @@ export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
         featureIds,
         status,
         author,
+        involvedUserId,
         limit,
         offset,
         sort: "desc",
@@ -85,6 +100,7 @@ export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
         featureIds,
         status,
         author,
+        involvedUserId,
       }),
     ]);
 

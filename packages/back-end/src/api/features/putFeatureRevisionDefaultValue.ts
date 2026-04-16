@@ -42,6 +42,13 @@ export const putFeatureRevisionDefaultValue = createApiRequestHandler(
       );
     }
 
+    const currentDefaultValue =
+      revision.defaultValue ?? feature.defaultValue ?? "";
+    if (currentDefaultValue === req.body.defaultValue) {
+      await discardIfJustCreated(req.context, revision, created);
+      return { revision: revisionToApiInterface(revision) };
+    }
+
     await updateRevision(
       req.context,
       feature,
