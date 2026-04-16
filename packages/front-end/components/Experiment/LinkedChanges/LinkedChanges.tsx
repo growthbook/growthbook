@@ -119,20 +119,22 @@ export default function LinkedChanges({
               environmentStates={urlRedirectEnvStates}
             />
           ))}
-          <Flex justify="between">
-            <Text color="text-high" size="large" weight="semibold">
-              Add Feature, URL Redirect or Visual Editor
-            </Text>
-            <AddLinkedChangeButton
-              experiment={experiment}
-              linkedFeatures={linkedFeatures}
-              visualChangesets={visualChangesets}
-              urlRedirects={urlRedirects}
-              onFeatureFlag={() => setFeatureModal(true)}
-              onVisualEditor={() => setVisualEditorModal(true)}
-              onUrlRedirect={() => setUrlRedirectModal(true)}
-            />
-          </Flex>
+          {experiment.status === "draft" && !experiment.archived && (
+            <Flex justify="between">
+              <Text color="text-high" size="large" weight="semibold">
+                Add Feature, URL Redirect or Visual Editor
+              </Text>
+              <AddLinkedChangeButton
+                experiment={experiment}
+                linkedFeatures={linkedFeatures}
+                visualChangesets={visualChangesets}
+                urlRedirects={urlRedirects}
+                onFeatureFlag={() => setFeatureModal(true)}
+                onVisualEditor={() => setVisualEditorModal(true)}
+                onUrlRedirect={() => setUrlRedirectModal(true)}
+              />
+            </Flex>
+          )}
         </>
       )}
     </Box>
