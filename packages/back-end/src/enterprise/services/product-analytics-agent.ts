@@ -52,8 +52,12 @@ Timeseries charts (line, area, timeseries-table): always include a date dimensio
 Cumulative charts (bar, stackedBar, horizontalBar, stackedHorizontalBar, table, bigNumber): never include a date dimension.
 When switching between timeseries and cumulative, add or remove the date dimension accordingly.
 Default chartType: line for timeseries, bar for cumulative (when user doesn't specify).
-Prefer a single chart with multiple values in dataset.values over calling runExploration twice.
-The only exception is when the user asks for data from both a fact table and a metric — those use different exploration types and cannot share a chart.
+NEVER use bigNumber unless the user explicitly asks for a big number or single-stat display. Always prefer bar chart for cumulative data.
+
+CRITICAL — only 1 successful chart per response. NEVER produce more than one chart per turn.
+If runExploration returns an error or 0 rows, you may retry with a corrected config — but once you get a successful non-empty result, that's the chart for this turn.
+Combine multiple values into a single chart using dataset.values when possible.
+If the user asks for data that spans both a fact table and a metric (different exploration types), pick the one that best answers the core question and tell the user the other cannot be plotted on the same chart.
 </chart_rules>
 
 <dimension_rules>
@@ -61,7 +65,11 @@ Only use dimensionType 'dynamic'. Never use 'static' or 'slice'.
 'dynamic' shows the top N values for a column — set maxValues (1–20, default 5).
 Use dateGranularity 'auto' by default for date dimensions; only use a specific granularity (hour/day/week/month/year) when the user requests it.
 Maximum 2 total dimensions (including the date dimension for timeseries). If dataset has more than 1 value, max 1 dimension.
-bigNumber charts: 0 dimensions and exactly 1 value.
+bigNumber charts (only when explicitly requested): 0 dimensions and exactly 1 value.
+
+IMPORTANT: Do NOT add breakdown dimensions unless the user explicitly asks to "break down by", "split by", "group by", or similar.
+For timeseries charts, include only the date dimension by default.
+For cumulative charts, include 0 dimensions by default — just show the total.
 </dimension_rules>
 
 <unit_rules>
@@ -97,6 +105,11 @@ Pass an empty query to browse all items, or a search term to filter. Use skip an
 Each result includes an 'explorerType' field ('metric' or 'fact_table') indicating which exploration type to use, and a 'kind' field with the specific result type.
 Prefer metrics over fact tables when both could satisfy the user's request — metrics are pre-defined with curated logic and are more reliable.
 Results include an 'official' field: prefer official resources (official: true) over non-official ones, as they are vetted and authoritative.
+
+CRITICAL search strategy:
+- Keep search terms short and focused (1-3 words). Multi-word queries will match if ANY individual word hits, so "features experiments" will find items matching "features" OR "experiments". Exact and substring matches rank higher.
+- If a specific search yields no results or only loosely related results, broaden your search. Try single generic keywords like "event", "count", "pageview", etc.
+- Think creatively about which metric or fact table can answer the question. A generic metric (e.g. "count of events") with the right rowFilters applied can often answer questions that no specifically-named metric covers. Don't just settle for the first result — consider whether a more general resource + filters would be a better fit.
 </search_rules>
 
 <tool_notes>
@@ -113,6 +126,11 @@ If asked about metrics, fact tables, or tables that don't exist, let the user kn
 <error_handling>
 If a tool call returns an error, analyze the error, fix the config, and retry.
 If you get the same or very similar error 3 times in a row, stop retrying — explain briefly what went wrong and suggest what the user can do differently.
+If runExploration returns 0 rows, do NOT present this as a final answer. Treat it as a likely problem:
+- Check that the date range covers a period with data (try widening it).
+- Check that row filters aren't too restrictive (verify column values with getColumnValues).
+- Consider whether you picked the wrong metric or fact table and search for alternatives.
+Only after at least one retry should you tell the user no data was found.
 </error_handling>
 `.trim();
 
@@ -343,6 +361,37 @@ function explorationConfigFromLatestRun(
   return null;
 }
 
+/**
+ * Score a search query against a haystack string.
+ * - Exact name/id match with the full query: 10
+ * - Full query found as substring in haystack: 5
+ * - Per-token: each token found in haystack adds 1 point
+ * Returns 0 if no tokens match.
+ */
+function scoreSearch(
+  q: string,
+  tokens: string[],
+  haystack: string,
+  name: string,
+  id: string,
+): number {
+  const nameLower = name.toLowerCase();
+  const idLower = id.toLowerCase();
+  const exactMatch = nameLower === q || idLower === q;
+  if (exactMatch) return 10;
+
+  const fullSubstring = haystack.includes(q);
+  let score = fullSubstring ? 5 : 0;
+
+  if (tokens.length > 1) {
+    for (const token of tokens) {
+      if (haystack.includes(token)) score += 1;
+    }
+  }
+
+  return score;
+}
+
 async function executeSearch(
   getMetrics: () => Promise<FactMetricInterface[]>,
   getFactTables: () => Promise<FactTableInterface[]>,
@@ -351,6 +400,7 @@ async function executeSearch(
   const { query, limit, skip } = input;
   const q = query.trim().toLowerCase();
   const isBlank = q.length === 0;
+  const tokens = q.split(/\s+/).filter(Boolean);
 
   type ScoredResult = { score: number; name: string; result: unknown };
   const all: ScoredResult[] = [];
@@ -381,9 +431,7 @@ async function executeSearch(
     ]
       .join(" ")
       .toLowerCase();
-    const exact = m.name.toLowerCase() === q || m.id.toLowerCase() === q;
-    const includes = haystack.includes(q);
-    const score = exact ? 3 : includes ? 1 : 0;
+    const score = scoreSearch(q, tokens, haystack, m.name, m.id);
     if (score > 0) {
       all.push({ score, name: m.name, result: metricResult });
     }
@@ -407,9 +455,7 @@ async function executeSearch(
     const haystack = [ft.id, ft.name, ft.eventName ?? ""]
       .join(" ")
       .toLowerCase();
-    const exact = ft.name.toLowerCase() === q || ft.id.toLowerCase() === q;
-    const includes = haystack.includes(q);
-    const score = exact ? 3 : includes ? 1 : 0;
+    const score = scoreSearch(q, tokens, haystack, ft.name, ft.id);
     if (score > 0) {
       all.push({ score, name: ft.name, result: ftResult });
     }
@@ -465,6 +511,7 @@ type RunExplorationToolResult =
   | {
       summary: string;
       configNormalized?: string[];
+      noDataWarning?: string;
       status: "success";
       snapshotId: string;
       rowCount: number;
@@ -598,15 +645,22 @@ async function executeRunExploration(
     const resultCsv = buildResultCsv(exploration?.result?.rows ?? [], config);
 
     const snapshotId = nextSnapshotId(buffer);
+    const rowCount = exploration?.result?.rows?.length ?? 0;
 
     return {
       summary,
       ...(warnings.length > 0 && {
         configNormalized: warnings,
       }),
+      ...(rowCount === 0 && {
+        noDataWarning:
+          "The query returned 0 rows. This likely means the filters, date range, or selected metric/fact table are wrong. " +
+          "Do NOT present this as a final answer. Try widening the date range, verifying filters with getColumnValues, " +
+          "or searching for a different metric/fact table before giving up.",
+      }),
       status: "success",
       snapshotId,
-      rowCount: exploration?.result?.rows?.length ?? 0,
+      rowCount,
       config,
       resultCsv,
       exploration: exploration ?? null,
