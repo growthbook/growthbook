@@ -24,10 +24,12 @@ const postBodyAction = z.object({
 });
 type PostBodyAction = z.infer<typeof postBodyAction>;
 
+// Tight ISO datetime validation for all ramp date fields so bad strings
+// fail here rather than downstream in `new Date()`.
 const apiRampTrigger = z.union([
   z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
   z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.string() }),
+  z.object({ type: z.literal("scheduled"), at: z.string().datetime() }),
 ]);
 
 const postBodyStep = z.object({
@@ -106,7 +108,7 @@ function normalizeAction(action: PostBodyAction): RampStepAction {
   };
 }
 
-// Overrides targetId and ruleId from top-level shorthand fields.
+// Overrides targetId/ruleId from the top-level shorthand fields.
 function injectTarget(
   action: PostBodyAction,
   targetId: string,
@@ -124,8 +126,8 @@ export const postRampSchedule = createApiRequestHandler(
 )(async (req) => {
   const body = req.body;
 
-  // REST uses Enterprise ("ramp-schedules"); the dashboard uses Pro ("schedule-feature-flag")
-  // because simple schedules share infrastructure there.
+  // REST uses the Enterprise "ramp-schedules" gate; the dashboard uses the
+  // Pro "schedule-feature-flag" gate since simple schedules share the infra.
   if (!req.context.hasPremiumFeature("ramp-schedules")) {
     req.context.throwPlanDoesNotAllowError(
       "Ramp schedules require an Enterprise plan.",
@@ -182,7 +184,7 @@ export const postRampSchedule = createApiRequestHandler(
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
-  // body steps → template steps (when target known) → []
+  // Prefer body steps, fall back to template steps (if target known), else [].
   const resolvedSteps: RampScheduleInterface["steps"] = (() => {
     if (body.steps !== undefined) {
       return body.steps.map((s) => ({

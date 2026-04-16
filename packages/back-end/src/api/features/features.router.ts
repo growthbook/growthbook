@@ -48,10 +48,8 @@ export const featureRoutes: OpenApiRoute[] = [
   // Reading & listing
   listRevisions,
   getFeatureRevisions,
-  // NOTE: getFeatureRevisionLatest must be registered BEFORE getFeatureRevision.
-  // Both share the /features/:id/revisions/* path prefix; Express matches by
-  // registration order and getFeatureRevision's :version param would otherwise
-  // swallow the literal "latest" and fail zod int validation with a 400.
+  // Must precede getFeatureRevision: its :version param would otherwise
+  // swallow the literal "latest" and fail int validation.
   getFeatureRevisionLatest,
   getFeatureRevision,
 

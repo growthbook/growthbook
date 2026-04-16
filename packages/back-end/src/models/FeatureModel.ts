@@ -1395,8 +1395,8 @@ async function createRampSchedulesForRevision(
 
     const targetId = uuidv4();
 
-    // Inject the ramp target UUID into every action — the caller's targetId is
-    // always ignored since there is exactly one target per RevisionRampCreateAction.
+    // Inject the generated targetId into every action. The caller's targetId
+    // is ignored — there is exactly one target per revision create action.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
     ): RampStepAction => ({
@@ -1405,7 +1405,7 @@ async function createRampSchedulesForRevision(
       patch: { ...a.patch, ruleId: action.ruleId } as RampStepAction["patch"],
     });
 
-    // Resolve template if provided — explicit steps/endActions take precedence.
+    // Template is used as a fallback; explicit steps/endActions win.
     let template: RampScheduleTemplateInterface | undefined;
     if (action.templateId) {
       const tmpl = await context.models.rampScheduleTemplates.getById(

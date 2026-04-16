@@ -8,14 +8,17 @@ import {
 import { z } from "zod";
 import { validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
+  discardRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 
@@ -23,15 +26,7 @@ export { inlineRampScheduleInput };
 
 type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 
-/**
- * Normalize API input (optional targetType/targetId) to the stored type (required fields).
- *
- * Note on targetId: RevisionRampCreateAction always has exactly one target
- * (the rule being ramped), and the real target UUID is generated and injected
- * at publish time in `createRampSchedulesForRevision` — so whatever we store
- * here is overwritten before the schedule is ever persisted. We set an empty
- * string to keep the stored type happy.
- */
+// targetId is a placeholder — real UUID is injected at publish time.
 function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
 ): RevisionRampCreateAction {
@@ -58,10 +53,7 @@ function normalizeRevisionRampCreateAction(
 
 export const DRAFT_STATUSES = ACTIVE_DRAFT_STATUSES;
 
-/**
- * Build a RevisionRampCreateAction from an inline ramp schedule input.
- * ruleId and environment are injected from the calling context.
- */
+// Build a RevisionRampCreateAction from an inline ramp schedule input.
 export function normalizeInlineRampSchedule(
   input: InlineRampScheduleInput,
   ruleId: string,
@@ -80,34 +72,31 @@ export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
 }
 
-/**
- * Resolve or create a draft revision.
- *
- * - When `version` is a number, looks up the existing revision and throws
- *   `NotFoundError` if it doesn't exist.
- * - When `version` is `"new"`, creates a blank draft based on the feature's
- *   current published version, so callers can add/edit content in one call
- *   without pre-fetching a version number.
- */
+// Resolves an existing revision, or creates a blank draft on `version: "new"`.
+// `created` is true when a draft was just created — pair with
+// `discardIfJustCreated` on downstream failure.
 export async function resolveOrCreateRevision(
   context: ApiReqContext,
   organizationId: string,
   feature: FeatureInterface,
   version: number | "new",
-) {
+  options: { title?: string; comment?: string } = {},
+): Promise<{ revision: FeatureRevisionInterface; created: boolean }> {
   if (version === "new") {
-    return createRevision({
+    const revision = await createRevision({
       context,
       feature,
       user: context.auditUser,
       baseVersion: feature.version,
-      comment: "",
+      comment: options.comment ?? "",
+      title: options.title,
       environments: getEnvironmentIdsFromOrg(context.org),
       publish: false,
       changes: {},
       org: context.org,
       canBypassApprovalChecks: false,
     });
+    return { revision, created: true };
   }
   const revision = await getRevision({
     context,
@@ -116,14 +105,28 @@ export async function resolveOrCreateRevision(
     version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
-  return revision;
+  return { revision, created: false };
 }
 
-/**
- * Throws if `environment` is not one of the org's configured environments.
- * Mirrors the environmentIds.includes(environment) check in the feature
- * controllers — prevents callers from writing rules into bogus or stale keys.
- */
+// Best-effort discard; never throws so it can't mask the original error.
+export async function discardIfJustCreated(
+  context: ApiReqContext,
+  revision: FeatureRevisionInterface,
+  created: boolean,
+): Promise<void> {
+  if (!created) return;
+  try {
+    await discardRevision(context, revision, context.auditUser);
+  } catch (err) {
+    logger.warn(
+      { err, featureId: revision.featureId, version: revision.version },
+      "Failed to discard orphaned draft after downstream failure",
+    );
+  }
+}
+
+// Throws if `environment` isn't configured on the org. Call before
+// `resolveOrCreateRevision` so `version: "new"` can't orphan an empty draft.
 export function assertValidEnvironment(
   context: ApiReqContext,
   environment: string,
@@ -134,21 +137,14 @@ export function assertValidEnvironment(
   }
 }
 
-/**
- * Build a RevisionRampCreateAction from simple startDate / endDate inputs.
- * - startDate → adds a scheduled step that enables the rule
- * - endDate   → adds an endCondition + endAction that disables the rule
- * ruleId and environment are inferred from the calling context.
- */
+// Build a RevisionRampCreateAction from start/end dates (enable/disable).
 export function buildScheduleRampAction(
   ruleId: string,
   environment: string,
   startDate?: string | null,
   endDate?: string | null,
 ): RevisionRampCreateAction {
-  // targetId is overwritten at publish time with the generated UUID (see
-  // createRampSchedulesForRevision); the empty string here is a placeholder
-  // that keeps the stored type happy.
+  // targetId is overwritten at publish time in createRampSchedulesForRevision.
   const steps: RevisionRampCreateAction["steps"] = startDate
     ? [
         {
@@ -201,15 +197,8 @@ export const validateCustomFields = async (
   });
 };
 
-/**
- * Validate that all entity references in a rule exist:
- * - savedGroups[].ids  → saved group IDs must exist
- * - condition ($inGroup / $notInGroup / $savedGroups) → saved group IDs must exist
- * - prerequisites[].id → feature must exist in this org
- *
- * Loads saved groups and builds the groupMap once, so call this after building
- * the final rule rather than per-field.
- */
+// Verify saved-group and prerequisite references in a rule exist. Call on
+// the final rule — saved groups are loaded once.
 export async function validateRuleReferences(
   rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
   context: ApiReqContext,
@@ -247,10 +236,7 @@ export async function validateRuleReferences(
   }
 }
 
-/**
- * Same reference checks for a feature-level prerequisites list
- * (used by putFeatureRevisionPrerequisites).
- */
+// Reference checks for a feature-level prerequisites list.
 export async function validatePrerequisiteReferences(
   prerequisites: FeaturePrerequisite[],
   context: ApiReqContext,
@@ -277,10 +263,7 @@ export async function validatePrerequisiteReferences(
   }
 }
 
-/**
- * Recursively walk a parsed condition object and return an error string if any
- * $inGroup / $notInGroup value references a non-existent saved group ID.
- */
+// Returns an error string if any $inGroup/$notInGroup refs an unknown group.
 function findInvalidInGroupId(
   obj: unknown,
   validIds: Set<string>,
@@ -306,10 +289,7 @@ function findInvalidInGroupId(
   return null;
 }
 
-/**
- * Validate all condition strings (rule condition + per-prerequisite conditions).
- * Throws with a descriptive message on the first invalid condition found.
- */
+// Validate rule + per-prerequisite conditions; throws on the first invalid.
 export function validateRuleConditions(
   rule: Pick<FeatureRule, "condition" | "prerequisites">,
 ): void {
@@ -348,11 +328,8 @@ export function validatePrerequisiteConditions(
 // Logical operators that wrap sub-conditions (arrays or single object).
 const LOGICAL_OPS = new Set(["$and", "$or", "$nor", "$not"]);
 
-/**
- * Recursively verify that every non-operator key in a parsed prerequisite
- * condition is "value". Any other field name (e.g. "country") will silently
- * never match because the SDK evaluates prereqs against { value: <flag_value> }.
- */
+// Prereq conditions run against { value: <flag_value> }; any non-operator
+// key other than "value" silently never matches — flag those at validation.
 function checkPrerequisiteConditionKeys(
   obj: Record<string, unknown>,
 ): string | null {

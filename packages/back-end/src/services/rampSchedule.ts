@@ -49,8 +49,8 @@ export function forceMatchesValueType(
   return false;
 }
 
-// Remaps template actions to the real targetId/ruleId; strips `force` values
-// incompatible with the feature's value type.
+// Remap template actions to the real target/rule; drop `force` values whose
+// type doesn't match the feature.
 export function remapTemplateActions(
   actions: RampScheduleTemplateInterface["steps"][number]["actions"],
   targetId: string,

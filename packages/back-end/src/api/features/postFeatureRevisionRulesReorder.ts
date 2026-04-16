@@ -11,6 +11,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   assertValidEnvironment,
+  discardIfJustCreated,
   isDraftStatus,
   resolveOrCreateRevision,
 } from "./validations";
@@ -28,81 +29,95 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await resolveOrCreateRevision(
+  const { environment, ruleIds } = req.body;
+  assertValidEnvironment(req.context, environment);
+
+  const { revision, created } = await resolveOrCreateRevision(
     req.context,
     req.organization.id,
     feature,
     req.params.version,
+    { title: req.body.revisionTitle, comment: req.body.revisionComment },
   );
 
-  if (!isDraftStatus(revision.status)) {
-    throw new BadRequestError(
-      `Cannot edit a revision with status "${revision.status}"`,
-    );
-  }
+  try {
+    if (!isDraftStatus(revision.status)) {
+      throw new BadRequestError(
+        `Cannot edit a revision with status "${revision.status}"`,
+      );
+    }
 
-  const { environment, ruleIds } = req.body;
-  assertValidEnvironment(req.context, environment);
-  const envRules = revision.rules?.[environment] ?? [];
+    const envRules = revision.rules?.[environment] ?? [];
 
-  const ruleMap = new Map(envRules.map((r) => [r.id, r]));
+    const ruleMap = new Map(envRules.map((r) => [r.id, r]));
 
-  const unknownIds = ruleIds.filter((id) => !ruleMap.has(id));
-  if (unknownIds.length > 0) {
-    throw new BadRequestError(
-      `Unknown rule ID(s): ${unknownIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
-    );
-  }
+    const unknownIds = ruleIds.filter((id) => !ruleMap.has(id));
+    if (unknownIds.length > 0) {
+      throw new BadRequestError(
+        `Unknown rule ID(s): ${unknownIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
+      );
+    }
 
-  const seen = new Set<string>();
-  const duplicateIds = ruleIds.filter((id) => {
-    if (seen.has(id)) return true;
-    seen.add(id);
-    return false;
-  });
-  if (duplicateIds.length > 0) {
-    throw new BadRequestError(
-      `Duplicate rule ID(s): ${duplicateIds.join(", ")}.`,
-    );
-  }
+    const seen = new Set<string>();
+    const duplicateIds = ruleIds.filter((id) => {
+      if (seen.has(id)) return true;
+      seen.add(id);
+      return false;
+    });
+    if (duplicateIds.length > 0) {
+      throw new BadRequestError(
+        `Duplicate rule ID(s): ${duplicateIds.join(", ")}.`,
+      );
+    }
 
-  const missingIds = envRules.map((r) => r.id).filter((id) => !seen.has(id));
-  if (missingIds.length > 0) {
-    throw new BadRequestError(
-      `Missing rule ID(s): ${missingIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
-    );
-  }
+    const missingIds = envRules.map((r) => r.id).filter((id) => !seen.has(id));
+    if (missingIds.length > 0) {
+      throw new BadRequestError(
+        `Missing rule ID(s): ${missingIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
+      );
+    }
 
-  const reordered = ruleIds.map((id) => ruleMap.get(id)!);
+    const reordered = ruleIds.map((id) => ruleMap.get(id)!);
 
-  const newRules = cloneDeep(revision.rules ?? {});
-  newRules[environment] = reordered;
+    // Short-circuit no-op reorders — drops any auto-created draft too.
+    const isNoop = envRules.every((r, i) => r.id === reordered[i].id);
+    if (isNoop) {
+      await discardIfJustCreated(req.context, revision, created);
+      return { revision: revisionToApiInterface(revision) };
+    }
 
-  await updateRevision(
-    req.context,
-    feature,
-    revision,
-    { rules: newRules },
-    {
-      user: req.context.auditUser,
-      action: "reorder rules",
-      subject: environment,
-      value: JSON.stringify(ruleIds),
-    },
-    resetReviewOnChange({
+    const newRules = cloneDeep(revision.rules ?? {});
+    newRules[environment] = reordered;
+
+    await updateRevision(
+      req.context,
       feature,
-      changedEnvironments: [environment],
-      defaultValueChanged: false,
-      settings: req.organization.settings,
-    }),
-  );
+      revision,
+      { rules: newRules },
+      {
+        user: req.context.auditUser,
+        action: "reorder rules",
+        subject: environment,
+        value: JSON.stringify(ruleIds),
+      },
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: [environment],
+        defaultValueChanged: false,
+        settings: req.organization.settings,
+      }),
+    );
 
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: revision.version,
-  });
+    const updated = await getRevision({
+      context: req.context,
+      organization: req.organization.id,
+      featureId: feature.id,
+      version: revision.version,
+    });
 
-  return { revision: revisionToApiInterface(updated ?? revision) };
+    return { revision: revisionToApiInterface(updated ?? revision) };
+  } catch (err) {
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
+  }
 });

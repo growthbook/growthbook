@@ -60,7 +60,6 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       throw new Error("Can only revert to previously published revisions");
     }
 
-    // Build the set of changes this revert would apply.
     const changes: MergeResultChanges = {};
 
     if (revision.defaultValue !== feature.defaultValue) {
@@ -75,14 +74,12 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       changes.defaultValue = revision.defaultValue;
     }
 
-    // Always write all envs into changes.rules so createRevision doesn't
-    // fall back to [] for any env absent from a sparse map.
+    // Populate all envs so createRevision doesn't default missing ones to [].
     changes.rules = {};
     const changedEnvs: string[] = [];
     environmentIds.forEach((env) => {
       const currentRules = feature.environmentSettings?.[env]?.rules || [];
-      // If the target revision has rules for this env, restore them;
-      // otherwise preserve current state (env didn't exist at revision time).
+      // Missing env in target revision → preserve current state.
       const targetRules =
         revision.rules && env in revision.rules
           ? revision.rules[env]
@@ -183,9 +180,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       }
     }
 
-    // Callers bypass the review gate via either the org-level
-    // restApiBypassesReviews setting or a role/token that grants the
-    // bypassApprovalChecks permission on this feature's project.
+    // Bypass via restApiBypassesReviews or bypassApprovalChecks.
     const canBypass =
       !!req.context.org.settings?.restApiBypassesReviews ||
       req.context.permissions.canBypassApprovalChecks(feature);

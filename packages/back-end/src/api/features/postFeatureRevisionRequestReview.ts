@@ -14,12 +14,8 @@ export const postFeatureRevisionRequestReview = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Requesting review is intentionally a lighter-weight check than other draft
-  // mutators: it doesn't modify feature contents, just moves the draft's
-  // workflow status. We gate on `canManageFeatureDrafts` (mirrors the UI's
-  // review request flow) without also requiring `canUpdateFeature`, so
-  // contributors who drafted the change can ask for approval even if they
-  // can't publish the feature themselves.
+  // Gated on canManageFeatureDrafts only so contributors can request approval
+  // on drafts they can't publish themselves.
   if (!req.context.permissions.canManageFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }

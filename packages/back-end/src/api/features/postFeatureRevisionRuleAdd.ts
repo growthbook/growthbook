@@ -34,6 +34,7 @@ import {
 } from "back-end/src/util/errors";
 import {
   assertValidEnvironment,
+  discardIfJustCreated,
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
@@ -70,13 +71,12 @@ function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
   }
 
   if (input.type === "safe-rollout") {
-    // safeRolloutId is filled in after entity creation in the handler
     const rule: SafeRolloutRule = {
       ...base,
       type: "safe-rollout",
       controlValue: input.controlValue,
       variationValue: input.variationValue,
-      safeRolloutId: "", // filled below
+      safeRolloutId: "", // filled after SafeRollout entity is created
       hashAttribute: input.hashAttribute,
       trackingKey:
         input.trackingKey ?? `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`,
@@ -86,7 +86,7 @@ function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
     return rule;
   }
 
-  // Force / rollout inference
+  // Force vs rollout: rollout when coverage < 1 or explicitly requested.
   const isRollout =
     input.type === "rollout" ||
     (input.type !== "force" &&
@@ -131,210 +131,217 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
-    feature,
-    req.params.version,
-  );
-  if (!revision) throw new NotFoundError("Could not find feature revision");
-
-  if (!isDraftStatus(revision.status)) {
-    throw new BadRequestError(
-      `Cannot edit a revision with status "${revision.status}"`,
-    );
-  }
-
   const { environment, schedule } = req.body;
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
   const ruleInput = req.body.rule;
 
-  // Fill in missing variationIds from the linked experiment (by index order).
-  // Also enforce holdout compatibility for experiment-ref rules on holdout-bound
-  // features, mirroring postFeatureRule controller: the experiment must be in
-  // draft status, have no linked changes, and (if it already has a holdout)
-  // match the feature's holdout. If accepted, link the experiment to the
-  // feature's holdout (both on the experiment and the holdout's linkedExperiments).
-  if (ruleInput.type === "experiment-ref") {
-    const anyMissing = ruleInput.variations.some((v) => !v.variationId);
-    const allMissing = ruleInput.variations.every((v) => !v.variationId);
-    if (anyMissing && !allMissing) {
+  const { revision, created } = await resolveOrCreateRevision(
+    req.context,
+    req.organization.id,
+    feature,
+    req.params.version,
+    { title: req.body.revisionTitle, comment: req.body.revisionComment },
+  );
+
+  // Track side effects so we can compensate on downstream failure (discard
+  // draft, delete orphan SafeRollout).
+  let createdSafeRolloutId: string | undefined;
+  try {
+    if (!isDraftStatus(revision.status)) {
       throw new BadRequestError(
-        "Either provide variationId for all variations or none; mixed inputs are not allowed.",
+        `Cannot edit a revision with status "${revision.status}"`,
       );
     }
-    const needsHoldoutCheck = Boolean(feature.holdout?.id);
-    if (anyMissing || needsHoldoutCheck) {
-      const experiment = await getExperimentById(
-        req.context,
-        ruleInput.experimentId,
-      );
-      if (!experiment) {
-        throw new NotFoundError(
-          `Could not find experiment "${ruleInput.experimentId}"`,
+
+    // Fill missing variationIds from the linked experiment by index. For
+    // holdout-bound features, also enforces experiment/holdout compatibility.
+    if (ruleInput.type === "experiment-ref") {
+      const anyMissing = ruleInput.variations.some((v) => !v.variationId);
+      const allMissing = ruleInput.variations.every((v) => !v.variationId);
+      if (anyMissing && !allMissing) {
+        throw new BadRequestError(
+          "Either provide variationId for all variations or none; mixed inputs are not allowed.",
+        );
+      }
+      const needsHoldoutCheck = Boolean(feature.holdout?.id);
+      if (anyMissing || needsHoldoutCheck) {
+        const experiment = await getExperimentById(
+          req.context,
+          ruleInput.experimentId,
+        );
+        if (!experiment) {
+          throw new NotFoundError(
+            `Could not find experiment "${ruleInput.experimentId}"`,
+          );
+        }
+
+        if (anyMissing) {
+          const phaseVariations = getLatestPhaseVariations(experiment);
+          if (phaseVariations.length < ruleInput.variations.length) {
+            throw new BadRequestError(
+              `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
+            );
+          }
+          ruleInput.variations = ruleInput.variations.map((v, i) => ({
+            variationId: phaseVariations[i].id,
+            value: v.value,
+          }));
+        }
+
+        if (needsHoldoutCheck && feature.holdout?.id) {
+          const expHasLinkedChanges =
+            (experiment.linkedFeatures?.length ?? 0) > 0 ||
+            experiment.hasURLRedirects ||
+            experiment.hasVisualChangesets;
+          if (
+            experiment.status !== "draft" ||
+            (experiment.holdoutId &&
+              experiment.holdoutId !== feature.holdout.id) ||
+            expHasLinkedChanges
+          ) {
+            throw new BadRequestError(
+              "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.",
+            );
+          }
+
+          if (!experiment.holdoutId) {
+            await updateExperiment({
+              context: req.context,
+              experiment,
+              changes: { holdoutId: feature.holdout.id },
+            });
+            const holdout = await req.context.models.holdout.getById(
+              feature.holdout.id,
+            );
+            await req.context.models.holdout.updateById(feature.holdout.id, {
+              linkedExperiments: {
+                ...holdout?.linkedExperiments,
+                [experiment.id]: {
+                  id: experiment.id,
+                  dateAdded: new Date(),
+                },
+              },
+            });
+          }
+        }
+      }
+    }
+
+    const rule = buildRuleFromInput(ruleInput, uuidv4());
+
+    // Validate condition JSON and references before any DB writes.
+    validateRuleConditions(rule);
+    await validateRuleReferences(rule, req.context);
+
+    if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
+      if (!req.context.hasPremiumFeature("safe-rollout")) {
+        req.context.throwPlanDoesNotAllowError(
+          "Safe Rollout rules require an Enterprise plan.",
         );
       }
 
-      if (anyMissing) {
-        const phaseVariations = getLatestPhaseVariations(experiment);
-        if (phaseVariations.length < ruleInput.variations.length) {
-          throw new BadRequestError(
-            `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
-          );
-        }
-        ruleInput.variations = ruleInput.variations.map((v, i) => ({
-          variationId: phaseVariations[i].id,
-          value: v.value,
-        }));
-      }
+      // Strip inline `rampUpSchedule.enabled` shorthand before validation;
+      // the stored ramp-up shape is larger.
+      const { rampUpSchedule, ...validatableFields } =
+        ruleInput.safeRolloutFields;
+      const validatedFields = await validateCreateSafeRolloutFields(
+        validatableFields,
+        req.context,
+      );
 
-      if (needsHoldoutCheck && feature.holdout?.id) {
-        const expHasLinkedChanges =
-          (experiment.linkedFeatures?.length ?? 0) > 0 ||
-          experiment.hasURLRedirects ||
-          experiment.hasVisualChangesets;
-        if (
-          experiment.status !== "draft" ||
-          (experiment.holdoutId &&
-            experiment.holdoutId !== feature.holdout.id) ||
-          expHasLinkedChanges
-        ) {
-          throw new BadRequestError(
-            "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.",
-          );
-        }
+      const safeRollout = await req.context.models.safeRollout.create({
+        ...validatedFields,
+        environment,
+        featureId: feature.id,
+        status: "running",
+        autoSnapshots: true,
+        rampUpSchedule: {
+          enabled: rampUpSchedule?.enabled ?? false,
+          step: 0,
+          steps: [
+            { percent: 0.1 },
+            { percent: 0.25 },
+            { percent: 0.5 },
+            { percent: 0.75 },
+            { percent: 1 },
+          ],
+          rampUpCompleted: false,
+          nextUpdate: undefined,
+        },
+      });
 
-        if (!experiment.holdoutId) {
-          await updateExperiment({
-            context: req.context,
-            experiment,
-            changes: { holdoutId: feature.holdout.id },
-          });
-          const holdout = await req.context.models.holdout.getById(
-            feature.holdout.id,
-          );
-          await req.context.models.holdout.updateById(feature.holdout.id, {
-            linkedExperiments: {
-              ...holdout?.linkedExperiments,
-              [experiment.id]: {
-                id: experiment.id,
-                dateAdded: new Date(),
-              },
-            },
-          });
-        }
-      }
+      if (!safeRollout)
+        throw new InternalServerError("Failed to create safe rollout");
+      createdSafeRolloutId = safeRollout.id;
+      (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
     }
-  }
 
-  const rule = buildRuleFromInput(ruleInput, uuidv4());
-
-  // Validate condition JSON and entity references before any DB writes
-  validateRuleConditions(rule);
-  await validateRuleReferences(rule, req.context);
-
-  // Safe rollout: create the SafeRollout entity and link it to the rule
-  if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
-    if (!req.context.hasPremiumFeature("safe-rollout")) {
-      req.context.throwPlanDoesNotAllowError(
-        "Safe Rollout rules require an Enterprise plan.",
+    // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
+    let resolvedRampAction = inlineRampSchedule
+      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, environment)
+      : undefined;
+    if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
+      // A startDate implies the rule should be disabled until the ramp fires.
+      if (schedule.startDate) rule.enabled = false;
+      resolvedRampAction = buildScheduleRampAction(
+        rule.id,
+        environment,
+        schedule.startDate,
+        schedule.endDate,
       );
     }
 
-    // omit our inline rampUpSchedule input (only contains `enabled`) before
-    // validation so it doesn't collide with the stored ramp-up shape
-    const { rampUpSchedule, ...validatableFields } =
-      ruleInput.safeRolloutFields;
-    const validatedFields = await validateCreateSafeRolloutFields(
-      validatableFields,
+    const newRules = cloneDeep(revision.rules ?? {});
+    newRules[environment] = [...(newRules[environment] ?? []), rule];
+
+    const changes: RevisionChanges = { rules: newRules };
+
+    if (resolvedRampAction) {
+      const existing = revision.rampActions ?? [];
+      const filtered = existing.filter(
+        (a) =>
+          a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
+      );
+      changes.rampActions = [...filtered, resolvedRampAction];
+    }
+
+    await updateRevision(
       req.context,
+      feature,
+      revision,
+      changes,
+      {
+        user: req.context.auditUser,
+        action: "add rule",
+        subject: `to ${environment}`,
+        value: JSON.stringify(rule),
+      },
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: [environment],
+        defaultValueChanged: false,
+        settings: req.organization.settings,
+      }),
     );
 
-    const safeRollout = await req.context.models.safeRollout.create({
-      ...validatedFields,
-      environment,
+    const updated = await getRevision({
+      context: req.context,
+      organization: req.organization.id,
       featureId: feature.id,
-      status: "running",
-      autoSnapshots: true,
-      rampUpSchedule: {
-        // Controlled by an internal feature flag in the full app — honor
-        // caller input when provided, default off otherwise.
-        enabled: rampUpSchedule?.enabled ?? false,
-        step: 0,
-        steps: [
-          { percent: 0.1 },
-          { percent: 0.25 },
-          { percent: 0.5 },
-          { percent: 0.75 },
-          { percent: 1 },
-        ],
-        rampUpCompleted: false,
-        nextUpdate: undefined,
-      },
+      version: revision.version,
     });
 
-    if (!safeRollout)
-      throw new InternalServerError("Failed to create safe rollout");
-    (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
+    return { revision: revisionToApiInterface(updated ?? revision) };
+  } catch (err) {
+    if (createdSafeRolloutId) {
+      try {
+        await req.context.models.safeRollout.deleteById(createdSafeRolloutId);
+      } catch {
+        // best effort
+      }
+    }
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
   }
-
-  // Resolve which ramp action to attach (if any).
-  // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy, deprecated).
-  // ruleId is injected here now that we have the server-generated rule ID.
-  let resolvedRampAction = inlineRampSchedule
-    ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, environment)
-    : undefined;
-  if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
-    // New rule: always create a ramp action. If startDate set, the rule starts disabled.
-    if (schedule.startDate) rule.enabled = false;
-    resolvedRampAction = buildScheduleRampAction(
-      rule.id,
-      environment,
-      schedule.startDate,
-      schedule.endDate,
-    );
-  }
-
-  const newRules = cloneDeep(revision.rules ?? {});
-  newRules[environment] = [...(newRules[environment] ?? []), rule];
-
-  const changes: RevisionChanges = { rules: newRules };
-
-  if (resolvedRampAction) {
-    const existing = revision.rampActions ?? [];
-    const filtered = existing.filter(
-      (a) =>
-        a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
-    );
-    changes.rampActions = [...filtered, resolvedRampAction];
-  }
-
-  await updateRevision(
-    req.context,
-    feature,
-    revision,
-    changes,
-    {
-      user: req.context.auditUser,
-      action: "add rule",
-      subject: `to ${environment}`,
-      value: JSON.stringify(rule),
-    },
-    resetReviewOnChange({
-      feature,
-      changedEnvironments: [environment],
-      defaultValueChanged: false,
-      settings: req.organization.settings,
-    }),
-  );
-
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: revision.version,
-  });
-
-  return { revision: revisionToApiInterface(updated ?? revision) };
 });

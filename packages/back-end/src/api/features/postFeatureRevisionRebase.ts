@@ -80,7 +80,6 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     );
   }
 
-  // Build fully-resolved rule/env maps (mirrors dashboard rebase logic)
   const newRules: Record<string, FeatureRule[]> = {};
   const newEnvironmentsEnabled: Record<string, boolean> = {};
   environmentIds.forEach((env) => {

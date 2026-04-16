@@ -43,14 +43,8 @@ export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
       ({ limit, offset } = validatePagination(req.query));
     }
 
-    // ACL scoping. Two paths:
-    // - Filtered to a specific feature → just load that one feature; getFeature
-    //   enforces canReadSingleProjectResource and returns null if the caller
-    //   can't read it. Returning empty (rather than 404) avoids leaking
-    //   existence and matches the "list" semantics.
-    // - No filter → restrict to features in projects the caller can read.
-    //   For large orgs this still requires a scoped feature-id scan; see the
-    //   v1.1 denormalization follow-up.
+    // ACL: load the single feature (return [] if unreadable to avoid leaking
+    // existence), or restrict to readable projects when featureId is absent.
     let featureIds: string[] | undefined;
     if (featureId) {
       const feature = await getFeature(req.context, featureId);

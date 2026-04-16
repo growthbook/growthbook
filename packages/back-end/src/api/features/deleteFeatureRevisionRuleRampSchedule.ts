@@ -10,6 +10,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   assertValidEnvironment,
+  discardIfJustCreated,
   isDraftStatus,
   resolveOrCreateRevision,
 } from "./validations";
@@ -27,72 +28,79 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
-    feature,
-    req.params.version,
-  );
-
-  if (!isDraftStatus(revision.status)) {
-    throw new BadRequestError(
-      `Cannot edit a revision with status "${revision.status}"`,
-    );
-  }
-
   const { ruleId } = req.params;
   const { environment } = req.body;
   assertValidEnvironment(req.context, environment);
 
-  const existing = revision.rampActions ?? [];
-  const hasPendingCreate = existing.some(
-    (a) => a.mode === "create" && a.ruleId === ruleId,
-  );
-
-  // Check for a live schedule on this rule
-  const liveSchedules = await req.context.models.rampSchedules.findByTargetRule(
-    ruleId,
-    environment,
-  );
-
-  if (!hasPendingCreate && liveSchedules.length === 0) {
-    throw new NotFoundError(`Rule "${ruleId}" has no ramp schedule to remove.`);
-  }
-
-  // Remove any pending action for this rule
-  const filtered = existing.filter((a) => a.ruleId !== ruleId);
-
-  // If there's a live schedule, queue a detach action
-  let newRampActions = filtered;
-  if (liveSchedules.length > 0) {
-    const detach: RevisionRampDetachAction = {
-      mode: "detach",
-      ruleId,
-      rampScheduleId: liveSchedules[0].id,
-    };
-    newRampActions = [...filtered, detach];
-  }
-
-  await updateRevision(
+  const { revision, created } = await resolveOrCreateRevision(
     req.context,
+    req.organization.id,
     feature,
-    revision,
-    { rampActions: newRampActions },
-    {
-      user: req.context.auditUser,
-      action: "clear ramp schedule",
-      subject: ruleId,
-      value: JSON.stringify({ ruleId, environment }),
-    },
-    false,
+    req.params.version,
+    { title: req.body.revisionTitle, comment: req.body.revisionComment },
   );
 
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: revision.version,
-  });
+  try {
+    if (!isDraftStatus(revision.status)) {
+      throw new BadRequestError(
+        `Cannot edit a revision with status "${revision.status}"`,
+      );
+    }
 
-  return { revision: revisionToApiInterface(updated ?? revision) };
+    const existing = revision.rampActions ?? [];
+    const hasPendingCreate = existing.some(
+      (a) => a.mode === "create" && a.ruleId === ruleId,
+    );
+
+    const liveSchedules =
+      await req.context.models.rampSchedules.findByTargetRule(
+        ruleId,
+        environment,
+      );
+
+    if (!hasPendingCreate && liveSchedules.length === 0) {
+      throw new NotFoundError(
+        `Rule "${ruleId}" has no ramp schedule to remove.`,
+      );
+    }
+
+    const filtered = existing.filter((a) => a.ruleId !== ruleId);
+
+    // Queue a detach action if a live schedule exists.
+    let newRampActions = filtered;
+    if (liveSchedules.length > 0) {
+      const detach: RevisionRampDetachAction = {
+        mode: "detach",
+        ruleId,
+        rampScheduleId: liveSchedules[0].id,
+      };
+      newRampActions = [...filtered, detach];
+    }
+
+    await updateRevision(
+      req.context,
+      feature,
+      revision,
+      { rampActions: newRampActions },
+      {
+        user: req.context.auditUser,
+        action: "clear ramp schedule",
+        subject: ruleId,
+        value: JSON.stringify({ ruleId, environment }),
+      },
+      false,
+    );
+
+    const updated = await getRevision({
+      context: req.context,
+      organization: req.organization.id,
+      featureId: feature.id,
+      version: revision.version,
+    });
+
+    return { revision: revisionToApiInterface(updated ?? revision) };
+  } catch (err) {
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
+  }
 });

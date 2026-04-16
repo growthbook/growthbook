@@ -2566,6 +2566,10 @@ paths:
               properties:
                 defaultValue:
                   type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
               required:
                 - defaultValue
               additionalProperties: false
@@ -2635,6 +2639,10 @@ paths:
                       - id
                       - condition
                     additionalProperties: false
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
               required:
                 - prerequisites
               additionalProperties: false
@@ -2703,6 +2711,10 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
               required:
                 - holdout
               additionalProperties: false
@@ -2759,6 +2771,10 @@ paths:
               properties:
                 archived:
                   type: boolean
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
               required:
                 - archived
               additionalProperties: false
@@ -2817,6 +2833,10 @@ paths:
                   type: string
                 enabled:
                   type: boolean
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
               required:
                 - environment
                 - enabled
@@ -3392,6 +3412,10 @@ paths:
                         - type: string
                         - type: 'null'
                   additionalProperties: false
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
               required:
                 - environment
                 - rule
@@ -3493,26 +3517,30 @@ paths:
                           - condition
                         additionalProperties: false
                     scheduleRules:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          timestamp:
-                            anyOf:
-                              - type: string
-                              - type: 'null'
-                          enabled:
-                            type: boolean
-                        required:
-                          - timestamp
-                          - enabled
-                        additionalProperties: false
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              timestamp:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              enabled:
+                                type: boolean
+                            required:
+                              - timestamp
+                              - enabled
+                            additionalProperties: false
+                        - type: 'null'
                     scheduleType:
-                      type: string
-                      enum:
-                        - none
-                        - schedule
-                        - ramp
+                      anyOf:
+                        - type: string
+                          enum:
+                            - none
+                            - schedule
+                            - ramp
+                        - type: 'null'
                     type:
                       type: string
                       enum:
@@ -3776,6 +3804,10 @@ paths:
                         - type: string
                         - type: 'null'
                   additionalProperties: false
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
               required:
                 - environment
                 - rule
@@ -3832,6 +3864,10 @@ paths:
               type: object
               properties:
                 environment:
+                  type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
                   type: string
               required:
                 - environment
@@ -3894,6 +3930,10 @@ paths:
                   type: array
                   items:
                     type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
               required:
                 - environment
                 - ruleIds
@@ -4163,6 +4203,10 @@ paths:
                   additionalProperties: false
                 environment:
                   type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
               required:
                 - environment
               additionalProperties: false
@@ -4219,6 +4263,10 @@ paths:
               type: object
               properties:
                 environment:
+                  type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
                   type: string
               required:
                 - environment

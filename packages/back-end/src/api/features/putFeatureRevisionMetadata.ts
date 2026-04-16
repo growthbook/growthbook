@@ -12,6 +12,7 @@ import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import {
+  discardIfJustCreated,
   isDraftStatus,
   validateCustomFields,
   resolveOrCreateRevision,
@@ -30,23 +31,8 @@ export const putFeatureRevisionMetadata = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
-    feature,
-    req.params.version,
-  );
-
-  if (!isDraftStatus(revision.status)) {
-    throw new BadRequestError(
-      `Cannot edit a revision with status "${revision.status}"`,
-    );
-  }
-
   const { comment, title, ...metadataFields } = req.body;
 
-  // Project changes affect SDK payload visibility and may be blocked by org
-  // settings — mirror the controller's putFeature guards.
   if (
     metadataFields.project !== undefined &&
     metadataFields.project !== feature.project
@@ -86,54 +72,71 @@ export const putFeatureRevisionMetadata = createApiRequestHandler(
     );
   }
 
-  const changes: RevisionChanges = {};
-  if (comment !== undefined) changes.comment = comment;
-  if (title !== undefined) changes.title = title;
+  const { revision, created } = await resolveOrCreateRevision(
+    req.context,
+    req.organization.id,
+    feature,
+    req.params.version,
+    { title, comment },
+  );
 
-  if (Object.keys(metadataFields).length > 0) {
-    // Merge onto existing metadata snapshot so unspecified fields aren't dropped
-    changes.metadata = { ...(revision.metadata ?? {}), ...metadataFields };
-  }
+  try {
+    if (!isDraftStatus(revision.status)) {
+      throw new BadRequestError(
+        `Cannot edit a revision with status "${revision.status}"`,
+      );
+    }
 
-  if (Object.keys(changes).length === 0) {
+    const changes: RevisionChanges = {};
+    if (comment !== undefined) changes.comment = comment;
+    if (title !== undefined) changes.title = title;
+
+    if (Object.keys(metadataFields).length > 0) {
+      // Merge into the existing metadata snapshot so omitted fields persist.
+      changes.metadata = { ...(revision.metadata ?? {}), ...metadataFields };
+    }
+
+    if (Object.keys(changes).length === 0) {
+      // No-op: drop any auto-created draft so it doesn't leak.
+      await discardIfJustCreated(req.context, revision, created);
+      return { revision: revisionToApiInterface(revision) };
+    }
+
+    if (
+      metadataFields.tags !== undefined &&
+      Array.isArray(metadataFields.tags)
+    ) {
+      await addTagsDiff(
+        req.organization.id,
+        feature.tags || [],
+        metadataFields.tags,
+      );
+    }
+
+    await updateRevision(
+      req.context,
+      feature,
+      revision,
+      changes,
+      {
+        user: req.context.auditUser,
+        action: "edit metadata",
+        subject: "",
+        value: JSON.stringify(changes),
+      },
+      false,
+    );
+
     const updated = await getRevision({
       context: req.context,
       organization: req.organization.id,
       featureId: feature.id,
       version: revision.version,
     });
+
     return { revision: revisionToApiInterface(updated ?? revision) };
+  } catch (err) {
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
   }
-
-  // Register any newly-introduced tags with the org
-  if (metadataFields.tags !== undefined && Array.isArray(metadataFields.tags)) {
-    await addTagsDiff(
-      req.organization.id,
-      feature.tags || [],
-      metadataFields.tags,
-    );
-  }
-
-  await updateRevision(
-    req.context,
-    feature,
-    revision,
-    changes,
-    {
-      user: req.context.auditUser,
-      action: "edit metadata",
-      subject: "",
-      value: JSON.stringify(changes),
-    },
-    false,
-  );
-
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: revision.version,
-  });
-
-  return { revision: revisionToApiInterface(updated ?? revision) };
 });

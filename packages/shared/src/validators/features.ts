@@ -281,16 +281,15 @@ const revisionMetadataSchema = z.object({
 
 export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 
-// Zod schemas for ramp schedule actions stored on a revision.
-// These are deferred and only executed when the revision is published.
-// Only create and detach are revision-bound; state changes (pause, resume, etc.)
-// are real-time and operate directly on the live ramp schedule.
+// Ramp schedule actions stored on a revision. Deferred until publish. Only
+// create/detach are revision-bound — state changes (pause, resume, …) run
+// real-time on the live ramp schedule.
 const revisionRampEndConditionSchema = z.object({
   trigger: rampEndTrigger.optional(),
 });
 
-// API-facing step action for revision ramp actions — targetType and targetId are
-// inferred from the top-level ruleId at publish time.
+// API variant: targetType/targetId are inferred from the top-level ruleId
+// at publish time.
 const revisionApiRampStepAction = z.object({
   targetType: z.literal("feature-rule").optional(),
   targetId: z.string().optional(),
@@ -303,7 +302,7 @@ const revisionApiRampStep = z.object({
   approvalNotes: z.string().nullish(),
 });
 
-// Stored type — used by the FE and at publish time. Requires targetType/targetId in actions.
+// Stored type — requires targetType/targetId in actions.
 export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
   /** Display name. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
@@ -320,8 +319,7 @@ export const revisionRampCreateAction = z.object({
   ruleId: z.string(),
 });
 
-// API input variant — targetType/targetId are optional (server injects them at publish time).
-// Use this for REST body schemas; normalize to RevisionRampCreateAction before storing.
+// API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
   steps: z.array(revisionApiRampStep).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),

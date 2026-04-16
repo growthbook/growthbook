@@ -56,8 +56,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     revision,
   });
 
-  // Run merge first so review requirements are evaluated against the effective
-  // post-merge state — mirrors what the controller and frontend do.
+  // Review requirements are evaluated against the post-merge state.
   const mergeResult = autoMerge(
     liveRevisionFromFeature(live, feature),
     fillRevisionFromFeature(base, feature),
@@ -73,7 +72,6 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     );
   }
 
-  // Build effectiveRevision from merged result layered on live (same as controller).
   const filledLive = {
     ...live,
     ...liveRevisionFromFeature(live, feature),
@@ -97,9 +95,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
       req.context.hasPremiumFeature("require-approvals"),
   });
 
-  // Callers bypass the review gate via either the org-level
-  // restApiBypassesReviews setting or a role/token that grants the
-  // bypassApprovalChecks permission on this feature's project.
+  // Bypass via restApiBypassesReviews or bypassApprovalChecks.
   const canBypass =
     !!req.organization.settings?.restApiBypassesReviews ||
     req.context.permissions.canBypassApprovalChecks(feature);
@@ -112,11 +108,8 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     );
   }
 
-  // Check publish permission for the environments this revision touches.
-  // For pure rules-only changes we can scope the check to just the affected
-  // environments. For everything else (defaultValue, prerequisites,
-  // environmentsEnabled, archived, metadata) we must check all enabled envs
-  // since those changes are not scoped to a specific environment.
+  // Publish-permission scope: affected envs for rules-only changes; all
+  // enabled envs otherwise (other fields aren't env-scoped).
   const allEnabledEnvs = Array.from(
     getEnabledEnvironments(feature, environmentIds),
   );

@@ -9,6 +9,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   assertValidEnvironment,
+  discardIfJustCreated,
   isDraftStatus,
   normalizeInlineRampSchedule,
   resolveOrCreateRevision,
@@ -27,82 +28,89 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await resolveOrCreateRevision(
+  const { ruleId } = req.params;
+  const { environment, revisionTitle, revisionComment, ...scheduleInput } =
+    req.body;
+  assertValidEnvironment(req.context, environment);
+
+  const { revision, created } = await resolveOrCreateRevision(
     req.context,
     req.organization.id,
     feature,
     req.params.version,
+    { title: revisionTitle, comment: revisionComment },
   );
 
-  if (!isDraftStatus(revision.status)) {
-    throw new BadRequestError(
-      `Cannot edit a revision with status "${revision.status}"`,
+  try {
+    if (!isDraftStatus(revision.status)) {
+      throw new BadRequestError(
+        `Cannot edit a revision with status "${revision.status}"`,
+      );
+    }
+
+    // Check draft first, then live — a ramp schedule may target a live rule
+    // the draft hasn't touched.
+    const inDraft =
+      revision.rules?.[environment]?.some((r) => r.id === ruleId) ?? false;
+    const inLive =
+      feature.environmentSettings?.[environment]?.rules?.some(
+        (r) => r.id === ruleId,
+      ) ?? false;
+    if (!inDraft && !inLive) {
+      throw new NotFoundError(
+        `Rule "${ruleId}" not found in environment "${environment}"`,
+      );
+    }
+
+    // Block if an active live schedule already controls this rule.
+    const liveSchedules =
+      await req.context.models.rampSchedules.findByTargetRule(
+        ruleId,
+        environment,
+      );
+    if (liveSchedules.length > 0) {
+      throw new BadRequestError(
+        `Rule "${ruleId}" already has a live ramp schedule.` +
+          ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
+      );
+    }
+
+    const action = normalizeInlineRampSchedule(
+      scheduleInput,
+      ruleId,
+      environment,
     );
-  }
 
-  const { ruleId } = req.params;
-  const { environment, ...scheduleInput } = req.body;
-  assertValidEnvironment(req.context, environment);
-
-  // Verify the rule exists — check the draft first, then fall back to the
-  // published feature rules (a ramp schedule may target a live rule that the
-  // draft hasn't touched).
-  const inDraft =
-    revision.rules?.[environment]?.some((r) => r.id === ruleId) ?? false;
-  const inLive =
-    feature.environmentSettings?.[environment]?.rules?.some(
-      (r) => r.id === ruleId,
-    ) ?? false;
-  if (!inDraft && !inLive) {
-    throw new NotFoundError(
-      `Rule "${ruleId}" not found in environment "${environment}"`,
+    // Replace any existing pending ramp action for this rule.
+    const filtered = (revision.rampActions ?? []).filter(
+      (a) => a.ruleId !== ruleId,
     );
-  }
+    const newRampActions = [...filtered, action];
 
-  // Block if the rule already has a live schedule — must update it directly.
-  const liveSchedules = await req.context.models.rampSchedules.findByTargetRule(
-    ruleId,
-    environment,
-  );
-  if (liveSchedules.length > 0) {
-    throw new BadRequestError(
-      `Rule "${ruleId}" already has a live ramp schedule.` +
-        ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
+    await updateRevision(
+      req.context,
+      feature,
+      revision,
+      { rampActions: newRampActions },
+      {
+        user: req.context.auditUser,
+        action: "set ramp schedule",
+        subject: ruleId,
+        value: JSON.stringify(action),
+      },
+      false,
     );
+
+    const updated = await getRevision({
+      context: req.context,
+      organization: req.organization.id,
+      featureId: feature.id,
+      version: revision.version,
+    });
+
+    return { revision: revisionToApiInterface(updated ?? revision) };
+  } catch (err) {
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
   }
-
-  const action = normalizeInlineRampSchedule(
-    scheduleInput,
-    ruleId,
-    environment,
-  );
-
-  // Replace any existing ramp action for this rule (pending create or detach)
-  const filtered = (revision.rampActions ?? []).filter(
-    (a) => a.ruleId !== ruleId,
-  );
-  const newRampActions = [...filtered, action];
-
-  await updateRevision(
-    req.context,
-    feature,
-    revision,
-    { rampActions: newRampActions },
-    {
-      user: req.context.auditUser,
-      action: "set ramp schedule",
-      subject: ruleId,
-      value: JSON.stringify(action),
-    },
-    false,
-  );
-
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: revision.version,
-  });
-
-  return { revision: revisionToApiInterface(updated ?? revision) };
 });

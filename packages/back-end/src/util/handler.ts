@@ -221,9 +221,7 @@ export function createApiRequestHandler<
           return res.status(200).json(result);
         } catch (e) {
           const body: ApiErrorResponse = { message: e.message };
-          // ConflictError carries a structured `conflicts` payload so clients
-          // (e.g. CI scripts auto-resolving feature-revision publish/rebase
-          // conflicts) can act on the response programmatically.
+          // Surface the structured conflicts so clients can react to them.
           if (e instanceof ConflictError && e.conflicts) {
             body.conflicts = e.conflicts;
           }

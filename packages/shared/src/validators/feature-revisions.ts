@@ -35,12 +35,18 @@ const revisionParamsStrict = idParams.extend({
 
 const ruleParams = revisionParams.extend({ ruleId: z.string() });
 
+// Optional metadata applied when an endpoint auto-creates a draft via
+// `version: "new"`. Ignored when editing an existing revision.
+const newDraftMetadataFields = {
+  revisionTitle: z.string().optional(),
+  revisionComment: z.string().optional(),
+};
+
 // ---- Shared response schemas ----
 
 const revisionResponse = z.object({ revision: apiFeatureRevisionValidator });
 
-// Mirrors shared/util/features.ts MergeConflict; kept in sync by hand since
-// MergeConflict is a plain TS type, not a zod-derived one.
+// Mirrors MergeConflict in shared/util/features.ts (plain TS, not zod).
 const mergeConflictSchema = z
   .object({
     name: z.string(),
@@ -52,7 +58,7 @@ const mergeConflictSchema = z
   })
   .strict();
 
-// Mirrors shared/util/features.ts MergeResultChanges.
+// Mirrors MergeResultChanges in shared/util/features.ts.
 const mergeResultChangesSchema = z
   .object({
     defaultValue: z.string().optional(),
@@ -360,6 +366,7 @@ export const postFeatureRevisionRuleAddValidator = {
       rule: ruleCreateInput,
       rampSchedule: inlineRampScheduleInput.optional(),
       schedule: scheduleShorthand.optional(),
+      ...newDraftMetadataFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -379,15 +386,24 @@ export const postFeatureRevisionRulesReorderValidator = {
     .object({
       environment: z.string(),
       ruleIds: z.array(z.string()),
+      ...newDraftMetadataFields,
     })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
 
+// Allow `null` on legacy schedule fields so callers can explicitly clear
+// them in a patch.
 const rulePatchSchema = z
   .object({
-    ...commonRuleFields,
+    description: z.string().optional(),
+    enabled: z.boolean().optional(),
+    condition: z.string().optional(),
+    savedGroups: z.array(savedGroupTargeting).optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
+    scheduleRules: z.array(scheduleRuleInput).nullable().optional(),
+    scheduleType: z.enum(["none", "schedule", "ramp"]).nullable().optional(),
     type: z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
@@ -419,6 +435,7 @@ export const putFeatureRevisionRuleValidator = {
       rule: rulePatchSchema,
       rampSchedule: inlineRampScheduleInput.optional(),
       schedule: scheduleShorthand.optional(),
+      ...newDraftMetadataFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -434,7 +451,12 @@ export const deleteFeatureRevisionRuleValidator = {
     "Removes the rule from the specified environment. Any pending ramp actions on the draft for this rule are also cleared.",
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
-  bodySchema: z.object({ environment: z.string() }).strict(),
+  bodySchema: z
+    .object({
+      environment: z.string(),
+      ...newDraftMetadataFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -448,7 +470,7 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
     "Attaches (or replaces) a ramp schedule for the rule. Rejects if the rule already has a live ramp schedule — update that directly via PUT /ramp-schedules/{id}. The schedule is created at publish time.",
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
-  bodySchema: standaloneRampScheduleInput,
+  bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -462,7 +484,12 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
     "Removes a pending ramp schedule attached by the draft. If the rule currently has a live ramp schedule, a detach action is queued and applied at publish time.",
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
-  bodySchema: z.object({ environment: z.string() }).strict(),
+  bodySchema: z
+    .object({
+      environment: z.string(),
+      ...newDraftMetadataFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -482,6 +509,7 @@ export const postFeatureRevisionToggleValidator = {
     .object({
       environment: z.string(),
       enabled: z.boolean(),
+      ...newDraftMetadataFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -497,7 +525,9 @@ export const putFeatureRevisionDefaultValueValidator = {
     "Replaces the feature's default value for this revision. The value must be a string representation matching the feature's value type (e.g. `\"true\"` for booleans, `42` for numbers, a JSON string for JSON features).",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({ defaultValue: z.string() }).strict(),
+  bodySchema: z
+    .object({ defaultValue: z.string(), ...newDraftMetadataFields })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -514,6 +544,7 @@ export const putFeatureRevisionPrerequisitesValidator = {
   bodySchema: z
     .object({
       prerequisites: z.array(featurePrerequisite),
+      ...newDraftMetadataFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -555,7 +586,9 @@ export const putFeatureRevisionArchiveValidator = {
     "Sets whether the feature is archived. Archived features are excluded from SDK payloads on publish.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.object({ archived: z.boolean() }).strict(),
+  bodySchema: z
+    .object({ archived: z.boolean(), ...newDraftMetadataFields })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -575,6 +608,7 @@ export const putFeatureRevisionHoldoutValidator = {
         .object({ id: z.string(), value: z.string() })
         .strict()
         .nullable(),
+      ...newDraftMetadataFields,
     })
     .strict(),
   querySchema: z.never(),

@@ -8,7 +8,11 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus, resolveOrCreateRevision } from "./validations";
+import {
+  discardIfJustCreated,
+  isDraftStatus,
+  resolveOrCreateRevision,
+} from "./validations";
 
 export const putFeatureRevisionDefaultValue = createApiRequestHandler(
   putFeatureRevisionDefaultValueValidator,
@@ -23,44 +27,50 @@ export const putFeatureRevisionDefaultValue = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await resolveOrCreateRevision(
+  const { revision, created } = await resolveOrCreateRevision(
     req.context,
     req.organization.id,
     feature,
     req.params.version,
+    { title: req.body.revisionTitle, comment: req.body.revisionComment },
   );
 
-  if (!isDraftStatus(revision.status)) {
-    throw new BadRequestError(
-      `Cannot edit a revision with status "${revision.status}"`,
-    );
-  }
+  try {
+    if (!isDraftStatus(revision.status)) {
+      throw new BadRequestError(
+        `Cannot edit a revision with status "${revision.status}"`,
+      );
+    }
 
-  await updateRevision(
-    req.context,
-    feature,
-    revision,
-    { defaultValue: req.body.defaultValue },
-    {
-      user: req.context.auditUser,
-      action: "edit default value",
-      subject: "",
-      value: req.body.defaultValue,
-    },
-    resetReviewOnChange({
+    await updateRevision(
+      req.context,
       feature,
-      changedEnvironments: [],
-      defaultValueChanged: true,
-      settings: req.organization.settings,
-    }),
-  );
+      revision,
+      { defaultValue: req.body.defaultValue },
+      {
+        user: req.context.auditUser,
+        action: "edit default value",
+        subject: "",
+        value: req.body.defaultValue,
+      },
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: [],
+        defaultValueChanged: true,
+        settings: req.organization.settings,
+      }),
+    );
 
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: revision.version,
-  });
+    const updated = await getRevision({
+      context: req.context,
+      organization: req.organization.id,
+      featureId: feature.id,
+      version: revision.version,
+    });
 
-  return { revision: revisionToApiInterface(updated ?? revision) };
+    return { revision: revisionToApiInterface(updated ?? revision) };
+  } catch (err) {
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
+  }
 });

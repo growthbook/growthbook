@@ -16,8 +16,8 @@ import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
 export const getFeatureRevisions = createApiRequestHandler(
   getFeatureRevisionsValidator,
 )(async (req) => {
-  // Load the feature first — getFeature enforces canReadSingleProjectResource
-  // and returns null for features in projects the caller cannot read.
+  // getFeature enforces canReadSingleProjectResource and returns null for
+  // unreadable projects.
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 

@@ -8,7 +8,11 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus, resolveOrCreateRevision } from "./validations";
+import {
+  discardIfJustCreated,
+  isDraftStatus,
+  resolveOrCreateRevision,
+} from "./validations";
 
 export const putFeatureRevisionHoldout = createApiRequestHandler(
   putFeatureRevisionHoldoutValidator,
@@ -23,22 +27,6 @@ export const putFeatureRevisionHoldout = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const revision = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
-    feature,
-    req.params.version,
-  );
-
-  if (!isDraftStatus(revision.status)) {
-    throw new BadRequestError(
-      `Cannot edit a revision with status "${revision.status}"`,
-    );
-  }
-
-  // Validate the holdout exists. Side effects (linking features / experiments
-  // to the holdout, moving linkage off the old holdout) are applied at publish
-  // time via applyHoldoutSideEffects — they are NOT skipped here.
   if (req.body.holdout) {
     const holdout = await req.context.models.holdout.getById(
       req.body.holdout.id,
@@ -50,31 +38,52 @@ export const putFeatureRevisionHoldout = createApiRequestHandler(
     }
   }
 
-  await updateRevision(
+  const { revision, created } = await resolveOrCreateRevision(
     req.context,
+    req.organization.id,
     feature,
-    revision,
-    { holdout: req.body.holdout },
-    {
-      user: req.context.auditUser,
-      action: req.body.holdout ? "set holdout" : "clear holdout",
-      subject: req.body.holdout?.id ?? "",
-      value: JSON.stringify(req.body.holdout),
-    },
-    resetReviewOnChange({
-      feature,
-      changedEnvironments: [],
-      defaultValueChanged: false,
-      settings: req.organization.settings,
-    }),
+    req.params.version,
+    { title: req.body.revisionTitle, comment: req.body.revisionComment },
   );
 
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: revision.version,
-  });
+  try {
+    if (!isDraftStatus(revision.status)) {
+      throw new BadRequestError(
+        `Cannot edit a revision with status "${revision.status}"`,
+      );
+    }
 
-  return { revision: revisionToApiInterface(updated ?? revision) };
+    // Side effects (linking the feature/experiments to the holdout) run at
+    // publish time via applyHoldoutSideEffects, not here.
+    await updateRevision(
+      req.context,
+      feature,
+      revision,
+      { holdout: req.body.holdout },
+      {
+        user: req.context.auditUser,
+        action: req.body.holdout ? "set holdout" : "clear holdout",
+        subject: req.body.holdout?.id ?? "",
+        value: JSON.stringify(req.body.holdout),
+      },
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: [],
+        defaultValueChanged: false,
+        settings: req.organization.settings,
+      }),
+    );
+
+    const updated = await getRevision({
+      context: req.context,
+      organization: req.organization.id,
+      featureId: feature.id,
+      version: revision.version,
+    });
+
+    return { revision: revisionToApiInterface(updated ?? revision) };
+  } catch (err) {
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
+  }
 });

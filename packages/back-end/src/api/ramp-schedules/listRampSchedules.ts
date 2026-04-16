@@ -38,12 +38,10 @@ export const listRampSchedules = createApiRequestHandler(
   const { featureId, ruleId, environment, status } = req.query;
 
   if (ruleId) {
-    // Direct DB query for schedules targeting a specific rule+environment
     schedules = await req.context.models.rampSchedules.findByTargetRule(
       ruleId,
       environment ?? "",
     );
-    // If featureId is also supplied, restrict further
     if (featureId) {
       schedules = schedules.filter((s) => s.entityId === featureId);
     }

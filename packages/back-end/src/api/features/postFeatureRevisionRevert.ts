@@ -35,6 +35,11 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  const { strategy = "draft", comment, title } = req.body;
+  // Publish perms only apply to strategy: "publish"; the draft branch is
+  // gated by canManageFeatureDrafts below.
+  const isPublish = strategy === "publish";
+
   const targetRevision = await getRevision({
     context: req.context,
     organization: req.organization.id,
@@ -56,8 +61,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     );
   }
 
-  // Build the delta between the target revision and current live state,
-  // mirroring the logic in the feature-level revert endpoint.
+  // Build the delta between the target revision and current live state.
   const allEnvironments = getEnvironments(req.context.org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
@@ -66,6 +70,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
 
   if (targetRevision.defaultValue !== feature.defaultValue) {
     if (
+      isPublish &&
       !req.context.permissions.canPublishFeature(
         feature,
         environmentIds.filter(
@@ -102,7 +107,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     }
   });
 
-  if (changedEnvs.length > 0) {
+  if (isPublish && changedEnvs.length > 0) {
     if (!req.context.permissions.canPublishFeature(feature, changedEnvs)) {
       req.context.permissions.throwPermissionError();
     }
@@ -116,18 +121,24 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     targetRevision.prerequisites !== undefined &&
     !isEqual(targetRevision.prerequisites, feature.prerequisites || [])
   ) {
-    if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    if (
+      isPublish &&
+      !req.context.permissions.canPublishFeature(feature, allEnabledEnvs)
+    ) {
       req.context.permissions.throwPermissionError();
     }
     changes.prerequisites = targetRevision.prerequisites;
   }
 
-  // Archived — sparse: only revert if this revision explicitly changed it
+  // Sparse: only revert archived if this revision explicitly changed it.
   if (
     targetRevision.archived !== undefined &&
     targetRevision.archived !== (feature.archived ?? false)
   ) {
-    if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    if (
+      isPublish &&
+      !req.context.permissions.canPublishFeature(feature, allEnabledEnvs)
+    ) {
       req.context.permissions.throwPermissionError();
     }
     changes.archived = targetRevision.archived;
@@ -175,17 +186,18 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
       hasMetaChange = true;
     }
     if (hasMetaChange) {
-      if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      if (
+        isPublish &&
+        !req.context.permissions.canPublishFeature(feature, allEnabledEnvs)
+      ) {
         req.context.permissions.throwPermissionError();
       }
       changes.metadata = metadataChanges;
     }
   }
 
-  // Build the FULL target state for the new revision document (mirrors the
-  // controller's postFeatureRevert / postFeatureRevertDraft). The sparse
-  // `changes` above is still used for per-field permission checks and for
-  // determining what needs to be applied at publish time.
+  // Full target state for the new revision; sparse `changes` above is only
+  // used for per-field permission checks.
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: targetRevision.defaultValue,
     rules: Object.fromEntries(
@@ -210,10 +222,9 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     revisionChanges.metadata = targetRevision.metadata;
   }
 
-  const { strategy = "draft", comment, title } = req.body;
   const defaultComment = `Revert to revision #${targetRevision.version}`;
 
-  if (strategy === "draft") {
+  if (!isPublish) {
     if (!req.context.permissions.canManageFeatureDrafts(feature)) {
       req.context.permissions.throwPermissionError();
     }
@@ -235,10 +246,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     return { revision: revisionToApiInterface(newDraft) };
   }
 
-  // strategy === "publish"
-  // Callers bypass the review gate via either the org-level
-  // restApiBypassesReviews setting or a role/token that grants the
-  // bypassApprovalChecks permission on this feature's project.
+  // Bypass review gate via restApiBypassesReviews or bypassApprovalChecks.
   const canBypass =
     !!req.context.org.settings?.restApiBypassesReviews ||
     req.context.permissions.canBypassApprovalChecks(feature);
