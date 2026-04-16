@@ -285,8 +285,9 @@ export function useFeaturePageData(
         data.revisionList.some((r) => r.version === forcedVersionFromQuery)
       ) {
         setVersion(forcedVersionFromQuery);
+        return;
       }
-      return;
+      // Invalid/unknown version — fall through to draft/live default below.
     }
 
     // Search revisionList (200 items) not revisions (5 items) to find all drafts.

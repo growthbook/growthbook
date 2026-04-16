@@ -55,13 +55,22 @@ export default function FeaturePage() {
   useEffect(() => {
     if (!router.isReady || queryV === undefined) return;
     const parsed = parseInt(String(queryV), 10);
-    if (!isNaN(parsed) && parsed !== version) setVersion(parsed);
-  }, [queryV]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isNaN(parsed) || parsed === version) return;
+    if (data?.revisionList?.some((r) => r.version === parsed)) {
+      setVersion(parsed);
+    }
+  }, [queryV, data?.revisionList]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (version === null || !router.isReady) return;
     if (queryV === String(version)) return;
-    const method = queryV === undefined ? router.replace : router.push;
+    const isCorrection =
+      queryV !== undefined &&
+      !data?.revisionList?.some(
+        (r) => r.version === parseInt(String(queryV), 10),
+      );
+    const method =
+      queryV === undefined || isCorrection ? router.replace : router.push;
     const hash = new URL(router.asPath, "http://x").hash.slice(1) || undefined;
     void method(
       {
