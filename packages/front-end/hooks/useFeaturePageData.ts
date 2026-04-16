@@ -270,8 +270,8 @@ export function useFeaturePageData(
     }
   }, [baseFeatureVersion]);
 
-  // Set initial version: URL query > draft revision > live version.
-  // Wait for cache to seed to avoid incorrectly selecting live when drafts exist.
+  // Set initial version: URL query > own draft > live version.
+  // Waits for cache to seed to avoid incorrectly selecting live when drafts exist.
   const hasRevisionsFromApi = (baseData?.revisions?.length ?? 0) > 0;
   const cacheSeeded =
     !!baseData &&
@@ -289,7 +289,7 @@ export function useFeaturePageData(
         setVersion(forcedVersionFromQuery);
         return;
       }
-      // Invalid/unknown version — fall through to draft/live default below.
+      // Invalid/unknown version — fall through to own draft/live default below.
     }
 
     // Prefer the user's own draft; if none, fall back to live.
