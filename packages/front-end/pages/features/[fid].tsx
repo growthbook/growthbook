@@ -17,7 +17,6 @@ import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 import { useFeaturePageData } from "@/hooks/useFeaturePageData";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
@@ -34,7 +33,6 @@ export default function FeaturePage() {
     FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
   > | null>(null);
 
-  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
   // Clean state when feature id changes
   useEffect(() => {
     setDiagnosticsResults(null);
@@ -148,13 +146,6 @@ export default function FeaturePage() {
             (revision.status === "published" &&
               revision.version !== feature.version)
           }
-          onCopyLink={() => {
-            const url =
-              window.location.href.replace(/[?#].*/, "") +
-              `?v=${version ?? feature.version}`;
-            performCopy(url);
-          }}
-          copyLinkSuccess={copySuccess}
         />
 
         {tab === "overview" && (

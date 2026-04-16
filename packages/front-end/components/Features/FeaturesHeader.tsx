@@ -7,7 +7,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiLink, PiCheck, PiEye, PiWarning } from "react-icons/pi";
+import { PiEye, PiWarning } from "react-icons/pi";
 import { HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Text from "@/ui/Text";
@@ -59,9 +59,6 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal,
   holdout,
   isReadOnly = false,
-  copyLinkHref: _copyLinkHref,
-  onCopyLink,
-  copyLinkSuccess,
 }: {
   feature: FeatureInterface;
   mutate: () => Promise<unknown>;
@@ -73,10 +70,6 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
   isReadOnly?: boolean;
-  /** Href for copy-link button (built from current version). */
-  copyLinkHref?: string;
-  onCopyLink?: () => void;
-  copyLinkSuccess?: boolean;
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -205,23 +198,6 @@ export default function FeaturesHeader({
   // Rendered once via a stable portal host (see above).
   const revisionAndSettingsGroup = (
     <Flex align="center" gap="4" pr="2">
-      {onCopyLink && (
-        <Tooltip
-          body={copyLinkSuccess ? "Copied!" : "Copy link"}
-          tipPosition="bottom"
-          tipMinWidth="0"
-          style={{ marginBottom: -4 }}
-        >
-          <IconButton
-            variant="ghost"
-            size="2"
-            color="violet"
-            onClick={onCopyLink}
-          >
-            {copyLinkSuccess ? <PiCheck /> : <PiLink />}
-          </IconButton>
-        </Tooltip>
-      )}
       <RevisionDropdown
         feature={feature}
         revisions={revisions}
