@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { UpdateFactMetricResponse } from "shared/types/openapi";
-import { updateFactMetricValidator } from "shared/validators";
+import {
+  getCappingTailState,
+  updateFactMetricValidator,
+} from "shared/validators";
 import {
   FactMetricInterface,
   FactMetricType,
@@ -92,26 +95,38 @@ export async function getUpdateFactMetricPropsFromBody(
   if (cappingSettings) {
     const cs = cappingSettings;
     const prev = factMetric.cappingSettings;
-    const nextType = cs.type === "none" ? "" : (cs.type ?? prev.type);
-    const nextLowerType =
-      cs.lowerType === "none"
-        ? ""
-        : cs.lowerType !== undefined
-          ? cs.lowerType
-          : (prev.lowerType ?? "");
-    const usesUpperPercentile = nextType === "percentile";
-    const usesLowerPercentile = nextLowerType === "percentile";
+    const nextType =
+      cs.type !== undefined
+        ? cs.type === "none"
+          ? ""
+          : cs.type
+        : (prev.type ?? "");
+
+    const mergedValue = cs.value ?? prev.value;
+    const lowerVal =
+      cs.lowerValue !== undefined ? cs.lowerValue : prev.lowerValue;
+
+    const tails = getCappingTailState({
+      type: nextType,
+      value: mergedValue,
+      lowerValue: lowerVal,
+    });
     const nextIgnoreZeros =
       cs.ignoreZeros !== undefined
         ? cs.ignoreZeros
         : (prev.ignoreZeros ?? false);
+
+    const lowerStored =
+      tails.lowerPercentileCapped || tails.lowerAbsoluteCapped
+        ? (lowerVal ?? 0)
+        : undefined;
     updates.cappingSettings = {
-      type: nextType,
-      value: cs.value ?? prev.value,
-      ignoreZeros:
-        usesUpperPercentile || usesLowerPercentile ? nextIgnoreZeros : false,
-      lowerType: nextLowerType,
-      lowerValue: cs.lowerValue !== undefined ? cs.lowerValue : prev.lowerValue,
+      type: tails.anyCap ? nextType : "",
+      ...(tails.upperPercentileCapped || tails.upperAbsoluteCapped
+        ? { value: mergedValue as number }
+        : {}),
+      ignoreZeros: tails.usesPercentile ? nextIgnoreZeros : false,
+      ...(lowerStored !== undefined ? { lowerValue: lowerStored } : {}),
     };
   }
   if (windowSettings) {

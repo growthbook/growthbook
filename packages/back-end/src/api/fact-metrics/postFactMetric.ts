@@ -10,7 +10,10 @@ import {
 } from "shared/constants";
 import { getSelectedColumnDatatype } from "shared/experiments";
 import { PostFactMetricResponse } from "shared/types/openapi";
-import { postFactMetricValidator } from "shared/validators";
+import {
+  getCappingTailState,
+  postFactMetricValidator,
+} from "shared/validators";
 import {
   ColumnRef,
   CreateFactMetricProps,
@@ -132,7 +135,6 @@ export async function getCreateMetricPropsFromBody(
     },
     cappingSettings: {
       type: "",
-      value: 0,
     },
     priorSettings: {
       override: false,
@@ -171,25 +173,23 @@ export async function getCreateMetricPropsFromBody(
 
   if (cappingSettings) {
     const cs = cappingSettings;
-    const capType = cs.type;
-    const upperActive = capType === "absolute" || capType === "percentile";
-    const lowType = cs.lowerType;
-    const lowerActive =
-      (lowType === "absolute" || lowType === "percentile") &&
-      cs.lowerValue != null;
-    const usesUpperPercentile = upperActive && capType === "percentile";
-    const usesLowerPercentile = lowerActive && lowType === "percentile";
-    // Single knob: ignore zeros for percentile capping on upper and/or lower tail.
-    const ignoreZerosForPercentiles =
-      usesUpperPercentile || usesLowerPercentile
-        ? cs.ignoreZeros || false
-        : false;
+    const capType = cs.type === "none" ? "" : cs.type;
+    const tails = getCappingTailState({
+      type: capType,
+      value: cs.value,
+      lowerValue: cs.lowerValue,
+    });
+    const lowerStored =
+      tails.lowerPercentileCapped || tails.lowerAbsoluteCapped
+        ? (cs.lowerValue ?? 0)
+        : undefined;
     data.cappingSettings = {
-      type: upperActive ? capType : "",
-      value: upperActive ? cs.value || 0 : 0,
-      ignoreZeros: ignoreZerosForPercentiles,
-      lowerType: lowerActive ? lowType : "",
-      lowerValue: lowerActive ? (cs.lowerValue ?? 0) : 0,
+      type: tails.anyCap ? capType : "",
+      ...(tails.upperPercentileCapped || tails.upperAbsoluteCapped
+        ? { value: cs.value as number }
+        : {}),
+      ignoreZeros: tails.usesPercentile ? cs.ignoreZeros || false : false,
+      ...(lowerStored !== undefined ? { lowerValue: lowerStored } : {}),
     };
   }
 

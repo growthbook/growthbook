@@ -22,12 +22,13 @@ import {
   getColumnExpression,
   isCappableMetricType,
   getFactTableTemplateVariables,
-  isPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
   isLowerPercentileCappedMetric,
   needsPercentileCapSubquery,
   parseSliceMetricId,
   eligibleForUncappedMetric,
 } from "shared/experiments";
+import { getCappingTailState } from "shared/validators";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
   DEFAULT_TEST_QUERY_DAYS,
@@ -1019,7 +1020,6 @@ export default abstract class SqlIntegration
     });
 
     // TODO check if query broken if segment has template variables
-    // TODO return cap numbers
     return format(
       `-- ${metric.name} Metric Analysis
       WITH
@@ -1116,17 +1116,33 @@ export default abstract class SqlIntegration
             date
             , MAX(${this.castToString("'date'")}) AS data_type
             , ${this.castToString(
-              `'${
-                metric.cappingSettings.type || metric.cappingSettings.lowerType
-                  ? "capped"
-                  : "uncapped"
-              }'`,
+              `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
             )} AS capped
             ${this.getMetricAnalysisStatisticClauses(
               finalValueColumn,
               finalDenominatorColumn,
               metricData.ratioMetric,
             )}
+            ${
+              metricData.isUpperPercentileCapped
+                ? `, MAX(COALESCE(cap.value_cap, 0)) AS main_cap_value`
+                : ""
+            }
+            ${
+              metricData.isLowerPercentileCapped
+                ? `, MAX(COALESCE(cap.value_cap_lower, 0)) AS main_cap_value_lower`
+                : ""
+            }
+            ${
+              metricData.ratioMetric && metricData.isUpperPercentileCapped
+                ? `, MAX(COALESCE(cap.denominator_cap, 0)) AS denominator_cap_value`
+                : ""
+            }
+            ${
+              metricData.ratioMetric && metricData.isLowerPercentileCapped
+                ? `, MAX(COALESCE(cap.denominator_cap_lower, 0)) AS denominator_cap_value_lower`
+                : ""
+            }
             ${
               createHistogram
                 ? `
@@ -1147,17 +1163,33 @@ export default abstract class SqlIntegration
             ${this.castToDate("NULL")} AS date
             , MAX(${this.castToString("'overall'")}) AS data_type
             , ${this.castToString(
-              `'${
-                metric.cappingSettings.type || metric.cappingSettings.lowerType
-                  ? "capped"
-                  : "uncapped"
-              }'`,
+              `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
             )} AS capped
             ${this.getMetricAnalysisStatisticClauses(
               finalValueColumn,
               finalDenominatorColumn,
               metricData.ratioMetric,
             )}
+            ${
+              metricData.isUpperPercentileCapped
+                ? `, MAX(COALESCE(cap.value_cap, 0)) AS main_cap_value`
+                : ""
+            }
+            ${
+              metricData.isLowerPercentileCapped
+                ? `, MAX(COALESCE(cap.value_cap_lower, 0)) AS main_cap_value_lower`
+                : ""
+            }
+            ${
+              metricData.ratioMetric && metricData.isUpperPercentileCapped
+                ? `, MAX(COALESCE(cap.denominator_cap, 0)) AS denominator_cap_value`
+                : ""
+            }
+            ${
+              metricData.ratioMetric && metricData.isLowerPercentileCapped
+                ? `, MAX(COALESCE(cap.denominator_cap_lower, 0)) AS denominator_cap_value_lower`
+                : ""
+            }
             ${
               createHistogram
                 ? `
@@ -1254,6 +1286,10 @@ export default abstract class SqlIntegration
           denominator_sum,
           denominator_sum_squares,
           main_denominator_sum_product,
+          main_cap_value,
+          main_cap_value_lower,
+          denominator_cap_value,
+          denominator_cap_value_lower,
           value_min,
           value_max,
         } = row;
@@ -1269,6 +1305,32 @@ export default abstract class SqlIntegration
           denominator_sum_squares: parseFloat(denominator_sum_squares) || 0,
           main_denominator_sum_product:
             parseFloat(main_denominator_sum_product) || 0,
+          ...(main_cap_value !== undefined && main_cap_value !== null
+            ? {
+                main_cap_value: parseFloat(main_cap_value as string) || 0,
+              }
+            : {}),
+          ...(main_cap_value_lower !== undefined &&
+          main_cap_value_lower !== null
+            ? {
+                main_cap_value_lower:
+                  parseFloat(main_cap_value_lower as string) || 0,
+              }
+            : {}),
+          ...(denominator_cap_value !== undefined &&
+          denominator_cap_value !== null
+            ? {
+                denominator_cap_value:
+                  parseFloat(denominator_cap_value as string) || 0,
+              }
+            : {}),
+          ...(denominator_cap_value_lower !== undefined &&
+          denominator_cap_value_lower !== null
+            ? {
+                denominator_cap_value_lower:
+                  parseFloat(denominator_cap_value_lower as string) || 0,
+              }
+            : {}),
 
           value_min: parseFloat(value_min) || 0,
           value_max: parseFloat(value_max) || 0,
@@ -2795,7 +2857,7 @@ export default abstract class SqlIntegration
       settings.attributionModel === "lookbackOverride";
 
     // Get capping settings and final coalesce statement
-    const isPercentileCapped = isPercentileCappedMetric(metric);
+    const isUpperPercentileCapped = isUpperPercentileCappedMetric(metric);
     const isLowerPercentileCapped = isLowerPercentileCappedMetric(metric);
     const needsPercentileCapJoin = needsPercentileCapSubquery(metric);
     const computeUncappedMetric = eligibleForUncappedMetric(metric);
@@ -2848,7 +2910,6 @@ export default abstract class SqlIntegration
         ...metric.cappingSettings,
         type: "" as const,
         value: 0,
-        lowerType: "" as const,
         lowerValue: 0,
       },
     };
@@ -2966,7 +3027,7 @@ export default abstract class SqlIntegration
       regressionAdjusted,
       regressionAdjustmentHours,
       overrideConversionWindows,
-      isPercentileCapped,
+      isUpperPercentileCapped,
       isLowerPercentileCapped,
       needsPercentileCapJoin,
       computeUncappedMetric,
@@ -3601,20 +3662,20 @@ export default abstract class SqlIntegration
                 ? `
                 , SUM(${data.uncappedCoalesceMetric}) AS ${data.alias}_main_sum_uncapped 
                 , SUM(POWER(${data.uncappedCoalesceMetric}, 2)) AS ${data.alias}_main_sum_squares_uncapped
-                ${
-                  data.isPercentileCapped
-                    ? `
-                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value 
-                    `
-                    : ""
-                }
-                ${
-                  data.isLowerPercentileCapped
-                    ? `
-                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap_lower, 0)) as ${data.alias}_main_cap_value_lower 
-                    `
-                    : ""
-                }
+                `
+                : ""
+            }
+            ${
+              data.isUpperPercentileCapped
+                ? `
+                , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value 
+                `
+                : ""
+            }
+            ${
+              data.isLowerPercentileCapped
+                ? `
+                , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap_lower, 0)) as ${data.alias}_main_cap_value_lower 
                 `
                 : ""
             }
@@ -3664,20 +3725,20 @@ export default abstract class SqlIntegration
                     , SUM(${data.uncappedCoalesceDenominator}) AS ${data.alias}_denominator_sum_uncapped 
                     , SUM(POWER(${data.uncappedCoalesceDenominator}, 2)) AS ${data.alias}_denominator_sum_squares_uncapped
                     , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product_uncapped                    
-                    ${
-                      data.isPercentileCapped
-                        ? `
+                    `
+                    : ""
+                }
+                ${
+                  data.isUpperPercentileCapped
+                    ? `
                     , MAX(COALESCE(cap${data.denominatorSourceIndex === 0 ? "" : data.denominatorSourceIndex}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value
                     `
-                        : ""
-                    }
-                    ${
-                      data.isLowerPercentileCapped
-                        ? `
+                    : ""
+                }
+                ${
+                  data.isLowerPercentileCapped
+                    ? `
                     , MAX(COALESCE(cap${data.denominatorSourceIndex === 0 ? "" : data.denominatorSourceIndex}.${data.alias}_denominator_cap_lower, 0)) as ${data.alias}_denominator_cap_value_lower
-                    `
-                        : ""
-                    }
                     `
                     : ""
                 }
@@ -3878,18 +3939,18 @@ export default abstract class SqlIntegration
       settings.attributionModel === "lookbackOverride";
 
     // Get capping settings and final coalesce statement
-    const isPercentileCapped = isPercentileCappedMetric(metric);
+    const isUpperPercentileCapped = isUpperPercentileCappedMetric(metric);
     // Lower-tail percentile caps are fact-metric only; this query path is legacy metrics.
     const isLowerPercentileCapped = false;
-    const needsMainPercentileCapJoin = isPercentileCappedMetric(metric);
+    const needsMainPercentileCapJoin = isUpperPercentileCappedMetric(metric);
     const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
     const denominatorIsPercentileCapped = denominator
-      ? isPercentileCappedMetric(denominator)
+      ? isUpperPercentileCappedMetric(denominator)
       : false;
     const denominatorIsLowerPercentileCapped = false;
     const needsDenomPercentileCapJoin = denominator
-      ? isPercentileCappedMetric(denominator)
+      ? isUpperPercentileCappedMetric(denominator)
       : false;
 
     const denominatorComputeUncappedMetric = denominator
@@ -3925,7 +3986,6 @@ export default abstract class SqlIntegration
         ...metric.cappingSettings,
         type: "" as const,
         value: 0,
-        lowerType: "" as const,
         lowerValue: 0,
       },
     };
@@ -3936,7 +3996,6 @@ export default abstract class SqlIntegration
             ...denominator.cappingSettings,
             type: "" as const,
             value: 0,
-            lowerType: "" as const,
             lowerValue: 0,
           },
         }
@@ -3947,7 +4006,6 @@ export default abstract class SqlIntegration
         ...metric.cappingSettings,
         type: "" as const,
         value: 0,
-        lowerType: "" as const,
         lowerValue: 0,
       },
     };
@@ -4287,7 +4345,7 @@ export default abstract class SqlIntegration
               id: metric.id,
               ratioMetric,
               regressionAdjusted,
-              isPercentileCapped,
+              isUpperPercentileCapped,
               isLowerPercentileCapped,
               needsPercentileCapJoin: needsMainPercentileCapJoin,
               capCoalesceMetric,
@@ -4313,19 +4371,19 @@ export default abstract class SqlIntegration
     ${
       computeUncappedMetric
         ? `, SUM(${uncappedCoalesceMetric}) AS main_sum_uncapped
-           , SUM(POWER(${uncappedCoalesceMetric}, 2)) AS main_sum_squares_uncapped
-           ${
-             isPercentileCapped
-               ? `
+           , SUM(POWER(${uncappedCoalesceMetric}, 2)) AS main_sum_squares_uncapped`
+        : ""
+    }
+    ${
+      isUpperPercentileCapped
+        ? `
            , MAX(COALESCE(cap.value_cap, 0)) as main_cap_value`
-               : ""
-           }
-           ${
-             isLowerPercentileCapped
-               ? `
+        : ""
+    }
+    ${
+      isLowerPercentileCapped
+        ? `
            , MAX(COALESCE(cap.value_cap_lower, 0)) as main_cap_value_lower`
-               : ""
-           }`
         : ""
     }
     , SUM(${capCoalesceMetric}) AS main_sum
@@ -4337,19 +4395,19 @@ export default abstract class SqlIntegration
         denominatorComputeUncappedMetric
           ? `, SUM(${uncappedCoalesceDenominator}) AS denominator_sum_uncapped
              , SUM(POWER(${uncappedCoalesceDenominator}, 2)) AS denominator_sum_squares_uncapped
-             , SUM(${uncappedCoalesceMetric} * ${uncappedCoalesceDenominator}) AS main_denominator_sum_product_uncapped
-             ${
-               denominatorIsPercentileCapped
-                 ? `
+             , SUM(${uncappedCoalesceMetric} * ${uncappedCoalesceDenominator}) AS main_denominator_sum_product_uncapped`
+          : ""
+      }
+      ${
+        denominatorIsPercentileCapped
+          ? `
              , MAX(COALESCE(capd.value_cap, 0)) as denominator_cap_value`
-                 : ""
-             }
-             ${
-               denominatorIsLowerPercentileCapped
-                 ? `
+          : ""
+      }
+      ${
+        denominatorIsLowerPercentileCapped
+          ? `
              , MAX(COALESCE(capd.value_cap_lower, 0)) as denominator_cap_value_lower`
-                 : ""
-             }`
           : ""
       }
       , SUM(${capCoalesceDenominator}) AS denominator_sum
@@ -4440,7 +4498,7 @@ export default abstract class SqlIntegration
           const alias = data.alias;
           return `
         ${
-          data.isPercentileCapped
+          data.isUpperPercentileCapped
             ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
             : ""
         }
@@ -4757,7 +4815,7 @@ export default abstract class SqlIntegration
                 : data.denominatorSourceIndex;
             return `
           ${
-            data.isPercentileCapped
+            data.isUpperPercentileCapped
               ? `, MAX(COALESCE(cap${numeratorSourceSuffix}.${alias}value_cap, 0)) AS ${alias}main_cap_value`
               : ""
           }
@@ -4776,7 +4834,7 @@ export default abstract class SqlIntegration
             data.ratioMetric
               ? `
             ${
-              data.isPercentileCapped
+              data.isUpperPercentileCapped
                 ? `, MAX(COALESCE(cap${denominatorSourceSuffix}.${alias}denominator_cap, 0)) as ${alias}denominator_cap_value`
                 : ""
             }
@@ -5074,11 +5132,13 @@ export default abstract class SqlIntegration
       return [];
     }
     const cs = m.metric.cappingSettings;
-    const upper = isPercentileCappedMetric(m.metric) ? cs.value : undefined;
-    const lower = isLowerPercentileCappedMetric(m.metric)
+    const upperValue = isUpperPercentileCappedMetric(m.metric)
+      ? cs.value
+      : undefined;
+    const lowerValue = isLowerPercentileCappedMetric(m.metric)
       ? cs.lowerValue
       : undefined;
-    if (!upper && !lower) {
+    if (upperValue == null && lowerValue == null) {
       return [];
     }
     const percentileIgnoreZeros = cs.ignoreZeros ?? false;
@@ -5091,8 +5151,8 @@ export default abstract class SqlIntegration
       outputCol,
       sourceIndex,
       ignoreZeros: percentileIgnoreZeros,
-      ...(upper != null ? { upperPercentile: upper } : {}),
-      ...(lower != null ? { lowerPercentile: lower } : {}),
+      ...(upperValue != null ? { upperPercentile: upperValue } : {}),
+      ...(lowerValue != null ? { lowerPercentile: lowerValue } : {}),
     });
     const out: FactMetricPercentileData[] = [
       row(`${m.alias}_value`, `${m.alias}_value_cap`, m.numeratorSourceIndex),
@@ -5118,7 +5178,7 @@ export default abstract class SqlIntegration
     valueCol: string,
     outputCol: string,
   ): FactMetricPercentileData[] {
-    if (!isPercentileCappedMetric(metric)) {
+    if (!isUpperPercentileCappedMetric(metric)) {
       return [];
     }
     const cs = metric.cappingSettings;
@@ -5189,28 +5249,14 @@ export default abstract class SqlIntegration
     columnRef?: ColumnRef | null;
   }): string {
     const cs = metric?.cappingSettings;
+    const tails = getCappingTailState(cs);
+    const cappable = isCappableMetricType(metric);
     const upperThreshold = cs?.value;
     const lowerThreshold = cs?.lowerValue;
-    const hasUpperAbs =
-      cs?.type === "absolute" &&
-      upperThreshold != null &&
-      isCappableMetricType(metric);
-    const hasUpperPct =
-      cs?.type === "percentile" &&
-      upperThreshold != null &&
-      upperThreshold > 0 &&
-      upperThreshold < 1 &&
-      isCappableMetricType(metric);
-    const hasLowerAbs =
-      cs?.lowerType === "absolute" &&
-      lowerThreshold != null &&
-      isCappableMetricType(metric);
-    const hasLowerPct =
-      cs?.lowerType === "percentile" &&
-      lowerThreshold != null &&
-      lowerThreshold > 0 &&
-      lowerThreshold < 1 &&
-      isCappableMetricType(metric);
+    const hasUpperAbs = tails.upperAbsoluteCapped && cappable;
+    const hasUpperPct = tails.upperPercentileCapped && cappable;
+    const hasLowerAbs = tails.lowerAbsoluteCapped && cappable;
+    const hasLowerPct = tails.lowerPercentileCapped && cappable;
 
     const innerCol = wrapValueColumnWithAggregateUserFilter(
       valueCol,
@@ -7374,7 +7420,7 @@ ORDER BY column_name, count DESC
         ...m,
         // turn off capping for covariate value creation as capping will be applied
         // in the statistics query
-        cappingSettings: { type: "" as const, value: 0 },
+        cappingSettings: { type: "" as const },
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
     const paramsMetricsSorted: {

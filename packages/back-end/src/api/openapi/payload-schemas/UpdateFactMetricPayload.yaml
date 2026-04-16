@@ -207,22 +207,16 @@ properties:
           - "none"
           - "absolute"
           - "percentile"
+        description: Cap mode for both optional upper tail (`value`) and optional lower tail (`lowerValue`). `none` disables capping.
       value:
         type: number
-        description: When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).
+        description: Optional upper tail. When type is absolute, this is the absolute ceiling. When type is percentile, this is the upper percentile (from 0.0 to 1.0). Omit when there is no upper cap.
       ignoreZeros:
         type: boolean
         description: If true and upper and/or lower capping uses `percentile`, zeros are ignored when computing those percentiles.
-      lowerType:
-        type: string
-        enum:
-          - "none"
-          - "absolute"
-          - "percentile"
-        description: Optional lower-tail winsorization. Omit or `none` for no floor.
       lowerValue:
         type: number
-        description: When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1).
+        description: Optional lower tail using the same `type`. Absolute floor is any finite number, including 0 (floor at zero); omit when there is no absolute lower tail. Percentile lower cap must be greater than 0 and less than 1; use 0 or omit for no lower percentile cap.
   windowSettings:
     type: object
     description: Controls the conversion window for the metric

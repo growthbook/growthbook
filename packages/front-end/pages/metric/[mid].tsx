@@ -17,7 +17,11 @@ import { date } from "shared/dates";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Flex } from "@radix-ui/themes";
-import { isBinomialMetric } from "shared/experiments";
+import {
+  formatMetricCappingSummary,
+  hasActiveCappingTails,
+  isBinomialMetric,
+} from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -1162,33 +1166,21 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {metric.cappingSettings.type &&
-                    metric.cappingSettings.value && (
-                      <>
-                        <li className="mb-2">
-                          <span className="uppercase-title lg">
-                            {capitalizeFirstLetter(metric.cappingSettings.type)}
-                            {" capping"}
-                          </span>
-                        </li>
-                        <li>
-                          <span className="font-weight-bold">
-                            {metric.cappingSettings.value}
-                          </span>{" "}
-                          {metric.cappingSettings.type === "percentile" ? (
-                            <span className="text-gray">{`(${
-                              100 * metric.cappingSettings.value
-                            } pctile${
-                              metric.cappingSettings.ignoreZeros
-                                ? ", ignoring zeros"
-                                : ""
-                            })`}</span>
-                          ) : (
-                            ""
-                          )}{" "}
-                        </li>
-                      </>
-                    )}
+                  {hasActiveCappingTails(metric) && (
+                    <>
+                      <li className="mb-2">
+                        <span className="uppercase-title lg">
+                          {capitalizeFirstLetter(metric.cappingSettings.type)}
+                          {" capping"}
+                        </span>
+                      </li>
+                      <li>
+                        <span className="font-weight-bold">
+                          {formatMetricCappingSummary(metric)}
+                        </span>
+                      </li>
+                    </>
+                  )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
                       <span className="text-gray">Converted users only:</span>{" "}

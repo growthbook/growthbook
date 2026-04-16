@@ -63,9 +63,8 @@ describe("experimentQueries", () => {
           metricType: "mean",
           numerator: { factTableId: "ft_1" },
           cappingSettings: {
-            type: "",
+            type: "percentile",
             value: 0, // no upper cap
-            lowerType: "percentile",
             lowerValue: 0.05, // lower cap at 5th percentile
           },
         });
@@ -86,7 +85,6 @@ describe("experimentQueries", () => {
           cappingSettings: {
             type: "percentile",
             value: 0.99,
-            lowerType: "percentile",
             lowerValue: 0.01,
           },
         });

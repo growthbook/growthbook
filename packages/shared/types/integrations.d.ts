@@ -559,6 +559,12 @@ export type MetricAnalysisQueryResponseRow = {
   denominator_sum?: number;
   denominator_sum_squares?: number;
   main_denominator_sum_product?: number;
+  /** Upper-tail percentile cap threshold applied to the numerator (when applicable). */
+  main_cap_value?: number;
+  /** Lower-tail percentile cap threshold applied to the numerator (when applicable). */
+  main_cap_value_lower?: number;
+  denominator_cap_value?: number;
+  denominator_cap_value_lower?: number;
 
   value_min?: number;
   value_max?: number;

@@ -27,6 +27,7 @@ import {
   getColumnExpression,
   getAggregateFilters,
 } from "../../experiments/experiments";
+import { getCappingTailState } from "../../validators/fact-table";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
@@ -360,10 +361,7 @@ function getCappingSettings(
   const cs = metric.cappingSettings;
   if (!cs) return null;
 
-  const hasUpper = cs.type === "percentile" || cs.type === "absolute";
-  const hasLower = cs.lowerType === "percentile" || cs.lowerType === "absolute";
-
-  if (hasUpper || hasLower) {
+  if (getCappingTailState(cs).anyCap) {
     return cs;
   }
 
@@ -510,13 +508,9 @@ function getEventValueExpr(
     } else if (cap.type === "absolute") {
       rawValue = `LEAST(${rawValue}, ${cap.value})`;
     }
-    if (cap.lowerType === "percentile") {
+    if (cap.type === "percentile" && cap.lowerValue != null) {
       rawValue = `GREATEST(${rawValue}, COALESCE(${alias}_cap_lower, ${rawValue}))`;
-    } else if (
-      cap.lowerType === "absolute" &&
-      cap.lowerValue != null &&
-      cap.lowerValue > 0
-    ) {
+    } else if (cap.type === "absolute" && cap.lowerValue != null) {
       rawValue = `GREATEST(${rawValue}, ${cap.lowerValue})`;
     }
   }
@@ -648,7 +642,9 @@ function getMetricData(
         ? rawPercentileValueExpr
         : null,
     percentileLowerCapValueExpr:
-      cappingSettings && cappingSettings.lowerType === "percentile"
+      cappingSettings &&
+      cappingSettings.type === "percentile" &&
+      cappingSettings.lowerValue != null
         ? rawPercentileValueExpr
         : null,
     eventValueExpr: getEventValueExpr(
@@ -754,23 +750,21 @@ function generatePercentileCapsCTE(
     if (!cappingSettings) return;
 
     const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    const tails = getCappingTailState(cappingSettings);
 
-    if (cappingSettings.type === "percentile") {
+    if (tails.upperPercentileCapped) {
       selects.push(
         `${helpers.percentileApprox(
           metricData.percentileCapValueExpr || "NULL",
-          cappingSettings.value,
+          cappingSettings.value!,
         )} AS ${metricData.alias}_cap`,
       );
     }
-    if (
-      cappingSettings.lowerType === "percentile" &&
-      cappingSettings.lowerValue != null
-    ) {
+    if (tails.lowerPercentileCapped) {
       selects.push(
         `${helpers.percentileApprox(
           metricData.percentileLowerCapValueExpr || "NULL",
-          cappingSettings.lowerValue,
+          cappingSettings.lowerValue!,
         )} AS ${metricData.alias}_cap_lower`,
       );
     }

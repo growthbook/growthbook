@@ -8,7 +8,10 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
-import { validateCappingSettingsOrdering } from "shared/validators";
+import {
+  getCappingTailState,
+  validateCappingSettingsOrdering,
+} from "shared/validators";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
@@ -1521,26 +1524,11 @@ export default function FactMetricModal({
 
         {
           const cs = values.cappingSettings;
-          const upperPct =
-            cs?.type === "percentile" && cs.value > 0 && cs.value < 1;
-          const upperAbs = cs?.type === "absolute" && cs.value > 0;
-          const lowerPct =
-            cs?.lowerType === "percentile" &&
-            cs.lowerValue != null &&
-            cs.lowerValue > 0 &&
-            cs.lowerValue < 1;
-          const lowerAbs =
-            cs?.lowerType === "absolute" &&
-            cs.lowerValue != null &&
-            cs.lowerValue > 0;
-          const anyCap = upperPct || upperAbs || lowerPct || lowerAbs;
+          const tails = getCappingTailState(cs);
 
-          if (!anyCap) {
+          if (!tails.anyCap) {
             values.cappingSettings = {
               type: "",
-              value: 0,
-              lowerType: "",
-              lowerValue: 0,
               ignoreZeros: false,
             };
           } else {
@@ -1557,9 +1545,6 @@ export default function FactMetricModal({
         ) {
           values.cappingSettings = {
             type: "",
-            value: 0,
-            lowerType: "",
-            lowerValue: 0,
           };
         }
 
@@ -1570,10 +1555,7 @@ export default function FactMetricModal({
           if (values.numerator.column !== "$$distinctUsers") {
             values.numerator.aggregateFilterColumn = "";
           } else {
-            if (
-              values.cappingSettings?.type === "percentile" ||
-              values.cappingSettings?.lowerType === "percentile"
-            ) {
+            if (values.cappingSettings?.type === "percentile") {
               throw new Error(
                 "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
               );
@@ -1821,9 +1803,8 @@ export default function FactMetricModal({
                     form.setValue("quantileSettings", quantileSettings);
                     // capping off for quantile metrics
                     form.setValue("cappingSettings.type", "");
-                    form.setValue("cappingSettings.lowerType", "");
-                    form.setValue("cappingSettings.lowerValue", 0);
-                    form.setValue("cappingSettings.value", 0);
+                    form.setValue("cappingSettings.lowerValue", undefined);
+                    form.setValue("cappingSettings.value", undefined);
 
                     if (
                       quantileSettings.type === "event" &&
@@ -1852,8 +1833,7 @@ export default function FactMetricModal({
                     form.watch("cappingSettings.type") === "absolute"
                   ) {
                     form.setValue("cappingSettings.type", "");
-                    form.setValue("cappingSettings.lowerType", "");
-                    form.setValue("cappingSettings.lowerValue", 0);
+                    form.setValue("cappingSettings.lowerValue", undefined);
                   }
                 }}
                 options={[

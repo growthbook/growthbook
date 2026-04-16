@@ -26,7 +26,6 @@ function LegacyMetricCappingSettingsFormContent({
   metricType: string;
 }) {
   useEffect(() => {
-    form.setValue("cappingSettings.lowerType", "");
     form.setValue("cappingSettings.lowerValue", 0);
   }, [form]);
 
@@ -184,20 +183,11 @@ function LegacyMetricCappingSettingsFormContent({
   );
 }
 
-function getCappingMode(cappingSettings: {
-  type?: CappingType;
-  lowerType?: CappingType;
-}): CappingMode {
-  if (
-    cappingSettings?.type === "percentile" ||
-    cappingSettings?.lowerType === "percentile"
-  ) {
+function getCappingMode(cappingSettings: { type?: CappingType }): CappingMode {
+  if (cappingSettings?.type === "percentile") {
     return "percentile";
   }
-  if (
-    cappingSettings?.type === "absolute" ||
-    cappingSettings?.lowerType === "absolute"
-  ) {
+  if (cappingSettings?.type === "absolute") {
     return "absolute";
   }
   return "";
@@ -207,7 +197,9 @@ function isLowerCapped(
   mode: CappingMode,
   lowerValue: number | undefined,
 ): boolean {
-  if (mode === "absolute") return (lowerValue ?? 0) > 0;
+  if (mode === "absolute") {
+    return lowerValue !== undefined && Number.isFinite(lowerValue);
+  }
   if (mode === "percentile")
     return (lowerValue ?? 0) > 0 && (lowerValue ?? 0) < 1;
   return false;
@@ -223,15 +215,14 @@ function applyUpperValue(
 ) {
   const capped = isUpperCapped(mode, n);
   if (!capped) {
-    form.setValue("cappingSettings.value", 0);
-    const lv = form.getValues("cappingSettings.lowerValue") as number;
+    form.setValue("cappingSettings.value", undefined);
+    const lv = form.getValues("cappingSettings.lowerValue") as
+      | number
+      | undefined;
     if (mode === "absolute" || mode === "percentile") {
       if (!isLowerCapped(mode, lv)) {
         form.setValue("cappingSettings.type", "");
-        form.setValue("cappingSettings.lowerType", "");
         form.setValue("cappingSettings.ignoreZeros", false);
-      } else {
-        form.setValue("cappingSettings.type", "");
       }
     }
   } else {
@@ -250,13 +241,16 @@ function applyLowerValue(
     setValue: (path: string, value: unknown) => void;
   },
   mode: CappingMode,
-  n: number,
+  n: number | undefined,
 ) {
   const capped = isLowerCapped(mode, n);
   if (!capped) {
-    form.setValue("cappingSettings.lowerValue", 0);
-    form.setValue("cappingSettings.lowerType", "");
-    const uv = form.getValues("cappingSettings.value") as number;
+    if (mode === "absolute") {
+      form.setValue("cappingSettings.lowerValue", undefined);
+    } else {
+      form.setValue("cappingSettings.lowerValue", 0);
+    }
+    const uv = form.getValues("cappingSettings.value") as number | undefined;
     if (mode === "percentile" && !isUpperCapped("percentile", uv)) {
       form.setValue("cappingSettings.type", "");
       form.setValue("cappingSettings.ignoreZeros", false);
@@ -265,20 +259,11 @@ function applyLowerValue(
       form.setValue("cappingSettings.ignoreZeros", false);
     }
   } else {
-    form.setValue("cappingSettings.lowerValue", n);
+    form.setValue("cappingSettings.lowerValue", n as number);
     form.setValue(
-      "cappingSettings.lowerType",
+      "cappingSettings.type",
       mode === "absolute" ? "absolute" : "percentile",
     );
-    const uv = form.getValues("cappingSettings.value") as number;
-    if (isUpperCapped(mode, uv)) {
-      form.setValue(
-        "cappingSettings.type",
-        mode === "absolute" ? "absolute" : "percentile",
-      );
-    } else {
-      form.setValue("cappingSettings.type", "");
-    }
   }
 }
 
@@ -299,7 +284,6 @@ function FactMetricCappingSettingsFormContent({
   const cappingSettings = form.watch("cappingSettings") as
     | {
         type?: CappingType;
-        lowerType?: CappingType;
         value?: number;
         lowerValue?: number;
         ignoreZeros?: boolean;
@@ -331,25 +315,11 @@ function FactMetricCappingSettingsFormContent({
   ];
 
   const capType = cappingSettings?.type;
-  const lowerValue = cappingSettings?.lowerValue ?? 0;
+  const lowerRaw = cappingSettings?.lowerValue;
   const upperValue = cappingSettings?.value ?? 0;
 
   const upperCapped = isUpperCapped(mode, upperValue);
-  const lowerCapped = isLowerCapped(mode, lowerValue);
-
-  useEffect(() => {
-    if (capType === "absolute") {
-      form.setValue(
-        "cappingSettings.lowerType",
-        isLowerCapped("absolute", lowerValue) ? "absolute" : "",
-      );
-    } else if (capType === "percentile") {
-      form.setValue(
-        "cappingSettings.lowerType",
-        isLowerCapped("percentile", lowerValue) ? "percentile" : "",
-      );
-    }
-  }, [capType, lowerValue, form]);
+  const lowerCapped = isLowerCapped(mode, lowerRaw);
 
   useEffect(() => {
     if (mode !== "absolute" && mode !== "percentile") return;
@@ -365,24 +335,21 @@ function FactMetricCappingSettingsFormContent({
   const setCappingMode = (m: CappingMode) => {
     if (!m) {
       form.setValue("cappingSettings.type", "");
-      form.setValue("cappingSettings.lowerType", "");
-      form.setValue("cappingSettings.value", 0);
-      form.setValue("cappingSettings.lowerValue", 0);
+      form.setValue("cappingSettings.value", undefined);
+      form.setValue("cappingSettings.lowerValue", undefined);
       form.setValue("cappingSettings.ignoreZeros", false);
       return;
     }
     if (m === "absolute") {
       form.setValue("cappingSettings.type", "absolute");
-      form.setValue("cappingSettings.value", 0);
-      form.setValue("cappingSettings.lowerValue", 0);
-      form.setValue("cappingSettings.lowerType", "");
+      form.setValue("cappingSettings.value", undefined);
+      form.setValue("cappingSettings.lowerValue", undefined);
       form.setValue("cappingSettings.ignoreZeros", false);
       return;
     }
     form.setValue("cappingSettings.type", "percentile");
-    form.setValue("cappingSettings.value", 0);
+    form.setValue("cappingSettings.value", undefined);
     form.setValue("cappingSettings.lowerValue", 0);
-    form.setValue("cappingSettings.lowerType", "");
     form.setValue("cappingSettings.ignoreZeros", false);
   };
 
@@ -415,12 +382,12 @@ function FactMetricCappingSettingsFormContent({
   const flushLowerInput = (raw: string) => {
     const trimmed = raw.trim();
     if (trimmed === "") {
-      applyLowerValue(form, mode, 0);
+      applyLowerValue(form, mode, mode === "absolute" ? undefined : 0);
       return;
     }
     const n = parseFloat(trimmed);
     if (Number.isNaN(n)) {
-      applyLowerValue(form, mode, 0);
+      applyLowerValue(form, mode, mode === "absolute" ? undefined : 0);
       return;
     }
     applyLowerValue(form, mode, n);
@@ -434,7 +401,7 @@ function FactMetricCappingSettingsFormContent({
   const lowerDisplayValue = lowerFocused
     ? lowerDraft
     : lowerCapped
-      ? String(lowerValue)
+      ? String(lowerRaw)
       : "";
 
   return (
@@ -492,13 +459,13 @@ function FactMetricCappingSettingsFormContent({
               }
               type="number"
               step="any"
-              min="0"
+              min={mode === "percentile" ? "0" : undefined}
               max={mode === "percentile" ? "1" : undefined}
               placeholder="None"
               value={lowerDisplayValue}
               onFocus={() => {
                 setLowerFocused(true);
-                setLowerDraft(lowerCapped ? String(lowerValue) : "");
+                setLowerDraft(lowerCapped ? String(lowerRaw) : "");
               }}
               onBlur={(e) => {
                 flushLowerInput(e.target.value);

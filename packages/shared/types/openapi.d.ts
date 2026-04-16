@@ -4646,18 +4646,16 @@ export interface components {
       };
       /** @description Controls how outliers are handled */
       cappingSettings: {
-        /** @enum {string} */
+        /**
+         * @description Cap mode for both optional upper tail (`value`) and optional lower tail (`lowerValue`). `none` disables capping. 
+         * @enum {string}
+         */
         type: "none" | "absolute" | "percentile";
-        /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+        /** @description Optional upper tail. When type is absolute, this is the absolute ceiling. When type is percentile, this is the upper percentile (from 0.0 to 1.0). Omit when there is no upper cap. */
         value?: number;
         /** @description If true and upper and/or lower capping uses `percentile`, zeros are ignored when computing those percentiles. */
         ignoreZeros?: boolean;
-        /**
-         * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
-         * @enum {string}
-         */
-        lowerType?: "none" | "absolute" | "percentile";
-        /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+        /** @description Optional lower tail using the same `type`. Absolute floor is any finite number, including 0 (floor at zero); omit when there is no absolute lower tail. Percentile lower cap must be greater than 0 and less than 1; use 0 or omit for no lower percentile cap. */
         lowerValue?: number;
       };
       /** @description Controls the conversion window for the metric */
@@ -4671,6 +4669,17 @@ export interface components {
         windowValue?: number;
         /** @enum {string} */
         windowUnit?: "minutes" | "hours" | "days" | "weeks";
+      };
+      /** @description Controls the bayesian prior for the metric */
+      priorSettings: {
+        /** @description If false, the organization default settings will be used instead of the other settings in this object */
+        override: boolean;
+        /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+        proper: boolean;
+        /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+        mean: number;
+        /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+        stddev: number;
       };
       /** @description Controls the regression adjustment (CUPED) settings for the metric */
       regressionAdjustmentSettings: {
@@ -14325,18 +14334,16 @@ export interface operations {
                 };
                 /** @description Controls how outliers are handled */
                 cappingSettings: {
-                  /** @enum {string} */
+                  /**
+                   * @description Cap mode for both optional upper tail (`value`) and optional lower tail (`lowerValue`). `none` disables capping. 
+                   * @enum {string}
+                   */
                   type: "none" | "absolute" | "percentile";
-                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  /** @description Optional upper tail. When type is absolute, this is the absolute ceiling. When type is percentile, this is the upper percentile (from 0.0 to 1.0). Omit when there is no upper cap. */
                   value?: number;
                   /** @description If true and upper and/or lower capping uses `percentile`, zeros are ignored when computing those percentiles. */
                   ignoreZeros?: boolean;
-                  /**
-                   * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
-                   * @enum {string}
-                   */
-                  lowerType?: "none" | "absolute" | "percentile";
-                  /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                  /** @description Optional lower tail using the same `type`. Absolute floor is any finite number, including 0 (floor at zero); omit when there is no absolute lower tail. Percentile lower cap must be greater than 0 and less than 1; use 0 or omit for no lower percentile cap. */
                   lowerValue?: number;
                 };
                 /** @description Controls the conversion window for the metric */
@@ -14350,6 +14357,17 @@ export interface operations {
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
+                /** @description Controls the bayesian prior for the metric */
+                priorSettings: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
                 };
                 /** @description Controls the regression adjustment (CUPED) settings for the metric */
                 regressionAdjustmentSettings: {
@@ -14488,18 +14506,16 @@ export interface operations {
           };
           /** @description Controls how outliers are handled */
           cappingSettings?: {
-            /** @enum {string} */
+            /**
+             * @description Cap mode for both upper tail (`value`) and optional lower tail (`lowerValue`). `none` disables capping. 
+             * @enum {string}
+             */
             type: "none" | "absolute" | "percentile";
-            /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+            /** @description Optional upper tail. When type is absolute, this is the absolute ceiling. When type is percentile, this is the upper percentile (from 0.0 to 1.0). Omit when there is no upper cap. */
             value?: number;
             /** @description If true and upper and/or lower capping uses `percentile`, zeros are ignored when computing those percentiles. */
             ignoreZeros?: boolean;
-            /**
-             * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
-             * @enum {string}
-             */
-            lowerType?: "none" | "absolute" | "percentile";
-            /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+            /** @description Optional lower tail using the same `type`. Absolute floor is any finite number, including 0 (floor at zero); omit when there is no absolute lower tail. Percentile lower cap must be greater than 0 and less than 1; use 0 or omit for no lower percentile cap. */
             lowerValue?: number;
           };
           /** @description Controls the conversion window for the metric */
@@ -14660,18 +14676,16 @@ export interface operations {
               };
               /** @description Controls how outliers are handled */
               cappingSettings: {
-                /** @enum {string} */
+                /**
+                 * @description Cap mode for both optional upper tail (`value`) and optional lower tail (`lowerValue`). `none` disables capping. 
+                 * @enum {string}
+                 */
                 type: "none" | "absolute" | "percentile";
-                /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                /** @description Optional upper tail. When type is absolute, this is the absolute ceiling. When type is percentile, this is the upper percentile (from 0.0 to 1.0). Omit when there is no upper cap. */
                 value?: number;
                 /** @description If true and upper and/or lower capping uses `percentile`, zeros are ignored when computing those percentiles. */
                 ignoreZeros?: boolean;
-                /**
-                 * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
-                 * @enum {string}
-                 */
-                lowerType?: "none" | "absolute" | "percentile";
-                /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                /** @description Optional lower tail using the same `type`. Absolute floor is any finite number, including 0 (floor at zero); omit when there is no absolute lower tail. Percentile lower cap must be greater than 0 and less than 1; use 0 or omit for no lower percentile cap. */
                 lowerValue?: number;
               };
               /** @description Controls the conversion window for the metric */
@@ -14685,6 +14699,17 @@ export interface operations {
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "minutes" | "hours" | "days" | "weeks";
+              };
+              /** @description Controls the bayesian prior for the metric */
+              priorSettings: {
+                /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                override: boolean;
+                /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                proper: boolean;
+                /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                mean: number;
+                /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                stddev: number;
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -14815,18 +14840,16 @@ export interface operations {
               };
               /** @description Controls how outliers are handled */
               cappingSettings: {
-                /** @enum {string} */
+                /**
+                 * @description Cap mode for both optional upper tail (`value`) and optional lower tail (`lowerValue`). `none` disables capping. 
+                 * @enum {string}
+                 */
                 type: "none" | "absolute" | "percentile";
-                /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                /** @description Optional upper tail. When type is absolute, this is the absolute ceiling. When type is percentile, this is the upper percentile (from 0.0 to 1.0). Omit when there is no upper cap. */
                 value?: number;
                 /** @description If true and upper and/or lower capping uses `percentile`, zeros are ignored when computing those percentiles. */
                 ignoreZeros?: boolean;
-                /**
-                 * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
-                 * @enum {string}
-                 */
-                lowerType?: "none" | "absolute" | "percentile";
-                /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                /** @description Optional lower tail using the same `type`. Absolute floor is any finite number, including 0 (floor at zero); omit when there is no absolute lower tail. Percentile lower cap must be greater than 0 and less than 1; use 0 or omit for no lower percentile cap. */
                 lowerValue?: number;
               };
               /** @description Controls the conversion window for the metric */
@@ -14840,6 +14863,17 @@ export interface operations {
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "minutes" | "hours" | "days" | "weeks";
+              };
+              /** @description Controls the bayesian prior for the metric */
+              priorSettings: {
+                /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                override: boolean;
+                /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                proper: boolean;
+                /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                mean: number;
+                /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                stddev: number;
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -14977,18 +15011,16 @@ export interface operations {
           };
           /** @description Controls how outliers are handled */
           cappingSettings?: {
-            /** @enum {string} */
+            /**
+             * @description Cap mode for both optional upper tail (`value`) and optional lower tail (`lowerValue`). `none` disables capping. 
+             * @enum {string}
+             */
             type: "none" | "absolute" | "percentile";
-            /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+            /** @description Optional upper tail. When type is absolute, this is the absolute ceiling. When type is percentile, this is the upper percentile (from 0.0 to 1.0). Omit when there is no upper cap. */
             value?: number;
             /** @description If true and upper and/or lower capping uses `percentile`, zeros are ignored when computing those percentiles. */
             ignoreZeros?: boolean;
-            /**
-             * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
-             * @enum {string}
-             */
-            lowerType?: "none" | "absolute" | "percentile";
-            /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+            /** @description Optional lower tail using the same `type`. Absolute floor is any finite number, including 0 (floor at zero); omit when there is no absolute lower tail. Percentile lower cap must be greater than 0 and less than 1; use 0 or omit for no lower percentile cap. */
             lowerValue?: number;
           };
           /** @description Controls the conversion window for the metric */
@@ -15138,18 +15170,16 @@ export interface operations {
               };
               /** @description Controls how outliers are handled */
               cappingSettings: {
-                /** @enum {string} */
+                /**
+                 * @description Cap mode for both optional upper tail (`value`) and optional lower tail (`lowerValue`). `none` disables capping. 
+                 * @enum {string}
+                 */
                 type: "none" | "absolute" | "percentile";
-                /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                /** @description Optional upper tail. When type is absolute, this is the absolute ceiling. When type is percentile, this is the upper percentile (from 0.0 to 1.0). Omit when there is no upper cap. */
                 value?: number;
                 /** @description If true and upper and/or lower capping uses `percentile`, zeros are ignored when computing those percentiles. */
                 ignoreZeros?: boolean;
-                /**
-                 * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
-                 * @enum {string}
-                 */
-                lowerType?: "none" | "absolute" | "percentile";
-                /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                /** @description Optional lower tail using the same `type`. Absolute floor is any finite number, including 0 (floor at zero); omit when there is no absolute lower tail. Percentile lower cap must be greater than 0 and less than 1; use 0 or omit for no lower percentile cap. */
                 lowerValue?: number;
               };
               /** @description Controls the conversion window for the metric */
@@ -15163,6 +15193,17 @@ export interface operations {
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "minutes" | "hours" | "days" | "weeks";
+              };
+              /** @description Controls the bayesian prior for the metric */
+              priorSettings: {
+                /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                override: boolean;
+                /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                proper: boolean;
+                /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                mean: number;
+                /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                stddev: number;
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -15406,18 +15447,16 @@ export interface operations {
                 };
                 /** @description Controls how outliers are handled */
                 cappingSettings?: {
-                  /** @enum {string} */
+                  /**
+                   * @description Cap mode for both upper tail (`value`) and optional lower tail (`lowerValue`). `none` disables capping. 
+                   * @enum {string}
+                   */
                   type: "none" | "absolute" | "percentile";
-                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  /** @description Optional upper tail. When type is absolute, this is the absolute ceiling. When type is percentile, this is the upper percentile (from 0.0 to 1.0). Omit when there is no upper cap. */
                   value?: number;
                   /** @description If true and upper and/or lower capping uses `percentile`, zeros are ignored when computing those percentiles. */
                   ignoreZeros?: boolean;
-                  /**
-                   * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
-                   * @enum {string}
-                   */
-                  lowerType?: "none" | "absolute" | "percentile";
-                  /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                  /** @description Optional lower tail using the same `type`. Absolute floor is any finite number, including 0 (floor at zero); omit when there is no absolute lower tail. Percentile lower cap must be greater than 0 and less than 1; use 0 or omit for no lower percentile cap. */
                   lowerValue?: number;
                 };
                 /** @description Controls the conversion window for the metric */

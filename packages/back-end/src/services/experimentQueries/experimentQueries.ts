@@ -3,7 +3,7 @@ import {
   isFactMetric,
   isLegacyMetric,
   isLowerPercentileCappedMetric,
-  isPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
@@ -84,7 +84,7 @@ export function getNonQuantileFloatColumns({
 
   const percentileCappingCols = (() => {
     const cols: string[] = [];
-    if (isPercentileCappedMetric(metric)) {
+    if (isUpperPercentileCappedMetric(metric)) {
       switch (metric.metricType) {
         case "mean":
         case "proportion":

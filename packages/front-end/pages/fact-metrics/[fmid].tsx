@@ -15,6 +15,7 @@ import {
   getRowFilterSQL,
 } from "shared/experiments";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
+import { getCappingTailState } from "shared/validators";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -265,18 +266,11 @@ export default function FactMetricPage() {
   });
 
   const cap = factMetric.cappingSettings;
-  const hasUpperPercentileCap =
-    cap.type === "percentile" && cap.value > 0 && cap.value < 1;
-  const hasLowerPercentileCap =
-    cap.lowerType === "percentile" &&
-    cap.lowerValue != null &&
-    cap.lowerValue > 0 &&
-    cap.lowerValue < 1;
-  const hasUpperAbsoluteCap = cap.type === "absolute" && cap.value > 0;
-  const hasLowerAbsoluteCap =
-    cap.lowerType === "absolute" &&
-    cap.lowerValue != null &&
-    cap.lowerValue > 0;
+  const capTails = getCappingTailState(cap);
+  const hasUpperPercentileCap = capTails.upperPercentileCapped;
+  const hasLowerPercentileCap = capTails.lowerPercentileCapped;
+  const hasUpperAbsoluteCap = capTails.upperAbsoluteCapped;
+  const hasLowerAbsoluteCap = capTails.lowerAbsoluteCapped;
   const lowerPercentileIgnoresZeros = cap.ignoreZeros ?? false;
 
   const numeratorData: DataListItem[] = [
@@ -915,7 +909,7 @@ export default function FactMetricPage() {
                             <span className="text-gray">Upper: </span>
                           ) : null}
                           <span className="font-weight-bold">{cap.value}</span>{" "}
-                          {`(${100 * cap.value} pctile${
+                          {`(${100 * (cap.value ?? 0)} pctile${
                             cap.ignoreZeros ? ", ignoring zeros" : ""
                           })`}
                         </li>
