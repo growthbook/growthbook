@@ -6,6 +6,7 @@ import {
   namespaceValue,
   savedGroupTargeting,
   paginationQueryFields,
+  skipPaginationQueryField,
   apiPaginationFieldsValidator,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
@@ -791,6 +792,7 @@ export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevision",
   z
     .object({
+      featureId: z.string().describe("The feature this revision belongs to"),
       baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
       comment: z.string(),
@@ -1133,23 +1135,7 @@ export const listFeaturesValidator = {
         .string()
         .describe("Filter by a SDK connection's client key")
         .optional(),
-      skipPagination: z
-        .union([
-          z.literal("true"),
-          z.literal("false"),
-          z.literal("0"),
-          z.literal("1"),
-          z.boolean(),
-        ])
-        .describe(
-          "If true, return all matching features and ignore limit/offset.\nSelf-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.",
-        )
-        .meta({
-          default: false,
-          "x-selfHostedOnly": true,
-          "x-requiresEnv": "API_ALLOW_SKIP_PAGINATION",
-        })
-        .optional(),
+      ...skipPaginationQueryField,
     })
     .strict(),
   paramsSchema: z.never(),
@@ -1305,20 +1291,22 @@ export const getFeatureRevisionsValidator = {
   querySchema: z
     .object({
       ...paginationQueryFields,
-      status: z.string().optional(),
+      ...skipPaginationQueryField,
+      status: revisionStatusSchema.optional(),
       author: z.string().optional(),
     })
     .strict(),
   paramsSchema: idParams,
-  responseSchema: z.intersection(
-    z.object({
+  responseSchema: z
+    .object({
       revisions: z.array(apiFeatureRevisionValidator),
-    }),
-    apiPaginationFieldsValidator,
-  ),
-  summary: "Get all revisions for a feature",
+    })
+    .extend(apiPaginationFieldsValidator.shape),
+  summary: "List revisions for a feature",
+  description:
+    "Returns a paginated list of revisions for this feature, sorted newest-first. Optionally filtered by status and/or author.",
   operationId: "getFeatureRevisions",
-  tags: ["features"],
+  tags: ["feature-revisions"],
   method: "get" as const,
   path: "/features/:id/revisions",
   exampleRequest: { params: { id: "abc123" } },

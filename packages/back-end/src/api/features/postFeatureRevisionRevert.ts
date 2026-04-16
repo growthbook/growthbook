@@ -7,6 +7,7 @@ import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
 import { revisionToApiInterface } from "back-end/src/services/features";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   BadRequestError,
   InternalServerError,
@@ -272,14 +273,27 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     }
   }
 
-  const { revision: publishedRevision } = await createAndPublishRevision({
-    context: req.context,
-    feature,
-    user: req.eventAudit,
-    org: req.organization,
-    changes: revisionChanges,
-    comment: comment ?? defaultComment,
-    canBypassApprovalChecks: canBypass,
+  const { revision: publishedRevision, updatedFeature } =
+    await createAndPublishRevision({
+      context: req.context,
+      feature,
+      user: req.eventAudit,
+      org: req.organization,
+      changes: revisionChanges,
+      comment: comment ?? defaultComment,
+      canBypassApprovalChecks: canBypass,
+    });
+
+  await req.audit({
+    event: "feature.revert",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: publishedRevision.version,
+      revertedTo: targetRevision.version,
+    }),
   });
 
   const updated = await getRevision({

@@ -1688,6 +1688,7 @@ export function revisionToApiInterface(
   }
 
   return {
+    featureId: rev.featureId,
     baseVersion: rev.baseVersion,
     version: rev.version,
     comment: rev.comment || "",
@@ -1835,6 +1836,7 @@ export function getApiFeatureObj({
           ? "SYSTEM"
           : rev?.publishedBy?.name;
     return {
+      featureId: rev.featureId,
       baseVersion: rev.baseVersion,
       version: rev.version,
       comment: rev?.comment || "",
@@ -2186,9 +2188,6 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         return rolloutRule;
       }
       default: {
-        // Exhaustiveness check: if a new rule type is added to the
-        // postFeatureRule union, `r` will stop narrowing to `never` here
-        // and TS will flag this file at compile time.
         const _exhaustive: never = r;
         throw new Error(
           `Unrecognized feature rule type: "${(_exhaustive as { type?: string }).type ?? "unknown"}"`,

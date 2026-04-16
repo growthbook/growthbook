@@ -6,6 +6,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { HttpVerb } from "back-end/src/api/apiModelHandlers";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
+import { ConflictError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
 export type ApiRequest<
@@ -219,9 +220,14 @@ export function createApiRequestHandler<
           );
           return res.status(200).json(result);
         } catch (e) {
-          return res.status(e.status || 400).json({
-            message: e.message,
-          });
+          const body: ApiErrorResponse = { message: e.message };
+          // ConflictError carries a structured `conflicts` payload so clients
+          // (e.g. CI scripts auto-resolving feature-revision publish/rebase
+          // conflicts) can act on the response programmatically.
+          if (e instanceof ConflictError && e.conflicts) {
+            body.conflicts = e.conflicts;
+          }
+          return res.status(e.status || 400).json(body);
         }
       } catch (e) {
         next(e);

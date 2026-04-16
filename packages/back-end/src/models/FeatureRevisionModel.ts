@@ -110,12 +110,19 @@ export async function countDocuments(
   organization: string,
   {
     featureId,
+    featureIds,
     status,
     author,
-  }: { featureId?: string; status?: string | string[]; author?: string } = {},
+  }: {
+    featureId?: string;
+    featureIds?: string[];
+    status?: string | string[];
+    author?: string;
+  } = {},
 ): Promise<number> {
   const filter: Record<string, unknown> = { organization };
   if (featureId) filter.featureId = featureId;
+  else if (featureIds) filter.featureId = { $in: featureIds };
   if (status) {
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
@@ -240,32 +247,39 @@ export async function getFeatureRevisionsByStatus({
   context,
   organization,
   featureId,
+  featureIds,
   status,
   author,
   limit = 10,
   offset = 0,
   sort = "desc",
+  skipPagination = false,
 }: {
   context: ReqContext;
   organization: string;
   featureId?: string;
+  featureIds?: string[];
   status?: string | string[];
   author?: string;
   limit?: number;
   offset?: number;
   sort?: "asc" | "desc";
+  skipPagination?: boolean;
 }): Promise<FeatureRevisionInterface[]> {
   const filter: Record<string, unknown> = { organization };
   if (featureId) filter.featureId = featureId;
+  else if (featureIds) filter.featureId = { $in: featureIds };
   if (status) {
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
   if (author) filter["createdBy.id"] = author;
-  const docs = await FeatureRevisionModel.find(filter)
+  let query = FeatureRevisionModel.find(filter)
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-    .sort({ version: sort === "desc" ? -1 : 1 })
-    .skip(offset)
-    .limit(limit);
+    .sort({ version: sort === "desc" ? -1 : 1 });
+  if (!skipPagination) {
+    query = query.skip(offset).limit(limit);
+  }
+  const docs = await query;
   return docs.map((m) => toInterface(m, context));
 }
 

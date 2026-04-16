@@ -3,12 +3,15 @@ import {
   featurePrerequisite,
   savedGroupTargeting,
   paginationQueryFields,
+  skipPaginationQueryField,
   apiPaginationFieldsValidator,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
   apiFeatureRevisionValidator,
   JSONSchemaDef,
+  revisionStatusSchema,
+  featureRule,
 } from "./features";
 import { ownerInputField } from "./owner-field";
 
@@ -36,6 +39,41 @@ const ruleParams = revisionParams.extend({ ruleId: z.string() });
 
 const revisionResponse = z.object({ revision: apiFeatureRevisionValidator });
 
+// Mirrors shared/util/features.ts MergeConflict; kept in sync by hand since
+// MergeConflict is a plain TS type, not a zod-derived one.
+const mergeConflictSchema = z
+  .object({
+    name: z.string(),
+    key: z.string(),
+    resolved: z.boolean(),
+    base: z.string(),
+    live: z.string(),
+    revision: z.string(),
+  })
+  .strict();
+
+// Mirrors shared/util/features.ts MergeResultChanges.
+const mergeResultChangesSchema = z
+  .object({
+    defaultValue: z.string().optional(),
+    rules: z.record(z.string(), z.array(featureRule)).optional(),
+    environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
+    archived: z.boolean().optional(),
+    metadata: z
+      .object({
+        releaseType: z.string().optional(),
+        riskLevel: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+    holdout: z
+      .object({ id: z.string(), value: z.string() })
+      .nullable()
+      .optional(),
+  })
+  .strict();
+
 // ---- Ramp schedule body schemas ----
 
 export const inlineRampScheduleInput = apiRevisionRampCreateAction.omit({
@@ -56,7 +94,7 @@ export const getFeatureRevisionValidator = {
   operationId: "getFeatureRevision",
   summary: "Get a single feature revision",
   description:
-    "Returns the revision at the specified version for this feature. Use `GET /revisions/latest` for the most recent active draft.",
+    "Returns the revision at the specified version for this feature. Use `GET /features/{id}/revisions/latest` for the most recent active draft.",
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
@@ -162,8 +200,8 @@ export const getFeatureRevisionMergeStatusValidator = {
   querySchema: z.never(),
   responseSchema: z.object({
     success: z.boolean(),
-    conflicts: z.array(z.unknown()),
-    result: z.unknown().optional(),
+    conflicts: z.array(mergeConflictSchema),
+    result: mergeResultChangesSchema.optional(),
   }),
 };
 
@@ -553,22 +591,15 @@ export const listRevisionsValidator = {
   tags: ["feature-revisions"],
   paramsSchema: z.never(),
   bodySchema: z.never(),
-  querySchema: z.object({
-    ...paginationQueryFields,
-    featureId: z.string().optional(),
-    status: z
-      .enum([
-        "draft",
-        "published",
-        "discarded",
-        "approved",
-        "changes-requested",
-        "pending-review",
-        "pending-parent",
-      ])
-      .optional(),
-    author: z.string().optional(),
-  }),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+      ...skipPaginationQueryField,
+      featureId: z.string().optional(),
+      status: revisionStatusSchema.optional(),
+      author: z.string().optional(),
+    })
+    .strict(),
   responseSchema: z
     .object({
       revisions: z.array(apiFeatureRevisionValidator),
