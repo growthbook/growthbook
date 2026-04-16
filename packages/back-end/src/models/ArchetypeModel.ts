@@ -2,7 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import { ArchetypeInterface } from "shared/types/archetype";
-import { ApiArchetype } from "shared/types/openapi";
+import { ApiArchetype } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 
 const archetypeSchema = new mongoose.Schema({

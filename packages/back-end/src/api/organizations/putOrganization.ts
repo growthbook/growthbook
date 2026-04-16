@@ -1,4 +1,3 @@
-import { PostOrganizationResponse } from "shared/types/openapi";
 import { putOrganizationValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -13,7 +12,7 @@ import {
 
 export const putOrganization = createApiRequestHandler(
   putOrganizationValidator,
-)(async (req): Promise<PostOrganizationResponse> => {
+)(async (req) => {
   await validateIsSuperUserRequest(req);
 
   const id = req.params.id;

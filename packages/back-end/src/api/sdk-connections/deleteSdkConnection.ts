@@ -1,4 +1,3 @@
-import { DeleteSdkConnectionResponse } from "shared/types/openapi";
 import { deleteSdkConnectionValidator } from "shared/validators";
 import {
   findSDKConnectionById,
@@ -8,7 +7,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const deleteSdkConnection = createApiRequestHandler(
   deleteSdkConnectionValidator,
-)(async (req): Promise<DeleteSdkConnectionResponse> => {
+)(async (req) => {
   const sdkConnection = await findSDKConnectionById(req.context, req.params.id);
   if (!sdkConnection) {
     throw new Error("Could not find sdkConnection with that id");

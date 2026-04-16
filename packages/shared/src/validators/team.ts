@@ -3,6 +3,8 @@ import { apiBaseSchema, baseSchema } from "./base-model";
 import { managedByValidator } from "./managed-by";
 import { projectMemberRole } from "./organization";
 
+import { namedSchema } from "./openapi-helpers";
+
 export const teamSchema = baseSchema.safeExtend({
   name: z.string(),
   createdBy: z.string(),
@@ -17,19 +19,22 @@ export const teamSchema = baseSchema.safeExtend({
   defaultProject: z.string().optional(),
 });
 
-export const apiTeamValidator = apiBaseSchema.safeExtend({
-  name: z.string(),
-  createdBy: z.string(),
-  description: z.string(),
-  role: z.string(),
-  limitAccessByEnvironment: z.boolean(),
-  environments: z.array(z.string()),
-  projectRoles: z.array(projectMemberRole).optional(),
-  members: z.array(z.string()).readonly(),
-  managedByIdp: z.boolean(),
-  managedBy: managedByValidator.optional(),
-  defaultProject: z.string().optional(),
-});
+export const apiTeamValidator = namedSchema(
+  "Team",
+  apiBaseSchema.safeExtend({
+    name: z.string(),
+    createdBy: z.string(),
+    description: z.string(),
+    role: z.string(),
+    limitAccessByEnvironment: z.boolean(),
+    environments: z.array(z.string()),
+    projectRoles: z.array(projectMemberRole).optional(),
+    members: z.array(z.string()).readonly(),
+    managedByIdp: z.boolean(),
+    managedBy: managedByValidator.optional(),
+    defaultProject: z.string().optional(),
+  }),
+);
 
 export const apiCreateTeamBody = z.strictObject({
   name: z.string(),
@@ -48,6 +53,9 @@ export const apiCreateTeamBody = z.strictObject({
 
 export const apiUpdateTeamBody = apiCreateTeamBody.partial();
 
+export const apiDeleteTeamReturn = z.strictObject({ deletedId: z.string() });
+export type ApiDeleteTeamReturn = z.infer<typeof apiDeleteTeamReturn>;
+
 export const apiDeleteTeamValidator = {
   bodySchema: z.never(),
   querySchema: z.strictObject({
@@ -56,20 +64,22 @@ export const apiDeleteTeamValidator = {
       .optional()
       .describe("When 'true', enables deleting a team that contains members"),
   }),
-  paramsSchema: z.strictObject({ teamId: z.string() }),
+  paramsSchema: z.strictObject({ id: z.string() }),
+  responseSchema: apiDeleteTeamReturn,
+  path: "/:id/",
+  method: "delete" as const,
+  operationId: "deleteTeam",
+  summary: "Delete a single team",
 };
-
-export const apiDeleteTeamReturn = z.strictObject({ deletedId: z.string() });
-export type ApiDeleteTeamReturn = z.infer<typeof apiDeleteTeamReturn>;
 
 export const apiAddTeamMembersValidator = {
   bodySchema: z.strictObject({ members: z.array(z.string()) }),
   querySchema: z.never(),
-  paramsSchema: z.strictObject({ teamId: z.string() }),
+  paramsSchema: z.strictObject({ id: z.string() }),
 };
 
 export const apiRemoveTeamMemberValidator = {
   bodySchema: z.strictObject({ members: z.array(z.string()) }),
   querySchema: z.never(),
-  paramsSchema: z.strictObject({ teamId: z.string() }),
+  paramsSchema: z.strictObject({ id: z.string() }),
 };

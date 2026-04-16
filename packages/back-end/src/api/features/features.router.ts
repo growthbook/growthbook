@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { listFeatures } from "./listFeatures";
 import { toggleFeature } from "./toggleFeature";
 import { revertFeature } from "./revertFeature";
@@ -7,17 +7,18 @@ import { postFeature } from "./postFeature";
 import { updateFeature } from "./updateFeature";
 import { deleteFeatureById } from "./deleteFeature";
 import { getFeatureRevisions } from "./getFeatureRevisions";
-const router = Router();
+import { getFeatureKeys } from "./getFeatureKeys";
+import { getFeatureStale } from "./getFeatureStale";
 
-// Feature Endpoints
-// Mounted at /api/v1/features
-router.get("/", listFeatures);
-router.post("/", postFeature);
-router.get("/:id", getFeature);
-router.post("/:id", updateFeature);
-router.delete("/:id", deleteFeatureById);
-router.post("/:id/toggle", toggleFeature);
-router.post("/:id/revert", revertFeature);
-router.get("/:id/revisions", getFeatureRevisions);
-
-export default router;
+export const featureRoutes: OpenApiRoute[] = [
+  listFeatures,
+  postFeature,
+  getFeature,
+  updateFeature,
+  deleteFeatureById,
+  toggleFeature,
+  revertFeature,
+  getFeatureRevisions,
+  getFeatureKeys,
+  getFeatureStale,
+];

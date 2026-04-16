@@ -247,6 +247,7 @@ describe("snapshot lifecycle", () => {
       }),
     });
     expect(createExperimentSnapshotModelMock).toHaveBeenCalledWith({
+      context,
       data: plan.snapshot,
     });
     expect(resultsQueryRunnerMock).toHaveBeenCalledWith(

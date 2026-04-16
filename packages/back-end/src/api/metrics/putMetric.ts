@@ -1,4 +1,3 @@
-import { PutMetricResponse } from "shared/types/openapi";
 import { putMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
@@ -10,7 +9,7 @@ import {
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(async (
   req,
-): Promise<PutMetricResponse> => {
+) => {
   const metric = await getMetricById(req.context, req.params.id);
 
   if (!metric) {

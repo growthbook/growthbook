@@ -1,4 +1,3 @@
-import { PostSdkConnectionResponse } from "shared/types/openapi";
 import { postSdkConnectionValidator } from "shared/validators";
 import {
   toApiSDKConnectionInterface,
@@ -9,7 +8,7 @@ import { validatePostPayload } from "./validations";
 
 export const postSdkConnection = createApiRequestHandler(
   postSdkConnectionValidator,
-)(async (req): Promise<PostSdkConnectionResponse> => {
+)(async (req) => {
   const params = {
     ...(await validatePostPayload(req.context, req.body)),
     organization: req.context.org.id,

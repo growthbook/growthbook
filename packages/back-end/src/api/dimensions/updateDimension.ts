@@ -1,4 +1,3 @@
-import { UpdateDimensionResponse } from "shared/types/openapi";
 import { updateDimensionValidator } from "shared/validators";
 import { DimensionInterface } from "shared/types/dimension";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -12,7 +11,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 export const updateDimension = createApiRequestHandler(
   updateDimensionValidator,
-)(async (req): Promise<UpdateDimensionResponse> => {
+)(async (req) => {
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 

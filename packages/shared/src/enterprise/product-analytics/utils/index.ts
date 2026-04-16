@@ -1,5 +1,40 @@
 import type { ExplorationConfig } from "../../../validators/product-analytics";
 
+export function mapDatabaseTypeToEnum(
+  dbType: string,
+): "string" | "number" | "date" | "boolean" | "other" {
+  const lowerType = dbType.toLowerCase();
+
+  if (
+    lowerType.includes("int") ||
+    lowerType.includes("numeric") ||
+    lowerType.includes("decimal") ||
+    lowerType.includes("float") ||
+    lowerType.includes("double") ||
+    lowerType.includes("real")
+  ) {
+    return "number";
+  }
+
+  if (lowerType.includes("date") || lowerType.includes("time")) {
+    return "date";
+  }
+
+  if (lowerType.includes("bool")) {
+    return "boolean";
+  }
+
+  if (
+    lowerType.includes("char") ||
+    lowerType.includes("text") ||
+    lowerType.includes("string")
+  ) {
+    return "string";
+  }
+
+  return "other";
+}
+
 /** Default product analytics config used for new blocks and Explorer initial state. */
 export const DEFAULT_EXPLORE_STATE: ExplorationConfig = {
   type: "metric",

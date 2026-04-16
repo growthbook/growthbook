@@ -164,6 +164,8 @@ describe("factMetricRowFilterValidation", () => {
       expect(templateVariables).toEqual({ eventName: "orders" });
       expect(runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM __table LIMIT 0",
+        undefined,
+        "factTableValidation",
       );
     });
 

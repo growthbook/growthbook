@@ -11,6 +11,10 @@ import {
   getProviderFromEmbeddingModel,
 } from "shared/ai";
 import { ensureValuesExactlyMatchUnion } from "shared/util";
+import {
+  getAvailableAIModelOptions,
+  getAvailablePromptModelOptions,
+} from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
@@ -31,100 +35,6 @@ import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
-
-const AI_MODEL_LABELS = ensureValuesExactlyMatchUnion<AIModel>()([
-  // OpenAI GPT-5 series
-  { value: "gpt-5.2", label: "OpenAI: GPT 5.2" },
-  { value: "gpt-5.2-pro", label: "OpenAI: GPT 5.2 Pro" },
-  { value: "gpt-5.1-codex", label: "OpenAI: GPT 5.1 Codex" },
-  { value: "gpt-5.1-codex-max", label: "OpenAI: GPT 5.1 Codex Max" },
-  { value: "gpt-5.1-codex-mini", label: "OpenAI: GPT 5.1 Codex Mini" },
-  { value: "gpt-5", label: "OpenAI: GPT 5" },
-  { value: "gpt-5-nano", label: "OpenAI: GPT 5 Nano" },
-  { value: "gpt-5-mini", label: "OpenAI: GPT 5 Mini" },
-  { value: "gpt-5-pro", label: "OpenAI: GPT 5 Pro" },
-  { value: "gpt-5-codex", label: "OpenAI: GPT 5 Codex" },
-  // OpenAI GPT-4 series
-  { value: "gpt-4.1", label: "OpenAI: GPT 4.1" },
-  { value: "gpt-4.1-mini", label: "OpenAI: GPT 4.1 Mini" },
-  { value: "gpt-4.1-nano", label: "OpenAI: GPT 4.1 Nano" },
-  { value: "gpt-4o", label: "OpenAI: GPT 4o" },
-  { value: "gpt-4o-mini", label: "OpenAI: GPT 4o Mini" },
-  // OpenAI O series (reasoning models)
-  { value: "o4-mini", label: "OpenAI: O4 Mini" },
-  { value: "o3", label: "OpenAI: O3" },
-  { value: "o3-mini", label: "OpenAI: O3 Mini" },
-  { value: "o1", label: "OpenAI: O1" },
-  // Anthropic Claude
-  {
-    value: "claude-haiku-4-5-20251001",
-    label: "Anthropic: Claude 4.5 Haiku (20251001)",
-  },
-  {
-    value: "claude-sonnet-4-5-20250929",
-    label: "Anthropic: Claude 4.5 Sonnet (20250929)",
-  },
-  {
-    value: "claude-opus-4-1-20250805",
-    label: "Anthropic: Claude 4.1 Opus (20250805)",
-  },
-  {
-    value: "claude-opus-4-20250514",
-    label: "Anthropic: Claude 4 Opus (20250514)",
-  },
-  {
-    value: "claude-sonnet-4-20250514",
-    label: "Anthropic: Claude 4 Sonnet (20250514)",
-  },
-  {
-    value: "claude-3-7-sonnet-20250219",
-    label: "Anthropic: Claude 3.7 Sonnet (20250219)",
-  },
-  {
-    value: "claude-3-5-haiku-20241022",
-    label: "Anthropic: Claude 3.5 Haiku (20241022)",
-  },
-  {
-    value: "claude-3-haiku-20240307",
-    label: "Anthropic: Claude 3 Haiku (20240307)",
-  },
-  // xAI Grok
-  { value: "grok-code-fast-1", label: "xAI: Grok Code Fast 1" },
-  {
-    value: "grok-4-fast-non-reasoning",
-    label: "xAI: Grok 4 Fast Non-Reasoning",
-  },
-  { value: "grok-4-fast-reasoning", label: "xAI: Grok 4 Fast Reasoning" },
-  { value: "grok-4", label: "xAI: Grok 4" },
-  { value: "grok-3", label: "xAI: Grok 3" },
-  { value: "grok-3-mini", label: "xAI: Grok 3 Mini" },
-  { value: "grok-3-fast", label: "xAI: Grok 3 Fast" },
-  { value: "grok-3-mini-fast", label: "xAI: Grok 3 Mini Fast" },
-  { value: "grok-2", label: "xAI: Grok 2" },
-  // Mistral
-  { value: "mistral-small", label: "Mistral: Mistral Small" },
-  { value: "mistral-medium", label: "Mistral: Mistral Medium" },
-  { value: "pixtral-12b", label: "Mistral: Pixtral 12B" },
-  // Google Gemini
-  { value: "gemini-3-pro-preview", label: "Google: Gemini 3 Pro Preview" },
-  { value: "gemini-3-flash-preview", label: "Google: Gemini 3 Flash Preview" },
-  { value: "gemini-2.5-flash", label: "Google: Gemini 2.5 Flash" },
-  { value: "gemini-2.5-flash-lite", label: "Google: Gemini 2.5 Flash Lite" },
-  { value: "gemini-2.5-pro", label: "Google: Gemini 2.5 Pro" },
-  { value: "gemini-2.0-flash", label: "Google: Gemini 2.0 Flash" },
-  { value: "gemini-2.0-flash-lite", label: "Google: Gemini 2.0 Flash Lite" },
-  { value: "gemini-flash-latest", label: "Google: Gemini Flash Latest" },
-  {
-    value: "gemini-flash-lite-latest",
-    label: "Google: Gemini Flash Lite Latest",
-  },
-  { value: "gemini-pro-latest", label: "Google: Gemini Pro Latest" },
-]);
-
-const PROMPT_MODEL_LABELS = [
-  { value: "", label: "-- Use Default AI Model --" },
-  ...AI_MODEL_LABELS,
-];
 
 const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
   // OpenAI embeddings
@@ -239,6 +149,23 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         "Provide any additional guidance on how you would like SQL queries to be generated.",
       overrideModel: data.prompts.find((p) => p.type === "generate-sql-query")
         ?.overrideModel,
+    },
+    {
+      promptType: "product-analytics-chat",
+      promptName: "Product Analytics AI Analyst",
+      promptDescription:
+        "Used by the product analytics explorer AI assistant. GrowthBook still provides datasource context, metrics and fact tables, exploration schema, and tool behavior automatically; the field below adds organization-specific guidance (tone, naming, policies, how to explain charts, etc.).",
+      promptValue:
+        data.prompts.find((p) => p.type === "product-analytics-chat")?.prompt ||
+        AI_PROMPT_DEFAULTS["product-analytics-chat"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["product-analytics-chat"],
+      promptHelpText:
+        "Optional. Leave blank to use only the built-in assistant instructions. When set, this text is appended to the system prompt.",
+      overrideModelHelpText:
+        "Tool-heavy assistants often work better with a capable model.",
+      overrideModel: data.prompts.find(
+        (p) => p.type === "product-analytics-chat",
+      )?.overrideModel,
     },
   ];
 }
@@ -393,7 +320,7 @@ export default function AISettings({
                       helpText="Default is 4o-mini."
                       value={form.watch("defaultAIModel")}
                       onChange={(v) => form.setValue("defaultAIModel", v)}
-                      options={AI_MODEL_LABELS}
+                      options={getAvailableAIModelOptions()}
                     />
                     {/* Use centralized warning component */}
                     <ApiKeyWarning
@@ -678,9 +605,10 @@ export default function AISettings({
                                   promptForm.setValue(
                                     `${prompt.promptType}-model`,
                                     v,
+                                    { shouldDirty: true },
                                   )
                                 }
-                                options={PROMPT_MODEL_LABELS}
+                                options={getAvailablePromptModelOptions()}
                                 helpText={prompt?.overrideModelHelpText || ""}
                               />
                               {(() => {
