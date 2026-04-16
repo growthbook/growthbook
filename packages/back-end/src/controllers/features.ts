@@ -55,7 +55,6 @@ import { FeatureUsageRecords } from "shared/types/realtime";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
-  EventUserApiKey,
 } from "shared/types/events/event-types";
 import {
   FeatureRevisionInterface,
@@ -957,9 +956,7 @@ export async function postFeatureReviewOrComment(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  const createdByUser = revision.createdBy as
-    | EventUserLoggedIn
-    | EventUserApiKey;
+  const createdByUser = revision.createdBy as EventUserLoggedIn;
 
   if (createdByUser?.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");

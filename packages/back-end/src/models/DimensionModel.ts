@@ -108,7 +108,7 @@ export async function updateDimension(
     throw new Error("Cannot update. Dimenision managed by config.yml");
   }
   // If the dimension is managed by the API, only allow updates via the API
-  if (existing.managedBy === "api" && !context.isApiRequest) {
+  if (existing.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error("Cannot update. Dimenision managed by the API");
   }
 
@@ -128,7 +128,7 @@ export async function deleteDimensionById(
     );
   }
 
-  if (dimension?.managedBy === "api" && !context.isApiRequest) {
+  if (dimension?.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error(
       "Cannot delete. This Dimension is being managed by the API",
     );
