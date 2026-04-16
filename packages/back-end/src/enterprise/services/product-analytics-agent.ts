@@ -511,6 +511,7 @@ type RunExplorationToolResult =
   | {
       summary: string;
       configNormalized?: string[];
+      noDataWarning?: string;
       status: "success";
       snapshotId: string;
       rowCount: number;
