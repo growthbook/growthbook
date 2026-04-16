@@ -20,6 +20,7 @@ export const listExperiments = createApiRequestHandler(
     project: req.query.projectId,
     datasourceId: req.query.datasourceId,
     trackingKey: req.query.experimentId,
+    status: req.query.status,
     sortBy: { dateCreated: 1 },
   });
 
