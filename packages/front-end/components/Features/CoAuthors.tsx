@@ -66,7 +66,11 @@ export default function CoAuthors({ rev, logs, ...marginProps }: Props) {
     <Box {...marginProps}>
       <div
         className="link-purple"
-        style={{ cursor: "pointer", userSelect: "none", display: "inline-block" }}
+        style={{
+          cursor: "pointer",
+          userSelect: "none",
+          display: "inline-block",
+        }}
         onClick={() => setOpen((o) => !o)}
       >
         <PiCaretRightFill

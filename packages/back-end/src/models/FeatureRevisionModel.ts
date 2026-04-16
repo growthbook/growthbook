@@ -124,7 +124,9 @@ export async function getMinimalRevisions(
     organization,
     featureId,
   })
-    .select("version datePublished dateUpdated createdBy status comment title contributors")
+    .select(
+      "version datePublished dateUpdated createdBy status comment title contributors",
+    )
     .sort({ version: -1 })
     .limit(200);
 
