@@ -89,7 +89,11 @@ export default function MetricTabContent() {
                   const updates = {
                     ...v,
                     metricId: val,
-                    unit: newMetric?.metricType === "mean" ? null : unit,
+                    unit:
+                      newMetric?.metricType === "mean" &&
+                      newMetric.numerator.aggregation !== "count distinct"
+                        ? null
+                        : unit,
                     name: newMetric?.name
                       ? generateUniqueValueName(
                           newMetric.name,

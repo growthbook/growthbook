@@ -111,8 +111,13 @@ export default function ValueCard({
       if (factMetric.numerator.column === "$$distinctUsers") {
         supportsUnitSelection = true;
       }
-      // TODO: handle separate denominator unit selector
+    } else if (
+      factMetric?.metricType === "mean" &&
+      factMetric.numerator.aggregation === "count distinct"
+    ) {
+      supportsUnitSelection = true;
     }
+    // TODO: handle separate denominator unit selector
   }
 
   const columnSource = useMemo(() => {
