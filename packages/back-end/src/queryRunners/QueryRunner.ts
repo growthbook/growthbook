@@ -3,6 +3,7 @@ import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import {
   Queries,
   QueryInterface,
+  QueryMetadata,
   QueryPointer,
   QueryStatus,
   QueryType,
@@ -57,6 +58,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   run: (
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ) => Promise<QueryResponse<Rows>>;
   /** @deprecated */
   process?: (rows: Rows) => ProcessedRows;
@@ -120,6 +122,7 @@ export abstract class QueryRunner<
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
+        queryMetadata?: QueryMetadata,
       ) => Promise<QueryResponse<RowsType>>;
       process?: (rows: RowsType) => ProcessedRowsType;
       onSuccess?: (rows: RowsType) => void | Promise<void>;
@@ -607,6 +610,7 @@ export abstract class QueryRunner<
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
+        queryMetadata?: QueryMetadata,
       ) => Promise<QueryResponse<Rows>>;
       process?: (rows: Rows) => ProcessedRows;
       onFailure: () => void;
@@ -637,9 +641,7 @@ export abstract class QueryRunner<
       });
     };
 
-    this.integration.queryDocMetadata = { queryType: doc.queryType };
-
-    run(doc.query, setExternalId)
+    run(doc.query, setExternalId, { queryType: doc.queryType })
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);

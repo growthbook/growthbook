@@ -43,6 +43,7 @@ export interface AuthContextValue {
     options?: RequestInit,
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
+  fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
@@ -65,6 +66,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     let x: any;
     return x;
   },
+  fetchRaw: async () => new Response(),
   orgId: null,
 });
 
@@ -354,6 +356,66 @@ export const AuthProvider: React.FC<{
     [orgId],
   );
 
+  const fetchRaw = useCallback(
+    async (url: string, options: RequestInit = {}): Promise<Response> => {
+      const init = { ...options };
+      init.headers = init.headers || {};
+      init.headers["Authorization"] = `Bearer ${token}`;
+      init.credentials = "include";
+
+      if (init.body && !init.headers["Content-Type"]) {
+        init.headers["Content-Type"] = "application/json";
+      }
+
+      if (orgId && !init.headers["X-Organization"]) {
+        init.headers["X-Organization"] = orgId;
+      }
+
+      const response = await fetch(getApiHost() + url, init);
+
+      if (response.status === 401) {
+        try {
+          const errorData = await response
+            .clone()
+            .json()
+            .catch(() => null);
+          if (errorData?.message === "jwt expired") {
+            const resp = await refreshToken();
+            if ("token" in resp) {
+              setToken(resp.token);
+              init.headers["Authorization"] = `Bearer ${resp.token}`;
+              return fetch(getApiHost() + url, init);
+            } else if ("redirectURI" in resp) {
+              try {
+                const redirectAddress =
+                  window.location.pathname + (window.location.search || "");
+                window.sessionStorage.setItem(
+                  "postAuthRedirectPath",
+                  redirectAddress,
+                );
+              } catch (e) {
+                // ignore
+              }
+              await redirectWithTimeout(resp.redirectURI);
+            }
+            setSessionError(true);
+            throw new Error(
+              "Your session has expired. Refresh the page to continue.",
+            );
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message.includes("session has expired")) {
+            throw e;
+          }
+          console.error("Token refresh failed for 401 response:", e);
+        }
+      }
+
+      return response;
+    },
+    [orgId, token],
+  );
+
   const apiCall = useCallback(
     async (
       url: string | null,
@@ -508,6 +570,7 @@ export const AuthProvider: React.FC<{
           await redirectWithTimeout(res.redirectURI || window.location.origin);
         },
         apiCall,
+        fetchRaw,
         orgId,
         setOrgId,
         organizations: orgList,

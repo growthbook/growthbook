@@ -10,6 +10,7 @@ import {
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
+  createInterfaceEnvSettingsFromApiEnvSettings,
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
@@ -1803,5 +1804,75 @@ describe("SDK Payloads", () => {
         groupId: ["1", "2", "3"].map((val) => sha256(val, "salt")),
       });
     });
+  });
+});
+
+describe("createInterfaceEnvSettingsFromApiEnvSettings", () => {
+  const baseFeature = {
+    id: "test-feature",
+    valueType: "boolean",
+    defaultValue: "false",
+    environmentSettings: {},
+  } as FeatureInterface;
+
+  it("preserves rule-level prerequisites across rule types", () => {
+    const prerequisites = [
+      { id: "parent-feature", condition: '{"value": true}' },
+    ];
+    const result = createInterfaceEnvSettingsFromApiEnvSettings(
+      baseFeature,
+      [{ id: "production" }],
+      {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              type: "force",
+              value: "true",
+              prerequisites,
+            },
+            {
+              type: "rollout",
+              value: "true",
+              coverage: 0.5,
+              hashAttribute: "id",
+              prerequisites,
+            },
+            {
+              type: "experiment-ref",
+              experimentId: "exp_1",
+              variations: [{ variationId: "v0", value: "false" }],
+              prerequisites,
+            },
+            {
+              type: "experiment",
+              condition: "{}",
+              values: [{ value: "true", weight: 1 }],
+              prerequisites,
+            },
+          ],
+        },
+      },
+    );
+
+    const rules = result.production.rules;
+    expect(rules).toHaveLength(4);
+    rules.forEach((rule) => {
+      expect(rule.prerequisites).toEqual(prerequisites);
+    });
+  });
+
+  it("omits prerequisites when not provided", () => {
+    const result = createInterfaceEnvSettingsFromApiEnvSettings(
+      baseFeature,
+      [{ id: "production" }],
+      {
+        production: {
+          enabled: true,
+          rules: [{ type: "force", value: "true" }],
+        },
+      },
+    );
+    expect(result.production.rules[0]).not.toHaveProperty("prerequisites");
   });
 });
