@@ -857,6 +857,7 @@ const postFeatureForceRule = z.object({
   description: z.string().optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  prerequisites: z.array(apiRevisionPrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -920,6 +921,7 @@ const postFeatureExperimentRule = z.object({
     })
     .optional(),
   coverage: z.number().optional(),
+  prerequisites: z.array(apiRevisionPrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   values: z
     .array(

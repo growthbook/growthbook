@@ -522,6 +522,20 @@ paths:
                                       - matchType
                                       - savedGroups
                                     additionalProperties: false
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        description: Feature ID
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
                                 scheduleRules:
                                   type: array
                                   items:
@@ -725,6 +739,20 @@ paths:
                                   additionalProperties: false
                                 coverage:
                                   type: number
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        description: Feature ID
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
                                 scheduleRules:
                                   type: array
                                   items:
@@ -808,6 +836,20 @@ paths:
                                         required:
                                           - matchType
                                           - savedGroups
+                                        additionalProperties: false
+                                    prerequisites:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            description: Feature ID
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
                                         additionalProperties: false
                                     scheduleRules:
                                       type: array
@@ -1012,6 +1054,20 @@ paths:
                                       additionalProperties: false
                                     coverage:
                                       type: number
+                                    prerequisites:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            description: Feature ID
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
                                     scheduleRules:
                                       type: array
                                       items:
@@ -1220,6 +1276,20 @@ paths:
                                       - matchType
                                       - savedGroups
                                     additionalProperties: false
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        description: Feature ID
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
                                 scheduleRules:
                                   type: array
                                   items:
@@ -1423,6 +1493,20 @@ paths:
                                   additionalProperties: false
                                 coverage:
                                   type: number
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        description: Feature ID
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
                                 scheduleRules:
                                   type: array
                                   items:
@@ -1506,6 +1590,20 @@ paths:
                                         required:
                                           - matchType
                                           - savedGroups
+                                        additionalProperties: false
+                                    prerequisites:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            description: Feature ID
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
                                         additionalProperties: false
                                     scheduleRules:
                                       type: array
@@ -1710,6 +1808,20 @@ paths:
                                       additionalProperties: false
                                     coverage:
                                       type: number
+                                    prerequisites:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            description: Feature ID
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
                                     scheduleRules:
                                       type: array
                                       items:

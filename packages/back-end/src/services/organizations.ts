@@ -230,10 +230,11 @@ export function getAISettingsForOrg(
     xaiAPIKey: includeKey ? xaiKey : "",
     mistralAPIKey: includeKey ? mistralKey : "",
     googleAPIKey: includeKey ? googleKey : "",
-    defaultAIModel:
-      context.org.settings?.defaultAIModel ||
-      context.org.settings?.openAIDefaultModel ||
-      "gpt-5.4-mini",
+    defaultAIModel: IS_CLOUD
+      ? "gpt-5.4-mini"
+      : context.org.settings?.defaultAIModel ||
+        context.org.settings?.openAIDefaultModel ||
+        "gpt-5.4-mini",
     embeddingModel:
       context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };

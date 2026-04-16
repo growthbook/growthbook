@@ -371,7 +371,47 @@ export const AuthProvider: React.FC<{
         init.headers["X-Organization"] = orgId;
       }
 
-      return fetch(getApiHost() + url, init);
+      const response = await fetch(getApiHost() + url, init);
+
+      if (response.status === 401) {
+        try {
+          const errorData = await response
+            .clone()
+            .json()
+            .catch(() => null);
+          if (errorData?.message === "jwt expired") {
+            const resp = await refreshToken();
+            if ("token" in resp) {
+              setToken(resp.token);
+              init.headers["Authorization"] = `Bearer ${resp.token}`;
+              return fetch(getApiHost() + url, init);
+            } else if ("redirectURI" in resp) {
+              try {
+                const redirectAddress =
+                  window.location.pathname + (window.location.search || "");
+                window.sessionStorage.setItem(
+                  "postAuthRedirectPath",
+                  redirectAddress,
+                );
+              } catch (e) {
+                // ignore
+              }
+              await redirectWithTimeout(resp.redirectURI);
+            }
+            setSessionError(true);
+            throw new Error(
+              "Your session has expired. Refresh the page to continue.",
+            );
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message.includes("session has expired")) {
+            throw e;
+          }
+          console.error("Token refresh failed for 401 response:", e);
+        }
+      }
+
+      return response;
     },
     [orgId, token],
   );

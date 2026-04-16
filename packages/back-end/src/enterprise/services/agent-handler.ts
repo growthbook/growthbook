@@ -5,7 +5,10 @@ import type { AIModel, AIPromptType } from "shared/ai";
 import type { AIChatMessage } from "shared/ai-chat";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  getAISettingsForOrg,
+} from "back-end/src/services/organizations";
 import {
   streamingChatCompletion,
   simpleCompletion,
@@ -166,16 +169,16 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     const requestModel = body.model;
     const canOverride = context.permissions.canManageOrgSettings();
 
-    if (canOverride) {
-      buffer.setModel(requestModel);
-    }
-
     // Resolution: request (permitted) → conversation stored → org prompt override
     const overrideModel =
       (canOverride && requestModel) ||
       (buffer.getModel() as AIModel | undefined) ||
       dbOverrideModel ||
       undefined;
+
+    const { defaultAIModel } = getAISettingsForOrg(context, false);
+    const resolvedModel = overrideModel || defaultAIModel;
+    buffer.setModel(resolvedModel);
 
     const { messages: messagesForLLM, isFirstMessage } =
       prepareConversationMessages(buffer, message);
