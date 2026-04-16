@@ -113,7 +113,9 @@ export default function ValueCard({
       }
     } else if (
       factMetric?.metricType === "mean" &&
-      factMetric.numerator.aggregation === "count distinct"
+      ["count distinct", "max", "sum"].includes(
+        factMetric.numerator.aggregation ?? "",
+      )
     ) {
       supportsUnitSelection = true;
     }

@@ -91,7 +91,9 @@ export default function MetricTabContent() {
                     metricId: val,
                     unit:
                       newMetric?.metricType === "mean" &&
-                      newMetric.numerator.aggregation !== "count distinct"
+                      !["count distinct", "max", "sum"].includes(
+                        newMetric.numerator.aggregation ?? "",
+                      )
                         ? null
                         : unit,
                     name: newMetric?.name
