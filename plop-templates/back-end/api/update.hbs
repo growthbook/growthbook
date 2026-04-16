@@ -1,17 +1,20 @@
-import { Put{{pascalCase object}}Response } from "../../../types/openapi";
-import {
-  update{{pascalCase object}},
-  to{{pascalCase object}}ApiInterface
-} from "../../models/{{pascalCase object}}Model";
-import { createApiRequestHandler } from "../../util/handler";
-import { update{{pascalCase object}}Validator } from "../../validators/openapi";
+import { update{{pascalCase object}}Validator } from "shared/validators";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const update{{pascalCase object}} = createApiRequestHandler(update{{pascalCase object}}Validator)(
-  async (req): Promise<Put{{pascalCase object}}Response> => {
-    const {{camelCase object}} = await update{{pascalCase object}}(/* */);
+  async (req) => {
+    const {{camelCase object}} = await req.context.models.{{camelCase object}}s.getById(req.params.id);
+    if (!{{camelCase object}}) {
+      throw new Error("Could not find {{camelCase object}} with that id");
+    }
+
+    const updated = await req.context.models.{{camelCase object}}s.update(
+      {{camelCase object}},
+      req.body
+    );
 
     return {
-      {{camelCase object}}: to{{pascalCase object}}ApiInterface({{camelCase object}}),
+      {{camelCase object}}: req.context.models.{{camelCase object}}s.toApiInterface(updated),
     };
   }
 );

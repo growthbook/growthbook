@@ -36,7 +36,7 @@ import {
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 import CoAuthors from "@/components/Features/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -95,7 +95,6 @@ import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
@@ -274,7 +273,7 @@ export default function FeaturesOverview({
   const showKillSwitchManager = killSwitchTarget !== null;
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   const commitTitleEdit = useCallback(async () => {
     if (!revision) return;
@@ -813,22 +812,19 @@ export default function FeaturesOverview({
         >
           {(() => {
             const cb = revision.createdBy;
-            if (cb?.type === "dashboard") {
-              const name = getOwnerDisplay(cb.id) ?? cb.name ?? "";
+            if (cb?.type === "dashboard" || cb?.type === "api_key") {
               return (
                 <Metadata
                   label="Revised by"
                   value={
-                    <Avatar email={cb.email} name={name} size={22} showEmail />
+                    <Flex align="center" gap="2" wrap="wrap">
+                      <EventUser
+                        user={cb}
+                        display="avatar-name-email"
+                        size="sm"
+                      />
+                    </Flex>
                   }
-                />
-              );
-            }
-            if (cb?.type === "api_key") {
-              return (
-                <Metadata
-                  label="Revised by"
-                  value={<span className="badge badge-secondary">API</span>}
                 />
               );
             }
@@ -863,12 +859,9 @@ export default function FeaturesOverview({
         </Flex>
         <CoAuthors rev={revision} mt="3" mb="3" />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-          <span
-            className={metaDataStyles.labelColor}
-            style={{ fontWeight: 500 }}
-          >
+          <Text weight="semibold" color="text-high">
             Revision notes:
-          </span>{" "}
+          </Text>{" "}
           {revision.comment ? (
             <Flex align="start" gap="1">
               <Box>
@@ -988,7 +981,49 @@ export default function FeaturesOverview({
                         </>
                       ),
                     }
-                  : null;
+                  : isLive
+                    ? (() => {
+                        const activeDrafts = (revisionList ?? []).filter(
+                          (r) =>
+                            !(
+                              r.createdBy?.type === "system" &&
+                              r.createdBy.subtype === "ramp-schedule"
+                            ) &&
+                            (r.status === "draft" ||
+                              r.status === "approved" ||
+                              r.status === "changes-requested" ||
+                              r.status === "pending-review"),
+                        );
+                        if (activeDrafts.length === 0) return null;
+                        return {
+                          icon: <PiPencil size={18} />,
+                          color: "var(--gray-11)",
+                          bgColor: "var(--gray-a3)",
+                          message: (
+                            <>
+                              This feature has{" "}
+                              <strong>
+                                {activeDrafts.length === 1
+                                  ? "a draft revision"
+                                  : `${activeDrafts.length} draft revisions`}
+                              </strong>
+                              {activeDrafts.length === 1 && (
+                                <>
+                                  {". "}
+                                  <Link
+                                    onClick={() =>
+                                      setVersion(activeDrafts[0].version)
+                                    }
+                                  >
+                                    <strong>Switch to draft</strong>
+                                  </Link>
+                                </>
+                              )}
+                            </>
+                          ),
+                        };
+                      })()
+                    : null;
 
           if (!bannerProps) return null;
           return (

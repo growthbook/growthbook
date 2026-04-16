@@ -441,6 +441,12 @@ export default defineConfig([
           message:
             "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead.",
         },
+        {
+          selector:
+            "Property[key.name='owner'] CallExpression[callee.type='MemberExpression'][callee.object.name='z'][callee.property.name='string']",
+          message:
+            "Use ownerField or ownerInputField from 'shared/validators' instead of a bare z.string() for owner properties to ensure consistent API documentation.",
+        },
       ],
     },
   },

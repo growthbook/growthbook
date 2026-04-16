@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 
 // Actions that carry no content change — excluded when deriving co-authors from logs.
 export const NON_CONTENT_ACTIONS = new Set([
@@ -19,17 +20,14 @@ export const NON_CONTENT_ACTIONS = new Set([
   "discard",
 ]);
 
-interface Props {
+interface Props extends MarginProps {
   rev: FeatureRevisionInterface;
   // When provided and rev.contributors is empty, co-authors are derived from
   // content-bearing log entries as a fallback for older revisions.
   logs?: RevisionLog[];
-  // Applied to the outer Box wrapper (e.g. "1" for mt, "2" for mb).
-  mt?: string;
-  mb?: string;
 }
 
-export default function CoAuthors({ rev, logs, mt, mb }: Props) {
+export default function CoAuthors({ rev, logs, ...marginProps }: Props) {
   const [open, setOpen] = useState(false);
 
   const createdById =
@@ -65,10 +63,14 @@ export default function CoAuthors({ rev, logs, mt, mb }: Props) {
   const label = `Co-author${coAuthors.length > 1 ? "s" : ""} (${coAuthors.length})`;
 
   return (
-    <Box mt={mt as never} mb={mb as never}>
+    <Box {...marginProps}>
       <div
         className="link-purple"
-        style={{ cursor: "pointer", userSelect: "none" }}
+        style={{
+          cursor: "pointer",
+          userSelect: "none",
+          display: "inline-block",
+        }}
         onClick={() => setOpen((o) => !o)}
       >
         <PiCaretRightFill
@@ -83,19 +85,15 @@ export default function CoAuthors({ rev, logs, mt, mb }: Props) {
       </div>
       {open && (
         <Flex direction="column" gap="2" mt="2" ml="3">
-          {coAuthors.map((c, i) =>
-            c.type === "dashboard" ? (
-              <Avatar
-                key={c.id}
-                email={c.email}
-                name={c.name ?? ""}
-                size={22}
-                showEmail
+          {coAuthors.map((c) =>
+            c.type === "dashboard" || c.type === "api_key" ? (
+              <EventUser
+                user={c}
+                display="avatar-name-email"
+                size="sm"
+                wrap={true}
+                key={c.type === "dashboard" ? c.id : c.apiKey}
               />
-            ) : c.type === "api_key" ? (
-              <span key={i} className="badge badge-secondary">
-                API Key
-              </span>
             ) : null,
           )}
         </Flex>

@@ -12,7 +12,8 @@ import {
 } from "react-icons/pi";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { datetime } from "shared/dates";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
+import { auditUserInfoToEventUser } from "@/components/Avatar/auditUserToEventUser";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   DropdownMenu,
@@ -41,17 +42,20 @@ import {
 import { useAuditComparison } from "./useAuditComparison";
 import styles from "./CompareAuditEvents.module.scss";
 
-function EntryUserAvatar({
+function AuditEntryAuthor({
   user,
+  display = "avatar-name-email",
 }: {
   user: CoarsenedAuditEntry<unknown>["user"];
+  display?: "avatar-name" | "avatar-name-email";
 }) {
-  if (user.type === "system") return <span>System</span>;
-  if (user.type === "apikey")
-    return <span className="badge badge-secondary">API Key</span>;
-  if (!user.email) return <span>{user.name || "Unknown user"}</span>;
   return (
-    <Avatar email={user.email} name={user.name ?? ""} size={22} showEmail />
+    <EventUser
+      user={auditUserInfoToEventUser(user)}
+      display={display}
+      size="sm"
+      wrap={true}
+    />
   );
 }
 
@@ -89,7 +93,7 @@ function AuditEntryCompareLabel({
         </Flex>
         {entryA && (
           <Box mt="2">
-            <EntryUserAvatar user={entryA.user} />
+            <AuditEntryAuthor user={entryA.user} />
           </Box>
         )}
         {entryA && <Text as="div">{datetime(entryA.dateStart)}</Text>}
@@ -111,7 +115,7 @@ function AuditEntryCompareLabel({
         </Flex>
         {entryB && (
           <Box mt="2">
-            <EntryUserAvatar user={entryB.user} />
+            <AuditEntryAuthor user={entryB.user} />
           </Box>
         )}
         {entryB && <Text as="div">{datetime(entryB.dateStart)}</Text>}
@@ -158,7 +162,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
                   />,
                 ],
                 ["Date", datetime(entry.dateStart)],
-                ["Author", <EntryUserAvatar key="author" user={entry.user} />],
+                ["Author", <AuditEntryAuthor key="author" user={entry.user} />],
                 ...(entry.count > 1
                   ? [["Merged events", String(entry.count)]]
                   : []),
@@ -381,7 +385,7 @@ export default function CompareAuditEvents<T>({
             )}
           </Flex>
           <Box mt="2">
-            <EntryUserAvatar user={entry.user} />
+            <AuditEntryAuthor user={entry.user} display="avatar-name" />
           </Box>
           <Text as="div">
             {entry.count > 1
@@ -876,7 +880,7 @@ export default function CompareAuditEvents<T>({
                           </Text>
                         </Flex>
                         <Box mt="2">
-                          <EntryUserAvatar user={singleEntryFirst.user} />
+                          <AuditEntryAuthor user={singleEntryFirst.user} />
                         </Box>
                         <Text as="div">
                           {datetime(singleEntryFirst.dateStart)}

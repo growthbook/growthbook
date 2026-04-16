@@ -1,4 +1,3 @@
-import { DeleteAttributeResponse } from "shared/types/openapi";
 import { deleteAttributeValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -7,7 +6,7 @@ import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteAttribute = createApiRequestHandler(
   deleteAttributeValidator,
-)(async (req): Promise<DeleteAttributeResponse> => {
+)(async (req) => {
   const property = req.params.property;
   const org = req.context.org;
   const attributes = org.settings?.attributeSchema || [];

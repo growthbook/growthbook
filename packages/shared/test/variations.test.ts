@@ -97,6 +97,35 @@ describe("getLatestPhaseVariations", () => {
     ]);
   });
 
+  it("falls back when latest phase `variations` is an empty array (stored [] is truthy in JS)", () => {
+    const experiment = makeExperiment({
+      phases: [
+        {
+          variations: [],
+        },
+      ] as unknown as MinimalExperiment["phases"],
+    });
+
+    expect(getLatestPhaseVariations(experiment)).toEqual([
+      {
+        id: "v0",
+        key: "control",
+        name: "Control",
+        screenshots: [],
+        index: 0,
+        status: "active",
+      },
+      {
+        id: "v1",
+        key: "treatment",
+        name: "Treatment",
+        screenshots: [],
+        index: 1,
+        status: "active",
+      },
+    ]);
+  });
+
   // Shouldn't happen given the JIT migration
   it('falls back to all variations with status "active" when latest phase variations are missing', () => {
     const experiment = makeExperiment({

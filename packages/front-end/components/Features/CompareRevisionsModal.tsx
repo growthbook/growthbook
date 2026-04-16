@@ -44,9 +44,7 @@ import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Badge from "@/ui/Badge";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Avatar from "@/components/Avatar/Avatar";
 import EventUser from "@/components/Avatar/EventUser";
-import { useUser } from "@/services/UserContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevisionLabel, {
@@ -167,7 +165,7 @@ function RevisionCompareLabel({
           })()}
         {revA && (
           <Box mt="2">
-            <EventUser user={revA.createdBy} display="avatar-with-email" />
+            <EventUser user={revA.createdBy} display="avatar-name-email" />
             <CoAuthors rev={revA} logs={logsA} />
           </Box>
         )}
@@ -221,7 +219,7 @@ function RevisionCompareLabel({
           })()}
         {revB && (
           <Box mt="2">
-            <EventUser user={revB.createdBy} display="avatar-with-email" />
+            <EventUser user={revB.createdBy} display="avatar-name-email" />
             <CoAuthors rev={revB} logs={logsB} />
           </Box>
         )}
@@ -313,7 +311,7 @@ function RevisionCommentItem({
           notes
         </Text>
         {logEntry?.user && (
-          <EventUser user={logEntry.user} display="avatar-with-email" />
+          <EventUser user={logEntry.user} display="avatar-name-email" />
         )}
         {logEntry?.timestamp && (
           <Text size="small" color="text-low">
@@ -810,26 +808,19 @@ function computeBeforeAfter(
 }
 
 function LogEntryMeta({ log }: { log: RevisionLog }) {
-  const { users } = useUser();
-
-  const displayName =
-    log.user?.type === "dashboard"
-      ? (users.get(log.user.id)?.name ?? log.user.name ?? "")
-      : log.user?.type === "api_key"
-        ? "API Key"
-        : "System";
-
   const rows: [string, React.ReactNode][] = [
     ...(log.subject
       ? ([["Subject", log.subject]] as [string, React.ReactNode][])
       : []),
     [
       "Author",
-      log.user?.type === "dashboard" ? (
-        <Avatar email={log.user.email} size={24} name={displayName} showEmail />
-      ) : (
-        <Text size="small">{displayName}</Text>
-      ),
+      <EventUser
+        user={log.user}
+        display="avatar-name-email"
+        size="sm"
+        key="author"
+        wrap={true}
+      />,
     ],
     ["Date", datetime(log.timestamp)],
   ];
@@ -883,7 +874,7 @@ function RawLogDetails({ log }: { log: RevisionLog }) {
       {open && (
         <Box mt="3">
           <div className="diff-wrapper">
-            <div className="list-group-item list-group-item-light">
+            <div className="bg-highlight">
               <Code language="json" code={prettyValue} />
             </div>
           </div>
@@ -2028,7 +2019,11 @@ export default function CompareRevisionsModal({
                                       {logEntry.user?.type === "dashboard"
                                         ? ` · ${logEntry.user.name}`
                                         : logEntry.user?.type === "api_key"
-                                          ? " · API"
+                                          ? logEntry.user.name
+                                            ? ` · ${logEntry.user.name} (API)`
+                                            : logEntry.user.email
+                                              ? ` · ${logEntry.user.email} (API)`
+                                              : " · API"
                                           : ""}
                                     </Text>
                                   </Flex>

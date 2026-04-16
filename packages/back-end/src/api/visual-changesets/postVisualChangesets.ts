@@ -1,4 +1,3 @@
-import { PostVisualChangesetsResponse } from "shared/types/openapi";
 import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { postVisualChangesetsValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -10,7 +9,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const postVisualChangesets = createApiRequestHandler(
   postVisualChangesetsValidator,
-)(async (req): Promise<PostVisualChangesetsResponse> => {
+)(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
     return req.context.throwNotFoundError("Could not find experiment");

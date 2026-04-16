@@ -1,6 +1,5 @@
 import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
-import { UpdateMemberRoleResponse } from "shared/types/openapi";
 import { updateMemberRoleValidator } from "shared/validators";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -87,7 +86,7 @@ export function validateRoleAndEnvs(
 
 export const updateMemberRole = createApiRequestHandler(
   updateMemberRoleValidator,
-)(async (req): Promise<UpdateMemberRoleResponse> => {
+)(async (req) => {
   if (!req.context.permissions.canManageTeam()) {
     req.context.permissions.throwPermissionError();
   }

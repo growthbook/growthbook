@@ -37,8 +37,12 @@ export function getLatestPhaseVariations(
 
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
 
-  // safe guard in case phase or variations are missing
-  if (!latestPhase || !latestPhase.variations) {
+  // safe guard in case phase or variations are missing or are an empty array
+  if (
+    !latestPhase ||
+    !latestPhase.variations ||
+    latestPhase.variations.length === 0
+  ) {
     return defaultResponse;
   }
 

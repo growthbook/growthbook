@@ -3,7 +3,7 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import { QueryInterface, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
-import { ApiQuery } from "shared/types/openapi";
+import { ApiQuery } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -78,6 +78,22 @@ export async function getQueriesByIds(
   }
 
   return queries;
+}
+
+export async function getQueryStatusesByIds(
+  organization: string,
+  ids: string[],
+): Promise<Pick<QueryInterface, "id" | "status" | "finishedAt">[]> {
+  if (!ids.length) return [];
+  const docs = await QueryModel.find(
+    { organization, id: { $in: ids } },
+    { id: 1, status: 1, finishedAt: 1, _id: 0 },
+  );
+  return docs.map((d) => ({
+    id: d.id,
+    status: d.status,
+    finishedAt: d.finishedAt,
+  }));
 }
 
 export async function getQueryById(
@@ -314,6 +330,7 @@ export async function createNewQueryFromCached({
     language: existing.language,
     organization: existing.organization,
     query: existing.query,
+    queryType: existing.queryType,
     startedAt: existing.startedAt,
     finishedAt: existing.finishedAt,
     status: existing.status,

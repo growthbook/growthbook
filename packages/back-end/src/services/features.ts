@@ -1,5 +1,6 @@
 import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
+import { z } from "zod";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
@@ -46,13 +47,12 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
+  HoldoutInterface,
+  SdkConnectionCacheAuditContext,
+  apiFeatureRevisionValidator,
   ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
   ApiFeatureRule,
-} from "shared/types/openapi";
-import {
-  HoldoutInterface,
-  SdkConnectionCacheAuditContext,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -1639,6 +1639,122 @@ export async function encrypt(
   );
 }
 
+function eventUserToString(
+  user: FeatureRevisionInterface["createdBy"],
+): string | undefined {
+  if (!user) return undefined;
+  if (user.type === "api_key") return "API";
+  if (user.type === "system") return "SYSTEM";
+  return user.name || undefined;
+}
+
+function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
+  const base = {
+    description: rule.description,
+    id: rule.id,
+    condition: rule.condition || "",
+    enabled: !!rule.enabled,
+    scheduleRules: rule.scheduleRules,
+    scheduleType: rule.scheduleType,
+    savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+      matchType: s.match,
+      savedGroups: s.ids,
+    })),
+    prerequisites: rule.prerequisites || [],
+  };
+  switch (rule.type) {
+    case "force":
+      return { ...base, type: "force", value: rule.value };
+    case "rollout":
+      return {
+        ...base,
+        type: "rollout",
+        value: rule.value,
+        coverage: rule.coverage ?? 1,
+        hashAttribute: rule.hashAttribute,
+        seed: rule.seed,
+      };
+    case "experiment":
+      return {
+        ...base,
+        type: "experiment",
+        coverage: rule.coverage ?? 1,
+        trackingKey: rule.trackingKey,
+        hashAttribute: rule.hashAttribute,
+        fallbackAttribute: rule.fallbackAttribute,
+        disableStickyBucketing: rule.disableStickyBucketing,
+        bucketVersion: rule.bucketVersion,
+        minBucketVersion: rule.minBucketVersion,
+        namespace: rule.namespace,
+        value: rule.values,
+      };
+    case "experiment-ref":
+      return {
+        ...base,
+        type: "experiment-ref",
+        variations: rule.variations,
+        experimentId: rule.experimentId,
+      };
+    case "safe-rollout":
+      return {
+        ...base,
+        type: "safe-rollout",
+        controlValue: rule.controlValue,
+        variationValue: rule.variationValue,
+        seed: rule.seed,
+        hashAttribute: rule.hashAttribute,
+        trackingKey: rule.trackingKey,
+        safeRolloutId: rule.safeRolloutId,
+        status: rule.status,
+      };
+  }
+}
+
+/** Convert a FeatureRevisionInterface to the API response shape. */
+export function revisionToApiInterface(
+  rev: FeatureRevisionInterface,
+): z.infer<typeof apiFeatureRevisionValidator> {
+  const rules: Record<string, ApiFeatureRule[]> = {};
+  for (const [env, envRules] of Object.entries(rev.rules ?? {})) {
+    rules[env] = (envRules || []).map(normalizeRuleForApi);
+  }
+
+  return {
+    baseVersion: rev.baseVersion,
+    version: rev.version,
+    comment: rev.comment || "",
+    date:
+      rev.dateCreated?.toISOString?.() ||
+      new Date(rev.dateCreated).toISOString(),
+    status: rev.status,
+    createdBy: eventUserToString(rev.createdBy),
+    publishedBy: eventUserToString(rev.publishedBy),
+    defaultValue: rev.defaultValue,
+    rules,
+    ...(rev.environmentsEnabled !== undefined && {
+      environmentsEnabled: rev.environmentsEnabled,
+    }),
+    ...(rev.prerequisites !== undefined && {
+      prerequisites: rev.prerequisites,
+    }),
+    ...(rev.metadata !== undefined && {
+      metadata: {
+        ...rev.metadata,
+        jsonSchema: rev.metadata.jsonSchema
+          ? {
+              ...rev.metadata.jsonSchema,
+              date:
+                rev.metadata.jsonSchema.date?.toISOString?.() ||
+                (rev.metadata.jsonSchema.date
+                  ? new Date(rev.metadata.jsonSchema.date).toISOString()
+                  : undefined),
+            }
+          : undefined,
+      },
+    }),
+  };
+}
+
 export function getApiFeatureObj({
   feature,
   organization,
@@ -2038,6 +2154,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
+        ...(r.prerequisites && { prerequisites: r.prerequisites }),
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRefRule;
@@ -2057,6 +2174,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
         values: values,
+        ...(r.prerequisites && { prerequisites: r.prerequisites }),
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRule;
@@ -2073,6 +2191,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           match: s.matchType,
         })),
         enabled: r.enabled != null ? r.enabled : true,
+        ...(r.prerequisites && { prerequisites: r.prerequisites }),
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return forceRule;
@@ -2091,6 +2210,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         match: s.matchType,
       })),
       enabled: r.enabled != null ? r.enabled : true,
+      ...(r.prerequisites && { prerequisites: r.prerequisites }),
       ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
     };
     return rolloutRule;

@@ -2,7 +2,11 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { isEqual, omit } from "lodash";
-import { managedByValidator, ManagedBy } from "shared/validators";
+import {
+  managedByValidator,
+  ManagedBy,
+  ApiSdkConnection,
+} from "shared/validators";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -11,7 +15,6 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import { ApiSdkConnection } from "shared/types/openapi";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {

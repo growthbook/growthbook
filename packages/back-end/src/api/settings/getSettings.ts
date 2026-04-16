@@ -1,11 +1,10 @@
 import { getScopedSettings } from "shared/settings";
-import { GetSettingsResponse } from "shared/types/openapi";
 import { getSettingsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
   req,
-): Promise<GetSettingsResponse> => {
+) => {
   const { settings: scopedSettings } = getScopedSettings({
     organization: req.context.org,
   });
