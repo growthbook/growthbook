@@ -73,6 +73,19 @@ describe("productAnalytics", () => {
             isAutoSliceColumn: false,
           },
           {
+            column: "session_id",
+            datatype: "string",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+            name: "session_id",
+            description: "",
+            numberFormat: "",
+            alwaysInlineFilter: false,
+            deleted: false,
+            autoSlices: [],
+            isAutoSliceColumn: false,
+          },
+          {
             column: "timestamp",
             datatype: "date",
             dateCreated: new Date(),
@@ -91,7 +104,7 @@ describe("productAnalytics", () => {
         id: "orders",
         name: "Purchases",
         organization: "org_1",
-        sql: "SELECT user_id, anonymous_id, timestamp, revenue FROM orders",
+        sql: "SELECT user_id, anonymous_id, session_id, timestamp, revenue FROM orders",
         userIdTypes: ["user_id", "anonymous_id"],
         dateCreated: new Date(),
         dateUpdated: new Date(),
@@ -167,7 +180,7 @@ describe("productAnalytics", () => {
         _factTable0 AS (
           SELECT * FROM (
             -- Raw fact table SQL
-            SELECT user_id, anonymous_id, timestamp, revenue FROM orders
+            SELECT user_id, anonymous_id, session_id, timestamp, revenue FROM orders
           ) t
           WHERE timestamp >= ${helpers.toTimestamp(startTimestamp)} AND timestamp <= ${helpers.toTimestamp(now)}
         ),
@@ -294,7 +307,7 @@ describe("productAnalytics", () => {
         _factTable0 AS (
           SELECT * FROM (
             -- Raw fact table SQL
-            SELECT user_id, anonymous_id, timestamp, revenue FROM orders
+            SELECT user_id, anonymous_id, session_id, timestamp, revenue FROM orders
           ) t
           WHERE timestamp >= ${helpers.toTimestamp(startTimestamp)} AND timestamp <= ${helpers.toTimestamp(now)}
         ),
@@ -427,7 +440,7 @@ describe("productAnalytics", () => {
         _factTable0 AS (
           SELECT * FROM (
             -- Raw fact table SQL
-            SELECT user_id, anonymous_id, timestamp, revenue FROM orders
+            SELECT user_id, anonymous_id, session_id, timestamp, revenue FROM orders
           ) t
           WHERE timestamp >= ${helpers.toTimestamp(startTimestamp)} AND timestamp <= ${helpers.toTimestamp(now)}
           AND ( (revenue > 100) OR (revenue > 200) )
@@ -561,7 +574,7 @@ describe("productAnalytics", () => {
         _factTable0 AS (
           SELECT * FROM (
             -- Raw fact table SQL
-            SELECT user_id, anonymous_id, timestamp, revenue FROM orders
+            SELECT user_id, anonymous_id, session_id, timestamp, revenue FROM orders
           ) t
           WHERE timestamp >= ${helpers.toTimestamp(startTimestamp)} AND timestamp <= ${helpers.toTimestamp(now)}
           AND ( revenue > 100 )
@@ -614,6 +627,267 @@ describe("productAnalytics", () => {
       FROM _combined_rollup
       GROUP BY
         dimension0
+    `,
+      helpers.formatDialect,
+    );
+
+    expect(sql).toEqual(expected);
+  });
+
+  it("generates SQL for mean metrics with COUNT DISTINCT aggregation", () => {
+    const metric: FactMetricInterface = {
+      id: "met_session_count",
+      name: "Session Count",
+      organization: "org_1",
+      owner: "",
+      datasource: "ds_1",
+      projects: [],
+      tags: [],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "session_id",
+        aggregation: "count distinct",
+        rowFilters: [],
+      },
+      denominator: null,
+      cappingSettings: {
+        type: "",
+        value: 0,
+        ignoreZeros: false,
+      },
+      windowSettings: {
+        type: "",
+        delayUnit: "days",
+        delayValue: 0,
+        windowUnit: "days",
+        windowValue: 0,
+      },
+      quantileSettings: null,
+      description: "",
+      regressionAdjustmentDays: 0,
+      regressionAdjustmentEnabled: false,
+      regressionAdjustmentReason: "",
+      inverse: false,
+      userIdColumns: {},
+      userIdTypes: [],
+    };
+
+    const metricsMap = new Map<string, FactMetricInterface>([
+      ["met_session_count", metric],
+    ]);
+
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: null,
+          dateGranularity: "day",
+        },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            type: "metric",
+            metricId: "met_session_count",
+            unit: null,
+            denominatorUnit: null,
+            rowFilters: [],
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      factTableMap,
+      metricsMap,
+      helpers,
+      datasource,
+    );
+
+    const now = new Date();
+    const startTimestamp = new Date(now);
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+
+    const expected = format(
+      `
+      WITH
+        _factTable0 AS (
+          SELECT * FROM (
+            -- Raw fact table SQL
+            SELECT user_id, anonymous_id, session_id, timestamp, revenue FROM orders
+          ) t
+          WHERE timestamp >= ${helpers.toTimestamp(startTimestamp)} AND timestamp <= ${helpers.toTimestamp(now)}
+        ),
+        _factTable0_rows AS (
+          SELECT
+            date_trunc('day', timestamp) AS dimension0,
+            session_id AS m0
+          FROM _factTable0
+        ),
+        _factTable0_event_rollup AS (
+          SELECT
+            dimension0,
+            CAST(COUNT(DISTINCT m0) AS FLOAT) AS m0_numerator
+          FROM _factTable0_rows
+          GROUP BY
+            dimension0
+        )
+      SELECT
+        dimension0,
+        m0_numerator AS m0_numerator
+      FROM _factTable0_event_rollup
+    `,
+      helpers.formatDialect,
+    );
+
+    expect(sql).toEqual(expected);
+  });
+
+  it("generates SQL for mean metrics with COUNT DISTINCT aggregation and unit", () => {
+    const metric: FactMetricInterface = {
+      id: "met_session_count_per_user",
+      name: "Session Count Per User",
+      organization: "org_1",
+      owner: "",
+      datasource: "ds_1",
+      projects: [],
+      tags: [],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "session_id",
+        aggregation: "count distinct",
+        rowFilters: [],
+      },
+      denominator: null,
+      cappingSettings: {
+        type: "",
+        value: 0,
+        ignoreZeros: false,
+      },
+      windowSettings: {
+        type: "",
+        delayUnit: "days",
+        delayValue: 0,
+        windowUnit: "days",
+        windowValue: 0,
+      },
+      quantileSettings: null,
+      description: "",
+      regressionAdjustmentDays: 0,
+      regressionAdjustmentEnabled: false,
+      regressionAdjustmentReason: "",
+      inverse: false,
+      userIdColumns: {},
+      userIdTypes: [],
+    };
+
+    const metricsMap = new Map<string, FactMetricInterface>([
+      ["met_session_count_per_user", metric],
+    ]);
+
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: null,
+          dateGranularity: "day",
+        },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            type: "metric",
+            metricId: "met_session_count_per_user",
+            unit: "user_id",
+            denominatorUnit: null,
+            rowFilters: [],
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      factTableMap,
+      metricsMap,
+      helpers,
+      datasource,
+    );
+
+    const now = new Date();
+    const startTimestamp = new Date(now);
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+
+    const expected = format(
+      `
+      WITH
+        _factTable0 AS (
+          SELECT * FROM (
+            -- Raw fact table SQL
+            SELECT user_id, anonymous_id, session_id, timestamp, revenue FROM orders
+          ) t
+          WHERE timestamp >= ${helpers.toTimestamp(startTimestamp)} AND timestamp <= ${helpers.toTimestamp(now)}
+        ),
+        _factTable0_rows AS (
+          SELECT
+            date_trunc('day', timestamp) AS dimension0,
+            user_id AS unit0,
+            session_id AS m0
+          FROM _factTable0
+        ),
+        _factTable0_unit0 AS (
+          SELECT
+            unit0,
+            dimension0,
+            COUNT(DISTINCT m0) AS m0
+          FROM _factTable0_rows
+          GROUP BY
+            unit0,
+            dimension0
+        ),
+        _factTable0_unit0_rollup AS (
+          SELECT
+            dimension0,
+            CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(COUNT(m0) AS FLOAT) AS m0_denominator
+          FROM _factTable0_unit0
+          GROUP BY
+            dimension0
+        )
+      SELECT
+        dimension0,
+        m0_numerator AS m0_numerator,
+        m0_denominator AS m0_denominator
+      FROM _factTable0_unit0_rollup
     `,
       helpers.formatDialect,
     );

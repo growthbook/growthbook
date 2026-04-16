@@ -549,13 +549,26 @@ function getRollupAggregationExpr(
   metric: MinimalMetric,
   alias: string,
   helpers: SqlHelpers,
+  columnRef: ColumnRef,
+  isEventLevelAggregation: boolean,
 ): string {
   // Quantiles
   if (metric.metricType === "quantile" && metric.quantileSettings) {
     return helpers.percentileApprox(alias, metric.quantileSettings.quantile);
-  } else {
-    return `SUM(${alias})`;
   }
+
+  // For event-level aggregation, respect the original aggregation type
+  if (isEventLevelAggregation) {
+    if (columnRef.aggregation === "count distinct") {
+      return `COUNT(DISTINCT ${alias})`;
+    }
+    if (columnRef.aggregation === "max") {
+      return `MAX(${alias})`;
+    }
+  }
+
+  // For unit-level aggregation or default case, use SUM
+  return `SUM(${alias})`;
 }
 
 function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
@@ -619,6 +632,9 @@ function getMetricData(
 
   const cappingSettings = getCappingSettings(metric);
 
+  // Event-level aggregation is when we don't have a unit
+  const isEventLevelAggregation = selectedUnit === null;
+
   return {
     unit: selectedUnit,
     alias,
@@ -636,7 +652,13 @@ function getMetricData(
     unitAggregationExpr: selectedUnit
       ? getUnitAggregationExpr(columnRef, alias)
       : null,
-    rollupAggregationExpr: getRollupAggregationExpr(metric, alias, helpers),
+    rollupAggregationExpr: getRollupAggregationExpr(
+      metric,
+      alias,
+      helpers,
+      columnRef,
+      isEventLevelAggregation,
+    ),
     rollupCountExpr,
   };
 }
