@@ -76,7 +76,10 @@ const ExperimentTimelinePage = (): React.ReactElement => {
   // Always render timeline rows in descending experiment date order so
   // the chart remains chronological regardless of external list sort settings.
   const timelineItems = useMemo(
-    () => [...items].sort((a, b) => experimentDate(b).localeCompare(experimentDate(a))),
+    () =>
+      [...items].sort((a, b) =>
+        experimentDate(b).localeCompare(experimentDate(a)),
+      ),
     [items],
   );
 
