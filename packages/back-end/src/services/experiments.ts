@@ -1447,6 +1447,7 @@ export async function createSnapshotFromPlan({
     }
 
     const snapshot = await createExperimentSnapshotModel({
+      context,
       data: plan.snapshot,
     });
     createdSnapshotId = snapshot.id;
@@ -1564,13 +1565,12 @@ export async function createSnapshotFromPlan({
 
     if (createdSnapshotId) {
       await updateSnapshot({
-        organization: context.org.id,
+        context,
         id: createdSnapshotId,
         updates: {
           status: "error",
           error: e.message,
         },
-        context,
       });
     }
     throw e;
@@ -1864,7 +1864,6 @@ export async function planExperimentSnapshot({
 
 export type SnapshotAnalysisParams = {
   experiment: ExperimentInterface;
-  organization: OrganizationInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   snapshot: ExperimentSnapshotInterface;
@@ -1885,6 +1884,7 @@ export async function _getSnapshots(
     experimentPhaseMap.set(e.id, e.phases.length - 1);
   });
   return await getLatestSnapshotMultipleExperiments(
+    context,
     experimentPhaseMap,
     dimension,
     withResults,
@@ -1892,8 +1892,8 @@ export async function _getSnapshots(
 }
 
 async function getSnapshotAnalyses(
-  params: SnapshotAnalysisParams[],
   context: ReqContext,
+  params: SnapshotAnalysisParams[],
 ) {
   const analysisParamsMap = new Map<
     string,
@@ -1909,104 +1909,91 @@ async function getSnapshotAnalyses(
   );
 
   const createAnalysisPromises: (() => Promise<void>)[] = [];
-  params.forEach(
-    (
-      { experiment, organization, analysisSettings, metricMap, snapshot },
-      i,
-    ) => {
-      const expandedMetricMap = new Map(metricMap);
-      // Ensure slice metrics from existing snapshot query results can always
-      // be resolved during re-analysis, regardless of caller behavior.
-      expandAllSliceMetricsInMap({
-        metricMap: expandedMetricMap,
-        factTableMap,
-        experiment,
-        metricGroups,
-      });
+  params.forEach(({ experiment, analysisSettings, metricMap, snapshot }, i) => {
+    const expandedMetricMap = new Map(metricMap);
+    // Ensure slice metrics from existing snapshot query results can always
+    // be resolved during re-analysis, regardless of caller behavior.
+    expandAllSliceMetricsInMap({
+      metricMap: expandedMetricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
 
-      // check if analysis is possible
-      if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
-        logger.error(`Analysis not allowed with this snapshot: ${snapshot.id}`);
-        return;
-      }
+    // check if analysis is possible
+    if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
+      logger.error(`Analysis not allowed with this snapshot: ${snapshot.id}`);
+      return;
+    }
 
-      const totalQueries = snapshot.queries.length;
-      const failedQueries = snapshot.queries.filter(
-        (q) => q.status === "failed",
+    const totalQueries = snapshot.queries.length;
+    const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
+    const runningQueries = snapshot.queries.filter(
+      (q) => q.status === "running",
+    );
+
+    if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+      logger.error(
+        `Snapshot queries not available for analysis: ${snapshot.id}`,
       );
-      const runningQueries = snapshot.queries.filter(
-        (q) => q.status === "running",
-      );
+      return;
+    }
+    const analysis: ExperimentSnapshotAnalysis = {
+      results: [],
+      status: "running",
+      settings: analysisSettings,
+      dateCreated: new Date(),
+    };
 
-      if (
-        runningQueries.length > 0 ||
-        failedQueries.length >= totalQueries / 2
-      ) {
-        logger.error(
-          `Snapshot queries not available for analysis: ${snapshot.id}`,
-        );
-        return;
-      }
-      const analysis: ExperimentSnapshotAnalysis = {
-        results: [],
-        status: "running",
-        settings: analysisSettings,
-        dateCreated: new Date(),
-      };
+    // promise to add analysis to mongo record if it does not exist, overwrite if it does
+    createAnalysisPromises.push(() =>
+      addOrUpdateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis,
+      }),
+    );
 
-      // promise to add analysis to mongo record if it does not exist, overwrite if it does
-      createAnalysisPromises.push(() =>
-        addOrUpdateSnapshotAnalysis({
-          organization: organization.id,
-          id: snapshot.id,
-          analysis,
-        }),
-      );
+    const mdat = getMetricsAndQueryDataForStatsEngine(
+      queryMap,
+      expandedMetricMap,
+      snapshot.settings,
+    );
+    const id = `${i}_${experiment.id}_${snapshot.id}`;
+    const variationNames = getLatestPhaseVariations(experiment).map(
+      (v) => v.name,
+    );
+    const { queryResults, metricSettings, unknownVariations } = mdat;
 
-      const mdat = getMetricsAndQueryDataForStatsEngine(
-        queryMap,
-        expandedMetricMap,
-        snapshot.settings,
-      );
-      const id = `${i}_${experiment.id}_${snapshot.id}`;
-      const variationNames = getLatestPhaseVariations(experiment).map(
-        (v) => v.name,
-      );
-      const { queryResults, metricSettings, unknownVariations } = mdat;
-
-      analysisParamsMap.set(id, {
-        params: {
-          id,
-          coverage: snapshot.settings.coverage ?? 1,
-          phaseLengthHours: Math.max(
-            hoursBetween(
-              snapshot.settings.startDate,
-              snapshot.settings.endDate,
-            ),
-            1,
-          ),
-          variations: snapshot.settings.variations.map((v, i) => ({
-            ...v,
-            index: i,
-            name: variationNames[i] || v.id,
-          })),
-          analyses: [analysisSettings],
-          queryResults: queryResults,
-          metrics: metricSettings,
-        },
-        context: {
-          // extra settings for multiple experiment approach
-          snapshotSettings: snapshot.settings,
-          organization: organization.id,
-          snapshot: snapshot.id,
-        },
-        data: {
-          unknownVariations: unknownVariations,
-          analysisObj: analysis,
-        },
-      });
-    },
-  );
+    analysisParamsMap.set(id, {
+      params: {
+        id,
+        coverage: snapshot.settings.coverage ?? 1,
+        phaseLengthHours: Math.max(
+          hoursBetween(snapshot.settings.startDate, snapshot.settings.endDate),
+          1,
+        ),
+        variations: snapshot.settings.variations.map((v, i) => ({
+          ...v,
+          index: i,
+          name: variationNames[i] || v.id,
+        })),
+        analyses: [analysisSettings],
+        queryResults: queryResults,
+        metrics: metricSettings,
+      },
+      context: {
+        // extra settings for multiple experiment approach
+        snapshotSettings: snapshot.settings,
+        organization: context.org.id,
+        snapshot: snapshot.id,
+      },
+      data: {
+        unknownVariations: unknownVariations,
+        analysisObj: analysis,
+      },
+    });
+  });
 
   // write running snapshots to db
   if (createAnalysisPromises.length > 0) {
@@ -2021,7 +2008,7 @@ export async function createSnapshotAnalyses(
   context: ReqContext,
 ): Promise<void> {
   // creates snapshot analyses in mongo and gets analysis parameters
-  const analysisParamsMap = await getSnapshotAnalyses(params, context);
+  const analysisParamsMap = await getSnapshotAnalyses(context, params);
 
   // calls stats engine to run analyses
   const results = await runSnapshotAnalyses(
@@ -2029,15 +2016,14 @@ export async function createSnapshotAnalyses(
   );
 
   // parses results and writes to mongo
-  await writeSnapshotAnalyses(results, analysisParamsMap);
+  await writeSnapshotAnalyses(context, results, analysisParamsMap);
 }
 
 export async function createSnapshotAnalysis(
   context: ReqContext | ApiReqContext,
   params: SnapshotAnalysisParams,
 ): Promise<void> {
-  const { snapshot, analysisSettings, organization, experiment, metricMap } =
-    params;
+  const { snapshot, analysisSettings, experiment, metricMap } = params;
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     throw new Error("Analysis not allowed with this snapshot");
@@ -2058,7 +2044,7 @@ export async function createSnapshotAnalysis(
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
   await addOrUpdateSnapshotAnalysis({
-    organization: organization.id,
+    context,
     id: snapshot.id,
     analysis,
   });
@@ -2079,7 +2065,7 @@ export async function createSnapshotAnalysis(
   analysis.error = undefined;
 
   await updateSnapshotAnalysis({
-    organization: organization.id,
+    context,
     id: snapshot.id,
     analysis,
   });

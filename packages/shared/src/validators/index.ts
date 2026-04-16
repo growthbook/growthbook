@@ -24,6 +24,7 @@ export * from "./saved-group";
 export * from "./saved-queries";
 export * from "./segment";
 export * from "./shared";
+export * from "./snapshot-analysis-chunks";
 export * from "./webhook-secrets";
 export * from "./webhooks";
 export * from "./event-webhook";

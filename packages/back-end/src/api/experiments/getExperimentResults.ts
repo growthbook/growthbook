@@ -15,6 +15,7 @@ export const getExperimentResults = createApiRequestHandler(
   const phase = parseInt(req.query.phase ?? experiment.phases.length - 1 + "");
 
   const snapshot = await getLatestSnapshot({
+    context: req.context,
     experiment: experiment.id,
     phase,
     dimension: req.query.dimension,

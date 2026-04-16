@@ -1198,7 +1198,7 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }
