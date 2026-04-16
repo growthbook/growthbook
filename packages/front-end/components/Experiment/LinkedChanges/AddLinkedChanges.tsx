@@ -15,7 +15,7 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
-const LINKED_CHANGES: Record<
+export const LINKED_CHANGES: Record<
   LinkedChange,
   {
     header: string;
@@ -162,8 +162,7 @@ export default function AddLinkedChanges({
   if (experiment.status !== "draft") return null;
   if (experiment.archived) return null;
   // Already has linked changes
-  // TODO: Add back after implementing new implementation dropdown in LinkedChanges section
-  // if (numLinkedChanges && numLinkedChanges > 0) return null;
+  if (numLinkedChanges && numLinkedChanges > 0) return null;
 
   const sections = {
     "feature-flag": {

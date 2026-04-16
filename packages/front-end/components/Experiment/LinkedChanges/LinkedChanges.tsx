@@ -12,6 +12,7 @@ import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { RedirectLinkedChanges } from "./RedirectLinkedChanges";
+import AddLinkedChangeButton from "./AddLinkedChangeButton";
 import {
   ICON_PROPERTIES,
   LINKED_CHANGE_CONTAINER_PROPERTIES,
@@ -29,6 +30,9 @@ export default function LinkedChanges({
   canEditVisualChangesets,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
+  setVisualEditorModal,
+  setFeatureModal,
+  setUrlRedirectModal,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -40,6 +44,9 @@ export default function LinkedChanges({
   canEditVisualChangesets: boolean;
   visualChangesetEnvStates?: LinkedChangeEnvStates;
   urlRedirectEnvStates?: LinkedChangeEnvStates;
+  setVisualEditorModal: (state: boolean) => void;
+  setFeatureModal: (state: boolean) => void;
+  setUrlRedirectModal: (state: boolean) => void;
 }) {
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
@@ -112,6 +119,20 @@ export default function LinkedChanges({
               environmentStates={urlRedirectEnvStates}
             />
           ))}
+          <Flex justify="between">
+            <Text color="text-high" size="large" weight="semibold">
+              Add Feature, URL Redirect or Visual Editor
+            </Text>
+            <AddLinkedChangeButton
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              visualChangesets={visualChangesets}
+              urlRedirects={urlRedirects}
+              onFeatureFlag={() => setFeatureModal(true)}
+              onVisualEditor={() => setVisualEditorModal(true)}
+              onUrlRedirect={() => setUrlRedirectModal(true)}
+            />
+          </Flex>
         </>
       )}
     </Box>

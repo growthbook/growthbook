@@ -144,6 +144,9 @@ export default function Implementation({
             canEditVisualChangesets={hasVisualEditorPermission}
             visualChangesetEnvStates={visualChangesetEnvStates}
             urlRedirectEnvStates={urlRedirectEnvStates}
+            setVisualEditorModal={setVisualEditorModal}
+            setFeatureModal={setFeatureModal}
+            setUrlRedirectModal={setUrlRedirectModal}
           />
         ) : null}
         {!isHoldout && (
