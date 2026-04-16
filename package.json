@@ -26,7 +26,7 @@
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true",
     "plop": "plop",
     "migrate-encryption-key": "pnpm --filter back-end migrate-encryption-key",
-    "generate-api-types": "pnpm --filter back-end generate-api-types",
+    "generate-openapi": "pnpm --filter back-end generate-openapi",
     "ci": "pnpm lint:ci && pnpm run type-check && pnpm run test",
     "postinstall": "if command -v poetry >/dev/null 2>&1; then pnpm update-stats-deps; fi",
     "generate-sdk-report": "pnpm --filter shared generate-sdk-report",

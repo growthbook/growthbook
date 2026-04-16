@@ -3,6 +3,8 @@ import { apiBaseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
 import { rowFilterValidator } from "./fact-table";
 
+import { namedSchema } from "./openapi-helpers";
+
 const baseValueValidator = z.object({
   name: z.string(),
   rowFilters: z.array(rowFilterValidator),
@@ -305,10 +307,12 @@ export const apiDataSourceExplorationValidator =
     config: dataSourceExplorationConfigValidator,
   });
 
-export const apiAnalyticsExplorationValidator =
+export const apiAnalyticsExplorationValidator = namedSchema(
+  "AnalyticsExploration",
   apiExplorationBaseValidator.safeExtend({
     config: explorationConfigValidator,
-  });
+  }),
+);
 
 export type ApiAnalyticsExploration = z.infer<
   typeof apiAnalyticsExplorationValidator

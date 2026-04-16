@@ -1245,6 +1245,20 @@ export abstract class BaseModel<
   }
 }
 
+/**
+ * Merges body schemas from openApiSpec.schemas into the CVO type so that
+ * ExtractCrudSchema can resolve the correct body type for create/update
+ * handler overrides — even when the schemas are not in crudValidatorOverrides.
+ */
+type MergedCrudOverrides<
+  CVO extends CrudValidatorOverrides,
+  CB extends z.ZodTypeAny,
+  UB extends z.ZodTypeAny,
+> = CVO & {
+  create: { bodySchema: CB };
+  update: { bodySchema: UB };
+};
+
 export const MakeModelClass = <
   T extends BaseSchemaWithPrimaryKey<PKey>,
   E extends EntityType,
@@ -1252,9 +1266,16 @@ export const MakeModelClass = <
   PKey extends z.ZodRawShape,
   PK extends readonly string[] = typeof DEFAULT_PKEY,
   CVO extends CrudValidatorOverrides = CrudValidatorOverrides,
+  CB extends z.ZodTypeAny = z.ZodUnknown,
+  UB extends z.ZodTypeAny = z.ZodUnknown,
 >(
   config: ModelConfig<T, E, ApiT, PKey> & {
-    apiConfig?: { openApiSpec?: { crudValidatorOverrides?: CVO } };
+    apiConfig?: {
+      openApiSpec?: {
+        crudValidatorOverrides?: CVO;
+        schemas?: { createBody?: CB; updateBody?: UB };
+      };
+    };
   } & { pKey?: PK },
 ) => {
   const createValidator = createSchema<T, PKey>(config.schema);
@@ -1270,7 +1291,7 @@ export const MakeModelClass = <
     PKey,
     WriteOptions,
     PK,
-    CVO
+    MergedCrudOverrides<CVO, CB, UB>
   > {
     getConfig() {
       return config as ModelConfig<T, E, ApiT, PKey>;

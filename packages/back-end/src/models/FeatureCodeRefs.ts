@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { FeatureCodeRefsInterface } from "shared/types/code-refs";
-import { ApiCodeRef } from "shared/types/openapi";
+import { ApiCodeRef } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   ToInterface,

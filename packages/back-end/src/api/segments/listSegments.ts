@@ -1,4 +1,3 @@
-import { ListSegmentsResponse } from "shared/types/openapi";
 import { listSegmentsValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
 import {
@@ -8,7 +7,7 @@ import {
 } from "back-end/src/util/handler";
 
 export const listSegments = createApiRequestHandler(listSegmentsValidator)(
-  async (req): Promise<ListSegmentsResponse> => {
+  async (req) => {
     const segments = await req.context.models.segments.getAll();
 
     // TODO: Move sorting/limiting to the database query for better performance

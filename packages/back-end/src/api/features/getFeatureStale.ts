@@ -1,8 +1,8 @@
 import {
   getFeatureStaleValidator,
   ACTIVE_DRAFT_STATUSES,
+  FeatureStaleEntry,
 } from "shared/validators";
-import { GetFeatureStaleResponse } from "shared/types/openapi";
 import { isFeatureStale } from "shared/util";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
@@ -11,13 +11,9 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ReqContext } from "back-end/types/request";
 
-type FeatureStaleEntry = NonNullable<
-  GetFeatureStaleResponse["features"][string]
->;
-
 export const getFeatureStale = createApiRequestHandler(
   getFeatureStaleValidator,
-)(async (req): Promise<GetFeatureStaleResponse> => {
+)(async (req) => {
   const ids = req.query.ids
     .split(",")
     .map((id) => decodeURIComponent(id.trim()))
@@ -82,20 +78,19 @@ export const getFeatureStale = createApiRequestHandler(
 
     type EnvReason = Exclude<FeatureStaleEntry["staleReason"], "never-stale">;
 
-    const staleByEnv = Object.fromEntries(
-      Object.entries(envResults).map(([envId, r]) => [
-        envId,
-        {
-          isStale: r.stale,
-          reason: (r.reason === "error" || r.reason === "never-stale"
-            ? null
-            : (r.reason ?? null)) as EnvReason,
-          ...(r.evaluatesTo !== undefined
-            ? { evaluatesTo: r.evaluatesTo }
-            : {}),
-        },
-      ]),
-    );
+    const staleByEnv: Record<
+      string,
+      { isStale: boolean; reason: EnvReason; evaluatesTo?: string }
+    > = {};
+    for (const [envId, r] of Object.entries(envResults)) {
+      staleByEnv[envId] = {
+        isStale: r.stale,
+        reason: (r.reason === "error" || r.reason === "never-stale"
+          ? null
+          : (r.reason ?? null)) as EnvReason,
+        ...(r.evaluatesTo !== undefined ? { evaluatesTo: r.evaluatesTo } : {}),
+      };
+    }
 
     const publicReason = reason === "error" ? null : (reason ?? null);
 
