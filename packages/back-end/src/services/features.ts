@@ -2100,7 +2100,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
 ): FeatureInterface["environmentSettings"][string]["rules"] =>
-  rules.map((r) => {
+  rules.flatMap((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {
       throw new Error(
@@ -2161,25 +2161,31 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return forceRule;
+    } else if (r.type === "rollout") {
+      const rolloutRule: RolloutRule = {
+        // missing id will be filled in by addIdsToRules
+        id: r.id ?? "",
+        type: r.type,
+        coverage: r.coverage,
+        description: r.description ?? "",
+        hashAttribute: r.hashAttribute,
+        value: validateFeatureValue(feature, r.value),
+        condition: r.condition,
+        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+          ids: s.savedGroups,
+          match: s.matchType,
+        })),
+        enabled: r.enabled != null ? r.enabled : true,
+        ...(r.prerequisites && { prerequisites: r.prerequisites }),
+        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+      };
+      return rolloutRule;
     }
-    const rolloutRule: RolloutRule = {
-      // missing id will be filled in by addIdsToRules
-      id: r.id ?? "",
-      type: "rollout",
-      coverage: r.coverage,
-      description: r.description ?? "",
-      hashAttribute: r.hashAttribute,
-      value: validateFeatureValue(feature, r.value),
-      condition: r.condition,
-      savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-        ids: s.savedGroups,
-        match: s.matchType,
-      })),
-      enabled: r.enabled != null ? r.enabled : true,
-      ...(r.prerequisites && { prerequisites: r.prerequisites }),
-      ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-    };
-    return rolloutRule;
+    logger.error(
+      { ruleType: (r as { type?: string }).type },
+      "Unrecognized feature rule type; skipping rule",
+    );
+    return [];
   });
 
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
