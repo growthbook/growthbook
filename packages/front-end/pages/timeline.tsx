@@ -67,6 +67,10 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     useExperimentSearch({
       allExperiments,
       filterResults,
+      defaultSortField: "date",
+      defaultSortDir: -1,
+      // Keep timeline ordering independent from experiments table sort preferences.
+      localStorageKey: "experiment-timeline",
     });
 
   if (error) {
