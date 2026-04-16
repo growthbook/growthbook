@@ -1277,6 +1277,7 @@ export const listExperimentsValidator = {
           "Filter the returned list by the experiment tracking key (id)",
         )
         .optional(),
+      status: z.enum(experimentStatus).optional(),
     })
     .strict(),
   paramsSchema: z.never(),
