@@ -112,21 +112,25 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     );
   }
 
-  // Check publish permission for the environments this revision actually touches.
+  // Check publish permission for the environments this revision touches.
+  // For pure rules-only changes we can scope the check to just the affected
+  // environments. For everything else (defaultValue, prerequisites,
+  // environmentsEnabled, archived, metadata) we must check all enabled envs
+  // since those changes are not scoped to a specific environment.
   const allEnabledEnvs = Array.from(
     getEnabledEnvironments(feature, environmentIds),
   );
-  if (mergeResult.result.defaultValue !== undefined) {
-    if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
-      req.context.permissions.throwPermissionError();
-    }
-  } else {
-    const changedEnvs = Object.keys(mergeResult.result.rules || {});
-    if (changedEnvs.length > 0) {
-      if (!req.context.permissions.canPublishFeature(feature, changedEnvs)) {
-        req.context.permissions.throwPermissionError();
-      }
-    }
+  const changedEnvs = Object.keys(mergeResult.result.rules || {});
+  const isRulesOnlyChange =
+    mergeResult.result.defaultValue === undefined &&
+    !mergeResult.result.prerequisites &&
+    mergeResult.result.environmentsEnabled === undefined &&
+    mergeResult.result.archived === undefined &&
+    !mergeResult.result.metadata;
+  const envsToCheck =
+    isRulesOnlyChange && changedEnvs.length > 0 ? changedEnvs : allEnabledEnvs;
+  if (!req.context.permissions.canPublishFeature(feature, envsToCheck)) {
+    req.context.permissions.throwPermissionError();
   }
 
   const updatedFeature = await publishRevision(

@@ -20,15 +20,15 @@ export const postFeatureRevisionToggle = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  const { environment, enabled } = req.body;
-  assertValidEnvironment(req.context, environment);
-
   if (
     !req.context.permissions.canUpdateFeature(feature, {}) ||
     !req.context.permissions.canManageFeatureDrafts(feature)
   ) {
     req.context.permissions.throwPermissionError();
   }
+
+  const { environment, enabled } = req.body;
+  assertValidEnvironment(req.context, environment);
 
   const revision = await resolveOrCreateRevision(
     req.context,

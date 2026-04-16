@@ -14,6 +14,7 @@ import type {
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { revisionToApiInterface } from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -157,6 +158,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   // feature's holdout (both on the experiment and the holdout's linkedExperiments).
   if (ruleInput.type === "experiment-ref") {
     const anyMissing = ruleInput.variations.some((v) => !v.variationId);
+    const allMissing = ruleInput.variations.every((v) => !v.variationId);
+    if (anyMissing && !allMissing) {
+      throw new BadRequestError(
+        "Either provide variationId for all variations or none; mixed inputs are not allowed.",
+      );
+    }
     const needsHoldoutCheck = Boolean(feature.holdout?.id);
     if (anyMissing || needsHoldoutCheck) {
       const experiment = await getExperimentById(
@@ -170,8 +177,14 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       }
 
       if (anyMissing) {
+        const phaseVariations = getLatestPhaseVariations(experiment);
+        if (phaseVariations.length < ruleInput.variations.length) {
+          throw new BadRequestError(
+            `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
+          );
+        }
         ruleInput.variations = ruleInput.variations.map((v, i) => ({
-          variationId: v.variationId ?? experiment.variations[i]?.id ?? "",
+          variationId: phaseVariations[i].id,
           value: v.value,
         }));
       }
