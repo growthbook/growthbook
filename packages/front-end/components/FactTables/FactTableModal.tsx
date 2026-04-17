@@ -13,7 +13,6 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import track from "@/services/track";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
@@ -24,6 +23,10 @@ import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
 import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
+import Dialog from "@/ui/Dialog";
+import Text from "@/ui/Text";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -122,11 +125,11 @@ export default function FactTableModal({
           }}
         />
       )}
-      <Modal
+      <Dialog
         trackingEventModalType=""
         open={true}
         close={close}
-        cta={"Save"}
+        size="lg"
         header={
           existing && !duplicate ? "Edit Fact Table" : "Create Fact Table"
         }
@@ -204,11 +207,17 @@ export default function FactTableModal({
           }
         })}
       >
-        <Field label="Name" {...form.register("name")} required />
+        <Field
+          label="Name"
+          {...form.register("name")}
+          required
+          labelClassName="font-weight-bold"
+        />
 
         {
           <SelectField
             label="Data Source"
+            labelClassName="font-weight-bold"
             value={form.watch("datasource")}
             onChange={(v) => {
               form.setValue("datasource", v);
@@ -232,6 +241,7 @@ export default function FactTableModal({
           <Field
             label="Event Name in Database"
             helpText="Available as a template variable in your SQL"
+            labelClassName="font-weight-bold"
             placeholder={form.watch("name")}
             {...form.register("eventName")}
           />
@@ -239,22 +249,23 @@ export default function FactTableModal({
 
         {selectedDataSource && (!existing?.id || duplicate) && (
           <div className="form-group">
-            <label>Query</label>
+            <Text as="label" weight="semibold">
+              Query
+            </Text>
             {showAdditionalColumnMessage && (
-              <div className="alert alert-info">
+              <Callout status="info">
                 We auto-generated some basic SQL for you below. Add any
                 additional columns that would be useful for building metrics.
-              </div>
+              </Callout>
             )}
             {form.watch("sql") && (
               <Code language="sql" code={form.watch("sql")} expandable={true} />
             )}
             <div>
-              <button
-                className="btn btn-outline-primary"
+              <Button
+                variant="outline"
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault();
+                onClick={() => {
                   if (!form.watch("eventName")) {
                     form.setValue("eventName", form.watch("name"));
                   }
@@ -265,7 +276,7 @@ export default function FactTableModal({
                 }}
               >
                 {form.watch("sql") ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -332,7 +343,7 @@ export default function FactTableModal({
             />
           </div>
         )}
-      </Modal>
+      </Dialog>
     </>
   );
 }

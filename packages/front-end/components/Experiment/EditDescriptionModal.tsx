@@ -5,7 +5,7 @@ import { ExperimentType } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Modal from "@/components/Modal";
+import Dialog from "@/ui/Dialog";
 
 interface Props {
   source: string;
@@ -50,10 +50,28 @@ export default function EditDescriptionModal({
   });
 
   return (
-    <Modal
+    <Dialog
       trackingEventModalSource={source}
       trackingEventModalType="edit-experiment-description-modal"
       header="Edit Description"
+      subheader={
+        <Flex align="center" wrap="wrap" width="auto" mb="2">
+          <Box as="div">
+            <Text className="pr-1" as="span">
+              Use markdown to format your content.
+            </Text>
+            <Link
+              rel="noreferrer"
+              target="_blank"
+              weight="bold"
+              href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
+            >
+              Learn More
+              <PiArrowSquareOutFill className="ml-1" />
+            </Link>
+          </Box>
+        </Flex>
+      }
       open={true}
       size="lg"
       close={close}
@@ -66,29 +84,12 @@ export default function EditDescriptionModal({
         // forces the description box to be "expanded"
         localStorage.removeItem(`collapse-${experimentId}-description`);
       })}
-      useRadixButton={true}
     >
-      <Flex align="center" wrap="wrap" width="auto" mb="2">
-        <Box as="div">
-          <Text className="pr-1" as="span">
-            Use markdown to format your content.
-          </Text>
-          <Link
-            rel="noreferrer"
-            target="_blank"
-            weight="bold"
-            href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
-          >
-            Learn More
-            <PiArrowSquareOutFill className="ml-1" />
-          </Link>
-        </Box>
-      </Flex>
       <MarkdownInput
         value={form.watch("description")}
         setValue={(value) => form.setValue("description", value)}
         placeholder={getExperimentDescriptionPlaceholder(experimentType)}
       />
-    </Modal>
+    </Dialog>
   );
 }

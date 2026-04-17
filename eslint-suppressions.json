@@ -214,11 +214,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/holdout/AddToHoldoutModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {
     "no-restricted-imports": {
       "count": 2

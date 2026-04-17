@@ -10,7 +10,7 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { truncateString } from "shared/util";
 import track, { TrackEventProps } from "@/services/track";
-import Button from "./Button";
+import Button, { Color } from "./Button";
 import ErrorDisplay from "./ErrorDisplay";
 import Text from "./Text";
 
@@ -18,11 +18,12 @@ export type Props = {
   open: boolean;
   header: string;
   headerAction?: ReactNode;
-  subheader?: string;
+  subheader?: string | ReactNode;
   cta?: string;
+  ctaColor?: Color;
   ctaEnabled?: boolean;
   size?: Size;
-  submit: () => void | Promise<void>;
+  submit?: () => void | Promise<void>;
   close: () => void;
   children: ReactNode;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
@@ -60,7 +61,8 @@ export default function Dialog({
   header,
   headerAction,
   subheader,
-  cta = "Confirm",
+  cta = "Save",
+  ctaColor = "violet",
   ctaEnabled = true,
   size = "md",
   submit,
@@ -113,6 +115,7 @@ export default function Dialog({
   }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    if (!submit) return;
     e.preventDefault();
     e.stopPropagation();
     if (loading) return;
@@ -144,6 +147,58 @@ export default function Dialog({
     close();
   };
 
+  const innerContent = (
+    <>
+      <Box py="2" flexShrink="0">
+        <Flex justify="between" align="center" mb="1">
+          <RadixDialog.Title size="5" mb="0">
+            {header}
+          </RadixDialog.Title>
+          {headerAction && <Box>{headerAction}</Box>}
+        </Flex>
+        {subheader && (
+          <RadixDialog.Description size="2" mb="0">
+            <Text color="text-mid" size="large">
+              {subheader}
+            </Text>
+          </RadixDialog.Description>
+        )}
+      </Box>
+      <Box
+        ref={bodyRef}
+        mt="4"
+        mb="3"
+        mx="-7"
+        pl="7"
+        pr="5"
+        flexGrow="1"
+        overflowY="auto"
+        overflowX="hidden"
+        style={{ scrollbarGutter: "stable" }}
+      >
+        {error && <ErrorDisplay error={error} mb="5" />}
+        {children}
+      </Box>
+      <Box flexShrink="0">
+        <Inset side="x">
+          <Separator size="4" my="5" />
+        </Inset>
+        <Flex gap="3" justify="end">
+          <RadixDialog.Close>
+            <Button variant="ghost" onClick={handleClose}>
+              Cancel
+            </Button>
+          </RadixDialog.Close>
+          {submit && (
+            <Button type="submit" disabled={!ctaEnabled} color={ctaColor}>
+              {cta}
+            </Button>
+          )}
+        </Flex>
+      </Box>
+    </>
+  );
+
   return (
     <RadixDialog.Root open={open} onOpenChange={handleClose}>
       <RadixDialog.Content
@@ -164,43 +219,18 @@ export default function Dialog({
           } as React.CSSProperties
         }
       >
-        <Flex direction="column" flexGrow="1" minHeight="0" asChild>
-          <form onSubmit={handleSubmit}>
-            <Box py="2" flexShrink="0">
-              <Flex justify="between" align="center" mb="1">
-                <RadixDialog.Title size="5" mb="0">
-                  {header}
-                </RadixDialog.Title>
-                {headerAction && <Box>{headerAction}</Box>}
-              </Flex>
-              {subheader && (
-                <RadixDialog.Description size="2" mb="0">
-                  <Text color="text-mid" size="large">
-                    {subheader}
-                  </Text>
-                </RadixDialog.Description>
-              )}
-            </Box>
-            <Box ref={bodyRef} mt="4" mb="3" flexGrow="1" overflowY="auto">
-              {error && <ErrorDisplay error={error} mb="5" />}
-              {children}
-            </Box>
-            <Box flexShrink="0">
-              <Inset side="x">
-                <Separator size="4" my="5" />
-              </Inset>
-              <Flex gap="3" justify="end">
-                <RadixDialog.Close>
-                  <Button variant="ghost" onClick={handleClose}>
-                    Cancel
-                  </Button>
-                </RadixDialog.Close>
-                <Button type="submit" disabled={!ctaEnabled}>
-                  {cta}
-                </Button>
-              </Flex>
-            </Box>
-          </form>
+        <Flex
+          direction="column"
+          flexGrow="1"
+          minHeight="0"
+          minWidth="0"
+          {...(submit ? { asChild: true } : {})}
+        >
+          {submit ? (
+            <form onSubmit={handleSubmit}>{innerContent}</form>
+          ) : (
+            innerContent
+          )}
         </Flex>
       </RadixDialog.Content>
     </RadixDialog.Root>
