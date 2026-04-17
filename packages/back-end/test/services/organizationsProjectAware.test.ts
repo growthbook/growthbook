@@ -3,6 +3,7 @@ import {
   getConfidenceLevelsForOrg,
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
+  getSignificanceSettingsForOrg,
 } from "back-end/src/services/organizations";
 
 type MockContext = Pick<ReqContext, "org" | "models">;
@@ -103,6 +104,47 @@ describe("project-aware organization helpers", () => {
       const ctx = makeContext({ orgSettings: {} });
       const res = await getPValueCorrectionForOrg(ctx as ReqContext);
       expect(res).toBeNull();
+    });
+  });
+
+  describe("getSignificanceSettingsForOrg", () => {
+    it("only hits the project models cache once for all three values", async () => {
+      const ctx = makeContext({
+        orgSettings: {
+          confidenceLevel: 0.9,
+          pValueThreshold: 0.01,
+          pValueCorrection: "holm-bonferroni",
+        },
+        project: {
+          settings: {
+            confidenceLevel: 0.99,
+            pValueThreshold: 0.1,
+            pValueCorrection: "benjamini-hochberg",
+          },
+        },
+      });
+      const res = await getSignificanceSettingsForOrg(
+        ctx as ReqContext,
+        "proj_1",
+      );
+      expect(res.ciUpper).toBe(0.99);
+      expect(res.pValueThreshold).toBe(0.1);
+      expect(res.pValueCorrection).toBe("benjamini-hochberg");
+      expect(ctx.models.projects.getById).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not look up a project when no projectId is provided", async () => {
+      const ctx = makeContext({
+        orgSettings: {
+          confidenceLevel: 0.9,
+          pValueThreshold: 0.01,
+        },
+      });
+      const res = await getSignificanceSettingsForOrg(ctx as ReqContext);
+      expect(res.ciUpper).toBe(0.9);
+      expect(res.pValueThreshold).toBe(0.01);
+      expect(res.pValueCorrection).toBeNull();
+      expect(ctx.models.projects.getById).not.toHaveBeenCalled();
     });
   });
 });

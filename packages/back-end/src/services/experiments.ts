@@ -182,11 +182,9 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import {
-  getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
-  getPValueCorrectionForOrg,
-  getPValueThresholdForOrg,
+  getSignificanceSettingsForOrg,
 } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
@@ -4204,13 +4202,9 @@ export async function computeResultsStatus({
     "project" in experiment && typeof experiment.project === "string"
       ? experiment.project
       : undefined;
-  const pValueCorrection = await getPValueCorrectionForOrg(context, projectId);
-  const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
-    context,
-    projectId,
-  );
+  const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
+    await getSignificanceSettingsForOrg(context, projectId);
   const metricDefaults = getMetricDefaultsForOrg(context);
-  const pValueThreshold = await getPValueThresholdForOrg(context, projectId);
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 

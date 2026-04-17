@@ -35,11 +35,9 @@ import { logger } from "back-end/src/util/logger";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
-  getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
-  getPValueCorrectionForOrg,
-  getPValueThresholdForOrg,
+  getSignificanceSettingsForOrg,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 
@@ -295,13 +293,9 @@ export const computeExperimentChanges = async ({
   // get the org level settings for significance:
   const statsEngine = currentAnalysis.settings.statsEngine;
   const projectId = experiment.project;
-  const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
-    context,
-    projectId,
-  );
+  const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
+    await getSignificanceSettingsForOrg(context, projectId);
   const metricDefaults = getMetricDefaultsForOrg(context);
-  const pValueThreshold = await getPValueThresholdForOrg(context, projectId);
-  const pValueCorrection = await getPValueCorrectionForOrg(context, projectId);
 
   // Apply p-value correction to match what the UI and analysisSummary use,
   // so notifications don't fire for metrics that appear non-significant to users

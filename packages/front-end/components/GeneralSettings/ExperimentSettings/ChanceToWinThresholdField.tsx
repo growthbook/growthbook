@@ -49,8 +49,6 @@ interface ChanceToWinThresholdFieldProps<
   value: number | undefined;
   form: UseFormReturn<TFormValues>;
   name: TName;
-  min?: number;
-  max?: number;
   disabled?: boolean;
   label?: string;
   defaultValue?: number;

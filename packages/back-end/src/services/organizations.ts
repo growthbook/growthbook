@@ -183,7 +183,7 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export async function getConfidenceLevelsForOrg(
+async function resolveScopedSettingsForProject(
   context: ReqContext,
   projectId?: string,
 ) {
@@ -191,16 +191,61 @@ export async function getConfidenceLevelsForOrg(
     projectId && projectId.length > 0
       ? ((await context.models.projects.getById(projectId)) ?? undefined)
       : undefined;
-  const { settings } = getScopedSettings({
+  return getScopedSettings({
     organization: context.org,
     project,
   });
+}
+
+function confidenceLevelsFromScopedSettings(
+  settings: ReturnType<typeof getScopedSettings>["settings"],
+) {
   const ciUpper = settings.confidenceLevel.value || 0.95;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,
     ciUpperDisplay: Math.round(ciUpper * 100) + "%",
     ciLowerDisplay: Math.round((1 - ciUpper) * 100) + "%",
+  };
+}
+
+export async function getConfidenceLevelsForOrg(
+  context: ReqContext,
+  projectId?: string,
+) {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return confidenceLevelsFromScopedSettings(settings);
+}
+
+/**
+ * Resolves all significance-related settings (confidence levels, p-value
+ * threshold, p-value correction) with a single project lookup. Use this when
+ * a caller needs more than one of these values for the same project to avoid
+ * the N round trips that calling each individual helper would incur.
+ */
+export async function getSignificanceSettingsForOrg(
+  context: ReqContext,
+  projectId?: string,
+): Promise<{
+  ciUpper: number;
+  ciLower: number;
+  ciUpperDisplay: string;
+  ciLowerDisplay: string;
+  pValueThreshold: number;
+  pValueCorrection: PValueCorrection;
+}> {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return {
+    ...confidenceLevelsFromScopedSettings(settings),
+    pValueThreshold:
+      settings.pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD,
+    pValueCorrection: settings.pValueCorrection.value ?? null,
   };
 }
 
@@ -288,14 +333,10 @@ export async function getPValueThresholdForOrg(
   context: ReqContext,
   projectId?: string,
 ): Promise<number> {
-  const project =
-    projectId && projectId.length > 0
-      ? ((await context.models.projects.getById(projectId)) ?? undefined)
-      : undefined;
-  const { settings } = getScopedSettings({
-    organization: context.org,
-    project,
-  });
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
   return settings.pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD;
 }
 
@@ -303,14 +344,10 @@ export async function getPValueCorrectionForOrg(
   context: ReqContext,
   projectId?: string,
 ): Promise<PValueCorrection> {
-  const project =
-    projectId && projectId.length > 0
-      ? ((await context.models.projects.getById(projectId)) ?? undefined)
-      : undefined;
-  const { settings } = getScopedSettings({
-    organization: context.org,
-    project,
-  });
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
   return settings.pValueCorrection.value ?? null;
 }
 

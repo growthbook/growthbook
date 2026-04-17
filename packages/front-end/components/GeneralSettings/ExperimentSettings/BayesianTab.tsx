@@ -19,7 +19,7 @@ export default function BayesianTab({
           form={form}
           name="confidenceLevel"
           value={confidenceLevel}
-          defaultValue={DEFAULT_CONFIDENCE_LEVEL}
+          defaultValue={Math.round(DEFAULT_CONFIDENCE_LEVEL * 100)}
           disabled={hasFileConfig()}
           helpTextAppend={
             <span className="ml-2">
