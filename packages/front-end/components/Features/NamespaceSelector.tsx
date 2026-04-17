@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { UseFormReturn, useWatch } from "react-hook-form";
-import { Box, Flex } from "@radix-ui/themes";
-import { FaPlus, FaTrash } from "react-icons/fa";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { FaPlusCircle, FaTimes } from "react-icons/fa";
 import { Namespaces } from "shared/types/organization";
 import useApi from "@/hooks/useApi";
 import { NamespaceApiResponse } from "@/pages/namespaces";
@@ -11,8 +11,7 @@ import Field from "@/components/Forms/Field";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
-import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 import {
@@ -61,6 +60,10 @@ export default function NamespaceSelector({
   );
   const { namespaces } = useOrgSettings();
   const [rangeDrafts, setRangeDrafts] = useState<Record<string, string>>({});
+  // Remembers the user's ranges per-namespace for the lifetime of this modal
+  // session so switching the namespace dropdown away and back restores their
+  // picks instead of resetting to the largest-available gap.
+  const namespaceRangesCache = useRef<Record<string, RangeTuple[]>>({});
   const namespacePath = `${formPrefix}namespace`;
   const namespaceNamePath = `${namespacePath}.name`;
   const namespaceRangesPath = `${namespacePath}.ranges`;
@@ -165,10 +168,6 @@ export default function NamespaceSelector({
     () => getLargestGap(subtractSelectedRangesFromGaps(persistedGaps, ranges)),
     [persistedGaps, ranges],
   );
-  const totalAllocation = useMemo(
-    () => ranges.reduce((sum, [start, end]) => sum + (end - start), 0),
-    [ranges],
-  );
 
   const getDraftKey = (index: number, field: 0 | 1) => `${index}:${field}`;
 
@@ -209,6 +208,14 @@ export default function NamespaceSelector({
       return next;
     });
   }, [ranges.length]);
+
+  // Persist the current namespace's ranges into the cache so switching the
+  // dropdown away and back restores the latest user edits (not a fresh gap).
+  useEffect(() => {
+    if (namespace && ranges.length > 0) {
+      namespaceRangesCache.current[namespace] = ranges;
+    }
+  }, [namespace, ranges]);
 
   const getAvailableGapsForRange = (index: number) => {
     return subtractSelectedRangesFromGaps(
@@ -269,6 +276,7 @@ export default function NamespaceSelector({
         label="Namespace"
         description="Run mutually exclusive experiments"
         value={enabled}
+        mb="2"
         setValue={(v) => {
           form.setValue(namespaceEnabledPath, v);
         }}
@@ -304,14 +312,20 @@ export default function NamespaceSelector({
                 );
               }
 
-              const initialGap = getLargestGap(
-                findGaps(namespaceUsage, v, featureId, trackingKey),
-              );
-
-              // Always initialize with ranges array (single range by default)
-              form.setValue(namespaceRangesPath, [
-                [initialGap?.start || 0, initialGap?.end || 0],
-              ]);
+              // Restore the user's previously-picked ranges for this
+              // namespace if they've been here before in this session.
+              // Otherwise fall back to the largest available gap.
+              const cachedRanges = namespaceRangesCache.current[v];
+              if (cachedRanges && cachedRanges.length > 0) {
+                form.setValue(namespaceRangesPath, cachedRanges);
+              } else {
+                const initialGap = getLargestGap(
+                  findGaps(namespaceUsage, v, featureId, trackingKey),
+                );
+                form.setValue(namespaceRangesPath, [
+                  [initialGap?.start || 0, initialGap?.end || 0],
+                ]);
+              }
             }}
             placeholder="Choose a namespace..."
             options={namespaceOptions}
@@ -322,13 +336,13 @@ export default function NamespaceSelector({
               {selectedNamespace &&
                 "hashAttribute" in selectedNamespace &&
                 selectedNamespace.hashAttribute && (
-                  <Callout status="info" mb="3">
-                    <strong>Hash Attribute:</strong>{" "}
+                  <Callout status="info" variant="surface" size="sm" mb="3">
+                    <strong>Hash attribute:</strong>{" "}
                     {`${selectedNamespace.hashAttribute}`}
                   </Callout>
                 )}
               {selectedIsDifferentHash && (
-                <Callout status="info" mb="3">
+                <Callout status="info" mb="3" variant="surface" size="sm">
                   This namespace hash attribute differs from the experiment hash
                   attribute.
                 </Callout>
@@ -343,82 +357,90 @@ export default function NamespaceSelector({
                 trackingKey={trackingKey}
               />
 
-              <Box mt="3">
-                <Flex justify="between" align="center" mb="2">
-                  <label>Selected Range{ranges.length > 1 ? "s" : ""}</label>
-                  {totalAllocation > 0 && (
-                    <Badge
-                      label={`Total: ${(totalAllocation * 100).toFixed(2)}%`}
-                      color="blue"
-                    />
-                  )}
+              <Box mt="4">
+                <Flex justify="between" align="center" mb="3">
+                  <label>Selected range{ranges.length > 1 ? "s" : ""}</label>
                 </Flex>
 
-                {ranges.map((range, index) => (
-                  <Flex key={index} align="center" gap="2" mb="2">
-                    <Field
-                      type="number"
-                      min={0}
-                      max={1}
-                      step=".01"
-                      value={
-                        rangeDrafts[getDraftKey(index, 0)] ?? `${range[0]}`
+                {ranges.map((range, index) => {
+                  const showDivider = ranges.length > 1;
+                  return (
+                    <Flex
+                      key={index}
+                      align="center"
+                      gap="3"
+                      pb={showDivider ? "3" : "0"}
+                      mb={showDivider ? "3" : "2"}
+                      style={
+                        showDivider
+                          ? { borderBottom: "1px solid var(--gray-a5)" }
+                          : undefined
                       }
-                      onChange={(e) => {
-                        const rawValue = e.target.value;
-                        setRangeDrafts((current) => ({
-                          ...current,
-                          [getDraftKey(index, 0)]: rawValue,
-                        }));
-                      }}
-                      onBlur={(e) => {
-                        commitDraftValue(index, 0, e.target.value);
-                      }}
-                    />
-                    <Text>to</Text>
-                    <Field
-                      type="number"
-                      min={0}
-                      max={1}
-                      step=".01"
-                      value={
-                        rangeDrafts[getDraftKey(index, 1)] ?? `${range[1]}`
-                      }
-                      onChange={(e) => {
-                        const rawValue = e.target.value;
-                        setRangeDrafts((current) => ({
-                          ...current,
-                          [getDraftKey(index, 1)]: rawValue,
-                        }));
-                      }}
-                      onBlur={(e) => {
-                        commitDraftValue(index, 1, e.target.value);
-                      }}
-                    />
-                    <Text color="text-low">
-                      ({((range[1] - range[0]) * 100).toFixed(2)}%)
-                    </Text>
-                    {ranges.length > 1 && (
-                      <Button
-                        color="red"
-                        variant="soft"
-                        size="xs"
-                        onClick={() => removeRange(index)}
-                      >
-                        <FaTrash />
-                      </Button>
-                    )}
-                  </Flex>
-                ))}
+                    >
+                      <Field
+                        type="number"
+                        min={0}
+                        max={1}
+                        step=".01"
+                        value={
+                          rangeDrafts[getDraftKey(index, 0)] ?? `${range[0]}`
+                        }
+                        onChange={(e) => {
+                          const rawValue = e.target.value;
+                          setRangeDrafts((current) => ({
+                            ...current,
+                            [getDraftKey(index, 0)]: rawValue,
+                          }));
+                        }}
+                        onBlur={(e) => {
+                          commitDraftValue(index, 0, e.target.value);
+                        }}
+                      />
+                      <Text>to</Text>
+                      <Field
+                        type="number"
+                        min={0}
+                        max={1}
+                        step=".01"
+                        value={
+                          rangeDrafts[getDraftKey(index, 1)] ?? `${range[1]}`
+                        }
+                        onChange={(e) => {
+                          const rawValue = e.target.value;
+                          setRangeDrafts((current) => ({
+                            ...current,
+                            [getDraftKey(index, 1)]: rawValue,
+                          }));
+                        }}
+                        onBlur={(e) => {
+                          commitDraftValue(index, 1, e.target.value);
+                        }}
+                      />
+                      <Text color="text-low">
+                        ({Math.round((range[1] - range[0]) * 100)}%)
+                      </Text>
+                      <Box flexGrow="1" />
+                      {ranges.length > 1 && (
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          size="1"
+                          onClick={() => removeRange(index)}
+                          aria-label="Remove range"
+                        >
+                          <FaTimes />
+                        </IconButton>
+                      )}
+                    </Flex>
+                  );
+                })}
 
-                <Button
-                  variant="outline"
-                  onClick={addRange}
-                  mt="2"
-                  icon={<FaPlus />}
-                >
+                <Link onClick={addRange} mt="3">
+                  <FaPlusCircle
+                    style={{ verticalAlign: "-2px", marginRight: 6 }}
+                  />
                   Add Range
-                </Button>
+                </Link>
               </Box>
             </div>
           )}
