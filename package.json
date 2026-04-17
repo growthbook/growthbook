@@ -76,7 +76,6 @@
   },
   "pnpm": {
     "overrides": {
-      "@aws-sdk/client-s3": "^3.1011.0",
       "@babel/runtime@7": "^7.28.6",
       "@growthbook/growthbook": "1.6.5",
       "@grpc/grpc-js@1.8": "1.8.22",
