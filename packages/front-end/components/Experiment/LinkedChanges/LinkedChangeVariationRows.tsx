@@ -16,7 +16,7 @@ export default function LinkedChangeVariationRows({
   experiment,
   renderContent,
   renderActions,
-  alignContent = "start",
+  alignContent = "center",
 }: VariationRowsProps) {
   const variations = getLatestPhaseVariations(experiment);
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
@@ -33,20 +33,15 @@ export default function LinkedChangeVariationRows({
             minHeight="24px"
           >
             <Flex
-              align="center"
-              gap="2"
+              gap="1"
               flexBasis="15%"
               flexShrink="0"
-              className={`variation with-variation-label border-right-0 variation${j}`}
+              className={`variation with-variation-label variation${j}`}
             >
-              <span className="label" style={{ width: 20, height: 20 }}>
+              <Box as="span" className="label">
                 {j}
-              </span>
-              <Box
-                as="span"
-                className="d-inline-block text-ellipsis"
-                title={v.name}
-              >
+              </Box>
+              <Box as="span" className="text-ellipsis" title={v.name}>
                 <Text weight="semibold">{v.name}</Text>
               </Box>
             </Flex>

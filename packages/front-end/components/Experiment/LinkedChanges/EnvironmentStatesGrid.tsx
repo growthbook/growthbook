@@ -47,17 +47,25 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
       {environmentsOpen && (
         <Grid
           mt="3"
-          gap="2"
-          gapX="9"
-          justify="between"
+          gapY="2"
           flow="column"
           rows={totalCount >= 5 ? "5" : totalCount.toString()}
           display="grid"
+          width="100%"
+          style={{ gridAutoColumns: "1fr" }}
         >
           {environmentStates.map(({ env, isActive, tooltip }) => (
-            <Box key={env}>
-              <Tooltip body={tooltip}>
-                <Flex gap="2" align="center" style={{ minWidth: 0 }}>
+            <Box key={env} minWidth="0">
+              <Tooltip
+                body={tooltip}
+                tipPosition="top"
+                style={{
+                  display: "block",
+                  width: "fit-content",
+                  maxWidth: "100%",
+                }}
+              >
+                <Flex gap="2" align="center" minWidth="0">
                   <Box
                     flexShrink="0"
                     style={{
@@ -66,7 +74,7 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
                   >
                     {isActive ? <PiCheckCircleFill /> : <PiWarningFill />}
                   </Box>
-                  <Box className="text-ellipsis" title={env}>
+                  <Box className="text-ellipsis" title={env} minWidth="0">
                     <Text weight="medium">{env}</Text>
                   </Box>
                 </Flex>

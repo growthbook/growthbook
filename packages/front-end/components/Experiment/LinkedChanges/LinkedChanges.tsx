@@ -124,7 +124,7 @@ export default function LinkedChanges({
             setFeatureModal &&
             setVisualEditorModal &&
             setUrlRedirectModal && (
-              <Flex justify="between">
+              <Flex justify="between" px="1">
                 <Text color="text-high" size="large" weight="semibold">
                   Add Feature, URL Redirect or Visual Editor
                 </Text>

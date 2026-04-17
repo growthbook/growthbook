@@ -62,6 +62,9 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
           {info.state !== "discarded" && (
             <Box flexGrow="1">
               <LinkedChangeVariationRows
+                alignContent={
+                  info.feature.valueType === "json" ? "start" : "center"
+                }
                 experiment={experiment}
                 renderContent={(j) => (
                   <ForceSummary
