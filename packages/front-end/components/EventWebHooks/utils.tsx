@@ -1,6 +1,7 @@
 import {
   NotificationEventNameOrWildcard,
   notificationEventNames as allNotificationEventNames,
+  notificationEvents,
 } from "shared/validators";
 import React, { ReactNode, useMemo } from "react";
 import clsx from "clsx";
@@ -44,7 +45,15 @@ export type EventWebHookEditParams = {
   headers: string;
 };
 
-export const notificationEventNames = allNotificationEventNames;
+// Exclude internal/noDoc events (e.g. webhook.test) from user-facing lists
+export const notificationEventNames = allNotificationEventNames.filter(
+  (name) => {
+    const [resource, event] = name.split(".");
+    return !(
+      notificationEvents as Record<string, Record<string, { noDoc?: boolean }>>
+    )[resource]?.[event]?.noDoc;
+  },
+);
 
 // Build grouped options with wildcards for "select all in group"
 // Only supports two levels: "{1}.*" and "{1}.{2}.*"

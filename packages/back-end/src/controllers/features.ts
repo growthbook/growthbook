@@ -891,15 +891,19 @@ export async function postFeatureRebase(
   });
   const finalRevision = rebased ?? revision;
 
-  await req.audit({
-    event: "feature.revision.rebase",
-    entity: { object: "feature", id: feature.id },
-    details: auditDetailsUpdate(
-      { baseVersion: revision.baseVersion },
-      { baseVersion: live.version },
-      { version: revision.version },
-    ),
-  });
+  void req
+    .audit({
+      event: "feature.revision.rebase",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(
+        { baseVersion: revision.baseVersion },
+        { baseVersion: live.version },
+        { version: revision.version },
+      ),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.rebase"),
+    );
 
   await dispatchFeatureRevisionEvent(
     context,
@@ -960,15 +964,19 @@ export async function postFeatureRequestReview(
   });
   const finalRevision = updatedRevision ?? revision;
 
-  await req.audit({
-    event: "feature.revision.requestReview",
-    entity: { object: "feature", id: feature.id },
-    details: auditDetailsUpdate(
-      { status: revision.status },
-      { status: finalRevision.status },
-      { version: revision.version, comment },
-    ),
-  });
+  void req
+    .audit({
+      event: "feature.revision.requestReview",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(
+        { status: revision.status },
+        { status: finalRevision.status },
+        { version: revision.version, comment },
+      ),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.requestReview"),
+    );
 
   await dispatchFeatureRevisionEvent(
     context,
@@ -1746,15 +1754,19 @@ export async function postFeatureDiscard(
   });
   const finalRevision = discarded ?? revision;
 
-  await req.audit({
-    event: "feature.revision.discard",
-    entity: { object: "feature", id: feature.id },
-    details: auditDetailsUpdate(
-      { status: revision.status },
-      { status: finalRevision.status },
-      { version: revision.version },
-    ),
-  });
+  void req
+    .audit({
+      event: "feature.revision.discard",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(
+        { status: revision.status },
+        { status: finalRevision.status },
+        { version: revision.version },
+      ),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.discard"),
+    );
 
   await dispatchFeatureRevisionEvent(
     context,
@@ -2933,16 +2945,20 @@ export async function postFeatureCreateDraft(
     canBypassApprovalChecks: false,
   });
 
-  await req.audit({
-    event: "feature.revision.create",
-    entity: { object: "feature", id: feature.id },
-    details: auditDetailsCreate({
-      featureId: feature.id,
-      version: newDraft.version,
-      baseVersion: newDraft.baseVersion,
-      comment: newDraft.comment,
-    }),
-  });
+  void req
+    .audit({
+      event: "feature.revision.create",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsCreate({
+        featureId: feature.id,
+        version: newDraft.version,
+        baseVersion: newDraft.baseVersion,
+        comment: newDraft.comment,
+      }),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.create"),
+    );
 
   await dispatchFeatureRevisionEvent(
     context,
@@ -3723,7 +3739,19 @@ export async function postFeatureArchive(
 
   if (autoPublish) {
     await assertCanAutoPublish(context, feature, draft);
-    await publishRevision(context, feature, draft, archiveChanges);
+    const updatedFeature = await publishRevision(
+      context,
+      feature,
+      draft,
+      archiveChanges,
+    );
+    await dispatchFeatureRevisionEvent(
+      context,
+      updatedFeature,
+      draft,
+      "revision.published",
+      {},
+    );
   }
 
   await req.audit({

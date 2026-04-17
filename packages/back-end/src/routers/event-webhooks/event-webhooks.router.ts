@@ -6,6 +6,9 @@ import {
   eventWebHookPayloadTypes,
   isEventWebhookWildcard,
 } from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import * as rawEventWebHooksController from "./event-webhooks.controller";
 
 const eventNameOrWildcard = z
   .string()
@@ -15,9 +18,6 @@ const eventNameOrWildcard = z
       isEventWebhookWildcard(val),
     { message: "Must be a valid event name or wildcard pattern" },
   );
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawEventWebHooksController from "./event-webhooks.controller";
 
 const router = express.Router();
 
