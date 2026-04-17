@@ -31,7 +31,7 @@ describe("getAllEventWebHooksForEvent", () => {
 
       expect(EventWebHookModel.find).toHaveBeenCalledWith({
         enabled: true,
-        events: "feature.created",
+        events: { $in: ["feature.created", "feature.*"] },
         organizationId: "aabb",
       });
       expect(ret).toEqual([
@@ -81,7 +81,7 @@ describe("getAllEventWebHooksForEvent", () => {
 
       expect(EventWebHookModel.find).toHaveBeenCalledWith({
         enabled: true,
-        events: "feature.created",
+        events: { $in: ["feature.created", "feature.*"] },
         organizationId: "aabb",
       });
       expect(ret).toEqual([
