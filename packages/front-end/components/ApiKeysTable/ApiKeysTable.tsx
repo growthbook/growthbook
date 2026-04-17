@@ -191,8 +191,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           yesText={!pendingToggle.disabled ? "Disable" : "Enable"}
           onConfirm={async () => {
             const target = pendingToggle;
-            setPendingToggle(null);
             await onToggleDisabled(target.id, !target.disabled)();
+            setPendingToggle(null);
           }}
           onCancel={() => setPendingToggle(null)}
         />
