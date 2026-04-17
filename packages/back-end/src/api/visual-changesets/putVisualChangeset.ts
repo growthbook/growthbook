@@ -36,7 +36,7 @@ export const putVisualChangeset = createApiRequestHandler(
     visualChangeset,
     experiment,
     context: req.context,
-    updates: req.body,
+    updates: req.body as Partial<VisualChangesetInterface>,
   });
 
   const updatedVisualChangeset = await findVisualChangesetById(

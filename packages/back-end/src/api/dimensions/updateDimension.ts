@@ -18,6 +18,11 @@ export const updateDimension = createApiRequestHandler(
   if (!dimension) {
     throw new Error("Could not find dimension with that id");
   }
+
+  if (!req.context.permissions.canUpdateDimension()) {
+    req.context.permissions.throwPermissionError();
+  }
+
   if (req.body.datasourceId) {
     const datasourceDoc = await getDataSourceById(
       req.context,

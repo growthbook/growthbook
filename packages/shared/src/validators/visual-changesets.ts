@@ -168,7 +168,21 @@ export const getVisualChangesetValidator = {
 };
 
 export const putVisualChangesetValidator = {
-  bodySchema: z.never(),
+  bodySchema: z
+    .object({
+      editorUrl: z.string().optional(),
+      urlPatterns: z
+        .array(
+          z.object({
+            include: z.boolean(),
+            type: z.enum(["simple", "regex"]),
+            pattern: z.string(),
+          }),
+        )
+        .optional(),
+      visualChanges: z.array(apiVisualChangeValidator).optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -188,7 +202,24 @@ export const putVisualChangesetValidator = {
 };
 
 export const postVisualChangeValidator = {
-  bodySchema: z.never(),
+  bodySchema: z
+    .object({
+      description: z.string(),
+      css: z.string().optional(),
+      js: z.string().optional(),
+      variation: z.string(),
+      domMutations: z.array(
+        z.object({
+          selector: z.string(),
+          action: z.enum(["append", "set", "remove"]),
+          attribute: z.string(),
+          value: z.string().optional(),
+          parentSelector: z.string().optional(),
+          insertBeforeSelector: z.string().optional(),
+        }),
+      ),
+    })
+    .strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -205,7 +236,26 @@ export const postVisualChangeValidator = {
 };
 
 export const putVisualChangeValidator = {
-  bodySchema: z.never(),
+  bodySchema: z
+    .object({
+      description: z.string().optional(),
+      css: z.string().optional(),
+      js: z.string().optional(),
+      variation: z.string().optional(),
+      domMutations: z
+        .array(
+          z.object({
+            selector: z.string(),
+            action: z.enum(["append", "set", "remove"]),
+            attribute: z.string(),
+            value: z.string().optional(),
+            parentSelector: z.string().optional(),
+            insertBeforeSelector: z.string().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   paramsSchema: z
     .object({

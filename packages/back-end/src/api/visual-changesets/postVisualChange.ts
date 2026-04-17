@@ -1,3 +1,4 @@
+import { VisualChange } from "shared/types/visual-changeset";
 import { postVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -24,7 +25,7 @@ export const postVisualChange = createApiRequestHandler(
   const res = await createVisualChange(
     req.params.id,
     req.organization.id,
-    req.body,
+    req.body as VisualChange,
   );
 
   return res;

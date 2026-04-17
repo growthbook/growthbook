@@ -15,6 +15,10 @@ export const deleteDimension = createApiRequestHandler(
     throw new Error("Could not find dimension with that id");
   }
 
+  if (!req.context.permissions.canDeleteDimension()) {
+    req.context.permissions.throwPermissionError();
+  }
+
   await deleteDimensionById(req.context, dimension);
 
   return {
