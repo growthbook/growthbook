@@ -287,7 +287,6 @@ By default, the Edge App generates a `gbuuid` for each visitor and exposes it as
 This works for most setups. However, the `gbuuid` cookie will **not** be written if any of the following are true:
 
 - You have disabled SDK injection (`DISABLE_INJECTIONS="true"`).
-- The response is not HTML, so the injected SDK never runs on the page.
 - You need the `gbuuid` cookie to be available on the very first request — for example, before the browser has a chance to execute the injected SDK.
 
 In these cases, set the environment variable `PERSIST_UUID="true"`. The Edge App will then call your `helpers.setCookie` implementation to write a `gbuuid` cookie on the response, ensuring the cookie is stored on the first request. Make sure your `setCookie` helper is implemented for your edge provider (see [Define helper methods](#define-helper-methods)).
