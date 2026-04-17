@@ -820,7 +820,6 @@ Triggered when a new draft revision is created for a feature
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
         };
     };
     user: {
@@ -887,7 +886,6 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
             change: "rule.add" | "rule.update" | "rule.delete" | "rule.reorder" | "rule.rampSchedule.set" | "rule.rampSchedule.remove" | "toggle" | "defaultValue" | "prerequisites" | "holdout" | "archive" | "metadata";
             environments?: string[] | undefined;
         };
@@ -956,7 +954,6 @@ Triggered when a draft revision is submitted for review
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
             reviewComment: string | null;
         };
     };
@@ -1024,7 +1021,6 @@ Triggered when a draft revision is approved by a reviewer
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
             reviewer: {
                 id?: string | undefined;
                 name?: string | undefined;
@@ -1097,7 +1093,6 @@ Triggered when a reviewer requests changes on a draft revision
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
             reviewer: {
                 id?: string | undefined;
                 name?: string | undefined;
@@ -1170,7 +1165,6 @@ Triggered when a comment is added to a draft revision
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
             reviewer: {
                 id?: string | undefined;
                 name?: string | undefined;
@@ -1243,7 +1237,6 @@ Triggered when a draft revision is discarded
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
         };
     };
     user: {
@@ -1310,7 +1303,6 @@ Triggered when a draft revision is rebased onto the latest published version
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
         };
     };
     user: {
@@ -1377,7 +1369,6 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
         };
     };
     user: {
@@ -1444,7 +1435,6 @@ Triggered when a feature is reverted to a previous published revision
                 condition: string;
             }[] | undefined;
             metadata?: {} | undefined;
-            orgId: string;
             revertedToVersion: number;
         };
     };
