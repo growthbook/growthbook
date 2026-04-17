@@ -135,7 +135,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               })}
               <td>
                 {key.lastUsed ? (
-                  <Tooltip content={datetime(key.lastUsed)}>
+                  <Tooltip
+                    content={
+                      key.disabled
+                        ? `${datetime(key.lastUsed)}. This is the last time a request was attempted, successful or not.`
+                        : datetime(key.lastUsed)
+                    }
+                  >
                     <span>{ago(key.lastUsed)}</span>
                   </Tooltip>
                 ) : key.lastUsed === null ? (

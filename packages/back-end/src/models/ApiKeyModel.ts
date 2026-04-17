@@ -7,6 +7,7 @@ import {
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -234,12 +235,16 @@ export class ApiKeyModel extends BaseClass {
     return this.update(doc, { disabled });
   }
 
-  // Called from authentication middleware on every authenticated API request.
-  // Bypasses permissions, dateUpdated, and the full update pipeline — we only
-  // need a single indexed $set on the `key` primary key.
-  public async dangerousRecordUsageByKey(key: string): Promise<void> {
-    await this._dangerousGetCollection().updateOne(
-      { key, organization: this.context.org.id },
+  // Called from authentication middleware on every API request attempt.
+  // Fires even for disabled keys so operators can see whether a key is still
+  // being used before deleting it. Runs before the request context exists, so
+  // it's a static raw $set scoped by the (key, organization) pair.
+  public static async dangerousRecordUsageByKey(
+    key: string,
+    organization: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { key, organization },
       { $set: { lastUsed: new Date() } },
     );
   }

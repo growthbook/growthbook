@@ -23,6 +23,7 @@ import {
 } from "back-end/src/services/licenseData";
 import { ReqContextClass } from "back-end/src/services/context";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -67,6 +68,13 @@ export default function authenticateApiRequestMiddleware(
           "Must use a Secret API Key for this request, SDK Endpoint key given instead.",
         );
       }
+      // Record usage before the disabled check so operators deleting a disabled
+      // key can see whether something out there is still trying to use it.
+      ApiKeyModel.dangerousRecordUsageByKey(secretKey, organization).catch(
+        (err) => {
+          req.log.warn({ err, apiKeyId: id }, "Failed to record API key usage");
+        },
+      );
       if (disabled) {
         throw new Error("This API key has been disabled");
       }
@@ -181,13 +189,6 @@ export default function authenticateApiRequestMiddleware(
 
       // init license for org if it exists
       await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
-
-      // Fire-and-forget: record this key's usage timestamp
-      req.context.models.apiKeys
-        .dangerousRecordUsageByKey(secretKey)
-        .catch((err) => {
-          req.log.warn({ err, apiKeyId: id }, "Failed to record API key usage");
-        });
 
       // Continue to the actual request handler
       next();
