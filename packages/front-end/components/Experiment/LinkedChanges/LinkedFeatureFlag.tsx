@@ -4,12 +4,14 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
 import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -44,7 +46,6 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
       changeType={"flag"}
       heading={info.feature?.id || "Feature"}
       feature={info.feature}
-      state={info.state}
       additionalBadge={
         info.state === "live" ? (
           <Badge label="Live" radius="full" color="teal" />
@@ -57,6 +58,22 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
         ) : null
       }
     >
+      {info.state === "discarded" && (
+        <Callout status="info" my="4">
+          This experiment was linked to this feature in the past, but is no
+          longer live.
+        </Callout>
+      )}
+      {info.state === "draft" && (
+        <Callout status="warning" my="4">
+          Feature is in <strong>Draft</strong> mode and will not allow
+          experiments to run. Publish Feature from the Feature Flag detail page
+          to start.{" "}
+          <Link href={`/features/${info.feature?.id}`}>
+            Take me there <PiArrowSquareOut className="ml-1" />
+          </Link>
+        </Callout>
+      )}
       <Box className="appbox">
         <Flex width="100%" gap="4" py="4" px="5" direction="column">
           {info.state !== "discarded" && (
@@ -75,12 +92,6 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
                 )}
               />
             </Box>
-          )}
-          {info.state === "discarded" && (
-            <Callout status="info">
-              This experiment was linked to this feature in the past, but is no
-              longer live.
-            </Callout>
           )}
 
           {(info.state === "live" || info.state === "draft") && (
