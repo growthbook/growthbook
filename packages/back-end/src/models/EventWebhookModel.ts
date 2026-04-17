@@ -12,6 +12,7 @@ import {
   eventWebHookMethods,
   EventWebHookMethod,
   isEventWebhookWildcard,
+  getWildcardPatternsForEvent,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -423,18 +424,6 @@ const filterOptional = <T>(want: T[] = [], has: T[]) => {
  * @param eventName
  * @param enabled
  */
-/**
- * Returns all wildcard patterns that could match an event name.
- * e.g. "feature.revision.discarded" → ["feature.*", "feature.revision.*"]
- */
-const getWildcardPatternsForEvent = (eventName: string): string[] => {
-  const parts = eventName.split(".");
-  const wildcards: string[] = [];
-  for (let i = 1; i < parts.length; i++) {
-    wildcards.push(`${parts.slice(0, i).join(".")}.*`);
-  }
-  return wildcards;
-};
 
 export const getAllEventWebHooksForEvent = async ({
   organizationId,

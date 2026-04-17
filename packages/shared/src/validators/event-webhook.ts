@@ -25,6 +25,17 @@ export const isEventWebhookWildcard = (val: string) =>
 // Widens to string; runtime validation is enforced by the Zod schema.
 export type NotificationEventNameOrWildcard = NotificationEventName | string;
 
+// Returns all wildcard patterns that could match an event name.
+// e.g. "feature.revision.discarded" → ["feature.*", "feature.revision.*"]
+export const getWildcardPatternsForEvent = (eventName: string): string[] => {
+  const parts = eventName.split(".");
+  const wildcards: string[] = [];
+  for (let i = 1; i < parts.length; i++) {
+    wildcards.push(`${parts.slice(0, i).join(".")}.*`);
+  }
+  return wildcards;
+};
+
 const eventNameOrWildcard = z
   .string()
   .refine(

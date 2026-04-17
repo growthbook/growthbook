@@ -1,11 +1,11 @@
-import { NotificationEventName } from "shared/types/events/base-types";
+import { NotificationEventNameOrWildcard } from "shared/validators";
 
 export type SlackIntegrationEditParams = {
   name: string;
   description: string;
   projects: string[];
   environments: string[];
-  events: NotificationEventName[];
+  events: NotificationEventNameOrWildcard[];
   tags: string[];
   slackAppId: string;
   slackSigningKey: string;
