@@ -67,6 +67,7 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     useExperimentSearch({
       allExperiments,
       filterResults,
+      localStorageKey: "timeline-page",
     });
 
   if (error) {

@@ -63,20 +63,7 @@ const ExperimentTimeline: React.FC<{
 
   // we need to filter the experiments to only those that have phases within the selected date range:
   const filteredExperiments = useMemo(() => {
-    const getSortDate = (experiment: ExperimentInterfaceStringDates): Date => {
-      const latestPhase = experiment.phases?.[experiment.phases.length - 1];
-      const statusDate =
-        experiment.status === "stopped"
-          ? latestPhase?.dateEnded || latestPhase?.dateStarted
-          : latestPhase?.dateStarted;
-      return (
-        getValidDate(statusDate) ||
-        getValidDate(experiment.dateCreated) ||
-        new Date(0)
-      );
-    };
-
-    const filtered = experiments.filter((experiment) => {
+    return experiments.filter((experiment) => {
       if (experiment.status === "draft") return false; // drafts don't have dates/phases (or shouldn't)
       if (!experiment.phases || experiment.phases.length === 0) return false;
       return experiment.phases.some((phase) => {
@@ -91,14 +78,6 @@ const ExperimentTimeline: React.FC<{
         );
       });
     });
-
-    filtered.sort((a, b) => {
-      const dateDiff = getSortDate(b).getTime() - getSortDate(a).getTime();
-      if (dateDiff !== 0) return dateDiff;
-      return a.name.localeCompare(b.name);
-    });
-
-    return filtered;
   }, [endDate, experiments, startDate]);
   const [width, setWidth] = useState(800); // Default width
   const rowHeight = 30;

@@ -327,7 +327,7 @@ export function useExperimentSearch({
   defaultSortField = "date",
   defaultSortDir = -1,
   filterResults,
-  localStorageKey = "experiments",
+  localStorageKey,
   watchedExperimentIds,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
@@ -336,7 +336,7 @@ export function useExperimentSearch({
   filterResults?: (
     items: ComputedExperimentInterface[],
   ) => ComputedExperimentInterface[];
-  localStorageKey?: string;
+  localStorageKey: string;
   watchedExperimentIds?: string[];
 }) {
   const {

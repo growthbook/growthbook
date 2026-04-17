@@ -74,6 +74,7 @@ const LearningsPage = (): React.ReactElement => {
     useExperimentSearch({
       allExperiments,
       filterResults,
+      localStorageKey: "learnings-page",
     });
 
   const stoppedExperiments = React.useMemo(

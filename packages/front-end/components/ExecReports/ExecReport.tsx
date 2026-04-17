@@ -144,11 +144,13 @@ export default function ExecReport() {
   const { items } = useExperimentSearch({
     allExperiments,
     filterResults,
+    localStorageKey: "exec-report-completed-experiments",
   });
 
   // get a separate list of experiments, given the same filterResults function, but with the status of "running":
   const { items: allExpInProject } = useExperimentSearch({
     allExperiments,
+    localStorageKey: "exec-report-all-experiments",
     filterResults: useCallback(
       (items: ComputedExperimentInterface[]) => {
         return items.filter((item) => {
@@ -450,6 +452,7 @@ export default function ExecReport() {
             num={5}
             status={"running"}
             experiments={allExpInProject}
+            localStorageKey="exec-report-running-experiments"
             as="table"
           />
         </Box>
