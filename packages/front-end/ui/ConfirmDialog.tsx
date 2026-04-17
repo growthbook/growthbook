@@ -1,6 +1,7 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { AlertDialog, Box, Flex, Text } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import HelperText from "@/ui/HelperText";
 
 type Props = {
   title: string;
@@ -19,6 +20,7 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
+  const [error, setError] = useState<string | null>(null);
   return (
     <AlertDialog.Root open={true}>
       <AlertDialog.Content maxWidth="520px">
@@ -35,13 +37,14 @@ export default function ConfirmDialog({
               </Text>
             </AlertDialog.Description>
           </Box>
+          {error && <HelperText status="error">{error}</HelperText>}
           <Flex justify="end" gap="3">
             {noText ? (
               <Button variant="outline" color="gray" onClick={onCancel}>
                 {noText}
               </Button>
             ) : null}
-            <Button color="violet" onClick={onConfirm}>
+            <Button color="violet" onClick={onConfirm} setError={setError}>
               {yesText}
             </Button>
           </Flex>

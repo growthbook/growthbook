@@ -1788,6 +1788,19 @@ export async function deleteApiKey(
   });
 }
 
+export async function putApiKeyDisabled(
+  req: AuthRequest<{ disabled: boolean }, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { disabled } = req.body;
+
+  await context.models.apiKeys.setDisabled(id, disabled);
+
+  res.status(200).json({ status: 200 });
+}
+
 export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response,
