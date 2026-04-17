@@ -13,8 +13,8 @@ import {
   ExplorationConfig,
   ProductAnalyticsValue,
   DatasetType,
-} from "shared/src/validators/product-analytics";
-import { ProductAnalyticsExploration } from "shared/validators";
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {

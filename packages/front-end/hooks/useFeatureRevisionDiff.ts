@@ -2,7 +2,7 @@ import { useMemo, ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { RevisionMetadata } from "shared/src/validators/features";
+import { RevisionMetadata } from "shared/validators";
 import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,

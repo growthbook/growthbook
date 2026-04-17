@@ -4,10 +4,7 @@
 import { Fragment, type ReactNode } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
-import {
-  RampScheduleInterface,
-  RampStepAction,
-} from "shared/src/validators/ramp-schedule";
+import { RampScheduleInterface, RampStepAction } from "shared/validators";
 import Text from "@/ui/Text";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";

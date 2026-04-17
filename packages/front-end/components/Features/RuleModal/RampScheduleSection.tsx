@@ -27,9 +27,9 @@ import {
   type RampStep,
   type FeatureRulePatch,
   type TemplateEndPatch,
+  type RevisionRampCreateAction,
 } from "shared/validators";
-import type { RevisionRampCreateAction } from "shared/src/validators/features";
-import { date as formatDate } from "shared/src/dates";
+import { date as formatDate } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import {
