@@ -139,10 +139,6 @@ export const getSlackMessageForNotificationEvent = async (
         eventId,
       );
 
-    // Feature revision lifecycle events are delivered via webhook but we don't
-    // currently render Slack messages for them. Dropping to null keeps the
-    // exhaustiveness check happy without spamming channels with duplicate
-    // notifications (feature.updated already covers most downstream concerns).
     case "feature.revision.created":
     case "feature.revision.updated":
     case "feature.revision.reviewRequested":
@@ -153,7 +149,11 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.revision.rebased":
     case "feature.revision.published":
     case "feature.revision.reverted":
-      return null;
+      return buildSlackMessageForRevisionEvent(
+        event.event,
+        event.data.object,
+        eventId,
+      );
 
     default:
       invalidEvent = event;
@@ -546,6 +546,81 @@ const buildSlackMessageForRampScheduleEvent = (
 };
 
 // endregion Event-specific messages -> Ramp Schedule
+
+// region Event-specific messages -> Feature Revision
+
+type RevisionSlackData = {
+  featureId: string;
+  version: number;
+  reviewComment?: string | null;
+  reviewer?: { id?: string; name?: string; email?: string };
+  revertedToVersion?: number;
+};
+
+const buildSlackMessageForRevisionEvent = (
+  eventType: string,
+  data: RevisionSlackData,
+  eventId: string,
+): SlackMessage => {
+  const feature = `*${data.featureId}*`;
+  const version = `v${data.version}`;
+  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
+
+  let text: string;
+  switch (eventType) {
+    case "feature.revision.created":
+      text = `Draft revision ${version} created for feature ${feature}`;
+      break;
+    case "feature.revision.updated":
+      text = `Draft revision ${version} of feature ${feature} was updated`;
+      break;
+    case "feature.revision.reviewRequested":
+      text = `Review requested for revision ${version} of feature ${feature}${commentSuffix}`;
+      break;
+    case "feature.revision.approved":
+      text = `Revision ${version} of feature ${feature} approved by ${reviewerName}${commentSuffix}`;
+      break;
+    case "feature.revision.changesRequested":
+      text = `Changes requested on revision ${version} of feature ${feature} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "feature.revision.commented":
+      text = `Comment on revision ${version} of feature ${feature} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "feature.revision.discarded":
+      text = `Draft revision ${version} of feature ${feature} was discarded`;
+      break;
+    case "feature.revision.rebased":
+      text = `Draft revision ${version} of feature ${feature} was rebased`;
+      break;
+    case "feature.revision.published":
+      text = `Revision ${version} of feature ${feature} was published`;
+      break;
+    case "feature.revision.reverted":
+      text = `Feature ${feature} was reverted to revision v${data.revertedToVersion ?? "?"}`;
+      break;
+    default:
+      text = `Feature ${feature} revision ${version}: ${eventType}`;
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getFeatureUrlFormatted(data.featureId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+// endregion Event-specific messages -> Feature Revision
 
 // region Event-specific messages -> Experiment
 
