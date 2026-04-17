@@ -128,7 +128,6 @@
       "@parcel/watcher",
       "@sentry/cli",
       "@swc/core",
-      "aws-sdk",
       "dd-trace",
       "esbuild",
       "isolated-vm",
