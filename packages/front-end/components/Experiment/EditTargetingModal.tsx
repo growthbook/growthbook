@@ -1,4 +1,4 @@
-import { useForm, UseFormReturn } from "react-hook-form";
+import { useForm, UseFormReturn, useWatch } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -110,11 +110,21 @@ export default function EditTargetingModal({
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,
-    namespace: lastPhase?.namespace || {
-      enabled: false,
-      name: "",
-      range: [0, 1],
-    },
+    namespace: (() => {
+      const saved = lastPhase?.namespace || {
+        enabled: false,
+        name: "",
+        range: [0, 1] as [number, number],
+      };
+      // Mirror the legacy → multiRange normalization that NamespaceSelector
+      // performs on mount (converting `range` to `ranges: [range]`). Without
+      // this, the form's first mount mutation flips `hasChanges` to true
+      // before the user has interacted with anything.
+      if ("range" in saved && !("ranges" in saved)) {
+        return { ...saved, ranges: [saved.range] } as typeof saved;
+      }
+      return saved;
+    })(),
     seed: lastPhase?.seed ?? "",
     trackingKey: experiment.trackingKey || "",
     variationWeights:
@@ -134,18 +144,43 @@ export default function EditTargetingModal({
     defaultValues,
   });
 
-  const _formValues = omit(form.getValues(), [
-    "newPhase",
-    "reseed",
-    "bucketVersion",
-    "minBucketVersion",
-  ]);
-  const _defaultValues = omit(defaultValues, [
-    "newPhase",
-    "reseed",
-    "bucketVersion",
-    "minBucketVersion",
-  ]);
+  // Subscribe to the entire form so change detection re-runs on any edit
+  // (including range additions/edits and namespace switches inside
+  // NamespaceSelector, which persist via form.setValue and otherwise wouldn't
+  // trigger a re-render here).
+  const watchedValues = useWatch({ control: form.control });
+  // `format` and `hashAttribute` on the namespace are derived from the org's
+  // namespace config (not user-editable here) — NamespaceSelector's onChange
+  // always writes them even when picking the same namespace as before, so
+  // they'd otherwise make a round-trip (A → B → A) falsely flag as a change.
+  const stripDerivedNamespaceFields = <T extends { namespace?: unknown }>(
+    v: T,
+  ): T => {
+    if (!v.namespace || typeof v.namespace !== "object") return v;
+    const { format, hashAttribute, ...rest } = v.namespace as Record<
+      string,
+      unknown
+    >;
+    void format;
+    void hashAttribute;
+    return { ...v, namespace: rest };
+  };
+  const _formValues = stripDerivedNamespaceFields(
+    omit(watchedValues, [
+      "newPhase",
+      "reseed",
+      "bucketVersion",
+      "minBucketVersion",
+    ]),
+  );
+  const _defaultValues = stripDerivedNamespaceFields(
+    omit(defaultValues, [
+      "newPhase",
+      "reseed",
+      "bucketVersion",
+      "minBucketVersion",
+    ]),
+  );
   const hasChanges = !isEqual(_formValues, _defaultValues);
 
   useEffect(() => {
