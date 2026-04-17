@@ -41,7 +41,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
-  const pendingDisabled = pendingToggle ? !pendingToggle.disabled : false;
   return (
     <div style={{ overflowX: "auto" }}>
       <table className="table mb-3 appbox gbtable">
@@ -181,13 +180,15 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
       </table>
       {pendingToggle && onToggleDisabled && (
         <ConfirmDialog
-          title={pendingDisabled ? "Disable API key?" : "Enable API key?"}
-          content={
-            pendingDisabled
-              ? `Any request using "${pendingToggle.description || "this key"}" will be rejected until it is re-enabled.`
-              : `"${pendingToggle.description || "This key"}" will immediately start accepting requests again.`
+          title={
+            !pendingToggle.disabled ? "Disable API key?" : "Enable API key?"
           }
-          yesText={pendingDisabled ? "Disable" : "Enable"}
+          content={
+            !pendingToggle.disabled
+              ? `Any request using this key will be rejected until it is re-enabled.`
+              : `This key will immediately start accepting requests again.`
+          }
+          yesText={!pendingToggle.disabled ? "Disable" : "Enable"}
           onConfirm={async () => {
             const target = pendingToggle;
             setPendingToggle(null);
