@@ -8594,6 +8594,39 @@ paths:
         - visual-changesets
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                editorUrl:
+                  type: string
+                urlPatterns:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        type: boolean
+                      type:
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                    required:
+                      - include
+                      - type
+                      - pattern
+                    additionalProperties: false
+                visualChanges:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/VisualChange'
+              additionalProperties: false
       responses:
         '200':
           content:
@@ -8623,6 +8656,52 @@ paths:
         - visual-changesets
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                css:
+                  type: string
+                js:
+                  type: string
+                variation:
+                  type: string
+                domMutations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - append
+                          - set
+                          - remove
+                      attribute:
+                        type: string
+                      value:
+                        type: string
+                      parentSelector:
+                        type: string
+                      insertBeforeSelector:
+                        type: string
+                    required:
+                      - selector
+                      - action
+                      - attribute
+                    additionalProperties: false
+              required:
+                - description
+                - variation
+                - domMutations
+              additionalProperties: false
       responses:
         '200':
           content:
@@ -8651,6 +8730,48 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
         - $ref: '#/components/parameters/visualChangeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                css:
+                  type: string
+                js:
+                  type: string
+                variation:
+                  type: string
+                domMutations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - append
+                          - set
+                          - remove
+                      attribute:
+                        type: string
+                      value:
+                        type: string
+                      parentSelector:
+                        type: string
+                      insertBeforeSelector:
+                        type: string
+                    required:
+                      - selector
+                      - action
+                      - attribute
+                    additionalProperties: false
+              additionalProperties: false
       responses:
         '200':
           content:
@@ -22405,6 +22526,46 @@ components:
         - dateCreated
         - dateUpdated
       additionalProperties: false
+    VisualChange:
+      type: object
+      properties:
+        description:
+          type: string
+        css:
+          type: string
+        js:
+          type: string
+        variation:
+          type: string
+        domMutations:
+          type: array
+          items:
+            type: object
+            properties:
+              selector:
+                type: string
+              action:
+                type: string
+                enum:
+                  - append
+                  - set
+                  - remove
+              attribute:
+                type: string
+              value:
+                type: string
+              parentSelector:
+                type: string
+              insertBeforeSelector:
+                type: string
+            required:
+              - selector
+              - action
+              - attribute
+            additionalProperties: false
+      required:
+        - variation
+      additionalProperties: false
     SavedGroup:
       type: object
       properties:
@@ -26976,46 +27137,6 @@ components:
         - dateEnd
         - result
         - config
-      additionalProperties: false
-    VisualChange:
-      type: object
-      properties:
-        description:
-          type: string
-        css:
-          type: string
-        js:
-          type: string
-        variation:
-          type: string
-        domMutations:
-          type: array
-          items:
-            type: object
-            properties:
-              selector:
-                type: string
-              action:
-                type: string
-                enum:
-                  - append
-                  - set
-                  - remove
-              attribute:
-                type: string
-              value:
-                type: string
-              parentSelector:
-                type: string
-              insertBeforeSelector:
-                type: string
-            required:
-              - selector
-              - action
-              - attribute
-            additionalProperties: false
-      required:
-        - variation
       additionalProperties: false
     features:
       description: >-

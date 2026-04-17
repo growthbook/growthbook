@@ -3,6 +3,25 @@ import { apiExperimentValidator } from "./experiments";
 
 import { namedSchema } from "./openapi-helpers";
 
+const domMutationSchema = z.object({
+  selector: z.string(),
+  action: z.enum(["append", "set", "remove"]),
+  attribute: z.string(),
+  value: z.string().optional(),
+  parentSelector: z.string().optional(),
+  insertBeforeSelector: z.string().optional(),
+});
+
+const visualChangeBodySchema = z
+  .object({
+    description: z.string().optional(),
+    css: z.string().optional(),
+    js: z.string().optional(),
+    variation: z.string().optional(),
+    domMutations: z.array(domMutationSchema).optional(),
+  })
+  .strict();
+
 // Corresponds to schemas/VisualChange.yaml
 export const apiVisualChangeValidator = namedSchema(
   "VisualChange",
@@ -202,24 +221,11 @@ export const putVisualChangesetValidator = {
 };
 
 export const postVisualChangeValidator = {
-  bodySchema: z
-    .object({
-      description: z.string(),
-      css: z.string().optional(),
-      js: z.string().optional(),
-      variation: z.string(),
-      domMutations: z.array(
-        z.object({
-          selector: z.string(),
-          action: z.enum(["append", "set", "remove"]),
-          attribute: z.string(),
-          value: z.string().optional(),
-          parentSelector: z.string().optional(),
-          insertBeforeSelector: z.string().optional(),
-        }),
-      ),
-    })
-    .strict(),
+  bodySchema: visualChangeBodySchema.required({
+    variation: true,
+    description: true,
+    domMutations: true,
+  }),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -236,26 +242,7 @@ export const postVisualChangeValidator = {
 };
 
 export const putVisualChangeValidator = {
-  bodySchema: z
-    .object({
-      description: z.string().optional(),
-      css: z.string().optional(),
-      js: z.string().optional(),
-      variation: z.string().optional(),
-      domMutations: z
-        .array(
-          z.object({
-            selector: z.string(),
-            action: z.enum(["append", "set", "remove"]),
-            attribute: z.string(),
-            value: z.string().optional(),
-            parentSelector: z.string().optional(),
-            insertBeforeSelector: z.string().optional(),
-          }),
-        )
-        .optional(),
-    })
-    .strict(),
+  bodySchema: visualChangeBodySchema,
   querySchema: z.never(),
   paramsSchema: z
     .object({
