@@ -1,7 +1,6 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { useForm, UseFormReturn } from "react-hook-form";
-import { NotificationEventName } from "shared/types/events/base-types";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowLeft, PiCaretRight, PiCheckCircleFill } from "react-icons/pi";
@@ -312,7 +311,7 @@ const EventWebHookAddEditSettings = ({
             formatWebhookEventOptionLabel(option, meta)
           }
           onChange={(value: string[]) => {
-            form.setValue("events", value as NotificationEventName[]);
+            form.setValue("events", value);
             handleFormValidation();
           }}
         />

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NotificationEventName } from "shared/types/events/base-types";
 import { zodNotificationEventNamesEnum } from "./events";
 
 export const eventWebHookPayloadTypes = [
@@ -19,6 +20,10 @@ export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-z]+(\.[a-zA-Z]+)*\.\*$/;
 
 export const isEventWebhookWildcard = (val: string) =>
   EVENT_WEBHOOK_WILDCARD_PATTERN.test(val);
+
+// A concrete event name or a wildcard subscription pattern (e.g. "feature.*").
+// Widens to string; runtime validation is enforced by the Zod schema.
+export type NotificationEventNameOrWildcard = NotificationEventName | string;
 
 const eventNameOrWildcard = z
   .string()

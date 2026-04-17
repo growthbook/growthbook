@@ -6,7 +6,6 @@ import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { datetime } from "shared/dates";
-import { NotificationEventName } from "shared/types/events/base-types";
 import { Flex, Box, IconButton } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
@@ -360,7 +359,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
             mode: "edit",
             data: {
               ...eventWebHook,
-              events: eventWebHook.events as NotificationEventName[],
+              events: eventWebHook.events,
               headers: eventWebHook.headers
                 ? JSON.stringify(eventWebHook.headers)
                 : "{}",

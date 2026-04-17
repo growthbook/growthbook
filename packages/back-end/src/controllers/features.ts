@@ -2036,7 +2036,7 @@ export async function postFeatureRule(
   }
 
   // Single updateRevision call combines both rule addition and ramp changes atomically
-  await updateRevision(
+  const updatedRevisionAfterRuleAdd = await updateRevision(
     context,
     feature,
     revision,
@@ -2052,7 +2052,7 @@ export async function postFeatureRule(
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    updatedRevisionAfterRuleAdd ?? revision,
     "revision.updated",
     { change: "rule.add", environments: selectedEnvironments },
     { environments: selectedEnvironments },
@@ -2365,7 +2365,7 @@ export async function putRevisionComment(
     throw new Error("Could not find feature revision");
   }
 
-  await updateRevision(
+  const updatedRevisionAfterComment = await updateRevision(
     context,
     feature,
     revision,
@@ -2381,7 +2381,7 @@ export async function putRevisionComment(
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    updatedRevisionAfterComment ?? revision,
     "revision.updated",
     { change: "metadata" },
   );
@@ -2422,7 +2422,7 @@ export async function putRevisionTitle(
     throw new Error("Could not find feature revision");
   }
 
-  await updateRevision(
+  const updatedRevisionAfterTitle = await updateRevision(
     context,
     feature,
     revision,
@@ -2438,7 +2438,7 @@ export async function putRevisionTitle(
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    updatedRevisionAfterTitle ?? revision,
     "revision.updated",
     { change: "metadata" },
   );
@@ -2476,7 +2476,7 @@ export async function postFeatureDefaultValue(
     defaultValueChanged: true,
     settings: org?.settings,
   });
-  await setDefaultValue(
+  const updatedRevisionAfterDefaultValue = await setDefaultValue(
     context,
     feature,
     revision,
@@ -2487,7 +2487,7 @@ export async function postFeatureDefaultValue(
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    updatedRevisionAfterDefaultValue ?? revision,
     "revision.updated",
     { change: "defaultValue" },
   );
@@ -2858,7 +2858,7 @@ export async function putFeatureRule(
   }
 
   // Single updateRevision call combines both rule and ramp changes atomically
-  await updateRevision(
+  const updatedRevisionAfterRuleEdit = await updateRevision(
     context,
     feature,
     revision,
@@ -2874,7 +2874,7 @@ export async function putFeatureRule(
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    updatedRevisionAfterRuleEdit ?? revision,
     "revision.updated",
     { change: "rule.update", environments: [environment] },
     { environments: [environment] },
@@ -3219,7 +3219,7 @@ export async function postFeatureMoveRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
-  await updateRevision(
+  const updatedRevisionAfterMove = await updateRevision(
     context,
     feature,
     revision,
@@ -3235,7 +3235,7 @@ export async function postFeatureMoveRule(
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    updatedRevisionAfterMove ?? revision,
     "revision.updated",
     { change: "rule.reorder", environments: [environment] },
     { environments: [environment] },
@@ -3317,7 +3317,7 @@ export async function deleteFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
-  await updateRevision(
+  const updatedRevisionAfterRuleDelete = await updateRevision(
     context,
     feature,
     revision,
@@ -3333,7 +3333,7 @@ export async function deleteFeatureRule(
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    updatedRevisionAfterRuleDelete ?? revision,
     "revision.updated",
     { change: "rule.delete", environments: [environment] },
     { environments: [environment] },

@@ -1097,7 +1097,7 @@ export async function setDefaultValue(
   user: EventUser,
   requireReview: boolean,
 ) {
-  await updateRevision(
+  return updateRevision(
     context,
     feature,
     revision,

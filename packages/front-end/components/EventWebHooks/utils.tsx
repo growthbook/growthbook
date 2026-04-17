@@ -1,4 +1,7 @@
-import { NotificationEventName } from "shared/types/events/base-types";
+import {
+  NotificationEventNameOrWildcard,
+  notificationEventNames as allNotificationEventNames,
+} from "shared/validators";
 import React, { ReactNode, useMemo } from "react";
 import clsx from "clsx";
 import {
@@ -12,7 +15,6 @@ import {
 } from "shared/types/event-webhook";
 import { VscJson } from "react-icons/vsc";
 import { FormatOptionLabelMeta } from "react-select";
-import { notificationEventNames as allNotificationEventNames } from "shared/validators";
 import { SingleValue } from "@/components/Forms/SelectField";
 
 export type {
@@ -33,7 +35,7 @@ export type EventWebHookEditParams = {
   name: string;
   url: string;
   enabled: boolean;
-  events: NotificationEventName[];
+  events: NotificationEventNameOrWildcard[];
   tags: string[];
   environments: string[];
   projects: string[];
