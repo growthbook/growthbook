@@ -7720,7 +7720,9 @@ paths:
                     Auto-generated from name if not provided.
                   type: string
                 settings:
-                  description: Project settings.
+                  description: >-
+                    Project stats settings that, when set, override the
+                    organization settings.
                   type: object
                   properties:
                     statsEngine:
@@ -7806,7 +7808,9 @@ paths:
                   description: URL-safe slug (lowercase letters, numbers, dashes).
                   type: string
                 settings:
-                  description: Project settings.
+                  description: >-
+                    Project stats settings that, when set, override the
+                    organization settings.
                   type: object
                   properties:
                     statsEngine:

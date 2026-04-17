@@ -84,7 +84,9 @@ const postProjectBody = z
           .describe("Frequentist p-value threshold (e.g. 0.05).")
           .optional(),
       })
-      .describe("Project settings.")
+      .describe(
+        "Project stats settings that, when set, override the organization settings.",
+      )
       .optional(),
   })
   .strict();
@@ -112,7 +114,9 @@ const putProjectBody = z
           .describe("Frequentist p-value threshold (e.g. 0.05).")
           .optional(),
       })
-      .describe("Project settings.")
+      .describe(
+        "Project stats settings that, when set, override the organization settings.",
+      )
       .optional(),
   })
   .strict();
