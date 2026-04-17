@@ -43,6 +43,7 @@ type Metric = {
 
 const DateResults: FC<{
   variations: ExperimentReportVariation[];
+  projectId?: string;
   results: ExperimentReportResultDimension[];
   seriestype: string;
   goalMetrics: string[];
@@ -54,6 +55,7 @@ const DateResults: FC<{
 }> = ({
   results,
   variations,
+  projectId,
   seriestype,
   goalMetrics,
   secondaryMetrics,
@@ -65,8 +67,8 @@ const DateResults: FC<{
   const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
     useDefinitions();
 
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
+  const _confidenceLevels = useConfidenceLevels(projectId);
+  const _pValueThreshold = usePValueThreshold(projectId);
   const _displayCurrency = useCurrency();
 
   const { ciUpper, ciLower } =

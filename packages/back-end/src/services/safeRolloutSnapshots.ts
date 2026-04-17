@@ -62,6 +62,7 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
+import { getPValueThresholdForOrg } from "back-end/src/services/organizations";
 import { getSourceIntegrationObject } from "./datasource";
 import { computeResultsStatus, isJoinableMetric } from "./experiments";
 
@@ -232,6 +233,7 @@ export async function getSettingsForSnapshotMetrics(
 export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   organization: OrganizationInterface,
   regressionAdjustmentEnabled?: boolean,
+  pValueThresholdOverride?: number,
 ): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
@@ -264,7 +266,9 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
     baselineVariationIndex: 0,
     differenceType: "absolute",
     pValueThreshold:
-      organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+      pValueThresholdOverride ??
+      organization.settings?.pValueThreshold ??
+      DEFAULT_P_VALUE_THRESHOLD,
     numGoalMetrics: 0,
   };
 }
@@ -479,9 +483,14 @@ export async function createSafeRolloutSnapshot({
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
     await getSettingsForSnapshotMetrics(context, safeRollout);
 
+  const srFeature = await getFeature(context, safeRollout.featureId);
+  const srProjectId = srFeature?.project ?? undefined;
+  const pValueThreshold = await getPValueThresholdForOrg(context, srProjectId);
+
   const analysisSettings = getDefaultExperimentAnalysisSettingsForSafeRollout(
     org,
     regressionAdjustmentEnabled,
+    pValueThreshold,
   );
 
   const queryRunner = await _createSafeRolloutSnapshot({

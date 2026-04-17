@@ -17,6 +17,7 @@ import { useResultPopover } from "./useResultPopover";
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   metric: ExperimentMetricInterface;
+  projectId?: string;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
@@ -49,6 +50,7 @@ interface Props
 
 export default function PercentGraph({
   metric,
+  projectId,
   baseline,
   stats,
   domain,
@@ -79,8 +81,8 @@ export default function PercentGraph({
   pValueAdjustmentEnabled,
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
+  const _confidenceLevels = useConfidenceLevels(projectId);
+  const _pValueThreshold = usePValueThreshold(projectId);
 
   const metricDefaults =
     ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||

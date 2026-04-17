@@ -23,6 +23,7 @@ import ExperimentTimeSeriesGraph, {
 
 interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
+  projectId?: string;
   phase: number;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
@@ -55,6 +56,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
 
 function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
+  projectId,
   phase,
   metric,
   differenceType,
@@ -68,7 +70,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   unavailableMessage,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
-  const pValueThreshold = usePValueThreshold();
+  const pValueThreshold = usePValueThreshold(projectId);
 
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };

@@ -50,6 +50,7 @@ export interface UseExperimentDimensionRowsParams {
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
+  projectId?: string;
 }
 
 export interface UseExperimentDimensionRowsReturn {
@@ -78,11 +79,12 @@ export function useExperimentDimensionRows({
   settingsForSnapshotMetrics,
   dimensionValuesFilter,
   showErrorsOnQuantileMetrics = false,
+  projectId,
 }: UseExperimentDimensionRowsParams): UseExperimentDimensionRowsReturn {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  const _pValueThreshold = usePValueThreshold();
+  const _pValueThreshold = usePValueThreshold(projectId);
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 

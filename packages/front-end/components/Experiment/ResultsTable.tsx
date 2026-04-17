@@ -70,6 +70,7 @@ import VariationChooserColumnLabel from "./VariationChooserColumnLabel";
 export type ResultsTableProps = {
   id: string;
   experimentId: string;
+  projectId?: string;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -154,6 +155,7 @@ export enum RowError {
 export default function ResultsTable({
   id,
   experimentId,
+  projectId,
   isLatestPhase,
   phase,
   status,
@@ -299,8 +301,8 @@ export default function ResultsTable({
     ssrPolyfills?.useOrganizationMetricDefaults?.() ||
     _useOrganizationMetricDefaults;
 
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
+  const _confidenceLevels = useConfidenceLevels(projectId);
+  const _pValueThreshold = usePValueThreshold(projectId);
   const _displayCurrency = useCurrency();
   const _orgSettings = useOrgSettings();
 
@@ -1148,6 +1150,7 @@ export default function ResultsTable({
                                       <td className="graph-cell">
                                         {j > 0 ? (
                                           <PercentGraph
+                                            projectId={projectId}
                                             barType={
                                               statsEngine === "frequentist"
                                                 ? "pill"
@@ -1287,6 +1290,7 @@ export default function ResultsTable({
                                       <div className={styles.timeSeriesCell}>
                                         <ExperimentMetricTimeSeriesGraphWrapper
                                           experimentId={experimentId}
+                                          projectId={projectId}
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}

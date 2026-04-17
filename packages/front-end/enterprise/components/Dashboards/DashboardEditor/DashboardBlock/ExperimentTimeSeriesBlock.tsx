@@ -190,6 +190,7 @@ export default function ExperimentTimeSeriesBlock({
                       <ExperimentMetricTimeSeriesGraphWrapper
                         key={metric.id}
                         experimentId={experiment.id}
+                        projectId={experiment.project}
                         phase={snapshot.phase}
                         metric={metric}
                         differenceType={
@@ -235,6 +236,7 @@ export default function ExperimentTimeSeriesBlock({
                           </div>
                           <ExperimentMetricTimeSeriesGraphWrapper
                             experimentId={experiment.id}
+                            projectId={experiment.project}
                             phase={snapshot.phase}
                             metric={sliceRow.metric}
                             differenceType={

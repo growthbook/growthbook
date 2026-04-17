@@ -37,6 +37,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ResultsTable from "./ResultsTable";
 
 const CompactResults: FC<{
+  projectId?: string;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
@@ -60,6 +61,7 @@ const CompactResults: FC<{
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
 }> = ({
+  projectId,
   editMetrics,
   variations,
   variationFilter,
@@ -85,7 +87,7 @@ const CompactResults: FC<{
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
-  const _pValueThreshold = usePValueThreshold();
+  const _pValueThreshold = usePValueThreshold(projectId);
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
@@ -173,6 +175,7 @@ const CompactResults: FC<{
       {expandedGuardrails.length ? (
         <div className="mt-4" style={{ overflowX: "auto" }}>
           <ResultsTable
+            projectId={projectId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             startDate={startDate}

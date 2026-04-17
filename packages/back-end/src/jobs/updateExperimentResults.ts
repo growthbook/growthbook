@@ -152,6 +152,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       organization,
       regressionAdjustmentEnabled,
       postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
+      pValueThreshold: scopedSettings.pValueThreshold.value,
     });
 
     const metricMap = await getMetricMap(context);

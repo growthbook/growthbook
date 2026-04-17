@@ -7726,6 +7726,14 @@ paths:
                     statsEngine:
                       description: Stats engine.
                       type: string
+                    confidenceLevel:
+                      description: >-
+                        Bayesian chance-to-win threshold (stored as decimal,
+                        e.g. 0.95).
+                      type: number
+                    pValueThreshold:
+                      description: Frequentist p-value threshold (e.g. 0.05).
+                      type: number
                   additionalProperties: false
               required:
                 - name
@@ -7804,6 +7812,14 @@ paths:
                     statsEngine:
                       description: Stats engine.
                       type: string
+                    confidenceLevel:
+                      description: >-
+                        Bayesian chance-to-win threshold (stored as decimal,
+                        e.g. 0.95).
+                      type: number
+                    pValueThreshold:
+                      description: Frequentist p-value threshold (e.g. 0.05).
+                      type: number
                   additionalProperties: false
               additionalProperties: false
       responses:
@@ -22023,6 +22039,10 @@ components:
           properties:
             statsEngine:
               type: string
+            confidenceLevel:
+              type: number
+            pValueThreshold:
+              type: number
           additionalProperties: false
       required:
         - id

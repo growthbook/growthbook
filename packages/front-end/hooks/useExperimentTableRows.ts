@@ -71,6 +71,7 @@ export interface UseExperimentTableRowsParams {
   shouldShowMetricSlices?: boolean;
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
+  projectId?: string;
 }
 
 export interface UseExperimentTableRowsReturn {
@@ -99,6 +100,7 @@ export function useExperimentTableRows({
   shouldShowMetricSlices = true,
   enableExpansion: _enableExpansion = true,
   expandedMetrics,
+  projectId,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -112,7 +114,7 @@ export function useExperimentTableRows({
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
 
-  const _pValueThreshold = usePValueThreshold();
+  const _pValueThreshold = usePValueThreshold(projectId);
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 

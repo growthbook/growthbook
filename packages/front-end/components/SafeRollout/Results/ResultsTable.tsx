@@ -46,6 +46,7 @@ import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
   id: string;
+  projectId?: string;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
@@ -81,6 +82,7 @@ export type ResultsTableProps = {
 
 export default function ResultsTable({
   id,
+  projectId,
   isLatestPhase,
   status,
   queryStatusData,
@@ -114,8 +116,8 @@ export default function ResultsTable({
     ssrPolyfills?.useOrganizationMetricDefaults?.() ||
     _useOrganizationMetricDefaults;
 
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
+  const _confidenceLevels = useConfidenceLevels(projectId);
+  const _pValueThreshold = usePValueThreshold(projectId);
 
   const { ciUpper, ciLower } =
     ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
@@ -490,6 +492,7 @@ export default function ResultsTable({
                             }
                             differenceType={differenceType}
                             isBandit={isBandit}
+                            projectId={projectId}
                             ssrPolyfills={ssrPolyfills}
                           />
                         </Popover.Content>

@@ -456,6 +456,7 @@ const Presentation = ({
             >
               <CompactResults
                 experimentId={experiment.id}
+                projectId={experiment.project}
                 variations={getLatestPhaseVariations(experiment).map(
                   (v, i) => ({
                     id: v.key || v.index + "",

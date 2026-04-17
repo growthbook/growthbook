@@ -366,6 +366,7 @@ const Results: FC<{
         >
           {showDateResults ? (
             <DateResults
+              projectId={experiment.project}
               goalMetrics={experiment.goalMetrics}
               secondaryMetrics={experiment.secondaryMetrics}
               guardrailMetrics={experiment.guardrailMetrics}
@@ -380,6 +381,7 @@ const Results: FC<{
           ) : showBreakDownResults && snapshot ? (
             <BreakDownResults
               experimentId={experiment.id}
+              projectId={experiment.project}
               key={analysis?.settings?.dimensions?.[0] ?? snapshot.dimension}
               results={analysis?.results ?? []}
               queryStatusData={queryStatusData}
@@ -442,6 +444,7 @@ const Results: FC<{
           ) : showCompactResults ? (
             <CompactResults
               experimentId={experiment.id}
+              projectId={experiment.project}
               editMetrics={editMetrics}
               variations={variations}
               variationFilter={analysisBarSettings.variationFilter}

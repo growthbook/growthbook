@@ -152,6 +152,7 @@ export default function PublicExperimentResults({
           >
             {showDateResults ? (
               <DateResults
+                projectId={experiment.project}
                 goalMetrics={experiment.goalMetrics}
                 secondaryMetrics={experiment.secondaryMetrics}
                 guardrailMetrics={experiment.guardrailMetrics}
@@ -165,6 +166,7 @@ export default function PublicExperimentResults({
             ) : showBreakDownResults ? (
               <BreakDownResults
                 experimentId={experiment.id}
+                projectId={experiment.project}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -192,6 +194,7 @@ export default function PublicExperimentResults({
             ) : showCompactResults ? (
               <CompactResults
                 experimentId={experiment.id}
+                projectId={experiment.project}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}

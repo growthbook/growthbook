@@ -44,6 +44,7 @@ import { DimensionInterface } from "shared/types/dimension";
 import { DataSourceInterface } from "shared/types/datasource";
 import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
+import { getScopedSettings } from "shared/settings";
 import {
   createOrganization,
   findAllOrganizations,
@@ -182,8 +183,19 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export function getConfidenceLevelsForOrg(context: ReqContext) {
-  const ciUpper = context.org.settings?.confidenceLevel || 0.95;
+export async function getConfidenceLevelsForOrg(
+  context: ReqContext,
+  projectId?: string,
+) {
+  const project =
+    projectId && projectId.length > 0
+      ? ((await context.models.projects.getById(projectId)) ?? undefined)
+      : undefined;
+  const { settings } = getScopedSettings({
+    organization: context.org,
+    project,
+  });
+  const ciUpper = settings.confidenceLevel.value || 0.95;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,
@@ -272,14 +284,34 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
   return context.org.settings?.metricDefaults || METRIC_DEFAULTS;
 }
 
-export function getPValueThresholdForOrg(context: ReqContext): number {
-  return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
+export async function getPValueThresholdForOrg(
+  context: ReqContext,
+  projectId?: string,
+): Promise<number> {
+  const project =
+    projectId && projectId.length > 0
+      ? ((await context.models.projects.getById(projectId)) ?? undefined)
+      : undefined;
+  const { settings } = getScopedSettings({
+    organization: context.org,
+    project,
+  });
+  return settings.pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD;
 }
 
-export function getPValueCorrectionForOrg(
+export async function getPValueCorrectionForOrg(
   context: ReqContext,
-): PValueCorrection {
-  return context.org.settings?.pValueCorrection ?? null;
+  projectId?: string,
+): Promise<PValueCorrection> {
+  const project =
+    projectId && projectId.length > 0
+      ? ((await context.models.projects.getById(projectId)) ?? undefined)
+      : undefined;
+  const { settings } = getScopedSettings({
+    organization: context.org,
+    project,
+  });
+  return settings.pValueCorrection.value ?? null;
 }
 
 export function getRole(

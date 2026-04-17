@@ -468,6 +468,7 @@ export default function LegacyReportPage({
                 report.args.dimension &&
                 (report.args.dimension.substring(0, 8) === "pre:date" ? (
                   <DateResults
+                    projectId={experimentData?.experiment?.project}
                     goalMetrics={report.args.goalMetrics}
                     secondaryMetrics={report.args.secondaryMetrics}
                     guardrailMetrics={report.args.guardrailMetrics}
@@ -480,6 +481,7 @@ export default function LegacyReportPage({
                 ) : (
                   <BreakDownResults
                     experimentId={report.experimentId ?? ""}
+                    projectId={experimentData?.experiment?.project}
                     isLatestPhase={true}
                     phase={
                       (experimentData?.experiment?.phases?.length ?? 1) - 1
@@ -554,6 +556,7 @@ export default function LegacyReportPage({
                   <div className="mt-0 mb-3">
                     <CompactResults
                       experimentId={report.experimentId ?? ""}
+                      projectId={experimentData?.experiment?.project}
                       variations={variations}
                       multipleExposures={report.results?.multipleExposures || 0}
                       results={report.results?.dimensions?.[0]}

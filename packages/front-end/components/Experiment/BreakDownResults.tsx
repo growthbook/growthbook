@@ -55,6 +55,7 @@ export const includeVariation = (
 
 const BreakDownResults: FC<{
   experimentId: string;
+  projectId?: string;
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
@@ -108,6 +109,7 @@ const BreakDownResults: FC<{
   setDifferenceType?: (differenceType: DifferenceType) => void;
 }> = ({
   experimentId,
+  projectId,
   dimensionId,
   dimensionValuesFilter,
   results,
@@ -186,6 +188,7 @@ const BreakDownResults: FC<{
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
+    projectId,
   });
 
   const activationMetricObj = activationMetric
@@ -261,6 +264,7 @@ const BreakDownResults: FC<{
             <ResultsTable
               key={i}
               experimentId={experimentId}
+              projectId={projectId}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               phase={phase}

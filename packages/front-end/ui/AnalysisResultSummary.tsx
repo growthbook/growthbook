@@ -52,6 +52,7 @@ export interface AnalysisResultSummaryProps {
   };
   differenceType: DifferenceType;
   isBandit?: boolean;
+  projectId?: string;
   ssrPolyfills?: SSRPolyfills;
 }
 
@@ -59,6 +60,7 @@ export default function AnalysisResultSummary({
   data,
   differenceType,
   isBandit,
+  projectId,
   ssrPolyfills,
 }: AnalysisResultSummaryProps) {
   const _currency = useCurrency();
@@ -66,7 +68,7 @@ export default function AnalysisResultSummary({
 
   const { getFactTableById } = useDefinitions();
 
-  const _pValueThreshold = usePValueThreshold();
+  const _pValueThreshold = usePValueThreshold(projectId);
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
 

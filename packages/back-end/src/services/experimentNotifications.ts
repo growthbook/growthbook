@@ -294,10 +294,14 @@ export const computeExperimentChanges = async ({
   // TODO refactor to only do once per update
   // get the org level settings for significance:
   const statsEngine = currentAnalysis.settings.statsEngine;
-  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const projectId = experiment.project;
+  const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
+    context,
+    projectId,
+  );
   const metricDefaults = getMetricDefaultsForOrg(context);
-  const pValueThreshold = getPValueThresholdForOrg(context);
-  const pValueCorrection = getPValueCorrectionForOrg(context);
+  const pValueThreshold = await getPValueThresholdForOrg(context, projectId);
+  const pValueCorrection = await getPValueCorrectionForOrg(context, projectId);
 
   // Apply p-value correction to match what the UI and analysisSummary use,
   // so notifications don't fire for metrics that appear non-significant to users

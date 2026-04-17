@@ -159,14 +159,14 @@ describe("Experiment Significance notifications", () => {
       testCases,
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
         getLatestSnapshot.mockReturnValue(beforeSnapshot);
-        getConfidenceLevelsForOrg.mockReturnValue(
+        getConfidenceLevelsForOrg.mockResolvedValue(
           params.getConfidenceLevelsForOrg,
         );
         getMetricDefaultsForOrg.mockReturnValue(params.getMetricDefaultsForOrg);
-        getPValueCorrectionForOrg.mockReturnValue(
+        getPValueCorrectionForOrg.mockResolvedValue(
           params.getPValueCorrectionForOrg,
         );
-        getPValueThresholdForOrg.mockReturnValue(
+        getPValueThresholdForOrg.mockResolvedValue(
           params.getPValueThresholdForOrg,
         );
 

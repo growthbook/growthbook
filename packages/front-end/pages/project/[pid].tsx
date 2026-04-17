@@ -29,6 +29,14 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useApi from "@/hooks/useApi";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import Metadata from "@/ui/Metadata";
+import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
+import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
+
+function emptyStringToUndefined(v: unknown): number | undefined {
+  if (v === "" || v === null || v === undefined) return undefined;
+  const num = Number(v);
+  return Number.isNaN(num) ? undefined : num;
+}
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -77,6 +85,9 @@ const ProjectPage: FC = () => {
       Object.keys(settings).forEach((k) => {
         newVal[k] = settings?.[k] || newVal[k];
       });
+      if (typeof newVal.confidenceLevel === "number") {
+        newVal.confidenceLevel = newVal.confidenceLevel * 100;
+      }
       form.reset(newVal);
       setOriginalValue(newVal);
     }
@@ -85,10 +96,14 @@ const ProjectPage: FC = () => {
   const ctaEnabled = hasChanges(form.getValues(), originalValue);
 
   const saveSettings = form.handleSubmit(async (value) => {
+    const payload: ProjectSettings = { ...value };
+    if (typeof payload.confidenceLevel === "number") {
+      payload.confidenceLevel = payload.confidenceLevel / 100;
+    }
     await apiCall(`/projects/${pid}/settings`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: value,
+        settings: payload,
       }),
     });
 
@@ -233,6 +248,73 @@ const ProjectPage: FC = () => {
                           label="By default, experiments use your organization's default statistics engine, however, you can override this for experiments in this project."
                           parentSettings={parentSettings}
                         />
+
+                        <Box mt="3">
+                          <Tabs defaultValue="bayesian">
+                            <TabsList>
+                              <TabsTrigger value="bayesian">
+                                Bayesian
+                              </TabsTrigger>
+                              <TabsTrigger value="frequentist">
+                                Frequentist
+                              </TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="bayesian">
+                              <Box mt="4">
+                                <h4 className="mb-4 text-purple">
+                                  Bayesian Settings
+                                </h4>
+                                <div className="form-group mb-2 mr-2 form-inline">
+                                  <ChanceToWinThresholdField
+                                    value={form.watch("confidenceLevel")}
+                                    helpTextAppend={
+                                      <span className="ml-2">
+                                        (
+                                        {Math.round(
+                                          (parentSettings.confidenceLevel
+                                            .value ?? 0.95) * 100,
+                                        )}
+                                        % is your organization default)
+                                      </span>
+                                    }
+                                    registerProps={form.register(
+                                      "confidenceLevel",
+                                      {
+                                        setValueAs: emptyStringToUndefined,
+                                      },
+                                    )}
+                                  />
+                                </div>
+                              </Box>
+                            </TabsContent>
+                            <TabsContent value="frequentist">
+                              <Box mt="4">
+                                <h4 className="mb-4 text-purple">
+                                  Frequentist Settings
+                                </h4>
+                                <div className="form-group mb-2 mr-2 form-inline">
+                                  <PValueThresholdField
+                                    value={form.watch("pValueThreshold")}
+                                    helpTextAppend={
+                                      <span className="ml-2">
+                                        (
+                                        {parentSettings.pValueThreshold.value ??
+                                          0.05}{" "}
+                                        is your organization default)
+                                      </span>
+                                    }
+                                    registerProps={form.register(
+                                      "pValueThreshold",
+                                      {
+                                        setValueAs: emptyStringToUndefined,
+                                      },
+                                    )}
+                                  />
+                                </div>
+                              </Box>
+                            </TabsContent>
+                          </Tabs>
+                        </Box>
                       </Box>
                     </Flex>
                   </Flex>

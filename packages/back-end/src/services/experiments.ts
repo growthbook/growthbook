@@ -302,6 +302,7 @@ export function getDefaultExperimentAnalysisSettings({
   regressionAdjustmentEnabled,
   postStratificationEnabled,
   dimension,
+  pValueThreshold,
 }: {
   statsEngine: StatsEngine;
   experiment: ExperimentInterface | ExperimentReportAnalysisSettings;
@@ -309,6 +310,7 @@ export function getDefaultExperimentAnalysisSettings({
   regressionAdjustmentEnabled?: boolean;
   postStratificationEnabled?: boolean;
   dimension?: string;
+  pValueThreshold?: number;
 }): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
@@ -342,7 +344,9 @@ export function getDefaultExperimentAnalysisSettings({
     baselineVariationIndex: 0,
     differenceType: "relative",
     pValueThreshold:
-      organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+      pValueThreshold ??
+      organization.settings?.pValueThreshold ??
+      DEFAULT_P_VALUE_THRESHOLD,
     numGoalMetrics: experiment.goalMetrics.length,
   };
 }
@@ -1844,6 +1848,7 @@ export async function planExperimentSnapshot({
     regressionAdjustmentEnabled,
     postStratificationEnabled,
     dimension,
+    pValueThreshold: settings.pValueThreshold.value,
   });
 
   const plan = await planSnapshot({
@@ -4195,10 +4200,17 @@ export async function computeResultsStatus({
   experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
-  const pValueCorrection = getPValueCorrectionForOrg(context);
-  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const projectId =
+    "project" in experiment && typeof experiment.project === "string"
+      ? experiment.project
+      : undefined;
+  const pValueCorrection = await getPValueCorrectionForOrg(context, projectId);
+  const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
+    context,
+    projectId,
+  );
   const metricDefaults = getMetricDefaultsForOrg(context);
-  const pValueThreshold = getPValueThresholdForOrg(context);
+  const pValueThreshold = await getPValueThresholdForOrg(context, projectId);
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 

@@ -9,52 +9,26 @@ import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { StatsEngineSettingsForm } from "./StatsEngineSettings";
+import PValueThresholdField from "./PValueThresholdField";
 
 export default function FrequentistTab({
-  pHighlightColor,
-  pWarningMsg,
   form,
 }: {
-  pHighlightColor: string;
-  pWarningMsg: string;
   form: StatsEngineSettingsForm;
 }) {
   const { hasCommercialFeature } = useUser();
+  const pValueThreshold = form.watch("pValueThreshold");
 
   return (
     <>
       <h4 className="mb-4 text-purple">Frequentist Settings</h4>
 
       <div className="form-group mb-2 mr-2 form-inline">
-        <Field
-          label="P-value threshold"
-          type="number"
-          step="0.001"
-          max="0.5"
-          min="0.001"
-          style={{
-            borderColor: pHighlightColor,
-            backgroundColor: pHighlightColor ? pHighlightColor + "15" : "",
-          }}
-          className={`ml-2`}
-          containerClassName="mb-3"
-          append=""
+        <PValueThresholdField
+          value={pValueThreshold}
           disabled={hasFileConfig()}
-          helpText={
-            <>
-              <span className="ml-2">(0.05 is default)</span>
-              <div
-                className="ml-2"
-                style={{
-                  color: pHighlightColor,
-                  flexBasis: "100%",
-                }}
-              >
-                {pWarningMsg}
-              </div>
-            </>
-          }
-          {...form.register("pValueThreshold", {
+          helpTextAppend={<span className="ml-2">(0.05 is default)</span>}
+          registerProps={form.register("pValueThreshold", {
             valueAsNumber: true,
             min: 0,
             max: 1,

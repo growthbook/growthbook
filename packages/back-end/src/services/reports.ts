@@ -537,6 +537,7 @@ export async function createReportSnapshot({
     regressionAdjustmentEnabled,
     postStratificationEnabled,
     dimension: report.experimentAnalysisSettings.dimension,
+    pValueThreshold: settings.pValueThreshold.value,
   });
 
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
