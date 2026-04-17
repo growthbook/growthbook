@@ -3752,10 +3752,18 @@ export async function postFeatureArchive(
       draft,
       archiveChanges,
     );
+    // Re-fetch so the payload reflects the post-publish status ("published").
+    const publishedRevision =
+      (await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        version: draft.version,
+      })) ?? draft;
     await dispatchFeatureRevisionEvent(
       context,
       updatedFeature,
-      draft,
+      publishedRevision,
       "revision.published",
       {},
     );

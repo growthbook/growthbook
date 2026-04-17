@@ -1,21 +1,14 @@
 import { z } from "zod";
 import { featureRevisionWebhookPayload } from "./feature-webhook-schemas";
 
-// Fields present on every revision event payload.
-const baseRevisionEventFields = {
-  orgId: z.string(),
-};
-
-export const featureRevisionCreatedPayload = featureRevisionWebhookPayload
-  .extend(baseRevisionEventFields)
-  .strict();
+export const featureRevisionCreatedPayload =
+  featureRevisionWebhookPayload.strict();
 export type FeatureRevisionCreatedPayload = z.infer<
   typeof featureRevisionCreatedPayload
 >;
 
 export const featureRevisionUpdatedPayload = featureRevisionWebhookPayload
   .extend({
-    ...baseRevisionEventFields,
     // What kind of mutation occurred. Useful for filtering noisy integrations.
     change: z.enum([
       "rule.add",
@@ -43,7 +36,6 @@ export type FeatureRevisionUpdatedPayload = z.infer<
 export const featureRevisionReviewRequestedPayload =
   featureRevisionWebhookPayload
     .extend({
-      ...baseRevisionEventFields,
       reviewComment: z.string().nullable(),
     })
     .strict();
@@ -63,7 +55,6 @@ const reviewer = z
 export const featureRevisionReviewApprovedPayload =
   featureRevisionWebhookPayload
     .extend({
-      ...baseRevisionEventFields,
       reviewer,
       reviewComment: z.string().nullable(),
     })
@@ -75,7 +66,6 @@ export type FeatureRevisionReviewApprovedPayload = z.infer<
 export const featureRevisionChangesRequestedPayload =
   featureRevisionWebhookPayload
     .extend({
-      ...baseRevisionEventFields,
       reviewer,
       reviewComment: z.string().nullable(),
     })
@@ -86,7 +76,6 @@ export type FeatureRevisionChangesRequestedPayload = z.infer<
 
 export const featureRevisionCommentedPayload = featureRevisionWebhookPayload
   .extend({
-    ...baseRevisionEventFields,
     reviewer,
     reviewComment: z.string(),
   })
@@ -95,30 +84,26 @@ export type FeatureRevisionCommentedPayload = z.infer<
   typeof featureRevisionCommentedPayload
 >;
 
-export const featureRevisionDiscardedPayload = featureRevisionWebhookPayload
-  .extend(baseRevisionEventFields)
-  .strict();
+export const featureRevisionDiscardedPayload =
+  featureRevisionWebhookPayload.strict();
 export type FeatureRevisionDiscardedPayload = z.infer<
   typeof featureRevisionDiscardedPayload
 >;
 
-export const featureRevisionRebasedPayload = featureRevisionWebhookPayload
-  .extend(baseRevisionEventFields)
-  .strict();
+export const featureRevisionRebasedPayload =
+  featureRevisionWebhookPayload.strict();
 export type FeatureRevisionRebasedPayload = z.infer<
   typeof featureRevisionRebasedPayload
 >;
 
-export const featureRevisionPublishedPayload = featureRevisionWebhookPayload
-  .extend(baseRevisionEventFields)
-  .strict();
+export const featureRevisionPublishedPayload =
+  featureRevisionWebhookPayload.strict();
 export type FeatureRevisionPublishedPayload = z.infer<
   typeof featureRevisionPublishedPayload
 >;
 
 export const featureRevisionRevertedPayload = featureRevisionWebhookPayload
   .extend({
-    ...baseRevisionEventFields,
     // The version that was reverted *to* (source of truth for the new published state).
     revertedToVersion: z.number().int(),
   })

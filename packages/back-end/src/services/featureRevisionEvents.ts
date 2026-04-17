@@ -25,7 +25,6 @@ type RevisionBaseKeys =
   | "featureId"
   | "version"
   | "status"
-  | "orgId"
   | keyof ReturnType<typeof revisionToApiInterface>;
 
 type ExtraPayload<T extends FeatureRevisionEvent> = Omit<
@@ -80,7 +79,6 @@ export async function dispatchFeatureRevisionEvent<
       featureId: feature.id,
       version: revision.version,
       status: revision.status,
-      orgId: ctx.org.id,
       ...extra,
     };
 

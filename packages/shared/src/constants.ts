@@ -188,6 +188,9 @@ export const entityEvents = {
   environment: ["create", "update", "delete"],
   feature: [
     "create",
+    // "revision.publish" and "revision.revert" are intentionally absent here:
+    // those lifecycle actions reuse the top-level "feature.publish" / "feature.revert"
+    // audit events below rather than emitting a separate revision.* entry.
     "publish",
     "revert",
     "update",
