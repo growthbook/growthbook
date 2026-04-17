@@ -6,6 +6,8 @@ import {
   generateSigningKey,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -13,10 +15,16 @@ export const COLLECTION_NAME = "apikeys";
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
   collectionName: COLLECTION_NAME,
-  pKey: ["key"],
+  pKey: ["key"] as const,
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
   additionalIndexes: [{ fields: { id: 1 } }],
+  skipDateUpdatedFields: ["lastUsed"],
+  defaultValues: {
+    limitAccessByEnvironment: false,
+    environments: [],
+    lastUsed: null,
+  },
 });
 
 export class ApiKeyModel extends BaseClass {
@@ -36,9 +44,16 @@ export class ApiKeyModel extends BaseClass {
       );
     }
   }
-  protected canUpdate(_existing: ApiKeyInterface): boolean {
-    // ApiKeys should be immutable
-    return false;
+  protected canUpdate(
+    apiKey: ApiKeyInterface,
+    updates: Partial<ApiKeyInterface>,
+  ): boolean {
+    // API keys are immutable except for toggling `disabled`.
+    // Anything else (key value, role, etc.) must never be edited.
+    // `lastUsed` is written by auth middleware via the dangerous bypass and never hits this path.
+    const keys = Object.keys(updates);
+    if (keys.length !== 1 || keys[0] !== "disabled") return false;
+    return this.canDelete(apiKey);
   }
   protected canDelete(apiKey: ApiKeyInterface): boolean {
     if (apiKey.secret) {
@@ -66,20 +81,88 @@ export class ApiKeyModel extends BaseClass {
     return { ...doc, key: "", encryptionKey: undefined };
   }
 
+  protected async customValidation(doc: ApiKeyInterface) {
+    if (doc.userId) {
+      // PATs inherit permissions from their user — scoping fields must not be set
+      if (doc.limitAccessByEnvironment) {
+        this.context.throwBadRequestError(
+          "PATs do not support environment restrictions.",
+        );
+      }
+      if (doc.projectRoles) {
+        this.context.throwBadRequestError(
+          "PATs do not support project-scoped roles.",
+        );
+      }
+    } else {
+      // Org API keys — validate role, environments, project roles, and commercial features
+      this.validateRole(doc.role);
+      if (
+        doc.limitAccessByEnvironment &&
+        !this.context.hasPremiumFeature("advanced-permissions")
+      ) {
+        this.context.throwPlanDoesNotAllowError(
+          "Your plan does not support restricting API key permissions by environment.",
+        );
+      }
+      this.validateEnvironments(doc.environments);
+      if (doc.projectRoles) {
+        if (!this.context.hasPremiumFeature("advanced-permissions")) {
+          this.context.throwPlanDoesNotAllowError(
+            "Your plan does not support project-level permissions on API keys.",
+          );
+        }
+        for (const pr of doc.projectRoles) {
+          this.validateRole(pr.role);
+          await this.validateProject(pr.project);
+          this.validateEnvironments(pr.environments);
+        }
+      }
+    }
+  }
+
+  private validateRole(role: string | undefined) {
+    if (role === undefined) return;
+    if (this.context.org.deactivatedRoles?.includes(role)) {
+      this.context.throwBadRequestError(`Role has been deactivated: ${role}`);
+    }
+    if (!getRoleById(role, this.context.org)) {
+      this.context.throwBadRequestError(`Invalid role: ${role}`);
+    }
+  }
+
+  private validateEnvironments(environments: string[]) {
+    if (!environments.length) return;
+    const orgEnvIds = getEnvironmentIdsFromOrg(this.context.org);
+    for (const env of environments) {
+      if (!orgEnvIds.includes(env)) {
+        this.context.throwBadRequestError(`Invalid environment: ${env}`);
+      }
+    }
+  }
+
+  private async validateProject(projectId: string) {
+    const project = (await this.context.getProjects()).find(
+      ({ id }) => id === projectId,
+    );
+    if (!project) {
+      this.context.throwBadRequestError(`Invalid project: ${projectId}`);
+    }
+  }
+
   public async createOrganizationApiKey({
     description,
     roleId,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
   }: {
     description: string;
     roleId: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
-    if (this.context.org.deactivatedRoles?.includes(roleId)) {
-      this.context.throwBadRequestError(`Role has been deactivated: ${roleId}`);
-    }
-    const role = getRoleById(roleId, this.context.org);
-    if (!role) {
-      this.context.throwBadRequestError(`Invalid role: ${roleId}`);
-    }
     return await this.createApiKey({
       secret: true,
       encryptSDK: false,
@@ -87,6 +170,9 @@ export class ApiKeyModel extends BaseClass {
       environment: "",
       project: "",
       role: roleId,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
     });
   }
 
@@ -138,6 +224,26 @@ export class ApiKeyModel extends BaseClass {
     if (!doc) this.context.throwNotFoundError();
 
     await this.delete(doc);
+  }
+
+  public async setDisabled(id: string, disabled: boolean): Promise<void> {
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
+    await this.update(doc, { disabled });
+  }
+
+  // Called from authentication middleware on every API request attempt.
+  // Fires even for disabled keys so operators can see whether a key is still
+  // being used before deleting it. Runs before the request context exists, so
+  // it's a static raw $set scoped by the (key, organization) pair.
+  public static async dangerousRecordUsageByKey(
+    key: string,
+    organization: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { key, organization },
+      { $set: { lastUsed: new Date() } },
+    );
   }
 
   public async getVisualEditorApiKey(
@@ -214,6 +320,9 @@ export class ApiKeyModel extends BaseClass {
     encryptSDK,
     userId,
     role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
   }: {
     environment: string;
     project: string;
@@ -222,6 +331,9 @@ export class ApiKeyModel extends BaseClass {
     encryptSDK: boolean;
     userId?: string;
     role?: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -246,6 +358,9 @@ export class ApiKeyModel extends BaseClass {
       userId,
       role,
       encryptionKey: encryptSDK ? await generateEncryptionKey() : undefined,
+      limitAccessByEnvironment: limitAccessByEnvironment ?? false,
+      environments: environments ?? [],
+      projectRoles,
     });
   }
 }

@@ -935,13 +935,11 @@ export function getUnreachableRuleIndex(
       continue;
     }
 
-    // Skip non-force rules (require a non-null hash attribute, so may not match)
-    if (rule.type !== "force") {
-      continue;
-    }
+    // Only force rules and 100%-coverage rollouts consume all traffic
+    const isFullCoverage =
+      rule.type === "force" || (rule.type === "rollout" && rule.coverage >= 1);
+    if (!isFullCoverage) continue;
 
-    // By this point, we have a force rule that matches all users
-    // Any rule after this is unreachable
     return i + 1;
   }
 
@@ -1377,30 +1375,36 @@ export function getExperimentDefinitionFromFeature(
     return null;
   }
 
+  const variations = expRule.values.map((v, i) => {
+    let name = i ? `Variation ${i}` : "Control";
+    if (v?.name) {
+      name = v.name;
+    } else if (feature.valueType === "boolean") {
+      name = v.value === "true" ? "On" : "Off";
+    }
+    return {
+      name,
+      key: i + "",
+      id: generateVariationId(),
+      screenshots: [],
+      description: v.value,
+    };
+  });
+  const variationWeights = expRule.values.map((v) => v.weight);
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey: trackingKey,
     name: trackingKey + " experiment",
     hypothesis: expRule.description || "",
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
-    variations: expRule.values.map((v, i) => {
-      let name = i ? `Variation ${i}` : "Control";
-      if (v?.name) {
-        name = v.name;
-      } else if (feature.valueType === "boolean") {
-        name = v.value === "true" ? "On" : "Off";
-      }
-      return {
-        name,
-        key: i + "",
-        id: generateVariationId(),
-        screenshots: [],
-        description: v.value,
-      };
-    }),
+    variations,
     phases: [
       {
         coverage: expRule.coverage || 1,
-        variationWeights: expRule.values.map((v) => v.weight),
+        variationWeights,
+        variations: variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),

@@ -1,4 +1,3 @@
-import { ListVisualChangesetsResponse } from "shared/types/openapi";
 import { listVisualChangesetsValidator } from "shared/validators";
 import {
   findVisualChangesetsByExperiment,
@@ -8,7 +7,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const listVisualChangesets = createApiRequestHandler(
   listVisualChangesetsValidator,
-)(async (req): Promise<ListVisualChangesetsResponse> => {
+)(async (req) => {
   const visualChangesets = await findVisualChangesetsByExperiment(
     req.params.id,
     req.organization.id,

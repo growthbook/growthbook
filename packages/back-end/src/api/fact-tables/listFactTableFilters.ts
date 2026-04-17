@@ -1,4 +1,3 @@
-import { ListFactTableFiltersResponse } from "shared/types/openapi";
 import { listFactTableFiltersValidator } from "shared/validators";
 import {
   getFactTable,
@@ -11,7 +10,7 @@ import {
 
 export const listFactTableFilters = createApiRequestHandler(
   listFactTableFiltersValidator,
-)(async (req): Promise<ListFactTableFiltersResponse> => {
+)(async (req) => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {
     throw new Error("Could not find factTable with that id");

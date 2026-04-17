@@ -1,18 +1,14 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { get{{pascalCase object}} } from "./get{{pascalCase object}}";
 import { list{{pascalCase object}}s } from "./list{{pascalCase object}}s";
 import { post{{pascalCase object}} } from "./post{{pascalCase object}}";
 import { update{{pascalCase object}} } from "./update{{pascalCase object}}";
 import { delete{{pascalCase object}} } from "./delete{{pascalCase object}}";
 
-const router = Router();
-
-// {{pascalCase object}} Endpoints
-// Mounted at /api/v1/{{kebabCase object}}s
-router.get("/", list{{pascalCase object}}s);
-router.post("/", post{{pascalCase object}});
-router.get("/:id", get{{pascalCase object}});
-router.post("/:id", update{{pascalCase object}});
-router.delete("/:id", delete{{pascalCase object}});
-
-export default router;
+export const {{camelCase object}}Routes: OpenApiRoute[] = [
+  list{{pascalCase object}}s,
+  post{{pascalCase object}},
+  get{{pascalCase object}},
+  update{{pascalCase object}},
+  delete{{pascalCase object}},
+];

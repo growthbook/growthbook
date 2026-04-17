@@ -1,11 +1,13 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { InformationSchemaTablesInterface } from "shared/types/integrations";
-import React, { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Field from "@/components/Forms/Field";
 import { AreaWithHeader } from "./SqlExplorerModal";
 
 type Props = {
@@ -31,7 +33,19 @@ export default function DatasourceSchema({
   const [fetching, setFetching] = useState(false);
   const [retryCount, setRetryCount] = useState(1);
   const [dateLastUpdated, setDateLastUpdated] = useState<Date | null>(null);
+  const [columnFilter, setColumnFilter] = useState("");
   const { apiCall } = useAuth();
+
+  const filteredColumns = useMemo(() => {
+    if (!table?.columns) return [];
+    if (!columnFilter) return table.columns;
+
+    return table.columns.filter((column) => {
+      return column.columnName
+        .toLowerCase()
+        .includes(columnFilter.trim().toLowerCase());
+    });
+  }, [columnFilter, table?.columns]);
 
   useEffect(() => {
     if (fetching) {
@@ -63,6 +77,7 @@ export default function DatasourceSchema({
 
   useEffect(() => {
     setFetching(false);
+    setColumnFilter("");
   }, [tableId]);
 
   if (tableId && !table)
@@ -84,89 +99,112 @@ export default function DatasourceSchema({
     <AreaWithHeader
       backgroundColor="var(--color-surface)"
       header={
-        <div className="d-flex justify-content-between px-2">
-          <label className="font-weight-bold mb-1 d-flex align-items-center">
-            <FaTable className="mr-2" />
-            {table ? (
-              <span
-                className="px-1"
-                style={{
-                  wordBreak: "break-word",
-                  overflowWrap: "break-word",
-                }}
-              >
-                {datasource.type === "growthbook_clickhouse"
-                  ? table.tableName
-                  : `${table.tableSchema}.${table.tableName}`}
-              </span>
-            ) : (
-              <LoadingSpinner />
-            )}
-          </label>
-          {table && (
-            <label className="pl-5">
-              <Tooltip
-                body={
-                  <div>
-                    <div>
-                      {`Last Updated: ${new Date(
-                        table.dateUpdated,
-                      ).toLocaleString()}`}
-                    </div>
-                    {!canRunQueries ? (
-                      <div className="alert alert-warning mt-2">
-                        You do not have permission to refresh this information
-                        schema.
-                      </div>
-                    ) : null}
-                  </div>
-                }
-                tipPosition="top"
-              >
-                <button
-                  className="btn btn-link p-0 text-secondary"
-                  disabled={fetching}
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    setDateLastUpdated(table.dateUpdated);
-                    setError(null);
-                    try {
-                      await apiCall<{
-                        status: number;
-                        table?: InformationSchemaTablesInterface;
-                      }>(
-                        `/datasource/${datasourceId}/schema/table/${table.id}`,
-                        {
-                          method: "PUT",
-                        },
-                      );
-                      setFetching(true);
-                    } catch (e) {
-                      setError(e.message);
-                    }
+        <>
+          <div className="d-flex justify-content-between px-2">
+            <label className="font-weight-bold mb-1 d-flex align-items-center">
+              <FaTable className="mr-2" />
+              {table ? (
+                <span
+                  className="px-1"
+                  style={{
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
                   }}
                 >
-                  {fetching ? <LoadingSpinner /> : <FaRedo />}
-                </button>
-              </Tooltip>
+                  {datasource.type === "growthbook_clickhouse"
+                    ? table.tableName
+                    : `${table.tableSchema}.${table.tableName}`}
+                </span>
+              ) : (
+                <LoadingSpinner />
+              )}
             </label>
-          )}
-        </div>
+            {table && (
+              <div className="d-flex align-items-center pl-5">
+                <label className="ml-3 mb-0">
+                  <Tooltip
+                    body={
+                      <div>
+                        <div>
+                          {`Last Updated: ${new Date(
+                            table.dateUpdated,
+                          ).toLocaleString()}`}
+                        </div>
+                        {!canRunQueries ? (
+                          <div className="alert alert-warning mt-2">
+                            You do not have permission to refresh this
+                            information schema.
+                          </div>
+                        ) : null}
+                      </div>
+                    }
+                    tipPosition="top"
+                  >
+                    <button
+                      className="btn btn-link p-0 text-secondary"
+                      disabled={fetching}
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        setDateLastUpdated(table.dateUpdated);
+                        setError(null);
+                        try {
+                          await apiCall<{
+                            status: number;
+                            table?: InformationSchemaTablesInterface;
+                          }>(
+                            `/datasource/${datasourceId}/schema/table/${table.id}`,
+                            {
+                              method: "PUT",
+                            },
+                          );
+                          setFetching(true);
+                        } catch (e) {
+                          setError(e.message);
+                        }
+                      }}
+                    >
+                      {fetching ? <LoadingSpinner /> : <FaRedo />}
+                    </button>
+                  </Tooltip>
+                </label>
+              </div>
+            )}
+          </div>
+          <Box mt="1">
+            <Field
+              type="search"
+              value={columnFilter}
+              onChange={(e) => setColumnFilter(e.target.value)}
+              placeholder="Filter columns..."
+              autoFocus
+            />
+          </Box>
+        </>
       }
     >
       <div style={{ overflow: "auto", height: "100%" }}>
         <table className="table table-sm">
           <tbody>
-            {table?.columns.map((column) => {
-              return (
-                <tr key={table.tableName + column.columnName}>
-                  <td className="pl-3">{column.columnName}</td>
-                  <td className="pr-3 text-right text-muted">
-                    {column.dataType}
-                  </td>
-                </tr>
-              );
-            })}
+            {filteredColumns.length > 0 ? (
+              <>
+                {filteredColumns?.map((column) => {
+                  return (
+                    <tr key={`${table.tableName}:${column.columnName}`}>
+                      <td className="pl-3">{column.columnName}</td>
+                      <td className="pr-3 text-right text-muted">
+                        {column.dataType}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </>
+            ) : (
+              <tr>
+                <td colSpan={2} className="text-muted p-2">
+                  No columns found.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import { parseIntWithDefault } from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -65,7 +66,7 @@ export default function HashVersionSelector({
         ]}
         value={value + ""}
         setValue={(v) => {
-          onChange((parseInt(v) || 2) as 1 | 2);
+          onChange(parseIntWithDefault(v, 2) as 1 | 2);
         }}
       />
     </>

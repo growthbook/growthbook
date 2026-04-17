@@ -1,8 +1,4 @@
-import {
-  Permissions,
-  userHasPermission,
-  roleToPermissionMap,
-} from "shared/permissions";
+import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
@@ -14,12 +10,14 @@ import {
   Permission,
   UserPermissions,
 } from "shared/types/organization";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
 import { TeamInterface } from "shared/types/team";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
+import { UserInterface } from "shared/types/user";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -34,6 +32,7 @@ import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   getUserPermissions,
+  getRolePermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
@@ -63,13 +62,18 @@ import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
+import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
+import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { getUserByEmail } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -103,6 +107,7 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "experimentSnapshotAnalysisChunks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
@@ -111,7 +116,10 @@ export type ModelName =
   | "analyticsExplorations"
   | "presentationThemes"
   | "watch"
-  | "apiKeys";
+  | "apiKeys"
+  | "rampSchedules"
+  | "rampScheduleTemplates"
+  | "aiConversations";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -137,6 +145,7 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
+  experimentSnapshotAnalysisChunks: ExperimentSnapshotAnalysisChunkModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
@@ -146,6 +155,9 @@ export const modelClasses = {
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
   apiKeys: ApiKeyModel,
+  rampSchedules: RampScheduleModel,
+  rampScheduleTemplates: RampScheduleTemplateModel,
+  aiConversations: AIConversationModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -180,6 +192,8 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      experimentSnapshotAnalysisChunks:
+        new ExperimentSnapshotAnalysisChunkModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
@@ -189,6 +203,9 @@ export class ReqContextClass {
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
       apiKeys: new ApiKeyModel(this),
+      rampSchedules: new RampScheduleModel(this),
+      rampScheduleTemplates: new RampScheduleTemplateModel(this),
+      aiConversations: new AIConversationModel(this),
     };
   }
 
@@ -216,6 +233,7 @@ export class ReqContextClass {
     user,
     role,
     apiKey,
+    apiKeyData,
     req,
   }: {
     org: OrganizationInterface;
@@ -227,6 +245,7 @@ export class ReqContextClass {
     };
     apiKey?: string;
     role?: string;
+    apiKeyData?: ApiKeyInterface;
     teams?: TeamInterface[];
     auditUser: EventUser;
     req?: Request;
@@ -262,14 +281,17 @@ export class ReqContextClass {
         throw new Error("Role must be provided for API key or background job");
       }
 
-      this.userPermissions = {
-        global: {
-          permissions: roleToPermissionMap(role, org),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+      const roleInfo = apiKeyData ?? {
+        role,
+        limitAccessByEnvironment: false,
+        environments: [] as string[],
       };
+
+      this.userPermissions = getRolePermissions(
+        { ...roleInfo, role },
+        org,
+        teams || [],
+      );
     }
 
     this.permissions = new Permissions(this.userPermissions);
@@ -328,15 +350,20 @@ export class ReqContextClass {
 
   // Record an audit log entry
   public async auditLog(data: AuditInterfaceInput) {
-    const auditUser = this.userId
+    const apiKeyUser =
+      this.auditUser?.type === "api_key" ? this.auditUser : undefined;
+    const auditUser = this.isApiRequest
       ? {
-          id: this.userId,
-          email: this.email,
-          name: this.userName || "",
+          apiKey: this.apiKey || "unknown",
+          id: apiKeyUser?.id,
+          name: apiKeyUser?.name,
+          email: apiKeyUser?.email,
         }
-      : this.apiKey
+      : this.userId
         ? {
-            apiKey: this.apiKey,
+            id: this.userId,
+            email: this.email,
+            name: this.userName || "",
           }
         : ({
             system: true,
@@ -393,6 +420,11 @@ export class ReqContextClass {
         this.foreignRefs[type].set(ref.id, ref as any);
       });
     }
+  }
+
+  // This is defined on the context to prevent a circular dependency between UserModel and BaseModel
+  public async getUserByEmail(email: string): Promise<UserInterface | null> {
+    return getUserByEmail(email);
   }
 
   // Cache projects since they are needed many places in the code

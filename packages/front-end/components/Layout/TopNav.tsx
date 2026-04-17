@@ -35,7 +35,7 @@ import {
 } from "@/services/env";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "@/components/Modal";
-import Avatar from "@/components/Avatar/Avatar";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -458,12 +458,13 @@ const TopNav: FC<{
               setDropdownOpen(!!o);
             }}
             trigger={
-              <div className="nav-link d-flex">
-                <Avatar
+              <div className="nav-link d-flex align-items-center">
+                <UserAvatar
                   email={email || ""}
-                  size={26}
                   name={name || ""}
-                  className="mr-2"
+                  size="md"
+                  variant="soft"
+                  mr="2"
                 />{" "}
                 <span className="d-none d-lg-inline">
                   <OverflowText maxWidth={200}>

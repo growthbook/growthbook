@@ -1,9 +1,8 @@
-import { GetFactMetricResponse } from "shared/types/openapi";
 import { getFactMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
-  async (req): Promise<GetFactMetricResponse> => {
+  async (req) => {
     let id = req.params.id;
     // Add `fact__` prefix if it doesn't exist
     if (!id.startsWith("fact__")) {

@@ -1,10 +1,9 @@
-import { ApiSavedGroup } from "shared/types/openapi";
 import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
-import { savedGroupValidator } from "shared/validators";
+import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
@@ -34,9 +33,10 @@ export class SavedGroupModel extends BaseClass {
 
   protected canUpdate(
     existing: SavedGroupInterface,
-    updates: SavedGroupInterface,
+    _updates: UpdateProps<SavedGroupInterface>,
+    newDoc: SavedGroupInterface,
   ): boolean {
-    return this.context.permissions.canUpdateSavedGroup(existing, updates);
+    return this.context.permissions.canUpdateSavedGroup(existing, newDoc);
   }
 
   protected canDelete(doc: SavedGroupInterface): boolean {

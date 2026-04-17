@@ -24,8 +24,15 @@ import {
   ForeignRefsCacheKeys,
 } from "back-end/src/services/context";
 import { ApiRequest } from "back-end/src/util/handler";
-import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
+import {
+  ApiBaseSchema,
+  ApiModelConfig,
+  CrudValidatorOverrides,
+  DefaultCrudValidators,
+} from "back-end/src/api/ApiModel";
+import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -66,16 +73,33 @@ export const createSchema = <
   return output.strict() as unknown as CreateZodObject<T, PKey>;
 };
 
+/**
+ * UpdateProps scoped to a specific model's primary key — forbids both the
+ * standard protected base fields AND whatever fields comprise the pKey.
+ *
+ * PK is the literal tuple of primary key field names (e.g. readonly ["id"]
+ * or readonly ["userId", "organization"]).  The tuple passed to MakeModelClass
+ * will be defined with `as const` so that PK[number] resolves to a narrow string
+ * literal union rather than just `string`.
+ */
+type PKeyUpdateProps<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+  PK extends readonly string[],
+> = UpdateProps<z.infer<T>, PK[number] & string>;
+
 export type UpdateZodObject<
   T extends BaseSchemaWithPrimaryKey<PKey>,
   PKey extends z.ZodRawShape,
-> = z.ZodType<UpdateProps<z.infer<T>>>;
+  PK extends readonly string[],
+> = z.ZodType<PKeyUpdateProps<T, PKey, PK>>;
 
 const updateSchema = <
   T extends BaseSchemaWithPrimaryKey<PKey>,
   PKey extends z.ZodRawShape,
 >(
   schema: T,
+  pKey?: PKeyType<T, PKey>,
 ) => {
   const omitShape: Record<string, true> = {
     organization: true,
@@ -84,10 +108,16 @@ const updateSchema = <
   };
   if ("id" in schema.shape) omitShape.id = true;
   if ("uid" in schema.shape) omitShape.uid = true;
+  // Also omit custom primary key fields
+  if (pKey) {
+    for (const k of pKey) {
+      omitShape[k as string] = true;
+    }
+  }
   return schema
     .omit(omitShape)
     .partial()
-    .strict() as unknown as UpdateZodObject<T, PKey>;
+    .strict() as unknown as UpdateZodObject<T, PKey, readonly string[]>;
 };
 
 // DeepPartial makes all properties (including nested) optional
@@ -158,6 +188,27 @@ export async function waitForIndexes(): Promise<void> {
   pendingIndexOperations.clear();
 }
 
+/**
+ * Extracts the Zod schema type for a specific slot (paramsSchema/bodySchema/querySchema)
+ * for a specific CRUD action from the model's crudValidatorOverrides type (CVO).
+ * Falls back to DefaultCrudValidators when no override is defined for that action/slot,
+ * preserving structural guarantees (e.g. params.id on delete/get/update).
+ *
+ * CVO is inferred from the concrete crudValidatorOverrides value passed to MakeModelClass,
+ * so handleApi* override signatures in subclasses are automatically derived from the validators
+ * without requiring explicit type annotations on the req parameter.
+ */
+type ExtractCrudSchema<
+  CVO extends CrudValidatorOverrides,
+  Action extends CrudAction,
+  Slot extends "paramsSchema" | "bodySchema" | "querySchema",
+> =
+  CVO extends Record<Action, Record<Slot, infer Validator>>
+    ? Validator extends z.ZodTypeAny
+      ? Validator
+      : DefaultCrudValidators[Action][Slot]
+    : DefaultCrudValidators[Action][Slot];
+
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
 export abstract class BaseModel<
@@ -166,10 +217,12 @@ export abstract class BaseModel<
   ApiT extends ApiBaseSchema,
   PKey extends z.ZodRawShape,
   WriteOptions = never,
+  PK extends readonly string[] = readonly ["id"],
+  CVO extends CrudValidatorOverrides = CrudValidatorOverrides,
 > {
   public validator: T;
   public createValidator: CreateZodObject<T, PKey>;
-  public updateValidator: UpdateZodObject<T, PKey>;
+  public updateValidator: UpdateZodObject<T, PKey, PK>;
 
   protected context: Context;
   protected config: ModelConfig<T, E, ApiT, PKey>;
@@ -213,7 +266,7 @@ export abstract class BaseModel<
   protected abstract canCreate(doc: z.infer<T>): boolean;
   protected abstract canUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     newDoc: z.infer<T>,
   ): boolean;
   protected abstract canDelete(existing: z.infer<T>): boolean;
@@ -272,7 +325,7 @@ export abstract class BaseModel<
   }
   protected async beforeUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     newDoc: z.infer<T>,
     writeOptions?: WriteOptions,
   ) {
@@ -280,7 +333,7 @@ export abstract class BaseModel<
   }
   protected async afterUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     newDoc: z.infer<T>,
     writeOptions?: WriteOptions,
   ) {
@@ -331,24 +384,48 @@ export abstract class BaseModel<
       keys.feature = feature;
     }
 
+    // Polymorphic entityType/entityId reference (e.g. ramp schedules)
+    const entityId = this.detectForeignKey(doc, ["entityId"]);
+    const entityType =
+      "entityType" in doc &&
+      typeof doc["entityType" as keyof z.infer<T>] === "string"
+        ? (doc["entityType" as keyof z.infer<T>] as string)
+        : undefined;
+    if (
+      entityId &&
+      entityType &&
+      (entityType === "experiment" ||
+        entityType === "datasource" ||
+        entityType === "metric" ||
+        entityType === "feature") &&
+      !keys[entityType]
+    ) {
+      keys[entityType] = entityId;
+    }
+
     return keys;
   }
 
   public async handleApiGet(
     req: ApiRequest<
       unknown,
-      z.ZodType<{ id: string }>,
-      z.ZodTypeAny,
-      z.ZodTypeAny
+      ExtractCrudSchema<CVO, "get", "paramsSchema">,
+      ExtractCrudSchema<CVO, "get", "bodySchema">,
+      ExtractCrudSchema<CVO, "get", "querySchema">
     >,
   ): Promise<z.infer<ApiT>> {
-    const id = req.params.id;
+    const { id } = req.params as { id: string };
     const doc = await this.getById(id);
     if (!doc) req.context.throwNotFoundError();
     return this.toApiInterface(doc);
   }
   public async handleApiCreate(
-    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+    req: ApiRequest<
+      unknown,
+      ExtractCrudSchema<CVO, "create", "paramsSchema">,
+      ExtractCrudSchema<CVO, "create", "bodySchema">,
+      ExtractCrudSchema<CVO, "create", "querySchema">
+    >,
   ): Promise<z.infer<ApiT>> {
     const rawBody = req.body;
     const toCreate = await this.processApiCreateBody(rawBody);
@@ -360,39 +437,44 @@ export abstract class BaseModel<
     return rawBody as CreateProps<z.infer<T>>;
   }
   public async handleApiList(
-    _req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+    _req: ApiRequest<
+      unknown,
+      ExtractCrudSchema<CVO, "list", "paramsSchema">,
+      ExtractCrudSchema<CVO, "list", "bodySchema">,
+      ExtractCrudSchema<CVO, "list", "querySchema">
+    >,
   ): Promise<z.infer<ApiT>[]> {
     return (await this.getAll()).map(this.toApiInterface.bind(this));
   }
   public async handleApiDelete(
     req: ApiRequest<
       unknown,
-      z.ZodType<{ id: string }>,
-      z.ZodTypeAny,
-      z.ZodTypeAny
+      ExtractCrudSchema<CVO, "delete", "paramsSchema">,
+      ExtractCrudSchema<CVO, "delete", "bodySchema">,
+      ExtractCrudSchema<CVO, "delete", "querySchema">
     >,
   ): Promise<string> {
-    const id = req.params.id;
+    const { id } = req.params as { id: string };
     await this.deleteById(id);
     return id;
   }
   public async handleApiUpdate(
     req: ApiRequest<
       unknown,
-      z.ZodType<{ id: string }>,
-      z.ZodType<UpdateProps<z.infer<T>>>,
-      z.ZodTypeAny
+      ExtractCrudSchema<CVO, "update", "paramsSchema">,
+      ExtractCrudSchema<CVO, "update", "bodySchema">,
+      ExtractCrudSchema<CVO, "update", "querySchema">
     >,
   ): Promise<z.infer<ApiT>> {
-    const id = req.params.id;
+    const { id } = req.params as { id: string };
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);
     return this.toApiInterface(await this.updateById(id, toUpdate));
   }
   protected async processApiUpdateBody(
     rawBody: unknown,
-  ): Promise<UpdateProps<z.infer<T>>> {
-    return rawBody as UpdateProps<z.infer<T>>;
+  ): Promise<PKeyUpdateProps<T, PKey, PK>> {
+    return rawBody as PKeyUpdateProps<T, PKey, PK>;
   }
 
   /***************
@@ -400,7 +482,7 @@ export abstract class BaseModel<
    ***************/
   protected abstract getConfig(): ModelConfig<T, E, ApiT, PKey>;
   protected abstract getCreateValidator(): CreateZodObject<T, PKey>;
-  protected abstract getUpdateValidator(): UpdateZodObject<T, PKey>;
+  protected abstract getUpdateValidator(): UpdateZodObject<T, PKey, PK>;
   public static getModelConfig() {
     throw new Error("Method not implemented! Use derived class");
   }
@@ -449,7 +531,7 @@ export abstract class BaseModel<
   }
   public update(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     if (!this.hasPremiumFeature()) {
@@ -461,7 +543,7 @@ export abstract class BaseModel<
   }
   public async dangerousUpdateBypassPermission(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates, {
@@ -471,7 +553,7 @@ export abstract class BaseModel<
   }
   public async dangerousUpdateByIdBypassPermission(
     id: string,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     this._assertHasIdField();
@@ -486,7 +568,7 @@ export abstract class BaseModel<
   }
   public async updateById(
     id: string,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
     this._assertHasIdField();
@@ -685,10 +767,16 @@ export abstract class BaseModel<
       throw new Error("Cannot set dateUpdated field");
     }
 
-    // Add default owner and createdBy if empty
-    if ("owner" in props && !props.owner) {
-      props.owner = this.context.userId || "";
+    // Resolve owner from email/name to userId if needed, then fall back to current user
+    if ("owner" in props) {
+      if (typeof props.owner === "string" && props.owner) {
+        props.owner = await resolveOwnerToUserId(props.owner, this.context);
+      }
+      if (!props.owner) {
+        props.owner = this.context.userId || "";
+      }
     }
+
     if ("createdBy" in props && !props.createdBy) {
       props.createdBy = this.context.userName || "";
     }
@@ -744,7 +832,7 @@ export abstract class BaseModel<
 
   protected async _updateOne(
     doc: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     options?: {
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
@@ -752,6 +840,15 @@ export abstract class BaseModel<
     },
   ) {
     updates = this.updateValidator.parse(updates);
+
+    // Resolve owner from email to userId if needed
+    if (
+      "owner" in updates &&
+      typeof updates.owner === "string" &&
+      updates.owner
+    ) {
+      updates.owner = await resolveOwnerToUserId(updates.owner, this.context);
+    }
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
@@ -810,7 +907,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.beforeUpdate(doc, allUpdates, newDoc, options?.writeOptions);
+    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, doc, options?.writeOptions);
 
@@ -833,7 +930,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.afterUpdate(doc, allUpdates, newDoc, options?.writeOptions);
+    await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
     await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed
@@ -1148,29 +1245,59 @@ export abstract class BaseModel<
   }
 }
 
+/**
+ * Merges body schemas from openApiSpec.schemas into the CVO type so that
+ * ExtractCrudSchema can resolve the correct body type for create/update
+ * handler overrides — even when the schemas are not in crudValidatorOverrides.
+ */
+type MergedCrudOverrides<
+  CVO extends CrudValidatorOverrides,
+  CB extends z.ZodTypeAny,
+  UB extends z.ZodTypeAny,
+> = CVO & {
+  create: { bodySchema: CB };
+  update: { bodySchema: UB };
+};
+
 export const MakeModelClass = <
   T extends BaseSchemaWithPrimaryKey<PKey>,
   E extends EntityType,
   ApiT extends ApiBaseSchema,
   PKey extends z.ZodRawShape,
+  PK extends readonly string[] = typeof DEFAULT_PKEY,
+  CVO extends CrudValidatorOverrides = CrudValidatorOverrides,
+  CB extends z.ZodTypeAny = z.ZodUnknown,
+  UB extends z.ZodTypeAny = z.ZodUnknown,
 >(
-  config: ModelConfig<T, E, ApiT, PKey>,
+  config: ModelConfig<T, E, ApiT, PKey> & {
+    apiConfig?: {
+      openApiSpec?: {
+        crudValidatorOverrides?: CVO;
+        schemas?: { createBody?: CB; updateBody?: UB };
+      };
+    };
+  } & { pKey?: PK },
 ) => {
   const createValidator = createSchema<T, PKey>(config.schema);
-  const updateValidator = updateSchema<T, PKey>(config.schema);
+  const updateValidator = updateSchema<T, PKey>(
+    config.schema,
+    config.pKey as PKeyType<T, PKey> | undefined,
+  ) as UpdateZodObject<T, PKey, PK>;
 
   abstract class Model<WriteOptions = never> extends BaseModel<
     T,
     E,
     ApiT,
     PKey,
-    WriteOptions
+    WriteOptions,
+    PK,
+    MergedCrudOverrides<CVO, CB, UB>
   > {
     getConfig() {
-      return config;
+      return config as ModelConfig<T, E, ApiT, PKey>;
     }
     static getModelConfig(): ModelConfig<T, E, ApiT, PKey> {
-      return config;
+      return config as ModelConfig<T, E, ApiT, PKey>;
     }
     getCreateValidator() {
       return createValidator;

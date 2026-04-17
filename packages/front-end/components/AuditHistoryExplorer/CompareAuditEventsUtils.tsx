@@ -1,4 +1,5 @@
 import format from "date-fns/format";
+import { dateNoYear } from "shared/dates";
 import {
   AuditDiffConfig,
   AuditEventMarker,
@@ -55,14 +56,30 @@ export function dedupeDiffBadges(badges: DiffBadge[]): DiffBadge[] {
   });
 }
 
-/**
- * Derive a human-readable label from a raw event string using the entity type
- * as a prefix to strip. E.g. "savedGroup.created" → "Created",
- * "experiment.phase.delete" → "Phase delete".
- */
+// Labels for ramp schedule notification events (keyed by suffix after "feature.").
+export const RAMP_EVENT_LABELS: Record<string, string> = {
+  "rampSchedule.created": "Ramp schedule created",
+  "rampSchedule.deleted": "Ramp schedule deleted",
+  "rampSchedule.actions.started": "Ramp schedule started",
+  "rampSchedule.actions.completed": "Ramp schedule completed",
+  "rampSchedule.actions.rolledBack": "Ramp schedule rolled back",
+  "rampSchedule.actions.jumped": "Ramp schedule jumped to step",
+  "rampSchedule.actions.step.advanced": "Ramp step advanced",
+  "rampSchedule.actions.step.approvalRequired": "Ramp step awaiting approval",
+};
+
+// Derive a human-readable label from a raw event string using the entity type
+// as a prefix to strip. E.g. "savedGroup.created" → "Created",
+// "experiment.phase.delete" → "Phase delete".
 export function formatEventLabel(event: string, entityType: string): string {
   const prefix = `${entityType}.`;
   const suffix = event.startsWith(prefix) ? event.slice(prefix.length) : event;
+
+  // Ramp schedule notification events are stored under the "feature" entity type.
+  if (entityType === "feature" && RAMP_EVENT_LABELS[suffix]) {
+    return RAMP_EVENT_LABELS[suffix];
+  }
+
   const words = suffix
     .split(".")
     .join(" ")
@@ -79,8 +96,7 @@ export function getSeparatorBucketKey(date: Date): string {
 
 // Display text for a date separator, e.g. "Jan 25" or "Jan 25, 2024".
 export function getSeparatorLabel(date: Date): string {
-  const isCurrentYear = date.getFullYear() === new Date().getFullYear();
-  return format(date, isCurrentYear ? "MMM d" : "MMM d, yyyy");
+  return dateNoYear(date);
 }
 
 // Expand [endpointA, endpointB] to the full ordered slice of all entries between them.

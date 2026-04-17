@@ -6,10 +6,10 @@ import {
   roleToPermissionMap,
 } from "shared/permissions";
 import {
+  MemberRoleWithProjects,
   OrganizationInterface,
   Permission,
   PermissionsObject,
-  ProjectMemberRole,
   UserPermission,
   UserPermissions,
 } from "shared/types/organization";
@@ -231,6 +231,47 @@ function getUserPermission(
   };
 }
 
+/**
+ * Build a full UserPermissions object from a role info with optional project
+ * roles and team memberships. Used for both org API keys and member records.
+ */
+export function getRolePermissions(
+  roleInfo: MemberRoleWithProjects,
+  org: OrganizationInterface,
+  allTeams: TeamInterface[],
+): UserPermissions {
+  const permissions: UserPermissions = {
+    global: getUserPermission(roleInfo, org),
+    projects: {},
+  };
+
+  if (roleInfo.projectRoles) {
+    for (const pr of roleInfo.projectRoles) {
+      permissions.projects[pr.project] = getUserPermission(pr, org);
+    }
+  }
+
+  if (roleInfo.teams) {
+    for (const teamId of roleInfo.teams) {
+      const teamData = allTeams.find((t) => t.id === teamId);
+      if (teamData) {
+        const teamPermissions: UserPermissions = {
+          global: getUserPermission(teamData, org),
+          projects: {},
+        };
+        if (teamData.projectRoles) {
+          for (const tp of teamData.projectRoles) {
+            teamPermissions.projects[tp.project] = getUserPermission(tp, org);
+          }
+        }
+        mergeUserAndTeamPermissions(permissions, teamPermissions, org);
+      }
+    }
+  }
+
+  return permissions;
+}
+
 export function getUserPermissions(
   user: { id: string; superAdmin?: boolean },
   org: OrganizationInterface,
@@ -250,40 +291,5 @@ export function getUserPermissions(
     throw new Error("User is not a member of this organization");
   }
 
-  const userPermissions: UserPermissions = {
-    global: getUserPermission(memberInfo, org),
-    projects: {},
-  };
-
-  // Build the user-level project permissions
-  memberInfo.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
-    userPermissions.projects[projectRole.project] = getUserPermission(
-      projectRole,
-      org,
-    );
-  });
-
-  // If the user is on a team, merge the team permissions into the user permissions
-  if (memberInfo.teams) {
-    for (const team of memberInfo.teams) {
-      const teamData = teams.find((t) => t.id === team);
-      if (teamData) {
-        const teamPermissions: UserPermissions = {
-          global: getUserPermission(teamData, org),
-          projects: {},
-        };
-        if (teamData.projectRoles) {
-          for (const teamProject of teamData.projectRoles) {
-            teamPermissions.projects[teamProject.project] = getUserPermission(
-              teamProject,
-              org,
-            );
-          }
-        }
-        mergeUserAndTeamPermissions(userPermissions, teamPermissions, org);
-      }
-    }
-  }
-
-  return userPermissions;
+  return getRolePermissions(memberInfo, org, teams);
 }

@@ -70,11 +70,6 @@ export const postSDKConnection = async (
     remoteEvalEnabled = params.remoteEvalEnabled || false;
   }
 
-  if (remoteEvalEnabled) {
-    encryptPayload = false;
-    hashSecureAttributes = false;
-  }
-
   const doc = await createSDKConnection(context, {
     ...params,
     encryptPayload,
@@ -135,11 +130,6 @@ export const putSDKConnection = async (
   let remoteEvalEnabled = false;
   if (orgHasPremiumFeature(context.org, "remote-evaluation")) {
     remoteEvalEnabled = req.body.remoteEvalEnabled || false;
-  }
-
-  if (remoteEvalEnabled) {
-    encryptPayload = false;
-    hashSecureAttributes = false;
   }
 
   await editSDKConnection(context, connection, {

@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { hasPermission, roleToPermissionMap } from "shared/permissions";
+import { hasPermission } from "shared/permissions";
 import { EventUserApiKey } from "shared/types/events/event-types";
 import { OrganizationInterface, Permission } from "shared/types/organization";
-import { ApiKeyInterface } from "shared/types/apikey";
+import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -12,7 +12,10 @@ import {
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
 } from "back-end/src/util/api-key.util";
-import { getUserPermissions } from "back-end/src/util/organization.util";
+import {
+  getUserPermissions,
+  getRolePermissions,
+} from "back-end/src/util/organization.util";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
@@ -20,6 +23,7 @@ import {
 } from "back-end/src/services/licenseData";
 import { ReqContextClass } from "back-end/src/services/context";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -57,15 +61,22 @@ export default function authenticateApiRequestMiddleware(
 
   // Lookup organization by secret key and store in req
   dangerousLookupOrganizationByApiKey(secretKey)
-    .then(async (apiKeyPartial) => {
-      const { organization, secret, id, userId, role } = apiKeyPartial;
-      if (!organization) {
-        throw new Error("Invalid API key");
-      }
+    .then(async (apiKeyDoc) => {
+      const { organization, secret, id, userId, role, disabled } = apiKeyDoc;
       if (!secret) {
         throw new Error(
           "Must use a Secret API Key for this request, SDK Endpoint key given instead.",
         );
+      }
+      // Record usage before the disabled check so operators deleting a disabled
+      // key can see whether something out there is still trying to use it.
+      ApiKeyModel.dangerousRecordUsageByKey(secretKey, organization).catch(
+        (err) => {
+          req.log.warn({ err, apiKeyId: id }, "Failed to record API key usage");
+        },
+      );
+      if (disabled) {
+        throw new Error("This API key has been disabled");
       }
       req.apiKey = id || "";
 
@@ -108,7 +119,7 @@ export default function authenticateApiRequestMiddleware(
       if (
         userId &&
         !req.user?.superAdmin &&
-        !isApiKeyForUserInOrganization(apiKeyPartial, org)
+        !isApiKeyForUserInOrganization(apiKeyDoc, org)
       ) {
         throw new Error("Could not find user attached to this API key");
       }
@@ -118,6 +129,15 @@ export default function authenticateApiRequestMiddleware(
       const eventAudit: EventUserApiKey = {
         type: "api_key",
         apiKey: id || "unknown",
+        ...(userId && req.user
+          ? {
+              id: req.user.id,
+              name: req.user.name || "",
+              email: req.user.email,
+            }
+          : {
+              name: apiKeyDoc.description || "",
+            }),
       };
 
       req.context = new ReqContextClass({
@@ -127,6 +147,7 @@ export default function authenticateApiRequestMiddleware(
         user: req.user,
         role: role,
         apiKey: id,
+        apiKeyData: apiKeyDoc,
         req,
       });
 
@@ -145,7 +166,7 @@ export default function authenticateApiRequestMiddleware(
 
         for (const p of checkProjects) {
           verifyApiKeyPermission({
-            apiKey: apiKeyPartial,
+            apiKey: apiKeyDoc,
             permission,
             organization: org,
             project: p,
@@ -182,14 +203,14 @@ export default function authenticateApiRequestMiddleware(
 function doesUserHavePermission(
   org: OrganizationInterface,
   permission: Permission,
-  apiKeyPartial: Partial<ApiKeyInterface>,
+  apiKeyDoc: ApiKeyInterface,
   teams: TeamInterface[],
   superAdmin: boolean | undefined,
   project?: string,
   envs?: string[],
 ): boolean {
   try {
-    const userId = apiKeyPartial.userId;
+    const userId = apiKeyDoc.userId;
     if (!userId) {
       return false;
     }
@@ -209,7 +230,7 @@ function doesUserHavePermission(
 }
 
 type VerifyApiKeyPermissionOptions = {
-  apiKey: Partial<ApiKeyInterface>;
+  apiKey: ApiKeyInterface;
   permission: Permission;
   organization: OrganizationInterface;
   project?: string;
@@ -253,15 +274,13 @@ export function verifyApiKeyPermission({
       throw new Error("API key does not have this level of access");
     }
   } else if (apiKey.secret && apiKey.role) {
-    // Because of the JIT migration, `role` will always be set here, even for old secret keys
-    // This will check a valid role is provided.
-    const rolePermissions = roleToPermissionMap(
-      apiKey.role as string,
+    const apiKeyPermissions = getRolePermissions(
+      apiKey as ApiKeyWithRole,
       organization,
+      teams,
     );
 
-    // No need to treat "readonly" differently, it will return an empty array permissions array and fail this check
-    if (!rolePermissions[permission]) {
+    if (!hasPermission(apiKeyPermissions, permission, project, environments)) {
       throw new Error("API key user does not have this level of access");
     }
   } else {

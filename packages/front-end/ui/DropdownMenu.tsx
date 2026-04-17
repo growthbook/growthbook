@@ -359,9 +359,15 @@ export function DropdownMenuSeparator() {
 
 export function DropdownMenuGroup({
   children,
+  label,
   ...props
-}: React.ComponentProps<typeof RadixDropdownMenu.Group>): JSX.Element {
+}: React.ComponentProps<typeof RadixDropdownMenu.Group> & {
+  label?: string;
+}): JSX.Element {
   return (
-    <RadixDropdownMenu.Group {...props}>{children}</RadixDropdownMenu.Group>
+    <RadixDropdownMenu.Group {...props}>
+      {label && <DropdownMenuLabel>{label}</DropdownMenuLabel>}
+      {children}
+    </RadixDropdownMenu.Group>
   );
 }

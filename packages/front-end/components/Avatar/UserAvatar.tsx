@@ -1,28 +1,45 @@
 import { ReactElement } from "react";
+import { FaRobot } from "react-icons/fa";
 import Avatar, { Props as AvatarProps } from "@/ui/Avatar";
 
 type Props = {
-  name: string;
+  name?: string;
+  email?: string;
+  isApi?: boolean;
   icon?: ReactElement;
 } & Omit<AvatarProps, "children">;
 
 const getUserAvatar = (
-  name: string,
-  icon?: ReactElement,
+  name?: string,
+  email?: string,
+  isApi?: boolean,
 ): string | ReactElement => {
-  if (icon) return icon;
-  if (!name) return "";
+  // Special display for API and System users when we don't have a real name or email
+  if (name?.toLowerCase() === "api") return <FaRobot />;
+  if (name?.toLowerCase() === "system") return <FaRobot />;
+  if (!name && !email) return isApi ? <FaRobot /> : "?";
 
-  const firstNameLetter = name.charAt(0);
-  const lastNameLetter = name.split(" ")[1]?.charAt(0) || "";
-  const userInitials =
-    name.toLowerCase() === "api"
-      ? name.toUpperCase()
-      : `${firstNameLetter.toUpperCase()}${lastNameLetter?.toUpperCase()}`;
+  if (name) {
+    const firstNameLetter = name.charAt(0);
+    const lastNameLetter = name.split(" ")[1]?.charAt(0) || "";
 
-  return userInitials;
+    return `${firstNameLetter.toUpperCase()}${lastNameLetter?.toUpperCase()}`;
+  }
+
+  const firstEmailLetter = email?.charAt(0) || "";
+  return firstEmailLetter.toUpperCase() || "?";
 };
 
-export default function UserAvatar({ name, icon, ...otherProps }: Props) {
-  return <Avatar {...otherProps}>{getUserAvatar(name, icon)}</Avatar>;
+export default function UserAvatar({
+  name,
+  email,
+  isApi,
+  icon,
+  ...otherProps
+}: Props) {
+  if (icon) {
+    return <Avatar {...otherProps}>{icon}</Avatar>;
+  }
+
+  return <Avatar {...otherProps}>{getUserAvatar(name, email, isApi)}</Avatar>;
 }

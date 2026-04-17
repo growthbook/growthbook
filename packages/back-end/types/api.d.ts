@@ -1,11 +1,8 @@
-import {
-  AutoExperiment,
-  FeatureRule as FeatureDefinitionRule,
-} from "@growthbook/growthbook";
 import { AuditInterfaceInput } from "shared/types/audit";
 import { EventUser } from "shared/types/events/event-types";
 import { ExperimentStatus } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
+import { FeatureDefinition } from "shared/types/sdk";
 import { UserInterface } from "shared/types/user";
 import { PermissionFunctions } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "./request";
@@ -19,23 +16,7 @@ export interface ExperimentOverride {
   url?: string;
 }
 
-export interface FeatureDefinition {
-  // eslint-disable-next-line
-  defaultValue: any;
-  rules?: FeatureDefinitionRule[];
-}
-
-export type FeatureDefinitionWithProject = FeatureDefinition & {
-  project?: string;
-};
-
-export type FeatureDefinitionWithProjects = FeatureDefinition & {
-  projects?: string[];
-};
-
-export type AutoExperimentWithProject = AutoExperiment & {
-  project?: string;
-};
+export type { FeatureDefinition };
 
 export interface ExperimentOverridesResponse {
   status: 200;
@@ -59,6 +40,10 @@ export type ApiRequestLocals = PermissionFunctions & {
 
 export interface ApiErrorResponse {
   message: string;
+  // Populated on 409 ConflictError responses from endpoints that need to return
+  // a structured conflict list (e.g. feature revision publish/rebase) so
+  // clients can auto-resolve programmatically.
+  conflicts?: unknown[];
 }
 
 /**

@@ -73,24 +73,27 @@ export function migrateApiKey(legacyDoc: unknown) {
     ...obj,
     role: roleForApiKey(obj) || undefined,
     dateUpdated: obj.dateUpdated ?? obj.dateCreated,
+    limitAccessByEnvironment: obj.limitAccessByEnvironment ?? false,
+    environments: obj.environments ?? [],
   };
 }
 
 // Cross-organization DB operation, lives outside of ApiKeyModel due to a circular dependency with auth middleware
 export async function dangerousLookupOrganizationByApiKey(
   key: string,
-): Promise<Partial<ApiKeyInterface>> {
+): Promise<ApiKeyInterface> {
   // If self-hosting on a single org and using a hardcoded secret key
   if (!IS_MULTI_ORG && SECRET_API_KEY && key === SECRET_API_KEY) {
     const { organizations: orgs } = await findAllOrganizations(1, "");
     if (orgs.length === 1) {
-      return {
+      return migrateApiKey({
         id: "SECRET_API_KEY",
         key: SECRET_API_KEY,
         secret: true,
         organization: orgs[0].id,
         role: SECRET_API_KEY_ROLE,
-      };
+        dateCreated: new Date(),
+      });
     }
   }
 
@@ -98,7 +101,9 @@ export async function dangerousLookupOrganizationByApiKey(
     key,
   });
 
-  if (!doc || !doc.organization) return {};
+  if (!doc || !doc.organization) {
+    throw new Error("Invalid API key");
+  }
 
   return migrateApiKey(removeMongooseFields(doc));
 }

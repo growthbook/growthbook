@@ -1,4 +1,3 @@
-import { PostBulkImportFactsResponse } from "shared/types/openapi";
 import { postBulkImportFactsValidator } from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
@@ -18,10 +17,11 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator,
-)(async (req): Promise<PostBulkImportFactsResponse> => {
+)(async (req) => {
   const numCreated = {
     factTables: 0,
     factTableFilters: 0,
@@ -97,6 +97,10 @@ export const postBulkImportFacts = createApiRequestHandler(
           throw new Error("Cannot change data source for existing fact table");
         }
 
+        if (data.owner !== undefined) {
+          data.owner =
+            (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
+        }
         await updateFactTable(req.context, existing, data);
         if (needsColumnRefresh(data)) {
           await queueFactTableColumnsRefresh(existing);
@@ -109,14 +113,16 @@ export const postBulkImportFacts = createApiRequestHandler(
       }
       // Create new fact table
       else {
+        const newOwner =
+          (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
         const factTable: CreateFactTableProps = {
           eventName: "",
           id: id,
           description: "",
-          owner: "",
           projects: [],
           tags: [],
           ...data,
+          owner: newOwner,
         };
 
         if (!req.context.permissions.canCreateFactTable(factTable)) {

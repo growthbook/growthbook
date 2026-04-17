@@ -54,7 +54,7 @@ export default function PremiumTooltip({
   if (oldStyle) {
     return (
       <Tooltip
-        shouldDisplay={!!body || !hasFeature}
+        shouldDisplay={!!body && !hasFeature}
         body={
           <>
             {!hasFeature && (

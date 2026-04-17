@@ -872,6 +872,13 @@ export default function ConfigureReport({
                   `experimentMetadata.phases.${latestPhaseIndex}.variationWeights`,
                   v.map((v) => v.weight),
                 );
+                form.setValue(
+                  `experimentMetadata.phases.${latestPhaseIndex}.variations`,
+                  v.map((data) => ({
+                    id: data.id,
+                    status: "active" as const,
+                  })),
+                );
               }}
               coverage={form.watch(
                 `experimentMetadata.phases.${latestPhaseIndex}.coverage`,

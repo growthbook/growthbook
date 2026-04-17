@@ -61,32 +61,14 @@ app.get("/api/my-resource", myController.getMyResource);
 
 The external REST API is for customers to integrate with GrowthBook programmatically.
 
-### Location & Structure
-
-- All external API routes: `packages/back-end/src/api/`
-- Each resource has its own directory with a `*.router.ts` file
 - Mounted at: `/api/v1/` prefix
-- Documented in OpenAPI spec at `src/api/openapi/`
+- BaseModel resources can provide `apiConfig` to define their API endpoints
+- OpenAPI docs are auto-generated from Zod schemas in `src/api/specs/*.spec.ts`
+- Handlers are in `src/api/` organized by resource, with routes registered in `src/api/api.router.ts`
 
-**Example structure:**
+### Spec-Based Pattern (for BaseModel-compatible endpoints)
 
-```
-src/api/
-  features/
-    features.router.ts
-    getFeature.ts
-    postFeature.ts
-    putFeature.ts
-    deleteFeature.ts
-  experiments/
-    experiments.router.ts
-    getExperiments.ts
-    ...
-```
-
-### API Model Pattern
-
-Models that use `BaseModel` can expose external REST API endpoints via the `apiConfig` option in `MakeModelClass`. This auto-generates standard CRUD endpoints and OpenAPI documentation.
+Any endpoint backed by a `BaseModel` should use the `apiConfig` + spec pattern. This auto-generates standard CRUD endpoints, OpenAPI documentation, and routing from minimal definitions in Zod. If an endpoint isn't directly related to any model, use the non-BaseModel pattern described below.
 
 The configuration is split into two parts:
 
@@ -154,6 +136,78 @@ This auto-generates routes like:
 
 Add the model class to the `API_MODELS` array in `src/api/api.router.ts`.
 
+#### Step 4: Implement `toApiInterface`
+
+Any model that sets `apiConfig` **must** implement `toApiInterface` to convert internal documents to the API response shape. Without it, any changes to the internal model will immediately be exposed to the API, potentially breaking the API contract.
+
+```typescript
+export class MyResourceModel extends BaseClass {
+  // ... permission methods ...
+
+  protected toApiInterface(doc: MyResourceInterface): ApiMyResource {
+    return {
+      id: doc.id,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+      name: doc.name,
+      // ... map all fields required by ApiMyResource
+    };
+  }
+}
+```
+
+#### Overriding standard CRUD handlers
+
+The default `handleApiGet`, `handleApiCreate`, `handleApiList`, `handleApiDelete`, and `handleApiUpdate` implementations call `toApiInterface` and handle the basics. Override them when you need custom logic (e.g., a non-standard fetch, derived fields, or side effects).
+
+Use `override` and derive the `req` type from the base class so it stays in sync with the validator automatically:
+
+```typescript
+export class MyResourceModel extends BaseClass {
+  public override async handleApiGet(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiGet"]>[0],
+  ): Promise<ApiMyResource> {
+    // req.params.id is typed correctly from the validator
+    const doc = await this.getBySlug(req.params.id);
+    if (!doc) req.context.throwNotFoundError();
+    return this.toApiInterface(doc);
+  }
+}
+```
+
+#### Customizing validator schemas with `crudValidatorOverrides`
+
+Use `crudValidatorOverrides` in the spec when a standard CRUD action needs a non-default schema — most commonly to add query parameters to `delete` or `list`. Define the validator in the spec file so it's available for both doc generation and type inference in the model.
+
+```typescript
+// In src/api/specs/my-resource.spec.ts
+export const apiDeleteMyResourceValidator = {
+  paramsSchema: z.object({ id: z.string() }).strict(),
+  bodySchema: z.never(),
+  querySchema: z.strictObject({ permanent: z.boolean().optional() }),
+};
+
+export const myResourceApiSpec = {
+  // ...
+  crudValidatorOverrides: {
+    delete: apiDeleteMyResourceValidator,
+  },
+} satisfies OpenApiModelSpec;
+
+// In src/models/MyResourceModel.ts — req.query is now typed from the validator
+export class MyResourceModel extends BaseClass {
+  public override async handleApiDelete(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiDelete"]>[0],
+  ): Promise<string> {
+    const permanent = req.query.permanent; // typed as boolean | undefined
+    await this.deleteResource(req.params.id, permanent);
+    return req.params.id;
+  }
+}
+```
+
+**How it works:** `MakeModelClass` infers the `crudValidatorOverrides` type from the spec and threads it through to `BaseModel`, where `handleApi*` method signatures automatically reflect the override schemas. The `Parameters<InstanceType<typeof BaseClass>["handleApi*"]>[0]` pattern in the override picks up these concrete types without requiring manual annotation.
+
 #### Custom endpoints
 
 For endpoints beyond standard CRUD, define endpoint specs in the spec file and handlers in the model:
@@ -194,6 +248,63 @@ const BaseClass = MakeModelClass({
 ```
 
 Note how the endpoint spec (metadata for docs) is spread into `defineCustomApiHandler` which adds the runtime `reqHandler`. This keeps doc-generation concerns separate from runtime code.
+
+#### Naming API schemas with `namedSchema`
+
+When a Zod validator represents a top-level API model (the kind that should appear in the "Models" section of the API docs), wrap it with `namedSchema` from `shared/validators/openapi-helpers`:
+
+```typescript
+// In packages/shared/src/validators/my-resource.ts
+import { namedSchema } from "./openapi-helpers";
+
+export const apiMyResourceValidator = namedSchema(
+  "MyResource",
+  z.object({ id: z.string(), name: z.string() /* ... */ }),
+);
+```
+
+**What it does:**
+
+- Tags the schema with `.meta({ id: "MyResource" })` so `z.toJSONSchema` emits it as a `$ref` instead of inlining
+- Registers the schema in `namedSchemaRegistry` so `generate-openapi.ts` includes it in `components/schemas/` even if it's never referenced as a sub-schema
+- Generates a `MyResource_model` tag in the spec with a `<SchemaDefinition>` description for the docs "Models" section
+
+**When to use it:** Only for validators that represent a named API model — typically the `api*Validator` exported from a validator file (e.g., `apiFeatureValidator`, `apiExperimentValidator`). Don't use it for request body schemas, internal sub-schemas, or validators that are only used for validation.
+
+### OpenAPI Spec Generation
+
+The OpenAPI spec is generated from Zod validators by `packages/back-end/src/scripts/generate-openapi.ts`. After making changes to validators or API endpoints, regenerate and commit the updated spec:
+
+```bash
+pnpm --filter back-end generate-openapi
+```
+
+This rebuilds `shared` first, then produces `generated/spec.yaml` from the Zod validators and route definitions. The generated spec should be committed alongside the code changes.
+
+### Non-BaseModel Endpoints
+
+Some external API endpoints are not backed by a `BaseModel` — for example, ad-hoc RPC-style actions, query/exploration endpoints, or endpoints that orchestrate across multiple models without a single owning resource:
+
+- Create a resource directory under `src/api/` with a `*.router.ts` and individual handler files
+- Define Zod validators in `shared/src/validators/` for request/response schemas
+- Use `createApiRequestHandler()` with those validators in each handler
+- Register the router in `src/api/api.router.ts`
+
+**Example structure:**
+
+```
+src/api/
+  features/
+    features.router.ts
+    getFeature.ts
+    postFeature.ts
+    putFeature.ts
+    deleteFeature.ts
+  experiments/
+    experiments.router.ts
+    getExperiments.ts
+    ...
+```
 
 ### Authentication (External API)
 

@@ -6,6 +6,12 @@ import {
 } from "shared/validators";
 import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
 
+export const apiDeleteCustomFieldValidator = {
+  paramsSchema: z.object({ id: z.string() }).strict(),
+  bodySchema: z.never(),
+  querySchema: z.strictObject({ index: z.string().optional() }),
+};
+
 export const listCustomFieldsEndpoint = {
   pathFragment: "",
   verb: "get" as const,
@@ -30,6 +36,9 @@ export const customFieldApiSpec = {
   },
   includeDefaultCrud: false,
   crudActions: ["create", "delete", "get", "update"],
+  crudValidatorOverrides: {
+    delete: apiDeleteCustomFieldValidator,
+  },
   customEndpoints: [listCustomFieldsEndpoint],
 } satisfies OpenApiModelSpec;
 export default customFieldApiSpec;
