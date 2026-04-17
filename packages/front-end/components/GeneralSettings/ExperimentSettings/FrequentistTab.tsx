@@ -1,4 +1,7 @@
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared/constants";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { PValueCorrection } from "shared/types/stats";
 import Field from "@/components/Forms/Field";
@@ -25,14 +28,17 @@ export default function FrequentistTab({
 
       <div className="form-group mb-2 mr-2 form-inline">
         <PValueThresholdField
+          form={form}
+          name="pValueThreshold"
           value={pValueThreshold}
+          defaultValue={DEFAULT_P_VALUE_THRESHOLD}
           disabled={hasFileConfig()}
-          helpTextAppend={<span className="ml-2">(0.05 is default)</span>}
-          registerProps={form.register("pValueThreshold", {
-            valueAsNumber: true,
-            min: 0,
-            max: 1,
-          })}
+          helpTextAppend={
+            <span className="ml-2">
+              ({DEFAULT_P_VALUE_THRESHOLD} is default)
+            </span>
+          }
+          rules={{ valueAsNumber: true }}
         />
       </div>
       <div className="mb-3  form-inline flex-column align-items-start">

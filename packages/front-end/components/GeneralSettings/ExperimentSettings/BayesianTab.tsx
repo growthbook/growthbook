@@ -1,3 +1,4 @@
+import { DEFAULT_CONFIDENCE_LEVEL } from "shared/src/settings/resolvers/genDefaultSettings";
 import { hasFileConfig } from "@/services/env";
 import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 import { StatsEngineSettingsForm } from "./StatsEngineSettings";
@@ -15,16 +16,17 @@ export default function BayesianTab({
 
       <div className="form-group mb-2 mr-2 form-inline">
         <ChanceToWinThresholdField
+          form={form}
+          name="confidenceLevel"
           value={confidenceLevel}
-          min={70}
-          max={99}
+          defaultValue={DEFAULT_CONFIDENCE_LEVEL}
           disabled={hasFileConfig()}
-          helpTextAppend={<span className="ml-2">(95% is default)</span>}
-          registerProps={form.register("confidenceLevel", {
-            valueAsNumber: true,
-            min: 50,
-            max: 100,
-          })}
+          helpTextAppend={
+            <span className="ml-2">
+              ({Math.round(DEFAULT_CONFIDENCE_LEVEL * 100)}% is default)
+            </span>
+          }
+          rules={{ valueAsNumber: true }}
         />
       </div>
 

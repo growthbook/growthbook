@@ -1,5 +1,10 @@
 import { ReactNode } from "react";
-import { UseFormRegisterReturn } from "react-hook-form";
+import {
+  FieldPath,
+  FieldValues,
+  RegisterOptions,
+  UseFormReturn,
+} from "react-hook-form";
 import Field from "@/components/Forms/Field";
 
 export function getPValueThresholdHighlight(
@@ -37,38 +42,63 @@ export function getPValueThresholdHighlight(
   return { highlightColor, warningMsg };
 }
 
-interface PValueThresholdFieldProps {
+interface PValueThresholdFieldProps<
+  TFormValues extends FieldValues,
+  TName extends FieldPath<TFormValues>,
+> {
   value: number | undefined;
-  registerProps: UseFormRegisterReturn;
-  min?: number;
-  max?: number;
-  step?: number;
+  form: UseFormReturn<TFormValues>;
+  name: TName;
   disabled?: boolean;
   label?: string;
+  defaultValue?: number;
   helpTextAppend?: ReactNode;
   containerClassName?: string;
+  rules?: Omit<RegisterOptions<TFormValues, TName>, "min" | "max">;
 }
 
-export default function PValueThresholdField({
+export default function PValueThresholdField<
+  TFormValues extends FieldValues,
+  TName extends FieldPath<TFormValues>,
+>({
   value,
-  registerProps,
-  min = 0.001,
-  max = 0.5,
-  step = 0.001,
+  form,
+  name,
   disabled = false,
   label = "P-value threshold",
+  defaultValue,
   helpTextAppend,
   containerClassName = "mb-3",
-}: PValueThresholdFieldProps) {
+  rules,
+}: PValueThresholdFieldProps<TFormValues, TName>) {
   const { highlightColor, warningMsg } = getPValueThresholdHighlight(value);
+
+  const registerProps = form.register(name, {
+    ...rules,
+    min: {
+      value: 0,
+      message: `Must be at least 0`,
+    },
+    max: {
+      value: 0.5,
+      message: `Must be at most 0.5`,
+    },
+  });
+
+  const fieldError = form.formState.errors[name];
+  const errorMessage =
+    typeof fieldError?.message === "string" ? fieldError.message : undefined;
 
   return (
     <Field
       label={label}
       type="number"
-      step={String(step)}
-      min={String(min)}
-      max={String(max)}
+      step="0.001"
+      min="0"
+      max="0.5"
+      placeholder={
+        typeof defaultValue === "number" ? String(defaultValue) : undefined
+      }
       style={{
         borderColor: highlightColor,
         backgroundColor: highlightColor ? highlightColor + "15" : "",
@@ -77,6 +107,7 @@ export default function PValueThresholdField({
       containerClassName={containerClassName}
       append=""
       disabled={disabled}
+      error={errorMessage}
       helpText={
         <>
           {helpTextAppend}

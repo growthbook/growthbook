@@ -7,6 +7,7 @@ import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import { DEFAULT_CONFIDENCE_LEVEL } from "shared/src/settings/resolvers/genDefaultSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft } from "@/components/Icons";
@@ -71,7 +72,7 @@ const ProjectPage: FC = () => {
   // todo: should this also be project scoped?
   const canManageTeam = permissionsUtil.canManageTeam();
 
-  const form = useForm<ProjectSettings>();
+  const form = useForm<ProjectSettings>({ mode: "onChange" });
 
   const { data, mutate } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
@@ -93,7 +94,8 @@ const ProjectPage: FC = () => {
     }
   }, [form, settings]);
 
-  const ctaEnabled = hasChanges(form.getValues(), originalValue);
+  const isValid = form.formState.isValid;
+  const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
 
   const saveSettings = form.handleSubmit(async (value) => {
     const payload: ProjectSettings = { ...value };
@@ -240,12 +242,16 @@ const ProjectPage: FC = () => {
                         <Heading as="h5" size="3">
                           Stats Engine Settings
                         </Heading>
+                        <Box mb="3">
+                          Experiments use your organization settings by default.
+                          Leave the fields blank to use the organization
+                          default.
+                        </Box>
                         <StatsEngineSelect
                           value={form.watch("statsEngine")}
                           onChange={(v) => {
                             form.setValue("statsEngine", v || undefined);
                           }}
-                          label="By default, experiments use your organization's default statistics engine, however, you can override this for experiments in this project."
                           parentSettings={parentSettings}
                         />
 
@@ -266,7 +272,13 @@ const ProjectPage: FC = () => {
                                 </h4>
                                 <div className="form-group mb-2 mr-2 form-inline">
                                   <ChanceToWinThresholdField
+                                    form={form}
+                                    name="confidenceLevel"
                                     value={form.watch("confidenceLevel")}
+                                    defaultValue={
+                                      (parentSettings.confidenceLevel.value ??
+                                        DEFAULT_CONFIDENCE_LEVEL) * 100
+                                    }
                                     helpTextAppend={
                                       <span className="ml-2">
                                         (
@@ -277,12 +289,9 @@ const ProjectPage: FC = () => {
                                         % is your organization default)
                                       </span>
                                     }
-                                    registerProps={form.register(
-                                      "confidenceLevel",
-                                      {
-                                        setValueAs: emptyStringToUndefined,
-                                      },
-                                    )}
+                                    rules={{
+                                      setValueAs: emptyStringToUndefined,
+                                    }}
                                   />
                                 </div>
                               </Box>
@@ -294,7 +303,13 @@ const ProjectPage: FC = () => {
                                 </h4>
                                 <div className="form-group mb-2 mr-2 form-inline">
                                   <PValueThresholdField
+                                    form={form}
+                                    name="pValueThreshold"
                                     value={form.watch("pValueThreshold")}
+                                    defaultValue={
+                                      parentSettings.pValueThreshold.value ??
+                                      0.05
+                                    }
                                     helpTextAppend={
                                       <span className="ml-2">
                                         (
@@ -303,12 +318,9 @@ const ProjectPage: FC = () => {
                                         is your organization default)
                                       </span>
                                     }
-                                    registerProps={form.register(
-                                      "pValueThreshold",
-                                      {
-                                        setValueAs: emptyStringToUndefined,
-                                      },
-                                    )}
+                                    rules={{
+                                      setValueAs: emptyStringToUndefined,
+                                    }}
                                   />
                                 </div>
                               </Box>
