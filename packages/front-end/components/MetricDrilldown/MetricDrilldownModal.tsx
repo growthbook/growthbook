@@ -189,10 +189,12 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const { isAuthenticated } = useAuth();
   const { analysis } = useSnapshot();
 
-  // When dimensionInfo is provided (from BreakDownResults), use the passed initialResults
-  // which contains the correct dimension-specific data. Otherwise, use snapshot results.
+  // When dimensionInfo is provided (from BreakDownResults), use the dimension-specific
+  // results from the current analysis (which updates after baseline/difference changes),
+  // falling back to initialResults only when analysis isn't available yet.
+  // Without dimensionInfo, use the first result (aggregate view).
   const results = dimensionInfo
-    ? initialResults
+    ? (analysis?.results?.[dimensionInfo.index] ?? initialResults)
     : (analysis?.results?.[0] ?? initialResults);
 
   // TODO: Check what we need here
