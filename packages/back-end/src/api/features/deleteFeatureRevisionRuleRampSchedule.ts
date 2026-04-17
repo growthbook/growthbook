@@ -108,7 +108,6 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
 
     await recordRevisionUpdate(
       req.context,
-      req,
       feature,
       finalRevision,
       "rule.rampSchedule.remove",

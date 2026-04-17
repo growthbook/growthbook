@@ -133,7 +133,6 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
 
     await recordRevisionUpdate(
       req.context,
-      req,
       feature,
       finalRevision,
       "rule.delete",

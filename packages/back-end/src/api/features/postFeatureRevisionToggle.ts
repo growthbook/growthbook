@@ -88,17 +88,10 @@ export const postFeatureRevisionToggle = createApiRequestHandler(
     });
     const finalRevision = updated ?? revision;
 
-    await recordRevisionUpdate(
-      req.context,
-      req,
-      feature,
-      finalRevision,
-      "toggle",
-      {
-        environments: [environment],
-        auditDetails: { enabled },
-      },
-    );
+    await recordRevisionUpdate(req.context, feature, finalRevision, "toggle", {
+      environments: [environment],
+      auditDetails: { enabled },
+    });
 
     return { revision: revisionToApiInterface(finalRevision) };
   } catch (err) {

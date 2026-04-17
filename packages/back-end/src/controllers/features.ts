@@ -1073,7 +1073,6 @@ export async function postFeatureReviewOrComment(
 
   await dispatchRevisionReviewEvent(
     context,
-    req,
     feature,
     revision,
     finalRevision,
@@ -2007,7 +2006,6 @@ export async function postFeatureRule(
   );
   await recordRevisionUpdate(
     context,
-    req,
     feature,
     updatedRevisionAfterRuleAdd ?? revision,
     "rule.add",
@@ -2336,7 +2334,6 @@ export async function putRevisionComment(
   );
   await recordRevisionUpdate(
     context,
-    req,
     feature,
     updatedRevisionAfterComment ?? revision,
     "metadata",
@@ -2393,7 +2390,6 @@ export async function putRevisionTitle(
   );
   await recordRevisionUpdate(
     context,
-    req,
     feature,
     updatedRevisionAfterTitle ?? revision,
     "metadata",
@@ -2442,7 +2438,6 @@ export async function postFeatureDefaultValue(
   );
   await recordRevisionUpdate(
     context,
-    req,
     feature,
     updatedRevisionAfterDefaultValue ?? revision,
     "defaultValue",
@@ -2829,7 +2824,6 @@ export async function putFeatureRule(
   );
   await recordRevisionUpdate(
     context,
-    req,
     feature,
     updatedRevisionAfterRuleEdit ?? revision,
     "rule.update",
@@ -3121,7 +3115,7 @@ export async function postFeatureToggle(
     entity: { object: "feature", id: feature.id },
     details: auditDetailsUpdate(prevStates, changes, { draft: true }),
   });
-  await recordRevisionUpdate(context, req, feature, draft, "toggle", {
+  await recordRevisionUpdate(context, feature, draft, "toggle", {
     environments: changedEnvList,
   });
 
@@ -3185,7 +3179,6 @@ export async function postFeatureMoveRule(
   );
   await recordRevisionUpdate(
     context,
-    req,
     feature,
     updatedRevisionAfterMove ?? revision,
     "rule.reorder",
@@ -3283,7 +3276,6 @@ export async function deleteFeatureRule(
   );
   await recordRevisionUpdate(
     context,
-    req,
     feature,
     updatedRevisionAfterRuleDelete ?? revision,
     "rule.delete",
@@ -3747,7 +3739,7 @@ export async function postFeatureArchive(
     ),
   });
   if (!autoPublish) {
-    await recordRevisionUpdate(context, req, feature, draft, "archive");
+    await recordRevisionUpdate(context, feature, draft, "archive");
   }
 
   res.status(200).json({ status: 200, draftVersion: draft.version });
@@ -4398,7 +4390,7 @@ export async function postPrerequisite(
     baseDraft?.version,
     forceNewDraft,
   );
-  await recordRevisionUpdate(context, req, feature, draft, "prerequisites");
+  await recordRevisionUpdate(context, feature, draft, "prerequisites");
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
 
@@ -4456,7 +4448,7 @@ export async function putPrerequisite(
     baseDraftPut?.version,
     forceNewDraft,
   );
-  await recordRevisionUpdate(context, req, feature, putDraft, "prerequisites");
+  await recordRevisionUpdate(context, feature, putDraft, "prerequisites");
   return res.status(200).json({ status: 200, draftVersion: putDraft.version });
 }
 
@@ -4509,13 +4501,7 @@ export async function deletePrerequisite(
     baseDraftDel?.version,
     forceNewDraft,
   );
-  await recordRevisionUpdate(
-    context,
-    req,
-    feature,
-    deleteDraft,
-    "prerequisites",
-  );
+  await recordRevisionUpdate(context, feature, deleteDraft, "prerequisites");
   return res
     .status(200)
     .json({ status: 200, draftVersion: deleteDraft.version });

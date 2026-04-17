@@ -76,14 +76,9 @@ export const putFeatureRevisionArchive = createApiRequestHandler(
     });
     const finalRevision = updated ?? revision;
 
-    await recordRevisionUpdate(
-      req.context,
-      req,
-      feature,
-      finalRevision,
-      "archive",
-      { auditDetails: { archived: req.body.archived } },
-    );
+    await recordRevisionUpdate(req.context, feature, finalRevision, "archive", {
+      auditDetails: { archived: req.body.archived },
+    });
 
     return { revision: revisionToApiInterface(finalRevision) };
   } catch (err) {

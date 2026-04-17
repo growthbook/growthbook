@@ -79,7 +79,6 @@ export const putFeatureRevisionDefaultValue = createApiRequestHandler(
 
     await recordRevisionUpdate(
       req.context,
-      req,
       feature,
       finalRevision,
       "defaultValue",

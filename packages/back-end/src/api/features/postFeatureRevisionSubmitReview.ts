@@ -102,7 +102,6 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
 
   await dispatchRevisionReviewEvent(
     req.context,
-    req,
     feature,
     revision,
     finalRevision,

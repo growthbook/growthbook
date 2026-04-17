@@ -118,7 +118,6 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
 
     await recordRevisionUpdate(
       req.context,
-      req,
       feature,
       finalRevision,
       "rule.rampSchedule.set",

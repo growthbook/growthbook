@@ -373,7 +373,6 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     await recordRevisionUpdate(
       req.context,
-      req,
       feature,
       finalRevision,
       "rule.update",

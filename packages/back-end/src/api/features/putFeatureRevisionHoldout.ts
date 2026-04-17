@@ -83,14 +83,9 @@ export const putFeatureRevisionHoldout = createApiRequestHandler(
     });
     const finalRevision = updated ?? revision;
 
-    await recordRevisionUpdate(
-      req.context,
-      req,
-      feature,
-      finalRevision,
-      "holdout",
-      { auditDetails: { holdoutId: req.body.holdout?.id ?? null } },
-    );
+    await recordRevisionUpdate(req.context, feature, finalRevision, "holdout", {
+      auditDetails: { holdoutId: req.body.holdout?.id ?? null },
+    });
 
     return { revision: revisionToApiInterface(finalRevision) };
   } catch (err) {

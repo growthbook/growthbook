@@ -128,7 +128,6 @@ export const putFeatureRevisionMetadata = createApiRequestHandler(
 
     await recordRevisionUpdate(
       req.context,
-      req,
       feature,
       finalRevision,
       "metadata",

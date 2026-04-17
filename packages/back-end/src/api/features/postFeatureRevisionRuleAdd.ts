@@ -341,7 +341,6 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     await recordRevisionUpdate(
       req.context,
-      req,
       feature,
       finalRevision,
       "rule.add",

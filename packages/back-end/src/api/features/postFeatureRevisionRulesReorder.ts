@@ -119,7 +119,6 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
 
     await recordRevisionUpdate(
       req.context,
-      req,
       feature,
       finalRevision,
       "rule.reorder",
