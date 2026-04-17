@@ -149,9 +149,19 @@ export default function Dialog({
       <RadixDialog.Content
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
+        maxHeight="85vh"
+        style={{ display: "flex", flexDirection: "column" }}
       >
-        <form onSubmit={handleSubmit}>
-          <Box p="2">
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            flex: 1,
+          }}
+        >
+          <Box p="2" flexShrink="0">
             <Flex justify="between" align="center" mb="1">
               <RadixDialog.Title size="5" mb="0">
                 {header}
@@ -165,24 +175,26 @@ export default function Dialog({
                 </Text>
               </RadixDialog.Description>
             )}
-            <Box pt="6">
-              {error && <ErrorDisplay error={error} mb="5" />}
-              {children}
-            </Box>
           </Box>
-          <Inset side="x">
-            <Separator size="4" my="5" />
-          </Inset>
-          <Flex gap="3" justify="end">
-            <RadixDialog.Close>
-              <Button variant="ghost" onClick={handleClose}>
-                Cancel
+          <Box ref={bodyRef} px="2" pt="6" flexGrow="1" overflowY="auto">
+            {error && <ErrorDisplay error={error} mb="5" />}
+            {children}
+          </Box>
+          <Box flexShrink="0">
+            <Inset side="x">
+              <Separator size="4" my="5" />
+            </Inset>
+            <Flex gap="3" justify="end">
+              <RadixDialog.Close>
+                <Button variant="ghost" onClick={handleClose}>
+                  Cancel
+                </Button>
+              </RadixDialog.Close>
+              <Button type="submit" disabled={!ctaEnabled}>
+                {cta}
               </Button>
-            </RadixDialog.Close>
-            <Button type="submit" disabled={!ctaEnabled}>
-              {cta}
-            </Button>
-          </Flex>
+            </Flex>
+          </Box>
         </form>
       </RadixDialog.Content>
     </RadixDialog.Root>
