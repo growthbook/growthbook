@@ -249,19 +249,6 @@ export async function createOrganization({
   return toInterface(doc);
 }
 
-export async function getOrganizationIdsWithTrackingDisabled(
-  organizationIds: string[],
-) {
-  const orgs = await OrganizationModel.find(
-    {
-      id: { $in: organizationIds },
-      trackingDisabled: true,
-    },
-    { id: 1, _id: 0 },
-  );
-  return new Set(orgs.map((org) => org.id));
-}
-
 export async function findAllOrganizations(
   page: number,
   search: string,
@@ -291,13 +278,6 @@ export async function findAllOrganizations(
     : OrganizationModel.find().estimatedDocumentCount());
 
   return { organizations: docs.map(toInterface), total };
-}
-
-export async function _dangerouslyFindAllOrganizationsByIds(orgIds: string[]) {
-  const docs = await OrganizationModel.find({
-    id: { $in: orgIds },
-  });
-  return docs.map(toInterface);
 }
 
 export async function findOrganizationById(id: string) {
