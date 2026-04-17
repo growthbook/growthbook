@@ -225,6 +225,11 @@ export default defineConfig([
               group: ["*back-end*", "**/sdk-{js,react}*"],
               message: "front-end can only import from shared or itself.",
             },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
+            },
           ],
         },
       ],
@@ -337,6 +342,11 @@ export default defineConfig([
               group: ["*front-end*", "**/sdk-{js,react}*"],
               message: "back-end can only import from shared or itself.",
             },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
+            },
           ],
         },
       ],
@@ -406,6 +416,11 @@ export default defineConfig([
             {
               group: ["*back-end*", "*front-end*"],
               message: "shared cannot import from back-end or front-end.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Within shared, use relative paths or import from shared without /src/",
             },
           ],
         },
