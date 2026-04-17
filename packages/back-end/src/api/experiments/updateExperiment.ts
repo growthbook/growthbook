@@ -4,7 +4,6 @@ import {
   Variation,
   updateExperimentValidator,
 } from "shared/validators";
-import { UpdateExperimentResponse } from "shared/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateExperiment as updateExperimentToDb,
@@ -28,7 +27,7 @@ import {
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
-)(async (req): Promise<UpdateExperimentResponse> => {
+)(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
     throw new Error("Could not find the experiment to update");

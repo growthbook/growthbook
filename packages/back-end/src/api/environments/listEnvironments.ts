@@ -1,10 +1,9 @@
-import { ListEnvironmentsResponse } from "shared/types/openapi";
 import { listEnvironmentsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const listEnvironments = createApiRequestHandler(
   listEnvironmentsValidator,
-)(async (req): Promise<ListEnvironmentsResponse> => {
+)(async (req) => {
   const environments = (req.context.org.settings?.environments || []).filter(
     (environment) =>
       req.context.permissions.canReadMultiProjectResource(environment.projects),

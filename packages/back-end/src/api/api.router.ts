@@ -13,42 +13,40 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
+import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
-import featuresRouter from "./features/features.router";
-import experimentsRouter from "./experiments/experiments.router";
-import snapshotsRouter from "./snapshots/snapshots.router";
-import metricsRouter from "./metrics/metrics.router";
-import usageRouter from "./usage/usage.router";
-import segmentsRouter from "./segments/segments.router";
-import projectsRouter from "./projects/projects.router";
-import environmentsRouter from "./environments/environments.router";
-import attributesRouter from "./attributes/attributes.router";
-import savedGroupsRouter from "./saved-groups/saved-groups.router";
-import sdkConnectionsRouter from "./sdk-connections/sdk-connections.router";
-import sdkPayloadRouter from "./sdk-payload/sdk-payload.router";
-import dataSourcesRouter from "./data-sources/data-sources.router";
-import dimensionsRouter from "./dimensions/dimensions.router";
-import visualChangesetsRouter from "./visual-changesets/visual-changesets.router";
-import organizationsRouter from "./organizations/organizations.router";
-import codeRefsRouter from "./code-refs/code-refs.router";
-import factTablesRouter from "./fact-tables/fact-tables.router";
-import factMetricsRouter from "./fact-metrics/fact-metrics.router";
-import bulkImportRouter from "./bulk-import/bulk-import.router";
-import membersRouter from "./members/members.router";
-import { postCopyTransform } from "./openai/postCopyTransform";
-import { getFeatureKeys } from "./features/getFeatureKeys";
-import { getFeatureStale } from "./features/getFeatureStale";
-import ingestionRouter from "./ingestion/ingestion.router";
-import archetypesRouter from "./archetypes/archetypes.router";
-import { getExperimentNames } from "./experiments/getExperimentNames";
-import queryRouter from "./queries/queries.router";
-import settingsRouter from "./settings/settings.router";
-import informationSchemaTablesRouter from "./information-schema-tables/information-schema-tables.router";
-import rampSchedulesRouter from "./ramp-schedules/ramp-schedules.router";
-import { defineRouterForApiConfig } from "./ApiModel";
+import { featureRoutes } from "./features/features.router";
+import { experimentsRoutes } from "./experiments/experiments.router";
+import { snapshotsRoutes } from "./snapshots/snapshots.router";
+import { metricsRoutes } from "./metrics/metrics.router";
+import { usageRoutes } from "./usage/usage.router";
+import { segmentsRoutes } from "./segments/segments.router";
+import { projectsRoutes } from "./projects/projects.router";
+import { environmentsRoutes } from "./environments/environments.router";
+import { attributesRoutes } from "./attributes/attributes.router";
+import { savedGroupsRoutes } from "./saved-groups/saved-groups.router";
+import { sdkConnectionsRoutes } from "./sdk-connections/sdk-connections.router";
+import { sdkPayloadRoutes } from "./sdk-payload/sdk-payload.router";
+import { dataSourcesRoutes } from "./data-sources/data-sources.router";
+import { dimensionsRoutes } from "./dimensions/dimensions.router";
+import { visualChangesetsRoutes } from "./visual-changesets/visual-changesets.router";
+import { organizationsRoutes } from "./organizations/organizations.router";
+import { codeRefsRoutes } from "./code-refs/code-refs.router";
+import { factTablesRoutes } from "./fact-tables/fact-tables.router";
+import { factMetricsRoutes } from "./fact-metrics/fact-metrics.router";
+import { bulkImportRoutes } from "./bulk-import/bulk-import.router";
+import { membersRoutes } from "./members/members.router";
+import { openaiRoutes } from "./openai/openai.router";
+import { ingestionRoutes } from "./ingestion/ingestion.router";
+import { archetypesRoutes } from "./archetypes/archetypes.router";
+import { queriesRoutes } from "./queries/queries.router";
+import { settingsRoutes } from "./settings/settings.router";
+import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
+import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
+import { getOpenApiRoutesForApiConfig } from "./ApiModel";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
@@ -58,6 +56,7 @@ const API_MODELS: ModelClass[] = [
   ExperimentTemplatesModel,
   AnalyticsExplorationModel,
   RampScheduleTemplateModel,
+  RampScheduleModel,
 ];
 
 const router = Router();
@@ -130,44 +129,67 @@ router.get("/", (req, res) => {
   });
 });
 
-// API endpoints
-router.use("/features", featuresRouter);
-router.get("/feature-keys", getFeatureKeys);
-router.get("/stale-features", getFeatureStale);
-router.use("/experiments", experimentsRouter);
-router.get("/experiment-names", getExperimentNames);
-router.use("/snapshots", snapshotsRouter);
-router.use("/metrics", metricsRouter);
-router.use("/usage", usageRouter);
-router.use("/segments", segmentsRouter);
-router.use("/dimensions", dimensionsRouter);
-router.use("/projects", projectsRouter);
-router.use("/environments", environmentsRouter);
-router.use("/attributes", attributesRouter);
-router.use("/sdk-connections", sdkConnectionsRouter);
-router.use("/data-sources", dataSourcesRouter);
-router.use("/visual-changesets", visualChangesetsRouter);
-router.use("/saved-groups", savedGroupsRouter);
-router.use("/organizations", organizationsRouter);
-router.use("/sdk-payload", sdkPayloadRouter);
-router.use("/fact-tables", factTablesRouter);
-router.use("/fact-metrics", factMetricsRouter);
-router.use("/bulk-import", bulkImportRouter);
-router.use("/code-refs", codeRefsRouter);
-router.use("/members", membersRouter);
-router.use("/ingestion", ingestionRouter);
-router.use("/archetypes", archetypesRouter);
-router.use("/queries", queryRouter);
-router.use("/settings", settingsRouter);
-router.use("/information-schema-tables", informationSchemaTablesRouter);
-router.use("/ramp-schedules", rampSchedulesRouter);
-router.post("/transform-copy", postCopyTransform);
+export const allRoutes = [
+  ...featureRoutes,
+  ...archetypesRoutes,
+  ...experimentsRoutes,
+  ...snapshotsRoutes,
+  ...metricsRoutes,
+  ...usageRoutes,
+  ...segmentsRoutes,
+  ...dimensionsRoutes,
+  ...projectsRoutes,
+  ...environmentsRoutes,
+  ...attributesRoutes,
+  ...sdkConnectionsRoutes,
+  ...dataSourcesRoutes,
+  ...visualChangesetsRoutes,
+  ...savedGroupsRoutes,
+  ...organizationsRoutes,
+  ...sdkPayloadRoutes,
+  ...factTablesRoutes,
+  ...factMetricsRoutes,
+  ...bulkImportRoutes,
+  ...codeRefsRoutes,
+  ...membersRoutes,
+  ...ingestionRoutes,
+  ...queriesRoutes,
+  ...settingsRoutes,
+  ...informationSchemaTablesRoutes,
+  ...rampSchedulesRoutes,
+  ...openaiRoutes,
+];
+
+/** Tag metadata from BaseModel specs, keyed by PascalCase tag name */
+export const apiModelTagMeta: Record<
+  string,
+  { displayName?: string; description?: string }
+> = {};
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
   if (!apiConfig) return;
-  const r = defineRouterForApiConfig(apiConfig);
-  if (r) {
-    router.use(apiConfig.openApiSpec.pathBase, r);
+  const routes = getOpenApiRoutesForApiConfig(apiConfig);
+  allRoutes.push(...routes);
+
+  const spec = apiConfig.openApiSpec;
+  const tag =
+    spec.tag ??
+    spec.modelPlural.charAt(0).toUpperCase() + spec.modelPlural.slice(1);
+  apiModelTagMeta[tag] = {
+    displayName: spec.navDisplayName,
+    description: spec.navDescription ?? "",
+  };
+});
+
+allRoutes.forEach((route) => {
+  if (!route.method) {
+    return;
+  }
+
+  if (route.middleware) {
+    router[route.method](route.path, route.middleware, route.handler);
+  } else {
+    router[route.method](route.path, route.handler);
   }
 });
 

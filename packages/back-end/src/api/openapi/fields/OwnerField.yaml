@@ -1,2 +1,0 @@
-type: string
-description: The userId of the owner (or raw owner name/email for legacy records)

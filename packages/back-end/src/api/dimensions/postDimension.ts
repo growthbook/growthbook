@@ -1,5 +1,4 @@
 import uniqid from "uniqid";
-import { PostDimensionResponse } from "shared/types/openapi";
 import { postDimensionValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
@@ -10,7 +9,7 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 export const postDimension = createApiRequestHandler(postDimensionValidator)(
-  async (req): Promise<PostDimensionResponse> => {
+  async (req) => {
     const organization = req.organization.id;
 
     const datasourceDoc = await getDataSourceById(

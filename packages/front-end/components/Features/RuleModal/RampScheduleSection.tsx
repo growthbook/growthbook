@@ -1635,7 +1635,7 @@ export function createActionToSectionState(
   const endPatch = reconstructUIEndPatch(action.endActions);
   return {
     mode: "create",
-    name: action.name,
+    name: action.name ?? "",
     startDate: action.startDate ? new Date(action.startDate).toISOString() : "",
     steps: action.steps.map(reconstructUIStep),
     endScheduleAt:

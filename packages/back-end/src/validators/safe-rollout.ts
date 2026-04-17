@@ -3,6 +3,8 @@ import {
   createSafeRolloutValidator,
 } from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 
@@ -14,28 +16,52 @@ export async function validateCreateSafeRolloutFields(
 ): Promise<CreateSafeRolloutInterface> {
   // TODO: How to use Zod validator here and provide a good error message to the user?
   if (!safeRolloutFields) {
-    throw new Error("Safe Rollout fields must be set");
+    throw new BadRequestError("Safe Rollout fields must be set");
   }
   if (
     safeRolloutFields?.maxDuration?.amount === undefined ||
     safeRolloutFields?.maxDuration?.amount < 1
   ) {
-    throw new Error("Time to monitor must be at least 1 day");
+    throw new BadRequestError("Time to monitor must be at least 1 day");
   }
   if (safeRolloutFields.maxDuration.unit === undefined) {
-    throw new Error("Time to monitor must be specified for safe rollouts");
+    throw new BadRequestError(
+      "Time to monitor must be specified for safe rollouts",
+    );
   }
   if (safeRolloutFields.exposureQueryId === undefined) {
-    throw new Error("Exposure query must be specified for safe rollouts");
+    throw new BadRequestError(
+      "Exposure query must be specified for safe rollouts",
+    );
   }
   if (safeRolloutFields.datasourceId === undefined) {
-    throw new Error("Datasource must be specified for safe rollouts");
+    throw new BadRequestError("Datasource must be specified for safe rollouts");
   }
+  const datasource = await getDataSourceById(
+    context,
+    safeRolloutFields.datasourceId,
+  );
+  if (!datasource) {
+    throw new BadRequestError(
+      "Invalid datasource: " + safeRolloutFields.datasourceId,
+    );
+  }
+
+  const exposureQueries = datasource.settings?.queries?.exposure || [];
+  const exposureQueryExists = exposureQueries.some(
+    (q) => q.id === safeRolloutFields.exposureQueryId,
+  );
+  if (!exposureQueryExists) {
+    throw new BadRequestError(
+      "Invalid exposure query: " + safeRolloutFields.exposureQueryId,
+    );
+  }
+
   if (
     safeRolloutFields.guardrailMetricIds === undefined ||
     safeRolloutFields.guardrailMetricIds.length === 0
   ) {
-    throw new Error("Please select at least 1 guardrail metric");
+    throw new BadRequestError("Please select at least 1 guardrail metric");
   }
 
   const metricIds = safeRolloutFields.guardrailMetricIds;
@@ -46,7 +72,7 @@ export async function validateCreateSafeRolloutFields(
       const metric = map.get(metricIds[i]);
       if (metric) {
         if (datasourceId && metric.datasource !== datasourceId) {
-          throw new Error(
+          throw new BadRequestError(
             "Metrics must belong to the same datasource as the safe rollout: " +
               metricIds[i],
           );
@@ -59,14 +85,16 @@ export async function validateCreateSafeRolloutFields(
         if (metricGroup) {
           // Make sure it is tied to the same datasource as the experiment
           if (datasourceId && metricGroup.datasource !== datasourceId) {
-            throw new Error(
+            throw new BadRequestError(
               "Metrics must be tied to the same datasource as the safe rollout: " +
                 metricIds[i],
             );
           }
         } else {
           // new metric that's not recognized...
-          throw new Error("Invalid metric specified: " + metricIds[i]);
+          throw new BadRequestError(
+            "Invalid metric specified: " + metricIds[i],
+          );
         }
       }
     }

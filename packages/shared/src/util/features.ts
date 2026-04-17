@@ -5,7 +5,11 @@ import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
-import { ExperimentRefRule, RevisionMetadata } from "shared/validators";
+import {
+  ExperimentRefRule,
+  RevisionMetadata,
+  ApiFeature,
+} from "shared/validators";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -24,7 +28,6 @@ import {
   Environment,
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
-import { ApiFeature } from "shared/types/openapi";
 import { GroupMap } from "shared/types/saved-group";
 import { getValidDate } from "../dates";
 import {

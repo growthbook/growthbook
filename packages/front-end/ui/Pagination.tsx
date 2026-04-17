@@ -1,6 +1,8 @@
 import React, { FC } from "react";
 import ReactPaginate from "react-paginate";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
+import clsx from "clsx";
+import styles from "./Pagination.module.scss";
 
 type PaginationProps = {
   numItemsTotal: number;
@@ -18,20 +20,22 @@ const Pagination: FC<PaginationProps> = ({
   className = "",
 }) => {
   return (
-    <div className={`pagination-area-radix ${className}`}>
+    <div className={clsx(styles.root, className)}>
       <ReactPaginate
         previousLabel={
-          <span className="pagination-arrow">
+          <span className={styles.arrow}>
             <PiCaretLeft size={14} />
+            Prev
           </span>
         }
         nextLabel={
-          <span className="pagination-arrow">
+          <span className={styles.arrow}>
+            Next
             <PiCaretRight size={14} />
           </span>
         }
         breakLabel={"..."}
-        breakClassName={"pagination-break"}
+        breakClassName={styles.break}
         pageCount={Math.ceil(numItemsTotal / perPage)}
         marginPagesDisplayed={2}
         pageRangeDisplayed={3}
@@ -39,15 +43,15 @@ const Pagination: FC<PaginationProps> = ({
         onPageChange={(d) => {
           onPageChange(d.selected + 1);
         }}
-        containerClassName={"pagination-radix-container"}
-        pageClassName={"pagination-page"}
-        disabledClassName={"pagination-disabled"}
-        pageLinkClassName={"pagination-link"}
-        previousClassName={"pagination-arrow-container"}
-        nextClassName={"pagination-arrow-container"}
-        nextLinkClassName={"pagination-link-arrow"}
-        previousLinkClassName={"pagination-link-arrow"}
-        activeClassName={"pagination-active"}
+        containerClassName={styles.container}
+        pageClassName={styles.page}
+        disabledClassName={styles.disabled}
+        pageLinkClassName={styles.link}
+        previousClassName={styles.arrowContainer}
+        nextClassName={styles.arrowContainer}
+        nextLinkClassName={styles.linkArrow}
+        previousLinkClassName={styles.linkArrow}
+        activeClassName={styles.pageActive}
       />
     </div>
   );

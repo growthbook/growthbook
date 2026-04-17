@@ -6,7 +6,6 @@ import {
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
-import { PostExperimentResponse } from "shared/types/openapi";
 import {
   createExperiment,
   getExperimentByTrackingKey,
@@ -80,7 +79,7 @@ function templateToPostExperimentDefaults(
 }
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
-  async (req): Promise<PostExperimentResponse> => {
+  async (req) => {
     const { owner: ownerEmail, templateId } = req.body;
     let payload = req.body;
 

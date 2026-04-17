@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { Router } from "express";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   createApiRequestHandler,
+  OpenApiRoute,
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
 import { _dangerousGetSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
@@ -52,6 +52,11 @@ export const getDataEnrichment = createApiRequestHandler({
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.never(),
+  responseSchema: z.any(),
+  method: "get" as const,
+  path: "/ingestion/data-enrichment",
+  operationId: "getDataEnrichment",
+  excludeFromSpec: true,
 })(async (req): Promise<GetDataEnrichmentResponse> => {
   // Must be a super-user to make cross-org mongo queries
   await validateIsSuperUserRequest(req);
@@ -112,9 +117,4 @@ export const getDataEnrichment = createApiRequestHandler({
   return { sdkData };
 });
 
-const router = Router();
-
-// Mounted at /api/v1/ingestion
-router.get("/data-enrichment", getDataEnrichment);
-
-export default router;
+export const ingestionRoutes: OpenApiRoute[] = [getDataEnrichment];

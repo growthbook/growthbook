@@ -1,4 +1,3 @@
-import { GetDataSourceResponse } from "shared/types/openapi";
 import { getDataSourceValidator } from "shared/validators";
 import {
   getDataSourceById,
@@ -7,7 +6,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getDataSource = createApiRequestHandler(getDataSourceValidator)(
-  async (req): Promise<GetDataSourceResponse> => {
+  async (req) => {
     const dataSource = await getDataSourceById(req.context, req.params.id);
     if (!dataSource) {
       throw new Error("Could not find dataSource with that id");

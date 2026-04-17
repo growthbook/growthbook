@@ -2,6 +2,8 @@ import { z } from "zod";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 
+import { namedSchema } from "./openapi-helpers";
+
 // Patch applied to a feature rule by a ramp step. Only fields present in the patch are applied;
 // absent fields are inherited from the previous step's accumulated state.
 export const featureRulePatch = z.object({
@@ -10,7 +12,7 @@ export const featureRulePatch = z.object({
   condition: z.string().nullish(),
   savedGroups: z.array(savedGroupTargeting).nullish(),
   prerequisites: z.array(featurePrerequisite).nullish(),
-  force: z.any().optional(), // any JSON-serializable value
+  force: z.any().optional().describe("Force value (any JSON type)"),
   // system-managed: injected as enabled:true when the ramp fires
   enabled: z.boolean().nullish(),
 });
@@ -31,19 +33,25 @@ export const rampTarget = z.object({
   ruleId: z.string().nullish(),
   environment: z.string().nullish(),
   status: z.enum(["pending-join", "active"]),
-  activatingRevisionVersion: z.number().int().nullish(),
+  activatingRevisionVersion: z
+    .number()
+    .int()
+    .nullish()
+    .describe(
+      "Feature revision version that activates this ramp; cleared once published",
+    ),
 });
 export type RampTarget = z.infer<typeof rampTarget>;
 
 export const rampEndTrigger = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("scheduled"), at: z.date() }),
+  z.object({ type: z.literal("scheduled"), at: z.coerce.date() }),
 ]);
 export type RampEndTrigger = z.infer<typeof rampEndTrigger>;
 
 export const rampTrigger = z.discriminatedUnion("type", [
   z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
   z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.date() }),
+  z.object({ type: z.literal("scheduled"), at: z.coerce.date() }),
 ]);
 export type RampTrigger = z.infer<typeof rampTrigger>;
 
@@ -158,7 +166,7 @@ export type RampScheduleTemplateInterface = z.infer<
 const apiRampTrigger = z.union([
   z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
   z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.string() }),
+  z.object({ type: z.literal("scheduled"), at: z.iso.datetime() }),
 ]);
 
 // Template step action for the API — same as the DB variant (no date fields in actions).
@@ -170,12 +178,87 @@ export const apiTemplateRampStep = z.object({
 export type ApiTemplateRampStep = z.infer<typeof apiTemplateRampStep>;
 
 // API-facing variant — uses ISO strings for dates (for OpenApiModelSpec compatibility).
-export const apiRampScheduleTemplateValidator = apiBaseSchema.extend({
-  name: z.string(),
-  steps: z.array(apiTemplateRampStep),
-  endPatch: templateEndPatchValidator.optional(),
-  official: z.boolean().optional(),
+export const apiRampScheduleTemplateValidator = namedSchema(
+  "RampScheduleTemplate",
+  apiBaseSchema.extend({
+    name: z.string(),
+    steps: z.array(apiTemplateRampStep),
+    endPatch: templateEndPatchValidator.optional(),
+    official: z.boolean().optional(),
+  }),
+);
+
+// API-facing ramp end trigger — uses ISO string instead of Date.
+const apiRampEndTrigger = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("scheduled"), at: z.iso.datetime() }),
+]);
+
+// API-facing ramp step — uses ISO strings for scheduled trigger dates.
+const apiRampStep = z.object({
+  trigger: apiRampTrigger,
+  actions: z.array(rampStepAction),
+  approvalNotes: z.string().nullish(),
 });
+
+// API-facing variant of rampScheduleValidator — uses ISO strings for all dates.
+export const apiRampScheduleInterface = namedSchema(
+  "RampSchedule",
+  apiBaseSchema.extend({
+    id: z.string().describe("Unique identifier (rs_ prefix)"),
+    name: z.string(),
+    entityType: z.enum(["feature"]),
+    entityId: z.string(),
+    targets: z.array(rampTarget).describe("Controlled entity references"),
+    steps: z.array(apiRampStep).describe("Ordered ramp steps"),
+    endActions: z
+      .array(rampStepAction)
+      .optional()
+      .describe(
+        "Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state.",
+      ),
+    startDate: z.iso
+      .datetime()
+      .nullish()
+      .describe(
+        "When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.",
+      ),
+    endCondition: z
+      .object({
+        trigger: apiRampEndTrigger.optional(),
+      })
+      .nullish()
+      .describe("Optional hard deadline for standard (no-step) schedules"),
+    status: z.enum(rampScheduleStatusArray),
+    currentStepIndex: z
+      .number()
+      .int()
+      .min(-1)
+      .describe("Index of current step; -1 = not yet started"),
+    startedAt: z.iso.datetime().nullish(),
+    phaseStartedAt: z.iso
+      .datetime()
+      .nullish()
+      .describe(
+        "Anchor for cumulative interval timing; resets after each approval gate",
+      ),
+    pausedAt: z.iso.datetime().nullish(),
+    nextStepAt: z.iso
+      .datetime()
+      .nullable()
+      .describe(
+        "When the next step fires; null for approval steps and terminal states",
+      ),
+    nextProcessAt: z.iso.datetime().nullish(),
+    elapsedMs: z
+      .number()
+      .int()
+      .nullish()
+      .describe(
+        "Milliseconds since startedAt (computed at response time, not stored)",
+      ),
+  }),
+);
+export type ApiRampScheduleInterface = z.infer<typeof apiRampScheduleInterface>;
 
 // Minimal type for pending/draft ramp schedules before full data is available.
 export type RampScheduleForDisplay = Partial<RampScheduleInterface> & {

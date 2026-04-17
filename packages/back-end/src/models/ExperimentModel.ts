@@ -9,7 +9,10 @@ import {
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
-import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  ExperimentStatus,
+} from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
@@ -429,6 +432,7 @@ export async function getAllExperiments(
     type,
     datasourceId,
     trackingKey,
+    status,
     sortBy,
   }: {
     project?: string;
@@ -436,6 +440,7 @@ export async function getAllExperiments(
     type?: ExperimentType;
     datasourceId?: string;
     trackingKey?: string;
+    status?: ExperimentStatus;
     sortBy?: SortFilter;
   } = {},
 ): Promise<ExperimentInterface[]> {
@@ -457,6 +462,10 @@ export async function getAllExperiments(
 
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+
+  if (status) {
+    query.status = status;
   }
 
   if (type === "multi-armed-bandit") {
@@ -1189,7 +1198,7 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }

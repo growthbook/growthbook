@@ -1,5 +1,6 @@
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -87,6 +88,8 @@ export interface Props {
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   editHoldoutSchedule?: (() => void) | null;
+  visualChangesetEnvStates?: LinkedChangeEnvStates;
+  urlRedirectEnvStates?: LinkedChangeEnvStates;
 }
 
 export default function TabbedPage({
@@ -110,6 +113,8 @@ export default function TabbedPage({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   editHoldoutSchedule,
+  visualChangesetEnvStates,
+  urlRedirectEnvStates,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -627,6 +632,8 @@ export default function TabbedPage({
             editTargeting={editTargeting}
             linkedFeatures={linkedFeatures}
             envs={envs}
+            visualChangesetEnvStates={visualChangesetEnvStates}
+            urlRedirectEnvStates={urlRedirectEnvStates}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">
