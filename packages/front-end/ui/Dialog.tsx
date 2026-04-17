@@ -150,52 +150,58 @@ export default function Dialog({
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
         maxHeight="85vh"
-        style={{ display: "flex", flexDirection: "column" }}
-      >
-        <form
-          onSubmit={handleSubmit}
-          style={{
+        style={
+          {
             display: "flex",
             flexDirection: "column",
-            minHeight: 0,
-            flex: 1,
-          }}
-        >
-          <Box p="2" flexShrink="0">
-            <Flex justify="between" align="center" mb="1">
-              <RadixDialog.Title size="5" mb="0">
-                {header}
-              </RadixDialog.Title>
-              {headerAction && <Box>{headerAction}</Box>}
-            </Flex>
-            {subheader && (
-              <RadixDialog.Description size="2" mb="0">
-                <Text color="text-mid" size="large">
-                  {subheader}
-                </Text>
-              </RadixDialog.Description>
-            )}
-          </Box>
-          <Box ref={bodyRef} px="2" pt="6" flexGrow="1" overflowY="auto">
-            {error && <ErrorDisplay error={error} mb="5" />}
-            {children}
-          </Box>
-          <Box flexShrink="0">
-            <Inset side="x">
-              <Separator size="4" my="5" />
-            </Inset>
-            <Flex gap="3" justify="end">
-              <RadixDialog.Close>
-                <Button variant="ghost" onClick={handleClose}>
-                  Cancel
+            overflow: "hidden",
+            paddingTop: "32px",
+            paddingLeft: "40px",
+            paddingRight: "40px",
+            paddingBottom: "24px",
+            "--inset-padding-left": "40px",
+            "--inset-padding-right": "40px",
+          } as React.CSSProperties
+        }
+      >
+        <Flex direction="column" flexGrow="1" minHeight="0" asChild>
+          <form onSubmit={handleSubmit}>
+            <Box py="2" flexShrink="0">
+              <Flex justify="between" align="center" mb="1">
+                <RadixDialog.Title size="5" mb="0">
+                  {header}
+                </RadixDialog.Title>
+                {headerAction && <Box>{headerAction}</Box>}
+              </Flex>
+              {subheader && (
+                <RadixDialog.Description size="2" mb="0">
+                  <Text color="text-mid" size="large">
+                    {subheader}
+                  </Text>
+                </RadixDialog.Description>
+              )}
+            </Box>
+            <Box ref={bodyRef} mt="4" mb="3" flexGrow="1" overflowY="auto">
+              {error && <ErrorDisplay error={error} mb="5" />}
+              {children}
+            </Box>
+            <Box flexShrink="0">
+              <Inset side="x">
+                <Separator size="4" my="5" />
+              </Inset>
+              <Flex gap="3" justify="end">
+                <RadixDialog.Close>
+                  <Button variant="ghost" onClick={handleClose}>
+                    Cancel
+                  </Button>
+                </RadixDialog.Close>
+                <Button type="submit" disabled={!ctaEnabled}>
+                  {cta}
                 </Button>
-              </RadixDialog.Close>
-              <Button type="submit" disabled={!ctaEnabled}>
-                {cta}
-              </Button>
-            </Flex>
-          </Box>
-        </form>
+              </Flex>
+            </Box>
+          </form>
+        </Flex>
       </RadixDialog.Content>
     </RadixDialog.Root>
   );
