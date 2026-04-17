@@ -114,7 +114,17 @@ const eventWebHookSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator(value: unknown) {
-        const zodSchema = z.array(z.enum(zodNotificationEventNamesEnum)).min(1);
+        const zodSchema = z
+          .array(
+            z
+              .string()
+              .refine(
+                (val) =>
+                  zodNotificationEventNamesEnum.includes(val as never) ||
+                  /^[a-z]+(\.[a-zA-Z]+)*\.\*$/.test(val),
+              ),
+          )
+          .min(1);
 
         const result = zodSchema.safeParse(value);
 
@@ -412,6 +422,19 @@ const filterOptional = <T>(want: T[] = [], has: T[]) => {
  * @param eventName
  * @param enabled
  */
+/**
+ * Returns all wildcard patterns that could match an event name.
+ * e.g. "feature.revision.discarded" → ["feature.*", "feature.revision.*"]
+ */
+const getWildcardPatternsForEvent = (eventName: string): string[] => {
+  const parts = eventName.split(".");
+  const wildcards: string[] = [];
+  for (let i = 1; i < parts.length; i++) {
+    wildcards.push(`${parts.slice(0, i).join(".")}.*`);
+  }
+  return wildcards;
+};
+
 export const getAllEventWebHooksForEvent = async ({
   organizationId,
   eventName,
@@ -427,7 +450,7 @@ export const getAllEventWebHooksForEvent = async ({
 }): Promise<EventWebHookInterface[]> => {
   const allDocs = await EventWebHookModel.find({
     organizationId,
-    events: eventName,
+    events: { $in: [eventName, ...getWildcardPatternsForEvent(eventName)] },
     enabled,
   });
 

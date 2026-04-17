@@ -7,6 +7,7 @@ import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
 import { revisionToApiInterface } from "back-end/src/services/features";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   BadRequestError,
@@ -326,6 +327,15 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     featureId: feature.id,
     version: publishedRevision.version,
   });
+  const finalRevision = updated ?? publishedRevision;
 
-  return { revision: revisionToApiInterface(updated ?? publishedRevision) };
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    updatedFeature,
+    finalRevision,
+    "revision.reverted",
+    { revertedToVersion: targetRevision.version },
+  );
+
+  return { revision: revisionToApiInterface(finalRevision) };
 });

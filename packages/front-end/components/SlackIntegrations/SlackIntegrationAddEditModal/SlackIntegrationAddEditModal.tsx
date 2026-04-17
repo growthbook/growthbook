@@ -151,10 +151,12 @@ export const SlackIntegrationAddEditModal: FC<
         label="Event filters"
         helpText="Only receive notifications for matching events."
         value={form.watch("events")}
-        options={eventWebHookEventOptions.map(({ id }) => ({
-          label: id,
-          value: id,
-        }))}
+        options={eventWebHookEventOptions.flatMap(({ options }) =>
+          options.map((opt) => ({
+            label: opt.label,
+            value: opt.value,
+          })),
+        )}
         onChange={(value: string[]) => {
           form.setValue("events", value as NotificationEventName[]);
           handleFormValidation();

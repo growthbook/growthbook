@@ -139,6 +139,22 @@ export const getSlackMessageForNotificationEvent = async (
         eventId,
       );
 
+    // Feature revision lifecycle events are delivered via webhook but we don't
+    // currently render Slack messages for them. Dropping to null keeps the
+    // exhaustiveness check happy without spamming channels with duplicate
+    // notifications (feature.updated already covers most downstream concerns).
+    case "feature.revision.created":
+    case "feature.revision.updated":
+    case "feature.revision.reviewRequested":
+    case "feature.revision.approved":
+    case "feature.revision.changesRequested":
+    case "feature.revision.commented":
+    case "feature.revision.discarded":
+    case "feature.revision.rebased":
+    case "feature.revision.published":
+    case "feature.revision.reverted":
+      return null;
+
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;

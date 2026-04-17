@@ -21,6 +21,8 @@ import {
   getLiveAndBaseRevisionsForFeature,
   revisionToApiInterface,
 } from "back-end/src/services/features";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
@@ -156,6 +158,25 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     featureId: feature.id,
     version: req.params.version,
   });
+  const finalRevision = updated ?? revision;
 
-  return { revision: revisionToApiInterface(updated ?? revision) };
+  await req.audit({
+    event: "feature.revision.rebase",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsUpdate(
+      { baseVersion: revision.baseVersion },
+      { baseVersion: live.version },
+      { version: revision.version },
+    ),
+  });
+
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    feature,
+    finalRevision,
+    "revision.rebased",
+    { baseVersion: live.version },
+  );
+
+  return { revision: revisionToApiInterface(finalRevision) };
 });

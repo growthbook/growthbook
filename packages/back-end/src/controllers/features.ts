@@ -114,6 +114,7 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import {
   cleanUpPreviousRevisions,
   createInitialRevision,
@@ -878,6 +879,32 @@ export async function postFeatureRebase(
     false,
   );
 
+  const rebased = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  const finalRevision = rebased ?? revision;
+
+  await req.audit({
+    event: "feature.revision.rebase",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsUpdate(
+      { baseVersion: revision.baseVersion },
+      { baseVersion: live.version },
+      { version: revision.version },
+    ),
+  });
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    finalRevision,
+    "revision.rebased",
+    { baseVersion: live.version },
+  );
+
   res.status(200).json({
     status: 200,
   });
@@ -920,6 +947,33 @@ export async function postFeatureRequestReview(
     res.locals.eventAudit,
     comment,
   );
+
+  const updatedRevision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  const finalRevision = updatedRevision ?? revision;
+
+  await req.audit({
+    event: "feature.revision.requestReview",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsUpdate(
+      { status: revision.status },
+      { status: finalRevision.status },
+      { version: revision.version, comment },
+    ),
+  });
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    finalRevision,
+    "revision.reviewRequested",
+    { reviewComment: comment ?? null },
+  );
+
   res.status(200).json({
     status: 200,
   });
@@ -998,6 +1052,80 @@ export async function postFeatureReviewOrComment(
     review,
     comment,
   );
+
+  const updatedRevision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  const finalRevision = updatedRevision ?? revision;
+
+  const auditUser = context.auditUser;
+  const reviewer =
+    auditUser && auditUser.type !== "system"
+      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
+      : {};
+
+  switch (review) {
+    case "Approved":
+      await req.audit({
+        event: "feature.revision.approve",
+        entity: { object: "feature", id: feature.id },
+        details: auditDetailsUpdate(
+          { status: revision.status },
+          { status: finalRevision.status },
+          { version: revision.version, comment },
+        ),
+      });
+      await dispatchFeatureRevisionEvent(
+        context,
+        feature,
+        finalRevision,
+        "revision.approved",
+        { reviewer, reviewComment: comment ?? null },
+      );
+      break;
+    case "Requested Changes":
+      await req.audit({
+        event: "feature.revision.requestChanges",
+        entity: { object: "feature", id: feature.id },
+        details: auditDetailsUpdate(
+          { status: revision.status },
+          { status: finalRevision.status },
+          { version: revision.version, comment },
+        ),
+      });
+      await dispatchFeatureRevisionEvent(
+        context,
+        feature,
+        finalRevision,
+        "revision.changesRequested",
+        { reviewer, reviewComment: comment ?? null },
+      );
+      break;
+    case "Comment":
+      if (comment && comment.length > 0) {
+        await req.audit({
+          event: "feature.revision.comment",
+          entity: { object: "feature", id: feature.id },
+          details: auditDetailsUpdate(
+            { comment: "" },
+            { comment },
+            { version: revision.version },
+          ),
+        });
+        await dispatchFeatureRevisionEvent(
+          context,
+          feature,
+          finalRevision,
+          "revision.commented",
+          { reviewer, reviewComment: comment },
+        );
+      }
+      break;
+  }
+
   res.status(200).json({
     status: 200,
   });
@@ -1210,6 +1338,20 @@ export async function postFeaturePublish(
       comment,
     }),
   });
+
+  const publishedRevision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    publishedRevision ?? revision,
+    "revision.published",
+    {},
+  );
 
   for (const { experiment, changes } of experimentsToUpdate) {
     const updated = await updateExperiment({
@@ -1447,6 +1589,14 @@ export async function postFeatureRevert(
     }),
   });
 
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    newRevision,
+    "revision.reverted",
+    { revertedToVersion: revision.version },
+  );
+
   res.status(200).json({
     status: 200,
     version: newRevision.version,
@@ -1632,6 +1782,32 @@ export async function postFeatureDiscard(
   }
 
   await discardRevision(context, revision, res.locals.eventAudit);
+
+  const discarded = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  const finalRevision = discarded ?? revision;
+
+  await req.audit({
+    event: "feature.revision.discard",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsUpdate(
+      { status: revision.status },
+      { status: finalRevision.status },
+      { version: revision.version },
+    ),
+  });
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    finalRevision,
+    "revision.discarded",
+    {},
+  );
 
   res.status(200).json({
     status: 200,
@@ -2769,6 +2945,25 @@ export async function postFeatureCreateDraft(
     org: context.org,
     canBypassApprovalChecks: false,
   });
+
+  await req.audit({
+    event: "feature.revision.create",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsCreate({
+      featureId: feature.id,
+      version: newDraft.version,
+      baseVersion: newDraft.baseVersion,
+      comment: newDraft.comment,
+    }),
+  });
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    newDraft,
+    "revision.created",
+    {},
+  );
 
   return res.status(200).json({
     status: 200,
