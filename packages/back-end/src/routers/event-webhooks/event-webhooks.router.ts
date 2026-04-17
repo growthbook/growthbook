@@ -4,6 +4,7 @@ import {
   zodNotificationEventNamesEnum,
   eventWebHookMethods,
   eventWebHookPayloadTypes,
+  isEventWebhookWildcard,
 } from "shared/validators";
 
 const eventNameOrWildcard = z
@@ -11,7 +12,7 @@ const eventNameOrWildcard = z
   .refine(
     (val) =>
       zodNotificationEventNamesEnum.includes(val as never) ||
-      /^[a-z]+(\.[a-zA-Z]+)*\.\*$/.test(val),
+      isEventWebhookWildcard(val),
     { message: "Must be a valid event name or wildcard pattern" },
   );
 import { wrapController } from "back-end/src/routers/wrapController";

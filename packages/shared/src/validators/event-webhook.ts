@@ -14,19 +14,22 @@ export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
 export type EventWebHookMethod = (typeof eventWebHookMethods)[number];
 
-// Wildcard pattern for event matching: "resource.*" captures all events for a resource
-const eventNameOrWildcard = z.string().refine(
-  (val: string) => {
-    // Either a valid event name or a wildcard pattern (e.g., "feature.*")
-    return (
+// Matches multi-level wildcard patterns like "feature.*" or "feature.revision.*".
+export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-z]+(\.[a-zA-Z]+)*\.\*$/;
+
+export const isEventWebhookWildcard = (val: string) =>
+  EVENT_WEBHOOK_WILDCARD_PATTERN.test(val);
+
+const eventNameOrWildcard = z
+  .string()
+  .refine(
+    (val: string) =>
       zodNotificationEventNamesEnum.includes(val as never) ||
-      /^[a-z]+(\.[a-zA-Z]+)*\.\*$/.test(val)
-    );
-  },
-  {
-    message: `Must be a valid event name or wildcard pattern (e.g., "feature.*")`,
-  },
-);
+      isEventWebhookWildcard(val),
+    {
+      message: `Must be a valid event name or wildcard pattern (e.g., "feature.*", "feature.revision.*")`,
+    },
+  );
 
 export const eventWebHookInterface = z
   .object({

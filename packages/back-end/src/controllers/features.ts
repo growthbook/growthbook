@@ -2049,6 +2049,14 @@ export async function postFeatureRule(
     },
     resetReview,
   );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.updated",
+    { change: "rule.add", environments: selectedEnvironments },
+    { environments: selectedEnvironments },
+  );
 
   // If referencing a new experiment, add it to linkedExperiments
   if (
@@ -2370,6 +2378,13 @@ export async function putRevisionComment(
     },
     false,
   );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.updated",
+    { change: "metadata" },
+  );
 
   res.status(200).json({
     status: 200,
@@ -2420,6 +2435,13 @@ export async function putRevisionTitle(
     },
     false,
   );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.updated",
+    { change: "metadata" },
+  );
 
   res.status(200).json({
     status: 200,
@@ -2461,6 +2483,13 @@ export async function postFeatureDefaultValue(
     defaultValue,
     res.locals.eventAudit,
     resetReview,
+  );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.updated",
+    { change: "defaultValue" },
   );
 
   res.status(200).json({
@@ -2842,6 +2871,14 @@ export async function putFeatureRule(
     },
     resetReview,
   );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.updated",
+    { change: "rule.update", environments: [environment] },
+    { environments: [environment] },
+  );
 
   // Handle real-time "update" mode separately (operates on live schedule, not revision-bound)
   // Gracefully skip if the schedule no longer exists (e.g., was deleted or reverted away).
@@ -3128,6 +3165,14 @@ export async function postFeatureToggle(
     entity: { object: "feature", id: feature.id },
     details: auditDetailsUpdate(prevStates, changes, { draft: true }),
   });
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    draft,
+    "revision.updated",
+    { change: "toggle", environments: changedEnvList },
+    { environments: changedEnvList },
+  );
 
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
@@ -3186,6 +3231,14 @@ export async function postFeatureMoveRule(
       value: JSON.stringify(rule),
     },
     resetReview,
+  );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.updated",
+    { change: "rule.reorder", environments: [environment] },
+    { environments: [environment] },
   );
 
   res.status(200).json({
@@ -3276,6 +3329,14 @@ export async function deleteFeatureRule(
       value: JSON.stringify(rule),
     },
     resetReview,
+  );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.updated",
+    { change: "rule.delete", environments: [environment] },
+    { environments: [environment] },
   );
 
   res.status(200).json({
@@ -3734,6 +3795,15 @@ export async function postFeatureArchive(
       { draft: !autoPublish, draftVersion: draft.version },
     ),
   });
+  if (!autoPublish) {
+    await dispatchFeatureRevisionEvent(
+      context,
+      feature,
+      draft,
+      "revision.updated",
+      { change: "archive" },
+    );
+  }
 
   res.status(200).json({ status: 200, draftVersion: draft.version });
 }
@@ -4383,6 +4453,13 @@ export async function postPrerequisite(
     baseDraft?.version,
     forceNewDraft,
   );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    draft,
+    "revision.updated",
+    { change: "prerequisites" },
+  );
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
 
@@ -4440,6 +4517,13 @@ export async function putPrerequisite(
     baseDraftPut?.version,
     forceNewDraft,
   );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    putDraft,
+    "revision.updated",
+    { change: "prerequisites" },
+  );
   return res.status(200).json({ status: 200, draftVersion: putDraft.version });
 }
 
@@ -4491,6 +4575,13 @@ export async function deletePrerequisite(
     },
     baseDraftDel?.version,
     forceNewDraft,
+  );
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    deleteDraft,
+    "revision.updated",
+    { change: "prerequisites" },
   );
   return res
     .status(200)

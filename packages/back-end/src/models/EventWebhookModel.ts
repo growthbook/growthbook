@@ -11,6 +11,7 @@ import {
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
+  isEventWebhookWildcard,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -121,7 +122,7 @@ const eventWebHookSchema = new mongoose.Schema({
               .refine(
                 (val) =>
                   zodNotificationEventNamesEnum.includes(val as never) ||
-                  /^[a-z]+(\.[a-zA-Z]+)*\.\*$/.test(val),
+                  isEventWebhookWildcard(val),
               ),
           )
           .min(1);
