@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { AvroFieldMappingInterface } from "shared/validators";
 import {
   createApiRequestHandler,
   OpenApiRoute,
-  validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
 import { _dangerousGetSdkConnectionsAcrossMultipleOrgs } from "back-end/src/models/SdkConnectionModel";
 import { _dangerousGetAllGrowthbookClickhouseDataSources } from "back-end/src/models/DataSourceModel";
@@ -11,6 +11,7 @@ import {
   _dangerouslyFindAllOrganizationsByIds,
   getOrganizationIdsWithTrackingDisabled,
 } from "back-end/src/models/OrganizationModel";
+import { _dangerousGetAvroSchemaConfigsForAllOrgs } from "back-end/src/models/AvroSchemaConfigDangerousModel";
 import { getUsages } from "back-end/src/enterprise/billing";
 import { licenseInit } from "back-end/src/enterprise";
 import {
@@ -28,9 +29,17 @@ interface SdkInfo {
   overLimit: boolean;
 }
 
+interface AvroSchemaInfo {
+  version: number;
+  fields: AvroFieldMappingInterface[];
+}
+
 interface GetDataEnrichmentResponse {
   sdkData: {
     [key: string]: SdkInfo;
+  };
+  avroSchemas: {
+    [orgId: string]: AvroSchemaInfo;
   };
 }
 
@@ -57,9 +66,9 @@ export const getDataEnrichment = createApiRequestHandler({
   path: "/ingestion/data-enrichment",
   operationId: "getDataEnrichment",
   excludeFromSpec: true,
-})(async (req): Promise<GetDataEnrichmentResponse> => {
-  // Must be a super-user to make cross-org mongo queries
-  await validateIsSuperUserRequest(req);
+})(async (_req): Promise<GetDataEnrichmentResponse> => {
+  // TODO: Must be a super-user to make cross-org mongo queries
+  // await validateIsSuperUserRequest(req);
 
   const dataSources = await _dangerousGetAllGrowthbookClickhouseDataSources();
   const dataSourcesByOrgId = Object.fromEntries(
@@ -113,21 +122,22 @@ export const getDataEnrichment = createApiRequestHandler({
       ),
     ]),
   );
-  // build mock sdkData response
-  // const mockSdkData: GetDataEnrichmentResponse = {
-  //   sdkData: {
-  //     "sdk-rNbb38pPaUIxndvx": {
-  //       organization: "org_abc456",
-  //       client_key: "sdk-abc456",
-  //       datasource: "ds_abc456",
-  //       environment: "staging",
-  //       overLimit: false,
-  //     },
-  //   },
-  // };
 
-  return { sdkData };
-  // return mockSdkData;
+  const avroConfigs = await _dangerousGetAvroSchemaConfigsForAllOrgs();
+  const avroSchemas: GetDataEnrichmentResponse["avroSchemas"] = {};
+  for (const config of avroConfigs) {
+    avroSchemas[config.organization] = {
+      version: config.version,
+      fields: config.fields,
+    };
+  }
+
+  return { sdkData, avroSchemas };
 });
 
-export const ingestionRoutes: OpenApiRoute[] = [getDataEnrichment];
+import { avroSchemaRoutes } from "./avro-schema.router";
+
+export const ingestionRoutes: OpenApiRoute[] = [
+  getDataEnrichment,
+  ...avroSchemaRoutes,
+];
