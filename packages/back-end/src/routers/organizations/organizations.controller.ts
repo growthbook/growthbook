@@ -1796,12 +1796,9 @@ export async function putApiKeyDisabled(
   const { id } = req.params;
   const { disabled } = req.body;
 
-  const key = await context.models.apiKeys.setDisabled(id, disabled);
+  await context.models.apiKeys.setDisabled(id, disabled);
 
-  res.status(200).json({
-    status: 200,
-    key,
-  });
+  res.status(200).json({ status: 200 });
 }
 
 export async function postApiKeyReveal(

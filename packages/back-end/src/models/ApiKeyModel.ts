@@ -226,13 +226,10 @@ export class ApiKeyModel extends BaseClass {
     await this.delete(doc);
   }
 
-  public async setDisabled(
-    id: string,
-    disabled: boolean,
-  ): Promise<ApiKeyInterface> {
+  public async setDisabled(id: string, disabled: boolean): Promise<void> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
-    return this.update(doc, { disabled });
+    await this.update(doc, { disabled });
   }
 
   // Called from authentication middleware on every API request attempt.
