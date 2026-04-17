@@ -1,0 +1,70 @@
+---
+title: Using a CDN
+description: Adding a CDN in front of GrowthBook is a cheap and easy way to scale
+sidebar_label: Using a CDN
+slug: cdn
+---
+
+# Using a CDN
+
+You can add a CDN in between your GrowthBook SDKs and your GrowthBook API Server. This will act as a caching layer when serving feature flags and enable virtually limitless scaling with very low maintenance costs.
+
+All major CDNs are supported including Cloudflare, Fastly, Akamai, CloudFront, Azure Front Door, and Google Cloud CDN.
+
+Using a CDN is a quick and easy solution to scaling. If you want more power and control, we recommend deploying our [GrowthBook Proxy Server](/self-host/proxy) instead.
+
+:::note GrowthBook Cloud CDN
+
+GrowthBook Cloud provides its own CDN for free for low/medium traffic apps (less than 1 million requests per month). If you plan to go above that limit, this guide will work for you as well. Just use `https://cdn.growthbook.io` as your Origin instead of a self-hosted GrowthBook API server.
+
+:::
+
+## How it Works
+
+1. Add a CDN that sits in front of your GrowthBook API server
+2. Configure the CDN to cache requests to `/api/features/*` (and deny all other routes)
+3. Point your SDKs to your CDN's domain instead of your GrowthBook API Server
+4. (optional) Configure a Webhook to invalidate the CDN cache when features change within GrowthBook
+
+## Configuring your CDN
+
+### Caching Rules
+
+The `/api/features/*` route includes a default `Cache-control` header that should work out-of-the-box for most CDNs:
+
+```
+public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000
+```
+
+This will serve all requests from cache and refresh in the background every 30 seconds. You can override these settings in your CDN if desired.
+
+**Important**: Make sure to block all other routes besides `/api/features/*`. Doing this will greatly increase security by limiting the potential attack surface.
+
+### Health Checks
+
+The GrowthBook API server exposes a `/healthcheck` route. You can optionally use this in your CDN so it can tell if your origin server goes down.
+
+## SDK Configuration
+
+Most of our SDKs accept an `apiHost` setting. Simply change this from your GrowthBook API server to the new CDN domain.
+
+## Purging / Invalidation
+
+When you make changes withing GrowthBook, the CDN will not pick up the changes until it refreshes its cache (default 30 seconds).
+
+For most apps, this short delay is perfectly fine. If you want faster rollouts, you can have GrowthBook tell your CDN to refresh as soon as changes are made.
+
+### Fastly
+
+If you use Fastly as your CDN and are self-hosting GrowthBook, you can set the following environment variables to automatically purge URLs:
+
+- `FASTLY_SERVICE_ID`
+- `FASTLY_API_TOKEN`
+
+### HTTP PURGE Requests
+
+If your CDN supports invalidating URLs with simple HTTP PURGE requests, you can add an [SDK Webhook](/app/webhooks/sdk-webhooks) in GrowthBook and set the method as PURGE with no payload.
+
+### Other
+
+If the methods above are not available for your CDN, you can configure a custom [SDK Webhook](/app/webhooks/sdk-webhooks). We let you customize the HTTP method and headers, but if you need more control, you may need to set up a custom script that sits between the webhook and the CDN.
