@@ -239,7 +239,7 @@ async function createOrUpdateDraftWithChanges(
     if ("holdout" in envelopeChanges) {
       merged.holdout = envelopeChanges.holdout;
     }
-    await updateRevision(
+    const updatedDraft = await updateRevision(
       context,
       feature,
       existingDraft,
@@ -247,7 +247,7 @@ async function createOrUpdateDraftWithChanges(
       logEntry,
       false,
     );
-    return { ...existingDraft, ...merged };
+    return updatedDraft ?? { ...existingDraft, ...merged };
   }
 
   // No existing draft — create a new one
