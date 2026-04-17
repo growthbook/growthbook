@@ -53,8 +53,11 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     ),
   lastUsed: z
     .date()
+    .nullable()
     .optional()
-    .describe("Timestamp of the most recent successful authentication"),
+    .describe(
+      "Timestamp of the most recent successful authentication. `null` means the key has never been used. `undefined` means the key predates usage tracking.",
+    ),
 });
 
 export const secretApiKey = apiKeySchema

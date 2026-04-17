@@ -22,6 +22,7 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     limitAccessByEnvironment: false,
     environments: [],
+    lastUsed: null,
   },
 });
 
@@ -42,10 +43,15 @@ export class ApiKeyModel extends BaseClass {
       );
     }
   }
-  protected canUpdate(apiKey: ApiKeyInterface): boolean {
-    // The only user-driven updates allowed are toggling `disabled`;
-    // lastUsed is written via the dangerous bypass from auth middleware.
-    // Reuse the delete permission — anyone who could delete should be able to disable.
+  protected canUpdate(
+    apiKey: ApiKeyInterface,
+    updates: Partial<ApiKeyInterface>,
+  ): boolean {
+    // API keys are immutable except for toggling `disabled`.
+    // Anything else (key value, role, etc.) must never be edited.
+    // `lastUsed` is written by auth middleware via the dangerous bypass and never hits this path.
+    const keys = Object.keys(updates);
+    if (keys.length !== 1 || keys[0] !== "disabled") return false;
     return this.canDelete(apiKey);
   }
   protected canDelete(apiKey: ApiKeyInterface): boolean {
@@ -224,16 +230,18 @@ export class ApiKeyModel extends BaseClass {
     disabled: boolean,
   ): Promise<ApiKeyInterface> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
-    if (!doc) this.context.throwNotFoundError();
+    if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
     return this.update(doc, { disabled });
   }
 
   // Called from authentication middleware on every authenticated API request.
-  // Runs without a user-scoped context, so it intentionally bypasses permission checks.
+  // Bypasses permissions, dateUpdated, and the full update pipeline — we only
+  // need a single indexed $set on the `key` primary key.
   public async dangerousRecordUsageByKey(key: string): Promise<void> {
-    const doc = await this._findOne({ key }, { bypassSanitization: true });
-    if (!doc) return;
-    await this.dangerousUpdateBypassPermission(doc, { lastUsed: new Date() });
+    await this._dangerousGetCollection().updateOne(
+      { key, organization: this.context.org.id },
+      { $set: { lastUsed: new Date() } },
+    );
   }
 
   public async getVisualEditorApiKey(

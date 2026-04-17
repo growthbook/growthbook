@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React, { FC, useState } from "react";
 import { FaCheck, FaFilter, FaTimes } from "react-icons/fa";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { getRoleDisplayName } from "shared/permissions";
@@ -13,6 +13,7 @@ import { useEnvironments } from "@/services/features";
 import { roleHasAccessToEnv } from "@/services/auth";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
@@ -37,6 +38,10 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   const { organization } = useUser();
   const { projects } = useDefinitions();
   const environments = useEnvironments();
+  const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
+    null,
+  );
+  const pendingDisabled = pendingToggle ? !pendingToggle.disabled : false;
   return (
     <div style={{ overflowX: "auto" }}>
       <table className="table mb-3 appbox gbtable">
@@ -133,8 +138,12 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   <Tooltip content={datetime(key.lastUsed)}>
                     <span>{ago(key.lastUsed)}</span>
                   </Tooltip>
-                ) : (
+                ) : key.lastUsed === null ? (
                   <span className="text-muted">Never</span>
+                ) : (
+                  <Tooltip content="This key was created before usage tracking was added, so we don't know when it was last used.">
+                    <span className="text-muted">Unknown</span>
+                  </Tooltip>
                 )}
               </td>
               {canDeleteKeys && (
@@ -143,9 +152,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     {onToggleDisabled && (
                       <button
                         className="dropdown-item"
-                        onClick={async (e) => {
+                        onClick={(e) => {
                           e.preventDefault();
-                          await onToggleDisabled(key.id, !key.disabled)();
+                          setPendingToggle(key);
                         }}
                       >
                         {key.disabled ? "Enable key" : "Disable key"}
@@ -164,6 +173,23 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           ))}
         </tbody>
       </table>
+      {pendingToggle && onToggleDisabled && (
+        <ConfirmDialog
+          title={pendingDisabled ? "Disable API key?" : "Enable API key?"}
+          content={
+            pendingDisabled
+              ? `Any request using "${pendingToggle.description || "this key"}" will be rejected until it is re-enabled.`
+              : `"${pendingToggle.description || "This key"}" will immediately start accepting requests again.`
+          }
+          yesText={pendingDisabled ? "Disable" : "Enable"}
+          onConfirm={async () => {
+            const target = pendingToggle;
+            setPendingToggle(null);
+            await onToggleDisabled(target.id, !target.disabled)();
+          }}
+          onCancel={() => setPendingToggle(null)}
+        />
+      )}
     </div>
   );
 };
