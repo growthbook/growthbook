@@ -310,31 +310,3 @@ export const notificationEventPayload = <
     environments: z.array(z.string()),
     containsSecrets: z.boolean(),
   });
-
-/**
- * Expand wildcard event patterns to actual event names.
- * E.g., "feature.*" → ["feature.created", "feature.updated", ...]
- * Actual event names pass through unchanged.
- */
-export const expandEventWildcards = (
-  patterns: string[],
-): NotificationEventName[] => {
-  const expanded = new Set<NotificationEventName>();
-
-  for (const pattern of patterns) {
-    if (pattern.endsWith(".*")) {
-      // Wildcard pattern: expand to all events for this resource
-      const resource = pattern.slice(0, -2); // Remove ".*"
-      for (const eventName of notificationEventNames) {
-        if (eventName.startsWith(`${resource}.`)) {
-          expanded.add(eventName as NotificationEventName);
-        }
-      }
-    } else {
-      // Concrete event name
-      expanded.add(pattern as NotificationEventName);
-    }
-  }
-
-  return Array.from(expanded);
-};

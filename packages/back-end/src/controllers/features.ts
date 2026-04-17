@@ -247,7 +247,12 @@ async function createOrUpdateDraftWithChanges(
       logEntry,
       false,
     );
-    return updatedDraft ?? { ...existingDraft, ...merged };
+    if (!updatedDraft) {
+      throw new Error(
+        `Revision ${existingDraft.version} not found when updating draft`,
+      );
+    }
+    return updatedDraft;
   }
 
   // No existing draft — create a new one
@@ -1953,8 +1958,9 @@ export async function postFeatureRule(
             ? selectedEnvironments[0]
             : undefined,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        endActions: (rampSchedulePayload.endActions ??
-          undefined) as RevisionRampCreateAction["endActions"],
+        // null = explicitly cleared (no end actions); undefined = not set (fall back to template)
+        endActions:
+          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
@@ -2754,8 +2760,9 @@ export async function putFeatureRule(
         name: rampSchedulePayload.name,
         environment,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        endActions: (rampSchedulePayload.endActions ??
-          undefined) as RevisionRampCreateAction["endActions"],
+        // null = explicitly cleared (no end actions); undefined = not set (fall back to template)
+        endActions:
+          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??

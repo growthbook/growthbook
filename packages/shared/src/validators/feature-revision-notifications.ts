@@ -103,10 +103,7 @@ export type FeatureRevisionDiscardedPayload = z.infer<
 >;
 
 export const featureRevisionRebasedPayload = featureRevisionWebhookPayload
-  .extend({
-    ...baseRevisionEventFields,
-    baseVersion: z.number().int(),
-  })
+  .extend(baseRevisionEventFields)
   .strict();
 export type FeatureRevisionRebasedPayload = z.infer<
   typeof featureRevisionRebasedPayload
