@@ -1941,8 +1941,8 @@ export async function postFeatureRule(
             ? selectedEnvironments[0]
             : undefined,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        endActions:
-          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        endActions: (rampSchedulePayload.endActions ??
+          undefined) as RevisionRampCreateAction["endActions"],
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
@@ -2742,8 +2742,8 @@ export async function putFeatureRule(
         name: rampSchedulePayload.name,
         environment,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        endActions:
-          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        endActions: (rampSchedulePayload.endActions ??
+          undefined) as RevisionRampCreateAction["endActions"],
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
