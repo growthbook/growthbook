@@ -149,21 +149,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/LinkedChange.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/LinkedChanges/RedirectLinkedChanges.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/LinkedFeatureFlag.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/NewExperimentForm.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -199,11 +184,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/Implementation.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ResultsTab.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -230,11 +210,6 @@
     }
   },
   "packages/front-end/components/Experiment/VariationsTable.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/VisualChangesetTable.tsx": {
     "no-restricted-imports": {
       "count": 2
     }
@@ -305,11 +280,6 @@
     }
   },
   "packages/front-end/components/Features/FeatureRules.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/ForceSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

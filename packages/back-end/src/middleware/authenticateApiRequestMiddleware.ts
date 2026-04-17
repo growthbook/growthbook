@@ -23,6 +23,7 @@ import {
 } from "back-end/src/services/licenseData";
 import { ReqContextClass } from "back-end/src/services/context";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -61,11 +62,21 @@ export default function authenticateApiRequestMiddleware(
   // Lookup organization by secret key and store in req
   dangerousLookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyDoc) => {
-      const { organization, secret, id, userId, role } = apiKeyDoc;
+      const { organization, secret, id, userId, role, disabled } = apiKeyDoc;
       if (!secret) {
         throw new Error(
           "Must use a Secret API Key for this request, SDK Endpoint key given instead.",
         );
+      }
+      // Record usage before the disabled check so operators deleting a disabled
+      // key can see whether something out there is still trying to use it.
+      ApiKeyModel.dangerousRecordUsageByKey(secretKey, organization).catch(
+        (err) => {
+          req.log.warn({ err, apiKeyId: id }, "Failed to record API key usage");
+        },
+      );
+      if (disabled) {
+        throw new Error("This API key has been disabled");
       }
       req.apiKey = id || "";
 

@@ -51,6 +51,7 @@ import {
   createSnapshotAnalysis,
   determineNextBanditSchedule,
   getChangesToStartExperiment,
+  getLinkedChangeEnvironmentStates,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
@@ -763,6 +764,11 @@ export async function getExperiment(
     linkedFeatures,
   });
 
+  const { visualChangesetEnvStates, urlRedirectEnvStates } =
+    visualChangesets.length > 0 || urlRedirects.length > 0
+      ? await getLinkedChangeEnvironmentStates(context, experiment)
+      : { visualChangesetEnvStates: {}, urlRedirectEnvStates: {} };
+
   res.status(200).json({
     status: 200,
     experiment,
@@ -771,6 +777,8 @@ export async function getExperiment(
     linkedFeatures: linkedFeatureInfo,
     envs,
     idea,
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   });
 }
 

@@ -165,7 +165,6 @@ export const apiModelTagMeta: Record<
   string,
   { displayName?: string; description?: string }
 > = {};
-
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
   if (!apiConfig) return;

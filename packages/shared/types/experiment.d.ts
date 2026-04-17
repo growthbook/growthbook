@@ -249,6 +249,10 @@ export interface LinkedFeatureInfo {
   environmentStates: Record<string, LinkedFeatureEnvState>;
 }
 
+export type LinkedChangeEnvState = "active" | "no-sdk-connection";
+
+export type LinkedChangeEnvStates = Record<string, LinkedChangeEnvState>;
+
 export type ExperimentHealthSettings = {
   decisionFrameworkEnabled: boolean;
   srmThreshold: number;

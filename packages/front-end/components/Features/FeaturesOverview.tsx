@@ -981,7 +981,49 @@ export default function FeaturesOverview({
                         </>
                       ),
                     }
-                  : null;
+                  : isLive
+                    ? (() => {
+                        const activeDrafts = (revisionList ?? []).filter(
+                          (r) =>
+                            !(
+                              r.createdBy?.type === "system" &&
+                              r.createdBy.subtype === "ramp-schedule"
+                            ) &&
+                            (r.status === "draft" ||
+                              r.status === "approved" ||
+                              r.status === "changes-requested" ||
+                              r.status === "pending-review"),
+                        );
+                        if (activeDrafts.length === 0) return null;
+                        return {
+                          icon: <PiPencil size={18} />,
+                          color: "var(--gray-11)",
+                          bgColor: "var(--gray-a3)",
+                          message: (
+                            <>
+                              This feature has{" "}
+                              <strong>
+                                {activeDrafts.length === 1
+                                  ? "a draft revision"
+                                  : `${activeDrafts.length} draft revisions`}
+                              </strong>
+                              {activeDrafts.length === 1 && (
+                                <>
+                                  {". "}
+                                  <Link
+                                    onClick={() =>
+                                      setVersion(activeDrafts[0].version)
+                                    }
+                                  >
+                                    <strong>Switch to draft</strong>
+                                  </Link>
+                                </>
+                              )}
+                            </>
+                          ),
+                        };
+                      })()
+                    : null;
 
           if (!bannerProps) return null;
           return (
