@@ -107,6 +107,14 @@ tags:
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
+  - name: feature-revisions
+    x-displayName: Feature Revisions
+    description: >-
+      Draft revisions for feature flags, including rules, scheduling, and
+      approval workflows.
+
+
+      These endpoints are in beta and are subject to change.
   - name: ramp-schedules
     x-displayName: Ramp Schedules
     description: >-
@@ -2090,38 +2098,6 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"revision":3,"comment":"Bug found"}'
-  /features/{id}/revisions:
-    get:
-      operationId: getFeatureRevisions
-      summary: Get all revisions for a feature
-      tags:
-        - features
-      parameters:
-        - $ref: '#/components/parameters/id'
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - type: object
-                    properties:
-                      revisions:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/FeatureRevision'
-                    required:
-                      - revisions
-                    additionalProperties: false
-                  - $ref: '#/components/schemas/PaginationFields'
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X GET
-            'https://api.growthbook.io/api/v1/features/abc123/revisions' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
   /feature-keys:
     get:
       operationId: getFeatureKeys
@@ -2167,6 +2143,2531 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/stale-features' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /revisions:
+    get:
+      operationId: listRevisions
+      summary: List feature revisions
+      description: >-
+        Returns a paginated list of feature revisions across all features in the
+        organization. Optionally filtered by feature, status, author, and/or the
+        calling user's involvement. Results are sorted newest-first.
+      tags:
+        - feature-revisions
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/skipPagination'
+        - $ref: '#/components/parameters/featureId'
+        - $ref: '#/components/parameters/status'
+        - $ref: '#/components/parameters/author'
+        - $ref: '#/components/parameters/mine'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeatureRevision'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                required:
+                  - revisions
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/revisions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions:
+    get:
+      operationId: getFeatureRevisions
+      summary: List revisions for a feature
+      description: >-
+        Returns a paginated list of revisions for this feature, sorted
+        newest-first. Optionally filtered by status and/or author.
+      tags:
+        - feature-revisions
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/skipPagination'
+        - $ref: '#/components/parameters/status'
+        - $ref: '#/components/parameters/author'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeatureRevision'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                required:
+                  - revisions
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/features/abc123/revisions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postFeatureRevision
+      summary: Create a draft revision
+      description: >-
+        Creates a new draft revision branched from the current live revision. A
+        feature can have multiple concurrent drafts; use this to start an
+        isolated line of edits.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                title:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/latest:
+    get:
+      operationId: getFeatureRevisionLatest
+      summary: Get the most recent active draft revision
+      description: >-
+        Returns the most recently updated draft revision for the feature.
+        Returns 404 if there is no active draft. Pass `mine=true` to return the
+        most recent draft authored by or contributed to by the calling user
+        (requires a user-scoped API key).
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: mine
+          in: query
+          description: >-
+            If true, return only the most recent active draft authored by or
+            contributed to by the calling user. Requires a user-scoped API key.
+          schema:
+            description: >-
+              If true, return only the most recent active draft authored by or
+              contributed to by the calling user. Requires a user-scoped API
+              key.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/latest' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}:
+    get:
+      operationId: getFeatureRevision
+      summary: Get a single feature revision
+      description: >-
+        Returns the revision at the specified version for this feature. Use `GET
+        /features/{id}/revisions/latest` for the most recent active draft.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/metadata:
+    put:
+      operationId: putFeatureRevisionMetadata
+      summary: Update revision metadata (comment, title, feature metadata)
+      description: >-
+        Updates draft-level metadata (`comment`, `title`) and/or feature-level
+        metadata (owner, project, tags, customFields, jsonSchema, etc.). Merge
+        semantics: omitted fields are left unchanged; any provided field
+        replaces the current value (pass an empty string/array/object to clear).
+        Feature metadata changes are staged on the revision and applied to the
+        feature on publish. Changing `project` requires publish permission on
+        both the old and new project.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                title:
+                  type: string
+                description:
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                project:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                neverStale:
+                  type: boolean
+                customFields:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
+                jsonSchema:
+                  type: object
+                  properties:
+                    schemaType:
+                      type: string
+                      enum:
+                        - schema
+                        - simple
+                    schema:
+                      type: string
+                    simple:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - object
+                            - object[]
+                            - primitive
+                            - primitive[]
+                        fields:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              key:
+                                type: string
+                                maxLength: 64
+                              type:
+                                type: string
+                                enum:
+                                  - integer
+                                  - float
+                                  - string
+                                  - boolean
+                              required:
+                                type: boolean
+                              default:
+                                type: string
+                                maxLength: 256
+                              description:
+                                type: string
+                                maxLength: 256
+                              enum:
+                                maxItems: 256
+                                type: array
+                                items:
+                                  type: string
+                                  maxLength: 256
+                              min:
+                                type: number
+                              max:
+                                type: number
+                            required:
+                              - key
+                              - type
+                              - required
+                              - default
+                              - description
+                              - enum
+                              - min
+                              - max
+                            additionalProperties: false
+                      required:
+                        - type
+                        - fields
+                      additionalProperties: false
+                    date: {}
+                    enabled:
+                      type: boolean
+                  required:
+                    - schemaType
+                    - schema
+                    - simple
+                    - date
+                    - enabled
+                  additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/metadata'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/default-value:
+    put:
+      operationId: putFeatureRevisionDefaultValue
+      summary: Set the default value in a draft revision
+      description: >-
+        Replaces the feature's default value for this revision. The value must
+        be a string representation matching the feature's value type (e.g.
+        `"true"` for booleans, `42` for numbers, a JSON string for JSON
+        features).
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                defaultValue:
+                  type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - defaultValue
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/default-value'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/prerequisites:
+    put:
+      operationId: putFeatureRevisionPrerequisites
+      summary: Set feature-level prerequisites in a draft revision
+      description: >-
+        Replaces the feature's prerequisite list for this revision. Each
+        prerequisite condition is evaluated against `{ value:
+        <prereq-flag-value> }` at SDK eval time — use `value` as the condition
+        key.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - prerequisites
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/prerequisites'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/holdout:
+    put:
+      operationId: putFeatureRevisionHoldout
+      summary: Set holdout in a draft revision
+      description: >-
+        Sets (or clears, via `holdout: null`) the holdout experiment bound to
+        the feature. Holdout linkage side-effects (updating the holdout's linked
+        feature list) are applied on publish.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                holdout:
+                  anyOf:
+                    - type: object
+                      properties:
+                        id:
+                          type: string
+                        value:
+                          type: string
+                      required:
+                        - id
+                        - value
+                      additionalProperties: false
+                    - type: 'null'
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - holdout
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/holdout'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/archive:
+    put:
+      operationId: putFeatureRevisionArchive
+      summary: Set archived state in a draft revision
+      description: >-
+        Sets whether the feature is archived. Archived features are excluded
+        from SDK payloads on publish.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                archived:
+                  type: boolean
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - archived
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/archive'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/toggle:
+    post:
+      operationId: postFeatureRevisionToggle
+      summary: Toggle an environment on/off in a draft revision
+      description: >-
+        Sets whether the feature is enabled in the given environment as part of
+        the draft. Takes effect on publish.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment:
+                  type: string
+                enabled:
+                  type: boolean
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - environment
+                - enabled
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/toggle'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/rules:
+    post:
+      operationId: postFeatureRevisionRuleAdd
+      summary: Add a rule to a draft revision
+      description: >-
+        Appends a new rule to the end of the rule list for the given
+        environment. A `rule.type` of `force`, `rollout`, `experiment-ref`, or
+        `safe-rollout` determines the accepted shape. Use `rampSchedule` for
+        ramp configuration or `schedule` for a simple start/end window; if both
+        are provided, `rampSchedule` wins.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment:
+                  type: string
+                rule:
+                  anyOf:
+                    - type: object
+                      properties:
+                        description:
+                          type: string
+                        enabled:
+                          type: boolean
+                        condition:
+                          type: string
+                        savedGroups:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - none
+                                  - any
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - match
+                              - ids
+                            additionalProperties: false
+                        prerequisites:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                            required:
+                              - id
+                              - condition
+                            additionalProperties: false
+                        scheduleRules:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              timestamp:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              enabled:
+                                type: boolean
+                            required:
+                              - timestamp
+                              - enabled
+                            additionalProperties: false
+                        scheduleType:
+                          type: string
+                          enum:
+                            - none
+                            - schedule
+                            - ramp
+                        type:
+                          type: string
+                          const: experiment-ref
+                        experimentId:
+                          type: string
+                        variations:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              variationId:
+                                type: string
+                              value:
+                                type: string
+                            required:
+                              - value
+                            additionalProperties: false
+                      required:
+                        - type
+                        - experimentId
+                        - variations
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        description:
+                          type: string
+                        enabled:
+                          type: boolean
+                        condition:
+                          type: string
+                        savedGroups:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - none
+                                  - any
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - match
+                              - ids
+                            additionalProperties: false
+                        prerequisites:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                            required:
+                              - id
+                              - condition
+                            additionalProperties: false
+                        scheduleRules:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              timestamp:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              enabled:
+                                type: boolean
+                            required:
+                              - timestamp
+                              - enabled
+                            additionalProperties: false
+                        scheduleType:
+                          type: string
+                          enum:
+                            - none
+                            - schedule
+                            - ramp
+                        type:
+                          type: string
+                          const: safe-rollout
+                        controlValue:
+                          type: string
+                        variationValue:
+                          type: string
+                        hashAttribute:
+                          type: string
+                        trackingKey:
+                          type: string
+                        seed:
+                          type: string
+                        safeRolloutFields:
+                          type: object
+                          properties:
+                            datasourceId:
+                              type: string
+                            exposureQueryId:
+                              type: string
+                            guardrailMetricIds:
+                              type: array
+                              items:
+                                type: string
+                            maxDuration:
+                              type: object
+                              properties:
+                                amount:
+                                  type: number
+                                  exclusiveMinimum: 0
+                                unit:
+                                  type: string
+                                  enum:
+                                    - weeks
+                                    - days
+                                    - hours
+                                    - minutes
+                              required:
+                                - amount
+                                - unit
+                              additionalProperties: false
+                            autoRollback:
+                              type: boolean
+                            rampUpSchedule:
+                              type: object
+                              properties:
+                                enabled:
+                                  type: boolean
+                                steps:
+                                  minItems: 1
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      percent:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    required:
+                                      - percent
+                                    additionalProperties: false
+                              required:
+                                - enabled
+                              additionalProperties: false
+                          required:
+                            - datasourceId
+                            - exposureQueryId
+                            - guardrailMetricIds
+                            - maxDuration
+                          additionalProperties: false
+                      required:
+                        - type
+                        - controlValue
+                        - variationValue
+                        - hashAttribute
+                        - safeRolloutFields
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        description:
+                          type: string
+                        enabled:
+                          type: boolean
+                        condition:
+                          type: string
+                        savedGroups:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - none
+                                  - any
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - match
+                              - ids
+                            additionalProperties: false
+                        prerequisites:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                            required:
+                              - id
+                              - condition
+                            additionalProperties: false
+                        scheduleRules:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              timestamp:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              enabled:
+                                type: boolean
+                            required:
+                              - timestamp
+                              - enabled
+                            additionalProperties: false
+                        scheduleType:
+                          type: string
+                          enum:
+                            - none
+                            - schedule
+                            - ramp
+                        type:
+                          type: string
+                          enum:
+                            - force
+                            - rollout
+                        value:
+                          type: string
+                        coverage:
+                          type: number
+                          minimum: 0
+                          maximum: 1
+                        hashAttribute:
+                          type: string
+                        seed:
+                          type: string
+                      required:
+                        - value
+                      additionalProperties: false
+                rampSchedule:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    templateId:
+                      type: string
+                    steps:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          trigger:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: interval
+                                  seconds:
+                                    type: number
+                                    exclusiveMinimum: 0
+                                required:
+                                  - type
+                                  - seconds
+                                additionalProperties: false
+                              - type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: approval
+                                required:
+                                  - type
+                                additionalProperties: false
+                              - type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: scheduled
+                                  at: {}
+                                required:
+                                  - type
+                                  - at
+                                additionalProperties: false
+                          actions:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                targetType:
+                                  type: string
+                                  const: feature-rule
+                                targetId:
+                                  type: string
+                                patch:
+                                  type: object
+                                  properties:
+                                    ruleId:
+                                      type: string
+                                    coverage:
+                                      anyOf:
+                                        - type: number
+                                          minimum: 0
+                                          maximum: 1
+                                        - type: 'null'
+                                    condition:
+                                      anyOf:
+                                        - type: string
+                                        - type: 'null'
+                                    savedGroups:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              match:
+                                                type: string
+                                                enum:
+                                                  - all
+                                                  - none
+                                                  - any
+                                              ids:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - match
+                                              - ids
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    prerequisites:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id:
+                                                type: string
+                                              condition:
+                                                type: string
+                                            required:
+                                              - id
+                                              - condition
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    force:
+                                      description: Force value (any JSON type)
+                                    enabled:
+                                      anyOf:
+                                        - type: boolean
+                                        - type: 'null'
+                                  additionalProperties: false
+                              required:
+                                - patch
+                              additionalProperties: false
+                          approvalNotes:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - trigger
+                        additionalProperties: false
+                    endActions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          targetType:
+                            type: string
+                            const: feature-rule
+                          targetId:
+                            type: string
+                          patch:
+                            type: object
+                            properties:
+                              ruleId:
+                                type: string
+                              coverage:
+                                anyOf:
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                                  - type: 'null'
+                              condition:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              savedGroups:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        match:
+                                          type: string
+                                          enum:
+                                            - all
+                                            - none
+                                            - any
+                                        ids:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - match
+                                        - ids
+                                      additionalProperties: false
+                                  - type: 'null'
+                              prerequisites:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id:
+                                          type: string
+                                        condition:
+                                          type: string
+                                      required:
+                                        - id
+                                        - condition
+                                      additionalProperties: false
+                                  - type: 'null'
+                              force:
+                                description: Force value (any JSON type)
+                              enabled:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                            additionalProperties: false
+                        required:
+                          - patch
+                        additionalProperties: false
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endCondition:
+                      type: object
+                      properties:
+                        trigger:
+                          anyOf:
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: scheduled
+                                at: {}
+                              required:
+                                - type
+                                - at
+                              additionalProperties: false
+                      additionalProperties: false
+                  additionalProperties: false
+                schedule:
+                  type: object
+                  properties:
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  additionalProperties: false
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - environment
+                - rule
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/rules/{ruleId}:
+    put:
+      operationId: putFeatureRevisionRule
+      summary: Update a rule in a draft revision
+      description: >-
+        Patches fields on an existing rule. The rule `type` cannot be changed —
+        to convert types, delete and re-add. Fields that don't apply to the
+        current rule type are rejected.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - $ref: '#/components/parameters/ruleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment:
+                  type: string
+                rule:
+                  type: object
+                  properties:
+                    description:
+                      type: string
+                    enabled:
+                      type: boolean
+                    condition:
+                      type: string
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    scheduleRules:
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              timestamp:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              enabled:
+                                type: boolean
+                            required:
+                              - timestamp
+                              - enabled
+                            additionalProperties: false
+                        - type: 'null'
+                    scheduleType:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - none
+                            - schedule
+                            - ramp
+                        - type: 'null'
+                    type:
+                      type: string
+                      enum:
+                        - force
+                        - rollout
+                        - experiment-ref
+                        - safe-rollout
+                    value:
+                      type: string
+                    coverage:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                    hashAttribute:
+                      type: string
+                    seed:
+                      type: string
+                    experimentId:
+                      type: string
+                    variations:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationId:
+                            type: string
+                          value:
+                            type: string
+                        required:
+                          - variationId
+                          - value
+                        additionalProperties: false
+                    controlValue:
+                      type: string
+                    variationValue:
+                      type: string
+                  additionalProperties: false
+                rampSchedule:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    templateId:
+                      type: string
+                    steps:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          trigger:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: interval
+                                  seconds:
+                                    type: number
+                                    exclusiveMinimum: 0
+                                required:
+                                  - type
+                                  - seconds
+                                additionalProperties: false
+                              - type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: approval
+                                required:
+                                  - type
+                                additionalProperties: false
+                              - type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: scheduled
+                                  at: {}
+                                required:
+                                  - type
+                                  - at
+                                additionalProperties: false
+                          actions:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                targetType:
+                                  type: string
+                                  const: feature-rule
+                                targetId:
+                                  type: string
+                                patch:
+                                  type: object
+                                  properties:
+                                    ruleId:
+                                      type: string
+                                    coverage:
+                                      anyOf:
+                                        - type: number
+                                          minimum: 0
+                                          maximum: 1
+                                        - type: 'null'
+                                    condition:
+                                      anyOf:
+                                        - type: string
+                                        - type: 'null'
+                                    savedGroups:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              match:
+                                                type: string
+                                                enum:
+                                                  - all
+                                                  - none
+                                                  - any
+                                              ids:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - match
+                                              - ids
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    prerequisites:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id:
+                                                type: string
+                                              condition:
+                                                type: string
+                                            required:
+                                              - id
+                                              - condition
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    force:
+                                      description: Force value (any JSON type)
+                                    enabled:
+                                      anyOf:
+                                        - type: boolean
+                                        - type: 'null'
+                                  additionalProperties: false
+                              required:
+                                - patch
+                              additionalProperties: false
+                          approvalNotes:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - trigger
+                        additionalProperties: false
+                    endActions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          targetType:
+                            type: string
+                            const: feature-rule
+                          targetId:
+                            type: string
+                          patch:
+                            type: object
+                            properties:
+                              ruleId:
+                                type: string
+                              coverage:
+                                anyOf:
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                                  - type: 'null'
+                              condition:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              savedGroups:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        match:
+                                          type: string
+                                          enum:
+                                            - all
+                                            - none
+                                            - any
+                                        ids:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - match
+                                        - ids
+                                      additionalProperties: false
+                                  - type: 'null'
+                              prerequisites:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id:
+                                          type: string
+                                        condition:
+                                          type: string
+                                      required:
+                                        - id
+                                        - condition
+                                      additionalProperties: false
+                                  - type: 'null'
+                              force:
+                                description: Force value (any JSON type)
+                              enabled:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                            additionalProperties: false
+                        required:
+                          - patch
+                        additionalProperties: false
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endCondition:
+                      type: object
+                      properties:
+                        trigger:
+                          anyOf:
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: scheduled
+                                at: {}
+                              required:
+                                - type
+                                - at
+                              additionalProperties: false
+                      additionalProperties: false
+                  additionalProperties: false
+                schedule:
+                  type: object
+                  properties:
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  additionalProperties: false
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - environment
+                - rule
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteFeatureRevisionRule
+      summary: Delete a rule from a draft revision
+      description: >-
+        Removes the rule from the specified environment. Any pending ramp
+        actions on the draft for this rule are also cleared.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - $ref: '#/components/parameters/ruleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment:
+                  type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - environment
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/rules/reorder:
+    post:
+      operationId: postFeatureRevisionRulesReorder
+      summary: Reorder rules in an environment
+      description: >-
+        Replaces the rule order for the environment. `ruleIds` must contain
+        **exactly** the set of existing rule IDs in that environment — no
+        additions, omissions, or duplicates.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment:
+                  type: string
+                ruleIds:
+                  type: array
+                  items:
+                    type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - environment
+                - ruleIds
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/reorder'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule:
+    put:
+      operationId: putFeatureRevisionRuleRampSchedule
+      summary: Set ramp schedule for a rule
+      description: >-
+        Attaches (or replaces) a ramp schedule for the rule. Rejects if the rule
+        already has a live ramp schedule — update that directly via PUT
+        /ramp-schedules/{id}. The schedule is created at publish time.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - $ref: '#/components/parameters/ruleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                templateId:
+                  type: string
+                steps:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      trigger:
+                        anyOf:
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: interval
+                              seconds:
+                                type: number
+                                exclusiveMinimum: 0
+                            required:
+                              - type
+                              - seconds
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: approval
+                            required:
+                              - type
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: scheduled
+                              at: {}
+                            required:
+                              - type
+                              - at
+                            additionalProperties: false
+                      actions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              additionalProperties: false
+                          required:
+                            - patch
+                          additionalProperties: false
+                      approvalNotes:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                    required:
+                      - trigger
+                    additionalProperties: false
+                endActions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetType:
+                        type: string
+                        const: feature-rule
+                      targetId:
+                        type: string
+                      patch:
+                        type: object
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            anyOf:
+                              - type: number
+                                minimum: 0
+                                maximum: 1
+                              - type: 'null'
+                          condition:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          savedGroups:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              - type: 'null'
+                          prerequisites:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              - type: 'null'
+                          force:
+                            description: Force value (any JSON type)
+                          enabled:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                        additionalProperties: false
+                    required:
+                      - patch
+                    additionalProperties: false
+                startDate:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                endCondition:
+                  type: object
+                  properties:
+                    trigger:
+                      anyOf:
+                        - type: object
+                          properties:
+                            type:
+                              type: string
+                              const: scheduled
+                            at: {}
+                          required:
+                            - type
+                            - at
+                          additionalProperties: false
+                  additionalProperties: false
+                environment:
+                  type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - environment
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteFeatureRevisionRuleRampSchedule
+      summary: Remove ramp schedule from a rule
+      description: >-
+        Removes a pending ramp schedule attached by the draft. If the rule
+        currently has a live ramp schedule, a detach action is queued and
+        applied at publish time.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+        - $ref: '#/components/parameters/ruleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment:
+                  type: string
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+              required:
+                - environment
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/request-review:
+    post:
+      operationId: postFeatureRevisionRequestReview
+      summary: Request review for a draft revision
+      description: Moves the draft into the `pending-review` state and notifies reviewers.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/request-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/submit-review:
+    post:
+      operationId: postFeatureRevisionSubmitReview
+      summary: Submit a review on a draft revision
+      description: >-
+        Submits an `approve`, `request-changes`, or `comment` review on the
+        draft. Contributors cannot approve their own drafts, but may submit
+        comments or request changes.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                action:
+                  type: string
+                  enum:
+                    - approve
+                    - request-changes
+                    - comment
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/submit-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/merge-status:
+    get:
+      operationId: getFeatureRevisionMergeStatus
+      summary: Get merge status for a draft revision
+      description: >-
+        Runs a dry-run merge of the draft against the current live revision and
+        returns any conflicts. Use this before publishing to preview changes and
+        detect conflicting edits.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  conflicts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/conflicts'
+                  result:
+                    $ref: '#/components/schemas/result'
+                required:
+                  - success
+                  - conflicts
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/merge-status'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/rebase:
+    post:
+      operationId: postFeatureRevisionRebase
+      summary: Rebase a draft revision onto the current live version
+      description: >-
+        Updates the draft's base revision to match the currently-live revision,
+        applying the draft's changes on top. Supply `conflictResolutions` to
+        resolve any conflicting fields (keyed by `envName.ruleId` or
+        `defaultValue`).
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conflictResolutions:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                    enum:
+                      - overwrite
+                      - discard
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/rebase'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/publish:
+    post:
+      operationId: postFeatureRevisionPublish
+      summary: Publish a draft revision
+      description: >-
+        Immediately publishes a draft revision, making it the live version of
+        the feature. Blocked if the org requires approvals and
+        `bypassApprovalChecks` is off.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/publish'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/discard:
+    post:
+      operationId: postFeatureRevisionDiscard
+      summary: Discard a draft revision
+      description: >-
+        Permanently discards a draft revision. Only drafts (never published
+        revisions) can be discarded. Any pending ramp actions staged on the
+        draft are dropped.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/discard'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /features/{id}/revisions/{version}/revert:
+    post:
+      operationId: postFeatureRevisionRevert
+      summary: Revert the feature to a prior revision
+      description: >-
+        Creates a new draft (or immediately publishes) whose content matches the
+        specified historical revision.
+      tags:
+        - feature-revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                strategy:
+                  type: string
+                  enum:
+                    - draft
+                    - publish
+                comment:
+                  type: string
+                title:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/features/{id}/revisions/{version}/revert'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /archetypes:
     get:
@@ -2360,7 +4861,15 @@ paths:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/datasourceId'
         - $ref: '#/components/parameters/experimentId'
-        - $ref: '#/components/parameters/status'
+        - name: status
+          in: query
+          description: ''
+          schema:
+            type: string
+            enum:
+              - draft
+              - running
+              - stopped
       responses:
         '200':
           content:
@@ -9129,6 +11638,428 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /ramp-schedules:
+    get:
+      operationId: listRampSchedules
+      summary: Get all rampSchedules
+      description: |
+        Returns all ramp schedules for the organization, with optional filters.
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/featureId'
+        - name: status
+          in: query
+          description: Filter by schedule status
+          schema:
+            description: Filter by schedule status
+            type: string
+            enum:
+              - pending
+              - ready
+              - running
+              - paused
+              - pending-approval
+              - completed
+              - rolled-back
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                  rampSchedules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RampSchedule'
+                required:
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                  - rampSchedules
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/ramp-schedules' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: createRampSchedule
+      summary: Create a single rampSchedule
+      description: >
+        Creates a new ramp schedule, optionally attaching it to a published
+        feature rule.
+
+
+        ### Target attachment (optional)
+
+
+        Provide `featureId`, `ruleId`, and `environment` together to attach the
+        schedule
+
+        to a specific rule on creation. The rule must already be live
+        (published). Each
+
+        `[ruleId, environment]` pair can only be controlled by one schedule at a
+        time.
+
+
+        When all three are supplied, **`targetId` and `patch.ruleId` are
+        auto-injected**
+
+        into every step action and endAction — callers only need to supply the
+        patch
+
+        values (`coverage`, `condition`, etc.).
+
+
+        If omitted, the schedule is created as a free-standing skeleton in
+        `pending`
+
+        status. Use `POST /ramp-schedules/{id}/actions/add-target` to attach
+        rules later,
+
+        and `POST /ramp-schedules/{id}/actions/start` to start it.
+
+
+        ### Using templates
+
+
+        Provide `templateId` to inherit steps and endActions from a saved
+        template.
+
+        Explicit `steps` / `endActions` in the request body take precedence over
+        the
+
+        template. Template auto-population requires `featureId`, `ruleId`, and
+
+        `environment` to be set (so targetId can be injected).
+
+
+        Requires an **Enterprise** plan.
+      tags:
+        - ramp-schedules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                featureId:
+                  description: >-
+                    Feature that anchors this schedule. Required when
+                    ruleId/environment are set.
+                  type: string
+                ruleId:
+                  description: >-
+                    Rule to attach as the initial target. Requires featureId and
+                    environment.
+                  type: string
+                environment:
+                  description: >-
+                    Environment of the target rule. Requires featureId and
+                    ruleId.
+                  type: string
+                steps:
+                  description: >
+                    Ordered ramp steps. When featureId+ruleId+environment are
+                    provided,
+
+                    `targetId` and `patch.ruleId` in actions are auto-injected —
+                    only
+
+                    supply the patch fields you want to change.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      trigger:
+                        anyOf:
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: interval
+                              seconds:
+                                type: number
+                                exclusiveMinimum: 0
+                            required:
+                              - type
+                              - seconds
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: approval
+                            required:
+                              - type
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: scheduled
+                              at:
+                                type: string
+                            required:
+                              - type
+                              - at
+                            additionalProperties: false
+                      actions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            targetType:
+                              description: >-
+                                Omit when using featureId+ruleId+environment
+                                (auto-injected)
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              description: >-
+                                Auto-injected when featureId+ruleId+environment
+                                are provided
+                              type: string
+                            patch:
+                              description: >-
+                                Sparse patch — only fields present are applied;
+                                absent fields accumulate from previous steps
+                              type: object
+                              properties:
+                                ruleId:
+                                  description: >-
+                                    Auto-injected when ruleId is provided at the
+                                    top level
+                                  type: string
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              additionalProperties: false
+                          required:
+                            - patch
+                          additionalProperties: false
+                      approvalNotes:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                    required:
+                      - trigger
+                    additionalProperties: false
+                endActions:
+                  description: >-
+                    Actions applied when the ramp completes. targetId and
+                    patch.ruleId are auto-injected when
+                    featureId+ruleId+environment are provided.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetType:
+                        description: >-
+                          Omit when using featureId+ruleId+environment
+                          (auto-injected)
+                        type: string
+                        const: feature-rule
+                      targetId:
+                        description: >-
+                          Auto-injected when featureId+ruleId+environment are
+                          provided
+                        type: string
+                      patch:
+                        description: >-
+                          Sparse patch — only fields present are applied; absent
+                          fields accumulate from previous steps
+                        type: object
+                        properties:
+                          ruleId:
+                            description: >-
+                              Auto-injected when ruleId is provided at the top
+                              level
+                            type: string
+                          coverage:
+                            anyOf:
+                              - type: number
+                                minimum: 0
+                                maximum: 1
+                              - type: 'null'
+                          condition:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          savedGroups:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              - type: 'null'
+                          prerequisites:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              - type: 'null'
+                          force:
+                            description: Force value (any JSON type)
+                          enabled:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                        additionalProperties: false
+                    required:
+                      - patch
+                    additionalProperties: false
+                startDate:
+                  description: When to start. Absent/null = immediately on start action.
+                  anyOf:
+                    - type: string
+                      format: date-time
+                      pattern: >-
+                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                    - type: 'null'
+                endCondition:
+                  description: Optional hard deadline
+                  type: object
+                  properties:
+                    trigger:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          const: scheduled
+                        at:
+                          type: string
+                          format: date-time
+                          pattern: >-
+                            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      required:
+                        - type
+                        - at
+                      additionalProperties: false
+                  additionalProperties: false
+                templateId:
+                  description: >-
+                    Load steps and endActions from a saved template
+                    (featureId+ruleId+environment must also be set for
+                    auto-injection)
+                  type: string
+              required:
+                - name
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/ramp-schedules' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/start:
     post:
@@ -16342,428 +19273,6 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /ramp-schedules:
-    post:
-      operationId: createRampSchedule
-      summary: Create a single rampSchedule
-      description: >
-        Creates a new ramp schedule, optionally attaching it to a published
-        feature rule.
-
-
-        ### Target attachment (optional)
-
-
-        Provide `featureId`, `ruleId`, and `environment` together to attach the
-        schedule
-
-        to a specific rule on creation. The rule must already be live
-        (published). Each
-
-        `[ruleId, environment]` pair can only be controlled by one schedule at a
-        time.
-
-
-        When all three are supplied, **`targetId` and `patch.ruleId` are
-        auto-injected**
-
-        into every step action and endAction — callers only need to supply the
-        patch
-
-        values (`coverage`, `condition`, etc.).
-
-
-        If omitted, the schedule is created as a free-standing skeleton in
-        `pending`
-
-        status. Use `POST /ramp-schedules/{id}/actions/add-target` to attach
-        rules later,
-
-        and `POST /ramp-schedules/{id}/actions/start` to start it.
-
-
-        ### Using templates
-
-
-        Provide `templateId` to inherit steps and endActions from a saved
-        template.
-
-        Explicit `steps` / `endActions` in the request body take precedence over
-        the
-
-        template. Template auto-population requires `featureId`, `ruleId`, and
-
-        `environment` to be set (so targetId can be injected).
-
-
-        Requires an **Enterprise** plan.
-      tags:
-        - ramp-schedules
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                featureId:
-                  description: >-
-                    Feature that anchors this schedule. Required when
-                    ruleId/environment are set.
-                  type: string
-                ruleId:
-                  description: >-
-                    Rule to attach as the initial target. Requires featureId and
-                    environment.
-                  type: string
-                environment:
-                  description: >-
-                    Environment of the target rule. Requires featureId and
-                    ruleId.
-                  type: string
-                steps:
-                  description: >
-                    Ordered ramp steps. When featureId+ruleId+environment are
-                    provided,
-
-                    `targetId` and `patch.ruleId` in actions are auto-injected —
-                    only
-
-                    supply the patch fields you want to change.
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      trigger:
-                        anyOf:
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: interval
-                              seconds:
-                                type: number
-                                exclusiveMinimum: 0
-                            required:
-                              - type
-                              - seconds
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: approval
-                            required:
-                              - type
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: scheduled
-                              at:
-                                type: string
-                            required:
-                              - type
-                              - at
-                            additionalProperties: false
-                      actions:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            targetType:
-                              description: >-
-                                Omit when using featureId+ruleId+environment
-                                (auto-injected)
-                              type: string
-                              const: feature-rule
-                            targetId:
-                              description: >-
-                                Auto-injected when featureId+ruleId+environment
-                                are provided
-                              type: string
-                            patch:
-                              description: >-
-                                Sparse patch — only fields present are applied;
-                                absent fields accumulate from previous steps
-                              type: object
-                              properties:
-                                ruleId:
-                                  description: >-
-                                    Auto-injected when ruleId is provided at the
-                                    top level
-                                  type: string
-                                coverage:
-                                  anyOf:
-                                    - type: number
-                                      minimum: 0
-                                      maximum: 1
-                                    - type: 'null'
-                                condition:
-                                  anyOf:
-                                    - type: string
-                                    - type: 'null'
-                                savedGroups:
-                                  anyOf:
-                                    - type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          match:
-                                            type: string
-                                            enum:
-                                              - all
-                                              - none
-                                              - any
-                                          ids:
-                                            type: array
-                                            items:
-                                              type: string
-                                        required:
-                                          - match
-                                          - ids
-                                        additionalProperties: false
-                                    - type: 'null'
-                                prerequisites:
-                                  anyOf:
-                                    - type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          id:
-                                            type: string
-                                          condition:
-                                            type: string
-                                        required:
-                                          - id
-                                          - condition
-                                        additionalProperties: false
-                                    - type: 'null'
-                                force:
-                                  description: Force value (any JSON type)
-                                enabled:
-                                  anyOf:
-                                    - type: boolean
-                                    - type: 'null'
-                              additionalProperties: false
-                          required:
-                            - patch
-                          additionalProperties: false
-                      approvalNotes:
-                        anyOf:
-                          - type: string
-                          - type: 'null'
-                    required:
-                      - trigger
-                    additionalProperties: false
-                endActions:
-                  description: >-
-                    Actions applied when the ramp completes. targetId and
-                    patch.ruleId are auto-injected when
-                    featureId+ruleId+environment are provided.
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      targetType:
-                        description: >-
-                          Omit when using featureId+ruleId+environment
-                          (auto-injected)
-                        type: string
-                        const: feature-rule
-                      targetId:
-                        description: >-
-                          Auto-injected when featureId+ruleId+environment are
-                          provided
-                        type: string
-                      patch:
-                        description: >-
-                          Sparse patch — only fields present are applied; absent
-                          fields accumulate from previous steps
-                        type: object
-                        properties:
-                          ruleId:
-                            description: >-
-                              Auto-injected when ruleId is provided at the top
-                              level
-                            type: string
-                          coverage:
-                            anyOf:
-                              - type: number
-                                minimum: 0
-                                maximum: 1
-                              - type: 'null'
-                          condition:
-                            anyOf:
-                              - type: string
-                              - type: 'null'
-                          savedGroups:
-                            anyOf:
-                              - type: array
-                                items:
-                                  type: object
-                                  properties:
-                                    match:
-                                      type: string
-                                      enum:
-                                        - all
-                                        - none
-                                        - any
-                                    ids:
-                                      type: array
-                                      items:
-                                        type: string
-                                  required:
-                                    - match
-                                    - ids
-                                  additionalProperties: false
-                              - type: 'null'
-                          prerequisites:
-                            anyOf:
-                              - type: array
-                                items:
-                                  type: object
-                                  properties:
-                                    id:
-                                      type: string
-                                    condition:
-                                      type: string
-                                  required:
-                                    - id
-                                    - condition
-                                  additionalProperties: false
-                              - type: 'null'
-                          force:
-                            description: Force value (any JSON type)
-                          enabled:
-                            anyOf:
-                              - type: boolean
-                              - type: 'null'
-                        additionalProperties: false
-                    required:
-                      - patch
-                    additionalProperties: false
-                startDate:
-                  description: When to start. Absent/null = immediately on start action.
-                  anyOf:
-                    - type: string
-                      format: date-time
-                      pattern: >-
-                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-                    - type: 'null'
-                endCondition:
-                  description: Optional hard deadline
-                  type: object
-                  properties:
-                    trigger:
-                      type: object
-                      properties:
-                        type:
-                          type: string
-                          const: scheduled
-                        at:
-                          type: string
-                          format: date-time
-                          pattern: >-
-                            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-                      required:
-                        - type
-                        - at
-                      additionalProperties: false
-                  additionalProperties: false
-                templateId:
-                  description: >-
-                    Load steps and endActions from a saved template
-                    (featureId+ruleId+environment must also be set for
-                    auto-injection)
-                  type: string
-              required:
-                - name
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  rampSchedule:
-                    $ref: '#/components/schemas/RampSchedule'
-                required:
-                  - rampSchedule
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: |-
-            curl -X POST 'https://api.growthbook.io/api/v1/ramp-schedules' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-    get:
-      operationId: listRampSchedules
-      summary: Get all rampSchedules
-      description: |
-        Returns all ramp schedules for the organization, with optional filters.
-      tags:
-        - ramp-schedules
-      parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/featureId'
-        - name: status
-          in: query
-          description: Filter by schedule status
-          schema:
-            description: Filter by schedule status
-            type: string
-            enum:
-              - pending
-              - ready
-              - running
-              - paused
-              - pending-approval
-              - completed
-              - rolled-back
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
-                  count:
-                    type: integer
-                  total:
-                    type: integer
-                  hasMore:
-                    type: boolean
-                  nextOffset:
-                    anyOf:
-                      - type: integer
-                      - type: 'null'
-                  rampSchedules:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/RampSchedule'
-                required:
-                  - limit
-                  - offset
-                  - count
-                  - total
-                  - hasMore
-                  - nextOffset
-                  - rampSchedules
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: |-
-            curl -X GET 'https://api.growthbook.io/api/v1/ramp-schedules' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -16803,13 +19312,13 @@ components:
       name: skipPagination
       in: query
       description: >-
-        If true, return all matching features and ignore limit/offset.
+        If true, return all matching items and ignore limit/offset.
 
         Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set
         to true or 1.
       schema:
         description: >-
-          If true, return all matching features and ignore limit/offset.
+          If true, return all matching items and ignore limit/offset.
 
           Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is
           set to true or 1.
@@ -16858,6 +19367,68 @@ components:
           Comma-separated list of feature IDs (URL-encoded if needed). Example:
           `my_feature,another_feature`
         type: string
+    featureId:
+      name: featureId
+      in: query
+      description: ''
+      schema:
+        type: string
+    status:
+      name: status
+      in: query
+      description: ''
+      schema:
+        type: string
+        enum:
+          - draft
+          - published
+          - discarded
+          - approved
+          - changes-requested
+          - pending-review
+          - pending-parent
+    author:
+      name: author
+      in: query
+      description: ''
+      schema:
+        type: string
+    mine:
+      name: mine
+      in: query
+      description: >-
+        If true, return only revisions authored by or contributed to by the
+        calling user. Requires a user-scoped API key. Mutually exclusive with
+        `author`.
+      schema:
+        description: >-
+          If true, return only revisions authored by or contributed to by the
+          calling user. Requires a user-scoped API key. Mutually exclusive with
+          `author`.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
+    version:
+      name: version
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: integer
+    ruleId:
+      name: ruleId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
     datasourceId:
       name: datasourceId
       in: query
@@ -16872,16 +19443,6 @@ components:
       schema:
         description: Filter the returned list by the experiment tracking key (id)
         type: string
-    status:
-      name: status
-      in: query
-      description: ''
-      schema:
-        type: string
-        enum:
-          - draft
-          - running
-          - stopped
     phase:
       name: phase
       in: query
@@ -17015,6 +19576,12 @@ components:
       schema:
         description: The id of the information schema table
         type: string
+    environment:
+      name: environment
+      in: query
+      description: ''
+      schema:
+        type: string
     index:
       name: index
       in: query
@@ -17049,12 +19616,6 @@ components:
           - preferred
           - required
           - never
-    featureId:
-      name: featureId
-      in: query
-      description: ''
-      schema:
-        type: string
   schemas:
     Feature:
       type: object
@@ -17790,6 +20351,9 @@ components:
     FeatureRevision:
       type: object
       properties:
+        featureId:
+          description: The feature this revision belongs to
+          type: string
         baseVersion:
           type: integer
         version:
@@ -17923,6 +20487,7 @@ components:
               additionalProperties: {}
           additionalProperties: false
       required:
+        - featureId
         - baseVersion
         - version
         - comment
@@ -24542,6 +27107,628 @@ components:
           - staleReason
           - neverStale
         additionalProperties: false
+    conflicts:
+      type: object
+      properties:
+        name:
+          type: string
+        key:
+          type: string
+        resolved:
+          type: boolean
+        base:
+          type: string
+        live:
+          type: string
+        revision:
+          type: string
+      required:
+        - name
+        - key
+        - resolved
+        - base
+        - live
+        - revision
+      additionalProperties: false
+    result:
+      type: object
+      properties:
+        defaultValue:
+          type: string
+        rules:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: array
+            items:
+              anyOf:
+                - type: object
+                  properties:
+                    description:
+                      type: string
+                    condition:
+                      type: string
+                    id:
+                      type: string
+                    enabled:
+                      type: boolean
+                    scheduleRules:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          timestamp:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          enabled:
+                            type: boolean
+                        required:
+                          - timestamp
+                          - enabled
+                        additionalProperties: false
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    scheduleType:
+                      type: string
+                      enum:
+                        - none
+                        - schedule
+                        - ramp
+                    type:
+                      type: string
+                      const: force
+                    value:
+                      type: string
+                  required:
+                    - description
+                    - id
+                    - type
+                    - value
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    description:
+                      type: string
+                    condition:
+                      type: string
+                    id:
+                      type: string
+                    enabled:
+                      type: boolean
+                    scheduleRules:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          timestamp:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          enabled:
+                            type: boolean
+                        required:
+                          - timestamp
+                          - enabled
+                        additionalProperties: false
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    scheduleType:
+                      type: string
+                      enum:
+                        - none
+                        - schedule
+                        - ramp
+                    type:
+                      type: string
+                      const: rollout
+                    value:
+                      type: string
+                    coverage:
+                      type: number
+                    hashAttribute:
+                      type: string
+                    seed:
+                      type: string
+                  required:
+                    - description
+                    - id
+                    - type
+                    - value
+                    - coverage
+                    - hashAttribute
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    description:
+                      type: string
+                    condition:
+                      type: string
+                    id:
+                      type: string
+                    enabled:
+                      type: boolean
+                    scheduleRules:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          timestamp:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          enabled:
+                            type: boolean
+                        required:
+                          - timestamp
+                          - enabled
+                        additionalProperties: false
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    scheduleType:
+                      type: string
+                      enum:
+                        - none
+                        - schedule
+                        - ramp
+                    type:
+                      type: string
+                      const: experiment
+                    experimentType:
+                      type: string
+                      enum:
+                        - standard
+                        - multi-armed-bandit
+                    hypothesis:
+                      type: string
+                    trackingKey:
+                      type: string
+                    hashAttribute:
+                      type: string
+                    fallbackAttribute:
+                      type: string
+                    hashVersion:
+                      type: number
+                    disableStickyBucketing:
+                      type: boolean
+                    bucketVersion:
+                      type: number
+                    minBucketVersion:
+                      type: number
+                    namespace:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                        name:
+                          type: string
+                        range:
+                          type: array
+                          prefixItems:
+                            - type: number
+                            - type: number
+                      required:
+                        - enabled
+                        - name
+                        - range
+                      additionalProperties: false
+                    coverage:
+                      type: number
+                    datasource:
+                      type: string
+                    exposureQueryId:
+                      type: string
+                    goalMetrics:
+                      type: array
+                      items:
+                        type: string
+                    secondaryMetrics:
+                      type: array
+                      items:
+                        type: string
+                    guardrailMetrics:
+                      type: array
+                      items:
+                        type: string
+                    activationMetric:
+                      type: string
+                    segment:
+                      type: string
+                    skipPartialData:
+                      type: boolean
+                    values:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          value:
+                            type: string
+                          weight:
+                            type: number
+                          name:
+                            type: string
+                        required:
+                          - value
+                          - weight
+                        additionalProperties: false
+                    regressionAdjustmentEnabled:
+                      type: boolean
+                    sequentialTestingEnabled:
+                      type: boolean
+                    sequentialTestingTuningParameter:
+                      type: number
+                    statsEngine:
+                      type: string
+                      enum:
+                        - bayesian
+                        - frequentist
+                    banditStage:
+                      type: string
+                      enum:
+                        - explore
+                        - exploit
+                        - paused
+                    banditStageDateStarted: {}
+                    banditScheduleValue:
+                      type: number
+                    banditScheduleUnit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                    banditBurnInValue:
+                      type: number
+                    banditBurnInUnit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                    banditConversionWindowValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    banditConversionWindowUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hours
+                            - days
+                        - type: 'null'
+                    templateId:
+                      type: string
+                    customFields:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties: {}
+                  required:
+                    - description
+                    - id
+                    - type
+                    - trackingKey
+                    - hashAttribute
+                    - values
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    description:
+                      type: string
+                    condition:
+                      type: string
+                    id:
+                      type: string
+                    enabled:
+                      type: boolean
+                    scheduleRules:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          timestamp:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          enabled:
+                            type: boolean
+                        required:
+                          - timestamp
+                          - enabled
+                        additionalProperties: false
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    scheduleType:
+                      type: string
+                      enum:
+                        - none
+                        - schedule
+                        - ramp
+                    type:
+                      type: string
+                      const: experiment-ref
+                    experimentId:
+                      type: string
+                    variations:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationId:
+                            type: string
+                          value:
+                            type: string
+                        required:
+                          - variationId
+                          - value
+                        additionalProperties: false
+                  required:
+                    - description
+                    - id
+                    - type
+                    - experimentId
+                    - variations
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    description:
+                      type: string
+                    condition:
+                      type: string
+                    id:
+                      type: string
+                    enabled:
+                      type: boolean
+                    scheduleRules:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          timestamp:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          enabled:
+                            type: boolean
+                        required:
+                          - timestamp
+                          - enabled
+                        additionalProperties: false
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    scheduleType:
+                      type: string
+                      enum:
+                        - none
+                        - schedule
+                        - ramp
+                    type:
+                      type: string
+                      const: safe-rollout
+                    controlValue:
+                      type: string
+                    variationValue:
+                      type: string
+                    safeRolloutId:
+                      type: string
+                    status:
+                      default: running
+                      type: string
+                      enum:
+                        - running
+                        - rolled-back
+                        - released
+                        - stopped
+                    hashAttribute:
+                      type: string
+                    seed:
+                      type: string
+                    trackingKey:
+                      type: string
+                  required:
+                    - description
+                    - id
+                    - type
+                    - controlValue
+                    - variationValue
+                    - safeRolloutId
+                    - status
+                    - hashAttribute
+                    - seed
+                    - trackingKey
+                  additionalProperties: false
+        environmentsEnabled:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: boolean
+        prerequisites:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
+            required:
+              - id
+              - condition
+            additionalProperties: false
+        archived:
+          type: boolean
+        metadata:
+          type: object
+          properties:
+            releaseType:
+              type: string
+            riskLevel:
+              type: string
+          additionalProperties: {}
+        holdout:
+          anyOf:
+            - type: object
+              properties:
+                id:
+                  type: string
+                value:
+                  type: string
+              required:
+                - id
+                - value
+              additionalProperties: false
+            - type: 'null'
+      additionalProperties: false
     snapshot:
       type: object
       properties:
@@ -24653,6 +27840,7 @@ x-tagGroups:
       - projects
       - environments
       - features
+      - feature-revisions
       - ramp-schedules
       - data-sources
       - fact-tables

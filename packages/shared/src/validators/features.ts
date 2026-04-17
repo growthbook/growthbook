@@ -6,11 +6,18 @@ import {
   namespaceValue,
   savedGroupTargeting,
   paginationQueryFields,
+  skipPaginationQueryField,
   apiPaginationFieldsValidator,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import { ownerField, ownerInputField } from "./owner-field";
-import { rampStep, rampStepAction } from "./ramp-schedule";
+import {
+  featureRulePatch,
+  rampTrigger,
+  rampStep,
+  rampStepAction,
+  rampEndTrigger,
+} from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -274,32 +281,48 @@ const revisionMetadataSchema = z.object({
 
 export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 
-// Zod schemas for ramp schedule actions stored on a revision.
-// These are deferred and only executed when the revision is published.
-// Only create and detach are revision-bound; state changes (pause, resume, etc.)
-// are real-time and operate directly on the live ramp schedule.
-const revisionRampEndTrigger = z.object({
-  type: z.literal("scheduled"),
-  at: z.string(),
-});
+// Ramp schedule actions stored on a revision. Deferred until publish. Only
+// create/detach are revision-bound — state changes (pause, resume, …) run
+// real-time on the live ramp schedule.
 const revisionRampEndConditionSchema = z.object({
-  trigger: revisionRampEndTrigger.optional(),
+  trigger: rampEndTrigger.optional(),
 });
 
+// API variant: targetType/targetId are inferred from the top-level ruleId
+// at publish time.
+const revisionApiRampStepAction = z.object({
+  targetType: z.literal("feature-rule").optional(),
+  targetId: z.string().optional(),
+  patch: featureRulePatch.partial({ ruleId: true }),
+});
+
+const revisionApiRampStep = z.object({
+  trigger: rampTrigger,
+  actions: z.array(revisionApiRampStepAction).optional(),
+  approvalNotes: z.string().nullish(),
+});
+
+// Stored type — requires targetType/targetId in actions.
 export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
-  name: z.string(),
-  /** If set, patches are scoped to this environment only.
-   *  If absent/null, patches apply to all environments sharing the ruleId. */
+  /** Display name. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+  name: z.string().optional(),
+  /** If set, patches are scoped to this environment only; absent/null applies to all environments sharing the ruleId. */
   environment: z.string().optional().nullable(),
+  /** Load steps and endActions from a saved template. Explicit steps/endActions take precedence. */
+  templateId: z.string().optional(),
   steps: z.array(rampStep),
-  // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions: z.array(rampStepAction).optional(),
-  // ISO datetime string — absent/empty means start immediately on publish.
+  /** ISO datetime string; absent/null means start immediately on publish. */
   startDate: z.string().optional().nullable(),
   endCondition: revisionRampEndConditionSchema.optional(),
-  /** Rule ID this ramp is being created for. Used at publish time to build the target. */
   ruleId: z.string(),
+});
+
+// API input variant — normalize to RevisionRampCreateAction before storing.
+export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
+  steps: z.array(revisionApiRampStep).optional(),
+  endActions: z.array(revisionApiRampStepAction).optional(),
 });
 
 export const revisionRampDetachAction = z.object({
@@ -317,6 +340,9 @@ const revisionRampAction = z.discriminatedUnion("mode", [
 ]);
 
 export type RevisionRampCreateAction = z.infer<typeof revisionRampCreateAction>;
+export type ApiRevisionRampCreateAction = z.infer<
+  typeof apiRevisionRampCreateAction
+>;
 export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
 export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 
@@ -352,6 +378,24 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
   .strict();
 
 export type FeatureRevisionInterface = z.infer<typeof featureRevisionInterface>;
+
+export const revisionChangesSchema = featureRevisionInterface
+  .pick({
+    title: true,
+    comment: true,
+    defaultValue: true,
+    rules: true,
+    baseVersion: true,
+    environmentsEnabled: true,
+    prerequisites: true,
+    archived: true,
+    metadata: true,
+    holdout: true,
+    rampActions: true,
+  })
+  .partial();
+
+export type RevisionChanges = z.infer<typeof revisionChangesSchema>;
 
 export const featureInterface = z
   .object({
@@ -746,6 +790,7 @@ export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevision",
   z
     .object({
+      featureId: z.string().describe("The feature this revision belongs to"),
       baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
       comment: z.string(),
@@ -1088,23 +1133,7 @@ export const listFeaturesValidator = {
         .string()
         .describe("Filter by a SDK connection's client key")
         .optional(),
-      skipPagination: z
-        .union([
-          z.literal("true"),
-          z.literal("false"),
-          z.literal("0"),
-          z.literal("1"),
-          z.boolean(),
-        ])
-        .describe(
-          "If true, return all matching features and ignore limit/offset.\nSelf-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.",
-        )
-        .meta({
-          default: false,
-          "x-selfHostedOnly": true,
-          "x-requiresEnv": "API_ALLOW_SKIP_PAGINATION",
-        })
-        .optional(),
+      ...skipPaginationQueryField,
     })
     .strict(),
   paramsSchema: z.never(),
@@ -1260,18 +1289,22 @@ export const getFeatureRevisionsValidator = {
   querySchema: z
     .object({
       ...paginationQueryFields,
+      ...skipPaginationQueryField,
+      status: revisionStatusSchema.optional(),
+      author: z.string().optional(),
     })
     .strict(),
   paramsSchema: idParams,
-  responseSchema: z.intersection(
-    z.object({
+  responseSchema: z
+    .object({
       revisions: z.array(apiFeatureRevisionValidator),
-    }),
-    apiPaginationFieldsValidator,
-  ),
-  summary: "Get all revisions for a feature",
+    })
+    .extend(apiPaginationFieldsValidator.shape),
+  summary: "List revisions for a feature",
+  description:
+    "Returns a paginated list of revisions for this feature, sorted newest-first. Optionally filtered by status and/or author.",
   operationId: "getFeatureRevisions",
-  tags: ["features"],
+  tags: ["feature-revisions"],
   method: "get" as const,
   path: "/features/:id/revisions",
   exampleRequest: { params: { id: "abc123" } },

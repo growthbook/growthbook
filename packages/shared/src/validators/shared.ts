@@ -62,3 +62,27 @@ export const paginationQueryFields = {
     .optional()
     .meta({ default: 0 }),
 };
+
+/**
+ * Self-hosted escape hatch for GitOps-style bulk exports. Honored only when
+ * API_ALLOW_SKIP_PAGINATION is set on the server.
+ */
+export const skipPaginationQueryField = {
+  skipPagination: z
+    .union([
+      z.literal("true"),
+      z.literal("false"),
+      z.literal("0"),
+      z.literal("1"),
+      z.boolean(),
+    ])
+    .describe(
+      "If true, return all matching items and ignore limit/offset.\nSelf-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.",
+    )
+    .meta({
+      default: false,
+      "x-selfHostedOnly": true,
+      "x-requiresEnv": "API_ALLOW_SKIP_PAGINATION",
+    })
+    .optional(),
+};

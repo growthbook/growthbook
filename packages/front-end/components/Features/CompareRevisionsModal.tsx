@@ -129,7 +129,7 @@ function RevisionCompareLabel({
   return (
     <Flex align="start" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
-        <Flex align="center" justify="between" gap="2">
+        <Flex align="center" gap="4">
           <Flex align="center" gap="1">
             {revAFailed && (
               <Tooltip body="Could not load revision">
@@ -154,7 +154,7 @@ function RevisionCompareLabel({
           (() => {
             return DRAFT_REVISION_STATUSES.includes(revA.status) &&
               revA.baseVersion !== liveVersion ? (
-              <HelperText status="warning" size="sm">
+              <HelperText status="info" size="sm">
                 based on: Revision {revA.baseVersion}
               </HelperText>
             ) : (
@@ -165,7 +165,11 @@ function RevisionCompareLabel({
           })()}
         {revA && (
           <Box mt="2">
-            <EventUser user={revA.createdBy} display="avatar-name-email" />
+            <EventUser
+              user={revA.createdBy}
+              display="avatar-name-email"
+              size="sm"
+            />
             <CoAuthors rev={revA} logs={logsA} />
           </Box>
         )}
@@ -183,7 +187,7 @@ function RevisionCompareLabel({
         style={{ flexShrink: 0, marginTop: "var(--space-4)" }}
       />
       <Flex direction="column">
-        <Flex align="center" justify="between" gap="2">
+        <Flex align="center" gap="4">
           <Flex align="center" gap="1">
             {revBFailed && (
               <Tooltip body="Could not load revision">
@@ -208,7 +212,7 @@ function RevisionCompareLabel({
           (() => {
             return DRAFT_REVISION_STATUSES.includes(revB.status) &&
               revB.baseVersion !== liveVersion ? (
-              <HelperText status="warning" size="sm">
+              <HelperText status="info" size="sm">
                 based on: Revision {revB.baseVersion}
               </HelperText>
             ) : (
@@ -219,7 +223,11 @@ function RevisionCompareLabel({
           })()}
         {revB && (
           <Box mt="2">
-            <EventUser user={revB.createdBy} display="avatar-name-email" />
+            <EventUser
+              user={revB.createdBy}
+              display="avatar-name-email"
+              size="sm"
+            />
             <CoAuthors rev={revB} logs={logsB} />
           </Box>
         )}
@@ -311,7 +319,11 @@ function RevisionCommentItem({
           notes
         </Text>
         {logEntry?.user && (
-          <EventUser user={logEntry.user} display="avatar-name-email" />
+          <EventUser
+            user={logEntry.user}
+            display="avatar-name-email"
+            size="sm"
+          />
         )}
         {logEntry?.timestamp && (
           <Text size="small" color="text-low">
