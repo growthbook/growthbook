@@ -50,3 +50,6 @@ charts/**/*.tgz
 preview/Dockerfile.generated
 
 next-env.d.ts
+
+# Local package manager cache
+.pnpm-store/
