@@ -1,8 +1,7 @@
 import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
 import { getReviewSetting } from "shared/util";
 import { revisionToApiInterface } from "back-end/src/services/features";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
-import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -101,67 +100,16 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
       ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
       : {};
 
-  // Dispatch the right event variant based on action. Each variant has its own
-  // payload so downstream filters/integrations can subscribe granularly.
-  switch (review) {
-    case "Approved":
-      await req.audit({
-        event: "feature.revision.approve",
-        entity: { object: "feature", id: feature.id },
-        details: auditDetailsUpdate(
-          { status: revision.status },
-          { status: finalRevision.status },
-          { version: revision.version, comment: comment ?? "" },
-        ),
-      });
-      await dispatchFeatureRevisionEvent(
-        req.context,
-        feature,
-        finalRevision,
-        "revision.approved",
-        { reviewer, reviewComment: comment ?? null },
-      );
-      break;
-    case "Requested Changes":
-      await req.audit({
-        event: "feature.revision.requestChanges",
-        entity: { object: "feature", id: feature.id },
-        details: auditDetailsUpdate(
-          { status: revision.status },
-          { status: finalRevision.status },
-          { version: revision.version, comment: comment ?? "" },
-        ),
-      });
-      await dispatchFeatureRevisionEvent(
-        req.context,
-        feature,
-        finalRevision,
-        "revision.changesRequested",
-        { reviewer, reviewComment: comment ?? null },
-      );
-      break;
-    case "Comment":
-      // Comments without text are no-ops — don't emit an empty event.
-      if (comment && comment.length > 0) {
-        await req.audit({
-          event: "feature.revision.comment",
-          entity: { object: "feature", id: feature.id },
-          details: auditDetailsUpdate(
-            { comment: "" },
-            { comment },
-            { version: revision.version },
-          ),
-        });
-        await dispatchFeatureRevisionEvent(
-          req.context,
-          feature,
-          finalRevision,
-          "revision.commented",
-          { reviewer, reviewComment: comment },
-        );
-      }
-      break;
-  }
+  await dispatchRevisionReviewEvent(
+    req.context,
+    req,
+    feature,
+    revision,
+    finalRevision,
+    review,
+    comment,
+    reviewer,
+  );
 
   return { revision: revisionToApiInterface(finalRevision) };
 });

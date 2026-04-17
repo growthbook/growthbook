@@ -114,7 +114,11 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import {
+  dispatchFeatureRevisionEvent,
+  dispatchRevisionReviewEvent,
+  recordRevisionUpdate,
+} from "back-end/src/services/featureRevisionEvents";
 import {
   cleanUpPreviousRevisions,
   createInitialRevision,
@@ -1067,64 +1071,16 @@ export async function postFeatureReviewOrComment(
       ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
       : {};
 
-  switch (review) {
-    case "Approved":
-      await req.audit({
-        event: "feature.revision.approve",
-        entity: { object: "feature", id: feature.id },
-        details: auditDetailsUpdate(
-          { status: revision.status },
-          { status: finalRevision.status },
-          { version: revision.version, comment },
-        ),
-      });
-      await dispatchFeatureRevisionEvent(
-        context,
-        feature,
-        finalRevision,
-        "revision.approved",
-        { reviewer, reviewComment: comment ?? null },
-      );
-      break;
-    case "Requested Changes":
-      await req.audit({
-        event: "feature.revision.requestChanges",
-        entity: { object: "feature", id: feature.id },
-        details: auditDetailsUpdate(
-          { status: revision.status },
-          { status: finalRevision.status },
-          { version: revision.version, comment },
-        ),
-      });
-      await dispatchFeatureRevisionEvent(
-        context,
-        feature,
-        finalRevision,
-        "revision.changesRequested",
-        { reviewer, reviewComment: comment ?? null },
-      );
-      break;
-    case "Comment":
-      if (comment && comment.length > 0) {
-        await req.audit({
-          event: "feature.revision.comment",
-          entity: { object: "feature", id: feature.id },
-          details: auditDetailsUpdate(
-            { comment: "" },
-            { comment },
-            { version: revision.version },
-          ),
-        });
-        await dispatchFeatureRevisionEvent(
-          context,
-          feature,
-          finalRevision,
-          "revision.commented",
-          { reviewer, reviewComment: comment },
-        );
-      }
-      break;
-  }
+  await dispatchRevisionReviewEvent(
+    context,
+    req,
+    feature,
+    revision,
+    finalRevision,
+    review,
+    comment,
+    reviewer,
+  );
 
   res.status(200).json({
     status: 200,
@@ -2049,12 +2005,12 @@ export async function postFeatureRule(
     },
     resetReview,
   );
-  await dispatchFeatureRevisionEvent(
+  await recordRevisionUpdate(
     context,
+    req,
     feature,
     updatedRevisionAfterRuleAdd ?? revision,
-    "revision.updated",
-    { change: "rule.add", environments: selectedEnvironments },
+    "rule.add",
     { environments: selectedEnvironments },
   );
 
@@ -2378,12 +2334,12 @@ export async function putRevisionComment(
     },
     false,
   );
-  await dispatchFeatureRevisionEvent(
+  await recordRevisionUpdate(
     context,
+    req,
     feature,
     updatedRevisionAfterComment ?? revision,
-    "revision.updated",
-    { change: "metadata" },
+    "metadata",
   );
 
   res.status(200).json({
@@ -2435,12 +2391,12 @@ export async function putRevisionTitle(
     },
     false,
   );
-  await dispatchFeatureRevisionEvent(
+  await recordRevisionUpdate(
     context,
+    req,
     feature,
     updatedRevisionAfterTitle ?? revision,
-    "revision.updated",
-    { change: "metadata" },
+    "metadata",
   );
 
   res.status(200).json({
@@ -2484,12 +2440,12 @@ export async function postFeatureDefaultValue(
     res.locals.eventAudit,
     resetReview,
   );
-  await dispatchFeatureRevisionEvent(
+  await recordRevisionUpdate(
     context,
+    req,
     feature,
     updatedRevisionAfterDefaultValue ?? revision,
-    "revision.updated",
-    { change: "defaultValue" },
+    "defaultValue",
   );
 
   res.status(200).json({
@@ -2871,12 +2827,12 @@ export async function putFeatureRule(
     },
     resetReview,
   );
-  await dispatchFeatureRevisionEvent(
+  await recordRevisionUpdate(
     context,
+    req,
     feature,
     updatedRevisionAfterRuleEdit ?? revision,
-    "revision.updated",
-    { change: "rule.update", environments: [environment] },
+    "rule.update",
     { environments: [environment] },
   );
 
@@ -3165,14 +3121,9 @@ export async function postFeatureToggle(
     entity: { object: "feature", id: feature.id },
     details: auditDetailsUpdate(prevStates, changes, { draft: true }),
   });
-  await dispatchFeatureRevisionEvent(
-    context,
-    feature,
-    draft,
-    "revision.updated",
-    { change: "toggle", environments: changedEnvList },
-    { environments: changedEnvList },
-  );
+  await recordRevisionUpdate(context, req, feature, draft, "toggle", {
+    environments: changedEnvList,
+  });
 
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
@@ -3232,12 +3183,12 @@ export async function postFeatureMoveRule(
     },
     resetReview,
   );
-  await dispatchFeatureRevisionEvent(
+  await recordRevisionUpdate(
     context,
+    req,
     feature,
     updatedRevisionAfterMove ?? revision,
-    "revision.updated",
-    { change: "rule.reorder", environments: [environment] },
+    "rule.reorder",
     { environments: [environment] },
   );
 
@@ -3330,12 +3281,12 @@ export async function deleteFeatureRule(
     },
     resetReview,
   );
-  await dispatchFeatureRevisionEvent(
+  await recordRevisionUpdate(
     context,
+    req,
     feature,
     updatedRevisionAfterRuleDelete ?? revision,
-    "revision.updated",
-    { change: "rule.delete", environments: [environment] },
+    "rule.delete",
     { environments: [environment] },
   );
 
@@ -3796,13 +3747,7 @@ export async function postFeatureArchive(
     ),
   });
   if (!autoPublish) {
-    await dispatchFeatureRevisionEvent(
-      context,
-      feature,
-      draft,
-      "revision.updated",
-      { change: "archive" },
-    );
+    await recordRevisionUpdate(context, req, feature, draft, "archive");
   }
 
   res.status(200).json({ status: 200, draftVersion: draft.version });
@@ -4453,13 +4398,7 @@ export async function postPrerequisite(
     baseDraft?.version,
     forceNewDraft,
   );
-  await dispatchFeatureRevisionEvent(
-    context,
-    feature,
-    draft,
-    "revision.updated",
-    { change: "prerequisites" },
-  );
+  await recordRevisionUpdate(context, req, feature, draft, "prerequisites");
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
 
@@ -4517,13 +4456,7 @@ export async function putPrerequisite(
     baseDraftPut?.version,
     forceNewDraft,
   );
-  await dispatchFeatureRevisionEvent(
-    context,
-    feature,
-    putDraft,
-    "revision.updated",
-    { change: "prerequisites" },
-  );
+  await recordRevisionUpdate(context, req, feature, putDraft, "prerequisites");
   return res.status(200).json({ status: 200, draftVersion: putDraft.version });
 }
 
@@ -4576,12 +4509,12 @@ export async function deletePrerequisite(
     baseDraftDel?.version,
     forceNewDraft,
   );
-  await dispatchFeatureRevisionEvent(
+  await recordRevisionUpdate(
     context,
+    req,
     feature,
     deleteDraft,
-    "revision.updated",
-    { change: "prerequisites" },
+    "prerequisites",
   );
   return res
     .status(200)

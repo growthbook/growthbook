@@ -86,6 +86,81 @@ export async function dispatchFeatureRevisionEvent<
   }
 }
 
+// Dispatches audit + webhook for review actions (approve, request-changes, comment).
+// Shared between the legacy controller and the REST API handler so both paths
+// stay in sync when new review types are added.
+export async function dispatchRevisionReviewEvent(
+  ctx: ReqContext | ApiReqContext,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  req: { audit: (entry: any) => Promise<void> },
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  finalRevision: FeatureRevisionInterface,
+  review: "Approved" | "Requested Changes" | "Comment",
+  comment: string | undefined,
+  reviewer: { id?: string; name?: string; email?: string },
+): Promise<void> {
+  switch (review) {
+    case "Approved":
+      await req.audit({
+        event: "feature.revision.approve",
+        entity: { object: "feature", id: feature.id },
+        details: auditDetailsUpdate(
+          { status: revision.status },
+          { status: finalRevision.status },
+          { version: revision.version, comment: comment ?? "" },
+        ),
+      });
+      await dispatchFeatureRevisionEvent(
+        ctx,
+        feature,
+        finalRevision,
+        "revision.approved",
+        { reviewer, reviewComment: comment ?? null },
+      );
+      break;
+    case "Requested Changes":
+      await req.audit({
+        event: "feature.revision.requestChanges",
+        entity: { object: "feature", id: feature.id },
+        details: auditDetailsUpdate(
+          { status: revision.status },
+          { status: finalRevision.status },
+          { version: revision.version, comment: comment ?? "" },
+        ),
+      });
+      await dispatchFeatureRevisionEvent(
+        ctx,
+        feature,
+        finalRevision,
+        "revision.changesRequested",
+        { reviewer, reviewComment: comment ?? null },
+      );
+      break;
+    case "Comment":
+      // Comments without text are no-ops — don't emit an empty event.
+      if (comment && comment.length > 0) {
+        await req.audit({
+          event: "feature.revision.comment",
+          entity: { object: "feature", id: feature.id },
+          details: auditDetailsUpdate(
+            { comment: "" },
+            { comment },
+            { version: revision.version },
+          ),
+        });
+        await dispatchFeatureRevisionEvent(
+          ctx,
+          feature,
+          finalRevision,
+          "revision.commented",
+          { reviewer, reviewComment: comment },
+        );
+      }
+      break;
+  }
+}
+
 // Convenience for draft-mutation endpoints. Emits both an audit log entry and
 // a `feature.revision.updated` webhook event with a consistent shape.
 // Callers supply the `change` discriminator and (optionally) the environments
