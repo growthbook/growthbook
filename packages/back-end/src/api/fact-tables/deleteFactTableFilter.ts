@@ -1,4 +1,3 @@
-import { DeleteFactTableFilterResponse } from "shared/types/openapi";
 import { deleteFactTableFilterValidator } from "shared/validators";
 import {
   deleteFactFilter,
@@ -8,7 +7,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const deleteFactTableFilter = createApiRequestHandler(
   deleteFactTableFilterValidator,
-)(async (req): Promise<DeleteFactTableFilterResponse> => {
+)(async (req) => {
   const factTable = await getFactTable(req.context, req.params.factTableId);
   if (!factTable) {
     throw new Error("Unable to delete - Could not find factTable with that id");

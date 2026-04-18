@@ -1,3 +1,4 @@
+import { UpdateProps } from "shared/types/base-model";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { isBinomialMetric, isRatioMetric } from "shared/experiments";
 import {
@@ -46,8 +47,12 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         name: "metricAnalysis",
         query: this.integration.getMetricAnalysisQuery(this.metric, params),
         dependencies: [],
-        run: (query, setExternalId) =>
-          this.integration.runMetricAnalysisQuery(query, setExternalId),
+        run: (query, setExternalId, queryMetadata) =>
+          this.integration.runMetricAnalysisQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
         queryType: "metricAnalysis",
       }),
     ];
@@ -86,7 +91,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     result?: MetricAnalysisResult | undefined;
     error?: string | undefined;
   }): Promise<MetricAnalysisInterface> {
-    const updates: Partial<MetricAnalysisInterface> = {
+    const updates: UpdateProps<MetricAnalysisInterface> = {
       queries,
       error,
       result,

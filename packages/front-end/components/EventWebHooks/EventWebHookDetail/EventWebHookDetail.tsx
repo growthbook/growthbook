@@ -1,11 +1,13 @@
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import React, { FC, useRef, useCallback, useState } from "react";
 import pick from "lodash/pick";
-import { FaPencilAlt } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import { PiPencilSimpleFill } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { datetime } from "shared/dates";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { Flex, Box, IconButton } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
@@ -16,8 +18,16 @@ import {
   displayedEvents,
 } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;
@@ -31,14 +41,8 @@ type EventWebHookDetailProps = {
 };
 
 type State =
-  | {
-      type: "danger";
-      message: string;
-    }
-  | {
-      type: "success";
-      message: string;
-    }
+  | { type: "danger"; message: string }
+  | { type: "success"; message: string }
   | { type: "loading" }
   | undefined;
 
@@ -53,6 +57,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   editError,
 }) => {
   const { getProjectById } = useDefinitions();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const {
     id: webhookId,
@@ -68,16 +73,15 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   } = eventWebHook;
 
   const defined = <T,>(v: T): v is NonNullable<T> => !!v;
-
   const projects = (projectIds || []).map(getProjectById).filter(defined);
+
   const { apiCall } = useAuth();
   const { mutate: mutateEventLogs } = useEventWebhookLogs(webhookId);
   const [state, setStateRaw] = useState<State>();
   const stateTimeout = useRef<undefined | ReturnType<typeof setTimeout>>();
 
-  const setState = useCallback((state) => {
+  const setState = useCallback((state: State) => {
     setStateRaw(state);
-
     if (stateTimeout.current) clearTimeout(stateTimeout.current);
     stateTimeout.current = setTimeout(() => setStateRaw(undefined), 1500);
   }, []);
@@ -90,16 +94,11 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 
   const onToggleWebhook = useCallback(async () => {
     setState({ type: "loading" });
-
     try {
-      const response = await apiCall<{
-        enabled: boolean;
-        error?: string;
-      }>("/event-webhooks/toggle", {
-        method: "POST",
-        body: JSON.stringify({ webhookId }),
-      });
-
+      const response = await apiCall<{ enabled: boolean; error?: string }>(
+        "/event-webhooks/toggle",
+        { method: "POST", body: JSON.stringify({ webhookId }) },
+      );
       if (response.error) {
         setState({
           type: "danger",
@@ -107,12 +106,10 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         });
         return;
       }
-
       setState({
         type: "success",
-        message: `Wehook ${response.enabled ? "enabled" : "disabled"}`,
+        message: `Webhook ${response.enabled ? "enabled" : "disabled"}`,
       });
-
       mutateEventWebHook();
     } catch (e) {
       setState({ type: "danger", message: "Unknown error" });
@@ -121,27 +118,19 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 
   const onTestWebhook = useCallback(async () => {
     setState({ type: "loading" });
-
     try {
-      const response = await apiCall<{
-        error?: string;
-      }>("/event-webhooks/test", {
-        method: "POST",
-        body: JSON.stringify({ webhookId }),
-      });
-
+      const response = await apiCall<{ error?: string }>(
+        "/event-webhooks/test",
+        { method: "POST", body: JSON.stringify({ webhookId }) },
+      );
       if (response.error) {
         setState({
           type: "danger",
-          message: `Failed to test webhook: ${
-            response.error || "Unknown error"
-          }`,
+          message: `Failed to test webhook: ${response.error || "Unknown error"}`,
         });
         return;
       }
-
-      setState({ type: "success", message: "Test event sucessfully sent!" });
-
+      setState({ type: "success", message: "Test event successfully sent!" });
       setTimeout(() => {
         mutateEventLogs();
         mutateEventWebHook();
@@ -153,167 +142,212 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
 
   if (!payloadType) return null;
 
-  return (
-    <div>
-      <div className="d-sm-flex mb-3 justify-content-between">
-        {state && state.type !== "loading" && (
-          <div className={`p-sm-1 mb-0 alert alert-${state.type}`}>
-            {state.message}
-          </div>
-        )}
-      </div>
+  const loading = state?.type === "loading";
 
-      <div className="justify-content-between mb-3 mb-sm-0">
-        <div className="d-flex align-items-center">
-          {/* Title */}
-          <div className="m-2 p-2 border rounded">
+  return (
+    <Box>
+      {state && state.type !== "loading" && (
+        <Callout status={state.type === "success" ? "success" : "error"} mb="3">
+          {state.message}
+        </Callout>
+      )}
+
+      <Flex align="center" justify="between" mb="3">
+        <Flex align="center" gap="3">
+          <Box p="2" className="border rounded">
             <WebhookIcon
               type={payloadType}
               style={{ height: "2rem", width: "2rem" }}
             />
-          </div>
-          <h1 className="mb-0">{name}</h1>
-          {enabled && (
-            <div>
-              <span className="badge badge-gray text-uppercase ml-2 mb-0">
-                Enabled
-              </span>
-            </div>
-          )}
+          </Box>
+          <Text as="div" size="x-large" weight="semibold">
+            {name}
+          </Text>
+          {enabled && <Badge label="Enabled" color="gray" variant="soft" />}
+        </Flex>
 
-          <div className="ml-auto d-flex align-items-center">
-            <button className="btn btn-primary" onClick={onEditModalOpen}>
-              <FaPencilAlt className="mr-1" /> Edit
-            </button>
-            <MoreMenu className="ml-2">
-              <button
-                onClick={onTestWebhook}
-                className="btn dropdown-item pb-2"
-                disabled={state && state.type === "loading"}
+        <Flex align="center" gap="4">
+          <Button icon={<PiPencilSimpleFill />} onClick={onEditModalOpen}>
+            Edit
+          </Button>
+
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="2"
+                highContrast
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            open={dropdownOpen}
+            onOpenChange={setDropdownOpen}
+            menuPlacement="end"
+            variant="soft"
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                disabled={loading}
+                onClick={() => {
+                  onTestWebhook();
+                  setDropdownOpen(false);
+                }}
               >
                 Send Test
-              </button>
-
-              <button
-                onClick={onToggleWebhook}
-                className="btn dropdown-item pb-2"
-                disabled={state && state.type === "loading"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={loading}
+                onClick={() => {
+                  onToggleWebhook();
+                  setDropdownOpen(false);
+                }}
               >
                 {enabled ? "Disable" : "Enable"}
-              </button>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                color="red"
+                disabled={loading}
+                confirmation={{
+                  confirmationTitle: "Delete Webhook",
+                  cta: "Delete",
+                  submitColor: "danger",
+                  submit: async () => {
+                    await onDelete();
+                    setDropdownOpen(false);
+                  },
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenu>
+        </Flex>
+      </Flex>
 
-              <hr className="m-1" />
-              <DeleteButton
-                displayName="Webhook"
-                onClick={onDelete}
-                useIcon={false}
-                className="dropdown-item text-danger"
-                text="Delete"
-                disabled={state && state.type === "loading"}
-              />
-            </MoreMenu>
-          </div>
-        </div>
-
-        <div className="ml-2">
-          {!lastRunAt ? (
-            <div className="text-muted">No runs</div>
-          ) : (
-            <div className="text-main d-flex align-items-center">
-              <b className="mr-1">Last run:</b> {datetime(lastRunAt)}
-              <span className="ml-2" style={{ fontSize: "1.5rem" }}>
-                {iconForState}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {["raw", "json"].includes(payloadType) && (
-          <div className="ml-2 d-flex align-items-center">
-            <div className="text-main">
-              <b>Secret:</b>
-            </div>
-            <span className="ml-1">
-              <code className="text-main text-break">{signingKey}</code>
-            </span>
-
-            <span className="ml-2">
-              {copySupported ? (
-                <button
-                  className="btn p-0 pb-1"
-                  onClick={() => performCopy(signingKey)}
-                >
-                  <span className="text-main" style={{ fontSize: "1.1rem" }}>
-                    {copySuccess ? (
-                      <HiOutlineClipboardCheck />
-                    ) : (
-                      <HiOutlineClipboard />
-                    )}
-                  </span>
-                </button>
-              ) : null}
-            </span>
-          </div>
+      <Box ml="2">
+        {!lastRunAt ? (
+          <Text color="text-low">No runs</Text>
+        ) : (
+          <Flex align="center" gap="2">
+            <Text weight="semibold">Last run:</Text>
+            <Text>{datetime(lastRunAt)}</Text>
+            <span style={{ fontSize: "1.5rem" }}>{iconForState}</span>
+          </Flex>
         )}
-      </div>
+      </Box>
 
-      <div className="card mt-3 p-3 p-4">
+      {["raw", "json"].includes(payloadType) && (
+        <Flex align="center" gap="2" ml="2" mt="2">
+          <Text weight="semibold">Secret:</Text>
+          <code className="text-main text-break">{signingKey}</code>
+          {copySupported && (
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="1"
+              onClick={() => performCopy(signingKey)}
+              aria-label="Copy signing key"
+            >
+              {copySuccess ? (
+                <HiOutlineClipboardCheck />
+              ) : (
+                <HiOutlineClipboard />
+              )}
+            </IconButton>
+          )}
+        </Flex>
+      )}
+
+      <Box className="card mt-3 p-3 p-4">
         <div className="row">
           <div className="col-xs-12 col-md-6">
-            <div className="align-items-center mt-2">
-              <span className="font-weight-bold">Events enabled</span>
-              <div className="mt-1">{displayedEvents(events)}</div>
-            </div>
+            <Box mt="2">
+              <Text weight="semibold">Events enabled</Text>
+              <Box mt="1">{displayedEvents(events)}</Box>
+            </Box>
           </div>
         </div>
 
         <div className="row mt-4">
           <div className="col mt-2 mt-md-0">
-            <div className="align-items-center mt-2">
-              <div className="font-weight-bold mb-1">Environments</div>
+            <Box mt="2">
+              <Text weight="semibold" as="div" mb="1">
+                Environments
+              </Text>
               {environments.length ? (
-                environments.map((env) => (
-                  <span className="mr-2 badge badge-purple" key={env}>
-                    {env}
-                  </span>
-                ))
+                <Flex gap="2" wrap="wrap">
+                  {environments.map((env) => (
+                    <Badge
+                      key={env}
+                      label={env}
+                      color="purple"
+                      variant="soft"
+                    />
+                  ))}
+                </Flex>
               ) : (
-                <span className="font-italic">All</span>
+                <Text color="text-low" fontStyle="italic">
+                  All
+                </Text>
               )}
-            </div>
+            </Box>
           </div>
 
           <div className="col mt-2 mt-md-0">
-            <div className="align-items-center mt-2">
-              <div className="font-weight-bold mb-1">Projects</div>
+            <Box mt="2">
+              <Text weight="semibold" as="div" mb="1">
+                Projects
+              </Text>
               {projects.length ? (
-                projects.map((proj) => (
-                  <span className="mr-2 badge badge-purple" key={proj.id}>
-                    {proj.name}
-                  </span>
-                ))
+                <Flex gap="2" wrap="wrap">
+                  {projects.map((proj) => (
+                    <Badge
+                      key={proj.id}
+                      label={proj.name}
+                      color="purple"
+                      variant="soft"
+                    />
+                  ))}
+                </Flex>
               ) : (
-                <span className="font-italic">All</span>
+                <Text color="text-low" fontStyle="italic">
+                  All
+                </Text>
               )}
-            </div>
+            </Box>
           </div>
 
           <div className="col mt-2 mt-md-0">
-            <div className="align-items-center mt-2">
-              <div className="font-weight-bold mb-1">Tags</div>
+            <Box mt="2">
+              <Text weight="semibold" as="div" mb="1">
+                Tags
+              </Text>
               {tags.length ? (
-                tags.map((tag) => (
-                  <span className="mr-2 badge badge-purple" key={tag}>
-                    {tag}
-                  </span>
-                ))
+                <Flex gap="2" wrap="wrap">
+                  {tags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      label={tag}
+                      color="purple"
+                      variant="soft"
+                    />
+                  ))}
+                </Flex>
               ) : (
-                <span className="font-italic">All</span>
+                <Text color="text-low" fontStyle="italic">
+                  All
+                </Text>
               )}
-            </div>
+            </Box>
           </div>
         </div>
-      </div>
+      </Box>
 
       {isModalOpen ? (
         <EventWebHookAddEditModal
@@ -325,6 +359,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
             mode: "edit",
             data: {
               ...eventWebHook,
+              events: eventWebHook.events,
               headers: eventWebHook.headers
                 ? JSON.stringify(eventWebHook.headers)
                 : "{}",
@@ -332,7 +367,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           }}
         />
       ) : null}
-    </div>
+    </Box>
   );
 };
 
@@ -349,50 +384,37 @@ export const EventWebHookDetailContainer = ({
   const { apiCall } = useAuth();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
-  const [editError, setEditError] = useState<string | null>(null);
 
   const handleEdit = useCallback(
     async (data: EventWebHookEditParams) => {
       if (!eventWebHookId) return;
 
-      // Keep the modal open and display error
-      const handleUpdateError = (message: string) => {
-        setEditError(`Failed to update webhook: ${message}`);
-        setIsEditModalOpen(true);
-      };
+      const response = await apiCall<{ error?: string; status?: number }>(
+        `/event-webhooks/${eventWebHookId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(
+            pick(data, [
+              "events",
+              "name",
+              "url",
+              "enabled",
+              "payloadType",
+              "projects",
+              "tags",
+              "environments",
+              "method",
+              "headers",
+            ]),
+          ),
+        },
+      );
 
-      try {
-        const response = await apiCall<{ error?: string; status?: number }>(
-          `/event-webhooks/${eventWebHookId}`,
-          {
-            method: "PUT",
-            body: JSON.stringify(
-              pick(data, [
-                "events",
-                "name",
-                "url",
-                "enabled",
-                "payloadType",
-                "projects",
-                "tags",
-                "environments",
-                "method",
-                "headers",
-              ]),
-            ),
-          },
-        );
-
-        if (response.error) {
-          handleUpdateError(response.error || "Unknown error");
-        } else {
-          mutateEventWebHook();
-          setIsEditModalOpen(false);
-          setEditError(null);
-        }
-      } catch (e) {
-        handleUpdateError("Unknown error");
+      if (response.error) {
+        throw new Error(response.error);
       }
+
+      mutateEventWebHook();
     },
     [mutateEventWebHook, apiCall, eventWebHookId],
   );
@@ -413,13 +435,10 @@ export const EventWebHookDetailContainer = ({
       isModalOpen={isEditModalOpen}
       onEdit={handleEdit}
       onDelete={handleDelete}
-      onEditModalOpen={() => {
-        setIsEditModalOpen(true);
-        setEditError(null);
-      }}
+      onEditModalOpen={() => setIsEditModalOpen(true)}
       onModalClose={() => setIsEditModalOpen(false)}
       eventWebHook={eventWebHook}
-      editError={editError}
+      editError={null}
       mutateEventWebHook={mutateEventWebHook}
     />
   );

@@ -1,37 +1,30 @@
-import { Router } from "express";
-import { listRampSchedules } from "./listRampSchedules";
-import { getRampSchedule } from "./getRampSchedule";
-import { postRampSchedule } from "./postRampSchedule";
-import { putRampSchedule } from "./putRampSchedule";
-import { deleteRampSchedule } from "./deleteRampSchedule";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import {
   startRampSchedule,
   pauseRampSchedule,
   resumeRampSchedule,
-  advanceRampSchedule,
+  jumpRampSchedule,
+  completeRampSchedule,
+  approveStepRampSchedule,
+  rollbackRampSchedule,
+  addTargetRampSchedule,
+  ejectTargetRampSchedule,
+} from "./rampScheduleActions";
+import { listRampSchedules } from "./listRampSchedules";
+import { postRampSchedule } from "./postRampSchedule";
+
+export const rampSchedulesRoutes: OpenApiRoute[] = [
+  // CRUD
+  listRampSchedules,
+  postRampSchedule,
+  // Actions
+  startRampSchedule,
+  pauseRampSchedule,
+  resumeRampSchedule,
   rollbackRampSchedule,
   jumpRampSchedule,
   completeRampSchedule,
-} from "./rampScheduleActions";
-
-const router = Router();
-
-// Mounted at /api/v1/ramp-schedules
-
-// CRUD
-router.get("/", listRampSchedules);
-router.post("/", postRampSchedule);
-router.get("/:id", getRampSchedule);
-router.put("/:id", putRampSchedule);
-router.delete("/:id", deleteRampSchedule);
-
-// Actions
-router.post("/:id/actions/start", startRampSchedule);
-router.post("/:id/actions/pause", pauseRampSchedule);
-router.post("/:id/actions/resume", resumeRampSchedule);
-router.post("/:id/actions/advance", advanceRampSchedule);
-router.post("/:id/actions/rollback", rollbackRampSchedule); // always resets to beginning
-router.post("/:id/actions/jump", jumpRampSchedule); // jump to a specific step
-router.post("/:id/actions/complete", completeRampSchedule);
-
-export default router;
+  approveStepRampSchedule,
+  addTargetRampSchedule,
+  ejectTargetRampSchedule,
+];

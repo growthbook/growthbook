@@ -7,6 +7,7 @@ import {
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
+  autoMerge,
 } from "shared/util";
 import {
   expandAllSliceMetricsInMap,
@@ -28,6 +29,7 @@ import {
   ExperimentStatus,
   ExperimentTargetingData,
   ExperimentType,
+  Variation,
 } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -36,6 +38,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
+import isEqual from "lodash/isEqual";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -43,15 +46,18 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
+  applyVariationWeightsToLatestPhase,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
   getChangesToStartExperiment,
+  getLinkedChangeEnvironmentStates,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   createExperimentSnapshot,
   updateExperimentBanditSettings,
+  updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
 } from "back-end/src/services/experiments";
@@ -73,7 +79,6 @@ import {
   deleteVisualChangesetById,
   findVisualChangesetById,
   findVisualChangesetsByExperiment,
-  syncVisualChangesWithVariations,
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import {
@@ -109,11 +114,13 @@ import {
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
-
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import {
+  getFeaturesByIds,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
@@ -125,6 +132,16 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
+import {
+  getDraftRevision,
+  getLiveAndBaseRevisionsForFeature,
+} from "back-end/src/services/features";
+import {
+  ExperimentLinkedFeatureValueUpdate,
+  updateExperimentRefVariations,
+  validateExperimentFeatureUpdates,
+  validateExperimentFeatureVariations,
+} from "back-end/src/services/experiment-feature";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -228,6 +245,7 @@ export async function postAIExperimentAnalysis(
   const phase = experiment.phases.length - 1;
   const snapshot =
     (await getLatestSnapshot({
+      context,
       experiment: experiment.id,
       phase,
       type: "standard",
@@ -746,6 +764,11 @@ export async function getExperiment(
     linkedFeatures,
   });
 
+  const { visualChangesetEnvStates, urlRedirectEnvStates } =
+    visualChangesets.length > 0 || urlRedirects.length > 0
+      ? await getLinkedChangeEnvironmentStates(context, experiment)
+      : { visualChangesetEnvStates: {}, urlRedirectEnvStates: {} };
+
   res.status(200).json({
     status: 200,
     experiment,
@@ -754,6 +777,8 @@ export async function getExperiment(
     linkedFeatures: linkedFeatureInfo,
     envs,
     idea,
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   });
 }
 
@@ -805,6 +830,7 @@ export async function getExperimentPublic(
 
   const snapshot =
     (await getLatestSnapshot({
+      context,
       experiment: experiment.id,
       phase,
       type: "standard",
@@ -870,6 +896,7 @@ async function _getSnapshot({
   }
 
   return await getLatestSnapshot({
+    context,
     experiment: experimentObj.id,
     phase: parseInt(phase),
     dimension,
@@ -955,11 +982,10 @@ export async function getSnapshotById(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const { id } = req.params;
 
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -1693,11 +1719,22 @@ export async function postExperiment(
   }
 
   if (data.variationWeights) {
-    const phases = [...experiment.phases];
+    changes.phases = applyVariationWeightsToLatestPhase(
+      experiment,
+      data.variationWeights,
+    );
+  }
+
+  // Re-order phase variations to match the order of the variations coming in via the request body
+  if (data.variations) {
+    const phases = changes.phases || [...experiment.phases];
     const lastIndex = phases.length - 1;
     phases[lastIndex] = {
       ...phases[lastIndex],
-      variationWeights: data.variationWeights,
+      variations: data.variations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
     };
     changes.phases = phases;
   }
@@ -1747,45 +1784,11 @@ export async function postExperiment(
     }
   }
 
-  const updated = await updateExperiment({
+  const updated = await updateExperimentAndSync({
     context,
     experiment,
     changes,
   });
-
-  // if variations have changed, update the experiment's visualchangesets if they exist
-  if (changes.variations && updated) {
-    const visualChangesets = await findVisualChangesetsByExperiment(
-      experiment.id,
-      org.id,
-    );
-
-    if (visualChangesets.length) {
-      await Promise.all(
-        visualChangesets.map((vc) =>
-          syncVisualChangesWithVariations({
-            visualChangeset: vc,
-            experiment: updated,
-            context,
-          }),
-        ),
-      );
-    }
-
-    const urlRedirects = await context.models.urlRedirects.findByExperiment(
-      experiment.id,
-    );
-    if (urlRedirects.length) {
-      await Promise.all(
-        urlRedirects.map((urlRedirect) =>
-          context.models.urlRedirects.syncURLRedirectsWithVariations(
-            urlRedirect,
-            updated,
-          ),
-        ),
-      );
-    }
-  }
   if (
     aiSettings.aiEnabled &&
     (changes.name || changes.description || changes.hypothesis)
@@ -2075,6 +2078,7 @@ export async function postExperimentStatus(
         namespace: clonedPhase.namespace,
         reason: "",
         variationWeights: clonedPhase.variationWeights,
+        variations: clonedPhase.variations,
         seed: uuidv4(),
       });
 
@@ -2317,7 +2321,7 @@ export async function deleteExperimentPhase(
     changes,
   });
 
-  await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
+  await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
 
   // Add audit entry
   await req.audit({
@@ -2453,6 +2457,7 @@ export async function postExperimentTargeting(
     namespace,
     trackingKey,
     variationWeights,
+    variations,
     seed,
     newPhase,
     reseed,
@@ -2509,6 +2514,7 @@ export async function postExperimentTargeting(
         coverage,
         namespace,
         variationWeights,
+        variations,
         seed,
       };
     } else {
@@ -2535,6 +2541,7 @@ export async function postExperimentTargeting(
       namespace,
       reason: "",
       variationWeights,
+      variations,
       seed: phases.length && reseed ? uuidv4() : seed,
     });
   }
@@ -2811,9 +2818,8 @@ export async function cancelSnapshot(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -2841,7 +2847,7 @@ export async function cancelSnapshot(
     integration,
   );
   await queryRunner.cancelQueries();
-  await deleteSnapshotById(org.id, snapshot.id);
+  await deleteSnapshotById(context, snapshot.id);
 
   // Release the incremental refresh lock if this snapshot held it.
   await context.models.incrementalRefresh
@@ -2942,10 +2948,9 @@ export async function postSnapshotAnalysis(
   res: Response<{ status: 200 } | PrivateApiErrorResponse>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     res.status(404).json({
       status: 404,
@@ -2971,10 +2976,9 @@ export async function postSnapshotAnalysis(
       experiment.phases[phaseIndex ?? latestPhase].coverage;
     // JIT migrate snapshots to have
     await updateSnapshot({
-      organization: org.id,
+      context,
       id,
       updates: { settings: snapshot.settings },
-      context,
     });
   }
 
@@ -2994,7 +2998,6 @@ export async function postSnapshotAnalysis(
   try {
     await createSnapshotAnalysis(context, {
       experiment: experiment,
-      organization: org,
       analysisSettings: analysisSettings,
       metricMap: metricMap,
       snapshot: snapshot,
@@ -3137,7 +3140,6 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   res: Response<{ status: 200 } | PrivateApiErrorResponse>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { experiments } = req.body;
   if (!experiments.length) {
     res.status(200).json({
@@ -3170,7 +3172,6 @@ export async function postSnapshotsWithScaledImpactAnalysis(
 
     snapshotAnalysesToCreate.push({
       experiment: experiment,
-      organization: org,
       analysisSettings: scaledImpactAnalysisSettings,
       metricMap: metricMap,
       snapshot: s,
@@ -3707,5 +3708,198 @@ export async function getExperimentTimeSeries(
   res.status(200).json({
     status: 200,
     timeSeries,
+  });
+}
+
+export async function postExperimentFeatureValues(
+  req: AuthRequest<
+    {
+      variations: Variation[];
+      variationWeights: number[];
+      features: Record<string, ExperimentLinkedFeatureValueUpdate>;
+    },
+    { id: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { variations, variationWeights, features } = req.body;
+  const { org } = context;
+  const experiment = await getExperimentById(context, id);
+
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (experiment.status !== "draft") {
+    res.status(400).json({
+      status: 400,
+      message:
+        "Editing feature values from an experiment is only allowed for experiments in draft. To edit feature values for a running experiment, edit the values from the feature flags directly.",
+    });
+    return;
+  }
+
+  if (!experiment.phases?.length) {
+    res.status(400).json({
+      status: 400,
+      message: "Experiment must have at least one phase",
+    });
+    return;
+  }
+
+  validateVariationIds(variations);
+  validateExperimentFeatureVariations({
+    variations,
+    variationWeights,
+    experiment,
+    features,
+  });
+
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+
+  const variationsChanged = !isEqual(variations, experiment.variations);
+  const variationWeightsChanged = !isEqual(
+    variationWeights,
+    latestPhase.variationWeights,
+  );
+
+  const changes: Changeset = {};
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  // Make sure features ids are valid for the experiment
+  Object.keys(features).forEach((featureId) => {
+    if (!linkedFeatureIds.includes(featureId)) {
+      throw new Error(`Feature ${featureId} is not linked to the experiment`);
+    }
+  });
+
+  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures: featureObjects,
+  });
+
+  if (variationsChanged) {
+    changes.variations = variations;
+  }
+
+  if (variationWeightsChanged) {
+    changes.phases = applyVariationWeightsToLatestPhase(
+      experiment,
+      variationWeights,
+    );
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Check for permission to update each feature
+  for (const feature of featureObjects) {
+    if (
+      !context.permissions.canUpdateFeature(feature, {}) ||
+      !context.permissions.canManageFeatureDrafts(feature)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
+  // Validate feature updates and get update plans for each feature before applying any changes
+  const featureUpdatePlans = await validateExperimentFeatureUpdates({
+    experiment,
+    features,
+    linkedFeatures: featureObjects,
+    context,
+  });
+
+  // If variations or variation weights have changed, update the experiment and sync visual changesets and url redirects
+  let experimentForResponse = experiment;
+  if (changes.variations || changes.phases) {
+    if (!context.permissions.canRunExperiment(experiment, envs)) {
+      context.permissions.throwPermissionError();
+    }
+    experimentForResponse = await updateExperimentAndSync({
+      context,
+      experiment,
+      changes,
+    });
+  }
+
+  // Apply draft updates for features that need them (same revision + rules as preflight)
+  for (const {
+    feature,
+    existingRevision,
+    matchingRules,
+  } of featureUpdatePlans) {
+    const { autoPublish } = features[feature.id].revisionOptions;
+    const orgEnvIds = context.environments;
+    const updatedVariationValues = features[feature.id].variations;
+
+    const revision = existingRevision
+      ? existingRevision
+      : await getDraftRevision(context, feature, feature.version);
+
+    const updatedRevision = await updateExperimentRefVariations({
+      context,
+      feature,
+      revision,
+      matchingRules,
+      updatedVariationValues,
+      user: res.locals.eventAudit,
+      orgSettings: org.settings,
+    });
+
+    if (autoPublish) {
+      const { live, base } = await getLiveAndBaseRevisionsForFeature({
+        context,
+        feature,
+        revision: updatedRevision,
+      });
+      // Auto publish permission check is in validateExperimentFeatureUpdates
+      const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+
+      // This should never happen since we only allow auto-publising new revisions, but guard against it just in case
+      if (!mergeResult.success) {
+        res.status(400).json({
+          status: 400,
+          message: `Unable to auto-publish feature values for feature ${feature.id}. Please resolve conflicts before publishing.`,
+        });
+        return;
+      }
+
+      const updatedFeature = await publishRevision(
+        context,
+        feature,
+        updatedRevision,
+        mergeResult.result,
+        "auto-publish experiment variation values change",
+      );
+
+      await req.audit({
+        event: "feature.publish",
+        entity: {
+          object: "feature",
+          id: feature.id,
+        },
+        details: auditDetailsUpdate(feature, updatedFeature, {
+          revision: updatedRevision.version,
+          comment: "auto-publish experiment variation values change",
+        }),
+      });
+    }
+  }
+
+  res.status(200).json({
+    status: 200,
+    experiment: experimentForResponse,
   });
 }

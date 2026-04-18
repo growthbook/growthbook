@@ -1,5 +1,10 @@
-import { NotificationEventName } from "shared/types/events/base-types";
+import {
+  NotificationEventNameOrWildcard,
+  notificationEventNames as allNotificationEventNames,
+  notificationEvents,
+} from "shared/validators";
 import React, { ReactNode, useMemo } from "react";
+import clsx from "clsx";
 import {
   PiQuestionLight,
   PiXSquareLight,
@@ -10,6 +15,8 @@ import {
   EventWebHookMethod,
 } from "shared/types/event-webhook";
 import { VscJson } from "react-icons/vsc";
+import { FormatOptionLabelMeta } from "react-select";
+import { SingleValue } from "@/components/Forms/SelectField";
 
 export type {
   EventWebHookPayloadType,
@@ -29,7 +36,7 @@ export type EventWebHookEditParams = {
   name: string;
   url: string;
   enabled: boolean;
-  events: NotificationEventName[];
+  events: NotificationEventNameOrWildcard[];
   tags: string[];
   environments: string[];
   projects: string[];
@@ -38,134 +45,145 @@ export type EventWebHookEditParams = {
   headers: string;
 };
 
-export const notificationEventNames = [
-  // Features
-  "feature.created",
-  "feature.updated",
-  "feature.deleted",
-  // Safe Rollouts
-  "feature.saferollout.ship",
-  "feature.saferollout.rollback",
-  "feature.saferollout.unhealthy",
-  // Experiments
-  "experiment.created",
-  "experiment.updated",
-  "experiment.deleted",
-  "experiment.warning",
-  "experiment.info.significance",
-  "experiment.decision.ship",
-  "experiment.decision.rollback",
-  "experiment.decision.review",
-  // Ramp Schedules
-  "feature.rampSchedule.created",
-  "feature.rampSchedule.deleted",
-  "feature.rampSchedule.actions.started",
-  "feature.rampSchedule.actions.completed",
-  "feature.rampSchedule.actions.rolledBack",
-  "feature.rampSchedule.actions.jumped",
-  "feature.rampSchedule.actions.step.advanced",
-  "feature.rampSchedule.actions.step.approvalRequired",
-  // User
-  "user.login",
-] as const;
+// Exclude internal/noDoc events (e.g. webhook.test) from user-facing lists
+export const notificationEventNames = allNotificationEventNames.filter(
+  (name) => {
+    const [resource, event] = name.split(".");
+    return !(
+      notificationEvents as Record<string, Record<string, { noDoc?: boolean }>>
+    )[resource]?.[event]?.noDoc;
+  },
+);
 
-export const eventWebHookEventOptions: {
-  id: NotificationEventName;
-  name: NotificationEventName;
-}[] = [
-  // Features
-  {
-    id: "feature.updated",
-    name: "feature.updated",
+// Build grouped options with wildcards for "select all in group"
+// Only supports two levels: "{1}.*" and "{1}.{2}.*"
+const buildGroupedEventOptions = () => {
+  // Organize: { "feature": { "revision": [...events], "rampSchedule": [...events] } }
+  const groups: Record<string, Record<string, string[]>> = {};
+
+  for (const eventName of notificationEventNames) {
+    const parts = eventName.split(".");
+    const level1 = parts[0]; // "feature", "experiment", etc.
+    const level2 = parts[1]; // "revision", "rampSchedule", "created", etc.
+
+    if (!groups[level1]) {
+      groups[level1] = {};
+    }
+    if (!groups[level1][level2]) {
+      groups[level1][level2] = [];
+    }
+    groups[level1][level2].push(eventName);
+  }
+
+  const result: Array<{
+    label: string;
+    options: Array<{
+      id: string;
+      name: string;
+      label: string;
+      value: string;
+      isWildcard: boolean;
+      shouldIndent?: boolean;
+    }>;
+  }> = [];
+
+  for (const [level1, level2Map] of Object.entries(groups)) {
+    const options: Array<{
+      id: string;
+      name: string;
+      label: string;
+      value: string;
+      isWildcard: boolean;
+      shouldIndent?: boolean;
+    }> = [];
+
+    // Group events by level 2, adding subgroup wildcards where applicable
+    const sortedLevel2 = Object.keys(level2Map).sort();
+
+    // Check if we have subgroups (multi-level events) or multiple top-level events
+    const totalTopLevelEvents = Object.values(level2Map).flat().length;
+    const hasMultipleTopLevel = totalTopLevelEvents > 1;
+    const hasSubgroups = sortedLevel2.some(
+      (level2) => level2Map[level2][0]?.split(".").length > 2,
+    );
+
+    // Only add top-level wildcard if there are subgroups or multiple events
+    if (hasSubgroups || hasMultipleTopLevel) {
+      options.push({
+        id: `${level1}.*`,
+        name: `${level1}.*`,
+        label: `All ${level1} events`,
+        value: `${level1}.*`,
+        isWildcard: true,
+      });
+    }
+
+    for (const level2 of sortedLevel2) {
+      const events = level2Map[level2];
+
+      // If there are multiple events under this level 2, add a wildcard
+      if (events.length > 1) {
+        options.push({
+          id: `${level1}.${level2}.*`,
+          name: `${level1}.${level2}.*`,
+          label: `${level2}`,
+          value: `${level1}.${level2}.*`,
+          isWildcard: true,
+        });
+      }
+
+      // Add individual events
+      for (const event of events.sort()) {
+        const shouldIndent =
+          hasSubgroups || hasMultipleTopLevel || events.length > 1;
+        options.push({
+          id: event,
+          name: event,
+          label: event,
+          value: event,
+          isWildcard: false,
+          shouldIndent,
+        });
+      }
+    }
+
+    result.push({
+      label: level1,
+      options,
+    });
+  }
+
+  return result;
+};
+
+export const eventWebHookEventOptions = buildGroupedEventOptions();
+
+export const formatWebhookEventOptionLabel = (
+  option: {
+    value: string;
+    label: string;
+    isWildcard?: boolean;
+    shouldIndent?: boolean;
   },
-  {
-    id: "feature.created",
-    name: "feature.created",
-  },
-  {
-    id: "feature.deleted",
-    name: "feature.deleted",
-  },
-  // Ramp Schedules
-  {
-    id: "feature.rampSchedule.created",
-    name: "feature.rampSchedule.created",
-  },
-  {
-    id: "feature.rampSchedule.deleted",
-    name: "feature.rampSchedule.deleted",
-  },
-  {
-    id: "feature.rampSchedule.actions.started",
-    name: "feature.rampSchedule.actions.started",
-  },
-  {
-    id: "feature.rampSchedule.actions.completed",
-    name: "feature.rampSchedule.actions.completed",
-  },
-  {
-    id: "feature.rampSchedule.actions.rolledBack",
-    name: "feature.rampSchedule.actions.rolledBack",
-  },
-  {
-    id: "feature.rampSchedule.actions.jumped",
-    name: "feature.rampSchedule.actions.jumped",
-  },
-  {
-    id: "feature.rampSchedule.actions.step.advanced",
-    name: "feature.rampSchedule.actions.step.advanced",
-  },
-  {
-    id: "feature.rampSchedule.actions.step.approvalRequired",
-    name: "feature.rampSchedule.actions.step.approvalRequired",
-  },
-  // Safe Rollouts
-  {
-    id: "feature.saferollout.ship",
-    name: "feature.saferollout.ship",
-  },
-  {
-    id: "feature.saferollout.rollback",
-    name: "feature.saferollout.rollback",
-  },
-  {
-    id: "feature.saferollout.unhealthy",
-    name: "feature.saferollout.unhealthy",
-  },
-  // Experiments
-  {
-    id: "experiment.created",
-    name: "experiment.created",
-  },
-  {
-    id: "experiment.updated",
-    name: "experiment.updated",
-  },
-  {
-    id: "experiment.deleted",
-    name: "experiment.deleted",
-  },
-  {
-    id: "experiment.warning",
-    name: "experiment.warning",
-  },
-  {
-    id: "experiment.info.significance",
-    name: "experiment.info.significance",
-  },
-  {
-    id: "experiment.decision.ship",
-    name: "experiment.decision.ship",
-  },
-  {
-    id: "experiment.decision.rollback",
-    name: "experiment.decision.rollback",
-  },
-  {
-    id: "experiment.decision.review",
-    name: "experiment.decision.review",
-  },
-];
+  meta?: FormatOptionLabelMeta<SingleValue>,
+) => {
+  if (option.isWildcard) {
+    const parts = option.value.split(".");
+    parts.pop(); // Remove "*"
+    const groupName = parts.join(" ");
+
+    return (
+      <span>
+        {groupName} <span className="text-muted">(All events)</span>
+      </span>
+    );
+  }
+
+  const shouldIndent =
+    (option as { shouldIndent?: boolean }).shouldIndent &&
+    meta?.context === "menu";
+  return <span className={clsx(shouldIndent && "pl-3")}>{option.label}</span>;
+};
 
 export type EventWebHookModalMode =
   | {

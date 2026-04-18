@@ -2,7 +2,11 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { isEqual, omit } from "lodash";
-import { managedByValidator, ManagedBy } from "shared/validators";
+import {
+  managedByValidator,
+  ManagedBy,
+  ApiSdkConnection,
+} from "shared/validators";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -11,7 +15,6 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import { ApiSdkConnection } from "shared/types/openapi";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
@@ -63,6 +66,10 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeExperimentNames: Boolean,
   includeRedirectExperiments: Boolean,
   includeRuleIds: Boolean,
+  includeProjectIdInMetadata: Boolean,
+  includeCustomFieldsInMetadata: Boolean,
+  allowedCustomFieldsInMetadata: [String],
+  includeTagsInMetadata: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -194,6 +201,10 @@ export const createSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
+    includeProjectIdInMetadata: z.boolean().optional(),
+    includeCustomFieldsInMetadata: z.boolean().optional(),
+    allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
+    includeTagsInMetadata: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -290,6 +301,10 @@ export const editSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
+    includeProjectIdInMetadata: z.boolean().optional(),
+    includeCustomFieldsInMetadata: z.boolean().optional(),
+    allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
+    includeTagsInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     eventTracker: z.string().optional(),
@@ -355,6 +370,10 @@ export async function editSDKConnection(
     "includeExperimentNames",
     "includeRedirectExperiments",
     "includeRuleIds",
+    "includeProjectIdInMetadata",
+    "includeCustomFieldsInMetadata",
+    "allowedCustomFieldsInMetadata",
+    "includeTagsInMetadata",
     "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -600,10 +619,15 @@ export function toApiSDKConnectionInterface(
     includeExperimentNames: connection.includeExperimentNames,
     includeRedirectExperiments: connection.includeRedirectExperiments,
     includeRuleIds: connection.includeRuleIds,
+    includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
+    includeTagsInMetadata: connection.includeTagsInMetadata,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
     remoteEvalEnabled: connection.remoteEvalEnabled,
+    savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
   };
 }

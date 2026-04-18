@@ -1,8 +1,4 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { getQuery } from "./getQuery";
 
-const router = Router();
-
-router.get("/:id", getQuery);
-
-export default router;
+export const queriesRoutes: OpenApiRoute[] = [getQuery];

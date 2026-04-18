@@ -1,6 +1,5 @@
 import { filterEnvironmentsByFeature, PermissionError } from "shared/util";
 import { deleteFeatureValidator } from "shared/validators";
-import { DeleteFeatureResponse } from "shared/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
@@ -9,7 +8,7 @@ import { getEnabledEnvironments } from "back-end/src/util/features";
 
 export const deleteFeatureById = createApiRequestHandler(
   deleteFeatureValidator,
-)(async (req): Promise<DeleteFeatureResponse> => {
+)(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
 
   if (!feature) {
@@ -35,7 +34,9 @@ export const deleteFeatureById = createApiRequestHandler(
 
   // Deleting a live (non-archived) feature is a production-affecting action.
   // Archived features can be deleted freely; unarchived ones require the org
-  // to have opted in to unrestricted REST API writes.
+  // to have opted in to unrestricted REST API writes. The project-scoped
+  // bypassApprovalChecks permission intentionally does NOT authorize this path:
+  // it is a review-workflow bypass, not a destructive-action override.
   if (!feature.archived) {
     const apiBypassesReviews =
       !!req.context.org.settings?.restApiBypassesReviews;

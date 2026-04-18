@@ -6,7 +6,12 @@ import intersection from "lodash/intersection";
 import { z } from "zod";
 import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import { NotificationEventName } from "shared/types/events/base-types";
-import { zodNotificationEventNamesEnum } from "shared/validators";
+import {
+  zodNotificationEventNamesEnum,
+  getWildcardPatternsForEvent,
+  isEventWebhookWildcard,
+  NotificationEventNameOrWildcard,
+} from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -50,9 +55,14 @@ const slackIntegrationSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator(value: unknown) {
-        const zodSchema = z.array(z.enum(zodNotificationEventNamesEnum));
-
-        const result = zodSchema.safeParse(value);
+        const eventNameOrWildcard = z
+          .string()
+          .refine(
+            (val) =>
+              zodNotificationEventNamesEnum.includes(val as never) ||
+              isEventWebhookWildcard(val),
+          );
+        const result = z.array(eventNameOrWildcard).safeParse(value);
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
@@ -112,7 +122,7 @@ type CreateOptions = {
   description: string;
   projects: string[];
   environments: string[];
-  events: NotificationEventName[];
+  events: NotificationEventNameOrWildcard[];
   tags: string[];
   slackAppId: string;
   slackIncomingWebHook: string;
@@ -226,9 +236,11 @@ export const getSlackIntegrationsForFilters = async ({
   tags,
   projects,
 }: GetForEventOptions): Promise<SlackIntegrationInterface[] | null> => {
+  const wildcardPatterns = getWildcardPatternsForEvent(eventName);
   const includesEvent = (slackIntegration: SlackIntegrationDocument) =>
     slackIntegration.events.length === 0 ||
-    slackIntegration.events.includes(eventName);
+    slackIntegration.events.includes(eventName) ||
+    wildcardPatterns.some((w) => slackIntegration.events.includes(w));
 
   const includesTags = (slackIntegration: SlackIntegrationDocument) =>
     slackIntegration.tags.length === 0 ||
@@ -268,7 +280,7 @@ type UpdateAttributes = {
   description: string;
   projects: string[];
   environments: string[];
-  events: NotificationEventName[];
+  events: NotificationEventNameOrWildcard[];
   tags: string[];
   slackAppId: string;
   slackSigningKey: string;

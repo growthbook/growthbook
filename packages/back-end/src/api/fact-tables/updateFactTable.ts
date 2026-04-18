@@ -1,5 +1,4 @@
 import { omit } from "lodash";
-import { UpdateFactTableResponse } from "shared/types/openapi";
 import { updateFactTableValidator } from "shared/validators";
 import { UpdateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
@@ -12,6 +11,7 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 // Type override to handle auto-generated OpenAPI types vs internal types
 type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
@@ -20,7 +20,7 @@ type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
 
 export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator,
-)(async (req): Promise<UpdateFactTableResponse> => {
+)(async (req) => {
   const factTable = await getFactTable(req.context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find factTable with that id");
@@ -58,6 +58,8 @@ export const updateFactTable = createApiRequestHandler(
   }
 
   const data: UpdateFactTableProps = { ...req.body } as UpdateFactTableRequest;
+  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
+  if (req.body.owner !== undefined) data.owner = resolvedOwner ?? "";
 
   // Handle column property updates only (no creation/deletion of columns)
   if (data.columns) {

@@ -109,16 +109,21 @@ export default function ExperimentMetricsSelector({
           };
         }
 
-        // Check if metric group contains quantile metrics
-        const hasQuantileMetrics = expandedIds.some((id) => {
+        // Event quantile metrics require KLL support for incremental refresh.
+        const hasUnsupportedEventQuantileMetrics = expandedIds.some((id) => {
           const metric = getExperimentMetricById(id);
-          return metric && quantileMetricType(metric);
+          return (
+            metric &&
+            quantileMetricType(metric) === "event" &&
+            !datasourceObj?.properties?.hasQuantileKLL
+          );
         });
 
-        if (hasQuantileMetrics) {
+        if (hasUnsupportedEventQuantileMetrics) {
           return {
             disabled: true,
-            reason: "Not supported with Incremental Refresh while in beta",
+            reason:
+              "Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.",
           };
         }
 
@@ -150,11 +155,16 @@ export default function ExperimentMetricsSelector({
           };
         }
 
-        // Check if metric is a quantile metric
-        if (metric && quantileMetricType(metric)) {
+        // Event quantile metrics require KLL support for incremental refresh.
+        if (
+          metric &&
+          quantileMetricType(metric) === "event" &&
+          !datasourceObj?.properties?.hasQuantileKLL
+        ) {
           return {
             disabled: true,
-            reason: "Not supported with Incremental Refresh while in beta",
+            reason:
+              "Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.",
           };
         }
 

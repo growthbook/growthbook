@@ -139,6 +139,22 @@ export const getSlackMessageForNotificationEvent = async (
         eventId,
       );
 
+    case "feature.revision.created":
+    case "feature.revision.updated":
+    case "feature.revision.reviewRequested":
+    case "feature.revision.approved":
+    case "feature.revision.changesRequested":
+    case "feature.revision.commented":
+    case "feature.revision.discarded":
+    case "feature.revision.rebased":
+    case "feature.revision.published":
+    case "feature.revision.reverted":
+      return buildSlackMessageForRevisionEvent(
+        event.event,
+        event.data.object,
+        eventId,
+      );
+
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;
@@ -264,13 +280,22 @@ export const getEventUserFormatted = async (eventId: string) => {
   const event = await getEvent(eventId);
 
   if (!event || !event.data?.user) return "an unknown user";
-  if (event.data.user.type === "system") return "an automated process";
 
-  if (event.data.user.type === "api_key")
-    return `an API request with key ending in ...${event.data.user.apiKey.slice(
-      -4,
-    )}`;
-  return `${event.data.user.name} (${event.data.user.email})`;
+  const { user } = event.data;
+
+  if (user.type === "system") return "an automated process";
+
+  const name = ("name" in user && user.name) || undefined;
+  const email = ("email" in user && user.email) || undefined;
+  const isApi = user.type === "api_key";
+
+  if (!name && !email && isApi) {
+    return `an API request with key ending in ...${user.apiKey.slice(-4)}`;
+  }
+
+  const label =
+    name && email ? `${name} (${email})` : (name ?? email ?? "unknown");
+  return isApi ? `${label} (via API)` : `${label}`;
 };
 
 const buildSlackMessageForFeatureCreatedEvent = async (
@@ -521,6 +546,81 @@ const buildSlackMessageForRampScheduleEvent = (
 };
 
 // endregion Event-specific messages -> Ramp Schedule
+
+// region Event-specific messages -> Feature Revision
+
+type RevisionSlackData = {
+  featureId: string;
+  version: number;
+  reviewComment?: string | null;
+  reviewer?: { id?: string; name?: string; email?: string };
+  revertedToVersion?: number;
+};
+
+const buildSlackMessageForRevisionEvent = (
+  eventType: string,
+  data: RevisionSlackData,
+  eventId: string,
+): SlackMessage => {
+  const feature = `*${data.featureId}*`;
+  const version = `v${data.version}`;
+  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
+
+  let text: string;
+  switch (eventType) {
+    case "feature.revision.created":
+      text = `Draft revision ${version} created for feature ${feature}`;
+      break;
+    case "feature.revision.updated":
+      text = `Draft revision ${version} of feature ${feature} was updated`;
+      break;
+    case "feature.revision.reviewRequested":
+      text = `Review requested for revision ${version} of feature ${feature}${commentSuffix}`;
+      break;
+    case "feature.revision.approved":
+      text = `Revision ${version} of feature ${feature} approved by ${reviewerName}${commentSuffix}`;
+      break;
+    case "feature.revision.changesRequested":
+      text = `Changes requested on revision ${version} of feature ${feature} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "feature.revision.commented":
+      text = `Comment on revision ${version} of feature ${feature} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "feature.revision.discarded":
+      text = `Draft revision ${version} of feature ${feature} was discarded`;
+      break;
+    case "feature.revision.rebased":
+      text = `Draft revision ${version} of feature ${feature} was rebased`;
+      break;
+    case "feature.revision.published":
+      text = `Revision ${version} of feature ${feature} was published`;
+      break;
+    case "feature.revision.reverted":
+      text = `Feature ${feature} was reverted to revision v${data.revertedToVersion ?? "?"}`;
+      break;
+    default:
+      text = `Feature ${feature} revision ${version}: ${eventType}`;
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getFeatureUrlFormatted(data.featureId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+// endregion Event-specific messages -> Feature Revision
 
 // region Event-specific messages -> Experiment
 

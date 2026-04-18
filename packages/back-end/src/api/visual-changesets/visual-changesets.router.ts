@@ -1,18 +1,12 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { getVisualChangeset } from "./getVisualChangeset";
 import { postVisualChange } from "./postVisualChange";
 import { putVisualChange } from "./putVisualChange";
 import { putVisualChangeset } from "./putVisualChangeset";
 
-const router = Router();
-
-// VisualChangeset Endpoints
-// Mounted at /api/v1/visual-changesets
-router.get("/:id", getVisualChangeset);
-router.put("/:id", putVisualChangeset);
-router.post("/:id/visual-change", postVisualChange);
-router.put("/:id/visual-change/:visualChangeId", putVisualChange);
-
-// See experiment router for 'get all' and 'create' endpoints
-
-export default router;
+export const visualChangesetsRoutes: OpenApiRoute[] = [
+  getVisualChangeset,
+  putVisualChangeset,
+  postVisualChange,
+  putVisualChange,
+];

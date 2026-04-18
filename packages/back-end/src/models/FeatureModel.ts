@@ -17,9 +17,12 @@ import {
   SafeRolloutRule,
   simpleSchemaValidator,
   RampScheduleInterface,
+  RampScheduleTemplateInterface,
   RevisionRampAction,
+  RevisionRampCreateAction,
   RampStepAction,
 } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -41,6 +44,7 @@ import {
   getSavedGroupMap,
   queueSDKPayloadRefresh,
 } from "back-end/src/services/features";
+import { remapTemplateActions } from "back-end/src/services/rampSchedule";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -48,6 +52,7 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
+import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import { logger } from "back-end/src/util/logger";
 import {
   getContextForAgendaJobByOrgId,
@@ -939,21 +944,42 @@ export async function editFeatureRule(
   user: EventUser,
   resetReview: boolean,
 ) {
+  await editFeatureRules(
+    context,
+    feature,
+    revision,
+    [{ environmentId: environment, i }],
+    updates,
+    user,
+    resetReview,
+  );
+}
+
+export async function editFeatureRules(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  matches: { environmentId: string; i: number }[],
+  updates: Partial<FeatureRule>,
+  user: EventUser,
+  resetReview: boolean,
+) {
+  const projected = applyPartialFeatureRuleUpdatesToRevision(
+    revision,
+    matches,
+    updates,
+  );
   const changes = {
-    rules: revision.rules ? cloneDeep(revision.rules) : {},
-    status: revision.status,
+    rules: projected.rules ?? {},
+    status: projected.status,
   };
 
-  changes.rules[environment] = changes.rules[environment] || [];
-  if (!changes.rules[environment][i]) {
-    throw new Error("Unknown rule");
-  }
+  const subject =
+    matches.length === 1
+      ? `in ${matches[0].environmentId} (position ${matches[0].i + 1})`
+      : `in ${matches.map((m) => m.environmentId).join(", ")}`;
 
-  changes.rules[environment][i] = {
-    ...changes.rules[environment][i],
-    ...updates,
-  } as FeatureRule;
-  await updateRevision(
+  const updatedRevision = await updateRevision(
     context,
     feature,
     revision,
@@ -961,11 +987,12 @@ export async function editFeatureRule(
     {
       user,
       action: "edit rule",
-      subject: `in ${environment} (position ${i + 1})`,
+      subject,
       value: JSON.stringify(updates),
     },
     resetReview,
   );
+  return updatedRevision;
 }
 
 export async function copyFeatureEnvironmentRules(
@@ -1070,7 +1097,7 @@ export async function setDefaultValue(
   user: EventUser,
   requireReview: boolean,
 ) {
-  await updateRevision(
+  return updateRevision(
     context,
     feature,
     revision,
@@ -1138,7 +1165,7 @@ const updateSafeRolloutStatuses = async (
 
   safeRollouts.forEach((safeRollout) => {
     // sync the status of the safe rollout to the status of the revision
-    const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
+    const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
       status: safeRolloutStatusesMap[safeRollout.id].status,
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
@@ -1368,28 +1395,83 @@ async function createRampSchedulesForRevision(
 
     const targetId = uuidv4();
 
-    // Remap "t1" placeholder targetId to the real UUID.
-    const remapTargetId = (a: RampStepAction): RampStepAction =>
-      a.targetId === "t1" ? { ...a, targetId } : a;
+    // Inject the generated targetId into every action. The caller's targetId
+    // is ignored — there is exactly one target per revision create action.
+    const normalizeAction = (
+      a: RevisionRampCreateAction["steps"][number]["actions"][number],
+    ): RampStepAction => ({
+      targetType: "feature-rule" as const,
+      targetId,
+      patch: { ...a.patch, ruleId: action.ruleId } as RampStepAction["patch"],
+    });
+
+    // Template is used as a fallback; explicit steps/endActions win.
+    let template: RampScheduleTemplateInterface | undefined;
+    if (action.templateId) {
+      const tmpl = await context.models.rampScheduleTemplates.getById(
+        action.templateId,
+      );
+      if (!tmpl) {
+        logger.warn(
+          { templateId: action.templateId },
+          "Ramp schedule template not found at revision publish time — skipping template",
+        );
+      } else {
+        template = tmpl;
+      }
+    }
+
+    const defaultName = `Ramp schedule \u2013 ${new Date().toLocaleDateString(
+      "en-US",
+      { month: "short", year: "numeric" },
+    )}`;
 
     const startDate = action.startDate ? new Date(action.startDate) : undefined;
 
-    const rawEndTrigger = action.endCondition?.trigger;
-    const endTrigger =
-      rawEndTrigger?.type === "scheduled"
-        ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
-        : undefined;
-    const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
+    const endCondition = action.endCondition?.trigger
+      ? { trigger: action.endCondition.trigger }
+      : undefined;
 
-    const steps = action.steps.map((step) => ({
-      ...step,
-      actions: step.actions.map(remapTargetId),
-    }));
+    const steps: RampScheduleInterface["steps"] =
+      action.steps.length > 0
+        ? action.steps.map((step) => ({
+            ...step,
+            actions: step.actions.map(normalizeAction),
+          }))
+        : template
+          ? template.steps.map((s) => ({
+              trigger: s.trigger,
+              actions: remapTemplateActions(
+                s.actions,
+                targetId,
+                action.ruleId,
+                feature.valueType,
+              ),
+              approvalNotes: s.approvalNotes ?? undefined,
+            }))
+          : [];
 
-    const endActions = (action.endActions ?? []).map(remapTargetId);
+    // null = explicitly cleared (skip template); undefined = not set (fall back to template).
+    const endActions: RampStepAction[] =
+      action.endActions !== undefined
+        ? Array.isArray(action.endActions)
+          ? action.endActions.map(normalizeAction)
+          : []
+        : template?.endPatch && Object.keys(template.endPatch).length > 0
+          ? [
+              {
+                targetType: "feature-rule" as const,
+                targetId,
+                patch: {
+                  ruleId: action.ruleId,
+                  ...template.endPatch,
+                } as RampStepAction["patch"],
+              },
+            ]
+          : [];
 
     const created = await context.models.rampSchedules.create({
-      name: action.name,
+      name: action.name ?? defaultName,
       entityType: "feature",
       entityId: feature.id,
       targets: [
@@ -1614,7 +1696,8 @@ export async function publishRevision(
 // Either the revision is published and the updated feature is returned, or an
 // error is thrown — a pending-review draft is never silently left behind.
 // canBypassApprovalChecks should be true when the org-level restApiBypassesReviews
-// setting is on; individual role permissions do not bypass on the REST path.
+// setting is on, or when the caller's role/token grants bypassApprovalChecks
+// on the feature's project.
 export async function createAndPublishRevision({
   context,
   feature,
@@ -1647,10 +1730,15 @@ export async function createAndPublishRevision({
   });
   if (!liveRevision) throw new Error("Could not load live revision");
 
-  // Build a temporary revision shape for the review check (same logic as createRevision).
+  // Build a temporary revision shape for the review check. Merge rules per-environment
+  // so that sparse changes.rules doesn't wipe untouched environments to [].
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveRevision,
     ...(changes ?? {}),
+    rules: {
+      ...liveRevision.rules,
+      ...(changes?.rules ?? {}),
+    },
   };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,

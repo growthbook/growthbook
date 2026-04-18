@@ -9,7 +9,7 @@ import {
   DataSourceType,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
-import { ApiDataSource } from "shared/types/openapi";
+import { ApiDataSource } from "shared/validators";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
   encryptParams,

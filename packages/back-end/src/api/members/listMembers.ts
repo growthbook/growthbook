@@ -1,4 +1,3 @@
-import { ListMembersResponse } from "shared/types/openapi";
 import { listMembersValidator } from "shared/validators";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import {
@@ -9,7 +8,7 @@ import {
 
 export const listMembers = createApiRequestHandler(listMembersValidator)(async (
   req,
-): Promise<ListMembersResponse> => {
+) => {
   if (!req.context.permissions.canManageTeam()) {
     req.context.permissions.throwPermissionError();
   }

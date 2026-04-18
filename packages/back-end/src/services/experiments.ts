@@ -71,14 +71,12 @@ import {
   SafeRolloutSnapshotAnalysis,
   IncrementalRefreshInterface,
   LookbackOverrideValueUnit,
-} from "shared/validators";
-import { Dimension } from "shared/types/integrations";
-import {
   ApiExperiment,
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
-} from "shared/types/openapi";
+} from "shared/validators";
+import { Dimension } from "shared/types/integrations";
 import {
   ConversionWindowUnit,
   MetricPriorSettings,
@@ -100,6 +98,8 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
+  LinkedChangeEnvState,
+  LinkedChangeEnvStates,
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
@@ -122,6 +122,10 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  findVisualChangesetsByExperiment,
+  syncVisualChangesWithVariations,
+} from "back-end/src/models/VisualChangesetModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -154,6 +158,7 @@ import {
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -937,6 +942,83 @@ export function resetExperimentBanditSettings({
   return changes;
 }
 
+/**
+ * Keeps visual changesets and URL redirects aligned when an experiment's
+ * variations or phases (e.g. weights) change.
+ */
+export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
+  context,
+  updated,
+}: {
+  context: ReqContext | ApiReqContext;
+  updated: ExperimentInterface;
+}): Promise<void> {
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    updated.id,
+    context.org.id,
+  );
+
+  if (visualChangesets.length) {
+    await Promise.all(
+      visualChangesets.map((vc) =>
+        syncVisualChangesWithVariations({
+          visualChangeset: vc,
+          experiment: updated,
+          context,
+        }),
+      ),
+    );
+  }
+
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    updated.id,
+  );
+  if (urlRedirects.length) {
+    await Promise.all(
+      urlRedirects.map((urlRedirect) =>
+        context.models.urlRedirects.syncURLRedirectsWithVariations(
+          urlRedirect,
+          updated,
+        ),
+      ),
+    );
+  }
+}
+
+/**
+ * Persists experiment changes and syncs linked visual changesets and URL
+ * redirects when `variations` are in the changeset.
+ */
+export async function updateExperimentAndSync({
+  context,
+  experiment,
+  changes,
+  bypassWebhooks = false,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  changes: Changeset;
+  bypassWebhooks?: boolean;
+}): Promise<ExperimentInterface> {
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes,
+    bypassWebhooks,
+  });
+
+  const shouldSyncLinked = changes.variations && updated;
+
+  if (shouldSyncLinked) {
+    await syncVisualChangesetsAndUrlRedirectsForExperiment({
+      context,
+      updated,
+    });
+  }
+
+  return updated;
+}
+
 export function updateExperimentBanditSettings({
   experiment,
   changes,
@@ -1368,6 +1450,7 @@ export async function createSnapshotFromPlan({
     }
 
     const snapshot = await createExperimentSnapshotModel({
+      context,
       data: plan.snapshot,
     });
     createdSnapshotId = snapshot.id;
@@ -1485,13 +1568,12 @@ export async function createSnapshotFromPlan({
 
     if (createdSnapshotId) {
       await updateSnapshot({
-        organization: context.org.id,
+        context,
         id: createdSnapshotId,
         updates: {
           status: "error",
           error: e.message,
         },
-        context,
       });
     }
     throw e;
@@ -1785,7 +1867,6 @@ export async function planExperimentSnapshot({
 
 export type SnapshotAnalysisParams = {
   experiment: ExperimentInterface;
-  organization: OrganizationInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   snapshot: ExperimentSnapshotInterface;
@@ -1806,6 +1887,7 @@ export async function _getSnapshots(
     experimentPhaseMap.set(e.id, e.phases.length - 1);
   });
   return await getLatestSnapshotMultipleExperiments(
+    context,
     experimentPhaseMap,
     dimension,
     withResults,
@@ -1813,8 +1895,8 @@ export async function _getSnapshots(
 }
 
 async function getSnapshotAnalyses(
-  params: SnapshotAnalysisParams[],
   context: ReqContext,
+  params: SnapshotAnalysisParams[],
 ) {
   const analysisParamsMap = new Map<
     string,
@@ -1830,104 +1912,91 @@ async function getSnapshotAnalyses(
   );
 
   const createAnalysisPromises: (() => Promise<void>)[] = [];
-  params.forEach(
-    (
-      { experiment, organization, analysisSettings, metricMap, snapshot },
-      i,
-    ) => {
-      const expandedMetricMap = new Map(metricMap);
-      // Ensure slice metrics from existing snapshot query results can always
-      // be resolved during re-analysis, regardless of caller behavior.
-      expandAllSliceMetricsInMap({
-        metricMap: expandedMetricMap,
-        factTableMap,
-        experiment,
-        metricGroups,
-      });
+  params.forEach(({ experiment, analysisSettings, metricMap, snapshot }, i) => {
+    const expandedMetricMap = new Map(metricMap);
+    // Ensure slice metrics from existing snapshot query results can always
+    // be resolved during re-analysis, regardless of caller behavior.
+    expandAllSliceMetricsInMap({
+      metricMap: expandedMetricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
 
-      // check if analysis is possible
-      if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
-        logger.error(`Analysis not allowed with this snapshot: ${snapshot.id}`);
-        return;
-      }
+    // check if analysis is possible
+    if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
+      logger.error(`Analysis not allowed with this snapshot: ${snapshot.id}`);
+      return;
+    }
 
-      const totalQueries = snapshot.queries.length;
-      const failedQueries = snapshot.queries.filter(
-        (q) => q.status === "failed",
+    const totalQueries = snapshot.queries.length;
+    const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
+    const runningQueries = snapshot.queries.filter(
+      (q) => q.status === "running",
+    );
+
+    if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+      logger.error(
+        `Snapshot queries not available for analysis: ${snapshot.id}`,
       );
-      const runningQueries = snapshot.queries.filter(
-        (q) => q.status === "running",
-      );
+      return;
+    }
+    const analysis: ExperimentSnapshotAnalysis = {
+      results: [],
+      status: "running",
+      settings: analysisSettings,
+      dateCreated: new Date(),
+    };
 
-      if (
-        runningQueries.length > 0 ||
-        failedQueries.length >= totalQueries / 2
-      ) {
-        logger.error(
-          `Snapshot queries not available for analysis: ${snapshot.id}`,
-        );
-        return;
-      }
-      const analysis: ExperimentSnapshotAnalysis = {
-        results: [],
-        status: "running",
-        settings: analysisSettings,
-        dateCreated: new Date(),
-      };
+    // promise to add analysis to mongo record if it does not exist, overwrite if it does
+    createAnalysisPromises.push(() =>
+      addOrUpdateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis,
+      }),
+    );
 
-      // promise to add analysis to mongo record if it does not exist, overwrite if it does
-      createAnalysisPromises.push(() =>
-        addOrUpdateSnapshotAnalysis({
-          organization: organization.id,
-          id: snapshot.id,
-          analysis,
-        }),
-      );
+    const mdat = getMetricsAndQueryDataForStatsEngine(
+      queryMap,
+      expandedMetricMap,
+      snapshot.settings,
+    );
+    const id = `${i}_${experiment.id}_${snapshot.id}`;
+    const variationNames = getLatestPhaseVariations(experiment).map(
+      (v) => v.name,
+    );
+    const { queryResults, metricSettings, unknownVariations } = mdat;
 
-      const mdat = getMetricsAndQueryDataForStatsEngine(
-        queryMap,
-        expandedMetricMap,
-        snapshot.settings,
-      );
-      const id = `${i}_${experiment.id}_${snapshot.id}`;
-      const variationNames = getLatestPhaseVariations(experiment).map(
-        (v) => v.name,
-      );
-      const { queryResults, metricSettings, unknownVariations } = mdat;
-
-      analysisParamsMap.set(id, {
-        params: {
-          id,
-          coverage: snapshot.settings.coverage ?? 1,
-          phaseLengthHours: Math.max(
-            hoursBetween(
-              snapshot.settings.startDate,
-              snapshot.settings.endDate,
-            ),
-            1,
-          ),
-          variations: snapshot.settings.variations.map((v, i) => ({
-            ...v,
-            index: i,
-            name: variationNames[i] || v.id,
-          })),
-          analyses: [analysisSettings],
-          queryResults: queryResults,
-          metrics: metricSettings,
-        },
-        context: {
-          // extra settings for multiple experiment approach
-          snapshotSettings: snapshot.settings,
-          organization: organization.id,
-          snapshot: snapshot.id,
-        },
-        data: {
-          unknownVariations: unknownVariations,
-          analysisObj: analysis,
-        },
-      });
-    },
-  );
+    analysisParamsMap.set(id, {
+      params: {
+        id,
+        coverage: snapshot.settings.coverage ?? 1,
+        phaseLengthHours: Math.max(
+          hoursBetween(snapshot.settings.startDate, snapshot.settings.endDate),
+          1,
+        ),
+        variations: snapshot.settings.variations.map((v, i) => ({
+          ...v,
+          index: i,
+          name: variationNames[i] || v.id,
+        })),
+        analyses: [analysisSettings],
+        queryResults: queryResults,
+        metrics: metricSettings,
+      },
+      context: {
+        // extra settings for multiple experiment approach
+        snapshotSettings: snapshot.settings,
+        organization: context.org.id,
+        snapshot: snapshot.id,
+      },
+      data: {
+        unknownVariations: unknownVariations,
+        analysisObj: analysis,
+      },
+    });
+  });
 
   // write running snapshots to db
   if (createAnalysisPromises.length > 0) {
@@ -1942,7 +2011,7 @@ export async function createSnapshotAnalyses(
   context: ReqContext,
 ): Promise<void> {
   // creates snapshot analyses in mongo and gets analysis parameters
-  const analysisParamsMap = await getSnapshotAnalyses(params, context);
+  const analysisParamsMap = await getSnapshotAnalyses(context, params);
 
   // calls stats engine to run analyses
   const results = await runSnapshotAnalyses(
@@ -1950,15 +2019,14 @@ export async function createSnapshotAnalyses(
   );
 
   // parses results and writes to mongo
-  await writeSnapshotAnalyses(results, analysisParamsMap);
+  await writeSnapshotAnalyses(context, results, analysisParamsMap);
 }
 
 export async function createSnapshotAnalysis(
   context: ReqContext | ApiReqContext,
   params: SnapshotAnalysisParams,
 ): Promise<void> {
-  const { snapshot, analysisSettings, organization, experiment, metricMap } =
-    params;
+  const { snapshot, analysisSettings, experiment, metricMap } = params;
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     throw new Error("Analysis not allowed with this snapshot");
@@ -1979,7 +2047,7 @@ export async function createSnapshotAnalysis(
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
   await addOrUpdateSnapshotAnalysis({
-    organization: organization.id,
+    context,
     id: snapshot.id,
     analysis,
   });
@@ -2000,7 +2068,7 @@ export async function createSnapshotAnalysis(
   analysis.error = undefined;
 
   await updateSnapshotAnalysis({
-    organization: organization.id,
+    context,
     id: snapshot.id,
     analysis,
   });
@@ -2020,17 +2088,47 @@ function getExperimentMetric(
     overrides: {},
   };
 
-  if (overrides?.delayHours) {
+  if (!overrides) {
+    return ret;
+  }
+
+  if (overrides.delayHours !== undefined) {
     ret.overrides.delayHours = overrides.delayHours;
   }
-  if (overrides?.windowHours) {
+  if (overrides.windowHours !== undefined) {
     ret.overrides.windowHours = overrides.windowHours;
   }
-  if (overrides?.winRisk) {
+  if (overrides.windowType !== undefined) {
+    ret.overrides.window = overrides.windowType;
+  }
+  if (overrides.winRisk !== undefined) {
     ret.overrides.winRiskThreshold = overrides.winRisk;
   }
-  if (overrides?.loseRisk) {
+  if (overrides.loseRisk !== undefined) {
     ret.overrides.loseRiskThreshold = overrides.loseRisk;
+  }
+  if (overrides.properPriorOverride !== undefined) {
+    ret.overrides.properPriorOverride = overrides.properPriorOverride;
+  }
+  if (overrides.properPriorEnabled !== undefined) {
+    ret.overrides.properPriorEnabled = overrides.properPriorEnabled;
+  }
+  if (overrides.properPriorMean !== undefined) {
+    ret.overrides.properPriorMean = overrides.properPriorMean;
+  }
+  if (overrides.properPriorStdDev !== undefined) {
+    ret.overrides.properPriorStdDev = overrides.properPriorStdDev;
+  }
+  if (overrides.regressionAdjustmentOverride !== undefined) {
+    ret.overrides.regressionAdjustmentOverride =
+      overrides.regressionAdjustmentOverride;
+  }
+  if (overrides.regressionAdjustmentEnabled !== undefined) {
+    ret.overrides.regressionAdjustmentEnabled =
+      overrides.regressionAdjustmentEnabled;
+  }
+  if (overrides.regressionAdjustmentDays !== undefined) {
+    ret.overrides.regressionAdjustmentDays = overrides.regressionAdjustmentDays;
   }
 
   return ret;
@@ -2054,7 +2152,7 @@ export async function toExperimentApiInterface(
   const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
-    // todo: experiment settings
+    experiment,
   });
   const experimentType = experiment.type || "standard";
 
@@ -2166,6 +2264,12 @@ export async function toExperimentApiInterface(
             activationMetric: getExperimentMetric(experiment, activationMetric),
           }
         : null),
+      postStratificationEnabled:
+        experiment.postStratificationEnabled !== undefined
+          ? experiment.postStratificationEnabled
+          : null,
+      decisionFrameworkSettings: experiment.decisionFrameworkSettings ?? {},
+      metricOverrides: experiment.metricOverrides ?? [],
     },
     ...(experiment.status === "stopped" && experiment.results
       ? {
@@ -2201,6 +2305,8 @@ export async function toExperimentApiInterface(
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
+    customMetricSlices: experiment.customMetricSlices ?? [],
+    defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
   };
 }
@@ -3168,6 +3274,11 @@ export function postExperimentApiPayloadToInterface(
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
+  const variationIds = payload.variations.map(() => generateVariationId());
+
+  const toPhaseVariations = (variationIds: string[]) =>
+    variationIds.map((id) => ({ id, status: "active" as const }));
+
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
     const conditionRes = validateCondition(p.condition);
     if (!conditionRes.success) {
@@ -3202,6 +3313,7 @@ export function postExperimentApiPayloadToInterface(
       variationWeights:
         p.variationWeights ||
         payload.variations.map(() => 1 / payload.variations.length),
+      variations: toPhaseVariations(variationIds),
     };
   }) || [
     {
@@ -3212,6 +3324,7 @@ export function postExperimentApiPayloadToInterface(
       variationWeights: payload.variations.map(
         () => 1 / payload.variations.length,
       ),
+      variations: toPhaseVariations(variationIds),
       condition: "",
       savedGroups: [],
       namespace: {
@@ -3254,8 +3367,8 @@ export function postExperimentApiPayloadToInterface(
     secondaryMetrics: payload.secondaryMetrics || [],
     guardrailMetrics: payload.guardrailMetrics || [],
     activationMetric: payload.activationMetric || "",
-    metricOverrides: [],
-    decisionFrameworkSettings: {},
+    metricOverrides: payload.metricOverrides ?? [],
+    decisionFrameworkSettings: payload.decisionFrameworkSettings ?? {},
     segment: payload.segmentId || "",
     queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
@@ -3268,9 +3381,9 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
     // Note: attributionModel + lookbackOverride consistency is validated by the controller
     variations:
-      payload.variations.map((v) => ({
+      payload.variations.map((v, i) => ({
         ...v,
-        id: generateVariationId(),
+        id: variationIds[i],
         screenshots: v.screenshots || [],
       })) || [],
     // Legacy field, no longer used when creating experiments
@@ -3293,10 +3406,16 @@ export function postExperimentApiPayloadToInterface(
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
+    ...(payload.postStratificationEnabled !== undefined
+      ? { postStratificationEnabled: payload.postStratificationEnabled }
+      : {}),
     shareLevel: payload.shareLevel,
     customMetricSlices: payload.customMetricSlices || [],
     customFields: payload.customFields,
     templateId: payload.templateId || undefined,
+    ...(payload.defaultDashboardId !== undefined
+      ? { defaultDashboardId: payload.defaultDashboardId }
+      : {}),
   };
 
   const { settings } = getScopedSettings({
@@ -3327,6 +3446,149 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
+type UpdateExperimentApiPayload = z.infer<
+  typeof updateExperimentValidator.bodySchema
+>;
+
+function toActivePhaseVariations(
+  canonicalVariations: ExperimentInterface["variations"],
+): ExperimentPhase["variations"] {
+  return canonicalVariations.map((v) => ({
+    id: v.id,
+    status: "active",
+  }));
+}
+
+// If there is no variations payload, this returns the existing phase variations
+// If there is a variations payload, this returns the will return the "all active"
+// status for those variations to be set on the phase
+function resolvePhaseVariationsForPayloadPhase({
+  hasVariationPayload,
+  canonicalVariations,
+  existingPhaseVariations,
+}: {
+  hasVariationPayload: boolean;
+  canonicalVariations: ExperimentInterface["variations"];
+  existingPhaseVariations: ExperimentPhase["variations"] | undefined;
+}): ExperimentPhase["variations"] {
+  const experimentLevelVariationsForPhase =
+    toActivePhaseVariations(canonicalVariations);
+
+  if (hasVariationPayload) {
+    return experimentLevelVariationsForPhase;
+  }
+
+  return existingPhaseVariations || experimentLevelVariationsForPhase;
+}
+
+/**
+ * Maps REST update payload fields `phases` and/or `variations` into experiment changes.
+ *
+ * **Validation (only when `phases` is present):** Each phase’s `condition` and every
+ * prerequisite’s `condition` are validated; invalid JSON/expressions throw with a clear error.
+ *
+ * **Top-level variations:** If the payload includes `variations`, merged entries get
+ * `screenshots: []` when omitted and a new `id` via `generateVariationId()` when omitted.
+ *
+ * **Phase-level `variations` (id + status envelope):**
+ * - With a `phases` payload: per phase index, keep the existing phase’s variation envelope
+ *   when the request does *not* send top-level `variations`; otherwise replace the envelope
+ *   with all top-level experiment variations and set every status to `"active"`. If the
+ *   existing phase had no envelope, fall back to that same active list from top-level variations.
+ * - With top-level `variations` but *no* `phases` payload: only the **last** phase’s envelope
+ *   is updated to match the new top-level order/ids; earlier phases are left unchanged
+ *   (historical phases keep their stored envelopes).
+ *
+ * **Weights:** When a phase in the payload omits `variationWeights`, weights default to
+ * equal splits across that phase’s resolved `variations` list.
+ */
+function resolveExperimentUpdateVariationsAndPhases(
+  phases: UpdateExperimentApiPayload["phases"],
+  variations: UpdateExperimentApiPayload["variations"],
+  experiment: ExperimentInterface,
+): Partial<ExperimentInterface> {
+  const hasPhasePayload = phases !== undefined;
+  const hasVariationPayload = variations !== undefined;
+
+  const resolvedVariations: ExperimentInterface["variations"] | undefined =
+    hasVariationPayload
+      ? variations.map((v) => ({
+          ...v,
+          id: v.id || generateVariationId(),
+          screenshots: v.screenshots || [],
+        }))
+      : undefined;
+  const canonicalVariations = resolvedVariations ?? experiment.variations;
+  let resolvedPhases: ExperimentInterface["phases"] | undefined;
+
+  if (hasPhasePayload) {
+    resolvedPhases = phases.map((p, phaseIndex) => {
+      const conditionRes = validateCondition(p.condition);
+      if (!conditionRes.success) {
+        throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
+      }
+      p.prerequisites?.forEach((prerequisite) => {
+        const conditionRes = validateCondition(prerequisite.condition);
+        if (!conditionRes.success) {
+          throw new Error(
+            `Invalid prerequisite condition: ${conditionRes.error}`,
+          );
+        }
+      });
+
+      // Update phase variations to match new variations payload if it exists
+      // otherwise, use the existing phase variations
+      const phaseVariations = resolvePhaseVariationsForPayloadPhase({
+        hasVariationPayload,
+        canonicalVariations,
+        existingPhaseVariations: experiment.phases[phaseIndex]?.variations,
+      });
+
+      const variationWeights =
+        p.variationWeights ||
+        phaseVariations.map((_) => 1 / phaseVariations.length);
+      return {
+        ...p,
+        dateStarted: new Date(p.dateStarted),
+        dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+        reason: p.reason || "",
+        coverage: p.coverage != null ? p.coverage : 1,
+        condition: p.condition || "{}",
+        prerequisites: p.prerequisites || [],
+        savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+          match: s.matchType,
+          ids: s.savedGroups,
+        })),
+        namespace: {
+          name: p.namespace?.namespaceId || "",
+          range: toNamespaceRange(p.namespace?.range),
+          enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
+        },
+        variationWeights,
+        variations: phaseVariations,
+      };
+    });
+  } else if (hasVariationPayload) {
+    // If user is not explicitly updating the phases, but they are updating the variations,
+    // then only update the last phase to have the new variations
+    const syncedPhaseVariations = toActivePhaseVariations(canonicalVariations);
+
+    resolvedPhases = experiment.phases.map((phase, i, arr) =>
+      i === arr.length - 1
+        ? {
+            ...phase,
+            variations: syncedPhaseVariations,
+          }
+        : phase,
+    );
+  }
+
+  return {
+    ...(resolvedVariations ? { variations: resolvedVariations } : {}),
+    ...(resolvedPhases ? { phases: resolvedPhases } : {}),
+  };
+}
+
 /**
  * Converts the OpenAPI POST /experiment/:id payload to a {@link ExperimentInterface}
  * @param payload
@@ -3335,7 +3597,7 @@ export function postExperimentApiPayloadToInterface(
  * @param userId
  */
 export function updateExperimentApiPayloadToInterface(
-  payload: z.infer<typeof updateExperimentValidator.bodySchema>,
+  payload: UpdateExperimentApiPayload,
   experiment: ExperimentInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
   organization: OrganizationInterface,
@@ -3386,13 +3648,18 @@ export function updateExperimentApiPayloadToInterface(
     banditScheduleUnit,
     banditBurnInValue,
     banditBurnInUnit,
+    metricOverrides,
+    decisionFrameworkSettings,
+    postStratificationEnabled,
+    defaultDashboardId,
   } = payload;
+
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
-    ...(assignmentQueryId ? { assignmentQueryId } : {}),
+    ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
@@ -3433,60 +3700,11 @@ export function updateExperimentApiPayloadToInterface(
     ...(sequentialTestingTuningParameter !== undefined
       ? { sequentialTestingTuningParameter }
       : {}),
-    ...(variations
-      ? {
-          variations: variations?.map((v) => ({
-            id: generateVariationId(),
-            screenshots: [],
-            ...v,
-          })),
-        }
-      : {}),
-    ...(phases
-      ? {
-          phases: phases.map((p) => {
-            const conditionRes = validateCondition(p.condition);
-            if (!conditionRes.success) {
-              throw new Error(
-                `Invalid targeting condition: ${conditionRes.error}`,
-              );
-            }
-            p.prerequisites?.forEach((prerequisite) => {
-              const conditionRes = validateCondition(prerequisite.condition);
-              if (!conditionRes.success) {
-                throw new Error(
-                  `Invalid prerequisite condition: ${conditionRes.error}`,
-                );
-              }
-            });
-
-            return {
-              ...p,
-              dateStarted: new Date(p.dateStarted),
-              dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-              reason: p.reason || "",
-              coverage: p.coverage != null ? p.coverage : 1,
-              condition: p.condition || "{}",
-              prerequisites: p.prerequisites || [],
-              savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-                match: s.matchType,
-                ids: s.savedGroups,
-              })),
-              namespace: {
-                name: p.namespace?.namespaceId || "",
-                range: toNamespaceRange(p.namespace?.range),
-                enabled:
-                  p.namespace?.enabled != null ? p.namespace.enabled : false,
-              },
-              variationWeights:
-                p.variationWeights ||
-                (
-                  payload.variations || getLatestPhaseVariations(experiment)
-                )?.map((_v, _i, arr) => 1 / arr.length),
-            };
-          }),
-        }
-      : {}),
+    ...resolveExperimentUpdateVariationsAndPhases(
+      phases,
+      variations,
+      experiment,
+    ),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
@@ -3501,6 +3719,14 @@ export function updateExperimentApiPayloadToInterface(
     ...(payload.banditConversionWindowUnit !== undefined
       ? { banditConversionWindowUnit: payload.banditConversionWindowUnit }
       : {}),
+    ...(metricOverrides !== undefined ? { metricOverrides } : {}),
+    ...(decisionFrameworkSettings !== undefined
+      ? { decisionFrameworkSettings }
+      : {}),
+    ...(postStratificationEnabled !== undefined
+      ? { postStratificationEnabled }
+      : {}),
+    ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -3714,6 +3940,58 @@ export async function getLinkedFeatureInfo(
   });
 
   return linkedFeatureInfo;
+}
+
+export async function getLinkedChangeEnvironmentStates(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+): Promise<{
+  visualChangesetEnvStates: LinkedChangeEnvStates;
+  urlRedirectEnvStates: LinkedChangeEnvStates;
+}> {
+  const environments = getEnvironmentIdsFromOrg(context.org);
+  const connections = await findSDKConnectionsByOrganization(context);
+  const experimentProject = experiment.project || "";
+
+  const connectionCoversProject = (c: { projects?: string[] }) => {
+    if (!c.projects || c.projects.length === 0) return true;
+    return c.projects.includes(experimentProject);
+  };
+
+  const visualChangesetEnvStates: Record<string, LinkedChangeEnvState> = {};
+  const urlRedirectEnvStates: Record<string, LinkedChangeEnvState> = {};
+
+  for (const env of environments) {
+    const envConnections = connections.filter((c) => c.environment === env);
+    visualChangesetEnvStates[env] = envConnections.some(
+      (c) => c.includeVisualExperiments && connectionCoversProject(c),
+    )
+      ? "active"
+      : "no-sdk-connection";
+    urlRedirectEnvStates[env] = envConnections.some(
+      (c) => c.includeRedirectExperiments && connectionCoversProject(c),
+    )
+      ? "active"
+      : "no-sdk-connection";
+  }
+
+  return { visualChangesetEnvStates, urlRedirectEnvStates };
+}
+
+/**
+ * Returns a new phases array with the latest phase's `variationWeights` set to the given values.
+ */
+export function applyVariationWeightsToLatestPhase(
+  experiment: ExperimentInterface,
+  variationWeights: number[],
+): ExperimentPhase[] {
+  const phases = [...experiment.phases];
+  const lastIndex = phases.length - 1;
+  phases[lastIndex] = {
+    ...phases[lastIndex],
+    variationWeights,
+  };
+  return phases;
 }
 
 export async function getChangesToStartExperiment(

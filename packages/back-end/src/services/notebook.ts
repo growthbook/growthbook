@@ -93,7 +93,7 @@ export async function generateExperimentNotebook(
   snapshotId: string,
 ): Promise<string> {
   // Get snapshot
-  const snapshot = await findSnapshotById(context.org.id, snapshotId);
+  const snapshot = await findSnapshotById(context, snapshotId);
   if (!snapshot) {
     throw new Error("Cannot find snapshot");
   }

@@ -2,14 +2,16 @@ import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
-import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiLink, PiCheck, PiEye, PiWarning } from "react-icons/pi";
+import { PiEye, PiWarning } from "react-icons/pi";
 import { HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
@@ -27,12 +29,11 @@ import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Callout from "@/ui/Callout";
 import Metadata from "@/ui/Metadata";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import Link from "@/ui/Link";
 import {
@@ -58,9 +59,6 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal,
   holdout,
   isReadOnly = false,
-  copyLinkHref: _copyLinkHref,
-  onCopyLink,
-  copyLinkSuccess,
 }: {
   feature: FeatureInterface;
   mutate: () => Promise<unknown>;
@@ -72,10 +70,6 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
   isReadOnly?: boolean;
-  /** Href for copy-link button (built from current version). */
-  copyLinkHref?: string;
-  onCopyLink?: () => void;
-  copyLinkSuccess?: boolean;
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -90,9 +84,7 @@ export default function FeaturesHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
-  const { organization, hasCommercialFeature, getOwnerDisplay, users } =
-    useUser();
-  const ownerDisplay = getOwnerDisplay(feature.owner);
+  const { organization, hasCommercialFeature, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -137,15 +129,26 @@ export default function FeaturesHeader({
   // Sticky tabs header — mirrors the experiment page pattern
   // NB: Keep in sync with .feature-tabs top property in global.scss
   const TABS_HEADER_HEIGHT_PX = 55;
-  const tabsRef = useRef<HTMLDivElement>(null);
+  const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();
   useEffect(() => {
-    if (!tabsRef.current) return;
-    setHeaderPinned(
-      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX,
+    const el = tabsPinSentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHeaderPinned(!entry.isIntersecting);
+      },
+      {
+        root: null,
+        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
+        threshold: 0,
+      },
     );
-  }, [scrollY]);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Portal the revisionAndSettingsGroup between the header and sticky tabs on scroll.
   // Moving a single DOM node keeps dropdown menus stable.
@@ -195,23 +198,6 @@ export default function FeaturesHeader({
   // Rendered once via a stable portal host (see above).
   const revisionAndSettingsGroup = (
     <Flex align="center" gap="4" pr="2">
-      {onCopyLink && (
-        <Tooltip
-          body={copyLinkSuccess ? "Copied!" : "Copy link"}
-          tipPosition="bottom"
-          tipMinWidth="0"
-          style={{ marginBottom: -4 }}
-        >
-          <IconButton
-            variant="ghost"
-            size="2"
-            color="violet"
-            onClick={onCopyLink}
-          >
-            {copyLinkSuccess ? <PiCheck /> : <PiLink />}
-          </IconButton>
-        </Tooltip>
-      )}
       <RevisionDropdown
         feature={feature}
         revisions={revisions}
@@ -416,7 +402,7 @@ export default function FeaturesHeader({
 
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
-              <Heading size="7" as="h1" mb="0">
+              <Heading size="2x-large" as="h1" mb="0">
                 {feature.id}
               </Heading>
               <StaleFeatureIcon
@@ -433,7 +419,7 @@ export default function FeaturesHeader({
             <div ref={headerSlotRef} />
             {portalHost && createPortal(revisionAndSettingsGroup, portalHost)}
           </Flex>
-          <Flex gap="4">
+          <Flex gap="4" align="center">
             {holdout?.id && (
               <Box>
                 <Text weight="medium">Holdout: </Text>
@@ -463,20 +449,14 @@ export default function FeaturesHeader({
                         body={<>This feature is not in your current project.</>}
                       >
                         {projectId && (
-                          <Text
-                            weight="regular"
-                            className={metaDataStyles.valueColor}
-                          >
+                          <Text weight="regular" color="text-mid">
                             {projectName}
                           </Text>
                         )}{" "}
                         <PiWarning className="text-warning" />
                       </Tooltip>
                     ) : projectId ? (
-                      <Text
-                        weight="regular"
-                        className={metaDataStyles.valueColor}
-                      >
+                      <Text weight="regular" color="text-mid">
                         {projectName}
                       </Text>
                     ) : canEdit && canPublish && !isReadOnly ? (
@@ -489,10 +469,7 @@ export default function FeaturesHeader({
                         +Add
                       </Link>
                     ) : (
-                      <Text
-                        weight="regular"
-                        className={metaDataStyles.valueColor}
-                      >
+                      <Text weight="regular" color="text-mid">
                         None
                       </Text>
                     )}
@@ -513,14 +490,7 @@ export default function FeaturesHeader({
 
             <Box>
               <Text weight="medium">Owner: </Text>
-              {ownerDisplay ? (
-                <span>
-                  <UserAvatar name={ownerDisplay} size="sm" variant="soft" />{" "}
-                  {ownerDisplay}
-                </span>
-              ) : (
-                <em className="text-muted">None</em>
-              )}
+              <Owner ownerId={feature.owner} gap="1" />
             </Box>
           </Flex>
           <Box mt="1" mb="3">
@@ -545,28 +515,40 @@ export default function FeaturesHeader({
           </div>
         </Box>
       </Box>
-      <div
-        className={clsx("feature-tabs d-print-none", {
-          pinned: headerPinned,
-        })}
-      >
-        <div className="container-fluid pagecontents px-3">
-          <div className="header-tabs" ref={tabsRef}>
-            <Tabs value={tab} onValueChange={setTab}>
-              <TabsList size="3" style={{ width: "100%" }}>
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="test">Simulate</TabsTrigger>
-                <TabsTrigger value="stats">Code Refs</TabsTrigger>
-                <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-                {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
-                <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
-                  <div ref={tabsSlotRef} />
-                </Box>
-              </TabsList>
-            </Tabs>
+      <>
+        <div
+          ref={tabsPinSentinelRef}
+          aria-hidden
+          className="d-print-none"
+          style={{
+            height: 1,
+            width: "100%",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          className={clsx("feature-tabs d-print-none", {
+            pinned: headerPinned,
+          })}
+        >
+          <div className="container-fluid pagecontents px-3">
+            <div className="header-tabs">
+              <Tabs value={tab} onValueChange={setTab}>
+                <TabsList size="3" style={{ width: "100%" }}>
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="test">Simulate</TabsTrigger>
+                  <TabsTrigger value="stats">Code Refs</TabsTrigger>
+                  <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+                  {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
+                  <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
+                    <div ref={tabsSlotRef} />
+                  </Box>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </div>
-      </div>
+      </>
       {auditModal && (
         <CompareFeatureEventsModal
           feature={feature}

@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
-import { z } from "zod";
 import {
   DemographicData,
   Invite,
@@ -14,7 +14,7 @@ import {
   OrgMemberInfo,
   Role,
 } from "shared/types/organization";
-import { ApiOrganization } from "shared/types/openapi";
+import { ApiOrganization } from "shared/validators";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -83,6 +83,7 @@ const organizationSchema = new mongoose.Schema({
       ...baseMemberFields,
       email: String,
       key: String,
+      invitedBy: String,
     },
   ],
   pendingMembers: [

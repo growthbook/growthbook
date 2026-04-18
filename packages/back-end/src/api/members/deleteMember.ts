@@ -1,10 +1,9 @@
-import { DeleteMemberResponse } from "shared/types/openapi";
 import { deleteMemberValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { removeUserFromOrg } from "back-end/src/scim/users/patchUser";
 
 export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
-  async (req): Promise<DeleteMemberResponse> => {
+  async (req) => {
     if (!req.context.permissions.canManageTeam()) {
       req.context.permissions.throwPermissionError();
     }

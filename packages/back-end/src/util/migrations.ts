@@ -603,6 +603,25 @@ export function upgradeExperimentDoc(
     });
   }
 
+  // Populate phase-level variation status from top-level variations
+  if (experiment.phases) {
+    experiment.phases.forEach((phase) => {
+      if (!phase.variations) {
+        phase.variations = experiment.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        }));
+      }
+      if (phase.variations && phase.variations.length === 0) {
+        // catch case where variations is an empty array
+        phase.variations = experiment.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        }));
+      }
+    });
+  }
+
   // Upgrade the attribution model
   if (experiment.attributionModel === "allExposures") {
     experiment.attributionModel = "experimentDuration";

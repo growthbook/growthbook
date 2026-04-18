@@ -25,6 +25,23 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 
+/**
+ * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
+ * and omits chartType. Reuse the cached rows but surface the client's requested visualization.
+ */
+function withRequestedChartType(
+  existing: ProductAnalyticsExploration,
+  requested: ExplorationConfig,
+): ProductAnalyticsExploration {
+  if (existing.config.chartType === requested.chartType) {
+    return existing;
+  }
+  return {
+    ...existing,
+    config: { ...existing.config, chartType: requested.chartType },
+  };
+}
+
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
   config: ExplorationConfig,
@@ -36,7 +53,7 @@ export async function runProductAnalyticsExploration(
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config);
     if (existing) {
-      return existing;
+      return withRequestedChartType(existing, config);
     }
   }
 

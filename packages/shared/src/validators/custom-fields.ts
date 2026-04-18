@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { apiBaseSchema } from "./base-model";
 
-export const customFieldSectionTypes = z.enum(["feature", "experiment"]);
+import { namedSchema } from "./openapi-helpers";
+
+export const customFieldSectionValues = ["feature", "experiment"] as const;
+export const customFieldSectionTypes = z.enum(customFieldSectionValues);
+// All valid sections — use as the default when no section is specified.
+export const ALL_SECTIONS = [...customFieldSectionValues] as const;
 
 export const customFieldTypes = z.enum([
   "text",
@@ -25,10 +30,9 @@ export const customFieldsPropsValidator = z.object({
   type: customFieldTypes,
   values: z.string().optional(),
   required: z.boolean(),
-  index: z.boolean().optional(),
   creator: z.string().optional(),
   projects: z.array(z.string()).optional(),
-  section: customFieldSectionTypes,
+  sections: z.array(customFieldSectionTypes),
   dateCreated: z.date(),
   dateUpdated: z.date(),
   active: z.boolean().optional(),
@@ -60,9 +64,10 @@ export const createCustomFieldsValidator = customFieldsPropsValidator.omit({
 
 export const updateCustomFieldsValidator = customFieldsPropsValidator.omit({
   id: true,
+  type: true,
   dateCreated: true,
   dateUpdated: true,
-});
+}); // `active` remains — allows enabling/disabling a field
 
 const apiDefaultValueTypes = z.union([
   z.string(),
@@ -77,20 +82,22 @@ const apiDefaultValueTypes = z.union([
   z.array(z.iso.date()),
 ]);
 
-export const apiCustomFieldInterface = apiBaseSchema.safeExtend({
-  name: z.string(),
-  description: z.string().optional(),
-  placeholder: z.string().optional(),
-  defaultValue: apiDefaultValueTypes.optional(),
-  type: customFieldTypes,
-  values: z.string().optional(),
-  required: z.boolean(),
-  index: z.boolean().optional(),
-  creator: z.string().optional(),
-  projects: z.array(z.string()).optional(),
-  section: customFieldSectionTypes,
-  active: z.boolean().optional(),
-});
+export const apiCustomFieldInterface = namedSchema(
+  "CustomField",
+  apiBaseSchema.safeExtend({
+    name: z.string(),
+    description: z.string().optional(),
+    placeholder: z.string().optional(),
+    defaultValue: apiDefaultValueTypes.optional(),
+    type: customFieldTypes,
+    values: z.string().optional(),
+    required: z.boolean(),
+    creator: z.string().optional(),
+    projects: z.array(z.string()).optional(),
+    sections: z.array(customFieldSectionTypes),
+    active: z.boolean().optional(),
+  }),
+);
 
 export type ApiCustomField = z.infer<typeof apiCustomFieldInterface>;
 
@@ -105,13 +112,15 @@ export const apiCreateCustomFieldBody = z.strictObject({
   ),
   values: z.string().optional(),
   required: z.boolean(),
-  index: z.boolean().optional(),
   projects: z.array(z.string()).optional(),
-  section: customFieldSectionTypes.describe(
-    "What type of objects this custom field is applicable to",
-  ),
+  sections: z
+    .array(customFieldSectionTypes)
+    .describe(
+      "What types of objects this custom field is applicable to (feature, experiment)",
+    ),
 });
 
 export const apiUpdateCustomFieldBody = apiCreateCustomFieldBody
-  .omit({ id: true })
+  .omit({ id: true, type: true })
+  .extend({ active: z.boolean().optional() })
   .partial();

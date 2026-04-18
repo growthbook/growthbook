@@ -1,8 +1,8 @@
 import React, { FC, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { NotificationEventName } from "shared/types/events/base-types";
 import { TagInterface } from "shared/types/tag";
+import { isEventWebhookWildcard } from "shared/validators";
 import {
   eventWebHookEventOptions,
   notificationEventNames,
@@ -85,7 +85,15 @@ export const SlackIntegrationAddEditModal: FC<
       description: z.string().trim().min(0),
       projects: z.array(z.string()),
       environments: z.array(z.string()),
-      events: z.array(z.enum(notificationEventNames)),
+      events: z.array(
+        z
+          .string()
+          .refine(
+            (val) =>
+              notificationEventNames.includes(val as never) ||
+              isEventWebhookWildcard(val),
+          ),
+      ),
       tags: z.array(z.string()),
       slackAppId: z.string().trim().min(2),
       slackSigningKey: z.string().trim().min(2),
@@ -151,12 +159,11 @@ export const SlackIntegrationAddEditModal: FC<
         label="Event filters"
         helpText="Only receive notifications for matching events."
         value={form.watch("events")}
-        options={eventWebHookEventOptions.map(({ id }) => ({
-          label: id,
-          value: id,
-        }))}
+        options={eventWebHookEventOptions.flatMap(({ options }) =>
+          options.map((opt) => ({ label: opt.label, value: opt.value })),
+        )}
         onChange={(value: string[]) => {
-          form.setValue("events", value as NotificationEventName[]);
+          form.setValue("events", value);
           handleFormValidation();
         }}
       />

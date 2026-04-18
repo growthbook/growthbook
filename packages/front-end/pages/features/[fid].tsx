@@ -11,13 +11,13 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 import { useFeaturePageData } from "@/hooks/useFeaturePageData";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
@@ -34,13 +34,13 @@ export default function FeaturePage() {
     FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
   > | null>(null);
 
-  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
   // Clean state when feature id changes
   useEffect(() => {
     setDiagnosticsResults(null);
   }, [fid]);
 
   const { apiCall } = useAuth();
+  const { userId } = useUser();
 
   const {
     data,
@@ -51,7 +51,39 @@ export default function FeaturePage() {
     revision,
     version,
     setVersion,
-  } = useFeaturePageData(fid, router.query.v);
+  } = useFeaturePageData(fid, router.query.v, userId);
+
+  const queryV = router.query.v;
+  useEffect(() => {
+    if (!router.isReady || queryV === undefined) return;
+    const parsed = parseInt(String(queryV), 10);
+    if (isNaN(parsed) || parsed === version) return;
+    if (data?.revisionList?.some((r) => r.version === parsed)) {
+      setVersion(parsed);
+    }
+  }, [queryV, data?.revisionList]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (version === null || !router.isReady) return;
+    if (queryV === String(version)) return;
+    const isCorrection =
+      queryV !== undefined &&
+      !data?.revisionList?.some(
+        (r) => r.version === parseInt(String(queryV), 10),
+      );
+    const method =
+      queryV === undefined || isCorrection ? router.replace : router.push;
+    const hash = new URL(router.asPath, "http://x").hash.slice(1) || undefined;
+    void method(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, v: version },
+        hash,
+      },
+      undefined,
+      { shallow: true },
+    );
+  }, [version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const experiments = data?.experiments;
   const safeRollouts = data?.safeRollouts;
@@ -67,26 +99,21 @@ export default function FeaturePage() {
 
   const setTabAndScroll = (tab: FeatureTab) => {
     setTab(tab);
-    const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
-    if (newUrl === window.location.href) return;
-    router.push(newUrl, undefined, { shallow: true });
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    void router.push(
+      { pathname: router.pathname, query: router.query, hash: tab },
+      undefined,
+      { shallow: true },
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
-    const handler = () => {
-      const hash = window.location.hash.replace(/^#/, "") as FeatureTab;
-      if (featureTabs.includes(hash)) {
-        setTab(hash);
-      }
-    };
-    handler();
-    window.addEventListener("hashchange", handler, false);
-    return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab]);
+    const hash = (new URL(router.asPath, "http://x").hash.slice(1) ||
+      undefined) as FeatureTab | undefined;
+    if (hash && featureTabs.includes(hash)) {
+      setTab(hash);
+    }
+  }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dependents =
     (dependentsData?.features.length ?? 0) +
@@ -130,13 +157,6 @@ export default function FeaturePage() {
             (revision.status === "published" &&
               revision.version !== feature.version)
           }
-          onCopyLink={() => {
-            const url =
-              window.location.href.replace(/[?#].*/, "") +
-              `?v=${version ?? feature.version}`;
-            performCopy(url);
-          }}
-          copyLinkSuccess={copySuccess}
         />
 
         {tab === "overview" && (

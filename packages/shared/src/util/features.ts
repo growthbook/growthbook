@@ -5,7 +5,11 @@ import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
-import { ExperimentRefRule, RevisionMetadata } from "shared/validators";
+import {
+  ExperimentRefRule,
+  RevisionMetadata,
+  ApiFeature,
+} from "shared/validators";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -24,7 +28,6 @@ import {
   Environment,
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
-import { ApiFeature } from "shared/types/openapi";
 import { GroupMap } from "shared/types/saved-group";
 import { getValidDate } from "../dates";
 import {
@@ -722,7 +725,7 @@ export function liveRevisionFromFeature(
     holdout:
       "holdout" in (feature as object)
         ? ((feature as { holdout?: RevisionFields["holdout"] }).holdout ?? null)
-        : liveRevision.holdout,
+        : (liveRevision.holdout ?? null),
     metadata: {
       description: feature.description ?? "",
       owner: feature.owner ?? "",
@@ -850,7 +853,10 @@ function revisionHasGlobalChange(
     return true;
   if (revision.archived !== undefined && revision.archived !== base.archived)
     return true;
-  if ("holdout" in revision && !isEqual(revision.holdout, base.holdout ?? null))
+  if (
+    "holdout" in revision &&
+    !isEqual(revision.holdout ?? null, base.holdout ?? null)
+  )
     return true;
   if (revision.defaultValue !== base.defaultValue) return true;
   if (
@@ -878,7 +884,7 @@ function revisionHasMetadataOnlyGlobalChange(
       !isEqual(revision.prerequisites, base.prerequisites || [])) ||
     (revision.archived !== undefined && revision.archived !== base.archived) ||
     ("holdout" in revision &&
-      !isEqual(revision.holdout, base.holdout ?? null)) ||
+      !isEqual(revision.holdout ?? null, base.holdout ?? null)) ||
     revision.defaultValue !== base.defaultValue;
   if (hasNonMetadata) return false;
   return (
