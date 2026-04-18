@@ -62,7 +62,7 @@ const mergeConflictSchema = z
 const mergeResultChangesSchema = z
   .object({
     defaultValue: z.string().optional(),
-    rules: z.record(z.string(), z.array(featureRule)).optional(),
+    rules: z.array(featureRule).optional(),
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     archived: z.boolean().optional(),

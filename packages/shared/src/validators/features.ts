@@ -60,6 +60,15 @@ export const baseRule = z
     description: z.string(),
     condition: z.string().optional(),
     id: z.string(),
+    // Stable identifier for the unified rule array. Deterministic for JIT-migrated
+    // rules (hash of featureId, legacyId, envContext); random for newly-created rules.
+    uid: z.string(),
+    // When true the rule applies in every environment and `environments` is omitted.
+    // When false the rule applies only in environments listed in `environments`.
+    allEnvironments: z.boolean(),
+    // Environments in which this rule is active. Required when allEnvironments=false;
+    // must be omitted when allEnvironments=true.
+    environments: z.array(z.string()).optional(),
     enabled: z.boolean().optional(),
     scheduleRules: z.array(scheduleRule).optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -192,11 +201,12 @@ export const featureRule = z.union([
 
 export type FeatureRule = z.infer<typeof featureRule>;
 
+// Rules no longer live per-environment; see `featureInterface.rules`.
+// featureEnvironment carries only env-level settings (kill switch + prerequisites).
 export const featureEnvironment = z
   .object({
     enabled: z.boolean(),
     prerequisites: z.array(featurePrerequisite).optional(),
-    rules: z.array(featureRule),
   })
   .strict();
 
@@ -224,7 +234,7 @@ const revisionLog = z
 
 export type RevisionLog = z.infer<typeof revisionLog>;
 
-const revisionRulesSchema = z.record(z.string(), z.array(featureRule));
+const revisionRulesSchema = z.array(featureRule);
 export type RevisionRules = z.infer<typeof revisionRulesSchema>;
 
 export const revisionStatusSchema = z.enum([
@@ -413,6 +423,10 @@ export const featureInterface = z
     version: z.number(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment),
+    // Unified top-level rule array. Each rule carries `environments` (or allEnvironments=true).
+    // Repurposes the pre-existing but previously-unused `rules` field in the Mongoose schema
+    // so no DB migration is needed.
+    rules: z.array(featureRule),
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
     customFields: z.record(z.string(), z.any()).optional(),

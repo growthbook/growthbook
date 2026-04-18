@@ -619,7 +619,7 @@ export interface MergeConflict {
 export type MergeStrategy = "" | "overwrite" | "discard";
 export type MergeResultChanges = {
   defaultValue?: string;
-  rules?: Record<string, FeatureRule[]>;
+  rules?: FeatureRule[];
   environmentsEnabled?: Record<string, boolean>;
   prerequisites?: FeaturePrerequisite[];
   archived?: boolean;
