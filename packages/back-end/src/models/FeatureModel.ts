@@ -46,6 +46,12 @@ import {
 } from "back-end/src/services/features";
 import { remapTemplateActions } from "back-end/src/services/rampSchedule";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
+import {
+  flattenRules,
+  getApplicableEnvIds,
+  isUnifiedFeatureEnvSettings,
+  LegacyRulesByEnv,
+} from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
@@ -187,19 +193,68 @@ export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
 );
 
 /**
- * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
- * @param doc
+ * Convert the Mongo document to a unified FeatureInterface.
+ *
+ * This function is the single JIT-migration chokepoint for features on read.
+ * It performs, in order:
+ *   1. Strip Mongoose metadata (`__v`, `_id`).
+ *   2. Apply `upgradeFeatureInterface` to migrate very-old shapes (top-level
+ *      `rules`+`environments` arrays, legacy drafts) into the pre-unification
+ *      shape with `environmentSettings[env].rules`.
+ *   3. Apply env inheritance so sparse `environmentSettings` records expand to
+ *      include all envs the feature is expected to exist in (needed for rule
+ *      flattening to see the correct per-env footprint).
+ *   4. If the doc is still in the pre-unification (per-env rules) shape — as
+ *      detected by `isUnifiedFeatureEnvSettings` returning false — flatten
+ *      per-env rules into the unified top-level `feature.rules: FeatureRule[]`
+ *      array via `flattenRules`. Deterministic uids are assigned.
+ *   5. Transitional: `environmentSettings[env].rules` is intentionally left
+ *      populated in memory so legacy consumers (Phase 3/5a targets) continue
+ *      working during the migration window. Once those consumers are rewritten
+ *      to use the unified `feature.rules`, this function will strip per-env
+ *      rules from the returned object and the write path (see
+ *      `buildFeatureUpdate` in Phase 3) will scrub them from disk.
  */
 const toInterface = (
   doc: FeatureDocument,
   context: ReqContext | ApiReqContext,
 ): FeatureInterface => {
-  const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
-  featureInterface.environmentSettings = applyEnvironmentInheritance(
-    context.org.settings?.environments || [],
-    featureInterface.environmentSettings || {},
+  const orgEnvs = context.org.settings?.environments || [];
+
+  const raw = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+  const afterShapeMigration = upgradeFeatureInterface(raw);
+  afterShapeMigration.environmentSettings = applyEnvironmentInheritance(
+    orgEnvs,
+    afterShapeMigration.environmentSettings || {},
   );
-  return featureInterface;
+
+  const envSettings = (afterShapeMigration.environmentSettings || {}) as Record<
+    string,
+    { enabled?: boolean; rules?: FeatureRule[] }
+  >;
+
+  if (!isUnifiedFeatureEnvSettings(envSettings)) {
+    const rulesByEnv: LegacyRulesByEnv = {};
+    for (const [envId, envObj] of Object.entries(envSettings)) {
+      rulesByEnv[envId] = envObj?.rules || [];
+    }
+    const applicableEnvs = getApplicableEnvIds(
+      orgEnvs,
+      afterShapeMigration.project,
+    );
+    afterShapeMigration.rules = flattenRules(
+      afterShapeMigration.id,
+      rulesByEnv,
+      {
+        envOrder: orgEnvs.map((e) => e.id),
+        applicableEnvs,
+      },
+    );
+  } else {
+    afterShapeMigration.rules = afterShapeMigration.rules || [];
+  }
+
+  return afterShapeMigration;
 };
 
 export async function getAllFeatures(
@@ -221,7 +276,7 @@ export async function getAllFeatures(
   }
 
   const features = (await FeatureModel.find(q)).map((m) =>
-    upgradeFeatureInterface(toInterface(m, context)),
+    toInterface(m, context),
   );
 
   return features.filter((feature) =>
@@ -272,7 +327,7 @@ export async function getFeaturesPage(
     .skip(offset)
     .limit(limit);
   return docs
-    .map((m) => upgradeFeatureInterface(toInterface(m, context)))
+    .map((m) => toInterface(m, context))
     .filter((feature) =>
       context.permissions.canReadSingleProjectResource(feature.project),
     );
@@ -319,7 +374,7 @@ export async function getFeature(
   if (!feature) return null;
 
   return context.permissions.canReadSingleProjectResource(feature.project)
-    ? upgradeFeatureInterface(toInterface(feature, context))
+    ? toInterface(feature, context)
     : null;
 }
 
@@ -356,7 +411,7 @@ export async function getFeaturesByIds(
   if (!ids.length) return [];
   const features = (
     await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
-  ).map((m) => upgradeFeatureInterface(toInterface(m, context)));
+  ).map((m) => toInterface(m, context));
 
   return features.filter((feature) =>
     context.permissions.canReadSingleProjectResource(feature.project),
@@ -820,9 +875,7 @@ export async function getScheduledFeaturesToUpdate() {
       jobContextsByOrg[orgId] = await getContextForAgendaJobByOrgId(orgId);
     }),
   );
-  return features.map((m) =>
-    upgradeFeatureInterface(toInterface(m, jobContextsByOrg[m.organization])),
-  );
+  return features.map((m) => toInterface(m, jobContextsByOrg[m.organization]));
 }
 
 export async function archiveFeature(

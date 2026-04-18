@@ -18,6 +18,12 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
+import {
+  flattenRules,
+  getApplicableEnvIds,
+  isUnifiedRevisionRules,
+  LegacyRulesByEnv,
+} from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
@@ -73,9 +79,29 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   featureRevisionSchema,
 );
 
+/**
+ * Convert the Mongo revision document to a unified FeatureRevisionInterface.
+ *
+ * JIT-migration chokepoint for revisions on read. Steps:
+ *   1. Strip Mongoose metadata.
+ *   2. Backfill historical missing fields (publishedBy.type, status, etc.).
+ *   3. If `revision.rules` is in the legacy `Record<env, FeatureRule[]>` shape,
+ *      apply env inheritance (expand sparse per-env records), then flatten via
+ *      `flattenRules` into the unified `FeatureRule[]` array. Already-unified
+ *      arrays pass through untouched (see `isUnifiedRevisionRules`).
+ *   4. If `opts.featureProject` is provided, `applicableEnvs` is computed from
+ *      the org's env list + project. Merged rules whose footprint covers every
+ *      applicable env collapse to `allEnvironments: true`. Without this hint,
+ *      the JIT conservatively emits explicit `environments` lists — still
+ *      semantically correct, just no `allEnvironments: true` collapse.
+ *
+ * Callers that have the parent feature in scope should prefer
+ * `toInterfaceWithFeature` below so the collapse can happen.
+ */
 function toInterface(
   doc: FeatureRevisionDocument,
   context: ReqContext | ApiReqContext,
+  opts?: { featureProject?: string },
 ): FeatureRevisionInterface {
   const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
 
@@ -99,11 +125,42 @@ function toInterface(
         .revisionDate || revision.dateCreated;
   }
 
-  revision.rules = applyEnvironmentInheritance(
-    context.org.settings?.environments || [],
-    revision.rules,
-  );
+  const orgEnvs = context.org.settings?.environments || [];
+  const rawRules = revision.rules as unknown;
+
+  if (isUnifiedRevisionRules(rawRules)) {
+    revision.rules = rawRules;
+  } else {
+    const legacyRecord =
+      (rawRules as Record<string, FeatureRule[]> | undefined) || {};
+    const inherited = applyEnvironmentInheritance(
+      orgEnvs,
+      legacyRecord,
+    ) as LegacyRulesByEnv;
+    const applicableEnvs = opts?.featureProject
+      ? getApplicableEnvIds(orgEnvs, opts.featureProject)
+      : undefined;
+    revision.rules = flattenRules(revision.featureId, inherited, {
+      envOrder: orgEnvs.map((e) => e.id),
+      applicableEnvs,
+    });
+  }
   return revision;
+}
+
+/**
+ * Wrapper around `toInterface` for callers that already have the parent feature
+ * in scope. Passes `feature.project` so rule flattening can collapse to
+ * `allEnvironments: true` when a rule covers every applicable env for the
+ * feature. Prefer this over `toInterface(doc, context)` whenever the feature
+ * is available (most paired feature/revision read paths).
+ */
+export function revisionToInterfaceWithFeature(
+  doc: FeatureRevisionDocument,
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "project">,
+): FeatureRevisionInterface {
+  return toInterface(doc, context, { featureProject: feature.project });
 }
 
 export async function countDocuments(

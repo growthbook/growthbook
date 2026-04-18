@@ -1,10 +1,14 @@
 import { FeatureRule } from "shared/validators";
+import { Environment } from "shared/types/organization";
 import {
   flattenRules,
   generateRuleUid,
-  isAlreadyFlat,
+  getApplicableEnvIds,
+  isUnifiedFeatureEnvSettings,
+  isUnifiedRevisionRules,
   LegacyFeatureRule,
   LegacyRulesByEnv,
+  resolveRampTarget,
 } from "../../src/util/flattenRules";
 
 // ---------- helpers ----------
@@ -349,9 +353,7 @@ describe("flattenRules", () => {
     });
 
     it("splits when scheduleRules differ", () => {
-      const sched = [
-        { timestamp: "2024-01-01T00:00:00Z", enabled: true },
-      ];
+      const sched = [{ timestamp: "2024-01-01T00:00:00Z", enabled: true }];
       const out = flattenRules(FEATURE_ID, {
         dev: [forceRule("r1", { scheduleRules: sched })],
         prod: [forceRule("r1", { scheduleRules: [] })],
@@ -434,8 +436,12 @@ describe("flattenRules", () => {
         prod: [B, A],
       });
       // Emission strategy walks envs in canonical order. Dev first.
-      const devSeq = out.filter((r) => r.environments?.[0] === "dev").map((r) => r.id);
-      const prodSeq = out.filter((r) => r.environments?.[0] === "prod").map((r) => r.id);
+      const devSeq = out
+        .filter((r) => r.environments?.[0] === "dev")
+        .map((r) => r.id);
+      const prodSeq = out
+        .filter((r) => r.environments?.[0] === "prod")
+        .map((r) => r.id);
       expect(devSeq).toEqual(["A", "B"]);
       expect(prodSeq).toEqual(["B", "A"]);
     });
@@ -538,10 +544,7 @@ describe("flattenRules", () => {
       // - "prodOnly" is only in prod → env-specific
       const shared = forceRule("shared");
       const out = flattenRules(FEATURE_ID, {
-        dev: [
-          { ...shared },
-          forceRule("devTweak", { value: "dev" }),
-        ],
+        dev: [{ ...shared }, forceRule("devTweak", { value: "dev" })],
         prod: [
           { ...shared },
           forceRule("devTweak", { value: "prod" }),
@@ -572,9 +575,9 @@ describe("flattenRules", () => {
         prod: [r],
       });
       expect(out).toHaveLength(1);
-      expect((out[0] as FeatureRule & { savedGroups: unknown }).savedGroups).toEqual([
-        { match: "all", ids: ["g1"] },
-      ]);
+      expect(
+        (out[0] as FeatureRule & { savedGroups: unknown }).savedGroups,
+      ).toEqual([{ match: "all", ids: ["g1"] }]);
     });
   });
 
@@ -704,9 +707,9 @@ describe("flattenRules", () => {
         dev: [r1a, r1b],
       });
       expect(out).toHaveLength(2);
-      expect(out.map((r) => (r as FeatureRule & { value: string }).value)).toEqual(
-        ["first", "second"],
-      );
+      expect(
+        out.map((r) => (r as FeatureRule & { value: string }).value),
+      ).toEqual(["first", "second"]);
       expect(out[0].uid).not.toBe(out[1].uid);
       // First occurrence uses the stable `env` suffix; subsequent use `env#N`.
       expect(out[0].uid).toBe(generateRuleUid(FEATURE_ID, "dup", "dev"));
@@ -766,7 +769,10 @@ describe("flattenRules", () => {
   // ================= output shape invariants =================
 
   describe("output invariants", () => {
-    it("every output rule has uid, allEnvironments=false, and non-empty environments", () => {
+    it("without applicableEnvs, every output rule has uid, allEnvironments=false, and non-empty environments", () => {
+      // Without applicableEnvs, the collapse-to-allEnvironments path is never
+      // taken, so every rule emits with explicit `environments` and
+      // `allEnvironments: false`.
       const out = flattenRules(FEATURE_ID, {
         dev: [forceRule("a"), forceRule("b")],
         prod: [forceRule("a"), forceRule("c")],
@@ -795,39 +801,247 @@ describe("flattenRules", () => {
   });
 });
 
-// ================= isAlreadyFlat =================
+// ================= isUnifiedRevisionRules =================
 
-describe("isAlreadyFlat", () => {
-  it("returns true for an empty array", () => {
-    expect(isAlreadyFlat([])).toBe(true);
+describe("isUnifiedRevisionRules", () => {
+  it("returns true for empty array (zero-rule unified revision)", () => {
+    expect(isUnifiedRevisionRules([])).toBe(true);
   });
 
-  it("returns true when every rule has a uid string", () => {
+  it("returns true for any array, even if rules lack uids", () => {
+    // Legacy rules round-tripped through toLegacyRevision would carry uids.
+    // Non-round-tripped rules would not. Both are "unified" at the structural
+    // level — the discriminator is purely shape-based.
+    expect(isUnifiedRevisionRules([{ id: "r1" }])).toBe(true);
+    expect(isUnifiedRevisionRules([{ id: "r1", uid: "ruid_abc" }])).toBe(true);
+  });
+
+  it("returns false for a Record<env, rules> (legacy) shape", () => {
+    expect(isUnifiedRevisionRules({ dev: [] })).toBe(false);
+    expect(isUnifiedRevisionRules({ dev: [{ id: "r1" }] })).toBe(false);
+  });
+
+  it("returns false for null/undefined/non-array values", () => {
+    expect(isUnifiedRevisionRules(null)).toBe(false);
+    expect(isUnifiedRevisionRules(undefined)).toBe(false);
+    expect(isUnifiedRevisionRules("unexpected")).toBe(false);
+  });
+});
+
+// ================= isUnifiedFeatureEnvSettings =================
+
+describe("isUnifiedFeatureEnvSettings", () => {
+  it("returns true for undefined env settings", () => {
+    expect(isUnifiedFeatureEnvSettings(undefined)).toBe(true);
+  });
+
+  it("returns true for empty env settings map", () => {
+    expect(isUnifiedFeatureEnvSettings({})).toBe(true);
+  });
+
+  it("returns true when no env has a rules key", () => {
     expect(
-      isAlreadyFlat([
-        { id: "r1", uid: "ruid_abc", allEnvironments: false, environments: ["dev"] },
-      ]),
+      isUnifiedFeatureEnvSettings({
+        dev: { enabled: true },
+        prod: { enabled: false },
+      }),
     ).toBe(true);
   });
 
-  it("returns false when at least one rule is missing uid", () => {
+  it("returns false when at least one env has a rules key, even if empty", () => {
     expect(
-      isAlreadyFlat([
-        { id: "r1", uid: "ruid_abc" },
-        { id: "r2" },
-      ]),
+      isUnifiedFeatureEnvSettings({
+        dev: { enabled: true, rules: [] },
+        prod: { enabled: false },
+      }),
     ).toBe(false);
   });
 
-  it("returns false for a non-array input", () => {
-    expect(isAlreadyFlat({ dev: [] })).toBe(false);
-    expect(isAlreadyFlat(null)).toBe(false);
-    expect(isAlreadyFlat(undefined)).toBe(false);
-    expect(isAlreadyFlat("ruid_abc")).toBe(false);
+  it("returns false when every env has a rules key (typical legacy doc)", () => {
+    expect(
+      isUnifiedFeatureEnvSettings({
+        dev: { enabled: true, rules: [{ id: "r1" }] },
+        prod: { enabled: false, rules: [] },
+      }),
+    ).toBe(false);
+  });
+});
+
+// ================= getApplicableEnvIds =================
+
+describe("getApplicableEnvIds", () => {
+  const env = (id: string, projects?: string[]): Environment =>
+    ({ id, projects }) as unknown as Environment;
+
+  it("returns all env ids when feature has no project (org-wide feature)", () => {
+    const envs = [env("dev", ["p1"]), env("prod"), env("staging", ["p2"])];
+    expect(getApplicableEnvIds(envs)).toEqual(["dev", "prod", "staging"]);
   });
 
-  it("returns false when uid is not a string", () => {
-    expect(isAlreadyFlat([{ id: "r1", uid: 123 }])).toBe(false);
-    expect(isAlreadyFlat([{ id: "r1", uid: null }])).toBe(false);
+  it("includes envs whose projects list contains the feature project", () => {
+    const envs = [env("dev", ["p1", "p2"]), env("prod", ["p1"])];
+    expect(getApplicableEnvIds(envs, "p1")).toEqual(["dev", "prod"]);
+    expect(getApplicableEnvIds(envs, "p2")).toEqual(["dev"]);
+  });
+
+  it("includes envs with no projects list (applies to all projects)", () => {
+    const envs = [env("dev"), env("prod", ["p1"])];
+    expect(getApplicableEnvIds(envs, "p2")).toEqual(["dev"]);
+    expect(getApplicableEnvIds(envs, "p1")).toEqual(["dev", "prod"]);
+  });
+
+  it("treats an empty projects array as 'applies to all'", () => {
+    // Convention: an absent `projects` field and an empty `projects: []` both
+    // mean "no project restriction". This matches the rest of the codebase.
+    const envs = [env("dev", []), env("prod", ["p1"])];
+    expect(getApplicableEnvIds(envs, "p2")).toEqual(["dev"]);
+  });
+
+  it("returns [] when org has no envs", () => {
+    expect(getApplicableEnvIds([], "p1")).toEqual([]);
+  });
+
+  it("preserves the order of orgEnvs", () => {
+    const envs = [env("prod"), env("dev"), env("staging")];
+    expect(getApplicableEnvIds(envs)).toEqual(["prod", "dev", "staging"]);
+  });
+});
+
+// ================= resolveRampTarget =================
+
+describe("resolveRampTarget", () => {
+  const FID = "feat_x";
+  const mergedRule: FeatureRule = {
+    id: "r_merged",
+    uid: generateRuleUid(FID, "r_merged", "*"),
+    type: "force",
+    description: "",
+    enabled: true,
+    value: "true",
+    allEnvironments: false,
+    environments: ["dev", "prod"],
+  } as unknown as FeatureRule;
+
+  const devOnlyRule: FeatureRule = {
+    id: "r_devOnly",
+    uid: generateRuleUid(FID, "r_devOnly", "dev"),
+    type: "force",
+    description: "",
+    enabled: true,
+    value: "true",
+    allEnvironments: false,
+    environments: ["dev"],
+  } as unknown as FeatureRule;
+
+  const allEnvRule: FeatureRule = {
+    id: "r_all",
+    uid: generateRuleUid(FID, "r_all", "*"),
+    type: "force",
+    description: "",
+    enabled: true,
+    value: "true",
+    allEnvironments: true,
+  } as unknown as FeatureRule;
+
+  const rules = [mergedRule, devOnlyRule, allEnvRule];
+
+  describe("uid-first path (new ramps)", () => {
+    it("resolves by uid when present", () => {
+      expect(resolveRampTarget({ ruleUid: mergedRule.uid }, rules)).toBe(
+        mergedRule,
+      );
+    });
+
+    it("returns undefined if uid doesn't match any rule and no fallback ruleId", () => {
+      expect(
+        resolveRampTarget({ ruleUid: "ruid_doesnotexist" }, rules),
+      ).toBeUndefined();
+    });
+
+    it("falls back to ruleId when uid is unresolvable but ruleId matches", () => {
+      // Ramp written by new code but the rule it references was split into
+      // per-env copies by a later edit. Falling back by ruleId lets us still
+      // resolve to ONE of the surviving rules (best effort).
+      const result = resolveRampTarget(
+        { ruleUid: "ruid_stale", ruleId: "r_devOnly", environment: "dev" },
+        rules,
+      );
+      expect(result).toBe(devOnlyRule);
+    });
+  });
+
+  describe("legacy (ruleId, environment) path", () => {
+    it("matches a rule with explicit environments when env is in the list", () => {
+      expect(
+        resolveRampTarget({ ruleId: "r_merged", environment: "dev" }, rules),
+      ).toBe(mergedRule);
+      expect(
+        resolveRampTarget({ ruleId: "r_merged", environment: "prod" }, rules),
+      ).toBe(mergedRule);
+    });
+
+    it("does NOT match a rule when env is not in its environments list", () => {
+      expect(
+        resolveRampTarget({ ruleId: "r_devOnly", environment: "prod" }, rules),
+      ).toBeUndefined();
+    });
+
+    it("matches an allEnvironments rule regardless of target env", () => {
+      expect(
+        resolveRampTarget({ ruleId: "r_all", environment: "staging" }, rules),
+      ).toBe(allEnvRule);
+    });
+
+    it("matches any rule with the id when target.environment is absent", () => {
+      // Multi-env ramps that don't target a specific env.
+      expect(resolveRampTarget({ ruleId: "r_devOnly" }, rules)).toBe(
+        devOnlyRule,
+      );
+    });
+
+    it("returns undefined when the legacy ruleId doesn't match anything", () => {
+      expect(
+        resolveRampTarget({ ruleId: "r_gone", environment: "dev" }, rules),
+      ).toBeUndefined();
+    });
+  });
+
+  describe("edge cases", () => {
+    it("returns undefined when neither ruleUid nor ruleId is provided", () => {
+      expect(resolveRampTarget({}, rules)).toBeUndefined();
+      expect(
+        resolveRampTarget({ ruleUid: null, ruleId: null }, rules),
+      ).toBeUndefined();
+    });
+
+    it("treats ruleUid: null the same as missing (falls through to ruleId)", () => {
+      expect(
+        resolveRampTarget(
+          { ruleUid: null, ruleId: "r_devOnly", environment: "dev" },
+          rules,
+        ),
+      ).toBe(devOnlyRule);
+    });
+
+    it("handles a rule with no environments field and allEnvironments=false (malformed) gracefully", () => {
+      // Defensive: shouldn't match by legacy (ruleId, env) path since the
+      // rule has no env coverage.
+      const malformed = {
+        id: "r_bad",
+        uid: "ruid_bad",
+        type: "force",
+        description: "",
+        enabled: true,
+        value: "true",
+        allEnvironments: false,
+      } as unknown as FeatureRule;
+      expect(
+        resolveRampTarget({ ruleId: "r_bad", environment: "dev" }, [malformed]),
+      ).toBeUndefined();
+      // But uid match should still work.
+      expect(resolveRampTarget({ ruleUid: "ruid_bad" }, [malformed])).toBe(
+        malformed,
+      );
+    });
   });
 });

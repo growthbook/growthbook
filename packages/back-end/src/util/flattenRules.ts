@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import isEqual from "lodash/isEqual";
 import { FeatureRule } from "shared/validators";
+import { Environment } from "shared/types/organization";
 
 // Input shape: legacy rules keyed by env. Rules may lack uid/allEnvironments/environments
 // since those fields only exist in the unified shape.
@@ -17,9 +18,13 @@ export type LegacyRulesByEnv = Record<string, LegacyFeatureRule[]>;
  * audit log entries) remain resolvable across JIT invocations.
  *
  * envContext is:
- *   - "*"  when the rule is merged across multiple envs
- *   - "<env>" when the rule is env-specific (either only appeared in one env or
- *     was split from a merge candidate due to content/order conflict)
+ *   - `"*"` when the rule is merged across multiple envs.
+ *   - `"<env>"` when the rule is env-specific — either because it only appeared
+ *     in one env, or it was split off a merge candidate due to content / order
+ *     conflict, or it is the FIRST occurrence of a duplicate-in-one-env id.
+ *   - `"<env>#<N>"` (N >= 2) for the Nth duplicate occurrence of the same legacy
+ *     id within a single env. Guarantees unique uids when legacy data
+ *     pathologically contains the same `id` twice in the same env's rule list.
  */
 export function generateRuleUid(
   featureId: string,
@@ -34,17 +39,87 @@ export function generateRuleUid(
 }
 
 /**
- * Returns true if the value is already a flat FeatureRule[] (post-migration shape).
- * Used by JIT upgraders to fast-path already-migrated documents.
+ * Structural discriminator for a FeatureRevision's `rules` field. Unified-shape
+ * revisions store rules as a FeatureRule[]. Legacy revisions store them as a
+ * Record<env, FeatureRule[]>. This check is reliable even when legacy rules
+ * carry uids (e.g. from a v1 REST round-trip via toLegacyRevision) because the
+ * Record vs Array shape cannot coexist in a single value.
  */
-export function isAlreadyFlat(rules: unknown): rules is FeatureRule[] {
-  if (!Array.isArray(rules)) return false;
-  if (rules.length === 0) return true;
-  // Every entry must have a uid field (string) to be considered flat.
-  // Legacy rules never had this field.
-  return rules.every(
-    (r) => r && typeof r === "object" && typeof (r as { uid?: unknown }).uid === "string",
-  );
+export function isUnifiedRevisionRules(rules: unknown): rules is FeatureRule[] {
+  return Array.isArray(rules);
+}
+
+/**
+ * Structural discriminator for a FeatureInterface's `environmentSettings` map.
+ * A feature is legacy-shaped iff ANY env object has a `rules` key defined
+ * (even []). Post-cutover unified writes go through buildFeatureUpdate, which
+ * replaces each env object wholesale with `{ enabled, prerequisites }` — no
+ * `rules` key — so the absence of `rules` on every env is the unified signal.
+ *
+ * Note: this returns true for brand-new features with `feature.rules === []`
+ * because their envSettings also won't have any `rules` key. That's correct —
+ * a zero-rule unified feature needs no JIT work.
+ */
+export function isUnifiedFeatureEnvSettings(
+  envSettings: Record<string, { rules?: unknown }> | undefined,
+): boolean {
+  if (!envSettings) return true;
+  for (const env of Object.values(envSettings)) {
+    if (env && typeof env === "object" && "rules" in env) return false;
+  }
+  return true;
+}
+
+/**
+ * Compute the set of environment IDs that apply to a feature given the org's
+ * environments list and the feature's project. An environment applies if:
+ *   - the environment has no `projects` list (applies to all), OR
+ *   - the environment's `projects` list includes the feature's project.
+ * If the feature has no project, all envs apply.
+ */
+export function getApplicableEnvIds(
+  orgEnvs: Environment[],
+  featureProject?: string,
+): string[] {
+  return orgEnvs
+    .filter((env) => {
+      if (!featureProject) return true;
+      if (!env.projects?.length) return true;
+      return env.projects.includes(featureProject);
+    })
+    .map((env) => env.id);
+}
+
+/**
+ * Resolve a ramp target to a unified FeatureRule. Prefers `ruleUid` (written by
+ * new code); falls back to the legacy `(ruleId, environment)` shape for ramps
+ * created before the unification. Returns undefined if no match.
+ *
+ * Matching semantics for the legacy path:
+ *   - r.id === target.ruleId, AND
+ *   - If target.environment is set, the rule must be active in that env
+ *     (r.allEnvironments === true OR r.environments.includes(env)).
+ *   - If target.environment is absent, any rule with matching id matches.
+ */
+export function resolveRampTarget(
+  target: {
+    ruleUid?: string | null;
+    ruleId?: string | null;
+    environment?: string | null;
+  },
+  unifiedRules: FeatureRule[],
+): FeatureRule | undefined {
+  if (target.ruleUid) {
+    const byUid = unifiedRules.find((r) => r.uid === target.ruleUid);
+    if (byUid) return byUid;
+  }
+  if (!target.ruleId) return undefined;
+  return unifiedRules.find((r) => {
+    if (r.id !== target.ruleId) return false;
+    if (!target.environment) return true;
+    if (r.allEnvironments) return true;
+    return r.environments?.includes(target.environment) ?? false;
+  });
 }
 
 // ---- internal helpers ----
@@ -58,7 +133,10 @@ const UNIFICATION_SCOPE_FIELDS = new Set([
   "environments",
 ]);
 
-function contentEquivalent(a: LegacyFeatureRule, b: LegacyFeatureRule): boolean {
+function contentEquivalent(
+  a: LegacyFeatureRule,
+  b: LegacyFeatureRule,
+): boolean {
   const aCore: Record<string, unknown> = {};
   const bCore: Record<string, unknown> = {};
   for (const k of Object.keys(a)) {
@@ -77,10 +155,7 @@ function contentEquivalent(a: LegacyFeatureRule, b: LegacyFeatureRule): boolean 
 // Sort env names in a deterministic way — alphabetical. The caller can override
 // with opts.envOrder if they want a specific canonical order (e.g. matching the
 // org's configured env order).
-function canonicalEnvOrder(
-  envs: string[],
-  envOrder?: string[],
-): string[] {
+function canonicalEnvOrder(envs: string[], envOrder?: string[]): string[] {
   if (envOrder && envOrder.length) {
     const orderSet = new Set(envOrder);
     const known = envOrder.filter((e) => envs.includes(e));
@@ -97,21 +172,37 @@ type Occurrence = {
 };
 
 /**
- * Flatten a legacy Record<env, FeatureRule[]> into a single unified FeatureRule[].
+ * Flatten a legacy `Record<env, FeatureRule[]>` into a unified `FeatureRule[]`.
  *
- * Semantics (enforced by tests):
- *  - Rules grouped by legacy `id` across envs.
+ * Semantics (all enforced by tests):
+ *
+ * Grouping + merging:
+ *  - Rules are grouped by legacy `id` across envs.
  *  - A group merges into ONE unified rule iff ALL occurrences are content-identical
- *    AND merging does not create a relative-order conflict with other merge candidates.
+ *    AND merging does not create a relative-order conflict with any other merge
+ *    candidate AND the legacy id is not duplicated within any single env.
  *  - When a group cannot merge, each occurrence becomes its own env-specific rule.
- *  - Merged rules get uid = hash(featureId, id, "*"); env-specific get uid = hash(featureId, id, env).
- *  - A merged rule whose occurrences cover EVERY env in `opts.applicableEnvs`
- *    emits with `allEnvironments: true` and `environments` omitted. Otherwise it
- *    emits with `allEnvironments: false` and an explicit `environments` list.
- *    `applicableEnvs` must be the caller's applicable-env set for the feature
- *    (i.e. `filterEnvironmentsByFeature(orgEnvs, feature)` mapped to ids).
- *    When `applicableEnvs` is omitted, `allEnvironments: true` is never emitted.
- *  - Deterministic: same input yields same output (order + uids).
+ *
+ * uid assignment (see also `generateRuleUid`):
+ *  - Merged rule:        `uid = hash(featureId, id, "*")`.
+ *  - Env-specific rule:  `uid = hash(featureId, id, env)` for the first (or only)
+ *                        occurrence of this id in that env.
+ *  - In-env duplicate:   Subsequent occurrences of the same id in the same env
+ *                        use `uid = hash(featureId, id, "<env>#<N>")` (N >= 2)
+ *                        to guarantee uniqueness.
+ *
+ * `allEnvironments` collapse (requires `opts.applicableEnvs`):
+ *  - `applicableEnvs` is the caller's set of envs where the feature applies
+ *    (i.e. org envs filtered by the feature's project — see `getApplicableEnvIds`).
+ *  - A rule whose env footprint covers every applicable env emits with
+ *    `allEnvironments: true` and `environments` omitted.
+ *  - Otherwise emits `allEnvironments: false` with an explicit `environments`
+ *    list filtered to the applicable set.
+ *  - Occurrences in non-applicable envs are dropped (orphan data — e.g. a
+ *    feature project reassignment that left stale env records).
+ *  - If `applicableEnvs` is omitted, `allEnvironments: true` is never emitted.
+ *
+ * Determinism: same input yields byte-identical output (same order, same uids).
  */
 export function flattenRules(
   featureId: string,
@@ -166,8 +257,7 @@ export function flattenRules(
         const xOcc = xOccs.find((o) => o.env === env);
         const yOcc = yOccs.find((o) => o.env === env);
         if (!xOcc || !yOcc) continue;
-        const dir =
-          xOcc.position < yOcc.position ? "x-before-y" : "y-before-x";
+        const dir = xOcc.position < yOcc.position ? "x-before-y" : "y-before-x";
         if (prevDirection === null) {
           prevDirection = dir;
         } else if (prevDirection !== dir) {
@@ -191,10 +281,15 @@ export function flattenRules(
   //    - Walk envs in canonical order.
   //    - Within each env, walk that env's legacy rule list in order.
   //    - For each rule:
-  //      - If finalMerged: emit ONCE (first time seen). environments = [all envs
-  //        where this legacy id appears].
-  //      - Else: emit as env-specific. One per occurrence.
+  //      - If the id is in `finalMerged`: emit ONCE (first time seen) with env
+  //        footprint = [all envs where this legacy id appears]. `shapeRule`
+  //        then filters that against `applicableEnvs` and may collapse to
+  //        `allEnvironments: true`.
+  //      - Else: emit as env-specific, one per occurrence. Duplicate-in-env
+  //        occurrences get disambiguated uids via `nextEnvSpecificUid`.
   //    - Skip already-emitted merged rules on subsequent envs.
+  //    - `shapeRule` returns null (and we skip emission) if the rule's
+  //      footprint has no overlap with `applicableEnvs`.
 
   const applicable = opts?.applicableEnvs;
   const applicableSet = applicable ? new Set(applicable) : null;
@@ -230,10 +325,11 @@ export function flattenRules(
       : rawEnvList;
     if (filtered.length === 0) return null;
 
+    // Reaching this line implies `filtered.length > 0`, so if applicableSet
+    // is non-null its size is also > 0 (we can't filter a non-empty list
+    // down to 0 via an empty set).
     const coversAllApplicable =
-      applicableSet !== null &&
-      applicableSet.size > 0 &&
-      filtered.length === applicableSet.size;
+      applicableSet !== null && filtered.length === applicableSet.size;
 
     const base = {
       ...(rule as unknown as FeatureRule),
