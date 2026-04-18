@@ -44,7 +44,7 @@ export default function HashVersionSelector({
 
   return (
     <>
-      <Text as="label" size="3" weight="semibold">
+      <Text as="label" weight="semibold">
         Hashing Algorithm
       </Text>
       <RadioGroup
