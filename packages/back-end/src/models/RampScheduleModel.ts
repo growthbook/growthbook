@@ -16,6 +16,7 @@ import {
 } from "back-end/src/services/rampSchedule";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { applyPagination } from "back-end/src/util/handler";
+import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -282,9 +283,10 @@ export class RampScheduleModel extends BaseClass {
     }
 
     if (hasTarget) {
-      const envRules =
-        feature!.environmentSettings?.[body.environment!]?.rules ?? [];
-      const rule = envRules.find((r) => r.id === body.ruleId);
+      const rule = resolveRampTarget(
+        { ruleId: body.ruleId!, environment: body.environment! },
+        feature!.rules ?? [],
+      );
       if (!rule) {
         throw new Error(
           `Rule '${body.ruleId}' not found in environment '${body.environment}'. ` +
@@ -369,7 +371,10 @@ export class RampScheduleModel extends BaseClass {
           {
             targetType: "feature-rule" as const,
             targetId: targetId!,
-            patch: { ruleId: body.ruleId!, ...template.endPatch },
+            patch: {
+              ruleId: body.ruleId!,
+              ...template.endPatch,
+            },
           },
         ];
       }
@@ -398,6 +403,9 @@ export class RampScheduleModel extends BaseClass {
               entityType: "feature",
               entityId: body.featureId!,
               ruleId: body.ruleId,
+              // TODO(post-migration): stop writing `environment` once read-side
+              // consumers derive env scope from the resolved rule. See
+              // rampTarget deprecation notice in shared/validators.
               environment: body.environment,
               status: "active",
             },

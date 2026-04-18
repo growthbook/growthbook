@@ -16,6 +16,7 @@ import {
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveRampTarget } from "back-end/src/util/flattenRules";
 
 const actionParamsSchema = z.object({ id: z.string() });
 
@@ -417,8 +418,11 @@ export const addTargetRampSchedule = createApiRequestHandler({
 
   const feature = await getFeature(req.context, featureId);
   if (!feature) throw new Error(`Feature '${featureId}' not found`);
-  const envRules = feature.environmentSettings?.[environment]?.rules ?? [];
-  if (!envRules.find((r) => r.id === ruleId)) {
+  const rule = resolveRampTarget(
+    { ruleId, environment },
+    feature.rules ?? [],
+  );
+  if (!rule) {
     throw new Error(
       `Rule '${ruleId}' not found in environment '${environment}'. ` +
         `The rule must be published before attaching a ramp schedule.`,
@@ -441,6 +445,9 @@ export const addTargetRampSchedule = createApiRequestHandler({
     entityType: "feature" as const,
     entityId: featureId,
     ruleId,
+    // TODO(post-migration): stop writing `environment` once read-side consumers
+    // derive env scope from the resolved rule. See rampTarget deprecation
+    // notice in shared/validators.
     environment,
     status: "active" as const,
   };
@@ -510,6 +517,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
 
   const remaining = schedule.targets.filter((t) => {
     if (targetId) return t.id !== targetId;
+    // (ruleId, environment) is the primary addressing scheme; stays as-is.
     return !(t.ruleId === ruleId && t.environment === environment);
   });
 

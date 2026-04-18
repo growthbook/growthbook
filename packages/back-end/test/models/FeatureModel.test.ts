@@ -5,8 +5,10 @@ import {
 } from "shared/types/feature";
 import { Environment } from "shared/types/organization";
 import {
+  FeatureModel,
   buildFeatureInterface,
   buildFeatureUpdate,
+  toInterface,
 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 import { generateRuleUid } from "back-end/src/util/flattenRules";
@@ -568,5 +570,165 @@ describe("buildFeatureUpdate", () => {
     expect(out.defaultValue).toBe("false");
     expect(out.version).toBe(3);
     expect(out.environmentSettings?.dev).toEqual({ enabled: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// toInterface round-trip integration tests.
+//
+// `toInterface` is the thin Mongoose-document wrapper around
+// `buildFeatureInterface`: it calls `doc.toJSON()`, strips `__v` and `_id`,
+// and delegates. The bulk of JIT-migration correctness is covered by the
+// `buildFeatureInterface` tests above. These tests exist to lock in the
+// contract at the Mongoose-hydration boundary: a document constructed via
+// `new FeatureModel({...})` (as Mongoose hydrates on read from MongoDB)
+// must round-trip to the exact same v2 `FeatureInterface` as calling
+// `buildFeatureInterface` directly on the raw payload.
+//
+// Mongoose documents are created in-memory via `new FeatureModel({...})`.
+// No database connection is needed; `.toJSON()` runs purely on the
+// in-memory document. The Mixed-typed `rules` and `environmentSettings`
+// schema fields mean Mongoose passes those blobs through unchanged,
+// which is exactly what the JIT migration expects.
+// ---------------------------------------------------------------------------
+
+describe("toInterface round-trip", () => {
+  // Build a raw Mongo document payload and feed it through both
+  // `buildFeatureInterface(raw)` and `toInterface(new FeatureModel(raw))`.
+  // The two must agree modulo Mongoose-injected metadata.
+  const runRoundTrip = (raw: Record<string, unknown>) => {
+    const direct = buildFeatureInterface(
+      raw as unknown as LegacyFeatureInterface,
+      mockContext(),
+    );
+    const doc = new FeatureModel(raw);
+    const viaDoc = toInterface(doc, mockContext());
+    return { direct, viaDoc };
+  };
+
+  it("v1 hydrated via Mongoose flattens to the same v2 shape as buildFeatureInterface", () => {
+    const raw = {
+      ...BASE_META,
+      environmentSettings: {
+        dev: { enabled: true, rules: [v1Rule("r1") as FeatureRule] },
+        production: {
+          enabled: true,
+          rules: [v1Rule("r1") as FeatureRule],
+        },
+      },
+    };
+    const { direct, viaDoc } = runRoundTrip(raw);
+
+    // Rules array parity — same length, same ids, same uids, same scope.
+    expect(viaDoc.rules).toHaveLength(direct.rules.length);
+    expect(viaDoc.rules.map((r) => r.id)).toEqual(
+      direct.rules.map((r) => r.id),
+    );
+    expect(viaDoc.rules.map((r) => r.uid)).toEqual(
+      direct.rules.map((r) => r.uid),
+    );
+    expect(viaDoc.rules[0].allEnvironments).toBe(true);
+
+    // Core fields survive the Mongoose round-trip.
+    expect(viaDoc.id).toBe(FEATURE_ID);
+    expect(viaDoc.defaultValue).toBe(direct.defaultValue);
+    expect(viaDoc.valueType).toBe(direct.valueType);
+
+    // Mongoose metadata must be stripped — `_id` and `__v` are never exposed
+    // to the application layer.
+    expect((viaDoc as unknown as { _id?: unknown })._id).toBeUndefined();
+    expect((viaDoc as unknown as { __v?: unknown }).__v).toBeUndefined();
+  });
+
+  it("v2 hydrated via Mongoose passes through without regenerating uids", () => {
+    const uid = generateRuleUid(FEATURE_ID, "r1", "*");
+    const raw = {
+      ...BASE_META,
+      environmentSettings: {
+        dev: { enabled: true, prerequisites: [] },
+        production: { enabled: true, prerequisites: [] },
+      },
+      rules: [v2Rule("r1", uid)],
+    };
+    const { direct, viaDoc } = runRoundTrip(raw);
+
+    expect(viaDoc.rules).toHaveLength(1);
+    expect(viaDoc.rules[0].uid).toBe(uid);
+    expect(viaDoc.rules[0].uid).toBe(direct.rules[0].uid);
+    expect(viaDoc.rules[0].allEnvironments).toBe(true);
+  });
+
+  it("v0 hydrated via Mongoose flattens through the full pipeline to v2", () => {
+    const raw = {
+      ...BASE_META,
+      environments: ["dev", "production"],
+      rules: [v1Rule("r1") as FeatureRule],
+    };
+    // Strip envSettings field from BASE_META so this looks like a true v0 doc.
+    delete (raw as Record<string, unknown>).environmentSettings;
+
+    const { direct, viaDoc } = runRoundTrip(raw);
+
+    expect(viaDoc.rules).toHaveLength(1);
+    expect(viaDoc.rules[0].id).toBe("r1");
+    expect(viaDoc.rules[0].allEnvironments).toBe(true);
+    expect(viaDoc.rules[0].uid).toBe(direct.rules[0].uid);
+  });
+
+  it("idempotent: writing a v2 doc's toInterface result back in yields the same output", () => {
+    // Simulates a read -> (no-op transform) -> hydrate-as-v2 -> read loop.
+    // Uids and ordering must be stable across the round-trip; this is the
+    // core invariant protecting against the "re-flattens on every read" class
+    // of bugs.
+    const uid1 = generateRuleUid(FEATURE_ID, "r1", "*");
+    const uid2 = generateRuleUid(FEATURE_ID, "r2", "dev");
+    const raw = {
+      ...BASE_META,
+      environmentSettings: {
+        dev: { enabled: true, prerequisites: [] },
+        production: { enabled: true, prerequisites: [] },
+      },
+      rules: [
+        v2Rule("r1", uid1, { allEnvironments: true }),
+        v2Rule("r2", uid2, {
+          allEnvironments: false,
+          environments: ["dev"],
+        } as Partial<FeatureRule>),
+      ],
+    };
+
+    const first = toInterface(new FeatureModel(raw), mockContext());
+    const second = toInterface(
+      new FeatureModel(first as unknown as Record<string, unknown>),
+      mockContext(),
+    );
+
+    expect(second.rules.map((r) => r.uid)).toEqual(
+      first.rules.map((r) => r.uid),
+    );
+    expect(second.rules.map((r) => r.id)).toEqual(
+      first.rules.map((r) => r.id),
+    );
+    expect(second.rules.map((r) => r.allEnvironments)).toEqual(
+      first.rules.map((r) => r.allEnvironments),
+    );
+  });
+
+  it("strips Mongoose-injected _id and __v from the application-visible result", () => {
+    const raw = {
+      ...BASE_META,
+      environmentSettings: {
+        dev: { enabled: true, rules: [] },
+        production: { enabled: true, rules: [] },
+      },
+    };
+    const doc = new FeatureModel(raw);
+    // Sanity: Mongoose does inject _id on construction.
+    const rawJson = doc.toJSON<Record<string, unknown>>();
+    expect(rawJson._id).toBeDefined();
+
+    const result = toInterface(doc, mockContext());
+    expect((result as unknown as { _id?: unknown })._id).toBeUndefined();
+    expect((result as unknown as { __v?: unknown }).__v).toBeUndefined();
   });
 });

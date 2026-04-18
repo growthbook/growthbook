@@ -946,32 +946,7 @@ describe("resolveRampTarget", () => {
 
   const rules = [mergedRule, devOnlyRule, allEnvRule];
 
-  describe("uid-first path (new ramps)", () => {
-    it("resolves by uid when present", () => {
-      expect(resolveRampTarget({ ruleUid: mergedRule.uid }, rules)).toBe(
-        mergedRule,
-      );
-    });
-
-    it("returns undefined if uid doesn't match any rule and no fallback ruleId", () => {
-      expect(
-        resolveRampTarget({ ruleUid: "ruid_doesnotexist" }, rules),
-      ).toBeUndefined();
-    });
-
-    it("falls back to ruleId when uid is unresolvable but ruleId matches", () => {
-      // Ramp written by new code but the rule it references was split into
-      // per-env copies by a later edit. Falling back by ruleId lets us still
-      // resolve to ONE of the surviving rules (best effort).
-      const result = resolveRampTarget(
-        { ruleUid: "ruid_stale", ruleId: "r_devOnly", environment: "dev" },
-        rules,
-      );
-      expect(result).toBe(devOnlyRule);
-    });
-  });
-
-  describe("legacy (ruleId, environment) path", () => {
+  describe("(ruleId, environment) matching", () => {
     it("matches a rule with explicit environments when env is in the list", () => {
       expect(
         resolveRampTarget({ ruleId: "r_merged", environment: "dev" }, rules),
@@ -1000,7 +975,7 @@ describe("resolveRampTarget", () => {
       );
     });
 
-    it("returns undefined when the legacy ruleId doesn't match anything", () => {
+    it("returns undefined when ruleId doesn't match anything", () => {
       expect(
         resolveRampTarget({ ruleId: "r_gone", environment: "dev" }, rules),
       ).toBeUndefined();
@@ -1008,25 +983,13 @@ describe("resolveRampTarget", () => {
   });
 
   describe("edge cases", () => {
-    it("returns undefined when neither ruleUid nor ruleId is provided", () => {
+    it("returns undefined when ruleId is not provided", () => {
       expect(resolveRampTarget({}, rules)).toBeUndefined();
-      expect(
-        resolveRampTarget({ ruleUid: null, ruleId: null }, rules),
-      ).toBeUndefined();
-    });
-
-    it("treats ruleUid: null the same as missing (falls through to ruleId)", () => {
-      expect(
-        resolveRampTarget(
-          { ruleUid: null, ruleId: "r_devOnly", environment: "dev" },
-          rules,
-        ),
-      ).toBe(devOnlyRule);
+      expect(resolveRampTarget({ ruleId: null }, rules)).toBeUndefined();
     });
 
     it("handles a rule with no environments field and allEnvironments=false (malformed) gracefully", () => {
-      // Defensive: shouldn't match by legacy (ruleId, env) path since the
-      // rule has no env coverage.
+      // Defensive: shouldn't match since the rule has no env coverage.
       const malformed = {
         id: "r_bad",
         uid: "ruid_bad",
@@ -1039,8 +1002,20 @@ describe("resolveRampTarget", () => {
       expect(
         resolveRampTarget({ ruleId: "r_bad", environment: "dev" }, [malformed]),
       ).toBeUndefined();
-      // But uid match should still work.
-      expect(resolveRampTarget({ ruleUid: "ruid_bad" }, [malformed])).toBe(
+    });
+
+    it("matches a malformed rule when target.environment is absent", () => {
+      // With no env scoping, any rule with matching id resolves.
+      const malformed = {
+        id: "r_bad",
+        uid: "ruid_bad",
+        type: "force",
+        description: "",
+        enabled: true,
+        value: "true",
+        allEnvironments: false,
+      } as unknown as FeatureRule;
+      expect(resolveRampTarget({ ruleId: "r_bad" }, [malformed])).toBe(
         malformed,
       );
     });

@@ -15,6 +15,7 @@ import {
   dispatchRampEvent,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
+import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 const postBodyAction = z.object({
@@ -147,9 +148,10 @@ export const postRampSchedule = createApiRequestHandler(
   }
 
   if (hasTarget) {
-    const envRules =
-      feature!.environmentSettings?.[body.environment!]?.rules ?? [];
-    const rule = envRules.find((r) => r.id === body.ruleId);
+    const rule = resolveRampTarget(
+      { ruleId: body.ruleId!, environment: body.environment! },
+      feature!.rules ?? [],
+    );
     if (!rule) {
       throw new NotFoundError(
         `Rule '${body.ruleId}' not found in environment '${body.environment}'. ` +
@@ -190,9 +192,7 @@ export const postRampSchedule = createApiRequestHandler(
       return body.steps.map((s) => ({
         trigger: normalizeApiTrigger(s.trigger),
         actions: s.actions.map((a) =>
-          hasTarget
-            ? injectTarget(a, targetId!, body.ruleId!)
-            : normalizeAction(a),
+          hasTarget ? injectTarget(a, targetId!, body.ruleId!) : normalizeAction(a),
         ),
         approvalNotes: s.approvalNotes ?? undefined,
       }));
@@ -215,9 +215,7 @@ export const postRampSchedule = createApiRequestHandler(
   const resolvedEndActions: RampStepAction[] | undefined = (() => {
     if (body.endActions !== undefined) {
       return body.endActions.map((a) =>
-        hasTarget
-          ? injectTarget(a, targetId!, body.ruleId!)
-          : normalizeAction(a),
+        hasTarget ? injectTarget(a, targetId!, body.ruleId!) : normalizeAction(a),
       );
     }
     if (
@@ -229,7 +227,10 @@ export const postRampSchedule = createApiRequestHandler(
         {
           targetType: "feature-rule" as const,
           targetId: targetId!,
-          patch: { ruleId: body.ruleId!, ...template.endPatch },
+          patch: {
+            ruleId: body.ruleId!,
+            ...template.endPatch,
+          },
         },
       ];
     }
@@ -258,6 +259,9 @@ export const postRampSchedule = createApiRequestHandler(
             entityType: "feature",
             entityId: body.featureId!,
             ruleId: body.ruleId,
+            // TODO(post-migration): stop writing `environment` once read-side
+            // consumers derive env scope from the resolved rule. See
+            // rampTarget deprecation notice in shared/validators.
             environment: body.environment,
             status: "active",
           },

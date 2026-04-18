@@ -63,6 +63,7 @@ import {
   getRecentWatchedAudits,
   isValidAuditEntityType,
 } from "back-end/src/services/audit";
+import { upgradeAuditDetailsListForRead } from "back-end/src/services/auditUpgrade";
 import {
   getAllFeatures,
   hasNonDemoFeature,
@@ -240,7 +241,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 
     res.status(200).json({
       status: 200,
-      events: docs,
+      events: upgradeAuditDetailsListForRead(docs, context),
       experiments,
     });
   } catch (e) {
@@ -255,7 +256,8 @@ export async function getAllHistory(
   req: AuthRequest<null, { type: string }, { cursor?: string; limit?: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { type } = req.params;
   const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
@@ -324,7 +326,7 @@ export async function getAllHistory(
 
   res.status(200).json({
     status: 200,
-    events: paginatedEvents,
+    events: upgradeAuditDetailsListForRead(paginatedEvents, context),
     total,
     nextCursor,
   });
@@ -338,7 +340,8 @@ export async function getHistory(
   >,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { type, id } = req.params;
   const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
@@ -410,7 +413,7 @@ export async function getHistory(
 
   res.status(200).json({
     status: 200,
-    events: paginatedEvents,
+    events: upgradeAuditDetailsListForRead(paginatedEvents, context),
     total,
     nextCursor,
   });

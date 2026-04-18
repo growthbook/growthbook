@@ -23,6 +23,20 @@ export type { V1FeatureRule };
 //      per rule. `environmentSettings[env]` has NO `rules` key. This is the
 //      shape of `FeatureInterface` itself.
 //
+// Identifier contract:
+//   - `rule.id`  is PUBLIC. It flows out to SDK payloads, tracking callbacks,
+//     the REST API (v1 AND v2), and anything user-visible. Its uniqueness
+//     semantics are inherited from v1 (unique within the rules SDKs actually
+//     see in a given env). In v2, a feature's unified rule list also treats
+//     `id` as the primary targeting handle.
+//   - `rule.uid` is INTERNAL. It exists only on the control plane: revision
+//     merges, audit diffs, server-side rule resolution where identity must
+//     survive a rename or reorder. It is NEVER emitted to SDKs, and it is
+//     NOT used by ramp schedules — ramps target by `ruleId` (with a legacy
+//     `environment` disambiguator for pre-v2 targets; see `rampTarget` in
+//     shared/validators). Front-end callers may use `uid` as a stable
+//     React key but should surface `id` to humans.
+//
 // Structural discriminators:
 //   - `isV2FeatureEnvSettings(envSettings)`: returns true iff NO env object
 //     carries a `rules` key (v2). Returning false means the doc is v1 and
@@ -116,28 +130,27 @@ export function getApplicableEnvIds(
 }
 
 /**
- * Resolve a ramp target to a unified FeatureRule. Prefers `ruleUid` (written by
- * new code); falls back to the legacy `(ruleId, environment)` shape for ramps
- * created before the unification. Returns undefined if no match.
+ * Resolve a ramp target to a unified FeatureRule. Returns undefined if no
+ * match.
  *
- * Matching semantics for the legacy path:
+ * Matching semantics:
  *   - r.id === target.ruleId, AND
  *   - If target.environment is set, the rule must be active in that env
  *     (r.allEnvironments === true OR r.environments.includes(env)).
  *   - If target.environment is absent, any rule with matching id matches.
+ *
+ * `target.environment` is deprecated on new ramps — in v2 `ruleId` is uniquely
+ * sufficient within a feature's unified rule list. The env check is retained
+ * only to keep pre-v2 targets (whose `ruleId` could appear in multiple
+ * env-scoped rule lists) resolvable. See `rampTarget` in shared/validators.
  */
 export function resolveRampTarget(
   target: {
-    ruleUid?: string | null;
     ruleId?: string | null;
     environment?: string | null;
   },
   unifiedRules: FeatureRule[],
 ): FeatureRule | undefined {
-  if (target.ruleUid) {
-    const byUid = unifiedRules.find((r) => r.uid === target.ruleUid);
-    if (byUid) return byUid;
-  }
   if (!target.ruleId) return undefined;
   return unifiedRules.find((r) => {
     if (r.id !== target.ruleId) return false;

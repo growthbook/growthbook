@@ -274,7 +274,12 @@ export function buildFeatureInterface(
   return v2;
 }
 
-const toInterface = (
+// Exported for round-trip integration tests (see
+// `test/models/FeatureModel.test.ts > toInterface round-trip`). The bulk of
+// JIT-migration behaviour is covered by unit tests on `buildFeatureInterface`;
+// this export lets tests confirm the thin Mongoose-document wrapper (strip
+// `__v`/`_id`, delegate) doesn't corrupt the pipeline.
+export const toInterface = (
   doc: FeatureDocument,
   context: ReqContext | ApiReqContext,
 ): FeatureInterface => {
@@ -1535,7 +1540,10 @@ async function createRampSchedulesForRevision(
     ): RampStepAction => ({
       targetType: "feature-rule" as const,
       targetId,
-      patch: { ...a.patch, ruleId: action.ruleId } as RampStepAction["patch"],
+      patch: {
+        ...a.patch,
+        ruleId: action.ruleId,
+      } as RampStepAction["patch"],
     });
 
     // Template is used as a fallback; explicit steps/endActions win.
@@ -1571,7 +1579,7 @@ async function createRampSchedulesForRevision(
             ...step,
             actions: step.actions.map(normalizeAction),
           }))
-        : template
+          : template
           ? template.steps.map((s) => ({
               trigger: s.trigger,
               actions: remapTemplateActions(

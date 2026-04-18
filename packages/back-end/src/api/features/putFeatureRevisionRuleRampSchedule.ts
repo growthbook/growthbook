@@ -9,6 +9,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import {
   assertValidEnvironment,
   discardIfJustCreated,
@@ -51,13 +52,16 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     }
 
     // Check draft first, then live — a ramp schedule may target a live rule
-    // the draft hasn't touched.
-    const inDraft =
-      revision.rules?.[environment]?.some((r) => r.id === ruleId) ?? false;
-    const inLive =
-      feature.environmentSettings?.[environment]?.rules?.some(
-        (r) => r.id === ruleId,
-      ) ?? false;
+    // the draft hasn't touched. resolveRampTarget matches against the v2
+    // unified rules array by (ruleId, environment).
+    const inDraft = !!resolveRampTarget(
+      { ruleId, environment },
+      revision.rules ?? [],
+    );
+    const inLive = !!resolveRampTarget(
+      { ruleId, environment },
+      feature.rules ?? [],
+    );
     if (!inDraft && !inLive) {
       throw new NotFoundError(
         `Rule "${ruleId}" not found in environment "${environment}"`,
