@@ -190,7 +190,12 @@ export default function Dialog({
             </Button>
           </RadixDialog.Close>
           {submit && (
-            <Button type="submit" disabled={!ctaEnabled} color={ctaColor}>
+            <Button
+              type="submit"
+              disabled={!ctaEnabled}
+              color={ctaColor}
+              loading={loading}
+            >
               {cta}
             </Button>
           )}
