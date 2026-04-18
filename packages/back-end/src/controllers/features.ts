@@ -115,6 +115,11 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import {
+  dispatchFeatureRevisionEvent,
+  dispatchRevisionReviewEvent,
+  recordRevisionUpdate,
+} from "back-end/src/services/featureRevisionEvents";
+import {
   cleanUpPreviousRevisions,
   createInitialRevision,
   createRevision,
@@ -234,7 +239,7 @@ async function createOrUpdateDraftWithChanges(
     if ("holdout" in envelopeChanges) {
       merged.holdout = envelopeChanges.holdout;
     }
-    await updateRevision(
+    const updatedDraft = await updateRevision(
       context,
       feature,
       existingDraft,
@@ -242,7 +247,12 @@ async function createOrUpdateDraftWithChanges(
       logEntry,
       false,
     );
-    return { ...existingDraft, ...merged };
+    if (!updatedDraft) {
+      throw new Error(
+        `Revision ${existingDraft.version} not found when updating draft`,
+      );
+    }
+    return updatedDraft;
   }
 
   // No existing draft — create a new one
@@ -878,6 +888,36 @@ export async function postFeatureRebase(
     false,
   );
 
+  const rebased = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  const finalRevision = rebased ?? revision;
+
+  void req
+    .audit({
+      event: "feature.revision.rebase",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(
+        { baseVersion: revision.baseVersion },
+        { baseVersion: live.version },
+        { version: revision.version },
+      ),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.rebase"),
+    );
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    finalRevision,
+    "revision.rebased",
+    { baseVersion: live.version },
+  );
+
   res.status(200).json({
     status: 200,
   });
@@ -920,6 +960,37 @@ export async function postFeatureRequestReview(
     res.locals.eventAudit,
     comment,
   );
+
+  const updatedRevision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  const finalRevision = updatedRevision ?? revision;
+
+  void req
+    .audit({
+      event: "feature.revision.requestReview",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(
+        { status: revision.status },
+        { status: finalRevision.status },
+        { version: revision.version, comment },
+      ),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.requestReview"),
+    );
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    finalRevision,
+    "revision.reviewRequested",
+    { reviewComment: comment ?? null },
+  );
+
   res.status(200).json({
     status: 200,
   });
@@ -998,6 +1069,31 @@ export async function postFeatureReviewOrComment(
     review,
     comment,
   );
+
+  const updatedRevision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  const finalRevision = updatedRevision ?? revision;
+
+  const auditUser = context.auditUser;
+  const reviewer =
+    auditUser && auditUser.type !== "system"
+      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
+      : {};
+
+  await dispatchRevisionReviewEvent(
+    context,
+    feature,
+    revision,
+    finalRevision,
+    review,
+    comment,
+    reviewer,
+  );
+
   res.status(200).json({
     status: 200,
   });
@@ -1210,6 +1306,20 @@ export async function postFeaturePublish(
       comment,
     }),
   });
+
+  const publishedRevision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    publishedRevision ?? revision,
+    "revision.published",
+    {},
+  );
 
   for (const { experiment, changes } of experimentsToUpdate) {
     const updated = await updateExperiment({
@@ -1447,6 +1557,14 @@ export async function postFeatureRevert(
     }),
   });
 
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    newRevision,
+    "revision.reverted",
+    { revertedToVersion: revision.version },
+  );
+
   res.status(200).json({
     status: 200,
     version: newRevision.version,
@@ -1633,6 +1751,36 @@ export async function postFeatureDiscard(
 
   await discardRevision(context, revision, res.locals.eventAudit);
 
+  const discarded = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
+  const finalRevision = discarded ?? revision;
+
+  void req
+    .audit({
+      event: "feature.revision.discard",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(
+        { status: revision.status },
+        { status: finalRevision.status },
+        { version: revision.version },
+      ),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.discard"),
+    );
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    finalRevision,
+    "revision.discarded",
+    {},
+  );
+
   res.status(200).json({
     status: 200,
   });
@@ -1810,6 +1958,7 @@ export async function postFeatureRule(
             ? selectedEnvironments[0]
             : undefined,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
+        // null = explicitly cleared (no end actions); undefined = not set (fall back to template)
         endActions:
           rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
         startDate:
@@ -1860,7 +2009,7 @@ export async function postFeatureRule(
   }
 
   // Single updateRevision call combines both rule addition and ramp changes atomically
-  await updateRevision(
+  const updatedRevisionAfterRuleAdd = await updateRevision(
     context,
     feature,
     revision,
@@ -1872,6 +2021,13 @@ export async function postFeatureRule(
       value: JSON.stringify(rule),
     },
     resetReview,
+  );
+  await recordRevisionUpdate(
+    context,
+    feature,
+    updatedRevisionAfterRuleAdd ?? revision,
+    "rule.add",
+    { environments: selectedEnvironments },
   );
 
   // If referencing a new experiment, add it to linkedExperiments
@@ -2181,7 +2337,7 @@ export async function putRevisionComment(
     throw new Error("Could not find feature revision");
   }
 
-  await updateRevision(
+  const updatedRevisionAfterComment = await updateRevision(
     context,
     feature,
     revision,
@@ -2193,6 +2349,12 @@ export async function putRevisionComment(
       value: JSON.stringify({ comment }),
     },
     false,
+  );
+  await recordRevisionUpdate(
+    context,
+    feature,
+    updatedRevisionAfterComment ?? revision,
+    "metadata",
   );
 
   res.status(200).json({
@@ -2231,7 +2393,7 @@ export async function putRevisionTitle(
     throw new Error("Could not find feature revision");
   }
 
-  await updateRevision(
+  const updatedRevisionAfterTitle = await updateRevision(
     context,
     feature,
     revision,
@@ -2243,6 +2405,12 @@ export async function putRevisionTitle(
       value: JSON.stringify({ title }),
     },
     false,
+  );
+  await recordRevisionUpdate(
+    context,
+    feature,
+    updatedRevisionAfterTitle ?? revision,
+    "metadata",
   );
 
   res.status(200).json({
@@ -2278,13 +2446,19 @@ export async function postFeatureDefaultValue(
     defaultValueChanged: true,
     settings: org?.settings,
   });
-  await setDefaultValue(
+  const updatedRevisionAfterDefaultValue = await setDefaultValue(
     context,
     feature,
     revision,
     defaultValue,
     res.locals.eventAudit,
     resetReview,
+  );
+  await recordRevisionUpdate(
+    context,
+    feature,
+    updatedRevisionAfterDefaultValue ?? revision,
+    "defaultValue",
   );
 
   res.status(200).json({
@@ -2586,6 +2760,7 @@ export async function putFeatureRule(
         name: rampSchedulePayload.name,
         environment,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
+        // null = explicitly cleared (no end actions); undefined = not set (fall back to template)
         endActions:
           rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
         startDate:
@@ -2653,7 +2828,7 @@ export async function putFeatureRule(
   }
 
   // Single updateRevision call combines both rule and ramp changes atomically
-  await updateRevision(
+  const updatedRevisionAfterRuleEdit = await updateRevision(
     context,
     feature,
     revision,
@@ -2665,6 +2840,13 @@ export async function putFeatureRule(
       value: JSON.stringify(rule),
     },
     resetReview,
+  );
+  await recordRevisionUpdate(
+    context,
+    feature,
+    updatedRevisionAfterRuleEdit ?? revision,
+    "rule.update",
+    { environments: [environment] },
   );
 
   // Handle real-time "update" mode separately (operates on live schedule, not revision-bound)
@@ -2769,6 +2951,29 @@ export async function postFeatureCreateDraft(
     org: context.org,
     canBypassApprovalChecks: false,
   });
+
+  void req
+    .audit({
+      event: "feature.revision.create",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsCreate({
+        featureId: feature.id,
+        version: newDraft.version,
+        baseVersion: newDraft.baseVersion,
+        comment: newDraft.comment,
+      }),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.create"),
+    );
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    newDraft,
+    "revision.created",
+    {},
+  );
 
   return res.status(200).json({
     status: 200,
@@ -2933,6 +3138,9 @@ export async function postFeatureToggle(
     entity: { object: "feature", id: feature.id },
     details: auditDetailsUpdate(prevStates, changes, { draft: true }),
   });
+  await recordRevisionUpdate(context, feature, draft, "toggle", {
+    environments: changedEnvList,
+  });
 
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
@@ -2979,7 +3187,7 @@ export async function postFeatureMoveRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
-  await updateRevision(
+  const updatedRevisionAfterMove = await updateRevision(
     context,
     feature,
     revision,
@@ -2991,6 +3199,13 @@ export async function postFeatureMoveRule(
       value: JSON.stringify(rule),
     },
     resetReview,
+  );
+  await recordRevisionUpdate(
+    context,
+    feature,
+    updatedRevisionAfterMove ?? revision,
+    "rule.reorder",
+    { environments: [environment] },
   );
 
   res.status(200).json({
@@ -3069,7 +3284,7 @@ export async function deleteFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
-  await updateRevision(
+  const updatedRevisionAfterRuleDelete = await updateRevision(
     context,
     feature,
     revision,
@@ -3081,6 +3296,13 @@ export async function deleteFeatureRule(
       value: JSON.stringify(rule),
     },
     resetReview,
+  );
+  await recordRevisionUpdate(
+    context,
+    feature,
+    updatedRevisionAfterRuleDelete ?? revision,
+    "rule.delete",
+    { environments: [environment] },
   );
 
   res.status(200).json({
@@ -3524,7 +3746,27 @@ export async function postFeatureArchive(
 
   if (autoPublish) {
     await assertCanAutoPublish(context, feature, draft);
-    await publishRevision(context, feature, draft, archiveChanges);
+    const updatedFeature = await publishRevision(
+      context,
+      feature,
+      draft,
+      archiveChanges,
+    );
+    // Re-fetch so the payload reflects the post-publish status ("published").
+    const publishedRevision =
+      (await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        version: draft.version,
+      })) ?? draft;
+    await dispatchFeatureRevisionEvent(
+      context,
+      updatedFeature,
+      publishedRevision,
+      "revision.published",
+      {},
+    );
   }
 
   await req.audit({
@@ -3539,6 +3781,9 @@ export async function postFeatureArchive(
       { draft: !autoPublish, draftVersion: draft.version },
     ),
   });
+  if (!autoPublish) {
+    await recordRevisionUpdate(context, feature, draft, "archive");
+  }
 
   res.status(200).json({ status: 200, draftVersion: draft.version });
 }
@@ -4188,6 +4433,7 @@ export async function postPrerequisite(
     baseDraft?.version,
     forceNewDraft,
   );
+  await recordRevisionUpdate(context, feature, draft, "prerequisites");
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
 
@@ -4245,6 +4491,7 @@ export async function putPrerequisite(
     baseDraftPut?.version,
     forceNewDraft,
   );
+  await recordRevisionUpdate(context, feature, putDraft, "prerequisites");
   return res.status(200).json({ status: 200, draftVersion: putDraft.version });
 }
 
@@ -4297,6 +4544,7 @@ export async function deletePrerequisite(
     baseDraftDel?.version,
     forceNewDraft,
   );
+  await recordRevisionUpdate(context, feature, deleteDraft, "prerequisites");
   return res
     .status(200)
     .json({ status: 200, draftVersion: deleteDraft.version });

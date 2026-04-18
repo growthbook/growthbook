@@ -250,7 +250,7 @@ async function handleRequest(event) {
 
 The following targeting attributes are set automatically by the Edge App.
 
-- `id` - creates a long-lived `gbuuid` cookie if it doesn't exist already
+- `id` - a long-lived user identifier, stored in a `gbuuid` cookie (see [Cookie Policy and GDPR](#cookie-policy-and-gdpr) for how the cookie is written and when to use `PERSIST_UUID`)
 - `url`
 - `path`
 - `host`
@@ -297,7 +297,20 @@ When multiple routes are included in your `ROUTES` array, only the first match i
 
 ### Cookie Policy and GDPR
 
-By default, the Edge App will persist a random unique identifier in a first-party cookie named `gbuuid`. Its purpose is to provide a consistent user experience to your visitors by preventing them from being re-bucketed into different A/B test variations. It follows the same mechanism as discussed in our [HTML Script Tag docs](/lib/script-tag#cookie-policy-and-gdpr).
+The Edge App uses a random unique identifier, stored in a first-party cookie named `gbuuid`, to provide a consistent user experience to your visitors by preventing them from being re-bucketed into different A/B test variations. It follows the same mechanism as discussed in our [HTML Script Tag docs](/lib/script-tag#cookie-policy-and-gdpr).
+
+#### Persisting the `gbuuid` Cookie from the Edge
+
+By default, the Edge App generates a `gbuuid` for each visitor and exposes it as the `id` targeting attribute, but it does **not** write the cookie from the edge server itself. Instead, the cookie is persisted in the browser by the injected front-end SDK once the page loads.
+
+This works for most setups. However, the `gbuuid` cookie will **not** be written if any of the following are true:
+
+- You have disabled SDK injection (`DISABLE_INJECTIONS="true"`).
+- You need the `gbuuid` cookie to be available on the very first request — for example, before the browser has a chance to execute the injected SDK.
+
+In these cases, add `PERSIST_UUID="true"` to your Fastly Config store (`env_vars`). The Edge App will then include a `Set-Cookie: gbuuid=...` header on its response, ensuring the cookie is stored on the first request.
+
+If you are using `NO_AUTO_COOKIES` to wait for consent (see the [next section](#delay-storing-the-cookie-until-consent-is-granted)), no cookies — including `gbuuid` — will be written until the `growthbookpersist` event is dispatched, regardless of `PERSIST_UUID`.
 
 #### Delay Storing the Cookie Until Consent is Granted
 

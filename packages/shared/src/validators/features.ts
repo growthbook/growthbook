@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
-import { eventUser } from "./events";
+import { eventUser } from "./event-user";
 import {
   featurePrerequisite,
   namespaceValue,

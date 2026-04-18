@@ -1,5 +1,3 @@
-import { NotificationEventName } from "./events/event";
-
 export interface SlackIntegrationInterface {
   id: string;
   organizationId: string;
@@ -9,7 +7,8 @@ export interface SlackIntegrationInterface {
   dateUpdated: Date;
   projects: string[];
   environments: string[];
-  events: NotificationEventName[];
+  // Concrete event names or wildcard patterns (e.g. "feature.*", "feature.revision.*").
+  events: string[];
   tags: string[];
   slackAppId: string;
   slackIncomingWebHook: string;

@@ -15,6 +15,7 @@ import {
   getLiveAndBaseRevisionsForFeature,
   revisionToApiInterface,
 } from "back-end/src/services/features";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
@@ -171,6 +172,15 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     featureId: feature.id,
     version: req.params.version,
   });
+  const finalRevision = updated ?? revision;
 
-  return { revision: revisionToApiInterface(updated ?? revision) };
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
+  );
+
+  return { revision: revisionToApiInterface(finalRevision) };
 });
