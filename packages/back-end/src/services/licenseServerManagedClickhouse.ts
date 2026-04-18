@@ -9,13 +9,13 @@ import type {
 import type { Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { fetch } from "back-end/src/util/http.util";
+import { CLOUD_SECRET } from "back-end/src/util/secrets";
 
 async function postManagedClickhouse(
   path: string,
   body: unknown,
 ): Promise<Response> {
-  const cloudSecret = process.env.CLOUD_SECRET;
-  if (!cloudSecret) {
+  if (!CLOUD_SECRET) {
     throw new Error(
       "CLOUD_SECRET must be set to use license server managed ClickHouse",
     );
@@ -28,7 +28,7 @@ async function postManagedClickhouse(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${cloudSecret}`,
+      Authorization: `Bearer ${CLOUD_SECRET}`,
     },
     body: JSON.stringify(body),
   });
