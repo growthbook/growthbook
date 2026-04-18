@@ -212,6 +212,53 @@ export const featureEnvironment = z
 
 export type FeatureEnvironment = z.infer<typeof featureEnvironment>;
 
+// ---------------------------------------------------------------------------
+// v1 (legacy, pre-unification) validators
+// ---------------------------------------------------------------------------
+// These schemas describe on-disk feature data from before the v2 rule
+// unification (`uid` / `allEnvironments` / top-level `rules` array). They are
+// deliberately PERMISSIVE:
+//   - `.passthrough()` so unknown fields (including round-tripped v2 scope
+//     fields like `uid`) survive parsing. The user explicitly requested that
+//     downconversion preserve uids for reconversion stability; these schemas
+//     must therefore tolerate uid-bearing legacy rules without stripping.
+//   - Constructive (explicit field-by-field) rather than `Omit<FeatureRule,
+//     "uid" | ...>`. That way, adding a field to v2 `FeatureRule` does NOT
+//     implicitly change `V1FeatureRule`. V1 types evolve only when we
+//     consciously decide a field was present in v1 data on disk.
+//   - Well-known common fields are explicitly typed as optional to give
+//     callers IDE autocomplete; everything else is wildcard-unknown.
+//
+// Use these when parsing/validating incoming legacy-shaped payloads at API
+// boundaries. The JIT chokepoints (FeatureModel.toInterface,
+// FeatureRevisionModel.toInterface) do NOT currently call `.parse()` — they
+// cast through the types — because Mongoose already returns typed objects.
+// The schemas exist for future parse sites (REST v1 ingress, audit-log
+// ingestion, webhook payloads, etc.).
+// ---------------------------------------------------------------------------
+
+export const v1FeatureRule = z
+  .object({
+    id: z.string(),
+    // Well-known optional fields for IDE convenience. None are enforced.
+    type: z.string().optional(),
+    enabled: z.boolean().optional(),
+    description: z.string().optional(),
+  })
+  .passthrough();
+
+export type V1FeatureRule = z.infer<typeof v1FeatureRule>;
+
+export const v1FeatureEnvironment = z
+  .object({
+    enabled: z.boolean().optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
+    rules: z.array(v1FeatureRule).optional(),
+  })
+  .passthrough();
+
+export type V1FeatureEnvironment = z.infer<typeof v1FeatureEnvironment>;
+
 export const JSONSchemaDef = z
   .object({
     schemaType: z.enum(["schema", "simple"]),

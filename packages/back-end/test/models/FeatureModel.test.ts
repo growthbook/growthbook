@@ -4,7 +4,10 @@ import {
   LegacyFeatureInterface,
 } from "shared/types/feature";
 import { Environment } from "shared/types/organization";
-import { buildFeatureInterface } from "back-end/src/models/FeatureModel";
+import {
+  buildFeatureInterface,
+  buildFeatureUpdate,
+} from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 import { generateRuleUid } from "back-end/src/util/flattenRules";
 
@@ -406,6 +409,77 @@ describe("buildFeatureInterface", () => {
     });
   });
 
+  // ================= Non-rule upgrades + envSettings preservation =================
+
+  describe("non-rule upgrades on v2 documents", () => {
+    // applyNonRuleFeatureUpgrades must still run for v2 documents. We test the
+    // observable side effects: `version` backfill and `jsonSchema` defaulting.
+    it("backfills version=1 when version is missing on a v2 doc", () => {
+      const { version: _v, ...noVersionMeta } = BASE_META;
+      const v2 = {
+        ...noVersionMeta,
+        environmentSettings: {
+          dev: { enabled: true, prerequisites: [] },
+          production: { enabled: true, prerequisites: [] },
+        },
+        rules: [],
+      } as unknown as FeatureInterface;
+
+      const out = buildFeatureInterface(
+        v2 as unknown as LegacyFeatureInterface,
+        mockContext(),
+      );
+      expect(out.version).toBe(1);
+    });
+
+    it("backfills jsonSchema.schemaType and simple on a v2 doc", () => {
+      const v2 = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, prerequisites: [] },
+          production: { enabled: true, prerequisites: [] },
+        },
+        rules: [],
+        jsonSchema: {
+          schema: "{}",
+          date: new Date("2024-01-01"),
+          enabled: true,
+          // schemaType + simple omitted — should be filled by applyNonRuleFeatureUpgrades
+        },
+      } as unknown as FeatureInterface;
+
+      const out = buildFeatureInterface(
+        v2 as unknown as LegacyFeatureInterface,
+        mockContext(),
+      );
+      expect(out.jsonSchema?.schemaType).toBe("schema");
+      expect(out.jsonSchema?.simple).toEqual({ type: "object", fields: [] });
+    });
+
+    it("preserves environmentSettings[env].prerequisites through v2 read", () => {
+      const prereq = {
+        id: "feat_parent",
+        condition: `{"value": true}`,
+      };
+      const v2 = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, prerequisites: [prereq] },
+          production: { enabled: false, prerequisites: [] },
+        },
+        rules: [],
+      } as unknown as FeatureInterface;
+
+      const out = buildFeatureInterface(
+        v2 as unknown as LegacyFeatureInterface,
+        mockContext(),
+      );
+      expect(out.environmentSettings.dev.prerequisites).toEqual([prereq]);
+      expect(out.environmentSettings.dev.enabled).toBe(true);
+      expect(out.environmentSettings.production.enabled).toBe(false);
+    });
+  });
+
   // ================= applicableEnvs (project scoping) =================
 
   describe("project-scoped environments", () => {
@@ -434,5 +508,65 @@ describe("buildFeatureInterface", () => {
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].allEnvironments).toBe(true);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildFeatureUpdate: pre-Phase-3 write chokepoint. Pure transform that
+// scrubs v1-shape `rules` keys from environmentSettings entries so writes
+// never accidentally re-introduce v1-shape data that would re-trigger the
+// flatten path on the next read. See the helper's docstring for context.
+// ---------------------------------------------------------------------------
+
+describe("buildFeatureUpdate", () => {
+  it("is a no-op when update has no environmentSettings", () => {
+    const update = { defaultValue: "true", version: 2 };
+    expect(buildFeatureUpdate(update)).toEqual(update);
+  });
+
+  it("removes rules key from every env object in environmentSettings", () => {
+    const out = buildFeatureUpdate({
+      environmentSettings: {
+        dev: { enabled: true, rules: [{ id: "r1" }] },
+        production: { enabled: false, rules: [], prerequisites: [] },
+      },
+    });
+    expect(out.environmentSettings).toEqual({
+      dev: { enabled: true },
+      production: { enabled: false, prerequisites: [] },
+    });
+  });
+
+  it("leaves env objects that have no rules key untouched", () => {
+    const input = {
+      environmentSettings: {
+        dev: { enabled: true, prerequisites: [{ id: "p", condition: "{}" }] },
+      },
+    };
+    const out = buildFeatureUpdate(input);
+    expect(out.environmentSettings).toEqual(input.environmentSettings);
+  });
+
+  it("does not mutate the caller's input", () => {
+    const input = {
+      environmentSettings: {
+        dev: { enabled: true, rules: [{ id: "r1" }] },
+      },
+    };
+    buildFeatureUpdate(input);
+    expect(input.environmentSettings.dev.rules).toEqual([{ id: "r1" }]);
+  });
+
+  it("preserves non-envSettings fields on the update payload", () => {
+    const out = buildFeatureUpdate({
+      defaultValue: "false",
+      version: 3,
+      environmentSettings: {
+        dev: { enabled: true, rules: [] },
+      },
+    });
+    expect(out.defaultValue).toBe("false");
+    expect(out.version).toBe(3);
+    expect(out.environmentSettings?.dev).toEqual({ enabled: true });
   });
 });

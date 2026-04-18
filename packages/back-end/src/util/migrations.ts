@@ -26,6 +26,7 @@ import {
   LegacyFeatureInterface,
   V1FeatureEnvironment,
   V1FeatureInterface,
+  V1FeatureRule,
 } from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -270,7 +271,7 @@ export function upgradeDatasourceObject(
 // `environmentSettings[env].rules` (a v1-shape field). Operates on
 // V1FeatureEnvironment because the output of the v0 upgrader is a v1 document.
 function updateEnvironmentSettings(
-  rules: FeatureRule[],
+  rules: V1FeatureRule[],
   environments: string[],
   environment: string,
   feature: V1FeatureInterface,
@@ -307,7 +308,7 @@ function draftHasChanges(
   }
 
   if (draft.rules) {
-    const comp: Record<string, FeatureRule[]> = {};
+    const comp: Record<string, V1FeatureRule[]> = {};
     Object.keys(draft.rules).forEach((key) => {
       comp[key] = feature.environmentSettings?.[key]?.rules || [];
     });
@@ -320,19 +321,29 @@ function draftHasChanges(
   return false;
 }
 
+/**
+ * Heal an ancient rule on read. Returns a NEW rule object; does not mutate
+ * the input. Today only covers the pre-`coverage` experiment rule case, but
+ * new rule-level backfills should be added here.
+ *
+ * Intentionally pure so callers can freely share rule references (e.g. the
+ * same object appearing on both a feature and a revision). A prior in-place
+ * version had surprising aliasing semantics; keeping the pure contract
+ * makes JIT-migration chokepoints safe to compose.
+ */
 export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
-    rule.coverage = 1;
     const weights = rule.values
       .map((v) => v.weight)
       .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
       .map((w) => roundVariationWeight(w));
     const totalWeight = getTotalVariationWeight(weights);
+    let coverage = 1;
     if (totalWeight <= 0) {
-      rule.coverage = 0;
+      coverage = 0;
     } else if (totalWeight < 0.999) {
-      rule.coverage = totalWeight;
+      coverage = totalWeight;
     }
 
     const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
@@ -340,9 +351,11 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
       weights.map((w) => roundVariationWeight(w * multiplier)),
     );
 
-    rule.values = rule.values.map((v, j) => {
-      return { ...v, weight: adjustedWeights[j] };
-    });
+    return {
+      ...rule,
+      coverage,
+      values: rule.values.map((v, j) => ({ ...v, weight: adjustedWeights[j] })),
+    };
   }
 
   return rule;
@@ -428,7 +441,12 @@ export function upgradeV0Feature(
   for (const env in newFeature.environmentSettings) {
     const settings = newFeature.environmentSettings[env];
     if (settings?.rules) {
-      settings.rules = settings.rules.map((r) => upgradeFeatureRule(r));
+      // V1FeatureRule is a permissive passthrough schema, not a structural
+      // subset of the v2 discriminated-union FeatureRule. Cast across the
+      // boundary; upgradeFeatureRule preserves unknown fields via spread.
+      settings.rules = settings.rules.map(
+        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
+      );
     }
   }
 
@@ -436,7 +454,9 @@ export function upgradeV0Feature(
     if (draft?.rules) {
       for (const env in draft.rules) {
         const dRules = draft.rules;
-        dRules[env] = dRules[env].map((r) => upgradeFeatureRule(r));
+        dRules[env] = dRules[env].map(
+          (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
+        );
       }
     }
     if (draft?.active && !draftHasChanges(newFeature, draft)) {
@@ -444,7 +464,7 @@ export function upgradeV0Feature(
     }
 
     if (draft.active) {
-      const revisionRules: Record<string, FeatureRule[]> = {};
+      const revisionRules: Record<string, V1FeatureRule[]> = {};
       Object.entries(newFeature.environmentSettings || {}).forEach(
         ([env, settings]) => {
           revisionRules[env] = settings?.rules || [];
@@ -455,10 +475,14 @@ export function upgradeV0Feature(
         },
       );
 
-      // v1 legacyDraft intentionally uses the v1 `Record<env, FeatureRule[]>`
-      // shape for `rules`. The JIT pipeline in FeatureRevisionModel.toInterface
-      // will flatten it to the v2 array on read. The ambient v2 type says
-      // `rules: FeatureRule[]`, so cast through `unknown`.
+      // The produced legacyDraft is structurally a V1FeatureRevisionInterface
+      // (v1-shaped `rules: Record<env, V1FeatureRule[]>`) even though the
+      // ambient type on FeatureInterface.legacyDraft is the v2
+      // FeatureRevisionInterface. The JIT pipeline in
+      // FeatureRevisionModel.toInterface flattens it back to the v2 array on
+      // read. Cast through unknown — the field type would need a union of
+      // v1/v2 revision shapes to remove the cast, which would pollute v2
+      // callers for a transitional concern.
       newFeature.legacyDraft = {
         baseVersion: newFeature.version,
         comment: draft.comment || "",

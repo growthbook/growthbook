@@ -1,7 +1,12 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  V1FeatureRule,
+  V1FeatureRevisionInterface,
+} from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
@@ -24,6 +29,7 @@ import {
   isV2RevisionRules,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
+import { upgradeFeatureRule } from "back-end/src/util/migrations";
 import { logger } from "back-end/src/util/logger";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
@@ -80,30 +86,34 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
 );
 
 /**
- * Convert the Mongo revision document to a v2 FeatureRevisionInterface.
+ * Pure JIT migration from a raw revision document to a v2
+ * FeatureRevisionInterface. Exposed for integration tests; the Mongoose-level
+ * `toInterface` wrapper below strips doc metadata and delegates here.
  *
- * JIT-migration chokepoint for revisions on read. Steps:
- *   1. Strip Mongoose metadata.
- *   2. Backfill historical missing fields (publishedBy.type, status, etc.).
- *   3. If `revision.rules` is v1-shaped (a `Record<env, FeatureRule[]>`),
- *      apply env inheritance (expand sparse per-env records), then flatten via
- *      `flattenV1ToV2Rules` into the v2 `FeatureRule[]` array. Already-v2
- *      arrays pass through untouched (see `isV2RevisionRules`).
- *   4. If `opts.featureProject` is provided, `applicableEnvs` is computed from
- *      the org's env list + project. Merged rules whose footprint covers every
- *      applicable env collapse to `allEnvironments: true`. Without this hint,
- *      the JIT conservatively emits explicit `environments` lists — still
- *      semantically correct, just no `allEnvironments: true` collapse.
+ * Steps:
+ *   1. Backfill historical missing fields (publishedBy.type, status, etc.).
+ *   2. If `revision.rules` is v1-shaped (a `Record<env, FeatureRule[]>`),
+ *      apply env inheritance (expand sparse per-env records), heal each rule
+ *      via `upgradeFeatureRule`, then flatten via `flattenV1ToV2Rules` into
+ *      the v2 `FeatureRule[]` array. Already-v2 arrays pass through
+ *      untouched (see `isV2RevisionRules`) except for a defensive
+ *      `upgradeFeatureRule` pass for symmetry with `buildFeatureInterface`.
+ *   3. If `opts.featureProject` is provided, `applicableEnvs` is computed
+ *      from the org's env list + project. Merged rules whose footprint
+ *      covers every applicable env collapse to `allEnvironments: true`.
+ *      Without this hint, the JIT conservatively emits explicit
+ *      `environments` lists — still semantically correct, just no
+ *      `allEnvironments: true` collapse.
  *
  * Callers that have the parent feature in scope should prefer
  * `toInterfaceWithFeature` below so the collapse can happen.
  */
-function toInterface(
-  doc: FeatureRevisionDocument,
+export function buildFeatureRevisionInterface(
+  raw: FeatureRevisionInterface,
   context: ReqContext | ApiReqContext,
   opts?: { featureProject?: string },
 ): FeatureRevisionInterface {
-  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
+  const revision = { ...raw };
 
   // These fields are new, so backfill them for old revisions
   if (revision.publishedBy && !revision.publishedBy.type) {
@@ -129,23 +139,46 @@ function toInterface(
   const rawRules = revision.rules as unknown;
 
   if (isV2RevisionRules(rawRules)) {
-    revision.rules = rawRules;
+    // v2 pass-through. Apply upgradeFeatureRule defensively (symmetric with
+    // buildFeatureInterface) so pre-coverage experiment rules get healed on
+    // read regardless of whether we arrive via the feature path or revision
+    // path. Returns new objects now (upgradeFeatureRule is pure).
+    revision.rules = rawRules.map((r) => upgradeFeatureRule(r));
   } else {
     const v1Record =
-      (rawRules as Record<string, FeatureRule[]> | undefined) || {};
+      (rawRules as V1FeatureRevisionInterface["rules"] | undefined) || {};
     const inherited = applyEnvironmentInheritance(
       orgEnvs,
       v1Record,
     ) as V1RulesByEnv;
+    // Heal ancient rule content (e.g. pre-coverage experiments) before
+    // flattening, so v1 rules and v2 rules pass through the same upgrade.
+    const upgraded: V1RulesByEnv = {};
+    for (const [envId, envRules] of Object.entries(inherited)) {
+      upgraded[envId] = (envRules || []).map(
+        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
+      );
+    }
     const applicableEnvs = opts?.featureProject
       ? getApplicableEnvIds(orgEnvs, opts.featureProject)
       : undefined;
-    revision.rules = flattenV1ToV2Rules(revision.featureId, inherited, {
+    revision.rules = flattenV1ToV2Rules(revision.featureId, upgraded, {
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
     });
   }
   return revision;
+}
+
+// Thin Mongoose-level wrapper. Strips doc metadata and delegates to the pure
+// `buildFeatureRevisionInterface`.
+function toInterface(
+  doc: FeatureRevisionDocument,
+  context: ReqContext | ApiReqContext,
+  opts?: { featureProject?: string },
+): FeatureRevisionInterface {
+  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
+  return buildFeatureRevisionInterface(revision, context, opts);
 }
 
 /**

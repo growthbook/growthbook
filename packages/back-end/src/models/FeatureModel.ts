@@ -31,6 +31,7 @@ import {
   JSONSchemaDef,
   LegacyFeatureInterface,
   V1FeatureInterface,
+  V1FeatureRule,
 } from "shared/types/feature";
 import { EventUser } from "shared/types/events/event-types";
 import { OrganizationInterface } from "shared/types/organization";
@@ -117,12 +118,24 @@ const featureSchema = new mongoose.Schema({
   defaultValue: String,
   environments: [String],
   tags: [String],
-  // Mixed type to accept v2 rule fields (uid, allEnvironments, environments)
-  // alongside existing content fields without the strict Mongoose sub-schema
-  // silently dropping any of them on save. The Zod validators in
-  // shared/validators/features.ts provide the real schema enforcement at the
-  // application layer. Prior to v2 this was a strict nested sub-schema which
-  // caused Mongoose to silently strip v2-only fields — hence the Mixed type.
+  // `rules` and `environmentSettings` are intentionally declared as Mixed (the
+  // literal `{}`). Validation for these blobs lives in the application layer
+  // (Zod schemas in `shared/validators/features.ts` for v2 canonical shapes,
+  // `v1FeatureRule` / `v1FeatureEnvironment` with `.passthrough()` for ingest
+  // of legacy-shape data). The read-side JIT (`buildFeatureInterface`) does
+  // the v0/v1/v2 shape discrimination; the write-side chokepoint
+  // (`buildFeatureUpdate`) scrubs v1-shape `rules` keys out of env objects.
+  //
+  // Why Mixed instead of a strict sub-schema:
+  //   1. v2 added `uid`, `allEnvironments`, `environments` to rules after
+  //      initial deployment. Mongoose's default strict mode silently drops
+  //      fields not declared in the sub-schema; that would have corrupted v2
+  //      writes. Mixed tells Mongoose "trust the app layer".
+  //   2. `environmentSettings[env]` transitions from v1 (has `rules` key) to
+  //      v2 (no `rules` key) document-by-document as they get written. A
+  //      strict sub-schema would need to tolerate both shapes anyway.
+  //   3. Field-level validation was already happening in the app layer via
+  //      Zod; the Mongoose sub-schema was mostly duplicate typing.
   rules: {},
   prerequisites: [
     {
@@ -223,10 +236,7 @@ export function buildFeatureInterface(
     applyNonRuleFeatureUpgrades(v1OrV2);
   }
 
-  const envSettings = (v1OrV2.environmentSettings || {}) as Record<
-    string,
-    { enabled?: boolean; rules?: FeatureRule[] }
-  >;
+  const envSettings = v1OrV2.environmentSettings || {};
 
   if (!isV2FeatureEnvSettings(envSettings)) {
     // v1 path: flatten per-env rules into the v2 top-level array. Apply env
@@ -235,8 +245,11 @@ export function buildFeatureInterface(
     const inherited = applyEnvironmentInheritance(orgEnvs, envSettings);
     const rulesByEnv: V1RulesByEnv = {};
     for (const [envId, envObj] of Object.entries(inherited)) {
-      rulesByEnv[envId] = (envObj?.rules || []).map((r) =>
-        upgradeFeatureRule(r),
+      // Cast across the permissive V1FeatureRule -> strict FeatureRule boundary
+      // for upgradeFeatureRule; it returns a new object and preserves unknown
+      // fields via spread, so round-trip is safe.
+      rulesByEnv[envId] = (envObj?.rules || []).map(
+        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
       );
     }
     const applicableEnvs = getApplicableEnvIds(orgEnvs, v1OrV2.project);
@@ -253,7 +266,7 @@ export function buildFeatureInterface(
   // it. Defensive upgradeFeatureRule for old rule content + expand env
   // inheritance on envSettings (which has no rules key in v2).
   const v2 = v1OrV2 as unknown as FeatureInterface;
-  v2.rules = (v2.rules || []).map((r) => upgradeFeatureRule(r));
+  v2.rules = (v2.rules || []).map((r) => upgradeFeatureRule(r as FeatureRule));
   v2.environmentSettings = applyEnvironmentInheritance(
     orgEnvs,
     v1OrV2.environmentSettings || {},
@@ -268,6 +281,61 @@ const toInterface = (
   const raw = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
   return buildFeatureInterface(raw, context);
 };
+
+// ---------------------------------------------------------------------------
+// Write chokepoint
+// ---------------------------------------------------------------------------
+/**
+ * Normalize a feature-write payload to the v2 on-disk shape. Pure transform:
+ * no database side effects, no runtime assertions, no live-traffic cost.
+ *
+ * Why this exists:
+ *   - v1 on-disk docs store rules at `environmentSettings[env].rules`.
+ *   - v2 on-disk docs store rules at the top-level `rules` array, and each
+ *     env object in `environmentSettings` has NO `rules` key.
+ *   - The read-side JIT (`buildFeatureInterface`) discriminates v1 vs v2 by
+ *     the presence/absence of `rules` keys in any env object. If a write
+ *     accidentally leaves `rules` on any env object, the next read will
+ *     classify the doc as v1 and re-flatten from scratch — which is
+ *     functionally safe (content-hash uids are stable) but churns the
+ *     top-level array and can reorder rules if merge eligibility shifts.
+ *
+ * What this does:
+ *   - Returns an `environmentSettings` payload with any `rules` key stripped
+ *     from every env object (shallow-clones the envs it touches).
+ *   - Leaves the rest of the update object alone.
+ *
+ * What this does NOT do:
+ *   - Validate that the update is internally consistent.
+ *   - Enforce routing: callers can still bypass this helper. Phase 3 will
+ *     migrate every write path through it; a post-phase-3 eslint rule will
+ *     lock the chokepoint at build time (no runtime enforcement planned —
+ *     per the explicit design choice to keep live traffic cost at zero).
+ *
+ * Use for $set payloads on `FeatureModel.updateOne` / `.updateMany` /
+ * `.findOneAndUpdate`. For partial-field updates that do not touch
+ * `environmentSettings`, this helper is a no-op identity on that key.
+ */
+export function buildFeatureUpdate<
+  T extends {
+    environmentSettings?: Record<
+      string,
+      { rules?: unknown; [k: string]: unknown }
+    >;
+  },
+>(update: T): T {
+  if (!update.environmentSettings) return update;
+  const scrubbed: Record<string, { [k: string]: unknown }> = {};
+  for (const [envId, envObj] of Object.entries(update.environmentSettings)) {
+    if (envObj && typeof envObj === "object" && "rules" in envObj) {
+      const { rules: _drop, ...rest } = envObj;
+      scrubbed[envId] = rest;
+    } else {
+      scrubbed[envId] = envObj;
+    }
+  }
+  return { ...update, environmentSettings: scrubbed } as T;
+}
 
 export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
@@ -2058,10 +2126,14 @@ export async function getFeatureEnvStatus(
   });
 
   return docs.map((f) => ({
-    id: f.id,
+    id: f.id as string,
+    // applyEnvironmentInheritance may return v1-shaped envs (with a `rules`
+    // key) during the transition; this getter only needs the enabled flag,
+    // so the v2/v1 shape difference doesn't matter semantically. Cast to
+    // the v2 return shape.
     environmentSettings: applyEnvironmentInheritance(
       context.org.settings?.environments || [],
       f.environmentSettings || {},
-    ),
+    ) as FeatureInterface["environmentSettings"],
   }));
 }

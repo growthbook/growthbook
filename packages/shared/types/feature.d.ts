@@ -7,6 +7,9 @@ import {
   simpleSchemaValidator,
   FeatureRule,
   FeatureInterface,
+  V1FeatureRule,
+  V1FeatureEnvironment,
+  FeatureRevisionInterface,
 } from "shared/validators";
 import { UserRef } from "./user";
 
@@ -23,6 +26,10 @@ export {
   RolloutRule,
   ExperimentRefVariation,
   ComputedFeatureInterface,
+  V1FeatureRule,
+  V1FeatureEnvironment,
+  v1FeatureRule,
+  v1FeatureEnvironment,
 } from "shared/validators";
 
 export {
@@ -71,12 +78,12 @@ export interface JSONSchemaDef {
 //      wholesale to scrub the legacy `rules` key from disk.
 // ---------------------------------------------------------------------------
 
-// v1 per-env environment settings.
-export type V1FeatureEnvironment = {
-  enabled: boolean;
-  prerequisites?: FeaturePrerequisite[];
-  rules?: FeatureRule[];
-};
+// v1 per-env environment settings and v1 rule types are zod-backed in
+// shared/validators/features.ts and re-exported here. They are permissive
+// (`.passthrough()`) by design so (a) downconverted v2 rules keep their
+// `uid` for reconversion stability, and (b) future v2-only fields added to
+// `FeatureRule` do NOT implicitly widen `V1FeatureRule`. See the doc block
+// next to the zod definitions for rationale.
 
 // v1 feature document on disk. Has `environmentSettings[env].rules`. May or
 // may not have stale top-level `rules` left over from a v0->v1 migration that
@@ -89,7 +96,7 @@ export type V1FeatureInterface = Omit<
   environmentSettings?: Record<string, V1FeatureEnvironment>;
   // Stale v0 crust — ignored in the v1 path. Present only when a v0->v1
   // migration left the top-level `rules` field behind.
-  rules?: FeatureRule[];
+  rules?: V1FeatureRule[];
   revision?: {
     version: number;
     comment: string;
@@ -108,31 +115,27 @@ export type V1FeatureInterface = Omit<
 // the canonical v2 type; they are identical.
 export type V2FeatureInterface = FeatureInterface;
 
-// Union catch-all for "any non-v2 on-disk shape". Covers both v0 and v1
+// v1 feature revision shape. Rules are the v1 `Record<env, V1FeatureRule[]>`
+// instead of the v2 `FeatureRule[]` array. Used by `FeatureRevisionModel`
+// JIT migration and will be used by `toLegacyRevision` in Phase 2b.3.
+export type V1FeatureRevisionInterface = Omit<
+  FeatureRevisionInterface,
+  "rules"
+> & {
+  rules: Record<string, V1FeatureRule[]>;
+};
+
+// Constructive union for "any non-v2 on-disk shape". Covers both v0 and v1
 // documents. The JIT upgrader in FeatureModel.toInterface accepts this as
 // input. Structurally:
 //   - v0: no `environmentSettings`; has top-level `rules` and `environments`.
 //   - v1: has `environmentSettings`, at least one env has a `rules` key.
 //   - v1 with v0 crust: both shapes' fields present; we treat as v1 and
 //     ignore the stale top-level `rules`.
-export type LegacyFeatureInterface = Omit<
-  FeatureInterface,
-  "rules" | "environmentSettings"
-> & {
-  environmentSettings?: Record<string, V1FeatureEnvironment>;
-  // v0 top-level envs list
+// v1 is a proper subset of `LegacyFeatureInterface`; v0 adds only the
+// top-level `environments: string[]` field.
+export type LegacyFeatureInterface = V1FeatureInterface & {
   environments?: string[];
-  // v0 top-level rules, or v1 crust left over from a v0->v1 upgrade.
-  rules?: FeatureRule[];
-  revision?: {
-    version: number;
-    comment: string;
-    date: Date;
-    publishedBy: UserRef;
-  };
-  draft?: FeatureDraftChanges;
-  jsonSchema?: Omit<JSONSchemaDef, "schemaType" | "simple"> &
-    Partial<Pick<JSONSchemaDef, "schemaType" | "simple">>;
 };
 
 export interface FeatureDraftChanges {
@@ -140,7 +143,10 @@ export interface FeatureDraftChanges {
   dateCreated?: Date;
   dateUpdated?: Date;
   defaultValue?: string;
-  rules?: Record<string, FeatureRule[]>;
+  // v0-legacy per-env draft rules. Only populated on v0 docs during v0->v1
+  // upgrade, then rolled into `legacyDraft` (a revision) by `upgradeV0Feature`.
+  // Typed as `V1FeatureRule[]` because these pre-date v2 unification entirely.
+  rules?: Record<string, V1FeatureRule[]>;
   comment?: string;
 }
 

@@ -1,7 +1,12 @@
 import crypto from "crypto";
 import isEqual from "lodash/isEqual";
-import { FeatureRule } from "shared/validators";
+import { FeatureRule, V1FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
+
+// Re-export V1FeatureRule for callers that import it from this module (kept
+// for backwards-compat within the back-end; new code should import directly
+// from shared/validators).
+export type { V1FeatureRule };
 
 // ---------------------------------------------------------------------------
 // Feature document schema generations (see also shared/types/feature.d.ts)
@@ -26,13 +31,10 @@ import { Environment } from "shared/types/organization";
 //     Returning false means it's the legacy `Record<env, FeatureRule[]>` (v1).
 // ---------------------------------------------------------------------------
 
-// Input shape for the flattener: v1 rules keyed by env. Rules lack
-// uid/allEnvironments/environments since those fields only exist in v2.
-export type V1FeatureRule = Omit<
-  FeatureRule,
-  "uid" | "allEnvironments" | "environments"
->;
-
+// Input shape for the flattener: v1 rules keyed by env. `V1FeatureRule` is
+// zod-backed in shared/validators (permissive passthrough) so downconverted
+// v2 rules that carry a `uid` round-trip through this function without their
+// scope fields being stripped — the caller's shape decisions win.
 export type V1RulesByEnv = Record<string, V1FeatureRule[]>;
 
 /**
