@@ -34,6 +34,7 @@ jest.mock("back-end/src/util/secrets", () => ({
   IS_CLOUD: false,
   CLICKHOUSE_DEV_PREFIX: "dev_",
   CLICKHOUSE_OVERAGE_TABLE: "overage",
+  MANAGED_CLICKHOUSE_USE_LICENSE_SERVER: false,
 }));
 
 jest.mock("back-end/src/models/FactTableModel", () => ({
