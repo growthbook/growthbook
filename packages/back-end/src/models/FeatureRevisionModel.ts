@@ -19,10 +19,10 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import {
-  flattenRules,
+  flattenV1ToV2Rules,
   getApplicableEnvIds,
-  isUnifiedRevisionRules,
-  LegacyRulesByEnv,
+  isV2RevisionRules,
+  V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
@@ -80,15 +80,15 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
 );
 
 /**
- * Convert the Mongo revision document to a unified FeatureRevisionInterface.
+ * Convert the Mongo revision document to a v2 FeatureRevisionInterface.
  *
  * JIT-migration chokepoint for revisions on read. Steps:
  *   1. Strip Mongoose metadata.
  *   2. Backfill historical missing fields (publishedBy.type, status, etc.).
- *   3. If `revision.rules` is in the legacy `Record<env, FeatureRule[]>` shape,
+ *   3. If `revision.rules` is v1-shaped (a `Record<env, FeatureRule[]>`),
  *      apply env inheritance (expand sparse per-env records), then flatten via
- *      `flattenRules` into the unified `FeatureRule[]` array. Already-unified
- *      arrays pass through untouched (see `isUnifiedRevisionRules`).
+ *      `flattenV1ToV2Rules` into the v2 `FeatureRule[]` array. Already-v2
+ *      arrays pass through untouched (see `isV2RevisionRules`).
  *   4. If `opts.featureProject` is provided, `applicableEnvs` is computed from
  *      the org's env list + project. Merged rules whose footprint covers every
  *      applicable env collapse to `allEnvironments: true`. Without this hint,
@@ -128,19 +128,19 @@ function toInterface(
   const orgEnvs = context.org.settings?.environments || [];
   const rawRules = revision.rules as unknown;
 
-  if (isUnifiedRevisionRules(rawRules)) {
+  if (isV2RevisionRules(rawRules)) {
     revision.rules = rawRules;
   } else {
-    const legacyRecord =
+    const v1Record =
       (rawRules as Record<string, FeatureRule[]> | undefined) || {};
     const inherited = applyEnvironmentInheritance(
       orgEnvs,
-      legacyRecord,
-    ) as LegacyRulesByEnv;
+      v1Record,
+    ) as V1RulesByEnv;
     const applicableEnvs = opts?.featureProject
       ? getApplicableEnvIds(orgEnvs, opts.featureProject)
       : undefined;
-    revision.rules = flattenRules(revision.featureId, inherited, {
+    revision.rules = flattenV1ToV2Rules(revision.featureId, inherited, {
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
     });

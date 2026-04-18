@@ -20,10 +20,12 @@ import {
 } from "shared/types/datasource";
 import {
   FeatureDraftChanges,
-  FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
+  JSONSchemaDef,
   LegacyFeatureInterface,
+  V1FeatureEnvironment,
+  V1FeatureInterface,
 } from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -264,14 +266,18 @@ export function upgradeDatasourceObject(
   return datasource;
 }
 
+// v0-only helper: redistribute top-level legacy rules into
+// `environmentSettings[env].rules` (a v1-shape field). Operates on
+// V1FeatureEnvironment because the output of the v0 upgrader is a v1 document.
 function updateEnvironmentSettings(
   rules: FeatureRule[],
   environments: string[],
   environment: string,
-  feature: FeatureInterface,
+  feature: V1FeatureInterface,
 ) {
-  const settings: Partial<FeatureEnvironment> =
-    feature.environmentSettings?.[environment] || {};
+  const existing = feature.environmentSettings?.[environment];
+  const settings: Partial<V1FeatureEnvironment> = (existing ||
+    {}) as Partial<V1FeatureEnvironment>;
 
   if (!("rules" in settings)) {
     settings.rules = rules;
@@ -280,17 +286,18 @@ function updateEnvironmentSettings(
     settings.enabled = environments?.includes(environment) || false;
   }
 
-  // If Rules is an object instead of array, fix it
   if (settings.rules && !Array.isArray(settings.rules)) {
     settings.rules = Object.values(settings.rules);
   }
 
   feature.environmentSettings = feature.environmentSettings || {};
-  feature.environmentSettings[environment] = settings as FeatureEnvironment;
+  feature.environmentSettings[environment] = settings as V1FeatureEnvironment;
 }
 
+// v0-only helper: checks if the legacy `draft` block (`Record<env,
+// FeatureRule[]>`) diverges from the current v1 environmentSettings rules.
 function draftHasChanges(
-  feature: FeatureInterface,
+  feature: V1FeatureInterface,
   draft: FeatureDraftChanges,
 ) {
   if (!draft?.active) return false;
@@ -341,12 +348,73 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   return rule;
 }
 
-export function upgradeFeatureInterface(
-  feature: LegacyFeatureInterface,
-): FeatureInterface {
-  const { environments, rules, revision, draft, ...newFeature } = feature;
+/**
+ * Non-rule, non-shape upgrades shared by v1 and v2 feature documents. Safe to
+ * call on either. Mutates the input for convenience; also returns it.
+ *
+ * Covers:
+ *   - Backfilling `version` when missing (ancient docs that pre-date explicit
+ *     version tracking).
+ *   - Backfilling `jsonSchema.schemaType` and `jsonSchema.simple` when the doc
+ *     pre-dates the schema-type split.
+ *
+ * Deliberately does NOT touch rules. Callers are responsible for running
+ * `upgradeFeatureRule` over the appropriate rule array for their shape
+ * (v1: `environmentSettings[env].rules`; v2: `feature.rules`).
+ */
+export function applyNonRuleFeatureUpgrades<
+  T extends {
+    version?: number;
+    jsonSchema?: Partial<JSONSchemaDef>;
+  },
+>(feature: T): T {
+  feature.version = feature.version || 1;
 
-  // Copy over old way of storing rules/toggles to new environment-scoped settings
+  if (feature.jsonSchema) {
+    feature.jsonSchema.schemaType =
+      feature.jsonSchema.schemaType || "schema";
+    feature.jsonSchema.simple = feature.jsonSchema.simple || {
+      type: "object",
+      fields: [],
+    };
+  }
+
+  return feature;
+}
+
+/**
+ * Upgrade a v0 feature document into a v1 shape.
+ *
+ * v0 is the pre-`environmentSettings` on-disk shape. It stores rules at the
+ * top level of the feature (`feature.rules`) and a top-level `environments:
+ * string[]` list. This shape is rare in production (~137 of 162,795 features
+ * at time of cutover). v1 introduced `environmentSettings[env].rules`.
+ *
+ * This function:
+ *   - Redistributes the top-level `rules` array into
+ *     `environmentSettings.dev.rules` and `environmentSettings.production.rules`.
+ *   - Seeds `environmentSettings[env].enabled` from the top-level
+ *     `environments` list.
+ *   - Backfills `version` from the legacy `revision.version` field if present.
+ *   - Applies `upgradeFeatureRule` to each per-env rule.
+ *   - Converts the old top-level `draft` field into `legacyDraft` for the
+ *     revision backfill pipeline to pick up.
+ *   - Applies `applyNonRuleFeatureUpgrades` (version + jsonSchema defaults).
+ *
+ * CRITICAL: Do NOT call this on v1 or v2 documents — it will corrupt them by
+ * re-distributing rules from `feature.rules` (which is legitimate top-level
+ * data in v2) into `environmentSettings[env].rules` (v1-only storage),
+ * effectively reverting v2 docs to v1 and causing re-flattening on every
+ * read with potentially regenerated uids. The caller MUST structurally
+ * discriminate v0 before invoking this — v0 is identified by the ABSENCE of
+ * `environmentSettings` on the doc.
+ */
+export function upgradeV0Feature(
+  feature: LegacyFeatureInterface,
+): V1FeatureInterface {
+  const { environments, rules, revision, draft, ...rest } = feature;
+  const newFeature = rest as V1FeatureInterface;
+
   updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
   updateEnvironmentSettings(
     rules || [],
@@ -357,7 +425,6 @@ export function upgradeFeatureInterface(
 
   newFeature.version = feature.version || revision?.version || 1;
 
-  // Upgrade all published rules
   for (const env in newFeature.environmentSettings) {
     const settings = newFeature.environmentSettings[env];
     if (settings?.rules) {
@@ -366,23 +433,21 @@ export function upgradeFeatureInterface(
   }
 
   if (draft) {
-    // Upgrade all draft rules
     if (draft?.rules) {
       for (const env in draft.rules) {
-        const rules = draft.rules;
-        rules[env] = rules[env].map((r) => upgradeFeatureRule(r));
+        const dRules = draft.rules;
+        dRules[env] = dRules[env].map((r) => upgradeFeatureRule(r));
       }
     }
-    // Ignore drafts if nothing has changed
     if (draft?.active && !draftHasChanges(newFeature, draft)) {
       draft.active = false;
     }
 
     if (draft.active) {
       const revisionRules: Record<string, FeatureRule[]> = {};
-      Object.entries(newFeature.environmentSettings).forEach(
-        ([env, { rules }]) => {
-          revisionRules[env] = rules;
+      Object.entries(newFeature.environmentSettings || {}).forEach(
+        ([env, settings]) => {
+          revisionRules[env] = settings?.rules || [];
 
           if (draft.rules && draft.rules[env]) {
             revisionRules[env] = draft.rules[env];
@@ -390,6 +455,10 @@ export function upgradeFeatureInterface(
         },
       );
 
+      // v1 legacyDraft intentionally uses the v1 `Record<env, FeatureRule[]>`
+      // shape for `rules`. The JIT pipeline in FeatureRevisionModel.toInterface
+      // will flatten it to the v2 array on read. The ambient v2 type says
+      // `rules: FeatureRule[]`, so cast through `unknown`.
       newFeature.legacyDraft = {
         baseVersion: newFeature.version,
         comment: draft.comment || "",
@@ -403,22 +472,16 @@ export function upgradeFeatureInterface(
         publishedBy: null,
         status: "draft",
         version: newFeature.version + 1,
-        rules: revisionRules,
+        rules: revisionRules as unknown as FeatureRule[],
       };
     }
   }
 
-  if (newFeature.jsonSchema) {
-    newFeature.jsonSchema.schemaType =
-      newFeature.jsonSchema.schemaType || "schema";
-    newFeature.jsonSchema.simple = newFeature.jsonSchema.simple || {
-      type: "object",
-      fields: [],
-    };
-  }
+  applyNonRuleFeatureUpgrades(newFeature);
 
   return newFeature;
 }
+
 
 export function upgradeOrganizationDoc(
   doc: OrganizationInterface,

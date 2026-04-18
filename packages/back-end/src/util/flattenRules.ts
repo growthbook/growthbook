@@ -3,27 +3,50 @@ import isEqual from "lodash/isEqual";
 import { FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
 
-// Input shape: legacy rules keyed by env. Rules may lack uid/allEnvironments/environments
-// since those fields only exist in the unified shape.
-export type LegacyFeatureRule = Omit<
+// ---------------------------------------------------------------------------
+// Feature document schema generations (see also shared/types/feature.d.ts)
+// ---------------------------------------------------------------------------
+// v0 — Pre-environmentSettings. Top-level `rules` + `environments` arrays on
+//      the feature, no per-env settings. Upgraded to v1 by `upgradeV0Feature`.
+//
+// v1 — Pre-unification. `environmentSettings[env].rules` per environment. Rules
+//      lack `uid`, `allEnvironments`, and `environments` fields. This module's
+//      flattener converts v1 -> v2 on read (see `flattenV1ToV2Rules`).
+//
+// v2 — Unified (canonical). Top-level `rules: FeatureRule[]` with stable
+//      `uid`s, `allEnvironments: boolean`, and an optional `environments` list
+//      per rule. `environmentSettings[env]` has NO `rules` key. This is the
+//      shape of `FeatureInterface` itself.
+//
+// Structural discriminators:
+//   - `isV2FeatureEnvSettings(envSettings)`: returns true iff NO env object
+//     carries a `rules` key (v2). Returning false means the doc is v1 and
+//     must be flattened.
+//   - `isV2RevisionRules(rules)`: returns true iff `rules` is an array (v2).
+//     Returning false means it's the legacy `Record<env, FeatureRule[]>` (v1).
+// ---------------------------------------------------------------------------
+
+// Input shape for the flattener: v1 rules keyed by env. Rules lack
+// uid/allEnvironments/environments since those fields only exist in v2.
+export type V1FeatureRule = Omit<
   FeatureRule,
   "uid" | "allEnvironments" | "environments"
 >;
 
-export type LegacyRulesByEnv = Record<string, LegacyFeatureRule[]>;
+export type V1RulesByEnv = Record<string, V1FeatureRule[]>;
 
 /**
- * Generate a stable, deterministic uid for a rule. Re-reading the same legacy
- * document always produces the same uid so downstream references (ramp targets,
- * audit log entries) remain resolvable across JIT invocations.
+ * Generate a stable, deterministic uid for a rule. Re-reading the same v1
+ * document always produces the same uid so downstream references (ramp
+ * targets, audit log entries) remain resolvable across JIT invocations.
  *
  * envContext is:
  *   - `"*"` when the rule is merged across multiple envs.
  *   - `"<env>"` when the rule is env-specific — either because it only appeared
  *     in one env, or it was split off a merge candidate due to content / order
  *     conflict, or it is the FIRST occurrence of a duplicate-in-one-env id.
- *   - `"<env>#<N>"` (N >= 2) for the Nth duplicate occurrence of the same legacy
- *     id within a single env. Guarantees unique uids when legacy data
+ *   - `"<env>#<N>"` (N >= 2) for the Nth duplicate occurrence of the same
+ *     legacy id within a single env. Guarantees unique uids when v1 data
  *     pathologically contains the same `id` twice in the same env's rule list.
  */
 export function generateRuleUid(
@@ -39,28 +62,28 @@ export function generateRuleUid(
 }
 
 /**
- * Structural discriminator for a FeatureRevision's `rules` field. Unified-shape
- * revisions store rules as a FeatureRule[]. Legacy revisions store them as a
- * Record<env, FeatureRule[]>. This check is reliable even when legacy rules
- * carry uids (e.g. from a v1 REST round-trip via toLegacyRevision) because the
- * Record vs Array shape cannot coexist in a single value.
+ * Structural discriminator for a FeatureRevision's `rules` field. v2 revisions
+ * store rules as a `FeatureRule[]`. v1 revisions store them as a
+ * `Record<env, FeatureRule[]>`. This check is reliable even when v1 rules
+ * carry uids (e.g. from a v1 REST round-trip via toLegacyRevision) because
+ * the Record vs Array shape cannot coexist in a single value.
  */
-export function isUnifiedRevisionRules(rules: unknown): rules is FeatureRule[] {
+export function isV2RevisionRules(rules: unknown): rules is FeatureRule[] {
   return Array.isArray(rules);
 }
 
 /**
  * Structural discriminator for a FeatureInterface's `environmentSettings` map.
- * A feature is legacy-shaped iff ANY env object has a `rules` key defined
- * (even []). Post-cutover unified writes go through buildFeatureUpdate, which
- * replaces each env object wholesale with `{ enabled, prerequisites }` — no
- * `rules` key — so the absence of `rules` on every env is the unified signal.
+ * A feature's envSettings is v1-shaped iff ANY env object has a `rules` key
+ * defined (even []). Post-cutover v2 writes go through buildFeatureUpdate,
+ * which replaces each env object wholesale with `{ enabled, prerequisites }` —
+ * no `rules` key — so the absence of `rules` on every env is the v2 signal.
  *
  * Note: this returns true for brand-new features with `feature.rules === []`
  * because their envSettings also won't have any `rules` key. That's correct —
- * a zero-rule unified feature needs no JIT work.
+ * a zero-rule v2 feature needs no JIT work.
  */
-export function isUnifiedFeatureEnvSettings(
+export function isV2FeatureEnvSettings(
   envSettings: Record<string, { rules?: unknown }> | undefined,
 ): boolean {
   if (!envSettings) return true;
@@ -133,10 +156,7 @@ const UNIFICATION_SCOPE_FIELDS = new Set([
   "environments",
 ]);
 
-function contentEquivalent(
-  a: LegacyFeatureRule,
-  b: LegacyFeatureRule,
-): boolean {
+function contentEquivalent(a: V1FeatureRule, b: V1FeatureRule): boolean {
   const aCore: Record<string, unknown> = {};
   const bCore: Record<string, unknown> = {};
   for (const k of Object.keys(a)) {
@@ -167,12 +187,12 @@ function canonicalEnvOrder(envs: string[], envOrder?: string[]): string[] {
 
 type Occurrence = {
   env: string;
-  rule: LegacyFeatureRule;
+  rule: V1FeatureRule;
   position: number; // index within that env's legacy list
 };
 
 /**
- * Flatten a legacy `Record<env, FeatureRule[]>` into a unified `FeatureRule[]`.
+ * Flatten a v1 `Record<env, FeatureRule[]>` into a v2 `FeatureRule[]`.
  *
  * Semantics (all enforced by tests):
  *
@@ -204,9 +224,9 @@ type Occurrence = {
  *
  * Determinism: same input yields byte-identical output (same order, same uids).
  */
-export function flattenRules(
+export function flattenV1ToV2Rules(
   featureId: string,
-  rulesByEnv: LegacyRulesByEnv,
+  rulesByEnv: V1RulesByEnv,
   opts?: { envOrder?: string[]; applicableEnvs?: string[] },
 ): FeatureRule[] {
   const envs = canonicalEnvOrder(Object.keys(rulesByEnv), opts?.envOrder);
@@ -316,7 +336,7 @@ export function flattenRules(
   // the explicit env list (filtered to the applicable set if one was given).
   // Returns null if nothing to emit (e.g. rule only appears in non-applicable envs).
   function shapeRule(
-    rule: LegacyFeatureRule,
+    rule: V1FeatureRule,
     uid: string,
     rawEnvList: string[],
   ): FeatureRule | null {

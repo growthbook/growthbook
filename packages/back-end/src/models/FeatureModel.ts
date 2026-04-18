@@ -30,6 +30,7 @@ import {
   FeatureRule,
   JSONSchemaDef,
   LegacyFeatureInterface,
+  V1FeatureInterface,
 } from "shared/types/feature";
 import { EventUser } from "shared/types/events/event-types";
 import { OrganizationInterface } from "shared/types/organization";
@@ -45,12 +46,16 @@ import {
   queueSDKPayloadRefresh,
 } from "back-end/src/services/features";
 import { remapTemplateActions } from "back-end/src/services/rampSchedule";
-import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import {
-  flattenRules,
+  applyNonRuleFeatureUpgrades,
+  upgradeFeatureRule,
+  upgradeV0Feature,
+} from "back-end/src/util/migrations";
+import {
+  flattenV1ToV2Rules,
   getApplicableEnvIds,
-  isUnifiedFeatureEnvSettings,
-  LegacyRulesByEnv,
+  isV2FeatureEnvSettings,
+  V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -112,55 +117,13 @@ const featureSchema = new mongoose.Schema({
   defaultValue: String,
   environments: [String],
   tags: [String],
-  rules: [
-    {
-      _id: false,
-      id: String,
-      type: {
-        type: String,
-      },
-      trackingKey: String,
-      value: String,
-      coverage: Number,
-      hashAttribute: String,
-      fallbackAttribute: String,
-      disableStickyBucketing: Boolean,
-      bucketVersion: Number,
-      minBucketVersion: Number,
-      enabled: Boolean,
-      condition: String,
-      savedGroups: [
-        {
-          _id: false,
-          ids: [String],
-          match: String,
-        },
-      ],
-      description: String,
-      experimentId: String,
-      values: [
-        {
-          _id: false,
-          value: String,
-          weight: Number,
-        },
-      ],
-      variations: [
-        {
-          _id: false,
-          variationId: String,
-          value: String,
-        },
-      ],
-      namespace: {},
-      scheduleRules: [
-        {
-          timestamp: String,
-          enabled: Boolean,
-        },
-      ],
-    },
-  ],
+  // Mixed type to accept v2 rule fields (uid, allEnvironments, environments)
+  // alongside existing content fields without the strict Mongoose sub-schema
+  // silently dropping any of them on save. The Zod validators in
+  // shared/validators/features.ts provide the real schema enforcement at the
+  // application layer. Prior to v2 this was a strict nested sub-schema which
+  // caused Mongoose to silently strip v2-only fields — hence the Mixed type.
+  rules: {},
   prerequisites: [
     {
       _id: false,
@@ -193,68 +156,117 @@ export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
 );
 
 /**
- * Convert the Mongo document to a unified FeatureInterface.
+ * Convert a raw Mongo feature document (already stripped of Mongoose metadata)
+ * into a v2 FeatureInterface via JIT migration.
  *
- * This function is the single JIT-migration chokepoint for features on read.
- * It performs, in order:
- *   1. Strip Mongoose metadata (`__v`, `_id`).
- *   2. Apply `upgradeFeatureInterface` to migrate very-old shapes (top-level
- *      `rules`+`environments` arrays, legacy drafts) into the pre-unification
- *      shape with `environmentSettings[env].rules`.
- *   3. Apply env inheritance so sparse `environmentSettings` records expand to
- *      include all envs the feature is expected to exist in (needed for rule
- *      flattening to see the correct per-env footprint).
- *   4. If the doc is still in the pre-unification (per-env rules) shape — as
- *      detected by `isUnifiedFeatureEnvSettings` returning false — flatten
- *      per-env rules into the unified top-level `feature.rules: FeatureRule[]`
- *      array via `flattenRules`. Deterministic uids are assigned.
- *   5. Transitional: `environmentSettings[env].rules` is intentionally left
- *      populated in memory so legacy consumers (Phase 3/5a targets) continue
- *      working during the migration window. Once those consumers are rewritten
- *      to use the unified `feature.rules`, this function will strip per-env
- *      rules from the returned object and the write path (see
- *      `buildFeatureUpdate` in Phase 3) will scrub them from disk.
+ * This is the single JIT-migration chokepoint for features on read. It is a
+ * pure function over `raw` and `context` (no Mongoose side effects) so it can
+ * be unit-tested directly without a live database.
+ *
+ * The function structurally discriminates the input into one of v0, v1, or v2
+ * BEFORE dispatching to any upgrader. This is critical: the legacy
+ * `upgradeV0Feature` would corrupt a v2 document by redistributing its
+ * top-level `rules` array into `environmentSettings[env].rules`. We avoid
+ * that by routing v2 docs past the v0 upgrader entirely.
+ *
+ * Discrimination rules (in order):
+ *   - v0: `environmentSettings` field is absent. Top-level `rules` +
+ *     `environments` arrays are the source of truth. Rare (~137 / 162,795
+ *     features at cutover). Upgrades via `upgradeV0Feature` to yield a v1 doc,
+ *     which then flows through the v1 branch. A doc that lacks
+ *     `environmentSettings` but also has no v0 `rules`/`environments` is
+ *     treated as v0 and becomes a trivial v1 doc with empty env settings.
+ *   - v1: `environmentSettings` present AND at least one env object carries a
+ *     `rules` key. Per-env rules get `upgradeFeatureRule` applied, env
+ *     inheritance is expanded, then `flattenV1ToV2Rules` converts them to
+ *     the v2 top-level array. Any stale top-level `rules` crust from a
+ *     partial v0->v1 migration is ignored in this branch.
+ *   - v2: `environmentSettings` present AND no env object has a `rules` key.
+ *     `feature.rules` is already the source of truth. `upgradeFeatureRule`
+ *     is applied defensively for any rule content that pre-dates later rule
+ *     upgrades (e.g. experiment rules written before `coverage` became
+ *     required). Non-rule upgrades (jsonSchema, version backfill) still run.
+ *
+ * Transitional: for both v1 and v2 outputs, any leftover
+ * `environmentSettings[env].rules` is left populated on the returned object
+ * so legacy consumers that still read per-env rules continue working during
+ * the migration window. Those consumers will be rewritten in later phases
+ * (3/5a) to read `feature.rules` directly, at which point this function
+ * will scrub the field from its output and the write path
+ * (`buildFeatureUpdate`) will scrub it from disk.
  */
-const toInterface = (
-  doc: FeatureDocument,
+export function buildFeatureInterface(
+  raw: LegacyFeatureInterface,
   context: ReqContext | ApiReqContext,
-): FeatureInterface => {
+): FeatureInterface {
   const orgEnvs = context.org.settings?.environments || [];
 
-  const raw = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
-  const afterShapeMigration = upgradeFeatureInterface(raw);
-  afterShapeMigration.environmentSettings = applyEnvironmentInheritance(
-    orgEnvs,
-    afterShapeMigration.environmentSettings || {},
-  );
+  // Structural discriminator: v0 is identified by the ABSENCE of
+  // environmentSettings on the document. Any doc with environmentSettings is
+  // either v1 or v2 (and the isV2FeatureEnvSettings check below discriminates
+  // those two).
+  const hasEnvSettings = !!raw.environmentSettings;
 
-  const envSettings = (afterShapeMigration.environmentSettings || {}) as Record<
+  let v1OrV2: V1FeatureInterface;
+  if (!hasEnvSettings) {
+    // v0: legacy top-level rules + environments. Upgrade to v1.
+    v1OrV2 = upgradeV0Feature(raw);
+  } else {
+    // v1 or v2. Strip any v0 crust (top-level `rules` / `environments`) that
+    // a partial v0->v1 migration may have left behind; for v1 docs this is
+    // leftover junk, and for v2 docs the top-level `rules` is legitimate but
+    // we re-attach it below after applyNonRuleFeatureUpgrades. We do NOT
+    // call upgradeV0Feature here because it would re-distribute top-level
+    // rules into env settings and corrupt v2 docs.
+    const { environments: _v0Envs, ...rest } = raw;
+    v1OrV2 = rest as V1FeatureInterface;
+    applyNonRuleFeatureUpgrades(v1OrV2);
+  }
+
+  const envSettings = (v1OrV2.environmentSettings || {}) as Record<
     string,
     { enabled?: boolean; rules?: FeatureRule[] }
   >;
 
-  if (!isUnifiedFeatureEnvSettings(envSettings)) {
-    const rulesByEnv: LegacyRulesByEnv = {};
-    for (const [envId, envObj] of Object.entries(envSettings)) {
-      rulesByEnv[envId] = envObj?.rules || [];
+  if (!isV2FeatureEnvSettings(envSettings)) {
+    // v1 path: flatten per-env rules into the v2 top-level array. Apply env
+    // inheritance first so sparse per-env records expand to every env the
+    // feature is expected to exist in (needed for correct rule footprint).
+    const inherited = applyEnvironmentInheritance(orgEnvs, envSettings);
+    const rulesByEnv: V1RulesByEnv = {};
+    for (const [envId, envObj] of Object.entries(inherited)) {
+      rulesByEnv[envId] = (envObj?.rules || []).map((r) =>
+        upgradeFeatureRule(r),
+      );
     }
-    const applicableEnvs = getApplicableEnvIds(
-      orgEnvs,
-      afterShapeMigration.project,
-    );
-    afterShapeMigration.rules = flattenRules(
-      afterShapeMigration.id,
-      rulesByEnv,
-      {
-        envOrder: orgEnvs.map((e) => e.id),
-        applicableEnvs,
-      },
-    );
-  } else {
-    afterShapeMigration.rules = afterShapeMigration.rules || [];
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, v1OrV2.project);
+    const v2 = v1OrV2 as unknown as FeatureInterface;
+    v2.rules = flattenV1ToV2Rules(v2.id, rulesByEnv, {
+      envOrder: orgEnvs.map((e) => e.id),
+      applicableEnvs,
+    });
+    v2.environmentSettings = inherited as Record<string, FeatureEnvironment>;
+    return v2;
   }
 
-  return afterShapeMigration;
+  // v2 path: top-level feature.rules is already the source of truth. Trust
+  // it. Defensive upgradeFeatureRule for old rule content + expand env
+  // inheritance on envSettings (which has no rules key in v2).
+  const v2 = v1OrV2 as unknown as FeatureInterface;
+  v2.rules = (v2.rules || []).map((r) => upgradeFeatureRule(r));
+  v2.environmentSettings = applyEnvironmentInheritance(
+    orgEnvs,
+    v1OrV2.environmentSettings || {},
+  ) as Record<string, FeatureEnvironment>;
+  return v2;
+}
+
+const toInterface = (
+  doc: FeatureDocument,
+  context: ReqContext | ApiReqContext,
+): FeatureInterface => {
+  const raw = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+  return buildFeatureInterface(raw, context);
 };
 
 export async function getAllFeatures(

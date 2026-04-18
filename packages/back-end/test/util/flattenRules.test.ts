@@ -1,26 +1,27 @@
 import { FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
 import {
-  flattenRules,
+  flattenV1ToV2Rules,
   generateRuleUid,
   getApplicableEnvIds,
-  isUnifiedFeatureEnvSettings,
-  isUnifiedRevisionRules,
-  LegacyFeatureRule,
-  LegacyRulesByEnv,
+  isV2FeatureEnvSettings,
+  isV2RevisionRules,
+  V1FeatureRule,
+  V1RulesByEnv,
   resolveRampTarget,
 } from "../../src/util/flattenRules";
 
 // ---------- helpers ----------
 
-// Build a minimal ForceRule. The only fields that matter for flattenRules'
-// logic are `id` (for grouping) and the other content fields (for equality).
+// Build a minimal ForceRule. The only fields that matter for
+// flattenV1ToV2Rules' logic are `id` (for grouping) and the other content
+// fields (for equality).
 // The discriminated union is loose here via cast because we don't care about
 // the full zod shape in tests — we just exercise the flatten algorithm.
 function forceRule(
   id: string,
   overrides: Partial<Record<string, unknown>> = {},
-): LegacyFeatureRule {
+): V1FeatureRule {
   return {
     id,
     type: "force",
@@ -28,13 +29,13 @@ function forceRule(
     value: "true",
     enabled: true,
     ...overrides,
-  } as unknown as LegacyFeatureRule;
+  } as unknown as V1FeatureRule;
 }
 
 function rolloutRule(
   id: string,
   overrides: Partial<Record<string, unknown>> = {},
-): LegacyFeatureRule {
+): V1FeatureRule {
   return {
     id,
     type: "rollout",
@@ -44,7 +45,7 @@ function rolloutRule(
     coverage: 0.5,
     hashAttribute: "id",
     ...overrides,
-  } as unknown as LegacyFeatureRule;
+  } as unknown as V1FeatureRule;
 }
 
 const FEATURE_ID = "feat_abc";
@@ -65,26 +66,26 @@ function slim(rules: FeatureRule[]): Slim[] {
   }));
 }
 
-describe("flattenRules", () => {
+describe("flattenV1ToV2Rules", () => {
   // ================= baseline / empty =================
 
   describe("baseline", () => {
     it("returns [] for empty input", () => {
-      expect(flattenRules(FEATURE_ID, {})).toEqual([]);
+      expect(flattenV1ToV2Rules(FEATURE_ID, {})).toEqual([]);
     });
 
     it("returns [] when every env has an empty array", () => {
-      expect(flattenRules(FEATURE_ID, { dev: [], prod: [] })).toEqual([]);
+      expect(flattenV1ToV2Rules(FEATURE_ID, { dev: [], prod: [] })).toEqual([]);
     });
 
     it("skips rules missing an id field (malformed legacy data)", () => {
       const input = {
         dev: [
-          { type: "force", value: "true" } as unknown as LegacyFeatureRule,
+          { type: "force", value: "true" } as unknown as V1FeatureRule,
           forceRule("r1"),
         ],
       };
-      const out = flattenRules(FEATURE_ID, input);
+      const out = flattenV1ToV2Rules(FEATURE_ID, input);
       expect(out).toHaveLength(1);
       expect(out[0].id).toBe("r1");
     });
@@ -94,7 +95,7 @@ describe("flattenRules", () => {
 
   describe("single env", () => {
     it("emits a single rule as env-specific", () => {
-      const out = flattenRules(FEATURE_ID, { dev: [forceRule("r1")] });
+      const out = flattenV1ToV2Rules(FEATURE_ID, { dev: [forceRule("r1")] });
       expect(slim(out)).toEqual([
         {
           id: "r1",
@@ -106,7 +107,7 @@ describe("flattenRules", () => {
     });
 
     it("preserves order of multiple rules in the same env", () => {
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1"), forceRule("r2"), forceRule("r3")],
       });
       expect(out.map((r) => r.id)).toEqual(["r1", "r2", "r3"]);
@@ -119,7 +120,7 @@ describe("flattenRules", () => {
   describe("content-identical across all envs", () => {
     it("merges into a single rule with all envs", () => {
       const r = forceRule("r1");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [{ ...r }],
         prod: [{ ...r }],
       });
@@ -134,7 +135,7 @@ describe("flattenRules", () => {
 
     it("merges across 3 envs", () => {
       const r = forceRule("r1");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [{ ...r }],
         staging: [{ ...r }],
         prod: [{ ...r }],
@@ -147,7 +148,7 @@ describe("flattenRules", () => {
       // Without applicableEnvs we cannot know whether the rule truly covers
       // every env the feature applies to, so we play it safe.
       const r = forceRule("r1");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [{ ...r }],
         prod: [{ ...r }],
       });
@@ -161,7 +162,7 @@ describe("flattenRules", () => {
   describe("allEnvironments collapse via applicableEnvs", () => {
     it("emits allEnvironments=true (no environments field) when rule covers every applicable env", () => {
       const r = forceRule("r1");
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         { dev: [{ ...r }], prod: [{ ...r }] },
         { applicableEnvs: ["dev", "prod"] },
@@ -174,7 +175,7 @@ describe("flattenRules", () => {
     it("emits explicit env list when rule misses at least one applicable env", () => {
       // Feature applies to dev, prod, staging — rule only in dev+prod.
       const r = forceRule("r1");
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         { dev: [{ ...r }], prod: [{ ...r }] },
         { applicableEnvs: ["dev", "prod", "staging"] },
@@ -186,7 +187,7 @@ describe("flattenRules", () => {
 
     it("single-env rule in a single-applicable-env feature collapses to allEnvironments=true", () => {
       // E.g. a feature in a project whose only applicable env is "prod".
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         { prod: [forceRule("r1")] },
         { applicableEnvs: ["prod"] },
@@ -202,7 +203,7 @@ describe("flattenRules", () => {
       // should be allEnvironments=true and reference neither the legacy env
       // nor explicitly list dev/prod.
       const r = forceRule("r1");
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         {
           dev: [{ ...r }],
@@ -220,7 +221,7 @@ describe("flattenRules", () => {
       // Only appears in a leftover env; not applicable → should not produce
       // output. This avoids emitting unified rules that reference envs that
       // no longer apply to the feature.
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         { legacyReadOnly: [forceRule("orphan")] },
         { applicableEnvs: ["dev", "prod"] },
@@ -232,7 +233,7 @@ describe("flattenRules", () => {
       // Rule is in dev+prod+legacy; applicable is dev+prod. Legacy occurrence
       // is ignored for coverage — rule still covers every applicable env.
       const r = forceRule("r1");
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         {
           dev: [{ ...r }],
@@ -246,7 +247,7 @@ describe("flattenRules", () => {
 
     it("content-diverged rules do not collapse to allEnvironments=true even if they span applicable set", () => {
       // Different `value` per env ⇒ split ⇒ each piece is env-specific.
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         {
           dev: [forceRule("r1", { value: "a" })],
@@ -264,7 +265,7 @@ describe("flattenRules", () => {
     it("order-conflicting rules do not collapse — each split piece stays env-specific", () => {
       const A = forceRule("A");
       const B = forceRule("B");
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         { dev: [A, B], prod: [B, A] },
         { applicableEnvs: ["dev", "prod"] },
@@ -278,7 +279,7 @@ describe("flattenRules", () => {
 
     it("empty applicableEnvs (feature has no applicable envs) yields empty output", () => {
       // Degenerate but defensible: feature's project is not on any env.
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         { dev: [forceRule("r1")] },
         { applicableEnvs: [] },
@@ -291,7 +292,7 @@ describe("flattenRules", () => {
 
   describe("rule in a subset of envs", () => {
     it("merges with environments = only the envs it appears in", () => {
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1")],
         staging: [forceRule("r1")],
         prod: [],
@@ -301,7 +302,7 @@ describe("flattenRules", () => {
     });
 
     it("emits env-specific for a rule that appears in only one env", () => {
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("onlyDev")],
         prod: [forceRule("onlyProd")],
       });
@@ -319,7 +320,7 @@ describe("flattenRules", () => {
 
   describe("same id but diverging content", () => {
     it("splits into env-specific rules when `value` differs", () => {
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1", { value: "true" })],
         prod: [forceRule("r1", { value: "false" })],
       });
@@ -337,7 +338,7 @@ describe("flattenRules", () => {
     });
 
     it("splits when `enabled` differs", () => {
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1", { enabled: true })],
         prod: [forceRule("r1", { enabled: false })],
       });
@@ -345,7 +346,7 @@ describe("flattenRules", () => {
     });
 
     it("splits when `condition` differs", () => {
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1", { condition: '{"env":"dev"}' })],
         prod: [forceRule("r1", { condition: '{"env":"prod"}' })],
       });
@@ -354,7 +355,7 @@ describe("flattenRules", () => {
 
     it("splits when scheduleRules differ", () => {
       const sched = [{ timestamp: "2024-01-01T00:00:00Z", enabled: true }];
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1", { scheduleRules: sched })],
         prod: [forceRule("r1", { scheduleRules: [] })],
       });
@@ -368,13 +369,13 @@ describe("flattenRules", () => {
         ...forceRule("r1"),
         uid: "should-be-ignored-A",
         environments: ["dev"],
-      } as unknown as LegacyFeatureRule;
+      } as unknown as V1FeatureRule;
       const b = {
         ...forceRule("r1"),
         uid: "should-be-ignored-B",
         environments: ["prod"],
-      } as unknown as LegacyFeatureRule;
-      const out = flattenRules(FEATURE_ID, { dev: [a], prod: [b] });
+      } as unknown as V1FeatureRule;
+      const out = flattenV1ToV2Rules(FEATURE_ID, { dev: [a], prod: [b] });
       expect(out).toHaveLength(1);
     });
   });
@@ -385,7 +386,7 @@ describe("flattenRules", () => {
     it("merges both rules when order is consistent in all shared envs", () => {
       const r1 = forceRule("r1");
       const r2 = forceRule("r2");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [r1, r2],
         prod: [r1, r2],
       });
@@ -397,7 +398,7 @@ describe("flattenRules", () => {
     it("splits both rules on order conflict", () => {
       const r1 = forceRule("r1");
       const r2 = forceRule("r2");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [r1, r2],
         prod: [r2, r1],
       });
@@ -417,7 +418,7 @@ describe("flattenRules", () => {
       const A = forceRule("A");
       const B = forceRule("B");
       const C = forceRule("C");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [A, B, C],
         prod: [A, C, B],
       });
@@ -431,7 +432,7 @@ describe("flattenRules", () => {
     it("preserves within-env order for split rules", () => {
       const A = forceRule("A");
       const B = forceRule("B");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [A, B],
         prod: [B, A],
       });
@@ -452,7 +453,7 @@ describe("flattenRules", () => {
   describe("deterministic output order", () => {
     it("walks envs in canonical (alphabetical) order by default", () => {
       const r1 = forceRule("r1");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         prod: [r1],
         dev: [r1],
         staging: [r1],
@@ -462,7 +463,7 @@ describe("flattenRules", () => {
 
     it("honors opts.envOrder when provided", () => {
       const r = forceRule("r1");
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         {
           prod: [r],
@@ -476,7 +477,7 @@ describe("flattenRules", () => {
 
     it("envOrder puts unknown envs alphabetically at the end", () => {
       const r = forceRule("r1");
-      const out = flattenRules(
+      const out = flattenV1ToV2Rules(
         FEATURE_ID,
         { prod: [r], dev: [r], zzzCustom: [r] },
         { envOrder: ["prod", "dev"] },
@@ -488,7 +489,7 @@ describe("flattenRules", () => {
       // rule X in dev,prod; rule Y only in prod. Expected order: X then Y.
       const X = forceRule("X");
       const Y = forceRule("Y");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [X],
         prod: [X, Y],
       });
@@ -500,22 +501,22 @@ describe("flattenRules", () => {
 
   describe("determinism", () => {
     it("produces identical output (including uids) on repeated calls", () => {
-      const input: LegacyRulesByEnv = {
+      const input: V1RulesByEnv = {
         dev: [forceRule("a"), forceRule("b"), rolloutRule("c")],
         prod: [forceRule("a"), forceRule("b")],
       };
-      const out1 = flattenRules(FEATURE_ID, input);
-      const out2 = flattenRules(FEATURE_ID, input);
+      const out1 = flattenV1ToV2Rules(FEATURE_ID, input);
+      const out2 = flattenV1ToV2Rules(FEATURE_ID, input);
       expect(out1).toEqual(out2);
     });
 
     it("uid differs between merged and env-specific variants of the same legacy id", () => {
       const r = forceRule("r1");
-      const merged = flattenRules(FEATURE_ID, {
+      const merged = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [r],
         prod: [r],
       });
-      const split = flattenRules(FEATURE_ID, {
+      const split = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [{ ...r, value: "x" }],
         prod: [{ ...r, value: "y" }],
       });
@@ -543,7 +544,7 @@ describe("flattenRules", () => {
       // - "devTweak" is different between dev and prod → split
       // - "prodOnly" is only in prod → env-specific
       const shared = forceRule("shared");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [{ ...shared }, forceRule("devTweak", { value: "dev" })],
         prod: [
           { ...shared },
@@ -570,7 +571,7 @@ describe("flattenRules", () => {
       const r = rolloutRule("r1", {
         savedGroups: [{ match: "all", ids: ["g1"] }],
       });
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [r],
         prod: [r],
       });
@@ -587,7 +588,7 @@ describe("flattenRules", () => {
     it("different rule types with the same legacy id are treated as content-different (split)", () => {
       // Legacy data should never have this, but if an import tool did produce
       // it, we must not merge and lose information.
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1")],
         prod: [rolloutRule("r1")],
       });
@@ -598,7 +599,7 @@ describe("flattenRules", () => {
       // "r1" is identical in dev+staging, different value in prod.
       // Current semantics: any content divergence in the group splits the WHOLE
       // group into env-specific copies. (Conservative.) This documents that.
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1", { value: "a" })],
         staging: [forceRule("r1", { value: "a" })],
         prod: [forceRule("r1", { value: "b" })],
@@ -611,7 +612,7 @@ describe("flattenRules", () => {
       const X = forceRule("X");
       const Y = forceRule("Y");
       const Z = forceRule("Z");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [X, Y, Z],
         prod: [Y, X, Z], // X,Y swapped; Z still at end in both
       });
@@ -627,7 +628,7 @@ describe("flattenRules", () => {
       // Only dev and prod overlap → conflict. Staging has only X so no issue.
       const X = forceRule("X");
       const Y = forceRule("Y");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [X, Y],
         staging: [X],
         prod: [Y, X],
@@ -640,7 +641,7 @@ describe("flattenRules", () => {
     it("pair is consistent because they never share an env → still merges", () => {
       // X in dev only; Y in prod only. No shared env → no possible conflict.
       // X and Y are each env-specific by virtue of single-env occurrence.
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("X")],
         prod: [forceRule("Y")],
       });
@@ -661,7 +662,7 @@ describe("flattenRules", () => {
         prerequisites: [{ id: "prereq1", condition: '{"value":true}' }],
         scheduleType: "schedule",
       });
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [{ ...rich }],
         prod: [{ ...rich }],
       });
@@ -686,10 +687,10 @@ describe("flattenRules", () => {
       const rules = Array.from({ length: 50 }, (_, i) =>
         forceRule(`r${i}`, { value: `v${i % 5}` }),
       );
-      const input: LegacyRulesByEnv = {};
+      const input: V1RulesByEnv = {};
       for (const env of envs) input[env] = rules.map((r) => ({ ...r }));
       const t0 = Date.now();
-      const out = flattenRules(FEATURE_ID, input);
+      const out = flattenV1ToV2Rules(FEATURE_ID, input);
       const elapsed = Date.now() - t0;
       expect(out).toHaveLength(50);
       out.forEach((r) => expect(r.environments).toHaveLength(10));
@@ -703,7 +704,7 @@ describe("flattenRules", () => {
       // its own disambiguated uid.
       const r1a = forceRule("dup", { value: "first" });
       const r1b = forceRule("dup", { value: "second" });
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [r1a, r1b],
       });
       expect(out).toHaveLength(2);
@@ -717,7 +718,7 @@ describe("flattenRules", () => {
     });
 
     it("3+ duplicates in same env get distinct, deterministic uids", () => {
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [
           forceRule("dup", { value: "1" }),
           forceRule("dup", { value: "2" }),
@@ -735,7 +736,7 @@ describe("flattenRules", () => {
       // The in-env duplicate disqualifies the entire legacy id from merging.
       // Without that rule we'd otherwise try to merge "shared" across dev+prod.
       const base = forceRule("shared");
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [{ ...base }, { ...base }],
         prod: [{ ...base }],
       });
@@ -755,7 +756,7 @@ describe("flattenRules", () => {
     it("different rule types with same legacy id produce distinct, stable uids per env", () => {
       // Already covered by the "split on content divergence" test, but here
       // we assert the uids explicitly since the user flagged this case.
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1")],
         prod: [rolloutRule("r1")],
       });
@@ -773,7 +774,7 @@ describe("flattenRules", () => {
       // Without applicableEnvs, the collapse-to-allEnvironments path is never
       // taken, so every rule emits with explicit `environments` and
       // `allEnvironments: false`.
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("a"), forceRule("b")],
         prod: [forceRule("a"), forceRule("c")],
       });
@@ -787,7 +788,7 @@ describe("flattenRules", () => {
     });
 
     it("all uids in the output are unique", () => {
-      const out = flattenRules(FEATURE_ID, {
+      const out = flattenV1ToV2Rules(FEATURE_ID, {
         dev: [forceRule("r1"), forceRule("r2"), forceRule("r3")],
         prod: [
           forceRule("r1"),
@@ -801,47 +802,47 @@ describe("flattenRules", () => {
   });
 });
 
-// ================= isUnifiedRevisionRules =================
+// ================= isV2RevisionRules =================
 
-describe("isUnifiedRevisionRules", () => {
+describe("isV2RevisionRules", () => {
   it("returns true for empty array (zero-rule unified revision)", () => {
-    expect(isUnifiedRevisionRules([])).toBe(true);
+    expect(isV2RevisionRules([])).toBe(true);
   });
 
   it("returns true for any array, even if rules lack uids", () => {
     // Legacy rules round-tripped through toLegacyRevision would carry uids.
     // Non-round-tripped rules would not. Both are "unified" at the structural
     // level — the discriminator is purely shape-based.
-    expect(isUnifiedRevisionRules([{ id: "r1" }])).toBe(true);
-    expect(isUnifiedRevisionRules([{ id: "r1", uid: "ruid_abc" }])).toBe(true);
+    expect(isV2RevisionRules([{ id: "r1" }])).toBe(true);
+    expect(isV2RevisionRules([{ id: "r1", uid: "ruid_abc" }])).toBe(true);
   });
 
   it("returns false for a Record<env, rules> (legacy) shape", () => {
-    expect(isUnifiedRevisionRules({ dev: [] })).toBe(false);
-    expect(isUnifiedRevisionRules({ dev: [{ id: "r1" }] })).toBe(false);
+    expect(isV2RevisionRules({ dev: [] })).toBe(false);
+    expect(isV2RevisionRules({ dev: [{ id: "r1" }] })).toBe(false);
   });
 
   it("returns false for null/undefined/non-array values", () => {
-    expect(isUnifiedRevisionRules(null)).toBe(false);
-    expect(isUnifiedRevisionRules(undefined)).toBe(false);
-    expect(isUnifiedRevisionRules("unexpected")).toBe(false);
+    expect(isV2RevisionRules(null)).toBe(false);
+    expect(isV2RevisionRules(undefined)).toBe(false);
+    expect(isV2RevisionRules("unexpected")).toBe(false);
   });
 });
 
-// ================= isUnifiedFeatureEnvSettings =================
+// ================= isV2FeatureEnvSettings =================
 
-describe("isUnifiedFeatureEnvSettings", () => {
+describe("isV2FeatureEnvSettings", () => {
   it("returns true for undefined env settings", () => {
-    expect(isUnifiedFeatureEnvSettings(undefined)).toBe(true);
+    expect(isV2FeatureEnvSettings(undefined)).toBe(true);
   });
 
   it("returns true for empty env settings map", () => {
-    expect(isUnifiedFeatureEnvSettings({})).toBe(true);
+    expect(isV2FeatureEnvSettings({})).toBe(true);
   });
 
   it("returns true when no env has a rules key", () => {
     expect(
-      isUnifiedFeatureEnvSettings({
+      isV2FeatureEnvSettings({
         dev: { enabled: true },
         prod: { enabled: false },
       }),
@@ -850,7 +851,7 @@ describe("isUnifiedFeatureEnvSettings", () => {
 
   it("returns false when at least one env has a rules key, even if empty", () => {
     expect(
-      isUnifiedFeatureEnvSettings({
+      isV2FeatureEnvSettings({
         dev: { enabled: true, rules: [] },
         prod: { enabled: false },
       }),
@@ -859,7 +860,7 @@ describe("isUnifiedFeatureEnvSettings", () => {
 
   it("returns false when every env has a rules key (typical legacy doc)", () => {
     expect(
-      isUnifiedFeatureEnvSettings({
+      isV2FeatureEnvSettings({
         dev: { enabled: true, rules: [{ id: "r1" }] },
         prod: { enabled: false, rules: [] },
       }),

@@ -44,10 +44,10 @@ import {
   migrateSnapshot,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
-  upgradeFeatureInterface,
   upgradeFeatureRule,
   upgradeMetricDoc,
   upgradeOrganizationDoc,
+  upgradeV0Feature,
 } from "back-end/src/util/migrations";
 
 describe("Fact Metric Migration", () => {
@@ -1169,7 +1169,15 @@ describe("Datasource Migration", () => {
   });
 });
 
-describe("Feature Migration", () => {
+// v0 -> v1 feature document upgrade. These tests exercise the pipeline
+// `upgradeV0Feature` runs: redistributing legacy top-level `rules` +
+// `environments` arrays into `environmentSettings[env].rules`, moving the
+// old `draft` field into `legacyDraft`, and backfilling version/jsonSchema.
+// Note: the "doesn't overwrite new feature objects" test below demonstrates
+// that the upgrader is a no-op on v1 inputs. In production the 3-way branch
+// in FeatureModel.buildFeatureInterface never invokes this function on v1 or
+// v2 documents — v0 is identified by the absence of `environmentSettings`.
+describe("v0 Feature Migration", () => {
   it("updates old feature objects", () => {
     const rule: FeatureRule = {
       id: "fr_123",
@@ -1232,7 +1240,7 @@ describe("Feature Migration", () => {
     };
 
     expect(
-      upgradeFeatureInterface({
+      upgradeV0Feature({
         ...origFeature,
         environments: ["dev"],
         rules: [rule],
@@ -1270,7 +1278,7 @@ describe("Feature Migration", () => {
     };
 
     expect(
-      upgradeFeatureInterface({
+      upgradeV0Feature({
         ...origFeature,
         environments: ["dev"],
         rules: [
@@ -1330,7 +1338,7 @@ describe("Feature Migration", () => {
       },
     };
 
-    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual({
+    expect(upgradeV0Feature(cloneDeep(origFeature))).toEqual({
       ...origFeature,
       draft: undefined,
     });
@@ -1483,7 +1491,7 @@ describe("Feature Migration", () => {
       },
     };
 
-    const newFeature = upgradeFeatureInterface(cloneDeep(origFeature));
+    const newFeature = upgradeV0Feature(cloneDeep(origFeature));
 
     if (!newFeature.environmentSettings)
       throw new Error("newFeature.environmentSettings is undefined");
