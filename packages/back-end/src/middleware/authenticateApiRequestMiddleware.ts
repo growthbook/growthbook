@@ -75,9 +75,15 @@ function authenticateWithJwt(
 ) {
   const authReq = req as AuthRequest & ApiRequestLocals;
   const jwtMiddleware = getAuthConnection().middleware as RequestHandler;
+  // Express's RequestHandler generics (ParamsDictionary) don't unify with
+  // AuthRequest's `params: unknown` under stricter TS checkers (tsgo),
+  // so launder through Request to keep the call signature happy.
+  const reqAsExpress = req as Request;
 
-  runMiddleware(jwtMiddleware, authReq, res)
-    .then(() => runMiddleware(processJWT as RequestHandler, authReq, res))
+  runMiddleware(jwtMiddleware, reqAsExpress, res)
+    .then(() =>
+      runMiddleware(processJWT as unknown as RequestHandler, reqAsExpress, res),
+    )
     .then(async () => {
       // processJWT may have responded (e.g. 403 for missing org access) —
       // skip the rest of the pipeline in that case.
