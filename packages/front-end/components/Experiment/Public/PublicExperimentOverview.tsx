@@ -4,9 +4,7 @@ import {VisualChangesetInterface} from "shared/types/visual-changeset";
 import {URLRedirectInterface} from "shared/types/url-redirect";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
-import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
-import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
-import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
+import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import {SSRPolyfills} from "@/hooks/useSSRPolyfills";
 
@@ -61,24 +59,14 @@ export default function PublicExperimentOverview({
 
       {hasLinkedChanges ? (
         <>
-          <VisualLinkedChanges
-            visualChangesets={visualChangesets}
-            canAddChanges={false}
-            canEditVisualChangesets={false}
-            experiment={experiment}
-            isPublic={true}
-          />
-          <FeatureLinkedChanges
+          <LinkedChanges
             linkedFeatures={linkedFeatures}
-            experiment={experiment}
-            canAddChanges={false}
-            isPublic={true}
-          />
-          <RedirectLinkedChanges
+            visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
             experiment={experiment}
             canAddChanges={false}
             isPublic={true}
+            canEditVisualChangesets={false}
           />
         </>
       ) : null}

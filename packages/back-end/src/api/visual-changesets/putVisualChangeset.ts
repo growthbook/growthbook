@@ -1,5 +1,4 @@
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { PutVisualChangesetResponse } from "shared/types/openapi";
 import { putVisualChangesetValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
@@ -11,7 +10,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const putVisualChangeset = createApiRequestHandler(
   putVisualChangesetValidator,
-)(async (req): Promise<PutVisualChangesetResponse> => {
+)(async (req) => {
   const visualChangeset = await findVisualChangesetById(
     req.params.id,
     req.organization.id,

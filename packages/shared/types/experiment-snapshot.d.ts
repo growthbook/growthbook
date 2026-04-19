@@ -1,5 +1,6 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
 import { BanditResult } from "shared/validators";
+import { AnalysisMetaEntry } from "shared/snapshot-analysis-chunks";
 import { PhaseSQLVar } from "shared/types/sql";
 import {
   MetricSettingsForStatsEngine,
@@ -232,6 +233,8 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  hasChunkedAnalyses?: boolean;
+  chunkedAnalysesMeta?: AnalysisMetaEntry[];
   banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;

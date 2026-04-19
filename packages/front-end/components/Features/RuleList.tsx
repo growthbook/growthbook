@@ -123,7 +123,7 @@ export default function RuleList({
           // This is just for UI - convert action dates (ISO strings) to Date objects
           const pendingRamp: RampScheduleForDisplay = {
             id: `pending-${action.ruleId}`,
-            name: action.name,
+            name: action.name ?? "Pending ramp schedule",
             targets: [
               {
                 id: "t1",
@@ -134,8 +134,9 @@ export default function RuleList({
                 status: "active",
               },
             ],
-            steps: action.steps,
-            endActions: action.endActions,
+            steps: action.steps as RampScheduleForDisplay["steps"],
+            endActions:
+              action.endActions as RampScheduleForDisplay["endActions"],
             startDate: action.startDate
               ? new Date(action.startDate)
               : undefined,

@@ -1,4 +1,3 @@
-import { PostFactTableResponse } from "shared/types/openapi";
 import { postFactTableValidator } from "shared/validators";
 import { CreateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
@@ -12,7 +11,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
-  async (req): Promise<PostFactTableResponse> => {
+  async (req) => {
     const owner =
       (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "";
     const data: CreateFactTableProps = {

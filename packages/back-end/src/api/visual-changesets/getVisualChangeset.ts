@@ -2,7 +2,6 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   getVisualChangesetValidator,
 } from "shared/validators";
-import { GetVisualChangesetResponse } from "shared/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   findVisualChangesetById,
@@ -13,7 +12,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getVisualChangeset = createApiRequestHandler(
   getVisualChangesetValidator,
-)(async (req): Promise<GetVisualChangesetResponse> => {
+)(async (req) => {
   const { organization } = req;
   const { includeExperiment = 0 } = req.query;
 

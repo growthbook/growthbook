@@ -3,4 +3,6 @@ export {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
   RevisionMetadata,
+  RevisionChanges,
+  revisionChangesSchema,
 } from "shared/validators";

@@ -1,6 +1,5 @@
 import { validateFeatureValue, validateScheduleRules } from "shared/util";
 import { isEqual } from "lodash";
-import type { UpdateFeatureResponse } from "shared/types/openapi";
 import { updateFeatureValidator, RevisionRules } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -25,11 +24,12 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
-import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
+import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
-  async (req): Promise<UpdateFeatureResponse> => {
+  async (req) => {
     const feature = await getFeature(req.context, req.params.id);
     if (!feature) {
       throw new Error(`Feature id '${req.params.id}' not found.`);
@@ -169,7 +169,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
-        ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
+        ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
         : null;
 
     const updates: Partial<FeatureInterface> = {

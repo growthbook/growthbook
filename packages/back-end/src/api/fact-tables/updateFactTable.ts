@@ -1,5 +1,4 @@
 import { omit } from "lodash";
-import { UpdateFactTableResponse } from "shared/types/openapi";
 import { updateFactTableValidator } from "shared/validators";
 import { UpdateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
@@ -21,7 +20,7 @@ type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
 
 export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator,
-)(async (req): Promise<UpdateFactTableResponse> => {
+)(async (req) => {
   const factTable = await getFactTable(req.context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find factTable with that id");

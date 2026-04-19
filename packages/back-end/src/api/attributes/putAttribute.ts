@@ -1,4 +1,3 @@
-import { PutAttributeResponse } from "shared/types/openapi";
 import { putAttributeValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -8,7 +7,7 @@ import { addTagsDiff } from "back-end/src/models/TagModel";
 import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
-  async (req): Promise<PutAttributeResponse> => {
+  async (req) => {
     const property = req.params.property;
     const org = req.context.org;
     const attributes = org.settings?.attributeSchema || [];

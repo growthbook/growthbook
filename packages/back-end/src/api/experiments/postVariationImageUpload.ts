@@ -25,26 +25,36 @@ const postVariationImageUploadValidator = {
     .strict(),
   bodySchema: z
     .object({
-      screenshot: z.string().describe("Base64-encoded screenshot data"),
+      screenshot: z
+        .string()
+        .meta({ contentEncoding: "base64" })
+        .describe("Base64-encoded screenshot data"),
       contentType: z
         .enum(["image/png", "image/jpeg", "image/gif"])
         .describe("MIME type of the screenshot"),
-      description: z.string().optional(),
+      description: z
+        .string()
+        .describe("Optional description for the screenshot")
+        .optional(),
     })
     .strict(),
   querySchema: z.never(),
-};
-
-export type PostVariationImageUploadResponse = {
-  screenshot: {
-    path: string;
-    description: string;
-  };
+  responseSchema: z.object({
+    screenshot: z.object({
+      path: z.string().describe("URL or path to the uploaded screenshot"),
+      description: z.string().describe("Description of the screenshot"),
+    }),
+  }),
+  method: "post" as const,
+  path: "/experiments/:id/variation/:variationId/screenshot/upload",
+  operationId: "postVariationImageUpload",
+  summary: "Upload a variation screenshot",
+  tags: ["experiments"],
 };
 
 export const postVariationImageUpload = createApiRequestHandler(
   postVariationImageUploadValidator,
-)(async (req): Promise<PostVariationImageUploadResponse> => {
+)(async (req) => {
   const context = req.context;
   const { id, variationId } = req.params;
   const { screenshot, contentType, description = "" } = req.body;

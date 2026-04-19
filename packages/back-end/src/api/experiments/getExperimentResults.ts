@@ -1,4 +1,3 @@
-import { GetExperimentResultsResponse } from "shared/types/openapi";
 import { getExperimentResultsValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
@@ -7,7 +6,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getExperimentResults = createApiRequestHandler(
   getExperimentResultsValidator,
-)(async (req): Promise<GetExperimentResultsResponse> => {
+)(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
     throw new Error("Could not find experiment with that id");
@@ -16,6 +15,7 @@ export const getExperimentResults = createApiRequestHandler(
   const phase = parseInt(req.query.phase ?? experiment.phases.length - 1 + "");
 
   const snapshot = await getLatestSnapshot({
+    context: req.context,
     experiment: experiment.id,
     phase,
     dimension: req.query.dimension,

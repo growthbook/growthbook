@@ -1,4 +1,3 @@
-import { PostOrganizationResponse } from "shared/types/openapi";
 import { postOrganizationValidator } from "shared/validators";
 import {
   createApiRequestHandler,
@@ -11,7 +10,7 @@ import {
 
 export const postOrganization = createApiRequestHandler(
   postOrganizationValidator,
-)(async (req): Promise<PostOrganizationResponse> => {
+)(async (req) => {
   const user = await validateIsSuperUserRequest(req);
 
   const { name, externalId } = req.body;

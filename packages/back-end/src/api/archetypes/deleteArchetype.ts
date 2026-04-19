@@ -1,4 +1,3 @@
-import { DeleteArchetypeResponse } from "shared/types/openapi";
 import { deleteArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -9,7 +8,7 @@ import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteArchetype = createApiRequestHandler(
   deleteArchetypeValidator,
-)(async (req): Promise<DeleteArchetypeResponse> => {
+)(async (req) => {
   const { id } = req.params;
   const orgId = req.organization.id;
   const archetype = await getArchetypeById(id, orgId);

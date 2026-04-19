@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -53,6 +54,8 @@ const ExperimentPage = (): ReactElement => {
     linkedFeatures: LinkedFeatureInfo[];
     envs: string[];
     urlRedirects: URLRedirectInterface[];
+    visualChangesetEnvStates?: LinkedChangeEnvStates;
+    urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${eid}`);
 
   const { getDecisionCriteria, getRunningExperimentResultStatus } =
@@ -95,6 +98,8 @@ const ExperimentPage = (): ReactElement => {
     linkedFeatures = [],
     urlRedirects = [],
     envs = [],
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   } = data;
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
@@ -258,6 +263,8 @@ const ExperimentPage = (): ReactElement => {
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
+          visualChangesetEnvStates={visualChangesetEnvStates}
+          urlRedirectEnvStates={urlRedirectEnvStates}
         />
       </SnapshotProvider>
     </>

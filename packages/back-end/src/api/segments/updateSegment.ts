@@ -1,5 +1,4 @@
 import { SegmentInterface } from "shared/types/segment";
-import { UpdateSegmentResponse } from "shared/types/openapi";
 import { UpdateProps } from "shared/types/base-model";
 import { updateSegmentValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
@@ -8,7 +7,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 
 export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
-  async (req): Promise<UpdateSegmentResponse> => {
+  async (req) => {
     const existing = await req.context.models.segments.getById(req.params.id);
 
     if (!existing) {

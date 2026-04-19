@@ -21,11 +21,11 @@ When you provision the Managed Warehouse, GrowthBook automatically sets up your 
 
 We create 3 tables in a ClickHouse database managed by GrowthBook:
 
-| Table                | What it stores                                          | Indexed by                     |
-| -------------------- | ------------------------------------------------------- | ------------------------------ |
-| **events**           | All custom events (page views, purchases, clicks, etc.) | `event_name`, `timestamp`      |
-| **experiment_views** | Experiment exposure events                              | `experiment_id`, `timestamp`   |
-| **feature_usage**    | Feature flag evaluation events                          | `feature`, `timestamp`         |
+| Table                | What it stores                                          | Indexed by                   |
+| -------------------- | ------------------------------------------------------- | ---------------------------- |
+| **events**           | All custom events (page views, purchases, clicks, etc.) | `event_name`, `timestamp`    |
+| **experiment_views** | Experiment exposure events                              | `experiment_id`, `timestamp` |
+| **feature_usage**    | Feature flag evaluation events                          | `feature`, `timestamp`       |
 
 ### Fact Table
 
@@ -35,11 +35,11 @@ An **Events** fact table is pre-built on top of the `events` table. This is the 
 
 Three metrics are auto-created to get you started:
 
-| Metric                 | Type  | What it measures                   |
-| ---------------------- | ----- | ---------------------------------- |
-| **Page Views per User** | Mean  | Average number of page views       |
-| **Sessions per User**   | Mean  | Average number of sessions         |
-| **Pages per Session**   | Ratio | Page views divided by sessions     |
+| Metric                  | Type  | What it measures               |
+| ----------------------- | ----- | ------------------------------ |
+| **Page Views per User** | Mean  | Average number of page views   |
+| **Sessions per User**   | Mean  | Average number of sessions     |
+| **Pages per Session**   | Ratio | Page views divided by sessions |
 
 You can edit these or create your own. Read more about [metrics and fact tables](/app/metrics).
 

@@ -4,10 +4,20 @@ import {
   zodNotificationEventNamesEnum,
   eventWebHookMethods,
   eventWebHookPayloadTypes,
+  isEventWebhookWildcard,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
+
+const eventNameOrWildcard = z
+  .string()
+  .refine(
+    (val) =>
+      zodNotificationEventNamesEnum.includes(val as never) ||
+      isEventWebhookWildcard(val),
+    { message: "Must be a valid event name or wildcard pattern" },
+  );
 
 const router = express.Router();
 
@@ -30,7 +40,7 @@ router.post(
       .object({
         url: z.string().url(),
         name: z.string().trim().min(2),
-        events: z.array(z.enum(zodNotificationEventNamesEnum)).min(1),
+        events: z.array(eventNameOrWildcard).min(1),
         enabled: z.boolean(),
         projects: z.array(z.string()),
         tags: z.array(z.string()),
@@ -108,7 +118,7 @@ router.put(
       .object({
         url: z.string().url(),
         name: z.string().trim().min(2),
-        events: z.array(z.enum(zodNotificationEventNamesEnum)).min(1),
+        events: z.array(eventNameOrWildcard).min(1),
         enabled: z.boolean(),
         projects: z.array(z.string()),
         tags: z.array(z.string()),

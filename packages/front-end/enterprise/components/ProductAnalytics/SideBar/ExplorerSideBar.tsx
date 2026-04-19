@@ -41,6 +41,7 @@ export default function ExplorerSideBar({
   const {
     draftExploreState,
     setDraftExploreState,
+    exploration,
     loading,
     handleSubmit,
     isSubmittable,
@@ -88,6 +89,8 @@ export default function ExplorerSideBar({
       {showSaveToDashboardModal && (
         <SaveToDashboardModal
           close={() => setShowSaveToDashboardModal(false)}
+          config={draftExploreState}
+          exploration={exploration}
         />
       )}
       {showUpgradeModal && (

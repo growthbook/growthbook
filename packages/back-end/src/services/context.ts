@@ -62,12 +62,14 @@ import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
+import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
@@ -105,6 +107,7 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "experimentSnapshotAnalysisChunks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
@@ -115,7 +118,8 @@ export type ModelName =
   | "watch"
   | "apiKeys"
   | "rampSchedules"
-  | "rampScheduleTemplates";
+  | "rampScheduleTemplates"
+  | "aiConversations";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -141,6 +145,7 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
+  experimentSnapshotAnalysisChunks: ExperimentSnapshotAnalysisChunkModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
@@ -152,6 +157,7 @@ export const modelClasses = {
   apiKeys: ApiKeyModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
+  aiConversations: AIConversationModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -186,6 +192,8 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      experimentSnapshotAnalysisChunks:
+        new ExperimentSnapshotAnalysisChunkModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
@@ -197,6 +205,7 @@ export class ReqContextClass {
       apiKeys: new ApiKeyModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
+      aiConversations: new AIConversationModel(this),
     };
   }
 

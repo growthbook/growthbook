@@ -1,5 +1,6 @@
 import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
+import { z } from "zod";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
@@ -46,13 +47,12 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
+  HoldoutInterface,
+  SdkConnectionCacheAuditContext,
+  apiFeatureRevisionValidator,
   ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
   ApiFeatureRule,
-} from "shared/types/openapi";
-import {
-  HoldoutInterface,
-  SdkConnectionCacheAuditContext,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -1607,6 +1607,123 @@ export async function encrypt(
   );
 }
 
+function eventUserToString(
+  user: FeatureRevisionInterface["createdBy"],
+): string | undefined {
+  if (!user) return undefined;
+  if (user.type === "api_key") return "API";
+  if (user.type === "system") return "SYSTEM";
+  return user.name || undefined;
+}
+
+function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
+  const base = {
+    description: rule.description,
+    id: rule.id,
+    condition: rule.condition || "",
+    enabled: !!rule.enabled,
+    scheduleRules: rule.scheduleRules,
+    scheduleType: rule.scheduleType,
+    savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+      matchType: s.match,
+      savedGroups: s.ids,
+    })),
+    prerequisites: rule.prerequisites || [],
+  };
+  switch (rule.type) {
+    case "force":
+      return { ...base, type: "force", value: rule.value };
+    case "rollout":
+      return {
+        ...base,
+        type: "rollout",
+        value: rule.value,
+        coverage: rule.coverage ?? 1,
+        hashAttribute: rule.hashAttribute,
+        seed: rule.seed,
+      };
+    case "experiment":
+      return {
+        ...base,
+        type: "experiment",
+        coverage: rule.coverage ?? 1,
+        trackingKey: rule.trackingKey,
+        hashAttribute: rule.hashAttribute,
+        fallbackAttribute: rule.fallbackAttribute,
+        disableStickyBucketing: rule.disableStickyBucketing,
+        bucketVersion: rule.bucketVersion,
+        minBucketVersion: rule.minBucketVersion,
+        namespace: rule.namespace,
+        value: rule.values,
+      };
+    case "experiment-ref":
+      return {
+        ...base,
+        type: "experiment-ref",
+        variations: rule.variations,
+        experimentId: rule.experimentId,
+      };
+    case "safe-rollout":
+      return {
+        ...base,
+        type: "safe-rollout",
+        controlValue: rule.controlValue,
+        variationValue: rule.variationValue,
+        seed: rule.seed,
+        hashAttribute: rule.hashAttribute,
+        trackingKey: rule.trackingKey,
+        safeRolloutId: rule.safeRolloutId,
+        status: rule.status,
+      };
+  }
+}
+
+/** Convert a FeatureRevisionInterface to the API response shape. */
+export function revisionToApiInterface(
+  rev: FeatureRevisionInterface,
+): z.infer<typeof apiFeatureRevisionValidator> {
+  const rules: Record<string, ApiFeatureRule[]> = {};
+  for (const [env, envRules] of Object.entries(rev.rules ?? {})) {
+    rules[env] = (envRules || []).map(normalizeRuleForApi);
+  }
+
+  return {
+    featureId: rev.featureId,
+    baseVersion: rev.baseVersion,
+    version: rev.version,
+    comment: rev.comment || "",
+    date:
+      rev.dateCreated?.toISOString?.() ||
+      new Date(rev.dateCreated).toISOString(),
+    status: rev.status,
+    createdBy: eventUserToString(rev.createdBy),
+    publishedBy: eventUserToString(rev.publishedBy),
+    defaultValue: rev.defaultValue,
+    rules,
+    ...(rev.environmentsEnabled !== undefined && {
+      environmentsEnabled: rev.environmentsEnabled,
+    }),
+    ...(rev.prerequisites !== undefined && {
+      prerequisites: rev.prerequisites,
+    }),
+    ...(rev.metadata !== undefined && {
+      metadata: {
+        ...rev.metadata,
+        jsonSchema: rev.metadata.jsonSchema
+          ? {
+              ...rev.metadata.jsonSchema,
+              date:
+                rev.metadata.jsonSchema.date?.toISOString?.() ||
+                (rev.metadata.jsonSchema.date
+                  ? new Date(rev.metadata.jsonSchema.date).toISOString()
+                  : undefined),
+            }
+          : undefined,
+      },
+    }),
+  };
+}
+
 export function getApiFeatureObj({
   feature,
   organization,
@@ -1719,6 +1836,7 @@ export function getApiFeatureObj({
           ? "SYSTEM"
           : rev?.publishedBy?.name;
     return {
+      featureId: rev.featureId,
       baseVersion: rev.baseVersion,
       version: rev.version,
       comment: rev?.comment || "",
@@ -1992,74 +2110,90 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       );
     }
 
-    if (r.type === "experiment-ref") {
-      const experimentRefRule: ExperimentRefRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        enabled: r.enabled != null ? r.enabled : true,
-        description: r.description ?? "",
-        experimentId: r.experimentId,
-        variations: r.variations.map((v) => ({
-          variationId: v.variationId,
-          value: validateFeatureValue(feature, v.value),
-        })),
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return experimentRefRule;
-    } else if (r.type === "experiment") {
-      const values = r.values || r.value;
-      if (!values) {
-        throw new Error("Missing values");
+    switch (r.type) {
+      case "experiment-ref": {
+        const experimentRefRule: ExperimentRefRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          enabled: r.enabled != null ? r.enabled : true,
+          description: r.description ?? "",
+          experimentId: r.experimentId,
+          variations: r.variations.map((v) => ({
+            variationId: v.variationId,
+            value: validateFeatureValue(feature, v.value),
+          })),
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return experimentRefRule;
       }
-      const experimentRule: ExperimentRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        hashAttribute: r.hashAttribute ?? "",
-        coverage: r.coverage,
-        // missing tracking key will be filled in by addIdsToRules
-        trackingKey: r.trackingKey ?? "",
-        enabled: r.enabled != null ? r.enabled : true,
-        description: r.description ?? "",
-        values: values,
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return experimentRule;
-    } else if (r.type === "force") {
-      const forceRule: ForceRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        description: r.description ?? "",
-        value: validateFeatureValue(feature, r.value),
-        condition: r.condition,
-        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-          ids: s.savedGroups,
-          match: s.matchType,
-        })),
-        enabled: r.enabled != null ? r.enabled : true,
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return forceRule;
+      case "experiment": {
+        const values = r.values || r.value;
+        if (!values) {
+          throw new Error("Missing values");
+        }
+        const experimentRule: ExperimentRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          hashAttribute: r.hashAttribute ?? "",
+          coverage: r.coverage,
+          // missing tracking key will be filled in by addIdsToRules
+          trackingKey: r.trackingKey ?? "",
+          enabled: r.enabled != null ? r.enabled : true,
+          description: r.description ?? "",
+          values: values,
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return experimentRule;
+      }
+      case "force": {
+        const forceRule: ForceRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          description: r.description ?? "",
+          value: validateFeatureValue(feature, r.value),
+          condition: r.condition,
+          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+            ids: s.savedGroups,
+            match: s.matchType,
+          })),
+          enabled: r.enabled != null ? r.enabled : true,
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return forceRule;
+      }
+      case "rollout": {
+        const rolloutRule: RolloutRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          coverage: r.coverage,
+          description: r.description ?? "",
+          hashAttribute: r.hashAttribute,
+          value: validateFeatureValue(feature, r.value),
+          condition: r.condition,
+          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+            ids: s.savedGroups,
+            match: s.matchType,
+          })),
+          enabled: r.enabled != null ? r.enabled : true,
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return rolloutRule;
+      }
+      default: {
+        const _exhaustive: never = r;
+        throw new Error(
+          `Unrecognized feature rule type: "${(_exhaustive as { type?: string }).type ?? "unknown"}"`,
+        );
+      }
     }
-    const rolloutRule: RolloutRule = {
-      // missing id will be filled in by addIdsToRules
-      id: r.id ?? "",
-      type: r.type,
-      coverage: r.coverage,
-      description: r.description ?? "",
-      hashAttribute: r.hashAttribute,
-      value: validateFeatureValue(feature, r.value),
-      condition: r.condition,
-      savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-        ids: s.savedGroups,
-        match: s.matchType,
-      })),
-      enabled: r.enabled != null ? r.enabled : true,
-      ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-    };
-    return rolloutRule;
   });
 
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
