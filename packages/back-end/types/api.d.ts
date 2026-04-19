@@ -36,6 +36,7 @@ export type ApiRequestLocals = PermissionFunctions & {
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
   context: ApiReqContext;
+  isJwtAuth?: boolean;
 };
 
 export interface ApiErrorResponse {

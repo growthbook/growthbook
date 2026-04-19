@@ -105,13 +105,16 @@ const API_RATE_LIMIT_MAX = parseEnvInt(process.env.API_RATE_LIMIT_MAX, 60, {
   name: "API_RATE_LIMIT_MAX",
 });
 const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
-// Rate limit API keys to 60 requests per minute
+// Rate limit API keys to 60 requests per minute. Skip for JWT requests
+// (interactive UI traffic) — those are already authed as a logged-in user
+// and applying the per-key cap would break dashboards and bulk flows.
 router.use(
   rateLimit({
     windowMs: 60 * 1000,
     max: API_RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => !!(req as Request & ApiRequestLocals).isJwtAuth,
     keyGenerator: (req) => (req as Request & ApiRequestLocals).apiKey,
     message: {
       message: `Too many requests, limit to ${overallRateLimit} per minute`,
