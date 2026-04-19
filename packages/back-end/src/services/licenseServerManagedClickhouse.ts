@@ -8,8 +8,32 @@ import type {
 } from "shared/types/datasource";
 import type { Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
+import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
 import { CLOUD_SECRET } from "back-end/src/util/secrets";
+
+const MAX_SENTRY_RESPONSE_BODY_LENGTH = 16_000;
+
+function errorDetailForLog(text: string, status: number): string {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return `HTTP ${status}`;
+  }
+  try {
+    const j = JSON.parse(text) as {
+      errorMessage?: string;
+      error?: string;
+      message?: string;
+    };
+    const candidate = j.errorMessage ?? j.error ?? j.message;
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate.trim();
+    }
+  } catch {
+    // use raw body below
+  }
+  return trimmed;
+}
 
 async function postManagedClickhouse(
   path: string,
@@ -24,31 +48,63 @@ async function postManagedClickhouse(
     ? LICENSE_SERVER_URL
     : `${LICENSE_SERVER_URL}/`;
   const url = `${base}managed-clickhouse/${path}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${CLOUD_SECRET}`,
-    },
-    body: JSON.stringify(body),
-  });
-  return res;
-}
 
-async function readErrorMessage(res: Response): Promise<string> {
-  const text = await res.text();
+  let res: Response;
   try {
-    const j = JSON.parse(text) as {
-      errorMessage?: string;
-      error?: string;
-      message?: string;
-    };
-    return (
-      j.errorMessage || j.error || j.message || text || `HTTP ${res.status}`
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${CLOUD_SECRET}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    logger.error(
+      {
+        err: error,
+        license_server_managed_clickhouse_path: path,
+        license_server_managed_clickhouse_url: url,
+      },
+      "License server managed ClickHouse request failed before HTTP response",
     );
-  } catch {
-    return text || `HTTP ${res.status}`;
+    throw new Error(
+      "We couldn't reach the managed warehouse service. Please try again in a few minutes. If the problem continues, contact support.",
+    );
   }
+
+  if (!res.ok) {
+    const rawBody = await res.text();
+    const contentType = res.headers.get("content-type") ?? "";
+    const detail = errorDetailForLog(rawBody, res.status);
+    const bodyForSentry =
+      rawBody.length > MAX_SENTRY_RESPONSE_BODY_LENGTH
+        ? `${rawBody.slice(0, MAX_SENTRY_RESPONSE_BODY_LENGTH)}\n…[truncated]`
+        : rawBody;
+
+    logger.error(
+      {
+        err: new Error(
+          `managed-clickhouse/${path}: HTTP ${res.status} ${res.statusText || ""}`.trim(),
+        ),
+        license_server_managed_clickhouse_path: path,
+        http_status: res.status,
+        http_status_text: res.statusText,
+        response_content_type: contentType,
+        response_body: bodyForSentry,
+        response_body_length: rawBody.length,
+        license_server_error_detail: detail,
+      },
+      `License server managed ClickHouse HTTP error: ${path} (${res.status})`,
+    );
+
+    throw new Error(
+      "The managed warehouse service returned an error. Please try again or contact support if this continues.",
+    );
+  }
+
+  return res;
 }
 
 export async function createClickhouseUserViaLicenseServer(
@@ -59,11 +115,6 @@ export async function createClickhouseUserViaLicenseServer(
     orgId,
     materializedColumns,
   });
-  if (!res.ok) {
-    throw new Error(
-      `createClickhouseUserViaLicenseServer: ${await readErrorMessage(res)}`,
-    );
-  }
   return (await res.json()) as DataSourceParams;
 }
 
@@ -71,52 +122,32 @@ export async function dangerousRecreateClickhouseTablesViaLicenseServer(
   orgId: string,
   materializedColumns: MaterializedColumn[] = [],
 ): Promise<void> {
-  const res = await postManagedClickhouse("recreate-tables", {
+  await postManagedClickhouse("recreate-tables", {
     orgId,
     materializedColumns,
   });
-  if (!res.ok) {
-    throw new Error(
-      `dangerousRecreateClickhouseTablesViaLicenseServer: ${await readErrorMessage(res)}`,
-    );
-  }
 }
 
 export async function deleteClickhouseUserViaLicenseServer(
   orgId: string,
 ): Promise<void> {
-  const res = await postManagedClickhouse("delete", { orgId });
-  if (!res.ok) {
-    throw new Error(
-      `deleteClickhouseUserViaLicenseServer: ${await readErrorMessage(res)}`,
-    );
-  }
+  await postManagedClickhouse("delete", { orgId });
 }
 
 export async function addCloudSDKMappingViaLicenseServer(
   key: string,
   organization: string,
 ): Promise<void> {
-  const res = await postManagedClickhouse("sdk-key-mapping", {
+  await postManagedClickhouse("sdk-key-mapping", {
     key,
     organization,
   });
-  if (!res.ok) {
-    throw new Error(
-      `addCloudSDKMappingViaLicenseServer: ${await readErrorMessage(res)}`,
-    );
-  }
 }
 
 export async function migrateOverageEventsForOrgIdViaLicenseServer(
   orgId: string,
 ): Promise<void> {
-  const res = await postManagedClickhouse("migrate-overage", { orgId });
-  if (!res.ok) {
-    throw new Error(
-      `migrateOverageEventsForOrgIdViaLicenseServer: ${await readErrorMessage(res)}`,
-    );
-  }
+  await postManagedClickhouse("migrate-overage", { orgId });
 }
 
 export async function updateMaterializedColumnsInClickhouseViaLicenseServer({
@@ -134,7 +165,7 @@ export async function updateMaterializedColumnsInClickhouseViaLicenseServer({
   finalColumns: MaterializedColumn[];
   originalColumns: MaterializedColumn[];
 }): Promise<void> {
-  const res = await postManagedClickhouse("update-materialized-columns", {
+  await postManagedClickhouse("update-materialized-columns", {
     orgId,
     columnsToAdd,
     columnsToDelete,
@@ -142,9 +173,4 @@ export async function updateMaterializedColumnsInClickhouseViaLicenseServer({
     finalColumns,
     originalColumns,
   });
-  if (!res.ok) {
-    throw new Error(
-      `updateMaterializedColumnsInClickhouseViaLicenseServer: ${await readErrorMessage(res)}`,
-    );
-  }
 }
