@@ -5927,6 +5927,117 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/experiments/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /experiments/{id}/start:
+    post:
+      operationId: postExperimentStart
+      summary: Start an experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skipChecklist:
+                  description: >-
+                    If true, allows starting even when required pre-launch
+                    checklist items are incomplete.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/start' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"skipChecklist":false}'
+  /experiments/{id}/stop:
+    post:
+      operationId: postExperimentStop
+      summary: Stop an experiment and record the decision
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                results:
+                  description: The experiment conclusion status.
+                  type: string
+                  enum:
+                    - dnf
+                    - won
+                    - lost
+                    - inconclusive
+                winnerVariationId:
+                  description: >-
+                    Variation ID (e.g. var_abc123) of the winning variation.
+                    Required when results is won.
+                  type: string
+                releasedVariationId:
+                  description: >-
+                    Variation ID to release during temporary rollout. Defaults
+                    to winnerVariationId when temporary rollout is enabled.
+                  type: string
+                enableTemporaryRollout:
+                  description: >-
+                    If true, include this stopped experiment in SDK payload and
+                    force a released variation.
+                  type: boolean
+                reason:
+                  description: Optional reason stored on the latest phase metadata.
+                  type: string
+                analysis:
+                  description: Optional markdown summary.
+                  type: string
+                dateEnded:
+                  description: Optional ISO datetime for ending the latest phase.
+                  type: string
+              required:
+                - results
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/stop' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"results":"won","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"reason":"Reached significance and shipping treatment"}'
   /experiments/{id}/snapshot:
     post:
       operationId: postExperimentSnapshot

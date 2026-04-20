@@ -26,6 +26,7 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
+  ExperimentResultsType,
   ExperimentStatus,
   ExperimentTargetingData,
   ExperimentType,
@@ -50,7 +51,6 @@ import {
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
-  getChangesToStartExperiment,
   getLinkedChangeEnvironmentStates,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
@@ -61,6 +61,10 @@ import {
   validateVariationIds,
   validateExperimentData,
 } from "back-end/src/services/experiments";
+import {
+  startExperiment,
+  stopExperiment,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -2040,11 +2044,26 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
-    const additionalChanges: Changeset = await getChangesToStartExperiment(
+    const { updated } = await startExperiment({
       context,
-      experiment,
-    );
-    Object.assign(changes, additionalChanges);
+      experimentId: id,
+      // Internal status endpoint preserves existing behavior by not enforcing checklist at the server boundary.
+      skipChecklist: true,
+    });
+
+    await req.audit({
+      event: "experiment.status",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+
+    res.status(200).json({
+      status: 200,
+    });
+    return;
   }
   // If starting or drafting a stopped experiment, clear the phase end date
   // and perform any needed bandit cleanup
@@ -2119,111 +2138,40 @@ export async function postExperimentStatus(
   });
 }
 
+type PostExperimentStopBody = {
+  results: ExperimentResultsType;
+  winnerVariationId?: string;
+  enableTemporaryRollout?: boolean;
+  releasedVariationId?: string;
+  reason?: string;
+  analysis?: string;
+  dateEnded?: string;
+  // Legacy fields used by the current internal stop form. We map these into shared stop input.
+  winner?: number;
+  excludeFromPayload?: boolean;
+};
+
 export async function postExperimentStop(
-  req: AuthRequest<
-    { reason: string; dateEnded: string } & Partial<ExperimentInterface>,
-    { id: string }
-  >,
+  req: AuthRequest<PostExperimentStopBody, { id: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
-  const {
-    reason,
-    results,
-    analysis,
-    winner,
-    dateEnded,
-    releasedVariationId,
-    excludeFromPayload,
-  } = req.body;
-
-  const experiment = await getExperimentById(context, id);
-  const changes: Changeset = {};
-
-  if (!experiment) {
-    res.status(403).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (experiment.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
-
-  if (experiment.type === "holdout") {
-    res.status(400).json({
-      status: 400,
-      message:
-        "Cannot stop a holdout through this endpoint. Use the /holdout/:id/edit-status endpoint instead.",
-    });
-    return;
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  const phases = [...experiment.phases];
-  // Already has phases
-  if (phases.length) {
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
-      dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
-      coverage: !excludeFromPayload ? 1 : phases[phases.length - 1].coverage,
-      reason,
-    };
-    changes.phases = phases;
-  }
-
-  // Make sure experiment is stopped
-  let isEnding = false;
-  if (experiment.status === "running") {
-    changes.status = "stopped";
-    isEnding = true;
-  }
-
-  // TODO: validation
-  changes.winner = winner;
-  changes.results = results;
-  changes.analysis = analysis;
-  changes.releasedVariationId = releasedVariationId;
-  changes.excludeFromPayload = !!excludeFromPayload;
-  if (experiment.type == "multi-armed-bandit") {
-    // pause bandit stage
-    changes.banditStage = "paused";
-    changes.banditStageDateStarted = new Date();
-  }
-
   try {
-    const updated = await updateExperiment({
+    const { experiment, updated, isEnding } = await stopExperiment({
       context,
-      experiment,
-      changes,
+      input: {
+        experimentId: id,
+        results: req.body.results,
+        winnerVariationId: req.body.winnerVariationId,
+        enableTemporaryRollout: req.body.enableTemporaryRollout,
+        releasedVariationId: req.body.releasedVariationId,
+        reason: req.body.reason,
+        analysis: req.body.analysis,
+        dateEnded: req.body.dateEnded,
+        winner: req.body.winner,
+        excludeFromPayload: req.body.excludeFromPayload,
+      },
     });
 
     await req.audit({

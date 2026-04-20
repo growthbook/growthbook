@@ -1242,6 +1242,53 @@ const updateExperimentBody = z
   })
   .strict();
 
+const postExperimentStartBody = z
+  .object({
+    skipChecklist: z
+      .boolean()
+      .describe(
+        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+      )
+      .optional(),
+  })
+  .strict()
+  .optional();
+
+const postExperimentStopBody = z
+  .object({
+    results: z
+      .enum(experimentResultsType)
+      .describe("The experiment conclusion status."),
+    winnerVariationId: z
+      .string()
+      .describe(
+        "Variation ID (e.g. var_abc123) of the winning variation. Required when results is 'won'. If not provided for other results, defaults to the baseline variation.",
+      )
+      .optional(),
+    releasedVariationId: z
+      .string()
+      .describe(
+        "Variation ID to release during temporary rollout. Defaults to winnerVariationId when temporary rollout is enabled.",
+      )
+      .optional(),
+    enableTemporaryRollout: z
+      .boolean()
+      .describe(
+        "If true, include this stopped experiment in SDK payload and force a released variation to all traffic.",
+      )
+      .optional(),
+    reason: z
+      .string()
+      .describe("Optional reason stored on the latest phase metadata.")
+      .optional(),
+    analysis: z.string().describe("Optional markdown summary displayed on the experiment results page.").optional(),
+    dateEnded: z
+      .string()
+      .describe("Optional ISO datetime for ending the latest phase. Defaults to the current date and time.")
+      .optional(),
+  })
+  .strict();
+
 // Common params
 const idParams = z
   .object({
@@ -1366,6 +1413,50 @@ export const updateExperimentValidator = {
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/:id",
+};
+
+export const postExperimentStartValidator = {
+  bodySchema: postExperimentStartBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+    })
+    .strict(),
+  summary: "Start an experiment",
+  operationId: "postExperimentStart",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/start",
+  exampleRequest: {
+    params: { id: "exp_abc123" }
+  },
+};
+
+export const postExperimentStopValidator = {
+  bodySchema: postExperimentStopBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+    })
+    .strict(),
+  summary: "Stop an experiment and/or modify temporary rollout",
+  operationId: "postExperimentStop",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/stop",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      results: "won" as const,
+      winnerVariationId: "var_treatment",
+      enableTemporaryRollout: true,
+      analysis: "Reached desired sample size with statistically significant positive lift; shipping treatment",
+    },
+  },
 };
 
 export const postExperimentSnapshotValidator = {
