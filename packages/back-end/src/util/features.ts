@@ -4,6 +4,7 @@ import {
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
+  getRulesForEnvironment,
   includeExperimentInPayload,
   isDefined,
   recursiveWalk,
@@ -413,9 +414,22 @@ export function getFeatureDefinition({
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
 
-  const rules = revision
-    ? (revision.rules?.[environment] ?? settings.rules)
-    : settings.rules;
+  // Rule source is the v2 unified array on the revision (draft/published
+  // snapshot) or the feature itself (live). Filter to just the rules
+  // applicable to this env — `allEnvironments: true` or an
+  // `environments[]` list that includes us. Input order is preserved so the
+  // SDK payload sees a stable per-env sub-ordering of the unified array.
+  //
+  // Legacy fallback: if neither revision nor feature carries a v2 array
+  // (e.g. a not-yet-JIT-upgraded v1 document handed in directly, or a unit
+  // test fixture that predates the v2 migration), fall back to the per-env
+  // `settings.rules` shape. Production readers always route through
+  // `buildFeatureInterface` / `buildFeatureRevisionInterface`, so this
+  // fallback is dead code on the live path.
+  const v2Rules = revision?.rules ?? feature.rules;
+  const rules = Array.isArray(v2Rules)
+    ? getRulesForEnvironment(v2Rules, environment)
+    : (settings.rules ?? []);
 
   // undefined = all capabilities; compute build-time constraints when capabilities is set
   const hasPrerequisites =
@@ -508,9 +522,7 @@ export function getFeatureDefinition({
           // SDK payloads only expose the bare legacy rule id; any internal
           // `__<env>` migration suffix is stem-stripped so downstream
           // telemetry / result tracking keeps using the original id.
-          ...(includeRuleIds && r.id != null
-            ? { id: stemRuleId(r.id) }
-            : {}),
+          ...(includeRuleIds && r.id != null ? { id: stemRuleId(r.id) } : {}),
         } as FeatureDefinitionRule;
 
         // Experiment reference rules inherit everything from the experiment

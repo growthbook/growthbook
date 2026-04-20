@@ -22,6 +22,8 @@ import {
   inferSchemaField,
   inferSchemaFields,
   inferSimpleSchemaFromValue,
+  ruleAppliesToEnv,
+  getRulesForEnvironment,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -1885,5 +1887,99 @@ describe("reset review on change", () => {
         settings,
       }),
     ).toEqual(true);
+  });
+});
+
+describe("ruleAppliesToEnv", () => {
+  const baseRule = {
+    type: "force" as const,
+    id: "r1",
+    description: "",
+    enabled: true,
+    value: "x",
+  };
+
+  it("returns true when allEnvironments is true regardless of environments[]", () => {
+    const rule: FeatureRule = {
+      ...baseRule,
+      allEnvironments: true,
+      environments: ["dev"],
+    } as FeatureRule;
+    expect(ruleAppliesToEnv(rule, "production")).toBe(true);
+    expect(ruleAppliesToEnv(rule, "dev")).toBe(true);
+  });
+
+  it("uses environments[] membership when allEnvironments is false", () => {
+    const rule: FeatureRule = {
+      ...baseRule,
+      allEnvironments: false,
+      environments: ["production", "dev"],
+    } as FeatureRule;
+    expect(ruleAppliesToEnv(rule, "production")).toBe(true);
+    expect(ruleAppliesToEnv(rule, "dev")).toBe(true);
+    expect(ruleAppliesToEnv(rule, "staging")).toBe(false);
+  });
+
+  it("permissive fallback when neither allEnvironments nor environments[] is declared", () => {
+    const rule: FeatureRule = {
+      ...baseRule,
+    } as FeatureRule;
+    expect(ruleAppliesToEnv(rule, "production")).toBe(true);
+  });
+
+  it("permissive fallback when environments[] is present but empty and allEnvironments is false", () => {
+    const rule: FeatureRule = {
+      ...baseRule,
+      allEnvironments: false,
+      environments: [],
+    } as FeatureRule;
+    expect(ruleAppliesToEnv(rule, "production")).toBe(true);
+  });
+});
+
+describe("getRulesForEnvironment", () => {
+  const mk = (
+    id: string,
+    scope: { allEnvironments?: boolean; environments?: string[] },
+  ): FeatureRule =>
+    ({
+      type: "force",
+      id,
+      description: "",
+      enabled: true,
+      value: id,
+      ...scope,
+    }) as FeatureRule;
+
+  it("preserves input order while filtering to env", () => {
+    const rules = [
+      mk("a", { environments: ["production"] }),
+      mk("b", { environments: ["dev"] }),
+      mk("c", { allEnvironments: true }),
+      mk("d", { environments: ["production", "dev"] }),
+    ];
+    expect(
+      getRulesForEnvironment(rules, "production").map((r) => r.id),
+    ).toEqual(["a", "c", "d"]);
+    expect(getRulesForEnvironment(rules, "dev").map((r) => r.id)).toEqual([
+      "b",
+      "c",
+      "d",
+    ]);
+    expect(getRulesForEnvironment(rules, "staging").map((r) => r.id)).toEqual([
+      "c",
+    ]);
+  });
+
+  it("treats undefined/null as empty", () => {
+    expect(getRulesForEnvironment(undefined, "production")).toEqual([]);
+    expect(getRulesForEnvironment(null, "production")).toEqual([]);
+  });
+
+  it("treats a v1 Record<env, rules[]> (non-array) defensively as empty", () => {
+    const v1Like = {
+      production: [mk("a", { allEnvironments: true })],
+    } as unknown as FeatureRule[];
+    expect(getRulesForEnvironment(v1Like, "production")).toEqual([]);
   });
 });

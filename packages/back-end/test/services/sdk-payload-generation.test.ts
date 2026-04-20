@@ -5,7 +5,8 @@
  * with every behavior from the original tests asserted per connection.
  */
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
 import { HoldoutInterface } from "shared/validators";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -1590,5 +1591,234 @@ describe("SDK payload generation (scenario-specific)", () => {
       organization: ctx.org as OrganizationInterface,
     });
     expect(outIncluded.experiments?.length).toBe(1);
+  });
+
+  // Regression: Phase 5a Step 2. Prior to the v2 rule-shape migration, the
+  // SDK payload path read `revision.rules?.[environment]` and
+  // `environmentSettings[env].rules`. When a v2 feature/revision (with the
+  // unified top-level `rules: FeatureRule[]` array and an empty env-settings
+  // rules bucket) came through, the old path returned [] and the payload
+  // emitted no rules at all. These cases pin down the v2 read path.
+  describe("v2 feature/revision rule read path", () => {
+    const v2BaseFeature = (): FeatureInterface =>
+      ({
+        id: "f1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "x",
+        organization: "org-1",
+        owner: "",
+        valueType: "string",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+          dev: { enabled: true, rules: [] },
+        },
+      }) as FeatureInterface;
+
+    it("reads rules from the v2 top-level feature.rules array (allEnvironments)", () => {
+      const feature: FeatureInterface = {
+        ...v2BaseFeature(),
+        rules: [
+          {
+            type: "force",
+            id: "r-all",
+            description: "",
+            enabled: true,
+            value: "y",
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      };
+      const def = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      expect(def?.rules).toBeDefined();
+      expect(def?.rules?.length).toBe(1);
+      expect((def?.rules?.[0] as Record<string, unknown>).id).toBe("r-all");
+      expect((def?.rules?.[0] as Record<string, unknown>).force).toBe("y");
+    });
+
+    it("reads rules from the v2 top-level revision.rules array and projects per env", () => {
+      const feature = v2BaseFeature();
+      const revision = {
+        organization: "org-1",
+        featureId: "f1",
+        version: 2,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: null,
+        status: "published",
+        baseVersion: 1,
+        comment: "",
+        defaultValue: "x",
+        rules: [
+          {
+            type: "force",
+            id: "r-prod",
+            description: "",
+            enabled: true,
+            value: "prod-only",
+            allEnvironments: false,
+            environments: ["production"],
+          } as FeatureRule,
+          {
+            type: "force",
+            id: "r-dev",
+            description: "",
+            enabled: true,
+            value: "dev-only",
+            allEnvironments: false,
+            environments: ["dev"],
+          } as FeatureRule,
+        ],
+      } as unknown as FeatureRevisionInterface;
+
+      const prodDef = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        revision,
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      expect(prodDef?.rules?.length).toBe(1);
+      expect((prodDef?.rules?.[0] as Record<string, unknown>).id).toBe(
+        "r-prod",
+      );
+
+      const devDef = getFeatureDefinition({
+        feature,
+        environment: "dev",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        revision,
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      expect(devDef?.rules?.length).toBe(1);
+      expect((devDef?.rules?.[0] as Record<string, unknown>).id).toBe("r-dev");
+    });
+
+    it("v2 revision.rules takes precedence over feature.rules when both are present", () => {
+      const feature: FeatureInterface = {
+        ...v2BaseFeature(),
+        rules: [
+          {
+            type: "force",
+            id: "r-live",
+            description: "",
+            enabled: true,
+            value: "from-feature",
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      };
+      const revision = {
+        organization: "org-1",
+        featureId: "f1",
+        version: 2,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: null,
+        status: "draft",
+        baseVersion: 1,
+        comment: "",
+        defaultValue: "x",
+        rules: [
+          {
+            type: "force",
+            id: "r-draft",
+            description: "",
+            enabled: true,
+            value: "from-revision",
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      } as unknown as FeatureRevisionInterface;
+
+      const def = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        revision,
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      expect(def?.rules?.length).toBe(1);
+      expect((def?.rules?.[0] as Record<string, unknown>).id).toBe("r-draft");
+      expect((def?.rules?.[0] as Record<string, unknown>).force).toBe(
+        "from-revision",
+      );
+    });
+
+    it("preserves global array order as per-env sub-order in the SDK payload", () => {
+      const feature: FeatureInterface = {
+        ...v2BaseFeature(),
+        rules: [
+          {
+            type: "force",
+            id: "r-1",
+            description: "",
+            enabled: true,
+            value: "a",
+            allEnvironments: false,
+            environments: ["production"],
+          } as FeatureRule,
+          {
+            type: "force",
+            id: "r-2",
+            description: "",
+            enabled: true,
+            value: "b",
+            allEnvironments: false,
+            environments: ["dev"],
+          } as FeatureRule,
+          {
+            type: "force",
+            id: "r-3",
+            description: "",
+            enabled: true,
+            value: "c",
+            allEnvironments: true,
+          } as FeatureRule,
+          {
+            type: "force",
+            id: "r-4",
+            description: "",
+            enabled: true,
+            value: "d",
+            allEnvironments: false,
+            environments: ["production"],
+          } as FeatureRule,
+        ],
+      };
+      const def = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: true,
+      });
+      const ids = (def?.rules || []).map(
+        (r) => (r as Record<string, unknown>).id,
+      );
+      expect(ids).toEqual(["r-1", "r-3", "r-4"]);
+    });
   });
 });

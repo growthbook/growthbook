@@ -305,8 +305,8 @@ export function getMatchingRules(
     const ruleEnvs = rule.allEnvironments
       ? environments
       : rule.environments && rule.environments.length > 0
-      ? rule.environments
-      : environments;
+        ? rule.environments
+        : environments;
 
     ruleEnvs.forEach((environmentId) => {
       if (!isValidEnvironment(environmentId, environments)) return;
@@ -325,6 +325,49 @@ export function getMatchingRules(
   });
 
   return matches;
+}
+
+/**
+ * Does this v2 rule apply to the given environment?
+ *
+ *   - `rule.allEnvironments: true`      → always yes
+ *   - `rule.environments: [...]`        → yes iff environment is listed
+ *   - neither declared (malformed)      → yes (permissive fallback; matches
+ *                                         `getMatchingRules`'s malformed
+ *                                         handling so the rule surfaces in
+ *                                         at least one bucket rather than
+ *                                         silently vanishing)
+ */
+export function ruleAppliesToEnv(
+  rule: FeatureRule,
+  environment: string,
+): boolean {
+  if (rule.allEnvironments) return true;
+  if (rule.environments && rule.environments.length > 0) {
+    return rule.environments.includes(environment);
+  }
+  return true;
+}
+
+/**
+ * Filter a v2 `FeatureRule[]` down to rules that apply to the given env.
+ * Preserves input order so downstream callers (SDK payload generator, API
+ * projection layer) see a stable per-env sub-ordering of the unified array.
+ *
+ * Accepts `undefined`/`null` for convenience so callers can pipe in
+ * `revision?.rules ?? feature.rules` directly.
+ */
+export function getRulesForEnvironment(
+  rules: FeatureRule[] | undefined | null,
+  environment: string,
+): FeatureRule[] {
+  // Be defensive: a not-yet-JIT-upgraded v1 revision has `rules` typed as
+  // `Record<env, FeatureRule[]>` at runtime. Treat non-arrays as empty
+  // rather than throwing, so callers with undecided provenance (e.g. the
+  // SDK payload path) degrade cleanly and let the v1 envSettings fallback
+  // on the consumer side take over.
+  if (!Array.isArray(rules)) return [];
+  return rules.filter((r) => ruleAppliesToEnv(r, environment));
 }
 
 export function isProjectListValidForProject(
