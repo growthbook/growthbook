@@ -292,6 +292,18 @@ export default function ExperimentHeader({
     setDropdownOpen(false);
   }
 
+  async function toggleHoldoutOptionality() {
+    if (!holdout) return;
+    await apiCall(`/holdout/${holdout.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        doNotSetAsDefaultHoldout: !holdout.doNotSetAsDefaultHoldout,
+      }),
+    });
+    await mutate();
+    setDropdownOpen(false);
+  }
+
   async function startExperiment() {
     if (!experiment.phases?.length) {
       if (newPhase) {
@@ -863,6 +875,17 @@ export default function ExperimentHeader({
                     }}
                   >
                     {holdoutHasSchedule ? "Edit " : "Add "} Schedule
+                  </DropdownMenuItem>
+                )}
+                {isHoldout && canEditExperiment && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      toggleHoldoutOptionality();
+                    }}
+                  >
+                    {holdout?.doNotSetAsDefaultHoldout
+                      ? "Set as a default holdout"
+                      : "Set as an optional holdout"}
                   </DropdownMenuItem>
                 )}
                 {canEditExperiment &&
