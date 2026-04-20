@@ -1,9 +1,6 @@
 import { FeatureRule } from "shared/validators";
 import { stemRuleId, suffixRuleId } from "shared/util";
-import {
-  FeatureInterface,
-  V1FeatureInterface,
-} from "shared/types/feature";
+import { FeatureInterface, V1FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import {
@@ -514,6 +511,31 @@ describe("toLegacyRevision", () => {
     const v1 = toLegacyRevision(raw, ORG_ENVS, "");
     expect(v1.rules.dev).toEqual([]);
     expect(v1.rules.production).toEqual([]);
+  });
+
+  it("includes envs referenced by environmentsEnabled even when outside applicable envs", () => {
+    // Union semantics: the legacy shape keys the rules map by (applicable
+    // envs ∪ environmentsEnabled keys). This lets v1 clients that iterate
+    // `Object.keys(revision.rules)` see every env the revision tracks, even
+    // env ids no longer in the org's applicable set (e.g. a since-archived
+    // env referenced by the revision's `environmentsEnabled`).
+    const raw = {
+      ...BASE_REVISION,
+      environmentsEnabled: {
+        dev: true,
+        production: false,
+        archived_env: true,
+      },
+      rules: [] as unknown as FeatureRule[],
+    } as unknown as FeatureRevisionInterface;
+
+    const v1 = toLegacyRevision(raw, ORG_ENVS, "");
+    expect(Object.keys(v1.rules).sort()).toEqual([
+      "archived_env",
+      "dev",
+      "production",
+    ]);
+    expect(v1.rules.archived_env).toEqual([]);
   });
 
   it("respects featureProject to scope applicable envs", () => {

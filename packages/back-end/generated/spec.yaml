@@ -4240,13 +4240,12 @@ paths:
                           additionalProperties: false
                   additionalProperties: false
                 environment:
+                  deprecated: true
                   type: string
                 revisionTitle:
                   type: string
                 revisionComment:
                   type: string
-              required:
-                - environment
               additionalProperties: false
       responses:
         '200':
@@ -4301,13 +4300,12 @@ paths:
               type: object
               properties:
                 environment:
+                  deprecated: true
                   type: string
                 revisionTitle:
                   type: string
                 revisionComment:
                   type: string
-              required:
-                - environment
               additionalProperties: false
       responses:
         '200':
@@ -11715,17 +11713,16 @@ paths:
         ### Target attachment (optional)
 
 
-        Provide `featureId`, `ruleId`, and `environment` together to attach the
-        schedule
+        Provide `featureId` and `ruleId` together to attach the schedule to a
+        specific
 
-        to a specific rule on creation. The rule must already be live
-        (published). Each
+        rule on creation. The rule must already be live (published). Each rule
+        can only
 
-        `[ruleId, environment]` pair can only be controlled by one schedule at a
-        time.
+        be controlled by one schedule at a time.
 
 
-        When all three are supplied, **`targetId` and `patch.ruleId` are
+        When both are supplied, **`targetId` and `patch.ruleId` are
         auto-injected**
 
         into every step action and endAction — callers only need to supply the
@@ -11734,13 +11731,21 @@ paths:
         values (`coverage`, `condition`, etc.).
 
 
-        If omitted, the schedule is created as a free-standing skeleton in
-        `pending`
+        `environment` is accepted for backward compatibility with pre-v2 ramps
+        but is
 
-        status. Use `POST /ramp-schedules/{id}/actions/add-target` to attach
-        rules later,
+        deprecated and no longer required. Post-v2 `rule.id` is uniquely
+        sufficient.
 
-        and `POST /ramp-schedules/{id}/actions/start` to start it.
+
+        If rule attachment is omitted, the schedule is created as a
+        free-standing
+
+        skeleton in `pending` status. Use `POST
+        /ramp-schedules/{id}/actions/add-target`
+
+        to attach rules later, and `POST /ramp-schedules/{id}/actions/start` to
+        start it.
 
 
         ### Using templates
@@ -11752,9 +11757,10 @@ paths:
         Explicit `steps` / `endActions` in the request body take precedence over
         the
 
-        template. Template auto-population requires `featureId`, `ruleId`, and
+        template. Template auto-population requires `featureId` and `ruleId` to
+        be set
 
-        `environment` to be set (so targetId can be injected).
+        (so targetId can be injected).
 
 
         Requires an **Enterprise** plan.
@@ -11771,23 +11777,25 @@ paths:
                   type: string
                 featureId:
                   description: >-
-                    Feature that anchors this schedule. Required when
-                    ruleId/environment are set.
+                    Feature that anchors this schedule. Required when `ruleId`
+                    is set.
                   type: string
                 ruleId:
                   description: >-
-                    Rule to attach as the initial target. Requires featureId and
-                    environment.
+                    Rule to attach as the initial target. Requires `featureId`.
+                    Post-v2 `rule.id` is uniquely sufficient; `environment` is
+                    optional and deprecated.
                   type: string
                 environment:
+                  deprecated: true
                   description: >-
-                    Environment of the target rule. Requires featureId and
-                    ruleId.
+                    Deprecated. Legacy disambiguator for pre-v2 rules whose
+                    `ruleId` could repeat across envs. Omit on new schedules —
+                    the resolver uses `rule.id` directly.
                   type: string
                 steps:
                   description: >
-                    Ordered ramp steps. When featureId+ruleId+environment are
-                    provided,
+                    Ordered ramp steps. When `featureId`+`ruleId` are provided,
 
                     `targetId` and `patch.ruleId` in actions are auto-injected —
                     only
@@ -11922,9 +11930,9 @@ paths:
                     additionalProperties: false
                 endActions:
                   description: >-
-                    Actions applied when the ramp completes. targetId and
-                    patch.ruleId are auto-injected when
-                    featureId+ruleId+environment are provided.
+                    Actions applied when the ramp completes. `targetId` and
+                    `patch.ruleId` are auto-injected when `featureId`+`ruleId`
+                    are provided.
                   type: array
                   items:
                     type: object
@@ -12038,8 +12046,7 @@ paths:
                 templateId:
                   description: >-
                     Load steps and endActions from a saved template
-                    (featureId+ruleId+environment must also be set for
-                    auto-injection)
+                    (featureId+ruleId must also be set for auto-injection)
                   type: string
               required:
                 - name
@@ -12333,12 +12340,14 @@ paths:
       operationId: addTargetRampSchedule
       summary: Add a target rule to a ramp schedule
       description: >
-        Attaches an additional feature rule to this ramp schedule. The
+        Attaches an additional feature rule to this ramp schedule. The `ruleId`
 
-        `[ruleId, environment]` pair must identify a rule that is already
-        published
+        must identify a rule that is already published and must not already be
 
-        and must not already be controlled by another schedule.
+        controlled by another schedule. `environment` is accepted for backward
+
+        compatibility with pre-v2 ramps but is deprecated and no longer
+        required.
       tags:
         - ramp-schedules
       parameters:
@@ -12360,11 +12369,14 @@ paths:
                 ruleId:
                   type: string
                 environment:
+                  deprecated: true
+                  description: >-
+                    Deprecated pre-v2 disambiguator; ignored on v2 rules where
+                    `rule.id` is uniquely sufficient.
                   type: string
               required:
                 - featureId
                 - ruleId
-                - environment
               additionalProperties: false
       responses:
         '200':
@@ -12420,10 +12432,13 @@ paths:
                   description: Target ID (from the targets array)
                   type: string
                 ruleId:
-                  description: Rule ID — use with environment as an alternative to targetId
+                  description: Rule ID — use as an alternative to targetId
                   type: string
                 environment:
-                  description: Environment — use with ruleId as an alternative to targetId
+                  deprecated: true
+                  description: >-
+                    Deprecated pre-v2 disambiguator. Optional when used with
+                    ruleId; omit on v2 ramps.
                   type: string
               additionalProperties: false
       responses:
@@ -23560,6 +23575,10 @@ components:
                   - type: string
                   - type: 'null'
               environment:
+                deprecated: true
+                description: >-
+                  Legacy disambiguator used alongside `ruleId` for pre-v2 ramps.
+                  May be null on newer targets.
                 anyOf:
                   - type: string
                   - type: 'null'
@@ -27136,556 +27155,587 @@ components:
         defaultValue:
           type: string
         rules:
-          type: object
-          propertyNames:
-            type: string
-          additionalProperties:
-            type: array
-            items:
-              anyOf:
-                - type: object
-                  properties:
-                    description:
+          type: array
+          items:
+            anyOf:
+              - type: object
+                properties:
+                  description:
+                    type: string
+                  condition:
+                    type: string
+                  id:
+                    type: string
+                  allEnvironments:
+                    type: boolean
+                  environments:
+                    type: array
+                    items:
                       type: string
-                    condition:
-                      type: string
-                    id:
-                      type: string
-                    enabled:
-                      type: boolean
-                    scheduleRules:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          timestamp:
-                            anyOf:
-                              - type: string
-                              - type: 'null'
-                          enabled:
-                            type: boolean
-                        required:
-                          - timestamp
-                          - enabled
-                        additionalProperties: false
-                    savedGroups:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          match:
-                            type: string
-                            enum:
-                              - all
-                              - none
-                              - any
-                          ids:
-                            type: array
-                            items:
-                              type: string
-                        required:
-                          - match
-                          - ids
-                        additionalProperties: false
-                    prerequisites:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                          condition:
-                            type: string
-                        required:
-                          - id
-                          - condition
-                        additionalProperties: false
-                    scheduleType:
-                      type: string
-                      enum:
-                        - none
-                        - schedule
-                        - ramp
-                    type:
-                      type: string
-                      const: force
-                    value:
-                      type: string
-                  required:
-                    - description
-                    - id
-                    - type
-                    - value
-                  additionalProperties: false
-                - type: object
-                  properties:
-                    description:
-                      type: string
-                    condition:
-                      type: string
-                    id:
-                      type: string
-                    enabled:
-                      type: boolean
-                    scheduleRules:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          timestamp:
-                            anyOf:
-                              - type: string
-                              - type: 'null'
-                          enabled:
-                            type: boolean
-                        required:
-                          - timestamp
-                          - enabled
-                        additionalProperties: false
-                    savedGroups:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          match:
-                            type: string
-                            enum:
-                              - all
-                              - none
-                              - any
-                          ids:
-                            type: array
-                            items:
-                              type: string
-                        required:
-                          - match
-                          - ids
-                        additionalProperties: false
-                    prerequisites:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                          condition:
-                            type: string
-                        required:
-                          - id
-                          - condition
-                        additionalProperties: false
-                    scheduleType:
-                      type: string
-                      enum:
-                        - none
-                        - schedule
-                        - ramp
-                    type:
-                      type: string
-                      const: rollout
-                    value:
-                      type: string
-                    coverage:
-                      type: number
-                    hashAttribute:
-                      type: string
-                    seed:
-                      type: string
-                  required:
-                    - description
-                    - id
-                    - type
-                    - value
-                    - coverage
-                    - hashAttribute
-                  additionalProperties: false
-                - type: object
-                  properties:
-                    description:
-                      type: string
-                    condition:
-                      type: string
-                    id:
-                      type: string
-                    enabled:
-                      type: boolean
-                    scheduleRules:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          timestamp:
-                            anyOf:
-                              - type: string
-                              - type: 'null'
-                          enabled:
-                            type: boolean
-                        required:
-                          - timestamp
-                          - enabled
-                        additionalProperties: false
-                    savedGroups:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          match:
-                            type: string
-                            enum:
-                              - all
-                              - none
-                              - any
-                          ids:
-                            type: array
-                            items:
-                              type: string
-                        required:
-                          - match
-                          - ids
-                        additionalProperties: false
-                    prerequisites:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                          condition:
-                            type: string
-                        required:
-                          - id
-                          - condition
-                        additionalProperties: false
-                    scheduleType:
-                      type: string
-                      enum:
-                        - none
-                        - schedule
-                        - ramp
-                    type:
-                      type: string
-                      const: experiment
-                    experimentType:
-                      type: string
-                      enum:
-                        - standard
-                        - multi-armed-bandit
-                    hypothesis:
-                      type: string
-                    trackingKey:
-                      type: string
-                    hashAttribute:
-                      type: string
-                    fallbackAttribute:
-                      type: string
-                    hashVersion:
-                      type: number
-                    disableStickyBucketing:
-                      type: boolean
-                    bucketVersion:
-                      type: number
-                    minBucketVersion:
-                      type: number
-                    namespace:
+                  enabled:
+                    type: boolean
+                  scheduleRules:
+                    type: array
+                    items:
                       type: object
                       properties:
+                        timestamp:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
                         enabled:
                           type: boolean
+                      required:
+                        - timestamp
+                        - enabled
+                      additionalProperties: false
+                  savedGroups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        match:
+                          type: string
+                          enum:
+                            - all
+                            - none
+                            - any
+                        ids:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - match
+                        - ids
+                      additionalProperties: false
+                  prerequisites:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        condition:
+                          type: string
+                      required:
+                        - id
+                        - condition
+                      additionalProperties: false
+                  scheduleType:
+                    type: string
+                    enum:
+                      - none
+                      - schedule
+                      - ramp
+                  type:
+                    type: string
+                    const: force
+                  value:
+                    type: string
+                required:
+                  - description
+                  - id
+                  - allEnvironments
+                  - type
+                  - value
+                additionalProperties: false
+              - type: object
+                properties:
+                  description:
+                    type: string
+                  condition:
+                    type: string
+                  id:
+                    type: string
+                  allEnvironments:
+                    type: boolean
+                  environments:
+                    type: array
+                    items:
+                      type: string
+                  enabled:
+                    type: boolean
+                  scheduleRules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        enabled:
+                          type: boolean
+                      required:
+                        - timestamp
+                        - enabled
+                      additionalProperties: false
+                  savedGroups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        match:
+                          type: string
+                          enum:
+                            - all
+                            - none
+                            - any
+                        ids:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - match
+                        - ids
+                      additionalProperties: false
+                  prerequisites:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        condition:
+                          type: string
+                      required:
+                        - id
+                        - condition
+                      additionalProperties: false
+                  scheduleType:
+                    type: string
+                    enum:
+                      - none
+                      - schedule
+                      - ramp
+                  type:
+                    type: string
+                    const: rollout
+                  value:
+                    type: string
+                  coverage:
+                    type: number
+                  hashAttribute:
+                    type: string
+                  seed:
+                    type: string
+                required:
+                  - description
+                  - id
+                  - allEnvironments
+                  - type
+                  - value
+                  - coverage
+                  - hashAttribute
+                additionalProperties: false
+              - type: object
+                properties:
+                  description:
+                    type: string
+                  condition:
+                    type: string
+                  id:
+                    type: string
+                  allEnvironments:
+                    type: boolean
+                  environments:
+                    type: array
+                    items:
+                      type: string
+                  enabled:
+                    type: boolean
+                  scheduleRules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        enabled:
+                          type: boolean
+                      required:
+                        - timestamp
+                        - enabled
+                      additionalProperties: false
+                  savedGroups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        match:
+                          type: string
+                          enum:
+                            - all
+                            - none
+                            - any
+                        ids:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - match
+                        - ids
+                      additionalProperties: false
+                  prerequisites:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        condition:
+                          type: string
+                      required:
+                        - id
+                        - condition
+                      additionalProperties: false
+                  scheduleType:
+                    type: string
+                    enum:
+                      - none
+                      - schedule
+                      - ramp
+                  type:
+                    type: string
+                    const: experiment
+                  experimentType:
+                    type: string
+                    enum:
+                      - standard
+                      - multi-armed-bandit
+                  hypothesis:
+                    type: string
+                  trackingKey:
+                    type: string
+                  hashAttribute:
+                    type: string
+                  fallbackAttribute:
+                    type: string
+                  hashVersion:
+                    type: number
+                  disableStickyBucketing:
+                    type: boolean
+                  bucketVersion:
+                    type: number
+                  minBucketVersion:
+                    type: number
+                  namespace:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      name:
+                        type: string
+                      range:
+                        type: array
+                        prefixItems:
+                          - type: number
+                          - type: number
+                    required:
+                      - enabled
+                      - name
+                      - range
+                    additionalProperties: false
+                  coverage:
+                    type: number
+                  datasource:
+                    type: string
+                  exposureQueryId:
+                    type: string
+                  goalMetrics:
+                    type: array
+                    items:
+                      type: string
+                  secondaryMetrics:
+                    type: array
+                    items:
+                      type: string
+                  guardrailMetrics:
+                    type: array
+                    items:
+                      type: string
+                  activationMetric:
+                    type: string
+                  segment:
+                    type: string
+                  skipPartialData:
+                    type: boolean
+                  values:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        value:
+                          type: string
+                        weight:
+                          type: number
                         name:
                           type: string
-                        range:
-                          type: array
-                          prefixItems:
-                            - type: number
-                            - type: number
                       required:
-                        - enabled
-                        - name
-                        - range
+                        - value
+                        - weight
                       additionalProperties: false
-                    coverage:
-                      type: number
-                    datasource:
+                  regressionAdjustmentEnabled:
+                    type: boolean
+                  sequentialTestingEnabled:
+                    type: boolean
+                  sequentialTestingTuningParameter:
+                    type: number
+                  statsEngine:
+                    type: string
+                    enum:
+                      - bayesian
+                      - frequentist
+                  banditStage:
+                    type: string
+                    enum:
+                      - explore
+                      - exploit
+                      - paused
+                  banditStageDateStarted: {}
+                  banditScheduleValue:
+                    type: number
+                  banditScheduleUnit:
+                    type: string
+                    enum:
+                      - hours
+                      - days
+                  banditBurnInValue:
+                    type: number
+                  banditBurnInUnit:
+                    type: string
+                    enum:
+                      - hours
+                      - days
+                  banditConversionWindowValue:
+                    anyOf:
+                      - type: number
+                      - type: 'null'
+                  banditConversionWindowUnit:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - hours
+                          - days
+                      - type: 'null'
+                  templateId:
+                    type: string
+                  customFields:
+                    type: object
+                    propertyNames:
                       type: string
-                    exposureQueryId:
+                    additionalProperties: {}
+                required:
+                  - description
+                  - id
+                  - allEnvironments
+                  - type
+                  - trackingKey
+                  - hashAttribute
+                  - values
+                additionalProperties: false
+              - type: object
+                properties:
+                  description:
+                    type: string
+                  condition:
+                    type: string
+                  id:
+                    type: string
+                  allEnvironments:
+                    type: boolean
+                  environments:
+                    type: array
+                    items:
                       type: string
-                    goalMetrics:
-                      type: array
-                      items:
-                        type: string
-                    secondaryMetrics:
-                      type: array
-                      items:
-                        type: string
-                    guardrailMetrics:
-                      type: array
-                      items:
-                        type: string
-                    activationMetric:
-                      type: string
-                    segment:
-                      type: string
-                    skipPartialData:
-                      type: boolean
-                    values:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          value:
-                            type: string
-                          weight:
-                            type: number
-                          name:
-                            type: string
-                        required:
-                          - value
-                          - weight
-                        additionalProperties: false
-                    regressionAdjustmentEnabled:
-                      type: boolean
-                    sequentialTestingEnabled:
-                      type: boolean
-                    sequentialTestingTuningParameter:
-                      type: number
-                    statsEngine:
-                      type: string
-                      enum:
-                        - bayesian
-                        - frequentist
-                    banditStage:
-                      type: string
-                      enum:
-                        - explore
-                        - exploit
-                        - paused
-                    banditStageDateStarted: {}
-                    banditScheduleValue:
-                      type: number
-                    banditScheduleUnit:
-                      type: string
-                      enum:
-                        - hours
-                        - days
-                    banditBurnInValue:
-                      type: number
-                    banditBurnInUnit:
-                      type: string
-                      enum:
-                        - hours
-                        - days
-                    banditConversionWindowValue:
-                      anyOf:
-                        - type: number
-                        - type: 'null'
-                    banditConversionWindowUnit:
-                      anyOf:
-                        - type: string
-                          enum:
-                            - hours
-                            - days
-                        - type: 'null'
-                    templateId:
-                      type: string
-                    customFields:
+                  enabled:
+                    type: boolean
+                  scheduleRules:
+                    type: array
+                    items:
                       type: object
-                      propertyNames:
-                        type: string
-                      additionalProperties: {}
-                  required:
-                    - description
-                    - id
-                    - type
-                    - trackingKey
-                    - hashAttribute
-                    - values
-                  additionalProperties: false
-                - type: object
-                  properties:
-                    description:
-                      type: string
-                    condition:
-                      type: string
-                    id:
-                      type: string
-                    enabled:
-                      type: boolean
-                    scheduleRules:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          timestamp:
-                            anyOf:
-                              - type: string
-                              - type: 'null'
-                          enabled:
-                            type: boolean
-                        required:
-                          - timestamp
-                          - enabled
-                        additionalProperties: false
-                    savedGroups:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          match:
+                      properties:
+                        timestamp:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        enabled:
+                          type: boolean
+                      required:
+                        - timestamp
+                        - enabled
+                      additionalProperties: false
+                  savedGroups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        match:
+                          type: string
+                          enum:
+                            - all
+                            - none
+                            - any
+                        ids:
+                          type: array
+                          items:
                             type: string
-                            enum:
-                              - all
-                              - none
-                              - any
-                          ids:
-                            type: array
-                            items:
-                              type: string
-                        required:
-                          - match
-                          - ids
-                        additionalProperties: false
-                    prerequisites:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          id:
+                      required:
+                        - match
+                        - ids
+                      additionalProperties: false
+                  prerequisites:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        condition:
+                          type: string
+                      required:
+                        - id
+                        - condition
+                      additionalProperties: false
+                  scheduleType:
+                    type: string
+                    enum:
+                      - none
+                      - schedule
+                      - ramp
+                  type:
+                    type: string
+                    const: experiment-ref
+                  experimentId:
+                    type: string
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        variationId:
+                          type: string
+                        value:
+                          type: string
+                      required:
+                        - variationId
+                        - value
+                      additionalProperties: false
+                required:
+                  - description
+                  - id
+                  - allEnvironments
+                  - type
+                  - experimentId
+                  - variations
+                additionalProperties: false
+              - type: object
+                properties:
+                  description:
+                    type: string
+                  condition:
+                    type: string
+                  id:
+                    type: string
+                  allEnvironments:
+                    type: boolean
+                  environments:
+                    type: array
+                    items:
+                      type: string
+                  enabled:
+                    type: boolean
+                  scheduleRules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        enabled:
+                          type: boolean
+                      required:
+                        - timestamp
+                        - enabled
+                      additionalProperties: false
+                  savedGroups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        match:
+                          type: string
+                          enum:
+                            - all
+                            - none
+                            - any
+                        ids:
+                          type: array
+                          items:
                             type: string
-                          condition:
-                            type: string
-                        required:
-                          - id
-                          - condition
-                        additionalProperties: false
-                    scheduleType:
-                      type: string
-                      enum:
-                        - none
-                        - schedule
-                        - ramp
-                    type:
-                      type: string
-                      const: experiment-ref
-                    experimentId:
-                      type: string
-                    variations:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          variationId:
-                            type: string
-                          value:
-                            type: string
-                        required:
-                          - variationId
-                          - value
-                        additionalProperties: false
-                  required:
-                    - description
-                    - id
-                    - type
-                    - experimentId
-                    - variations
-                  additionalProperties: false
-                - type: object
-                  properties:
-                    description:
-                      type: string
-                    condition:
-                      type: string
-                    id:
-                      type: string
-                    enabled:
-                      type: boolean
-                    scheduleRules:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          timestamp:
-                            anyOf:
-                              - type: string
-                              - type: 'null'
-                          enabled:
-                            type: boolean
-                        required:
-                          - timestamp
-                          - enabled
-                        additionalProperties: false
-                    savedGroups:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          match:
-                            type: string
-                            enum:
-                              - all
-                              - none
-                              - any
-                          ids:
-                            type: array
-                            items:
-                              type: string
-                        required:
-                          - match
-                          - ids
-                        additionalProperties: false
-                    prerequisites:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                          condition:
-                            type: string
-                        required:
-                          - id
-                          - condition
-                        additionalProperties: false
-                    scheduleType:
-                      type: string
-                      enum:
-                        - none
-                        - schedule
-                        - ramp
-                    type:
-                      type: string
-                      const: safe-rollout
-                    controlValue:
-                      type: string
-                    variationValue:
-                      type: string
-                    safeRolloutId:
-                      type: string
-                    status:
-                      default: running
-                      type: string
-                      enum:
-                        - running
-                        - rolled-back
-                        - released
-                        - stopped
-                    hashAttribute:
-                      type: string
-                    seed:
-                      type: string
-                    trackingKey:
-                      type: string
-                  required:
-                    - description
-                    - id
-                    - type
-                    - controlValue
-                    - variationValue
-                    - safeRolloutId
-                    - status
-                    - hashAttribute
-                    - seed
-                    - trackingKey
-                  additionalProperties: false
+                      required:
+                        - match
+                        - ids
+                      additionalProperties: false
+                  prerequisites:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        condition:
+                          type: string
+                      required:
+                        - id
+                        - condition
+                      additionalProperties: false
+                  scheduleType:
+                    type: string
+                    enum:
+                      - none
+                      - schedule
+                      - ramp
+                  type:
+                    type: string
+                    const: safe-rollout
+                  controlValue:
+                    type: string
+                  variationValue:
+                    type: string
+                  safeRolloutId:
+                    type: string
+                  status:
+                    default: running
+                    type: string
+                    enum:
+                      - running
+                      - rolled-back
+                      - released
+                      - stopped
+                  hashAttribute:
+                    type: string
+                  seed:
+                    type: string
+                  trackingKey:
+                    type: string
+                required:
+                  - description
+                  - id
+                  - allEnvironments
+                  - type
+                  - controlValue
+                  - variationValue
+                  - safeRolloutId
+                  - status
+                  - hashAttribute
+                  - seed
+                  - trackingKey
+                additionalProperties: false
         environmentsEnabled:
           type: object
           propertyNames:

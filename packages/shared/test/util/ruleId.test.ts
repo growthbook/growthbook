@@ -2,6 +2,7 @@ import {
   stemRuleId,
   suffixRuleId,
   isMigrationSuffixedRuleId,
+  parseRuleId,
   RULE_ID_ENV_SUFFIX_DELIMITER,
 } from "shared/util";
 
@@ -70,6 +71,49 @@ describe("ruleId helpers", () => {
     it("returns true for any id containing the delimiter", () => {
       expect(isMigrationSuffixedRuleId("fr_abc__dev")).toBe(true);
       expect(isMigrationSuffixedRuleId("fr_abc__dev__2")).toBe(true);
+    });
+  });
+
+  describe("parseRuleId", () => {
+    it("returns just the stem for bare ids", () => {
+      expect(parseRuleId("fr_abc")).toEqual({ stem: "fr_abc" });
+      expect(parseRuleId("fr_lgw3b5x9k")).toEqual({ stem: "fr_lgw3b5x9k" });
+    });
+
+    it("extracts stem and env for `stem__env` form", () => {
+      expect(parseRuleId("fr_abc__production")).toEqual({
+        stem: "fr_abc",
+        env: "production",
+      });
+      expect(parseRuleId("fr_abc__dev")).toEqual({
+        stem: "fr_abc",
+        env: "dev",
+      });
+    });
+
+    it("extracts stem, env, and occurrence for `stem__env__n` form", () => {
+      expect(parseRuleId("fr_abc__dev__2")).toEqual({
+        stem: "fr_abc",
+        env: "dev",
+        occurrence: 2,
+      });
+      expect(parseRuleId("fr_abc__production__17")).toEqual({
+        stem: "fr_abc",
+        env: "production",
+        occurrence: 17,
+      });
+    });
+
+    it("round-trips with suffixRuleId", () => {
+      expect(parseRuleId(suffixRuleId("fr_abc", "dev"))).toEqual({
+        stem: "fr_abc",
+        env: "dev",
+      });
+      expect(parseRuleId(suffixRuleId("fr_abc", "prod", 3))).toEqual({
+        stem: "fr_abc",
+        env: "prod",
+        occurrence: 3,
+      });
     });
   });
 

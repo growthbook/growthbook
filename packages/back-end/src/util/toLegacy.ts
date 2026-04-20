@@ -141,8 +141,19 @@ export function toLegacyRevision(
 ): V1FeatureRevisionInterface {
   const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
 
+  // Include entries for the union of (applicableEnvs, environmentsEnabled
+  // keys). Mirrors `toLegacyFeature`'s (applicableEnvs, envSettings keys) union
+  // so v1 clients iterating `Object.keys(revision.rules)` don't miss envs the
+  // revision still tracks via `environmentsEnabled` (e.g. disabled/archived).
+  // Non-applicable envs remain empty-array placeholders; `ruleFootprint`
+  // filters rule assignment to applicable envs only.
+  const envIds = new Set<string>([
+    ...applicableEnvs,
+    ...Object.keys(revision.environmentsEnabled ?? {}),
+  ]);
+
   const rulesByEnv: Record<string, V1FeatureRule[]> = {};
-  for (const env of applicableEnvs) rulesByEnv[env] = [];
+  for (const env of envIds) rulesByEnv[env] = [];
 
   for (const rule of revision.rules || []) {
     const envs = ruleFootprint(rule, applicableEnvs);

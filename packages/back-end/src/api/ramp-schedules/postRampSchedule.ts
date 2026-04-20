@@ -79,13 +79,10 @@ const postRampScheduleValidator = {
           message: "ruleId is required when environment is provided",
         });
       }
-      if (data.ruleId && !data.environment) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["environment"],
-          message: "environment is required when ruleId is provided",
-        });
-      }
+      // NOTE: `environment` is no longer required alongside `ruleId`. Post-v2,
+      // `rule.id` is uniquely sufficient within a feature's unified rule list;
+      // env is a deprecated pre-v2 disambiguator. See `rampTarget` in
+      // shared/validators.
     }),
 };
 
@@ -135,7 +132,7 @@ export const postRampSchedule = createApiRequestHandler(
     );
   }
 
-  const hasTarget = !!(body.featureId && body.ruleId && body.environment);
+  const hasTarget = !!(body.featureId && body.ruleId);
 
   let targetId: string | undefined;
   let feature: FeatureInterface | null = null;
@@ -148,25 +145,28 @@ export const postRampSchedule = createApiRequestHandler(
   }
 
   if (hasTarget) {
+    const envSuffix = body.environment
+      ? ` in environment '${body.environment}'`
+      : "";
     const rule = resolveRampTarget(
-      { ruleId: body.ruleId!, environment: body.environment! },
+      { ruleId: body.ruleId!, environment: body.environment ?? null },
       feature!.rules ?? [],
     );
     if (!rule) {
       throw new NotFoundError(
-        `Rule '${body.ruleId}' not found in environment '${body.environment}'. ` +
+        `Rule '${body.ruleId}' not found${envSuffix}. ` +
           `The rule must be published before attaching a ramp schedule.`,
       );
     }
 
     const conflicting = await req.context.models.rampSchedules.findByTargetRule(
       body.ruleId!,
-      body.environment!,
+      body.environment ?? undefined,
     );
     if (conflicting.length > 0) {
       throw new BadRequestError(
-        `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}' ` +
-          `in environment '${body.environment}'. Delete it first before creating a new one.`,
+        `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}'${envSuffix}. ` +
+          `Delete it first before creating a new one.`,
       );
     }
 
@@ -259,10 +259,11 @@ export const postRampSchedule = createApiRequestHandler(
             entityType: "feature",
             entityId: body.featureId!,
             ruleId: body.ruleId,
-            // TODO(post-migration): stop writing `environment` once read-side
-            // consumers derive env scope from the resolved rule. See
-            // rampTarget deprecation notice in shared/validators.
-            environment: body.environment,
+            // `environment` is deliberately omitted on new targets. Post-v2
+            // `rule.id` is uniquely sufficient within a feature's unified rule
+            // list; env is a deprecated pre-v2 disambiguator. The resolver
+            // and DB-side lookup still honor stored `environment` for legacy
+            // targets. See `rampTarget` in shared/validators.
             status: "active",
           },
         ]

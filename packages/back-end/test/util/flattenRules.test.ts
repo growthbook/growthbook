@@ -7,7 +7,9 @@ import {
   isV2RevisionRules,
   V1FeatureRule,
   V1RulesByEnv,
+  rampTargetsEquivalent,
   resolveRampTarget,
+  resolveRampTargets,
 } from "../../src/util/flattenRules";
 import { stemRuleId, suffixRuleId } from "shared/util";
 
@@ -805,10 +807,6 @@ describe("isV2RevisionRules", () => {
 // ================= isV2FeatureEnvSettings =================
 
 describe("isV2FeatureEnvSettings", () => {
-  it("returns true for undefined env settings", () => {
-    expect(isV2FeatureEnvSettings(undefined)).toBe(true);
-  });
-
   it("returns true for empty env settings map", () => {
     expect(isV2FeatureEnvSettings({})).toBe(true);
   });
@@ -987,9 +985,11 @@ describe("resolveRampTarget", () => {
       ).toBe(splitProd);
     });
 
-    it("resolves a legacy ruleId without env to the first matching suffixed rule", () => {
-      // When the ramp has no env preference, either split is an acceptable
-      // match. We return the first found.
+    it("resolves a legacy ruleId without env via stem fan-out (singular wrapper returns first match)", () => {
+      // Bare id + no env is the legacy-fan-out quadrant. The plural resolver
+      // returns BOTH splits; the singular wrapper returns the first. See
+      // `resolveRampTargets` JSDoc for the rationale — the plural is what the
+      // ramp poller iterates over to apply patches to every split sibling.
       const resolved = resolveRampTarget({ ruleId: "r_split" }, rules);
       expect([splitDev, splitProd]).toContain(resolved);
     });
@@ -1039,5 +1039,221 @@ describe("resolveRampTarget", () => {
         malformed,
       );
     });
+  });
+});
+
+// ================= resolveRampTargets (plural) =================
+//
+// Four quadrants by (id form, env presence):
+//   1. (bare id,     env supplied) — exact match on stem or stem__env,
+//                                    filtered by env active on rule.
+//   2. (suffixed id, env supplied) — same as (1) after stem-stripping.
+//   3. (bare id,     no env)       — legacy-fan-out: every rule with matching
+//                                    stem (covers pre-migration ramps that
+//                                    later got split into env siblings).
+//   4. (suffixed id, no env)       — exact id match (caller disambiguated).
+
+describe("resolveRampTargets (plural)", () => {
+  const devSibling: FeatureRule = {
+    id: suffixRuleId("r_split", "dev"),
+    type: "force",
+    description: "",
+    enabled: true,
+    value: "dev-value",
+    allEnvironments: false,
+    environments: ["dev"],
+  } as unknown as FeatureRule;
+
+  const prodSibling: FeatureRule = {
+    id: suffixRuleId("r_split", "prod"),
+    type: "force",
+    description: "",
+    enabled: true,
+    value: "prod-value",
+    allEnvironments: false,
+    environments: ["prod"],
+  } as unknown as FeatureRule;
+
+  const bareAllEnvs: FeatureRule = {
+    id: "r_keep",
+    type: "force",
+    description: "",
+    enabled: true,
+    value: "true",
+    allEnvironments: true,
+  } as unknown as FeatureRule;
+
+  const bareDev: FeatureRule = {
+    id: "r_dev_only",
+    type: "force",
+    description: "",
+    enabled: true,
+    value: "true",
+    allEnvironments: false,
+    environments: ["dev"],
+  } as unknown as FeatureRule;
+
+  const rules = [devSibling, prodSibling, bareAllEnvs, bareDev];
+
+  describe("quadrant 1 — (bare id, env supplied)", () => {
+    it("returns the env-active sibling for a split rule", () => {
+      expect(
+        resolveRampTargets({ ruleId: "r_split", environment: "dev" }, rules),
+      ).toEqual([devSibling]);
+      expect(
+        resolveRampTargets({ ruleId: "r_split", environment: "prod" }, rules),
+      ).toEqual([prodSibling]);
+    });
+
+    it("returns [] for an env that matches neither sibling", () => {
+      expect(
+        resolveRampTargets(
+          { ruleId: "r_split", environment: "staging" },
+          rules,
+        ),
+      ).toEqual([]);
+    });
+
+    it("filters by env-active-ness for an unsplit rule", () => {
+      expect(
+        resolveRampTargets({ ruleId: "r_dev_only", environment: "dev" }, rules),
+      ).toEqual([bareDev]);
+      expect(
+        resolveRampTargets(
+          { ruleId: "r_dev_only", environment: "prod" },
+          rules,
+        ),
+      ).toEqual([]);
+    });
+
+    it("matches allEnvironments rules regardless of env", () => {
+      expect(
+        resolveRampTargets(
+          { ruleId: "r_keep", environment: "anything" },
+          rules,
+        ),
+      ).toEqual([bareAllEnvs]);
+    });
+  });
+
+  describe("quadrant 2 — (suffixed id, env supplied)", () => {
+    it("stems and then behaves like quadrant 1", () => {
+      expect(
+        resolveRampTargets(
+          { ruleId: suffixRuleId("r_split", "prod"), environment: "prod" },
+          rules,
+        ),
+      ).toEqual([prodSibling]);
+    });
+  });
+
+  describe("quadrant 3 — (bare id, no env) — legacy fan-out", () => {
+    it("fans out to every stem-matching sibling for a split rule", () => {
+      const result = resolveRampTargets({ ruleId: "r_split" }, rules);
+      expect(result).toHaveLength(2);
+      expect(result).toEqual(expect.arrayContaining([devSibling, prodSibling]));
+    });
+
+    it("returns the single matching rule for an unsplit id", () => {
+      expect(resolveRampTargets({ ruleId: "r_dev_only" }, rules)).toEqual([
+        bareDev,
+      ]);
+    });
+  });
+
+  describe("quadrant 4 — (suffixed id, no env)", () => {
+    it("exact-matches the disambiguated id only", () => {
+      expect(
+        resolveRampTargets(
+          { ruleId: suffixRuleId("r_split", "dev") },
+          rules,
+        ),
+      ).toEqual([devSibling]);
+    });
+  });
+
+  describe("edge cases", () => {
+    it("returns [] when ruleId is absent", () => {
+      expect(resolveRampTargets({}, rules)).toEqual([]);
+      expect(resolveRampTargets({ ruleId: null }, rules)).toEqual([]);
+    });
+
+    it("returns [] when nothing matches", () => {
+      expect(
+        resolveRampTargets({ ruleId: "r_missing", environment: "dev" }, rules),
+      ).toEqual([]);
+    });
+  });
+});
+
+// ================= rampTargetsEquivalent =================
+//
+// Used by findByTargetRule's in-memory re-filter and by conflict detection.
+// Two targets are equivalent iff they share a stem AND their effective envs
+// match (explicit env || suffix-derived env || wildcard).
+
+describe("rampTargetsEquivalent", () => {
+  it("same bare id + same env ⇒ true", () => {
+    expect(
+      rampTargetsEquivalent(
+        { ruleId: "r_foo", environment: "dev" },
+        { ruleId: "r_foo", environment: "dev" },
+      ),
+    ).toBe(true);
+  });
+
+  it("same stem via suffix vs explicit env ⇒ true", () => {
+    // Stored (pre-migration, bare id + env) vs query (post-migration, suffixed id, no env).
+    expect(
+      rampTargetsEquivalent(
+        { ruleId: "r_foo", environment: "prod" },
+        { ruleId: suffixRuleId("r_foo", "prod"), environment: null },
+      ),
+    ).toBe(true);
+  });
+
+  it("same stem, one side wildcard env ⇒ true", () => {
+    expect(
+      rampTargetsEquivalent(
+        { ruleId: "r_foo", environment: null },
+        { ruleId: suffixRuleId("r_foo", "dev"), environment: "dev" },
+      ),
+    ).toBe(true);
+  });
+
+  it("same stem, different explicit envs ⇒ false", () => {
+    expect(
+      rampTargetsEquivalent(
+        { ruleId: "r_foo", environment: "dev" },
+        { ruleId: "r_foo", environment: "prod" },
+      ),
+    ).toBe(false);
+  });
+
+  it("same stem, suffix-derived envs differ ⇒ false", () => {
+    expect(
+      rampTargetsEquivalent(
+        { ruleId: suffixRuleId("r_foo", "dev") },
+        { ruleId: suffixRuleId("r_foo", "prod") },
+      ),
+    ).toBe(false);
+  });
+
+  it("different stems ⇒ false", () => {
+    expect(
+      rampTargetsEquivalent(
+        { ruleId: "r_foo", environment: "dev" },
+        { ruleId: "r_bar", environment: "dev" },
+      ),
+    ).toBe(false);
+  });
+
+  it("missing ruleId on either side ⇒ false", () => {
+    expect(
+      rampTargetsEquivalent(
+        { ruleId: undefined, environment: "dev" },
+        { ruleId: "r_foo", environment: "dev" },
+      ),
+    ).toBe(false);
   });
 });

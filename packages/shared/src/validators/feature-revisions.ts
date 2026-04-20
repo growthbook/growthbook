@@ -89,7 +89,12 @@ export const inlineRampScheduleInput = apiRevisionRampCreateAction.omit({
 });
 
 export const standaloneRampScheduleInput = inlineRampScheduleInput.extend({
-  environment: z.string(),
+  // `environment` is optional: post-v2 a rule's env scope is encoded on the
+  // rule itself, so `ruleId` alone suffices for targeting. Accepted for
+  // backward compatibility with pre-v2 callers where the same legacy
+  // `ruleId` could appear across multiple envs. See `rampTarget` in
+  // shared/validators.
+  environment: z.string().optional().meta({ deprecated: true }),
 });
 
 // ---- Endpoint validators ----
@@ -513,7 +518,7 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
   paramsSchema: ruleParams,
   bodySchema: z
     .object({
-      environment: z.string(),
+      environment: z.string().optional().meta({ deprecated: true }),
       ...newDraftMetadataFields,
     })
     .strict(),

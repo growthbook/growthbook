@@ -19,7 +19,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
-import { resolveRampTarget } from "back-end/src/util/flattenRules";
+import { resolveRampTargets } from "back-end/src/util/flattenRules";
 
 // Applies actions for one entity: computes a fresh patch against live state and publishes immediately.
 interface EntityHandler {
@@ -156,11 +156,15 @@ export const featureEntityHandler: EntityHandler = {
       const { patch } = action;
       const { ruleId, ...patchFields } = patch;
 
-      const target = resolveRampTarget(
+      // Plural resolution — a legacy no-env ramp whose rule was split into
+      // env-scoped siblings post-migration fans out to every sibling. The
+      // patch applies identically to each since split siblings came from the
+      // same v1 rule and share field shapes. See `resolveRampTargets` JSDoc.
+      const targets = resolveRampTargets(
         { ruleId, environment: environment ?? null },
         updatedRules,
       );
-      if (!target) {
+      if (!targets.length) {
         const ref =
           `id "${ruleId}"` +
           (environment ? ` in environment "${environment}"` : "");
@@ -169,8 +173,10 @@ export const featureEntityHandler: EntityHandler = {
         );
       }
 
-      const idx = updatedRules.indexOf(target);
-      updatedRules[idx] = applyPatchToRule(target, patchFields);
+      for (const target of targets) {
+        const idx = updatedRules.indexOf(target);
+        updatedRules[idx] = applyPatchToRule(target, patchFields);
+      }
     }
 
     const revision = await createRevision({

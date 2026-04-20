@@ -1,4 +1,5 @@
 import Handlebars from "handlebars";
+import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
@@ -360,7 +361,7 @@ export const secretsReplacer = (
       let processed = s;
       for (const key of Object.keys(encodedSecrets)) {
         if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) {
-          const escapedForRegex = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const escapedForRegex = escapeRegExp(key);
           const escapedForReplacement = key.replace(/\$/g, "$$$$");
           processed = processed.replace(
             new RegExp(`\\{\\{\\s*${escapedForRegex}\\s*\\}\\}`, "g"),

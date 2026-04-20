@@ -11,6 +11,12 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  getApplicableEnvIds,
+  resolveRampTarget,
+  ruleFootprint,
+} from "back-end/src/util/flattenRules";
+import { getEnvironments } from "back-end/src/util/organization.util";
+import {
   assertValidEnvironment,
   discardIfJustCreated,
   isDraftStatus,
@@ -32,7 +38,7 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
 
   const { ruleId } = req.params;
   const { environment } = req.body;
-  assertValidEnvironment(req.context, environment);
+  if (environment) assertValidEnvironment(req.context, environment);
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -57,7 +63,7 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     const liveSchedules =
       await req.context.models.rampSchedules.findByTargetRule(
         ruleId,
-        environment,
+        environment ?? undefined,
       );
 
     if (!hasPendingCreate && liveSchedules.length === 0) {
@@ -79,6 +85,20 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       newRampActions = [...filtered, detach];
     }
 
+    // Affected env list: explicit env if provided, else the rule's footprint
+    // across applicable envs (falls back to all applicable envs if the rule
+    // isn't present on live or draft).
+    const resolvedRule =
+      resolveRampTarget({ ruleId }, revision.rules ?? []) ??
+      resolveRampTarget({ ruleId }, feature.rules ?? []);
+    const orgEnvs = getEnvironments(req.organization);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+    const changedEnvironments = environment
+      ? [environment]
+      : resolvedRule
+        ? ruleFootprint(resolvedRule, applicableEnvs)
+        : applicableEnvs;
+
     await updateRevision(
       req.context,
       feature,
@@ -92,7 +112,7 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       },
       resetReviewOnChange({
         feature,
-        changedEnvironments: [environment],
+        changedEnvironments,
         defaultValueChanged: false,
         settings: req.organization.settings,
       }),
@@ -112,7 +132,7 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       finalRevision,
       "rule.rampSchedule.remove",
       {
-        environments: [environment],
+        environments: changedEnvironments,
         auditDetails: { ruleId },
       },
     );

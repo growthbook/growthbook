@@ -88,3 +88,41 @@ export function suffixRuleId(
 export function isMigrationSuffixedRuleId(id: string): boolean {
   return id.includes(RULE_ID_ENV_SUFFIX_DELIMITER);
 }
+
+export interface ParsedRuleId {
+  stem: string;
+  /** Present iff the id carries a migration env suffix (`stem__<env>`). */
+  env?: string;
+  /**
+   * Present iff the id carries an in-env occurrence disambiguator
+   * (`stem__<env>__<n>`). Used for the rare pathological case where the same
+   * legacy id appeared more than once within a single env's v1 rules.
+   */
+  occurrence?: number;
+}
+
+/**
+ * Decompose a rule id into its logical pieces. Inverse of `suffixRuleId`.
+ * Callers that need to derive the env scope from a post-migration id (e.g.
+ * the ramp target equivalence predicate) should prefer this over manual
+ * `split("__")` — this module is the only place that splits on `__`.
+ *
+ *   parseRuleId("fr_abc")          → { stem: "fr_abc" }
+ *   parseRuleId("fr_abc__dev")     → { stem: "fr_abc", env: "dev" }
+ *   parseRuleId("fr_abc__dev__2")  → { stem: "fr_abc", env: "dev", occurrence: 2 }
+ */
+export function parseRuleId(id: string): ParsedRuleId {
+  const parts = id.split(RULE_ID_ENV_SUFFIX_DELIMITER);
+  if (parts.length === 1) return { stem: parts[0] };
+  if (parts.length === 2) return { stem: parts[0], env: parts[1] };
+  // 3+ segments: stem, env, occurrence. Later segments (pathological, >3) are
+  // folded back onto env for round-trip safety.
+  const stem = parts[0];
+  const occurrenceStr = parts[parts.length - 1];
+  const occurrence = Number(occurrenceStr);
+  if (Number.isInteger(occurrence) && occurrence >= 1) {
+    const env = parts.slice(1, -1).join(RULE_ID_ENV_SUFFIX_DELIMITER);
+    return { stem, env, occurrence };
+  }
+  return { stem, env: parts.slice(1).join(RULE_ID_ENV_SUFFIX_DELIMITER) };
+}

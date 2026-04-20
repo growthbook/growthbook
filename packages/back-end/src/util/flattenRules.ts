@@ -1,7 +1,12 @@
 import isEqual from "lodash/isEqual";
 import { FeatureRule, V1FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
-import { stemRuleId, suffixRuleId } from "shared/util";
+import {
+  isMigrationSuffixedRuleId,
+  parseRuleId,
+  stemRuleId,
+  suffixRuleId,
+} from "shared/util";
 
 // Re-export V1FeatureRule for callers that import it from this module (kept
 // for backwards-compat within the back-end; new code should import directly
@@ -68,9 +73,8 @@ export function isV2RevisionRules(rules: unknown): rules is FeatureRule[] {
  * a zero-rule v2 feature needs no JIT work.
  */
 export function isV2FeatureEnvSettings(
-  envSettings: Record<string, { rules?: unknown }> | undefined,
+  envSettings: Record<string, { rules?: unknown } | undefined>,
 ): boolean {
-  if (!envSettings) return true;
   for (const env of Object.values(envSettings)) {
     if (env && typeof env === "object" && "rules" in env) return false;
   }
@@ -122,40 +126,106 @@ export function ruleFootprint(
   return (rule.environments || []).filter((e) => applicableSet.has(e));
 }
 
+export interface RampTargetQuery {
+  ruleId?: string | null;
+  environment?: string | null;
+}
+
 /**
- * Resolve a ramp target to a unified FeatureRule. Returns undefined if no
- * match.
+ * Resolve a ramp target to ALL matching unified FeatureRules. Returns an empty
+ * array if none match.
  *
- * Matching semantics (stem-based, so ramps authored against pre-migration
- * legacy ids continue to resolve post-migration even when the underlying
- * rule was renamed with a `__<env>` suffix):
+ * Resolution semantics, by quadrant of `(ruleId form, environment set?)`:
  *
- *   - stemRuleId(r.id) === target.ruleId, AND
- *   - If target.environment is set, the rule must be active in that env
- *     (r.allEnvironments === true OR r.environments.includes(env)).
- *   - If target.environment is absent, any rule with matching stem matches.
+ *   1. (bare id, env supplied)        → exact match on `stem` or `stem__env`,
+ *                                       filtered by rule's env scope
+ *                                       (allEnvironments / environments).
+ *                                       Normally 0–1 match in a well-formed v2 feature.
+ *   2. (suffixed id, env supplied)    → stem-stripped; reduces to quadrant 1.
+ *   3. (bare id, no env)              → stem fan-out (every rule with matching
+ *                                       stem). A legacy pre-migration ramp
+ *                                       whose rule was later split into env
+ *                                       siblings fans out to every sibling —
+ *                                       preserving the ramp's original "whole
+ *                                       logical rule" intent.
+ *   4. (suffixed id, no env)          → exact id match only. Caller already
+ *                                       disambiguated via the suffix.
  *
- * `target.environment` is deprecated on new ramps — in v2 `ruleId` is
- * normally sufficient within a feature's unified rule list. The env check is
- * retained so pre-v2 targets (whose ruleId could appear in multiple
- * env-scoped rule lists) resolve unambiguously. See `rampTarget` in
- * shared/validators.
+ * `target.environment` is deprecated on new ramps — v2 ids are unique within
+ * a feature's unified rule list, so env is dead-weight in the common case. It
+ * is retained to keep legacy (pre-migration) stored targets resolving
+ * correctly. See `rampTarget` in shared/validators.
+ */
+export function resolveRampTargets(
+  target: RampTargetQuery,
+  unifiedRules: FeatureRule[],
+): FeatureRule[] {
+  if (!target.ruleId) return [];
+  const stem = stemRuleId(target.ruleId);
+
+  if (target.environment) {
+    const env = target.environment;
+    const suffixed = suffixRuleId(stem, env);
+    return unifiedRules.filter((r) => {
+      if (r.id !== stem && r.id !== suffixed) return false;
+      if (r.allEnvironments) return true;
+      return r.environments?.includes(env) ?? false;
+    });
+  }
+
+  // No env supplied.
+  if (isMigrationSuffixedRuleId(target.ruleId)) {
+    // Caller explicitly disambiguated with a suffix — exact match only.
+    const exact = target.ruleId;
+    return unifiedRules.filter((r) => r.id === exact);
+  }
+  // Bare id, no env — stem fan-out.
+  return unifiedRules.filter((r) => stemRuleId(r.id) === stem);
+}
+
+/**
+ * Singular convenience wrapper: first (or only) match. Used by existence
+ * checks and by legacy callers that expect single-rule semantics.
+ *
+ * EXECUTION paths (e.g. the ramp poller, which applies a patch) MUST use
+ * `resolveRampTargets` and iterate — see the pre-migration-ramp-post-split
+ * fan-out described on `resolveRampTargets`.
  */
 export function resolveRampTarget(
-  target: {
-    ruleId?: string | null;
-    environment?: string | null;
-  },
+  target: RampTargetQuery,
   unifiedRules: FeatureRule[],
 ): FeatureRule | undefined {
-  if (!target.ruleId) return undefined;
-  const targetStem = stemRuleId(target.ruleId);
-  return unifiedRules.find((r) => {
-    if (stemRuleId(r.id) !== targetStem) return false;
-    if (!target.environment) return true;
-    if (r.allEnvironments) return true;
-    return r.environments?.includes(target.environment) ?? false;
-  });
+  return resolveRampTargets(target, unifiedRules)[0];
+}
+
+/**
+ * True iff two ramp targets resolve to the same logical rule identity. Used
+ * by the DB-side `findByTargetRule` in-memory re-filter to narrow the broad
+ * stem-regex candidate set back down to equivalents of the query, and by
+ * conflict detection to determine when two schedules contend for the same
+ * rule slot.
+ *
+ * Equivalence:
+ *   1. Same stem (via `stemRuleId`).
+ *   2. Same effective env, where "effective env" = explicit `environment` if
+ *      set, else the suffix-derived env of the stored ruleId (if suffixed),
+ *      else wildcard.
+ *   3. If either side is wildcard-env, that side matches any env — models the
+ *      pre-migration ramp whose ruleId carried no env and is intended to
+ *      target all env siblings of its stem.
+ */
+export function rampTargetsEquivalent(
+  a: RampTargetQuery,
+  b: RampTargetQuery,
+): boolean {
+  if (!a.ruleId || !b.ruleId) return false;
+  const pa = parseRuleId(a.ruleId);
+  const pb = parseRuleId(b.ruleId);
+  if (pa.stem !== pb.stem) return false;
+  const aEnv = a.environment || pa.env || null;
+  const bEnv = b.environment || pb.env || null;
+  if (!aEnv || !bEnv) return true;
+  return aEnv === bEnv;
 }
 
 // ---- internal helpers ----
@@ -195,13 +265,21 @@ function contentEquivalent(a: V1FeatureRule, b: V1FeatureRule): boolean {
 // with opts.envOrder if they want a specific canonical order (e.g. matching the
 // org's configured env order).
 function canonicalEnvOrder(envs: string[], envOrder?: string[]): string[] {
+  const envSet = new Set(envs);
   if (envOrder && envOrder.length) {
     const orderSet = new Set(envOrder);
-    const known = envOrder.filter((e) => envs.includes(e));
-    const unknown = envs.filter((e) => !orderSet.has(e)).sort();
+    const known: string[] = [];
+    const seen = new Set<string>();
+    for (const e of envOrder) {
+      if (envSet.has(e) && !seen.has(e)) {
+        known.push(e);
+        seen.add(e);
+      }
+    }
+    const unknown = [...envSet].filter((e) => !orderSet.has(e)).sort();
     return [...known, ...unknown];
   }
-  return [...envs].sort();
+  return [...envSet].sort();
 }
 
 type Occurrence = {

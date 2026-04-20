@@ -9,7 +9,12 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { resolveRampTarget } from "back-end/src/util/flattenRules";
+import {
+  getApplicableEnvIds,
+  resolveRampTarget,
+  ruleFootprint,
+} from "back-end/src/util/flattenRules";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   assertValidEnvironment,
   discardIfJustCreated,
@@ -34,7 +39,7 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
   const { ruleId } = req.params;
   const { environment, revisionTitle, revisionComment, ...scheduleInput } =
     req.body;
-  assertValidEnvironment(req.context, environment);
+  if (environment) assertValidEnvironment(req.context, environment);
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -51,28 +56,29 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       );
     }
 
+    const envSuffix = environment ? ` in environment "${environment}"` : "";
+
     // Check draft first, then live — a ramp schedule may target a live rule
-    // the draft hasn't touched. resolveRampTarget matches against the v2
-    // unified rules array by (ruleId, environment).
-    const inDraft = !!resolveRampTarget(
-      { ruleId, environment },
+    // the draft hasn't touched. resolveRampTarget matches the v2 unified
+    // rules array via stem+env quadrants (see its JSDoc).
+    const draftMatch = resolveRampTarget(
+      { ruleId, environment: environment ?? null },
       revision.rules ?? [],
     );
-    const inLive = !!resolveRampTarget(
-      { ruleId, environment },
+    const liveMatch = resolveRampTarget(
+      { ruleId, environment: environment ?? null },
       feature.rules ?? [],
     );
-    if (!inDraft && !inLive) {
-      throw new NotFoundError(
-        `Rule "${ruleId}" not found in environment "${environment}"`,
-      );
+    const match = draftMatch ?? liveMatch;
+    if (!match) {
+      throw new NotFoundError(`Rule "${ruleId}" not found${envSuffix}`);
     }
 
     // Block if an active live schedule already controls this rule.
     const liveSchedules =
       await req.context.models.rampSchedules.findByTargetRule(
         ruleId,
-        environment,
+        environment ?? undefined,
       );
     if (liveSchedules.length > 0) {
       throw new BadRequestError(
@@ -93,6 +99,15 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     );
     const newRampActions = [...filtered, action];
 
+    // `changedEnvironments` drives per-env review reset and audit env fanout.
+    // When the caller didn't specify an env, use the resolved rule's full env
+    // footprint — semantically the ramp affects every env the rule covers.
+    const orgEnvs = getEnvironments(req.organization);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+    const changedEnvironments = environment
+      ? [environment]
+      : ruleFootprint(match, applicableEnvs);
+
     await updateRevision(
       req.context,
       feature,
@@ -106,7 +121,7 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       },
       resetReviewOnChange({
         feature,
-        changedEnvironments: [environment],
+        changedEnvironments,
         defaultValueChanged: false,
         settings: req.organization.settings,
       }),
@@ -126,7 +141,7 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       finalRevision,
       "rule.rampSchedule.set",
       {
-        environments: [environment],
+        environments: changedEnvironments,
         auditDetails: { ruleId },
       },
     );

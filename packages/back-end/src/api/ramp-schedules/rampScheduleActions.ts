@@ -16,7 +16,10 @@ import {
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveRampTarget } from "back-end/src/util/flattenRules";
+import {
+  rampTargetsEquivalent,
+  resolveRampTarget,
+} from "back-end/src/util/flattenRules";
 
 const actionParamsSchema = z.object({ id: z.string() });
 
@@ -392,13 +395,19 @@ export const rollbackRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/add-target — enforces 1:1 [ruleId, environment] per schedule
+// POST /ramp-schedules/:id/actions/add-target — enforces one schedule per rule
 export const addTargetRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.object({
     featureId: z.string(),
     ruleId: z.string(),
-    environment: z.string(),
+    environment: z
+      .string()
+      .optional()
+      .meta({ deprecated: true })
+      .describe(
+        "Deprecated pre-v2 disambiguator; ignored on v2 rules where `rule.id` is uniquely sufficient.",
+      ),
   }),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
@@ -406,7 +415,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
   operationId: "addTargetRampSchedule",
   summary: "Add a target rule to a ramp schedule",
   description:
-    "Attaches an additional feature rule to this ramp schedule. The\n`[ruleId, environment]` pair must identify a rule that is already published\nand must not already be controlled by another schedule.\n",
+    "Attaches an additional feature rule to this ramp schedule. The `ruleId`\nmust identify a rule that is already published and must not already be\ncontrolled by another schedule. `environment` is accepted for backward\ncompatibility with pre-v2 ramps but is deprecated and no longer required.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -415,28 +424,29 @@ export const addTargetRampSchedule = createApiRequestHandler({
   if (!schedule) throw new Error("Ramp schedule not found");
 
   const { featureId, ruleId, environment } = req.body;
+  const envSuffix = environment ? ` in environment '${environment}'` : "";
 
   const feature = await getFeature(req.context, featureId);
   if (!feature) throw new Error(`Feature '${featureId}' not found`);
   const rule = resolveRampTarget(
-    { ruleId, environment },
+    { ruleId, environment: environment ?? null },
     feature.rules ?? [],
   );
   if (!rule) {
     throw new Error(
-      `Rule '${ruleId}' not found in environment '${environment}'. ` +
+      `Rule '${ruleId}' not found${envSuffix}. ` +
         `The rule must be published before attaching a ramp schedule.`,
     );
   }
 
   const conflicting = await req.context.models.rampSchedules.findByTargetRule(
     ruleId,
-    environment,
+    environment ?? undefined,
   );
   const conflict = conflicting.find((s) => s.id !== schedule.id);
   if (conflict) {
     throw new Error(
-      `Schedule '${conflict.id}' already controls rule '${ruleId}' in environment '${environment}'.`,
+      `Schedule '${conflict.id}' already controls rule '${ruleId}'${envSuffix}.`,
     );
   }
 
@@ -445,10 +455,10 @@ export const addTargetRampSchedule = createApiRequestHandler({
     entityType: "feature" as const,
     entityId: featureId,
     ruleId,
-    // TODO(post-migration): stop writing `environment` once read-side consumers
-    // derive env scope from the resolved rule. See rampTarget deprecation
-    // notice in shared/validators.
-    environment,
+    // `environment` is deliberately omitted on new targets. Post-v2 `rule.id`
+    // is uniquely sufficient; env is a deprecated pre-v2 disambiguator. The
+    // resolver and DB-side lookup still honor stored `environment` for
+    // legacy targets. See `rampTarget` in shared/validators.
     status: "active" as const,
   };
 
@@ -484,18 +494,17 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
       ruleId: z
         .string()
         .optional()
-        .describe(
-          "Rule ID — use with environment as an alternative to targetId",
-        ),
+        .describe("Rule ID — use as an alternative to targetId"),
       environment: z
         .string()
         .optional()
+        .meta({ deprecated: true })
         .describe(
-          "Environment — use with ruleId as an alternative to targetId",
+          "Deprecated pre-v2 disambiguator. Optional when used with ruleId; omit on v2 ramps.",
         ),
     })
-    .refine((b) => b.targetId || (b.ruleId && b.environment), {
-      message: "Provide either targetId or both ruleId and environment",
+    .refine((b) => b.targetId || b.ruleId, {
+      message: "Provide either targetId or ruleId",
     }),
   responseSchema: z
     .object({ rampSchedule: apiRampScheduleInterface })
@@ -517,8 +526,13 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
 
   const remaining = schedule.targets.filter((t) => {
     if (targetId) return t.id !== targetId;
-    // (ruleId, environment) is the primary addressing scheme; stays as-is.
-    return !(t.ruleId === ruleId && t.environment === environment);
+    // Rule-id addressing: match via stem+env equivalence so pre-migration
+    // targets (stored as bare id + env) and post-migration suffixed ids both
+    // resolve to the correct target.
+    return !rampTargetsEquivalent(t, {
+      ruleId,
+      environment: environment ?? null,
+    });
   });
 
   if (remaining.length === schedule.targets.length) {
