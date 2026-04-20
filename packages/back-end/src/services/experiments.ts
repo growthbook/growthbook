@@ -1078,6 +1078,7 @@ export function getSnapshotQueryRunnerKind({
   experiment,
   snapshotType,
   hasSnapshotDimensions,
+  hasMaterializedUnitsTable = true,
 }: {
   allowIncrementalRefresh: boolean;
   isExperimentCompatibleWithIncrementalRefresh: boolean;
@@ -1085,6 +1086,7 @@ export function getSnapshotQueryRunnerKind({
   experiment: ExperimentInterface;
   snapshotType: SnapshotType;
   hasSnapshotDimensions: boolean;
+  hasMaterializedUnitsTable?: boolean;
 }): SnapshotQueryRunnerKind {
   if (
     allowIncrementalRefresh &&
@@ -1093,7 +1095,11 @@ export function getSnapshotQueryRunnerKind({
     isExperimentCompatibleWithIncrementalRefresh
   ) {
     if (snapshotType === "exploratory" && !hasSnapshotDimensions) {
-      return "incremental";
+      // Dimension-less exploratory snapshots reuse the incremental runner in
+      // read-only mode (fullRefresh is clamped to false downstream). That only
+      // works if the warehouse units table has already been created by a prior
+      // standard snapshot — otherwise fall back to the non-pipeline runner.
+      return hasMaterializedUnitsTable ? "incremental" : "results";
     }
 
     return snapshotType === "exploratory"
@@ -1161,6 +1167,7 @@ async function planSnapshotQueryRunner({
     experiment,
     snapshotType,
     hasSnapshotDimensions: snapshotSettings.dimensions.length > 0,
+    hasMaterializedUnitsTable: !!incrementalRefreshModel?.unitsTableFullName,
   });
 }
 

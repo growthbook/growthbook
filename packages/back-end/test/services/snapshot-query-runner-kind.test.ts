@@ -71,6 +71,20 @@ describe("getSnapshotQueryRunnerKind", () => {
     ).toBe("incremental");
   });
 
+  it("returns 'results' for exploratory snapshots without dimensions when the units table has not been materialized", () => {
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource: makeDatasource(),
+        experiment: makeExperiment(),
+        snapshotType: "exploratory",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: false,
+      }),
+    ).toBe("results");
+  });
+
   it("returns 'results' when allowIncrementalRefresh is false", () => {
     expect(
       getSnapshotQueryRunnerKind({
