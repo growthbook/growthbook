@@ -2159,166 +2159,159 @@ export async function toExperimentApiInterface(
   const experimentType = experiment.type || "standard";
 
   const activationMetric = experiment.activationMetric;
-  return withOwnerEmail(
-    {
-      id: experiment.id,
-      trackingKey: experiment.trackingKey,
-      name: experiment.name || "",
-      type: experimentType,
-      project: experiment.project || "",
-      hypothesis: experiment.hypothesis || "",
-      description: experiment.description || "",
-      tags: experiment.tags || [],
-      owner: experiment.owner || "",
-      dateCreated: experiment.dateCreated.toISOString(),
-      dateUpdated: experiment.dateUpdated.toISOString(),
-      archived: !!experiment.archived,
-      status: experiment.status,
-      autoRefresh: !!experiment.autoSnapshots,
-      hashAttribute: experiment.hashAttribute || "id",
-      fallbackAttribute: experiment.fallbackAttribute,
-      hashVersion: experiment.hashVersion || 2,
-      disableStickyBucketing: experiment.disableStickyBucketing,
-      bucketVersion: experiment.bucketVersion,
-      minBucketVersion: experiment.minBucketVersion,
-      variations: await Promise.all(
-        getAllVariations(experiment).map(async (v) => ({
-          variationId: v.id,
-          key: v.key,
-          name: v.name || "",
-          description: v.description || "",
-          screenshots: await Promise.all(
-            v.screenshots.map(async (s) => {
-              try {
-                return await getSignedImageUrl(s.path);
-              } catch (e) {
-                return s.path;
-              }
-            }),
-          ),
-        })),
-      ),
-      phases: experiment.phases.map((p) => ({
-        name: p.name,
-        dateStarted: p.dateStarted.toISOString(),
-        dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
-        reasonForStopping: p.reason || "",
-        seed: p.seed || experiment.trackingKey,
-        coverage: p.coverage,
-        trafficSplit: getLatestPhaseVariations(experiment).map((v, i) => ({
-          variationId: v.id,
-          weight: p.variationWeights[i] || 0,
-        })),
-        targetingCondition: p.condition || "",
-        prerequisites: p.prerequisites || [],
-        savedGroupTargeting: (p.savedGroups || []).map((s) => ({
-          matchType: s.match,
-          savedGroups: s.ids,
-        })),
-        namespace: p.namespace?.enabled
-          ? {
-              namespaceId: p.namespace.name,
-              range: p.namespace.range,
+  const apiExperiment: ApiExperiment = {
+    id: experiment.id,
+    trackingKey: experiment.trackingKey,
+    name: experiment.name || "",
+    type: experimentType,
+    project: experiment.project || "",
+    hypothesis: experiment.hypothesis || "",
+    description: experiment.description || "",
+    tags: experiment.tags || [],
+    owner: experiment.owner || "",
+    dateCreated: experiment.dateCreated.toISOString(),
+    dateUpdated: experiment.dateUpdated.toISOString(),
+    archived: !!experiment.archived,
+    status: experiment.status,
+    autoRefresh: !!experiment.autoSnapshots,
+    hashAttribute: experiment.hashAttribute || "id",
+    fallbackAttribute: experiment.fallbackAttribute,
+    hashVersion: experiment.hashVersion || 2,
+    disableStickyBucketing: experiment.disableStickyBucketing,
+    bucketVersion: experiment.bucketVersion,
+    minBucketVersion: experiment.minBucketVersion,
+    variations: await Promise.all(
+      getAllVariations(experiment).map(async (v) => ({
+        variationId: v.id,
+        key: v.key,
+        name: v.name || "",
+        description: v.description || "",
+        screenshots: await Promise.all(
+          v.screenshots.map(async (s) => {
+            try {
+              return await getSignedImageUrl(s.path);
+            } catch (e) {
+              return s.path;
             }
-          : undefined,
+          }),
+        ),
       })),
-      settings: {
-        datasourceId: experiment.datasource || "",
-        assignmentQueryId: experiment.exposureQueryId || "",
-        experimentId: experiment.trackingKey,
-        segmentId: experiment.segment || "",
-        queryFilter: experiment.queryFilter || "",
-        inProgressConversions: experiment.skipPartialData
-          ? "exclude"
-          : "include",
-        attributionModel: experiment.attributionModel || "firstExposure",
-        lookbackOverride: experiment.lookbackOverride
-          ? experiment.lookbackOverride.type === "date"
-            ? {
-                type: "date" as const,
-                value: experiment.lookbackOverride?.value.toISOString(),
-              }
-            : {
-                type: "window" as const,
-                value: experiment.lookbackOverride?.value,
-                valueUnit: experiment.lookbackOverride?.valueUnit,
-              }
-          : undefined,
-        statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
-        goals: experiment.goalMetrics.map((m) =>
-          getExperimentMetric(experiment, m),
-        ),
-        secondaryMetrics: experiment.secondaryMetrics.map((m) =>
-          getExperimentMetric(experiment, m),
-        ),
-        guardrails: experiment.guardrailMetrics.map((m) =>
-          getExperimentMetric(experiment, m),
-        ),
-        regressionAdjustmentEnabled:
-          experiment.regressionAdjustmentEnabled ??
-          scopedSettings.regressionAdjustmentEnabled.value,
-        sequentialTestingEnabled:
-          experiment.sequentialTestingEnabled ??
-          scopedSettings.sequentialTestingEnabled.value,
-        sequentialTestingTuningParameter:
-          experiment.sequentialTestingTuningParameter ??
-          scopedSettings.sequentialTestingTuningParameter.value ??
-          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-        ...(activationMetric
+    ),
+    phases: experiment.phases.map((p) => ({
+      name: p.name,
+      dateStarted: p.dateStarted.toISOString(),
+      dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
+      reasonForStopping: p.reason || "",
+      seed: p.seed || experiment.trackingKey,
+      coverage: p.coverage,
+      trafficSplit: getLatestPhaseVariations(experiment).map((v, i) => ({
+        variationId: v.id,
+        weight: p.variationWeights[i] || 0,
+      })),
+      targetingCondition: p.condition || "",
+      prerequisites: p.prerequisites || [],
+      savedGroupTargeting: (p.savedGroups || []).map((s) => ({
+        matchType: s.match,
+        savedGroups: s.ids,
+      })),
+      namespace: p.namespace?.enabled
+        ? {
+            namespaceId: p.namespace.name,
+            range: p.namespace.range,
+          }
+        : undefined,
+    })),
+    settings: {
+      datasourceId: experiment.datasource || "",
+      assignmentQueryId: experiment.exposureQueryId || "",
+      experimentId: experiment.trackingKey,
+      segmentId: experiment.segment || "",
+      queryFilter: experiment.queryFilter || "",
+      inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
+      attributionModel: experiment.attributionModel || "firstExposure",
+      lookbackOverride: experiment.lookbackOverride
+        ? experiment.lookbackOverride.type === "date"
           ? {
-              activationMetric: getExperimentMetric(
-                experiment,
-                activationMetric,
-              ),
+              type: "date" as const,
+              value: experiment.lookbackOverride?.value.toISOString(),
             }
-          : null),
-        postStratificationEnabled:
-          experiment.postStratificationEnabled !== undefined
-            ? experiment.postStratificationEnabled
-            : null,
-        decisionFrameworkSettings: experiment.decisionFrameworkSettings ?? {},
-        metricOverrides: experiment.metricOverrides ?? [],
-      },
-      ...(experiment.status === "stopped" && experiment.results
+          : {
+              type: "window" as const,
+              value: experiment.lookbackOverride?.value,
+              valueUnit: experiment.lookbackOverride?.valueUnit,
+            }
+        : undefined,
+      statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
+      goals: experiment.goalMetrics.map((m) =>
+        getExperimentMetric(experiment, m),
+      ),
+      secondaryMetrics: experiment.secondaryMetrics.map((m) =>
+        getExperimentMetric(experiment, m),
+      ),
+      guardrails: experiment.guardrailMetrics.map((m) =>
+        getExperimentMetric(experiment, m),
+      ),
+      regressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled ??
+        scopedSettings.regressionAdjustmentEnabled.value,
+      sequentialTestingEnabled:
+        experiment.sequentialTestingEnabled ??
+        scopedSettings.sequentialTestingEnabled.value,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingTuningParameter ??
+        scopedSettings.sequentialTestingTuningParameter.value ??
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      ...(activationMetric
         ? {
-            resultSummary: {
-              status: experiment.results,
-              winner:
-                getAllVariations(experiment)[experiment.winner ?? 0]?.id || "",
-              conclusions: experiment.analysis || "",
-              releasedVariationId: experiment.releasedVariationId || "",
-              excludeFromPayload: !!experiment.excludeFromPayload,
-            },
+            activationMetric: getExperimentMetric(experiment, activationMetric),
           }
         : null),
-      shareLevel: experiment.shareLevel || "organization",
-      ...(experiment.shareLevel === "public" && experiment.uid
-        ? {
-            publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
-          }
-        : null),
-      ...(experimentType === "multi-armed-bandit"
-        ? {
-            banditScheduleValue: experiment.banditScheduleValue ?? 1,
-            banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
-            banditBurnInValue: experiment.banditBurnInValue ?? 1,
-            banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
-            banditConversionWindowValue:
-              experiment.banditConversionWindowValue ?? undefined,
-            banditConversionWindowUnit:
-              experiment.banditConversionWindowUnit ?? undefined,
-          }
-        : null),
-      linkedFeatures: experiment.linkedFeatures || [],
-      hasVisualChangesets: experiment.hasVisualChangesets || false,
-      hasURLRedirects: experiment.hasURLRedirects || false,
-      customFields: experiment.customFields ?? {},
-      customMetricSlices: experiment.customMetricSlices ?? [],
-      defaultDashboardId: experiment.defaultDashboardId,
-      templateId: experiment.templateId || undefined,
+      postStratificationEnabled:
+        experiment.postStratificationEnabled !== undefined
+          ? experiment.postStratificationEnabled
+          : null,
+      decisionFrameworkSettings: experiment.decisionFrameworkSettings ?? {},
+      metricOverrides: experiment.metricOverrides ?? [],
     },
-    ownerEmailMap,
-  );
+    ...(experiment.status === "stopped" && experiment.results
+      ? {
+          resultSummary: {
+            status: experiment.results,
+            winner:
+              getAllVariations(experiment)[experiment.winner ?? 0]?.id || "",
+            conclusions: experiment.analysis || "",
+            releasedVariationId: experiment.releasedVariationId || "",
+            excludeFromPayload: !!experiment.excludeFromPayload,
+          },
+        }
+      : null),
+    shareLevel: experiment.shareLevel || "organization",
+    ...(experiment.shareLevel === "public" && experiment.uid
+      ? {
+          publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
+        }
+      : null),
+    ...(experimentType === "multi-armed-bandit"
+      ? {
+          banditScheduleValue: experiment.banditScheduleValue ?? 1,
+          banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
+          banditBurnInValue: experiment.banditBurnInValue ?? 1,
+          banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
+          banditConversionWindowValue:
+            experiment.banditConversionWindowValue ?? undefined,
+          banditConversionWindowUnit:
+            experiment.banditConversionWindowUnit ?? undefined,
+        }
+      : null),
+    linkedFeatures: experiment.linkedFeatures || [],
+    hasVisualChangesets: experiment.hasVisualChangesets || false,
+    hasURLRedirects: experiment.hasURLRedirects || false,
+    customFields: experiment.customFields ?? {},
+    customMetricSlices: experiment.customMetricSlices ?? [],
+    defaultDashboardId: experiment.defaultDashboardId,
+    templateId: experiment.templateId || undefined,
+  };
+  return withOwnerEmail(apiExperiment, ownerEmailMap);
 }
 
 export function toSnapshotApiInterface(

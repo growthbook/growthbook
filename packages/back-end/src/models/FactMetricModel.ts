@@ -540,44 +540,42 @@ export class FactMetricModel extends BaseClass {
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
-    return withOwnerEmail(
-      {
-        ...otherFields,
-        riskThresholdDanger: loseRisk,
-        riskThresholdSuccess: winRisk,
-        targetMDE: targetMDE || DEFAULT_TARGET_MDE,
-        metricType: metricType,
-        quantileSettings: quantileSettings || undefined,
-        cappingSettings: {
-          ...cappingSettings,
-          type: cappingSettings.type || "none",
-        },
-        windowSettings: {
-          ...windowSettings,
-          type: windowSettings.type || "none",
-        },
-        managedBy: factMetric.managedBy || "",
-        numerator: FactMetricModel.addLegacyFiltersToColumnRef(numerator),
-        denominator: denominator
-          ? FactMetricModel.addLegacyFiltersToColumnRef(denominator)
-          : undefined,
-        regressionAdjustmentSettings: {
-          override: regressionAdjustmentOverride || false,
-          ...(regressionAdjustmentOverride
-            ? {
-                enabled: regressionAdjustmentEnabled || false,
-              }
-            : null),
-          ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
-            ? {
-                days: regressionAdjustmentDays || 0,
-              }
-            : null),
-        },
-        dateCreated: dateCreated?.toISOString() || "",
-        dateUpdated: dateUpdated?.toISOString() || "",
+    const apiFactMetric: ApiFactMetric = {
+      ...otherFields,
+      riskThresholdDanger: loseRisk,
+      riskThresholdSuccess: winRisk,
+      targetMDE: targetMDE || DEFAULT_TARGET_MDE,
+      metricType: metricType,
+      quantileSettings: quantileSettings || undefined,
+      cappingSettings: {
+        ...cappingSettings,
+        type: cappingSettings.type || "none",
       },
-      ownerEmailMap,
-    );
+      windowSettings: {
+        ...windowSettings,
+        type: windowSettings.type || "none",
+      },
+      managedBy: factMetric.managedBy || "",
+      numerator: FactMetricModel.addLegacyFiltersToColumnRef(numerator),
+      denominator: denominator
+        ? FactMetricModel.addLegacyFiltersToColumnRef(denominator)
+        : undefined,
+      regressionAdjustmentSettings: {
+        override: regressionAdjustmentOverride || false,
+        ...(regressionAdjustmentOverride
+          ? {
+              enabled: regressionAdjustmentEnabled || false,
+            }
+          : null),
+        ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
+          ? {
+              days: regressionAdjustmentDays || 0,
+            }
+          : null),
+      },
+      dateCreated: dateCreated?.toISOString() || "",
+      dateUpdated: dateUpdated?.toISOString() || "",
+    };
+    return withOwnerEmail(apiFactMetric, ownerEmailMap);
   }
 }

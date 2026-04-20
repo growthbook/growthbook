@@ -115,21 +115,19 @@ export class SavedGroupModel extends BaseClass {
     savedGroup: SavedGroupInterface,
     ownerEmailMap?: Map<string, string | undefined>,
   ): ApiSavedGroup {
-    return withOwnerEmail(
-      {
-        id: savedGroup.id,
-        type: savedGroup.type,
-        values: savedGroup.values || [],
-        condition: savedGroup.condition || "",
-        name: savedGroup.groupName,
-        attributeKey: savedGroup.attributeKey || "",
-        dateCreated: savedGroup.dateCreated.toISOString(),
-        dateUpdated: savedGroup.dateUpdated.toISOString(),
-        owner: savedGroup.owner || "",
-        description: savedGroup.description,
-        projects: savedGroup.projects || [],
-      },
-      ownerEmailMap,
-    );
+    const apiSavedGroup: ApiSavedGroup = {
+      id: savedGroup.id,
+      type: savedGroup.type,
+      values: savedGroup.values || [],
+      condition: savedGroup.condition || "",
+      name: savedGroup.groupName,
+      attributeKey: savedGroup.attributeKey || "",
+      dateCreated: savedGroup.dateCreated.toISOString(),
+      dateUpdated: savedGroup.dateUpdated.toISOString(),
+      owner: savedGroup.owner || "",
+      description: savedGroup.description,
+      projects: savedGroup.projects || [],
+    };
+    return withOwnerEmail(apiSavedGroup, ownerEmailMap);
   }
 }

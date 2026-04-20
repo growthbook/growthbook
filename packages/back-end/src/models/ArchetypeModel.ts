@@ -151,18 +151,16 @@ export function toArchetypeApiInterface(
       "Failed to parse archetype attributes json",
     );
   }
-  return withOwnerEmail(
-    {
-      id: archetype.id,
-      dateCreated: archetype.dateCreated?.toISOString() || "",
-      dateUpdated: archetype.dateUpdated?.toISOString() || "",
-      name: archetype.name,
-      description: archetype.description,
-      owner: archetype.owner || "",
-      isPublic: archetype.isPublic,
-      attributes: parsedAttributes,
-      projects: archetype.projects || [],
-    },
-    ownerEmailMap,
-  );
+  const apiArchetype: ApiArchetype = {
+    id: archetype.id,
+    dateCreated: archetype.dateCreated?.toISOString() || "",
+    dateUpdated: archetype.dateUpdated?.toISOString() || "",
+    name: archetype.name,
+    description: archetype.description,
+    owner: archetype.owner || "",
+    isPublic: archetype.isPublic,
+    attributes: parsedAttributes,
+    projects: archetype.projects || [],
+  };
+  return withOwnerEmail(apiArchetype, ownerEmailMap);
 }

@@ -145,19 +145,17 @@ export function toDimensionApiInterface(
   dimension: DimensionInterface,
   ownerEmailMap?: Map<string, string | undefined>,
 ): ApiDimension {
-  return withOwnerEmail(
-    {
-      id: dimension.id,
-      name: dimension.name,
-      description: dimension.description || "",
-      owner: dimension.owner || "",
-      identifierType: dimension.userIdType || "user_id",
-      query: dimension.sql,
-      datasourceId: dimension.datasource || "",
-      dateCreated: dimension.dateCreated?.toISOString() || "",
-      dateUpdated: dimension.dateUpdated?.toISOString() || "",
-      managedBy: dimension.managedBy || "",
-    },
-    ownerEmailMap,
-  );
+  const apiDimension: ApiDimension = {
+    id: dimension.id,
+    name: dimension.name,
+    description: dimension.description || "",
+    owner: dimension.owner || "",
+    identifierType: dimension.userIdType || "user_id",
+    query: dimension.sql,
+    datasourceId: dimension.datasource || "",
+    dateCreated: dimension.dateCreated?.toISOString() || "",
+    dateUpdated: dimension.dateUpdated?.toISOString() || "",
+    managedBy: dimension.managedBy || "",
+  };
+  return withOwnerEmail(apiDimension, ownerEmailMap);
 }

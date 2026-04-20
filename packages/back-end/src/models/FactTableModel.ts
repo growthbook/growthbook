@@ -689,28 +689,26 @@ export function toFactTableApiInterface(
   factTable: FactTableInterface,
   ownerEmailMap?: Map<string, string | undefined>,
 ): ApiFactTable {
-  return withOwnerEmail(
-    {
-      ...omit(factTable, [
-        "organization",
-        "filters",
-        "dateCreated",
-        "dateUpdated",
-      ]),
-      columns: factTable.columns.map((col) => ({
-        ...col,
-        alwaysInlineFilter: col.alwaysInlineFilter ?? false,
-        isAutoSliceColumn: col.isAutoSliceColumn ?? false,
-        dateCreated: col.dateCreated.toISOString(),
-        dateUpdated: col.dateUpdated.toISOString(),
-        topValuesDate: col.topValuesDate?.toISOString(),
-      })),
-      managedBy: factTable.managedBy || "",
-      dateCreated: factTable.dateCreated?.toISOString() || "",
-      dateUpdated: factTable.dateUpdated?.toISOString() || "",
-    },
-    ownerEmailMap,
-  );
+  const apiFactTable: ApiFactTable = {
+    ...omit(factTable, [
+      "organization",
+      "filters",
+      "dateCreated",
+      "dateUpdated",
+    ]),
+    columns: factTable.columns.map((col) => ({
+      ...col,
+      alwaysInlineFilter: col.alwaysInlineFilter ?? false,
+      isAutoSliceColumn: col.isAutoSliceColumn ?? false,
+      dateCreated: col.dateCreated.toISOString(),
+      dateUpdated: col.dateUpdated.toISOString(),
+      topValuesDate: col.topValuesDate?.toISOString(),
+    })),
+    managedBy: factTable.managedBy || "",
+    dateCreated: factTable.dateCreated?.toISOString() || "",
+    dateUpdated: factTable.dateUpdated?.toISOString() || "",
+  };
+  return withOwnerEmail(apiFactTable, ownerEmailMap);
 }
 
 export function toFactTableFilterApiInterface(
