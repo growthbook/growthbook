@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
+import { stemRuleId } from "shared/util";
 import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
@@ -107,8 +108,15 @@ export default function AssignmentTester({
           let matchedRule;
           const debugLog: string[] = [];
           if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
+            // SDK payloads strip env suffixes from rule ids (`stem__env` → `stem`)
+            // for telemetry continuity, but the UI's feature-definition mirror
+            // can carry either form depending on payload stage. Match on stem
+            // via the shared helper so we stay tolerant of both.
+            const lookupStem = stemRuleId(tr.result.ruleId);
             matchedRule = tr.featureDefinition.rules.find(
-              (r) => r.id === tr?.result?.ruleId,
+              (r) =>
+                r.id === tr.result?.ruleId ||
+                stemRuleId(r.id || "") === lookupStem,
             );
           }
           let matchedRuleName = "";

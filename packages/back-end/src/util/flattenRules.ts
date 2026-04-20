@@ -33,9 +33,12 @@ export type { V1FeatureRule };
 //     surfaces (SDK payloads, tracking, REST, ramp targeting).
 //   - When v1 data contains the same legacy id in multiple envs with
 //     non-mergeable content, the flattener disambiguates by appending
-//     `__<env>` to each occurrence's id. External surfaces always use
-//     `stemRuleId(id)` to strip the suffix back to the public form. See
-//     `shared/src/util/ruleId.ts` for the one-and-only split/join helpers.
+//     `__<env>` to each occurrence's id. Surface contracts differ:
+//       * REST API (v1 + v2): emits the FULL qualified id — clients must
+//         echo it back on PUT/DELETE (exact-match enforcement).
+//       * SDK payload: stem-strips so telemetry rule ids stay stable across
+//         the unification boundary (see `getFeatureDefinition`).
+//     See `shared/src/util/ruleId.ts` for the one-and-only split/join helpers.
 //   - New rules (authored post-v2) use server-generated ids via
 //     `generateRuleId()` (form: `fr_<uniqid>`) which never contain `__`,
 //     so the "any id with `__` is a migration artifact" invariant holds.
@@ -68,6 +71,17 @@ export function isV2RevisionRules(rules: unknown): rules is FeatureRule[] {
  * which replaces each env object wholesale with `{ enabled, prerequisites }` —
  * no `rules` key — so the absence of `rules` on every env is the v2 signal.
  *
+ * Invariant justifying the one-signal check: every write path that touches
+ * `environmentSettings` routes through `buildFeatureUpdate`, which scrubs
+ * `env.rules` from the $set payload. Therefore no on-disk doc can have BOTH
+ * a populated `feature.rules: [...]` AND a populated `envSettings[env].rules`
+ * simultaneously — the write-side scrub makes the two states mutually
+ * exclusive. If that invariant is ever broken (e.g. someone adds a new write
+ * path that bypasses `buildFeatureUpdate`), this heuristic would silently
+ * mis-classify the resulting doc as v1 and clobber canonical `feature.rules`
+ * on read. Any new rules-touching write site MUST route through
+ * `buildFeatureUpdate` or this helper.
+ *
  * Note: this returns true for brand-new features with `feature.rules === []`
  * because their envSettings also won't have any `rules` key. That's correct —
  * a zero-rule v2 feature needs no JIT work.
@@ -75,10 +89,42 @@ export function isV2RevisionRules(rules: unknown): rules is FeatureRule[] {
 export function isV2FeatureEnvSettings(
   envSettings: Record<string, { rules?: unknown } | undefined>,
 ): boolean {
+  // A `rules` key is the v1 marker, but pre-scrub write paths may leave
+  // `rules: undefined` or `rules: []` on a doc that is otherwise v2. Treat
+  // those as v2 — only a populated array means we still need to flatten.
   for (const env of Object.values(envSettings)) {
-    if (env && typeof env === "object" && "rules" in env) return false;
+    if (!env || typeof env !== "object") continue;
+    if (!("rules" in env)) continue;
+    const rules = (env as { rules?: unknown }).rules;
+    if (rules === undefined) continue;
+    if (Array.isArray(rules) && rules.length === 0) continue;
+    return false;
   }
   return true;
+}
+
+/**
+ * Throws if `rules` contains duplicate ids. The v2 shape encodes per-env
+ * scope via `{ allEnvironments, environments }`, not via multiple rows with
+ * the same id, so a collision means some upstream merge/conversion helper
+ * failed to dedupe. Called at persist chokepoints (`updateFeature`,
+ * `updateRevision`, `createFeature`) — cheap O(n) guard that turns silent
+ * corruption into a loud failure at the source.
+ */
+export function assertUniqueRuleIds(rules: FeatureRule[], ctx: string): void {
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const r of rules) {
+    if (!r?.id) continue;
+    if (seen.has(r.id)) dupes.add(r.id);
+    seen.add(r.id);
+  }
+  if (dupes.size > 0) {
+    throw new Error(
+      `Duplicate rule id(s) in ${ctx}: ${Array.from(dupes).join(", ")}. ` +
+        `Each v2 rule must have a unique id; per-env scope is encoded via allEnvironments/environments.`,
+    );
+  }
 }
 
 /**
@@ -105,13 +151,16 @@ export function getApplicableEnvIds(
  * Compute the per-env footprint for a v2 rule, filtered to a set of
  * applicable envs (typically `getApplicableEnvIds(orgEnvs, featureProject)`).
  *
- *   - `rule.allEnvironments: true` → every applicable env
- *   - `rule.environments: [...]`    → intersection with applicable set
- *   - malformed (neither declared)  → [] (strict: no explicit scope, no
- *                                        bucket. Callers that want a
- *                                        permissive fallback should use
- *                                        `getRulesForEnvironment` /
- *                                        `ruleAppliesToEnv` from shared)
+ * Tri-state (MUST match shared `ruleAppliesToEnv` / `ruleFootprint`):
+ *   - `allEnvironments: true`               → every applicable env
+ *   - `environments: [list]`                → intersection with applicable set
+ *   - `environments: []`                    → [] (intentional "pending" /
+ *                                             ramp-not-yet-scoped state — the
+ *                                             rule exists but applies nowhere)
+ *   - neither field declared (malformed)    → every applicable env (permissive
+ *                                             fallback for legacy data; keeps
+ *                                             the rule visible rather than
+ *                                             silently vanishing)
  *
  * Used by every v2→per-env projection (REST API response shape, legacy
  * down-convert, event env fanout, SDK payload per-env rule extraction) so
@@ -122,8 +171,55 @@ export function ruleFootprint(
   applicableEnvs: string[],
 ): string[] {
   if (rule.allEnvironments) return applicableEnvs;
+  if (rule.environments === undefined) return applicableEnvs;
   const applicableSet = new Set(applicableEnvs);
-  return (rule.environments || []).filter((e) => applicableSet.has(e));
+  return rule.environments.filter((e) => applicableSet.has(e));
+}
+
+/**
+ * Decide how to remove a single environment from a unified rule's footprint.
+ * Codifies the v1 REST DELETE-rule-for-env contract:
+ *
+ *   - If the rule's current footprint is exactly `[environment]`, the env-
+ *     scoped delete removes the rule entirely (`action: "delete"`). Callers
+ *     are responsible for any side-effect cleanup that should only run on
+ *     full removal (e.g. stripping ramp actions keyed to the rule id,
+ *     tearing down the rule's SafeRollout).
+ *
+ *   - Otherwise the rule survives, but with its footprint narrowed to
+ *     `currentFootprint \ {environment}` and `allEnvironments: false`.
+ *     `allEnvironments: true` expands to the full applicable set before
+ *     narrowing, so deleting one env from an all-envs rule yields an
+ *     explicit list of every other applicable env (the rule stops implicitly
+ *     following the org's env list).
+ *
+ * Precondition: the caller has already established that `rule` is the
+ * intended target for `environment` (typically via `ruleAppliesToEnv`). If
+ * called with a rule that doesn't apply to `environment`, the helper returns
+ * a no-op narrow to the existing footprint rather than silently deleting.
+ *
+ * Pure function; no side effects, no mutation of the input rule.
+ */
+export type NarrowRuleDecision =
+  | { action: "delete" }
+  | { action: "narrow"; rule: FeatureRule };
+
+export function narrowRuleForEnvRemoval(
+  rule: FeatureRule,
+  environment: string,
+  applicableEnvs: string[],
+): NarrowRuleDecision {
+  const currentFootprint = ruleFootprint(rule, applicableEnvs);
+  const newFootprint = currentFootprint.filter((e) => e !== environment);
+  if (newFootprint.length === 0) return { action: "delete" };
+  return {
+    action: "narrow",
+    rule: {
+      ...rule,
+      allEnvironments: false,
+      environments: newFootprint,
+    } as FeatureRule,
+  };
 }
 
 export interface RampTargetQuery {

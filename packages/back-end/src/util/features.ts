@@ -8,6 +8,7 @@ import {
   includeExperimentInPayload,
   isDefined,
   recursiveWalk,
+  ruleFootprint,
   stemRuleId,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -298,6 +299,9 @@ export function getSDKPayloadKeysByDiff(
     "valueType",
     "nextScheduledUpdate",
     "holdout",
+    // Top-level `prerequisites` apply everywhere; changes must invalidate
+    // every enabled env's cached SDK payload.
+    "prerequisites",
   ];
 
   if (
@@ -309,6 +313,51 @@ export function getSDKPayloadKeysByDiff(
       [originalFeature, updatedFeature],
       allowedEnvs,
     ).forEach((e) => environments.add(e));
+  }
+
+  // v2: rule changes live on `feature.rules` (flat array) and no longer
+  // surface via `environmentSettings` diffs. Compare the flat arrays by
+  // rule.id and expand each changed rule to its env footprint so only the
+  // affected envs' SDK payloads are invalidated. We still skip envs that are
+  // disabled both before AND after (no payload to refresh either way), to
+  // match the existing per-env-settings branch below.
+  const envIsRelevant = (e: string): boolean => {
+    const oldEnabled = !!originalFeature.environmentSettings?.[e]?.enabled;
+    const newEnabled = !!updatedFeature.environmentSettings?.[e]?.enabled;
+    return oldEnabled || newEnabled;
+  };
+  const addRuleEnvs = (rule: FeatureRule | undefined) => {
+    if (!rule) return;
+    ruleFootprint(rule, allowedEnvs).forEach((e) => {
+      if (envIsRelevant(e)) environments.add(e);
+    });
+  };
+  const oldRulesById = new Map(
+    (originalFeature.rules ?? []).map((r) => [r.id, r] as const),
+  );
+  const newRulesById = new Map(
+    (updatedFeature.rules ?? []).map((r) => [r.id, r] as const),
+  );
+  oldRulesById.forEach((oldRule, id) => {
+    const newRule = newRulesById.get(id);
+    if (!newRule || !isEqual(oldRule, newRule)) {
+      // Union of old and new footprints: a re-scoped or removed rule must
+      // invalidate both the envs it used to apply to and the ones it now
+      // applies to.
+      addRuleEnvs(oldRule);
+      addRuleEnvs(newRule);
+    }
+  });
+  newRulesById.forEach((newRule, id) => {
+    if (!oldRulesById.has(id)) addRuleEnvs(newRule);
+  });
+  // Rule-order changes (same ids, different sequence) affect evaluation even
+  // if no rule object differs individually.
+  const oldIdOrder = (originalFeature.rules ?? []).map((r) => r.id).join("\0");
+  const newIdOrder = (updatedFeature.rules ?? []).map((r) => r.id).join("\0");
+  if (oldIdOrder !== newIdOrder) {
+    (originalFeature.rules ?? []).forEach(addRuleEnvs);
+    (updatedFeature.rules ?? []).forEach(addRuleEnvs);
   }
 
   const allEnvs = new Set(allowedEnvs);
@@ -533,9 +582,18 @@ export function getFeatureDefinition({
       })
       ?.map((r) => {
         const rule: FeatureDefinitionRule = {
-          // SDK payloads only expose the bare legacy rule id; any internal
-          // `__<env>` migration suffix is stem-stripped so downstream
-          // telemetry / result tracking keeps using the original id.
+          // SDK payload rule id contract (confirmed 2026-04-20):
+          //   SDK payloads emit the STEM id (no `__<env>` migration suffix)
+          //   so a single rule that was split across envs at flatten time
+          //   (e.g. a non-mergeable collision → `fr_abc__production` +
+          //   `fr_abc__staging`) still reports as `fr_abc` in SDK-side
+          //   telemetry (`d.ruleId` rows in the feature usage pipeline).
+          //   Deliberately diverges from the REST API contract, which emits
+          //   the FULL qualified id because REST clients must echo it back
+          //   on PUT/DELETE. Two consumers, two contracts — don't unify.
+          //   See `normalizeRuleForApi` in `services/features.ts` for the
+          //   REST path; see `FeatureUsageGraph` on the front-end for the
+          //   telemetry consumer that keys its label map off the stem.
           ...(includeRuleIds && r.id != null ? { id: stemRuleId(r.id) } : {}),
         } as FeatureDefinitionRule;
 
@@ -873,8 +931,24 @@ export function getFeatureDefinition({
   return def;
 }
 
-// Populates the values of `environmentRecord` for environment keys which are undefined in the record
-// and have a parent (base) environment to inherit from which is defined.
+/**
+ * Populate values in `environmentRecord` for env keys that are undefined but
+ * have a configured parent (`Environment.parent`) whose value IS defined —
+ * child envs inherit from the nearest ancestor. Ancestor chains are walked
+ * recursively; missing ancestors short-circuit (no synthesis).
+ *
+ * Post-Phase-3 scope: this helper is now used ONLY for non-rule env fields
+ * (`enabled`, `prerequisites`). Rule inheritance was subsumed by the unified
+ * `feature.rules` array — a rule declares its own env scope via
+ * `allEnvironments` / `environments`, and per-env rule arrays no longer
+ * exist as a read-side concept (`buildFeatureInterface` scrubs them via
+ * `scrubEnvRules`). The generic `<T>` signature is preserved because the
+ * few remaining call sites operate on `FeatureEnvironment` records where
+ * `T` is the whole env object (enabled, prerequisites, archived, ...) —
+ * clone semantics are the same regardless of `T`'s exact shape.
+ *
+ * Pure: never mutates the input.
+ */
 export function applyEnvironmentInheritance<T>(
   environments: Environment[],
   environmentRecord: Record<string, T>,

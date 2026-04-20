@@ -23,6 +23,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  assertUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
   isV2RevisionRules,
@@ -831,6 +832,15 @@ export async function updateRevision(
           }),
         }
       : changes;
+
+  // Defensive uniqueness guard for v2 rules. Mirrors the one in
+  // `updateFeature` — see that comment for rationale.
+  if (Array.isArray(normalizedChanges.rules)) {
+    assertUniqueRuleIds(
+      normalizedChanges.rules as FeatureRule[],
+      `revision ${revision.featureId}@${revision.version}`,
+    );
+  }
 
   await runValidateFeatureRevisionHooks({
     context,

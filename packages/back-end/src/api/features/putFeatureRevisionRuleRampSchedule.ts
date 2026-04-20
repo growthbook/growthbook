@@ -74,28 +74,37 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       throw new NotFoundError(`Rule "${ruleId}" not found${envSuffix}`);
     }
 
+    // Canonical id the revision stores this rule under. All persisted
+    // references (rampActions.ruleId, audit subject, event payload) must use
+    // `match.id`, not the caller's URL param — otherwise round-trip cleanup
+    // (DELETE by the GET-returned id) breaks for stem↔suffix ambiguity.
+    const canonicalRuleId = match.id;
+
     // Block if an active live schedule already controls this rule.
     const liveSchedules =
       await req.context.models.rampSchedules.findByTargetRule(
-        ruleId,
+        canonicalRuleId,
         environment ?? undefined,
       );
     if (liveSchedules.length > 0) {
       throw new BadRequestError(
-        `Rule "${ruleId}" already has a live ramp schedule.` +
+        `Rule "${canonicalRuleId}" already has a live ramp schedule.` +
           ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
       );
     }
 
     const action = normalizeInlineRampSchedule(
       scheduleInput,
-      ruleId,
+      canonicalRuleId,
       environment,
     );
 
-    // Replace any existing pending ramp action for this rule.
+    // Replace any existing pending ramp action for this rule. Filter tolerant
+    // to both the canonical id AND the caller-provided id, so stale entries
+    // written under either form (legacy buggy writes, or stem/suffix variants)
+    // get cleaned up on the next set.
     const filtered = (revision.rampActions ?? []).filter(
-      (a) => a.ruleId !== ruleId,
+      (a) => a.ruleId !== canonicalRuleId && a.ruleId !== ruleId,
     );
     const newRampActions = [...filtered, action];
 
@@ -116,7 +125,7 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       {
         user: req.context.auditUser,
         action: "set ramp schedule",
-        subject: ruleId,
+        subject: canonicalRuleId,
         value: JSON.stringify(action),
       },
       resetReviewOnChange({
@@ -142,7 +151,7 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       "rule.rampSchedule.set",
       {
         environments: changedEnvironments,
-        auditDetails: { ruleId },
+        auditDetails: { ruleId: canonicalRuleId },
       },
     );
 

@@ -65,10 +65,28 @@ export function updateRuleAtEnvIndex(
   return { rules: next, updated, existing };
 }
 
+/**
+ * Remove the rule projected at env-position `i` from the flat array.
+ *
+ * Narrowing semantics (aligned with `narrowRuleForEnvRemoval`):
+ *   - `allEnvironments: true`                       → narrow to `applicableEnvs \ {env}`
+ *                                                    (deletes globally only if that set is empty)
+ *   - `environments: [a, b, …]` with size > 1       → drop `env` from the list
+ *   - `environments: [env]` (single-env)            → delete globally
+ *   - `environments: []` (pending)                  → delete globally (already no footprint)
+ *   - `environments: undefined` (permissive)        → treat as allEnvironments
+ *
+ * The optional `applicableEnvs` arg is the org's applicable env id list
+ * (project-filtered). When omitted we fall back to the legacy single-env
+ * narrowing: `allEnvironments: true` rules are deleted globally. Callers
+ * that hit the v2 contract (controllers, API routes) should always supply
+ * `applicableEnvs` so allEnvironments rules narrow correctly.
+ */
 export function removeRuleAtEnvIndex(
   rules: FeatureRule[],
   environment: string,
   i: number,
+  applicableEnvs?: string[],
 ): { rules: FeatureRule[]; removed: FeatureRule } {
   const { envRules, parentIndices } = projectRulesForEnv(rules, environment);
   const removed = envRules[i];
@@ -77,11 +95,38 @@ export function removeRuleAtEnvIndex(
   }
   const parentIdx = parentIndices[i];
 
-  if (
-    !removed.allEnvironments &&
-    Array.isArray(removed.environments) &&
-    removed.environments.length > 1
-  ) {
+  const isAllEnvs =
+    removed.allEnvironments || removed.environments === undefined;
+
+  if (isAllEnvs) {
+    if (applicableEnvs && applicableEnvs.length > 0) {
+      const newEnvs = applicableEnvs.filter((e) => e !== environment);
+      if (newEnvs.length === 0) {
+        const next = [
+          ...rules.slice(0, parentIdx),
+          ...rules.slice(parentIdx + 1),
+        ];
+        return { rules: next, removed };
+      }
+      const narrowed: FeatureRule = {
+        ...removed,
+        allEnvironments: false,
+        environments: newEnvs,
+      };
+      const next = [
+        ...rules.slice(0, parentIdx),
+        narrowed,
+        ...rules.slice(parentIdx + 1),
+      ];
+      return { rules: next, removed };
+    }
+    // Legacy fallback path: no applicableEnvs supplied — delete globally to
+    // match pre-v2 single-env behavior.
+    const next = [...rules.slice(0, parentIdx), ...rules.slice(parentIdx + 1)];
+    return { rules: next, removed };
+  }
+
+  if (Array.isArray(removed.environments) && removed.environments.length > 1) {
     const narrowed: FeatureRule = {
       ...removed,
       environments: removed.environments.filter((e) => e !== environment),

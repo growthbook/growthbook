@@ -5,7 +5,7 @@ import {
 } from "@/hooks/useFeatureRevisionDiff";
 
 describe("useFeatureRevisionDiff", () => {
-  it("should not show diff for unmodified environments when only one environment is changed", () => {
+  it("produces a single rule-centric diff (not bucketed by env) when one rule is modified", () => {
     const current: FeatureRevisionDiffInput = {
       defaultValue: "false",
       rules: [
@@ -54,12 +54,82 @@ describe("useFeatureRevisionDiff", () => {
       useFeatureRevisionDiff({ current, draft }),
     );
 
-    // Should only show diff for production, not staging
+    // One flat "Rules" section, no per-env splitting, no env suffix.
     expect(result.current).toHaveLength(1);
-    expect(result.current[0].title).toBe("Rules - production");
+    expect(result.current[0].title).toBe("Rules");
+    // Badges should be env-agnostic ("Edit rule", not "Edit rule in production").
+    const editBadge = result.current[0].badges?.find((b) =>
+      b.label.startsWith("Edit rule"),
+    );
+    expect(editBadge?.label).toBe("Edit rule");
+  });
 
-    // Verify staging is NOT in the diffs (the bug would have shown staging going from rules to [])
-    const stagingDiff = result.current.find((d) => d.title.includes("staging"));
-    expect(stagingDiff).toBeUndefined();
+  it("emits a Rules diff for allEnvironments rule changes (pre-fix gap)", () => {
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [
+        {
+          id: "rule1",
+          description: "test",
+          type: "force",
+          value: "true",
+          allEnvironments: true,
+        },
+      ],
+      environmentsEnabled: { production: true, staging: true },
+    };
+
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [
+        {
+          id: "rule1",
+          description: "test",
+          type: "force",
+          value: "updated",
+          allEnvironments: true,
+        },
+      ],
+      environmentsEnabled: { production: true, staging: true },
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+
+    expect(result.current).toHaveLength(1);
+    expect(result.current[0].title).toBe("Rules");
+  });
+
+  it("emits a Rules diff for pending (environments:[]) rule changes (pre-fix gap)", () => {
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [],
+    };
+
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [
+        {
+          id: "pendingRule",
+          description: "staged but not yet targeted",
+          type: "force",
+          value: "true",
+          allEnvironments: false,
+          environments: [],
+        },
+      ],
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+
+    expect(result.current).toHaveLength(1);
+    expect(result.current[0].title).toBe("Rules");
+    const addBadge = result.current[0].badges?.find(
+      (b) => b.action === "add rule",
+    );
+    expect(addBadge?.label).toBe("Add rule");
   });
 });

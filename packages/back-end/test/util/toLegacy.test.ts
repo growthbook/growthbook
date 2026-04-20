@@ -16,9 +16,11 @@ import { ReqContext } from "back-end/types/request";
 // toLegacyFeature / toLegacyRevision project v2 features and revisions back
 // to the v1 shape consumed by /api/v1 REST responses. The critical contracts:
 //   1. Per-env explosion: a v2 rule is copied into every env in its footprint.
-//   2. id stem-stripping: v2-only scope fields are stripped, and any migration
-//      `__<env>` suffix is removed from `rule.id` so v1 clients see the
-//      original legacy id.
+//   2. id is emitted VERBATIM: v2-only scope fields are stripped, but any
+//      `__<env>` migration suffix on `rule.id` is preserved so REST clients
+//      can round-trip the id on PUT/DELETE (mutation endpoints enforce exact
+//      id matching). The SDK payload is the only surface that stem-strips —
+//      see `getFeatureDefinition` in `util/features.ts`.
 //   3. Per-env order preserves global v2 order (as a stable projection).
 //   4. environmentSettings entries for existing envs keep their enabled flag
 //      and prerequisites, gaining a `rules` key in the process.
@@ -95,23 +97,34 @@ describe("toLegacyRule", () => {
     );
   });
 
-  it("stem-strips the __<env> migration suffix from rule.id", () => {
+  it("preserves the __<env> migration suffix on rule.id", () => {
     const v2 = v2Rule(suffixRuleId("fr_abc", "production"), {
       allEnvironments: false,
       environments: ["production"],
     } as Partial<FeatureRule>);
     const v1 = toLegacyRule(v2);
-    // v1 clients see the bare legacy id, never the migration suffix.
-    expect(v1.id).toBe("fr_abc");
+    // REST clients see the FULL qualified id so they can echo it back on
+    // PUT/DELETE (mutation endpoints enforce exact-id matching).
+    expect(v1.id).toBe(suffixRuleId("fr_abc", "production"));
+    // Sanity: stemming still reveals the original legacy id for clients
+    // that want to group-by stem.
+    expect(stemRuleId(v1.id)).toBe("fr_abc");
   });
 
-  it("stem-strips counter suffixes as well (__<env>__N)", () => {
-    const v2 = v2Rule(suffixRuleId("fr_abc", "dev", 2), {
+  it("preserves counter suffixes as well (__<env>__N)", () => {
+    const suffixed = suffixRuleId("fr_abc", "dev", 2);
+    const v2 = v2Rule(suffixed, {
       allEnvironments: false,
       environments: ["dev"],
     } as Partial<FeatureRule>);
     const v1 = toLegacyRule(v2);
-    expect(v1.id).toBe("fr_abc");
+    expect(v1.id).toBe(suffixed);
+  });
+
+  it("preserves bare (never-suffixed) ids unchanged", () => {
+    const v2 = v2Rule("fr_plain", { allEnvironments: true });
+    const v1 = toLegacyRule(v2);
+    expect(v1.id).toBe("fr_plain");
   });
 
   it("does not mutate the input", () => {
@@ -365,9 +378,9 @@ describe("toLegacyFeature", () => {
     });
   });
 
-  // ================= id stem-stripping on down-conversion =================
+  // ================= id preservation on down-conversion =================
 
-  describe("id stem-stripping", () => {
+  describe("id preservation", () => {
     it("keeps the same legacy id on every exploded copy of a merged rule", () => {
       const v2: FeatureInterface = {
         ...BASE_FEATURE,
@@ -386,10 +399,13 @@ describe("toLegacyFeature", () => {
       );
     });
 
-    it("stem-strips __<env> suffixes on split rules (v1 clients see the base id)", () => {
+    it("preserves __<env> suffixes on split rules (REST clients echo the qualified id)", () => {
       // A non-mergeable collision pair coming out of the flattener: two rules
-      // with the same stem `fr_abc` but different env-suffixes. v1 clients
-      // should only ever see the bare stem.
+      // with the same stem `fr_abc` but different env-suffixes. REST surfaces
+      // must expose the full qualified id so clients can PUT/DELETE against
+      // the correct rule without ambiguity.
+      const devId = suffixRuleId("fr_abc", "dev");
+      const prodId = suffixRuleId("fr_abc", "production");
       const v2: FeatureInterface = {
         ...BASE_FEATURE,
         environmentSettings: {
@@ -397,12 +413,12 @@ describe("toLegacyFeature", () => {
           production: { enabled: true },
         },
         rules: [
-          v2Rule(suffixRuleId("fr_abc", "dev"), {
+          v2Rule(devId, {
             allEnvironments: false,
             environments: ["dev"],
             value: "A",
           } as Partial<FeatureRule>),
-          v2Rule(suffixRuleId("fr_abc", "production"), {
+          v2Rule(prodId, {
             allEnvironments: false,
             environments: ["production"],
             value: "B",
@@ -412,8 +428,16 @@ describe("toLegacyFeature", () => {
       } as unknown as FeatureInterface;
 
       const v1 = toLegacyFeature(v2, ORG_ENVS);
-      expect(v1.environmentSettings?.dev?.rules?.[0].id).toBe("fr_abc");
-      expect(v1.environmentSettings?.production?.rules?.[0].id).toBe("fr_abc");
+      expect(v1.environmentSettings?.dev?.rules?.[0].id).toBe(devId);
+      expect(v1.environmentSettings?.production?.rules?.[0].id).toBe(prodId);
+      // Stems still recover the original legacy id for clients that want to
+      // group-by stem (e.g. usage dashboards).
+      expect(stemRuleId(v1.environmentSettings!.dev.rules![0].id)).toBe(
+        "fr_abc",
+      );
+      expect(stemRuleId(v1.environmentSettings!.production.rules![0].id)).toBe(
+        "fr_abc",
+      );
     });
   });
 
@@ -460,12 +484,13 @@ describe("toLegacyRevision", () => {
     expect(v1.rules.dev[0].id).toBe("r1");
   });
 
-  it("stem-strips __<env> suffixes during down-conversion", () => {
+  it("preserves __<env> suffixes during down-conversion", () => {
+    const qualifiedId = suffixRuleId("fr_abc", "dev");
     const raw = {
       ...BASE_REVISION,
       rules: [
         {
-          id: suffixRuleId("fr_abc", "dev"),
+          id: qualifiedId,
           type: "force",
           description: "",
           value: "A",
@@ -478,7 +503,10 @@ describe("toLegacyRevision", () => {
 
     const v1 = toLegacyRevision(raw, ORG_ENVS, "");
     expect(v1.rules.dev).toHaveLength(1);
-    expect(v1.rules.dev[0].id).toBe("fr_abc");
+    // Full qualified id is preserved so REST clients can echo it back on
+    // PUT/DELETE; stemming still recovers the legacy stem for grouping.
+    expect(v1.rules.dev[0].id).toBe(qualifiedId);
+    expect(stemRuleId(v1.rules.dev[0].id)).toBe("fr_abc");
   });
 
   it("emits only the declared env for split rules", () => {
@@ -691,8 +719,10 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
 //      converge to a single allEnvironments=true v2 rule and stay there.
 //   2. Non-mergeable legacy rules (same id but different content per env)
 //      get __<env> suffixes on the first flatten; subsequent cycles are
-//      identity because toLegacy stem-strips and the flattener re-applies
-//      the same deterministic suffixing.
+//      identity because toLegacy preserves the suffixed id verbatim and
+//      the flattener's stem-based grouping (via `stemRuleId`) re-applies
+//      the same deterministic suffixing regardless of whether the input
+//      id was bare or already-suffixed.
 //   3. Revisions follow the same rules as features.
 // ---------------------------------------------------------------------------
 

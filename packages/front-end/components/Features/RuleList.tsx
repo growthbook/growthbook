@@ -162,9 +162,14 @@ export default function RuleList({
     }
   }
 
+  // `getRules` projects `feature.rules` for the given env, returning a new
+  // array every call. Using the returned array as a deep dep churns the
+  // effect on every render. Key on the identity of the underlying rules
+  // array plus the env id instead — the projection is pure over those two
+  // inputs, so it's sufficient for change detection.
   useEffect(() => {
     setItems(getRules(feature, environment));
-  }, [getRules(feature, environment)]);
+  }, [feature.rules, environment]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),

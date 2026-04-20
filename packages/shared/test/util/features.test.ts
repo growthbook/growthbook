@@ -23,6 +23,7 @@ import {
   inferSchemaFields,
   inferSimpleSchemaFromValue,
   ruleAppliesToEnv,
+  ruleFootprint,
   getRulesForEnvironment,
   toV2FeatureSnapshot,
 } from "../../src/util";
@@ -1875,13 +1876,107 @@ describe("ruleAppliesToEnv", () => {
     expect(ruleAppliesToEnv(rule, "production")).toBe(true);
   });
 
-  it("permissive fallback when environments[] is present but empty and allEnvironments is false", () => {
+  it("strict: explicit environments:[] applies to no env (intentional 'pending' / ramp-not-yet-scoped)", () => {
     const rule: FeatureRule = {
       ...baseRule,
       allEnvironments: false,
       environments: [],
     } as FeatureRule;
-    expect(ruleAppliesToEnv(rule, "production")).toBe(true);
+    expect(ruleAppliesToEnv(rule, "production")).toBe(false);
+    expect(ruleAppliesToEnv(rule, "dev")).toBe(false);
+    expect(ruleAppliesToEnv(rule, "staging")).toBe(false);
+  });
+});
+
+describe("ruleFootprint", () => {
+  const baseRule = {
+    type: "force" as const,
+    id: "r1",
+    description: "",
+    enabled: true,
+    value: "x",
+  };
+  const applicable = ["dev", "staging", "production"];
+
+  it("allEnvironments: true expands to the applicable env set", () => {
+    const rule: FeatureRule = {
+      ...baseRule,
+      allEnvironments: true,
+    } as FeatureRule;
+    expect(ruleFootprint(rule, applicable)).toEqual(applicable);
+  });
+
+  it("allEnvironments wins over environments[] when both are set", () => {
+    const rule: FeatureRule = {
+      ...baseRule,
+      allEnvironments: true,
+      environments: ["dev"],
+    } as FeatureRule;
+    expect(ruleFootprint(rule, applicable)).toEqual(applicable);
+  });
+
+  it("environments:[list] intersects with the applicable set", () => {
+    const rule: FeatureRule = {
+      ...baseRule,
+      allEnvironments: false,
+      environments: ["production", "dev", "unknown"],
+    } as FeatureRule;
+    expect(ruleFootprint(rule, applicable)).toEqual(["production", "dev"]);
+  });
+
+  it("strict: explicit environments:[] returns [] (applies nowhere)", () => {
+    const rule: FeatureRule = {
+      ...baseRule,
+      allEnvironments: false,
+      environments: [],
+    } as FeatureRule;
+    expect(ruleFootprint(rule, applicable)).toEqual([]);
+  });
+
+  it("permissive fallback: neither field declared expands to applicable envs", () => {
+    const rule: FeatureRule = {
+      ...baseRule,
+    } as FeatureRule;
+    expect(ruleFootprint(rule, applicable)).toEqual(applicable);
+  });
+
+  it("aligns with ruleAppliesToEnv across the four scope states", () => {
+    const cases: Array<{ rule: FeatureRule; label: string }> = [
+      {
+        label: "allEnvironments: true",
+        rule: { ...baseRule, allEnvironments: true } as FeatureRule,
+      },
+      {
+        label: "environments: [list]",
+        rule: {
+          ...baseRule,
+          allEnvironments: false,
+          environments: ["dev", "production"],
+        } as FeatureRule,
+      },
+      {
+        label: "environments: []",
+        rule: {
+          ...baseRule,
+          allEnvironments: false,
+          environments: [],
+        } as FeatureRule,
+      },
+      {
+        label: "neither declared (malformed)",
+        rule: { ...baseRule } as FeatureRule,
+      },
+    ];
+    for (const { rule, label } of cases) {
+      const footprint = new Set(ruleFootprint(rule, applicable));
+      for (const env of applicable) {
+        expect({ label, env, applies: ruleAppliesToEnv(rule, env) }).toEqual({
+          label,
+          env,
+          applies: footprint.has(env),
+        });
+      }
+    }
   });
 });
 

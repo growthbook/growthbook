@@ -297,14 +297,16 @@ export function getMatchingRules(
   allRules.forEach((rule, i) => {
     if (!filter(rule)) return;
 
-    // Resolve the env list this rule applies to. `allEnvironments` collapses
-    // to "every applicable env visible to the caller"; otherwise the rule's
-    // own `environments[]` declaration wins. If the rule has neither field
-    // (malformed), default to allEnvironments semantics so it still surfaces
-    // in at least one bucket rather than silently vanishing.
+    // Resolve the env list this rule applies to. Tri-state:
+    //   - `allEnvironments: true`              → every visible env
+    //   - `environments: [list]`               → that list (strict membership)
+    //   - `environments: []`                   → no envs (intentional "pending"
+    //                                            / "ramp not yet scoped" state)
+    //   - neither field declared (malformed)   → every visible env (permissive
+    //                                            safety net for legacy data)
     const ruleEnvs = rule.allEnvironments
       ? environments
-      : rule.environments && rule.environments.length > 0
+      : rule.environments !== undefined
         ? rule.environments
         : environments;
 
@@ -328,22 +330,26 @@ export function getMatchingRules(
 }
 
 /**
- * Does this v2 rule apply to the given environment?
+ * Does this v2 rule apply to the given environment? Tri-state:
  *
- *   - `rule.allEnvironments: true`      → always yes
- *   - `rule.environments: [...]`        → yes iff environment is listed
- *   - neither declared (malformed)      → yes (permissive fallback; matches
- *                                         `getMatchingRules`'s malformed
- *                                         handling so the rule surfaces in
- *                                         at least one bucket rather than
- *                                         silently vanishing)
+ *   - `rule.allEnvironments: true`         → always yes
+ *   - `rule.environments: [list]`          → yes iff `environment` ∈ list
+ *   - `rule.environments: []`              → no (intentional "pending" /
+ *                                             ramp-not-yet-scoped state)
+ *   - neither field declared (malformed)   → yes (permissive fallback for
+ *                                             legacy data; matches
+ *                                             `getMatchingRules`'s malformed
+ *                                             safety net)
+ *
+ * Keep this aligned with `ruleFootprint` — they are different projections of
+ * the same scope predicate and must agree on the four cases above.
  */
 export function ruleAppliesToEnv(
   rule: FeatureRule,
   environment: string,
 ): boolean {
   if (rule.allEnvironments) return true;
-  if (rule.environments && rule.environments.length > 0) {
+  if (rule.environments !== undefined) {
     return rule.environments.includes(environment);
   }
   return true;
@@ -376,18 +382,23 @@ export function getRulesForEnvironment(
  * back-end `ruleFootprint` helper so shared/front-end code can derive the
  * same per-env fanout used by the API projection + audit/diff helpers.
  *
- * Semantics:
- *   - `allEnvironments: true`            → every applicable env
- *   - `environments: [...]` (v2)         → intersection with applicable envs
- *   - unset/empty environments on v2     → empty (rule effectively scoped nowhere)
+ * Semantics (tri-state, MUST match `ruleAppliesToEnv`):
+ *   - `allEnvironments: true`               → every applicable env
+ *   - `environments: [list]`                → intersection with applicable envs
+ *   - `environments: []`                    → [] (intentional "pending" /
+ *                                             ramp-not-yet-scoped state)
+ *   - neither field declared (malformed)    → every applicable env (permissive
+ *                                             fallback; parallels the malformed
+ *                                             safety net elsewhere)
  */
 export function ruleFootprint(
   rule: FeatureRule,
   applicableEnvs: string[],
 ): string[] {
   if (rule.allEnvironments) return applicableEnvs;
+  if (rule.environments === undefined) return applicableEnvs;
   const applicableSet = new Set(applicableEnvs);
-  return (rule.environments || []).filter((e) => applicableSet.has(e));
+  return rule.environments.filter((e) => applicableSet.has(e));
 }
 
 /**

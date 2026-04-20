@@ -4,8 +4,10 @@ import {
   checkIfRevisionNeedsReview,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getRulesForEnvironment,
   liveRevisionFromFeature,
 } from "shared/util";
+import { isEqual } from "lodash";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
@@ -78,13 +80,14 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     ...live,
     ...liveRevisionFromFeature(live, feature),
   };
+  // Post-unification `rules` is a flat `FeatureRule[]`. `mergeResult.result.rules`
+  // is either absent (no rule change) or the authoritative merged array — no
+  // per-env object merging needed. Spreading arrays into an object literal and
+  // merging by numeric index here would silently corrupt downstream review /
+  // permission checks that key off env names.
   const effectiveRevision = {
     ...filledLive,
     ...mergeResult.result,
-    rules: {
-      ...filledLive.rules,
-      ...(mergeResult.result.rules ?? {}),
-    },
   };
 
   const requiresReview = checkIfRevisionNeedsReview({
@@ -115,7 +118,21 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
   const allEnabledEnvs = Array.from(
     getEnabledEnvironments(feature, environmentIds),
   );
-  const changedRuleEnvs = Object.keys(mergeResult.result.rules || {});
+  // `mergeResult.result.rules`, when present, is the full merged flat array.
+  // Compute changed envs by diffing the per-env projection against live so
+  // callers with env-scoped publish permissions get checked only for envs
+  // whose visible rule sequence actually changed.
+  const mergedRules = mergeResult.result.rules ?? filledLive.rules;
+  const changedRuleEnvs =
+    mergeResult.result.rules === undefined
+      ? []
+      : environmentIds.filter(
+          (env) =>
+            !isEqual(
+              getRulesForEnvironment(filledLive.rules, env),
+              getRulesForEnvironment(mergedRules, env),
+            ),
+        );
   const changedToggleEnvs = Object.keys(
     mergeResult.result.environmentsEnabled || {},
   );

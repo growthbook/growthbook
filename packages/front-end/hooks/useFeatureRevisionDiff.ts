@@ -4,7 +4,6 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RevisionMetadata } from "shared/src/validators/features";
 import type { MergeResultChanges } from "shared/util";
-import { getRulesForEnvironment } from "shared/util";
 import {
   renderFeatureDefaultValue,
   renderFeatureRules,
@@ -260,43 +259,26 @@ export function useFeatureRevisionDiff({
       });
     }
 
-    // 6. Rules (per environment, projected from the unified v2 rules array)
+    // 6. Rules — single flat diff, NOT bucketed by environment.
+    //
+    // Post-unification `rules` is a `FeatureRule[]` whose members carry their
+    // own env scope. Rule cards render the scope inline (see `RuleEnvScope`),
+    // so a single rules section captures every change (adds, removes,
+    // modifications, reorderings, and scope flips) including rules whose
+    // footprint is empty (`environments: []`, pending) or universal
+    // (`allEnvironments: true`) — all of which were invisible in the old
+    // per-env projection layout.
     const draftRulesArr = Array.isArray(draft.rules) ? draft.rules : [];
     const currentRulesArr = Array.isArray(current.rules) ? current.rules : [];
-    const envSet = new Set<string>();
-    for (const r of draftRulesArr) {
-      if (r.allEnvironments) continue;
-      (r.environments ?? []).forEach((e) => envSet.add(e));
+    if (!isEqual(currentRulesArr, draftRulesArr)) {
+      diffs.push({
+        title: "Rules",
+        a: JSON.stringify(normalizeFeatureRules(currentRulesArr), null, 2),
+        b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
+        customRender: renderFeatureRules(currentRulesArr, draftRulesArr),
+        badges: featureRuleChangeBadges(currentRulesArr, draftRulesArr),
+      });
     }
-    for (const r of currentRulesArr) {
-      if (r.allEnvironments) continue;
-      (r.environments ?? []).forEach((e) => envSet.add(e));
-    }
-    const hasAllEnvRule =
-      draftRulesArr.some((r) => r.allEnvironments) ||
-      currentRulesArr.some((r) => r.allEnvironments);
-    if (hasAllEnvRule) {
-      Object.keys(draft.environmentsEnabled ?? {}).forEach((e) =>
-        envSet.add(e),
-      );
-      Object.keys(current.environmentsEnabled ?? {}).forEach((e) =>
-        envSet.add(e),
-      );
-    }
-    envSet.forEach((envId) => {
-      const currentRules = getRulesForEnvironment(currentRulesArr, envId);
-      const draftRules = getRulesForEnvironment(draftRulesArr, envId);
-
-      if (!isEqual(currentRules, draftRules)) {
-        diffs.push({
-          title: `Rules - ${envId}`,
-          a: JSON.stringify(normalizeFeatureRules(currentRules), null, 2),
-          b: JSON.stringify(normalizeFeatureRules(draftRules), null, 2),
-          customRender: renderFeatureRules(currentRules, draftRules),
-          badges: featureRuleChangeBadges(currentRules, draftRules, envId),
-        });
-      }
-    });
 
     return diffs;
   }, [current, draft]);

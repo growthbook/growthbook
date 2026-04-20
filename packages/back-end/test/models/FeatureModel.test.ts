@@ -288,6 +288,71 @@ describe("buildFeatureInterface", () => {
     });
   });
 
+  // ================= 4b. env.rules scrub on output =================
+  //
+  // buildFeatureInterface must not expose the legacy `environmentSettings[env].rules`
+  // key on its output, on either the v1 or v2 path. Downstream consumers
+  // (SDK payload, diff projection, REST api adapters, FE revision views) all
+  // read exclusively from the top-level `feature.rules` array post-Phase-3;
+  // leaving the legacy key populated is a shape-drift footgun where a stale
+  // env.rules would silently disagree with the canonical flat array.
+
+  describe("environmentSettings[env].rules scrub", () => {
+    it("strips the legacy rules key from env objects on the v1 flatten path", () => {
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, rules: [v1Rule("r1") as FeatureRule] },
+          production: {
+            enabled: true,
+            rules: [v1Rule("r1") as FeatureRule],
+          },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(v1, mockContext());
+      expect(out.rules).toHaveLength(1); // sanity: data still flows to feature.rules
+      for (const envId of Object.keys(out.environmentSettings ?? {})) {
+        expect(out.environmentSettings?.[envId]).toBeDefined();
+        expect("rules" in (out.environmentSettings?.[envId] as object)).toBe(
+          false,
+        );
+      }
+    });
+
+    it("belt-and-suspenders strips the rules key on the v2 path even when a pathological doc landed one", () => {
+      // Simulates a direct-mongo mutation or a bypass write that stamped
+      // env.rules on an otherwise-v2 document. The heuristic would STILL
+      // classify this as v1 (since any env has a rules key), so we also
+      // need the scrub to run on the output of that v1 branch — this test
+      // exercises the scrub irrespective of which branch fired.
+      const hybrid = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: {
+            enabled: true,
+            rules: [],
+            prerequisites: [],
+          },
+          production: {
+            enabled: true,
+            rules: [],
+            prerequisites: [],
+          },
+        },
+        rules: [v2Rule("r1")],
+        prerequisites: [],
+      } as unknown as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(hybrid, mockContext());
+      for (const envId of Object.keys(out.environmentSettings ?? {})) {
+        expect("rules" in (out.environmentSettings?.[envId] as object)).toBe(
+          false,
+        );
+      }
+    });
+  });
+
   // ================= 5. v2 with empty envSettings =================
 
   describe("v2 with empty env settings", () => {
@@ -566,6 +631,53 @@ describe("buildFeatureUpdate", () => {
     expect(out.defaultValue).toBe("false");
     expect(out.version).toBe(3);
     expect(out.environmentSettings?.dev).toEqual({ enabled: true });
+  });
+
+  it("clears stale `environments` from a top-level rule with allEnvironments: true", () => {
+    const out = buildFeatureUpdate({
+      rules: [
+        {
+          id: "r1",
+          type: "force",
+          description: "",
+          allEnvironments: true,
+          environments: ["dev", "prod"],
+        },
+        {
+          id: "r2",
+          type: "force",
+          description: "",
+          allEnvironments: false,
+          environments: ["dev"],
+        },
+      ],
+    } as Record<string, unknown>);
+
+    const rules = (out as { rules: Array<Record<string, unknown>> }).rules;
+    expect(rules[0]).toEqual({
+      id: "r1",
+      type: "force",
+      description: "",
+      allEnvironments: true,
+    });
+    expect(rules[0]).not.toHaveProperty("environments");
+    expect(rules[1].environments).toEqual(["dev"]);
+  });
+
+  it("leaves allEnvironments: false rules untouched", () => {
+    const input = {
+      rules: [
+        {
+          id: "r1",
+          type: "force",
+          description: "",
+          allEnvironments: false,
+          environments: ["prod"],
+        },
+      ],
+    } as Record<string, unknown>;
+    const out = buildFeatureUpdate(input);
+    expect((out as { rules: unknown }).rules).toBe(input.rules);
   });
 });
 

@@ -930,7 +930,12 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (!mergeResult.success) return true;
   const r = mergeResult.result;
   if (r.defaultValue !== undefined) return true;
-  if (Object.keys(r.rules || {}).length > 0) return true;
+  // `rules` is a flat `FeatureRule[]` post-unification. `autoMerge` only sets
+  // this field when revision rules differ from base, so presence (even an
+  // explicit `[]` representing "all rules deleted") is a meaningful change.
+  // Falling back to `Object.keys(r.rules || {}).length > 0` would silently
+  // report "no changes" for a revision that deletes every rule.
+  if (r.rules !== undefined) return true;
   if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
   if (r.prerequisites !== undefined) return true;
   if (r.archived !== undefined) return true;

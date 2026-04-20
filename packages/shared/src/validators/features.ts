@@ -62,8 +62,17 @@ export const baseRule = z
     // Rule identifier. For rules authored post-v2 this is `fr_<uniqid>` from
     // `generateRuleId()`. For rules unified from a v1 collision, the flatten
     // step appends a `__<env>` suffix to disambiguate — see
-    // `shared/src/util/ruleId.ts` for the stem/suffix helpers. Every external
-    // surface (SDK payload, tracking, UI telemetry) stem-strips this id.
+    // `shared/src/util/ruleId.ts` for the stem/suffix helpers.
+    //
+    // Surface contract diverges intentionally:
+    //   - REST API (v1 + v2): emits the FULL qualified id on read; clients
+    //     must echo it back on PUT/DELETE (exact-match enforcement).
+    //   - SDK payload + UI telemetry: stem-strips the id so per-rule metrics
+    //     stay stable across the v1→v2 unification boundary.
+    // The validator does NOT refine-reject `__` here because a legitimate
+    // migration-suffixed id must round-trip through the schema. New user-
+    // authored ids flow through `generateRuleId()` which never emits `__`,
+    // so this is enforced by construction, not by validator.
     id: z.string(),
     // When true the rule applies in every environment and `environments` is omitted.
     // When false the rule applies only in environments listed in `environments`.

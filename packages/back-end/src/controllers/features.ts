@@ -112,6 +112,7 @@ import {
   stampRuleForEnvs,
   updateRuleAtEnvIndex,
 } from "back-end/src/util/revisionRuleOps";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import {
   getSDKPayloadCacheLocation,
   formatLegacyCacheKey,
@@ -740,6 +741,21 @@ export async function postFeatures(
         []) as FeatureRule[],
     ]),
   );
+  const hasTopLevelRules = Array.isArray(otherProps.rules)
+    ? otherProps.rules.length > 0
+    : false;
+  const hasPerEnvRules = Object.values(inboundEnvRules).some(
+    (r) => Array.isArray(r) && r.length > 0,
+  );
+  // Spec drift guard: callers must pick a single rule-delivery shape. Mixing
+  // both on the same create would silently concat into `feature.rules`,
+  // which is how duplicate-id corruption would show up on the v2 write path.
+  if (hasTopLevelRules && hasPerEnvRules) {
+    throw new Error(
+      "Feature create received both top-level `rules` and `environmentSettings[env].rules`. " +
+        "Use one shape or the other — the v1 per-env shape is for v1 clients; the v2 flat `rules` array is for v2 clients.",
+    );
+  }
   const flattenedInbound = normalizeRulesInput(inboundEnvRules);
   if (flattenedInbound.length > 0) {
     feature.rules = [...(feature.rules ?? []), ...flattenedInbound];
@@ -2124,33 +2140,64 @@ export async function postFeatureSync(
 
   // v2: revision rules are a flat FeatureRule[]. The Sync endpoint accepts a
   // legacy-ish payload where each env's rules live under
-  // `environmentSettings[env].rules`; flatten that into the v2 shape. If the
-  // payload omits rules for an env, fall back to the feature's current rules
-  // for that env (projected from the flat array).
+  // `environmentSettings[env].rules`. Produce a flat array with unique rule
+  // ids by narrowing live rules to the envs the caller did NOT override, then
+  // appending the caller's inbound rules stamped per env.
+  //
+  // Naive per-env fan-out ( liveFeatureRules projected for each env, pushed
+  // independently ) duplicates any `allEnvironments: true` rule N times and any
+  // multi-env rule M times — violating the v2 unique-id invariant.
   const liveFeatureRules: FeatureRule[] = feature.rules ?? [];
+  const envSettingsIn = data.environmentSettings as
+    | Record<string, { rules?: FeatureRule[] }>
+    | undefined;
+  const inboundEnvs = new Set<string>(
+    environments.filter((e) => envSettingsIn?.[e]?.rules !== undefined),
+  );
+
   const buildNextFlatRules = (): FeatureRule[] => {
     const result: FeatureRule[] = [];
-    environments.forEach((env) => {
-      // Prefer inbound env rules; else preserve existing rules for this env.
-      const inbound = (
-        data.environmentSettings as
-          | Record<string, { rules?: FeatureRule[] }>
-          | undefined
-      )?.[env]?.rules;
-      if (inbound !== undefined) {
-        inbound.forEach((r) =>
-          result.push({
-            ...r,
-            allEnvironments: false,
-            environments: [env],
-          } as FeatureRule),
-        );
+
+    for (const r of liveFeatureRules) {
+      // Compute the env subset of this rule that is NOT being replaced by an
+      // inbound per-env override. Preserve original ordering.
+      let remainingEnvs: string[];
+      if (r.allEnvironments) {
+        remainingEnvs = environments.filter((e) => !inboundEnvs.has(e));
+        if (remainingEnvs.length === 0) continue;
+        if (remainingEnvs.length === environments.length) {
+          result.push(r);
+          continue;
+        }
       } else {
-        getRulesForEnvironment(liveFeatureRules, env).forEach((r) =>
-          result.push(r),
+        remainingEnvs = (r.environments ?? []).filter(
+          (e) => !inboundEnvs.has(e),
         );
+        if (remainingEnvs.length === 0) continue;
       }
+      result.push({
+        ...r,
+        allEnvironments: false,
+        environments: remainingEnvs,
+      });
+    }
+
+    // Append inbound rules for overridden envs. Inbound arrays are independent
+    // per env, so each inbound rule is stamped to a single env — no dedupe
+    // needed between different envs' inbound rules (ids come from the client
+    // and are assumed distinct within a single env payload).
+    environments.forEach((env) => {
+      const inbound = envSettingsIn?.[env]?.rules;
+      if (inbound === undefined) return;
+      inbound.forEach((r) =>
+        result.push({
+          ...r,
+          allEnvironments: false,
+          environments: [env],
+        } as FeatureRule),
+      );
     });
+
     return result;
   };
   const nextFlatRules = buildNextFlatRules();
@@ -2665,9 +2712,21 @@ export async function putSafeRolloutStatus(
         context.permissions.throwPermissionError();
       }
     }
-    // Otherwise, only the environments with rule changes are affected
-    else {
-      const changedEnvs = Object.keys(mergeResult.result.rules || {});
+    // Otherwise, only the environments with rule changes are affected.
+    // `mergeResult.result.rules`, when present, is the full merged flat v2
+    // array; diff its per-env projection against the live baseline so
+    // env-scoped publish permissions are checked only for envs whose
+    // visible rule sequence actually changes.
+    else if (mergeResult.result.rules !== undefined) {
+      const liveRulesFlat = liveRevisionFromFeature(live, feature).rules ?? [];
+      const mergedRules = mergeResult.result.rules;
+      const changedEnvs = environmentIds.filter(
+        (env) =>
+          !isEqual(
+            getRulesForEnvironment(liveRulesFlat, env),
+            getRulesForEnvironment(mergedRules, env),
+          ),
+      );
       if (changedEnvs.length > 0) {
         if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
           context.permissions.throwPermissionError();
@@ -3317,12 +3376,19 @@ export async function deleteFeatureRule(
 
   // v2: revision.rules is a flat FeatureRule[]. Remove the rule projected
   // at env-position `i`; single-env rules are removed globally, multi-env
-  // scope is narrowed (see revisionRuleOps.removeRuleAtEnvIndex).
+  // scope is narrowed (see revisionRuleOps.removeRuleAtEnvIndex). Pass the
+  // project-filtered applicable envs so `allEnvironments: true` rules narrow
+  // to `applicable \ {env}` instead of being deleted globally.
   const existingRules = cloneDeep(revision.rules ?? []);
+  const applicableEnvs = getApplicableEnvIds(
+    getEnvironments(org),
+    feature.project,
+  );
   const { rules: nextRules, removed: rule } = removeRuleAtEnvIndex(
     existingRules,
     environment,
     i,
+    applicableEnvs,
   );
   const changes = { rules: nextRules };
 

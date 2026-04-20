@@ -1,17 +1,20 @@
 import { FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
+import { stemRuleId, suffixRuleId } from "shared/util";
 import {
+  assertUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
   isV2FeatureEnvSettings,
   isV2RevisionRules,
+  narrowRuleForEnvRemoval,
+  ruleFootprint,
   V1FeatureRule,
   V1RulesByEnv,
   rampTargetsEquivalent,
   resolveRampTarget,
   resolveRampTargets,
 } from "../../src/util/flattenRules";
-import { stemRuleId, suffixRuleId } from "shared/util";
 
 // ---------- helpers ----------
 
@@ -820,22 +823,65 @@ describe("isV2FeatureEnvSettings", () => {
     ).toBe(true);
   });
 
-  it("returns false when at least one env has a rules key, even if empty", () => {
+  it("treats rules: [] and rules: undefined as v2 (pre-scrub write artifact)", () => {
     expect(
       isV2FeatureEnvSettings({
         dev: { enabled: true, rules: [] },
         prod: { enabled: false },
       }),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      isV2FeatureEnvSettings({
+        dev: { enabled: true, rules: undefined },
+        prod: { enabled: false },
+      }),
+    ).toBe(true);
   });
 
-  it("returns false when every env has a rules key (typical legacy doc)", () => {
+  it("returns false when any env has a populated rules array (legacy v1)", () => {
     expect(
       isV2FeatureEnvSettings({
         dev: { enabled: true, rules: [{ id: "r1" }] },
         prod: { enabled: false, rules: [] },
       }),
     ).toBe(false);
+  });
+});
+
+// ================= assertUniqueRuleIds =================
+
+describe("assertUniqueRuleIds", () => {
+  const rule = (id: string): FeatureRule =>
+    ({
+      id,
+      allEnvironments: true,
+      description: "",
+      type: "force",
+    }) as unknown as FeatureRule;
+
+  it("passes on empty list", () => {
+    expect(() => assertUniqueRuleIds([], "ctx")).not.toThrow();
+  });
+
+  it("passes on unique ids", () => {
+    expect(() =>
+      assertUniqueRuleIds([rule("a"), rule("b"), rule("c")], "ctx"),
+    ).not.toThrow();
+  });
+
+  it("throws listing duplicates", () => {
+    expect(() =>
+      assertUniqueRuleIds(
+        [rule("a"), rule("b"), rule("a"), rule("c"), rule("b")],
+        "ctx",
+      ),
+    ).toThrow(/Duplicate rule id\(s\).*a.*b/);
+  });
+
+  it("includes the provided context in the error", () => {
+    expect(() =>
+      assertUniqueRuleIds([rule("x"), rule("x")], "feature my-flag"),
+    ).toThrow(/feature my-flag/);
   });
 });
 
@@ -874,6 +920,200 @@ describe("getApplicableEnvIds", () => {
   it("preserves the order of orgEnvs", () => {
     const envs = [env("prod"), env("dev"), env("staging")];
     expect(getApplicableEnvIds(envs)).toEqual(["prod", "dev", "staging"]);
+  });
+});
+
+// ================= ruleFootprint (back-end) =================
+//
+// Must stay semantically identical to the shared `ruleFootprint` helper —
+// callers on both sides of the fence route the same rule through the same
+// scope interpretation. Lock the tri-state contract here explicitly.
+
+describe("ruleFootprint (back-end util)", () => {
+  const applicable = ["dev", "staging", "production"];
+  const base = {
+    id: "r1",
+    type: "force",
+    description: "",
+    value: "x",
+    enabled: true,
+  } as unknown as FeatureRule;
+
+  it("allEnvironments: true expands to the applicable env set", () => {
+    expect(
+      ruleFootprint(
+        { ...base, allEnvironments: true } as FeatureRule,
+        applicable,
+      ),
+    ).toEqual(applicable);
+  });
+
+  it("environments:[list] intersects with the applicable set", () => {
+    expect(
+      ruleFootprint(
+        {
+          ...base,
+          allEnvironments: false,
+          environments: ["production", "dev", "unknown"],
+        } as FeatureRule,
+        applicable,
+      ),
+    ).toEqual(["production", "dev"]);
+  });
+
+  it("strict: explicit environments:[] returns [] (applies nowhere)", () => {
+    expect(
+      ruleFootprint(
+        { ...base, allEnvironments: false, environments: [] } as FeatureRule,
+        applicable,
+      ),
+    ).toEqual([]);
+  });
+
+  it("permissive fallback: neither field declared expands to applicable envs", () => {
+    expect(ruleFootprint(base, applicable)).toEqual(applicable);
+  });
+});
+
+// ================= narrowRuleForEnvRemoval =================
+//
+// v1 REST `DELETE /feature/:id/revision/:version/rule/:ruleId` is per-env:
+// it removes one env from a unified rule's footprint. This helper codifies
+// the decision — narrow vs fully delete — so the handler logic stays a
+// thin orchestrator around a testable primitive.
+//
+// Behavior matrix the handler relies on:
+//   - allEnvironments:true + delete one env → narrow to "every OTHER
+//     applicable env" (rule stops implicitly following org env changes).
+//   - environments:[a,b] + delete `a` → narrow to environments:[b].
+//   - environments:[a] + delete `a` → action: "delete" (v1 DELETE-from-
+//     last-env removes the rule entirely).
+//   - environments:[a,b] + delete `c` (rule didn't apply to c) → no-op
+//     narrow, never a silent delete.
+
+describe("narrowRuleForEnvRemoval", () => {
+  const applicable = ["dev", "staging", "production"];
+  const base = {
+    id: "r1",
+    type: "force",
+    description: "",
+    value: "x",
+    enabled: true,
+  } as unknown as FeatureRule;
+
+  it("allEnvironments:true, delete one env → narrows to the other applicable envs with allEnvironments:false", () => {
+    const input = { ...base, allEnvironments: true } as FeatureRule;
+    const result = narrowRuleForEnvRemoval(input, "production", applicable);
+    expect(result.action).toBe("narrow");
+    if (result.action !== "narrow") return;
+    expect(result.rule.allEnvironments).toBe(false);
+    expect(result.rule.environments).toEqual(["dev", "staging"]);
+    // Original must not be mutated — the handler clones the flat array and
+    // relies on `===` identity to dispatch; in-place mutation would defeat
+    // the clone and leak into unrelated rules during the transform.
+    expect(input.environments).toBeUndefined();
+    expect(input.allEnvironments).toBe(true);
+  });
+
+  it("environments:[a,b], delete a → narrows to environments:[b]", () => {
+    const input = {
+      ...base,
+      allEnvironments: false,
+      environments: ["dev", "production"],
+    } as FeatureRule;
+    const result = narrowRuleForEnvRemoval(input, "dev", applicable);
+    expect(result.action).toBe("narrow");
+    if (result.action !== "narrow") return;
+    expect(result.rule.allEnvironments).toBe(false);
+    expect(result.rule.environments).toEqual(["production"]);
+  });
+
+  it("environments:[a], delete a → action:'delete' (v1 last-env = rule removed)", () => {
+    const input = {
+      ...base,
+      allEnvironments: false,
+      environments: ["production"],
+    } as FeatureRule;
+    const result = narrowRuleForEnvRemoval(input, "production", applicable);
+    expect(result.action).toBe("delete");
+  });
+
+  it("allEnvironments:true on a project where only one env applies, delete that env → action:'delete'", () => {
+    // Project-scoped features can have an applicable set of size 1. A rule
+    // that applies to all of a single-env project collapses to "delete"
+    // when that env is removed, same as environments:[a].
+    const input = { ...base, allEnvironments: true } as FeatureRule;
+    const result = narrowRuleForEnvRemoval(input, "dev", ["dev"]);
+    expect(result.action).toBe("delete");
+  });
+
+  it("narrow preserves all non-scope rule fields (id, type, value, description, enabled, etc.)", () => {
+    const input = {
+      id: "r_safe",
+      type: "safe-rollout",
+      description: "ramp",
+      enabled: true,
+      value: "on",
+      allEnvironments: true,
+      safeRolloutId: "sr_1",
+      coverage: 0.25,
+    } as unknown as FeatureRule;
+    const result = narrowRuleForEnvRemoval(input, "dev", applicable);
+    expect(result.action).toBe("narrow");
+    if (result.action !== "narrow") return;
+    expect(result.rule.id).toBe("r_safe");
+    expect(result.rule.type).toBe("safe-rollout");
+    expect(
+      (result.rule as unknown as { safeRolloutId?: string }).safeRolloutId,
+    ).toBe("sr_1");
+    expect((result.rule as unknown as { coverage?: number }).coverage).toBe(
+      0.25,
+    );
+    expect(result.rule.description).toBe("ramp");
+    expect(result.rule.enabled).toBe(true);
+  });
+
+  it("environments:[dev, unknown] intersected with applicable [dev,staging,prod], delete dev → action:'delete'", () => {
+    // `unknown` is not in the applicable set, so the effective footprint is
+    // just [dev]. Removing dev collapses to empty → rule deletion. This
+    // matches `ruleFootprint`'s intersect-with-applicable behavior and
+    // protects against a rule clinging to life via a phantom env id.
+    const input = {
+      ...base,
+      allEnvironments: false,
+      environments: ["dev", "unknown"],
+    } as FeatureRule;
+    const result = narrowRuleForEnvRemoval(input, "dev", applicable);
+    expect(result.action).toBe("delete");
+  });
+
+  it("rule that does not apply to the target env → no-op narrow, never a silent delete", () => {
+    // Precondition violation safeguard: if the handler's upstream
+    // `ruleAppliesToEnv` check is ever bypassed, this helper must not
+    // silently delete a rule the caller wasn't targeting. The footprint is
+    // unchanged, so we emit a narrow to the same set.
+    const input = {
+      ...base,
+      allEnvironments: false,
+      environments: ["dev", "staging"],
+    } as FeatureRule;
+    const result = narrowRuleForEnvRemoval(input, "production", applicable);
+    expect(result.action).toBe("narrow");
+    if (result.action !== "narrow") return;
+    expect(result.rule.environments).toEqual(["dev", "staging"]);
+  });
+
+  it("explicit environments:[] rule, delete any env → action:'delete' (footprint already empty)", () => {
+    // `environments: []` is the strict-nowhere state. The handler's
+    // `ruleAppliesToEnv` check would 404 before reaching this helper, but
+    // if it did: empty footprint minus anything is still empty → delete.
+    const input = {
+      ...base,
+      allEnvironments: false,
+      environments: [] as string[],
+    } as FeatureRule;
+    const result = narrowRuleForEnvRemoval(input, "dev", applicable);
+    expect(result.action).toBe("delete");
   });
 });
 
@@ -1164,10 +1404,7 @@ describe("resolveRampTargets (plural)", () => {
   describe("quadrant 4 — (suffixed id, no env)", () => {
     it("exact-matches the disambiguated id only", () => {
       expect(
-        resolveRampTargets(
-          { ruleId: suffixRuleId("r_split", "dev") },
-          rules,
-        ),
+        resolveRampTargets({ ruleId: suffixRuleId("r_split", "dev") }, rules),
       ).toEqual([devSibling]);
     });
   });

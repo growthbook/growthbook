@@ -8,7 +8,6 @@ import {
 } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { stemRuleId } from "shared/util";
 import {
   getApplicableEnvIds,
   ruleFootprint,
@@ -24,12 +23,13 @@ import {
 // (/api/v1) can keep its existing contract while the internal model is v2.
 //
 // Round-trip contract:
-//   - v2 `rule.id` is stem-stripped on down-conversion — any `__<env>`
-//     suffix added during v1->v2 collision disambiguation is removed so v1
-//     clients see the original pre-migration id. When the v1 response is
-//     round-tripped back through `flattenV1ToV2Rules` (on a subsequent v1
-//     PUT), the collision detection re-derives the suffix deterministically,
-//     yielding byte-identical v2 output.
+//   - v2 `rule.id` is preserved verbatim on down-conversion — any `__<env>`
+//     migration suffix stays on the emitted v1 rule. REST mutation endpoints
+//     (PUT/DELETE) enforce exact id matching, so clients must round-trip the
+//     same id they received on GET. When a v1 PUT round-trips back through
+//     `flattenV1ToV2Rules`, the flattener's content-based grouping uses
+//     `stemRuleId` internally so suffixed and bare ids merge/split
+//     identically — the output is byte-stable across cycles.
 //   - The reverse direction — reconstituting v2 from an incoming v1 PUT —
 //     goes through `flattenV1ToV2Rules` (Phase 6a). Its content-based merge
 //     detection gives stable round-trip: if the rules were merged in v2,
@@ -40,27 +40,28 @@ import {
 
 /**
  * Down-convert one v2 FeatureRule to a v1 rule. Strips the v2-only scope
- * fields `allEnvironments` and `environments`, and stem-strips the `id` so
- * any migration-added `__<env>` suffix is invisible to v1 clients.
+ * fields `allEnvironments` and `environments`. The `id` is preserved
+ * verbatim (including any `__<env>` migration suffix) so REST clients can
+ * echo it back on subsequent PUT/DELETE calls — the SDK payload, which has
+ * different identity needs, is the only surface that stem-strips.
  */
 export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
   const {
     allEnvironments: _a,
     environments: _e,
-    id,
     ...rest
   } = rule as FeatureRule & {
     allEnvironments?: boolean;
     environments?: string[];
   };
-  return { ...rest, id: stemRuleId(id) } as unknown as V1FeatureRule;
+  return rest as unknown as V1FeatureRule;
 }
 
 /**
  * Project a v2 `FeatureInterface` to the v1 on-disk shape consumed by the
  * `/api/v1` REST surface: rules move from the top-level array back into
- * `environmentSettings[env].rules`, with migration id suffixes stripped so
- * v1 clients see the pre-unification ids.
+ * `environmentSettings[env].rules`, preserving any `__<env>` migration
+ * suffix on the id so clients can round-trip the id back on PUT/DELETE.
  *
  * Per-env rule order: for each env we emit rules in the order they appear in
  * `feature.rules`, filtered to that env's footprint. That preserves v2's

@@ -12,7 +12,7 @@ import {
   FeatureEnvironment,
 } from "shared/types/feature";
 import { RevisionMetadata } from "shared/types/feature-revision";
-import { getRulesForEnvironment, toV2FeatureSnapshot } from "shared/util";
+import { toV2FeatureSnapshot } from "shared/util";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import Text from "@/ui/Text";
@@ -157,7 +157,41 @@ function formatValue(val: string | unknown): string {
   return JSON.stringify(val, null, 2);
 }
 
+// Inline summary of a rule's environment scope. Tri-state:
+//   allEnvironments:true           → "All environments"
+//   environments: [a, b, …]        → comma-joined list of envs
+//   environments: []               → "No environments (pending)"
+//   environments: undefined        → omitted (defensive fallback; callers
+//                                    shouldn't normally see this)
+function RuleEnvScope({ rule }: { rule: FeatureRule }) {
+  if (rule.allEnvironments) {
+    return (
+      <Badge label="All environments" color="gray" variant="soft" size="xs" />
+    );
+  }
+  if (rule.environments === undefined) return null;
+  if (rule.environments.length === 0) {
+    return (
+      <Badge
+        label="No environments (pending)"
+        color="amber"
+        variant="soft"
+        size="xs"
+      />
+    );
+  }
+  return (
+    <Flex gap="1" wrap="wrap">
+      {rule.environments.map((env) => (
+        <Badge key={env} label={env} color="gray" variant="soft" size="xs" />
+      ))}
+    </Flex>
+  );
+}
+
 // "Rule #3 — Force (value: xyz)" compact descriptor used as a sub-heading.
+// Includes the rule's environment scope inline so the rule diff (which is
+// NOT bucketed by env) still communicates where the rule applies.
 function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
   let detail: ReactNode = "";
   if (rule.type === "force") {
@@ -175,9 +209,12 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
   }
   return (
     <div className="mb-2">
-      <Text size="medium" weight="semibold" color="text-high">
-        Rule #{index} — {getRuleTypeLabel(rule.type)}
-      </Text>
+      <Flex align="center" gap="2" wrap="wrap">
+        <Text size="medium" weight="semibold" color="text-high">
+          Rule #{index} — {getRuleTypeLabel(rule.type)}
+        </Text>
+        <RuleEnvScope rule={rule} />
+      </Flex>
       {(detail || rule.description) && (
         <Text size="small" color="text-low" as="span">
           {detail ? <> ({detail})</> : null}
@@ -676,10 +713,14 @@ export function logBadgeColor(
   return "gray";
 }
 
+// Environment-agnostic summary badges for rule changes. Post-unification the
+// rule list is a single flat array; badges no longer carry an env suffix.
+// Each rule's env scope is rendered inline via `RuleEnvScope` in the diff
+// card heading itself, so env context is preserved without bucketing the
+// section by environment.
 export function featureRuleChangeBadges(
   preRules: FeatureRule[],
   postRules: FeatureRule[],
-  env: string,
 ): DiffBadge[] {
   const { added, removed, modified, reordered } = analyzeRuleChanges(
     preRules,
@@ -688,22 +729,22 @@ export function featureRuleChangeBadges(
   const badges: DiffBadge[] = [];
   if (added.length)
     badges.push({
-      label: `Add rule to ${env}${added.length > 1 ? ` ×${added.length}` : ""}`,
+      label: `Add rule${added.length > 1 ? ` ×${added.length}` : ""}`,
       action: "add rule",
     });
   if (removed.length)
     badges.push({
-      label: `Delete rule in ${env}${removed.length > 1 ? ` ×${removed.length}` : ""}`,
+      label: `Delete rule${removed.length > 1 ? ` ×${removed.length}` : ""}`,
       action: "delete rule",
     });
   if (modified.length)
     badges.push({
-      label: `Edit rule in ${env}${modified.length > 1 ? ` ×${modified.length}` : ""}`,
+      label: `Edit rule${modified.length > 1 ? ` ×${modified.length}` : ""}`,
       action: "edit rule",
     });
   if (reordered)
     badges.push({
-      label: `Reorder rules in ${env}`,
+      label: "Reorder rules",
       action: "reorder rules",
     });
   return badges;
@@ -921,9 +962,14 @@ export function renderFeatureDefaultValueSection(
   );
 }
 
-// Renders per-env enabled toggle and rule diffs.
-// Heading is "Production rules" for rules-only; "Production" when toggle is also involved.
-// Set suppressCardLabel: true on the section to avoid a redundant outer heading.
+// Post-unification the Rules section is NOT bucketed by env. It shows:
+//   (1) per-env enabled-toggle changes (each as its own labeled row), and
+//   (2) a SINGLE rules diff rendered from the flat `feature.rules` array —
+//       each rule card carries its own env scope chip inline (`RuleEnvScope`)
+//       so env context is preserved without a structural split.
+//
+// Set `suppressCardLabel: true` on the parent section config to avoid a
+// redundant outer heading.
 export function renderFeatureRulesSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
@@ -936,66 +982,61 @@ export function renderFeatureRulesSection(
     string,
     FeatureEnvironment
   >;
-  // Enumerate envs from settings (for the `enabled` toggle) unioned with any
-  // envs referenced by rule scoping — covers snapshots where a rule targets
-  // an env that isn't in envSettings (rare but possible with `allEnvironments`).
-  const envsFromRules = new Set<string>();
-  for (const r of [...(pre?.rules ?? []), ...(post.rules ?? [])]) {
-    for (const env of r.environments ?? []) envsFromRules.add(env);
-  }
-  const allEnvs = [
-    ...new Set([
-      ...Object.keys(preEnvs),
-      ...Object.keys(postEnvs),
-      ...envsFromRules,
-    ]),
-  ];
-  const sections: ReactNode[] = [];
+  const envsInSettings = new Set([
+    ...Object.keys(preEnvs),
+    ...Object.keys(postEnvs),
+  ]);
 
-  for (const env of allEnvs) {
-    const preEnv = preEnvs[env];
-    const postEnv = postEnvs[env];
-    const preEnabled = preEnv?.enabled;
-    const postEnabled = postEnv?.enabled;
-    const preRules = getRulesForEnvironment(pre?.rules, env);
-    const postRules = getRulesForEnvironment(post.rules, env);
-
-    const enabledChanged =
+  const toggleRows: ReactNode[] = [];
+  for (const env of envsInSettings) {
+    const preEnabled = preEnvs[env]?.enabled;
+    const postEnabled = postEnvs[env]?.enabled;
+    if (
       preEnabled !== undefined &&
       postEnabled !== undefined &&
-      preEnabled !== postEnabled;
-    const rulesChanged = !isEqual(preRules, postRules);
-
-    if (!enabledChanged && !rulesChanged) continue;
-
-    const rulesRender = rulesChanged
-      ? renderFeatureRules(preRules, postRules)
-      : null;
-
-    const envCapitalized = env.charAt(0).toUpperCase() + env.slice(1);
-    const headingLabel = enabledChanged
-      ? envCapitalized
-      : `${envCapitalized} rules`;
-
-    sections.push(
-      <div key={env} className={sections.length > 0 ? "mt-3" : ""}>
-        <Heading as="h6" size="small" color="text-mid" mb="2">
-          {headingLabel}
-        </Heading>
-        {enabledChanged && (
-          <ChangeField
-            label="Feature enabled"
-            changed
-            oldNode={preEnabled ? "enabled" : "disabled"}
-            newNode={postEnabled ? "enabled" : "disabled"}
-          />
-        )}
-        {rulesRender}
-      </div>,
-    );
+      preEnabled !== postEnabled
+    ) {
+      toggleRows.push(
+        <ChangeField
+          key={`toggle-${env}`}
+          label={`${env} enabled`}
+          changed
+          oldNode={preEnabled ? "enabled" : "disabled"}
+          newNode={postEnabled ? "enabled" : "disabled"}
+        />,
+      );
+    }
   }
 
-  return sections.length ? <>{sections}</> : null;
+  const preRules = Array.isArray(pre?.rules) ? (pre?.rules ?? []) : [];
+  const postRules = Array.isArray(post.rules) ? (post.rules ?? []) : [];
+  const rulesChanged = !isEqual(preRules, postRules);
+  const rulesRender = rulesChanged
+    ? renderFeatureRules(preRules, postRules)
+    : null;
+
+  if (toggleRows.length === 0 && !rulesRender) return null;
+
+  return (
+    <>
+      {toggleRows.length > 0 && (
+        <div className="mb-2">
+          <Heading as="h6" size="small" color="text-mid" mb="2">
+            Environment toggles
+          </Heading>
+          {toggleRows}
+        </div>
+      )}
+      {rulesRender && (
+        <div className={toggleRows.length > 0 ? "mt-3" : ""}>
+          <Heading as="h6" size="small" color="text-mid" mb="2">
+            Rules
+          </Heading>
+          {rulesRender}
+        </div>
+      )}
+    </>
+  );
 }
 
 export function renderFeatureMetadataSection(
@@ -1142,19 +1183,15 @@ export function getFeatureRulesBadges(
     string,
     FeatureEnvironment
   >;
-  const envsFromRules = new Set<string>();
-  for (const r of [...(pre?.rules ?? []), ...(post.rules ?? [])]) {
-    for (const env of r.environments ?? []) envsFromRules.add(env);
-  }
-  const allEnvs = [
-    ...new Set([
-      ...Object.keys(preEnvs),
-      ...Object.keys(postEnvs),
-      ...envsFromRules,
-    ]),
-  ];
-  return allEnvs.flatMap((env) => {
-    const badges: DiffBadge[] = [];
+  const badges: DiffBadge[] = [];
+
+  // Env toggle badges stay per-env — "Enabled in production" is a clearer
+  // summary than a generic "Toggled environment" aggregate.
+  const toggleEnvs = new Set([
+    ...Object.keys(preEnvs),
+    ...Object.keys(postEnvs),
+  ]);
+  toggleEnvs.forEach((env) => {
     const preEnabled = preEnvs[env]?.enabled;
     const postEnabled = postEnvs[env]?.enabled;
     if (
@@ -1167,15 +1204,17 @@ export function getFeatureRulesBadges(
         action: "toggle",
       });
     }
-    badges.push(
-      ...featureRuleChangeBadges(
-        getRulesForEnvironment(pre?.rules, env),
-        getRulesForEnvironment(post.rules, env),
-        env,
-      ),
-    );
-    return badges;
   });
+
+  // Rule badges operate on the flat rules arrays, env-agnostically.
+  badges.push(
+    ...featureRuleChangeBadges(
+      Array.isArray(pre?.rules) ? (pre?.rules ?? []) : [],
+      Array.isArray(post.rules) ? (post.rules ?? []) : [],
+    ),
+  );
+
+  return badges;
 }
 
 // ─── Prerequisite diff helpers ───────────────────────────────────────────────

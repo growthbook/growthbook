@@ -20,6 +20,7 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { FeatureUsageLookback } from "shared/types/integrations";
+import { stemRuleId } from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -85,7 +86,8 @@ function getDummyData(
   const sources = new Set<string>(["defaultValue"]);
   const values = new Set<string>([feature.defaultValue]);
   (feature.rules ?? []).forEach((rule) => {
-    if (rule.id) ruleIds.add(rule.id);
+    // Match real SDK telemetry: stem-stripped rule ids (see getFeatureDefinition)
+    if (rule.id) ruleIds.add(stemRuleId(rule.id));
     if (rule.type === "force") {
       sources.add("force");
       values.add(rule.value);
@@ -248,22 +250,28 @@ export function useFeatureUsage() {
 export function FeatureUsageContainer({
   valueType,
   revision,
-  environments,
   initialTab = "value",
 }: {
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
-  environments?: string[];
   initialTab?: "source" | "value" | "rule";
 }) {
   const [tab, setTab] = useState<"source" | "value" | "rule">(initialTab);
   const { featureUsage, lookback, setLookback } = useFeatureUsage();
 
+  // Post-unification `revision.rules` is a flat `FeatureRule[]` rather than
+  // `Record<env, rule[]>`. SDK payloads emit the STEM id on telemetry rows
+  // (see `getFeatureDefinition` rule-id comment), so we key the label map by
+  // stem — otherwise rows whose rule id was `__env`-suffixed at flatten time
+  // would never match any entry and get filtered out of the graph.
   const ruleLabelMapping = new Map<string, string>();
-  environments?.forEach((env) => {
-    revision?.rules?.[env]?.forEach((rule, i) => {
-      ruleLabelMapping.set(rule.id, `${env} #${i + 1}`);
-    });
+  const rules = Array.isArray(revision?.rules) ? revision.rules : [];
+  rules.forEach((rule, i) => {
+    if (!rule.id) return;
+    const stem = stemRuleId(rule.id);
+    if (!ruleLabelMapping.has(stem)) {
+      ruleLabelMapping.set(stem, rule.description?.trim() || `Rule #${i + 1}`);
+    }
   });
 
   return (
@@ -1056,11 +1064,9 @@ export default function FeatureUsageGraph({
 export function FeatureUsageSparkline({
   valueType,
   revision,
-  environments,
 }: {
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
-  environments?: string[];
 }) {
   const { sparkFeatureUsage, showFeatureUsage } = useFeatureUsage();
   const [modalOpen, setModalOpen] = useState(false);
@@ -1272,7 +1278,6 @@ export function FeatureUsageSparkline({
           <FeatureUsageContainer
             valueType={valueType}
             revision={revision}
-            environments={environments}
             initialTab={valueType === "boolean" ? "value" : "source"}
           />
         </Modal>

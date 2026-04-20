@@ -23,7 +23,6 @@ import {
   recursiveWalk,
   checkIfRevisionNeedsReview,
   ruleAppliesToEnv,
-  stemRuleId,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -1644,11 +1643,14 @@ function eventUserToString(
 function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
-    // v1 REST API surfaces only ever see the bare legacy id. Internally a
-    // migration-suffixed id (e.g. `fr_abc__production`) may be present when
-    // the flattener had to split a non-mergeable collision; we stem-strip
-    // here so external consumers keep referencing rules by their original id.
-    id: stemRuleId(rule.id),
+    // v1 REST response emits the FULL qualified rule id (including any
+    // `__<env>` migration suffix). Clients must echo the id exactly on
+    // subsequent PUT/DELETE calls — mutation endpoints enforce strict id
+    // matching, so stem-stripping here would silently break the round-trip.
+    // Deliberately diverges from the SDK payload contract, which emits the
+    // stem (see `getFeatureDefinition` in `util/features.ts`). REST and SDK
+    // have different consumers and different identity needs — don't unify.
+    id: rule.id,
     condition: rule.condition || "",
     enabled: !!rule.enabled,
     scheduleRules: rule.scheduleRules,
@@ -1731,9 +1733,11 @@ export function toApiRevision(
  * The external contract is still per-env: `rules: Record<env,
  * ApiFeatureRule[]>`. Internally the revision carries a v2 unified
  * `rules: FeatureRule[]` array, so we bucket each rule into the envs it
- * applies to (via `ruleFootprint`). `stemRuleId` inside `normalizeRuleForApi`
- * strips any `__<env>` migration suffix so v1 consumers see the original
- * pre-unification id.
+ * applies to (via `ruleFootprint`). Rule ids are emitted fully qualified —
+ * any `__<env>` migration suffix is preserved so REST clients can echo
+ * them back on PUT/DELETE (mutation endpoints enforce exact id matching).
+ * This diverges from the SDK payload, which stem-strips; see
+ * `normalizeRuleForApi` for the rationale.
  *
  * `orgEnvs` drives the bucket set. `featureProject` (optional) further
  * restricts to envs applicable to that project. Callsites that don't have

@@ -623,14 +623,42 @@ type FeatureRevisionRule = NonNullable<
   FeatureRevisionInterface["rules"]
 >[number];
 
+// Project a flat v2 rules array into per-env buckets for log replay. Logs
+// index rules by env+position (legacy format — see `envsFromSubject`), so
+// replay needs the per-env view that was canonical pre-unification.
+//
+// Bucketing rules:
+//   - allEnvironments:true      → appears in every env bucket (org envs derived
+//                                 from `environmentsEnabled` + any env
+//                                 explicitly mentioned by other rules).
+//   - environments:[a,b]        → appears in a's and b's buckets.
+//   - environments:[]           → pending rule, appears nowhere (unaddressable
+//                                 by env+position log format; only visible in
+//                                 the direct draft/live diff).
+//   - environments:undefined    → permissive fallback, same as
+//                                 allEnvironments:true.
+//
+// Preserves flat-array order within each bucket so positional replay remains
+// correct even when global and env-scoped rules are interleaved.
 function bucketRevisionRulesByEnv(
   rules: FeatureRevisionInterface["rules"] | null | undefined,
+  knownEnvs: string[] = [],
 ): Record<string, FeatureRevisionRule[]> {
   const out: Record<string, FeatureRevisionRule[]> = {};
   if (!Array.isArray(rules)) return out;
+
+  // Seed every known env so even envs with no explicitly-scoped rules still
+  // receive all-env rules.
+  for (const e of knownEnvs) out[e] = out[e] ?? [];
+
   for (const r of rules) {
-    const envs = r.allEnvironments ? null : (r.environments ?? []);
-    if (envs === null) continue; // allEnvironments: caller overlays via envsEnabled
+    let envs: string[];
+    if (r.allEnvironments || r.environments === undefined) {
+      envs = Array.from(new Set([...knownEnvs, ...Object.keys(out)]));
+    } else {
+      envs = r.environments;
+    }
+    if (envs.length === 0) continue;
     for (const e of envs) {
       out[e] = out[e] ?? [];
       out[e].push(r);
@@ -642,8 +670,13 @@ function bucketRevisionRulesByEnv(
 function initialReplayState(
   base: FeatureRevisionInterface | null,
 ): ReplayState {
+  // Seed the bucketing with every env that was referenced in the revision's
+  // own environmentsEnabled map so `allEnvironments: true` rules are placed
+  // into each bucket (otherwise they would only appear in envs referenced by
+  // some OTHER env-scoped rule).
+  const knownEnvs = Object.keys(base?.environmentsEnabled ?? {});
   return {
-    rules: bucketRevisionRulesByEnv(base?.rules),
+    rules: bucketRevisionRulesByEnv(base?.rules, knownEnvs),
     defaultValue: base?.defaultValue ?? "",
     prerequisites: base?.prerequisites ?? [],
     environmentsEnabled: base?.environmentsEnabled ?? {},

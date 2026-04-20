@@ -25,6 +25,7 @@ import Button from "@/ui/Button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
@@ -75,16 +76,49 @@ export default function FeatureRules({
   const envs = environments.map((e) => e.id);
   const [env, setEnv] = useEnvironmentState();
 
-  // Open the rule modal when triggered externally (e.g. from the ramp timeline CTA).
+  // Open the rule modal when triggered externally (e.g. from the ramp
+  // timeline CTA). The RuleModal resolves rules by (env, positional index),
+  // so pending rules (`environments: []`) and rules that don't apply to the
+  // caller-supplied env need a fallback: search every env's projection for a
+  // match, prefer the caller's env if present, else pick the first env where
+  // the rule appears.
   useEffect(() => {
     if (!pendingRuleEdit) return;
     const { environment, ruleId } = pendingRuleEdit;
-    const rules = getRules(feature, environment);
-    const idx = rules.findIndex((r) => r.id === ruleId);
-    if (idx !== -1) {
+
+    const preferredRules = getRules(feature, environment);
+    const preferredIdx = preferredRules.findIndex((r) => r.id === ruleId);
+    if (preferredIdx !== -1) {
       setEnv(environment);
-      setRuleModal({ i: idx, environment, mode: "edit" });
+      setRuleModal({ i: preferredIdx, environment, mode: "edit" });
+      onPendingRuleEditHandled?.();
+      return;
     }
+
+    // Fall back: find any env the rule projects into. Covers the case where
+    // the caller's env was stale (rule since re-scoped away) and also
+    // `allEnvironments` / multi-env rules whose first applicable env isn't
+    // the caller's.
+    for (const e of environments) {
+      if (e.id === environment) continue;
+      const projected = getRules(feature, e.id);
+      const idx = projected.findIndex((r) => r.id === ruleId);
+      if (idx !== -1) {
+        setEnv(e.id);
+        setRuleModal({ i: idx, environment: e.id, mode: "edit" });
+        onPendingRuleEditHandled?.();
+        return;
+      }
+    }
+
+    // Pending rule (`environments: []`) has no projection anywhere. The
+    // modal's (env, index) contract can't address it, so surface a no-op
+    // rather than silently fail. (A future v2-native edit-by-id flow will
+    // remove this gap.)
+
+    console.warn(
+      `[deep-link] rule "${ruleId}" is not visible in any environment tab; open it from the Pending section once scope is set.`,
+    );
     onPendingRuleEditHandled?.();
   }, [pendingRuleEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ruleModal, setRuleModal] = useState<{
@@ -145,17 +179,29 @@ export default function FeatureRules({
                         {e.id}
                       </Text>
                     </Flex>
-                    <Badge
-                      ml="2"
-                      label={
-                        holdout?.environmentSettings?.[e.id]?.enabled
-                          ? (rulesByEnv[e.id].length + 1).toString()
-                          : rulesByEnv[e.id].length.toString()
+                    <Tooltip
+                      body={
+                        // A single rule can apply to many envs post-unification, so
+                        // the same rule legitimately contributes to multiple tab
+                        // counts. Spell that out to avoid "double-count" confusion.
+                        `${rulesByEnv[e.id].length} rule${
+                          rulesByEnv[e.id].length === 1 ? "" : "s"
+                        } apply in this environment (rules scoped to multiple envs are counted in each).`
                       }
-                      radius="full"
-                      variant="solid"
-                      color="violet"
-                    />
+                      tipPosition="bottom"
+                    >
+                      <Badge
+                        ml="2"
+                        label={
+                          holdout?.environmentSettings?.[e.id]?.enabled
+                            ? (rulesByEnv[e.id].length + 1).toString()
+                            : rulesByEnv[e.id].length.toString()
+                        }
+                        radius="full"
+                        variant="solid"
+                        color="violet"
+                      />
+                    </Tooltip>
                   </TabsTrigger>
                 ))}
                 {dropdownEnvs.length === 1 && (

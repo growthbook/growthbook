@@ -59,7 +59,7 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
 
     const unknownIds = ruleIds.filter((id) => !ruleMap.has(id));
     if (unknownIds.length > 0) {
-      throw new BadRequestError(
+      throw new NotFoundError(
         `Unknown rule ID(s): ${unknownIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
       );
     }

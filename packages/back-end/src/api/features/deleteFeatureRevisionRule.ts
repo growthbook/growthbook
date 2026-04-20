@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { deleteFeatureRevisionRuleValidator } from "shared/validators";
-import { resetReviewOnChange, ruleAppliesToEnv, stemRuleId } from "shared/util";
+import { resetReviewOnChange, ruleAppliesToEnv } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -12,6 +12,11 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getApplicableEnvIds,
+  narrowRuleForEnvRemoval,
+} from "back-end/src/util/flattenRules";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   assertValidEnvironment,
   discardIfJustCreated,
@@ -50,17 +55,19 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
-    // v2: revision.rules is a flat FeatureRule[]. Scope deletion to rules
-    // that (a) match the ruleId (with support for the id__env disambiguation
-    // suffix via stemRuleId) and (b) apply to the target environment. If a
-    // shared rule lives across multiple envs, narrow its scope to drop just
-    // this env.
+    // v2: revision.rules is a flat FeatureRule[]. The v1-shaped DELETE route
+    // is per-env — it narrows the matched rule's footprint to "all envs
+    // except this one." When the narrowed footprint collapses to zero envs
+    // (i.e. the target env was the last one this rule applied to) the rule
+    // is dropped entirely; v1 callers expect DELETE from the final env to
+    // remove the rule, not leave a zero-footprint orphan.
+    //
+    // Rule identity is exact: v2 callers MUST supply the full qualified
+    // `rule.id` as emitted by getter endpoints (including any `__<env>`
+    // migration suffix). No stem reconstruction.
     const flat = cloneDeep(revision.rules ?? []);
-    const matchesRule = (r: { id?: string }) =>
-      r.id === req.params.ruleId ||
-      stemRuleId(r.id ?? "") === req.params.ruleId;
     const deletedRule = flat.find(
-      (r) => matchesRule(r) && ruleAppliesToEnv(r, environment),
+      (r) => r.id === req.params.ruleId && ruleAppliesToEnv(r, environment),
     );
     if (!deletedRule) {
       throw new NotFoundError(
@@ -68,35 +75,45 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
+    const orgEnvs = getEnvironments(req.organization);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+    // `narrowRuleForEnvRemoval` encapsulates the narrow-vs-delete decision:
+    //   - `allEnvironments: true` expands to the full applicable set before
+    //     narrowing, so we emit an explicit list of every other env.
+    //   - If the target env is the last one the rule applied to, the rule is
+    //     fully removed (v1 DELETE-from-last-env = delete the rule).
+    //   - An explicit `environments: []` rule is applies-nowhere and would
+    //     already have 404'd via `ruleAppliesToEnv` above.
+    const decision = narrowRuleForEnvRemoval(
+      deletedRule,
+      environment,
+      applicableEnvs,
+    );
+    const fullyDeleted = decision.action === "delete";
+
     const newFlat: typeof flat = [];
     for (const r of flat) {
       if (r !== deletedRule) {
         newFlat.push(r);
         continue;
       }
-      // Multi-env scope: narrow rather than remove globally.
-      if (
-        !r.allEnvironments &&
-        Array.isArray(r.environments) &&
-        r.environments.length > 1
-      ) {
-        newFlat.push({
-          ...r,
-          environments: r.environments.filter((e) => e !== environment),
-        });
-      }
-      // Otherwise drop the rule.
+      if (fullyDeleted) continue;
+      newFlat.push(decision.rule);
     }
 
     const changes: RevisionChanges = { rules: newFlat };
 
-    // Strip pending ramp actions for this rule so they don't fail at publish.
-    const existingActions = revision.rampActions ?? [];
-    const filteredActions = existingActions.filter(
-      (a) => a.ruleId !== req.params.ruleId,
-    );
-    if (filteredActions.length !== existingActions.length) {
-      changes.rampActions = filteredActions;
+    // Ramp actions belong to a specific rule; only strip them if the rule
+    // itself is being fully removed. A narrowed rule still exists and its
+    // pending ramp schedule should survive the env-scoped delete.
+    if (fullyDeleted) {
+      const existingActions = revision.rampActions ?? [];
+      const filteredActions = existingActions.filter(
+        (a) => a.ruleId !== req.params.ruleId,
+      );
+      if (filteredActions.length !== existingActions.length) {
+        changes.rampActions = filteredActions;
+      }
     }
 
     await updateRevision(
@@ -118,9 +135,14 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
       }),
     );
 
-    // Clean up the SafeRollout only if it's draft-only and hasn't started.
-    // If it's still referenced by the live feature, publish handles lifecycle.
-    if (deletedRule?.type === "safe-rollout" && deletedRule.safeRolloutId) {
+    // Clean up the SafeRollout only when the rule was removed entirely and
+    // the live feature no longer references it. A narrowed rule still exists
+    // in the draft and continues to own its SafeRollout.
+    if (
+      fullyDeleted &&
+      deletedRule?.type === "safe-rollout" &&
+      deletedRule.safeRolloutId
+    ) {
       // v2: feature.rules is the authoritative flat rule array.
       const liveRules = (feature.rules ?? []).filter(
         (r) => r.type === "safe-rollout",

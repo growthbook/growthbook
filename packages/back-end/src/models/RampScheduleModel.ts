@@ -20,7 +20,7 @@ import { getCollection } from "back-end/src/util/mongo.util";
 import { applyPagination } from "back-end/src/util/handler";
 import {
   rampTargetsEquivalent,
-  resolveRampTarget,
+  resolveRampTargets,
 } from "back-end/src/util/flattenRules";
 import { MakeModelClass } from "./BaseModel";
 
@@ -291,14 +291,34 @@ export class RampScheduleModel extends BaseClass {
       const envSuffix = body.environment
         ? ` in environment '${body.environment}'`
         : "";
-      const rule = resolveRampTarget(
+      const matches = resolveRampTargets(
         { ruleId: body.ruleId!, environment: body.environment ?? null },
         feature!.rules ?? [],
       );
+      const rule = matches[0];
       if (!rule) {
         throw new Error(
           `Rule '${body.ruleId}' not found${envSuffix}. ` +
             `The rule must be published before attaching a ramp schedule.`,
+        );
+      }
+      // Post-unification, a stem may have multiple sibling rules (one per env)
+      // if it was split via the non-mergeable migration path. Require an
+      // `environment` to disambiguate in that case so we never silently attach
+      // a ramp to an arbitrary sibling.
+      if (matches.length > 1 && !body.environment) {
+        const siblingEnvs = Array.from(
+          new Set(
+            matches.flatMap((r) =>
+              r.allEnvironments
+                ? ["(all environments)"]
+                : (r.environments ?? []),
+            ),
+          ),
+        ).sort();
+        throw new Error(
+          `Rule '${body.ruleId}' is ambiguous — it matches ${matches.length} sibling rules (${siblingEnvs.join(", ")}). ` +
+            `Specify an 'environment' to disambiguate.`,
         );
       }
 

@@ -493,18 +493,13 @@ export default function FeaturesOverview({
         ...liveRevision,
         ...liveRevisionFromFeature(liveRevision, baseFeature),
       };
+      // v2 rules are a flat FeatureRule[]; the mergeResult carries either the
+      // full replacement array (when rules changed) or nothing (when only
+      // non-rule fields changed). Never object-spread an array.
       effectiveRevision = {
         ...filledLive,
         ...mergeResult.result,
-        // Merge rules per-environment so that environments absent from the
-        // sparse mergeResult.result (e.g. production when only dev/staging
-        // changed) inherit their live rules rather than defaulting to [].
-        // Without this, getDraftAffectedEnvironments incorrectly detects a
-        // diff in untouched environments and over-triggers review requirements.
-        rules: {
-          ...filledLive.rules,
-          ...(mergeResult.result.rules ?? {}),
-        },
+        rules: mergeResult.result.rules ?? filledLive.rules,
       };
       effectiveBase = filledLive;
     }
@@ -1278,10 +1273,7 @@ export default function FeaturesOverview({
               Environment Status
             </Heading>
             {showFeatureUsage && (
-              <FeatureUsageSparkline
-                valueType={feature.valueType}
-                environments={envs}
-              />
+              <FeatureUsageSparkline valueType={feature.valueType} />
             )}
           </Flex>
           <div className="mb-4">

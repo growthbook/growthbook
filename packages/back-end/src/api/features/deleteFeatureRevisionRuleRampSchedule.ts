@@ -55,31 +55,53 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       );
     }
 
+    // Resolve the rule so we have a canonical id for all persisted references
+    // (rampAction.ruleId filter, detach action, audit subject, event payload).
+    // Canonical id is `match.id` when the rule still exists on draft or live;
+    // when the rule is gone entirely we fall back to the caller's ruleId so
+    // stale pending actions can still be cleaned up.
+    const resolvedRule =
+      resolveRampTarget(
+        { ruleId, environment: environment ?? null },
+        revision.rules ?? [],
+      ) ??
+      resolveRampTarget(
+        { ruleId, environment: environment ?? null },
+        feature.rules ?? [],
+      );
+    const canonicalRuleId = resolvedRule?.id ?? ruleId;
+
     const existing = revision.rampActions ?? [];
+    // Tolerant match: a pending create may have been recorded under either the
+    // canonical or the caller-provided form (legacy writes could drift).
     const hasPendingCreate = existing.some(
-      (a) => a.mode === "create" && a.ruleId === ruleId,
+      (a) =>
+        a.mode === "create" &&
+        (a.ruleId === canonicalRuleId || a.ruleId === ruleId),
     );
 
     const liveSchedules =
       await req.context.models.rampSchedules.findByTargetRule(
-        ruleId,
+        canonicalRuleId,
         environment ?? undefined,
       );
 
     if (!hasPendingCreate && liveSchedules.length === 0) {
       throw new NotFoundError(
-        `Rule "${ruleId}" has no ramp schedule to remove.`,
+        `Rule "${canonicalRuleId}" has no ramp schedule to remove.`,
       );
     }
 
-    const filtered = existing.filter((a) => a.ruleId !== ruleId);
+    const filtered = existing.filter(
+      (a) => a.ruleId !== canonicalRuleId && a.ruleId !== ruleId,
+    );
 
     // Queue a detach action if a live schedule exists.
     let newRampActions = filtered;
     if (liveSchedules.length > 0) {
       const detach: RevisionRampDetachAction = {
         mode: "detach",
-        ruleId,
+        ruleId: canonicalRuleId,
         rampScheduleId: liveSchedules[0].id,
       };
       newRampActions = [...filtered, detach];
@@ -88,9 +110,6 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     // Affected env list: explicit env if provided, else the rule's footprint
     // across applicable envs (falls back to all applicable envs if the rule
     // isn't present on live or draft).
-    const resolvedRule =
-      resolveRampTarget({ ruleId }, revision.rules ?? []) ??
-      resolveRampTarget({ ruleId }, feature.rules ?? []);
     const orgEnvs = getEnvironments(req.organization);
     const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
     const changedEnvironments = environment
@@ -107,8 +126,8 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       {
         user: req.context.auditUser,
         action: "clear ramp schedule",
-        subject: ruleId,
-        value: JSON.stringify({ ruleId, environment }),
+        subject: canonicalRuleId,
+        value: JSON.stringify({ ruleId: canonicalRuleId, environment }),
       },
       resetReviewOnChange({
         feature,
@@ -133,7 +152,7 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       "rule.rampSchedule.remove",
       {
         environments: changedEnvironments,
-        auditDetails: { ruleId },
+        auditDetails: { ruleId: canonicalRuleId },
       },
     );
 
