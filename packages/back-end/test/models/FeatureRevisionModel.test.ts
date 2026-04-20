@@ -1,9 +1,13 @@
 import { FeatureRule } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { buildFeatureRevisionInterface } from "back-end/src/models/FeatureRevisionModel";
-import { ReqContext } from "back-end/types/request";
 import { suffixRuleId } from "shared/util";
+import {
+  buildFeatureRevisionInterface,
+  normalizeRulesInputToV2,
+} from "back-end/src/models/FeatureRevisionModel";
+import { ReqContext } from "back-end/types/request";
+import { V1RulesByEnv } from "back-end/src/util/flattenRules";
 
 // ---------------------------------------------------------------------------
 // buildFeatureRevisionInterface is the pure-function core of
@@ -32,10 +36,7 @@ function mockContext(envs: Environment[] = ORG_ENVS): ReqContext {
   } as unknown as ReqContext;
 }
 
-function v1Rule(
-  id: string,
-  overrides: Partial<Record<string, unknown>> = {},
-) {
+function v1Rule(id: string, overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id,
     type: "force",
@@ -293,5 +294,117 @@ describe("buildFeatureRevisionInterface", () => {
       const out = buildFeatureRevisionInterface(raw, mockContext());
       expect(out.dateUpdated).toEqual(BASE_REVISION.dateCreated);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// normalizeRulesInputToV2
+//
+// Write-path shim used by createRevision / createInitialRevision. Must accept
+// BOTH the canonical v2 shape (ramp writer, future controller rewrites) AND
+// the legacy v1 per-env Record (old controller handlers still in flight) and
+// produce a canonical v2 array on disk.
+//
+// Regression guard (Tier 1.1): the ramp writer passes a flat `FeatureRule[]`
+// into createRevision. The old implementation did
+// `rules[env] = changes.rules[env] || []`, which against an array-valued
+// `changes.rules` always evaluated to undefined (string keys on arrays),
+// silently wiping every rule on every revision write triggered by ramps.
+// The v2-pass-through test below locks this down: v2 input must round-trip
+// to a non-empty v2 array, never coerced through the v1 Record path.
+// ---------------------------------------------------------------------------
+describe("normalizeRulesInputToV2", () => {
+  const orgEnvs: Environment[] = [
+    { id: "dev" },
+    { id: "production" },
+  ] as Environment[];
+
+  function v2ForceRule(id: string, value = "true"): FeatureRule {
+    return {
+      id,
+      type: "force",
+      description: "",
+      enabled: true,
+      value,
+      allEnvironments: true,
+    } as unknown as FeatureRule;
+  }
+
+  it("passes through a v2 array unchanged (ramp writer round-trip)", () => {
+    const out = normalizeRulesInputToV2([v2ForceRule("fr_ramp")], { orgEnvs });
+
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe("fr_ramp");
+    expect(out[0].allEnvironments).toBe(true);
+  });
+
+  it("flattens a v1 per-env Record whose content matches across envs", () => {
+    // v1 shape — upgradeFeatureRule applied internally. Same id+content in
+    // every env → collapses to one allEnvironments rule.
+    const v1: V1RulesByEnv = {
+      dev: [v1Rule("fr_a")] as unknown as V1RulesByEnv[string],
+      production: [v1Rule("fr_a")] as unknown as V1RulesByEnv[string],
+    };
+
+    const out = normalizeRulesInputToV2(v1, { orgEnvs });
+
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe("fr_a");
+    expect(out[0].allEnvironments).toBe(true);
+  });
+
+  it("suffixes v1 rules whose content differs across envs", () => {
+    const v1: V1RulesByEnv = {
+      dev: [
+        v1Rule("fr_split", { value: "A" }),
+      ] as unknown as V1RulesByEnv[string],
+      production: [
+        v1Rule("fr_split", { value: "B" }),
+      ] as unknown as V1RulesByEnv[string],
+    };
+
+    const out = normalizeRulesInputToV2(v1, { orgEnvs });
+
+    expect(out).toHaveLength(2);
+    const ids = out.map((r) => r.id).sort();
+    expect(ids).toEqual([
+      suffixRuleId("fr_split", "dev"),
+      suffixRuleId("fr_split", "production"),
+    ]);
+    expect(out.every((r) => !r.allEnvironments)).toBe(true);
+  });
+
+  it("returns [] for undefined / null input", () => {
+    expect(normalizeRulesInputToV2(undefined, { orgEnvs })).toEqual([]);
+    expect(normalizeRulesInputToV2(null, { orgEnvs })).toEqual([]);
+  });
+
+  it("returns [] for an empty v2 array", () => {
+    expect(normalizeRulesInputToV2([], { orgEnvs })).toEqual([]);
+  });
+
+  it("honors featureProject when collapsing to allEnvironments", () => {
+    // One restricted env + one unrestricted. Under featureProject="p1" both
+    // are applicable, so a rule present in both collapses to
+    // allEnvironments=true. Pins the applicable-env-derived collapse that
+    // createRevision relies on.
+    const restrictedEnvs: Environment[] = [
+      { id: "dev" } as Environment,
+      { id: "prod-only", projects: ["p1"] } as Environment,
+    ];
+
+    const v1: V1RulesByEnv = {
+      dev: [v1Rule("fr_cov")] as unknown as V1RulesByEnv[string],
+      "prod-only": [v1Rule("fr_cov")] as unknown as V1RulesByEnv[string],
+    };
+
+    const out = normalizeRulesInputToV2(v1, {
+      orgEnvs: restrictedEnvs,
+      featureProject: "p1",
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe("fr_cov");
+    expect(out[0].allEnvironments).toBe(true);
   });
 });

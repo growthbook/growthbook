@@ -13,7 +13,7 @@ import {
   RevisionChanges,
 } from "shared/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
-import { OrganizationInterface } from "shared/types/organization";
+import { Environment, OrganizationInterface } from "shared/types/organization";
 import {
   MinimalFeatureRevisionInterface,
   ActiveDraftStatus,
@@ -488,6 +488,47 @@ export async function getRevisionsByStatus(
   return revisions.filter((r) => !!r).map((r) => toInterface(r, context));
 }
 
+/**
+ * Normalize a `rules` input (from `RevisionChanges.rules` or a legacy v1
+ * per-env record) to the canonical v2 `FeatureRule[]` shape that revisions
+ * persist to disk post-Phase 3.
+ *
+ * Accepts either shape during the migration window:
+ *   - v2 `FeatureRule[]` → pass through with a defensive `upgradeFeatureRule`.
+ *   - v1 `Record<env, FeatureRule[]>` → flatten via `flattenV1ToV2Rules`,
+ *     seeding `applicableEnvs` from the org env list + feature project so
+ *     rules whose footprint covers every applicable env collapse to
+ *     `allEnvironments: true`.
+ *
+ * Callers that already operate on v2 arrays (ramp writer, future controller
+ * rewrites) take the pass-through branch. Callers still emitting v1 records
+ * (legacy controller handlers, to be rewritten in Step 7 of Phase 5a) take
+ * the flatten branch — they produce correct v2 on disk regardless.
+ *
+ * Exported for unit testing; callers inside this module use it directly.
+ */
+export function normalizeRulesInputToV2(
+  rulesInput: unknown,
+  opts: { orgEnvs: Environment[]; featureProject?: string },
+): FeatureRule[] {
+  if (rulesInput === undefined || rulesInput === null) return [];
+  if (isV2RevisionRules(rulesInput)) {
+    return rulesInput.map((r) => upgradeFeatureRule(r));
+  }
+  const record = rulesInput as Record<string, FeatureRule[] | undefined>;
+  const upgraded: V1RulesByEnv = {};
+  for (const [envId, envRules] of Object.entries(record)) {
+    upgraded[envId] = (envRules || []).map(
+      (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
+    );
+  }
+  const applicableEnvs = getApplicableEnvIds(opts.orgEnvs, opts.featureProject);
+  return flattenV1ToV2Rules(upgraded, {
+    envOrder: opts.orgEnvs.map((e) => e.id),
+    applicableEnvs,
+  });
+}
+
 export async function createInitialRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -495,10 +536,11 @@ export async function createInitialRevision(
   environments: string[],
   date?: Date,
 ) {
-  const rules: Record<string, FeatureRule[]> = {};
+  const rules: FeatureRule[] = (feature.rules ?? []).map((r) =>
+    upgradeFeatureRule(r),
+  );
   const environmentsEnabled: Record<string, boolean> = {};
   environments.forEach((env) => {
-    rules[env] = feature.environmentSettings?.[env]?.rules || [];
     environmentsEnabled[env] =
       feature.environmentSettings?.[env]?.enabled ?? false;
   });
@@ -596,14 +638,13 @@ export async function createRevision({
       ? changes.defaultValue
       : feature.defaultValue;
 
-  const rules: Record<string, FeatureRule[]> = {};
-  environments.forEach((env) => {
-    if (changes && changes.rules) {
-      rules[env] = changes.rules[env] || [];
-    } else {
-      rules[env] = feature.environmentSettings?.[env]?.rules || [];
-    }
-  });
+  const rules: FeatureRule[] =
+    changes && "rules" in changes && changes.rules !== undefined
+      ? normalizeRulesInputToV2(changes.rules as unknown, {
+          orgEnvs: context.org.settings?.environments || [],
+          featureProject: feature.project,
+        })
+      : (feature.rules ?? []).map((r) => upgradeFeatureRule(r));
 
   // All fields are always written as a complete snapshot so revisions are
   // self-contained and HEAD can be set to any revision without base traversal.
