@@ -447,7 +447,7 @@ function FactMetricCappingSettingsFormContent({
               onChange={(e) => setUpperDraft(e.target.value)}
               helpText={
                 mode === "absolute"
-                  ? "Maximum aggregated value per user. Leave empty for no upper cap."
+                  ? "Maximum aggregated value per user. Leave empty for no upper cap. When a floor is set, the floor must be less than this ceiling."
                   : "Quantile for the ceiling (e.g. 0.99). Leave empty for no upper cap."
               }
             />
@@ -474,7 +474,7 @@ function FactMetricCappingSettingsFormContent({
               onChange={(e) => setLowerDraft(e.target.value)}
               helpText={
                 mode === "absolute"
-                  ? "Values below this are raised to this floor. Leave empty for no lower cap."
+                  ? "Values below this are raised to this floor. Leave empty for no lower cap. Must be less than the ceiling when both are set."
                   : "Quantile for the floor (e.g. 0.05). Leave empty for no lower cap. Must be less than the upper percentile when both are set."
               }
             />

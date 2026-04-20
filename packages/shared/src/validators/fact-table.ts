@@ -269,7 +269,7 @@ export function validateCappingSettingsOrdering(
     cs.value < lowerValue
   ) {
     throw new Error(
-      "Absolute ceiling (value) must be greater than or equal to absolute floor (lowerValue).",
+      "Lower tail value must be less than upper tail value when both are set.",
     );
   }
 

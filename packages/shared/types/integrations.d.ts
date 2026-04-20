@@ -36,7 +36,8 @@ export type DataType =
   | "boolean"
   | "date"
   | "timestamp"
-  | "hll";
+  | "hll"
+  | "kll";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
@@ -121,7 +122,7 @@ export type FactMetricData = {
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
   /** Upper-tail percentile capping enabled. */
-  isPercentileCapped: boolean;
+  isUpperPercentileCapped: boolean;
   /** Lower-tail percentile capping enabled. */
   isLowerPercentileCapped: boolean;
   /** Build percentile cap CTE and join when upper or lower uses percentile. */
@@ -190,7 +191,7 @@ export type BanditMetricData = Pick<
   | "id"
   | "ratioMetric"
   | "regressionAdjusted"
-  | "isPercentileCapped"
+  | "isUpperPercentileCapped"
   | "isLowerPercentileCapped"
   | "needsPercentileCapJoin"
   | "capCoalesceMetric"
