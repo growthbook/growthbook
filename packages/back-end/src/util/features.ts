@@ -239,9 +239,20 @@ export function getEnabledEnvironments(
       .filter((e) => settings[e].enabled)
       .filter((e) => {
         if (!ruleFilter) return true;
-        const env = settings[e];
-        if (!env?.rules) return false;
-        return env.rules.filter(ruleFilter).some((r) => isRuleEnabled(r));
+        // v2: rules live on the top-level `feature.rules` array scoped by
+        // `allEnvironments` / `environments[]`. Project the unified array
+        // down to just the rules applicable to this env, then test the
+        // caller-supplied filter + enabled-check as before.
+        //
+        // Legacy fallback: v1 fixtures (pre-JIT-upgrade test docs) still
+        // carry rules on `settings[e].rules`. Production readers always go
+        // through `buildFeatureInterface`, so this branch is test-only.
+        let envRules: FeatureRule[] = getRulesForEnvironment(feature.rules, e);
+        if (envRules.length === 0 && !Array.isArray(feature.rules)) {
+          envRules =
+            (settings[e] as unknown as { rules?: FeatureRule[] }).rules ?? [];
+        }
+        return envRules.filter(ruleFilter).some((r) => isRuleEnabled(r));
       })
       .forEach((e) => environments.add(e));
   });
@@ -425,11 +436,14 @@ export function getFeatureDefinition({
   // test fixture that predates the v2 migration), fall back to the per-env
   // `settings.rules` shape. Production readers always route through
   // `buildFeatureInterface` / `buildFeatureRevisionInterface`, so this
-  // fallback is dead code on the live path.
+  // fallback is dead code on the live path. The cast reflects that
+  // `FeatureEnvironment` no longer declares `rules` (it moved to the
+  // top-level array in v2) but v1 test fixtures still carry it as runtime
+  // data.
   const v2Rules = revision?.rules ?? feature.rules;
-  const rules = Array.isArray(v2Rules)
+  const rules: FeatureRule[] = Array.isArray(v2Rules)
     ? getRulesForEnvironment(v2Rules, environment)
-    : (settings.rules ?? []);
+    : ((settings as unknown as { rules?: FeatureRule[] }).rules ?? []);
 
   // undefined = all capabilities; compute build-time constraints when capabilities is set
   const hasPrerequisites =
