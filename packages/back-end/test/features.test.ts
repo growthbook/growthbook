@@ -10,7 +10,7 @@ import {
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
-  createInterfaceEnvSettingsFromApiEnvSettings,
+  buildFeatureRulesFromApiEnvSettings,
   generateRuleId,
   getFeatureDefinitionsResponse,
   hashStrings,
@@ -1808,19 +1808,20 @@ describe("SDK Payloads", () => {
   });
 });
 
-describe("createInterfaceEnvSettingsFromApiEnvSettings", () => {
+describe("buildFeatureRulesFromApiEnvSettings", () => {
   const baseFeature = {
     id: "test-feature",
     valueType: "boolean",
     defaultValue: "false",
     environmentSettings: {},
-  } as FeatureInterface;
+    rules: [],
+  } as unknown as FeatureInterface;
 
   it("preserves rule-level prerequisites across rule types", () => {
     const prerequisites = [
       { id: "parent-feature", condition: '{"value": true}' },
     ];
-    const result = createInterfaceEnvSettingsFromApiEnvSettings(
+    const rules = buildFeatureRulesFromApiEnvSettings(
       baseFeature,
       [{ id: "production" }],
       {
@@ -1856,15 +1857,16 @@ describe("createInterfaceEnvSettingsFromApiEnvSettings", () => {
       },
     );
 
-    const rules = result.production.rules;
     expect(rules).toHaveLength(4);
     rules.forEach((rule) => {
       expect(rule.prerequisites).toEqual(prerequisites);
+      expect(rule.allEnvironments).toBe(false);
+      expect(rule.environments).toEqual(["production"]);
     });
   });
 
   it("omits prerequisites when not provided", () => {
-    const result = createInterfaceEnvSettingsFromApiEnvSettings(
+    const rules = buildFeatureRulesFromApiEnvSettings(
       baseFeature,
       [{ id: "production" }],
       {
@@ -1874,7 +1876,7 @@ describe("createInterfaceEnvSettingsFromApiEnvSettings", () => {
         },
       },
     );
-    expect(result.production.rules[0]).not.toHaveProperty("prerequisites");
+    expect(rules[0]).not.toHaveProperty("prerequisites");
   });
 });
 

@@ -44,8 +44,11 @@ jest.mock("back-end/src/services/features", () => ({
   getSavedGroupMap: jest.fn(),
   getNextScheduledUpdate: jest.fn(),
   addIdsToRules: jest.fn(),
+  addIdsToFlatRules: jest.fn(),
   createInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
   updateInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
+  buildFeatureRulesFromApiEnvSettings: jest.fn(() => []),
+  fromApiEnvSettingsRulesToFeatureEnvSettingsRules: jest.fn(() => []),
 }));
 
 // ---------------------------------------------------------------------------
@@ -231,7 +234,7 @@ describe("features API", () => {
       }),
     );
     expect(auditMock).toHaveBeenCalledWith({
-      details: `{"post":{"defaultValue":"defaultValue","valueType":"string","owner":"${testUser.id}","description":"description","project":"project","dateCreated":"${response.body.feature.feature.dateCreated}","dateUpdated":"${response.body.feature.feature.dateUpdated}","organization":"org","id":"id","archived":true,"version":1,"environmentSettings":"createInterfaceEnvSettingsFromApiEnvSettings","prerequisites":[],"tags":["tag"],"jsonSchema":{"schemaType":"schema","schema":"","simple":{"type":"object","fields":[]},"date":"${response.body.feature.feature.jsonSchema.date}","enabled":false}},"context":{}}`,
+      details: `{"post":{"defaultValue":"defaultValue","valueType":"string","owner":"${testUser.id}","description":"description","project":"project","dateCreated":"${response.body.feature.feature.dateCreated}","dateUpdated":"${response.body.feature.feature.dateUpdated}","organization":"org","id":"id","archived":true,"version":1,"environmentSettings":"createInterfaceEnvSettingsFromApiEnvSettings","rules":[],"prerequisites":[],"tags":["tag"],"jsonSchema":{"schemaType":"schema","schema":"","simple":{"type":"object","fields":[]},"date":"${response.body.feature.feature.jsonSchema.date}","enabled":false}},"context":{}}`,
       entity: { id: "id", object: "feature" },
       event: "feature.create",
     });

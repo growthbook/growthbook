@@ -3,6 +3,7 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
+  getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
@@ -74,19 +75,19 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       changes.defaultValue = revision.defaultValue;
     }
 
-    // Populate all envs so createRevision doesn't default missing ones to [].
-    changes.rules = {};
+    // v2: rules are a single flat array on the revision/feature. Project
+    // per-env only to compute which envs' rule lists effectively changed for
+    // permission gating; persist the whole flat array.
+    const targetRulesFlat = revision.rules ?? feature.rules ?? [];
+    const currentRulesFlat = feature.rules ?? [];
     const changedEnvs: string[] = [];
+    let anyRulesChanged = false;
     environmentIds.forEach((env) => {
-      const currentRules = feature.environmentSettings?.[env]?.rules || [];
-      // Missing env in target revision → preserve current state.
-      const targetRules =
-        revision.rules && env in revision.rules
-          ? revision.rules[env]
-          : currentRules;
-      changes.rules![env] = targetRules;
+      const currentRules = getRulesForEnvironment(currentRulesFlat, env);
+      const targetRules = getRulesForEnvironment(targetRulesFlat, env);
       if (!isEqual(targetRules, currentRules)) {
         changedEnvs.push(env);
+        anyRulesChanged = true;
       }
 
       if (
@@ -100,6 +101,9 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         if (!changedEnvs.includes(env)) changedEnvs.push(env);
       }
     });
+    if (anyRulesChanged) {
+      changes.rules = targetRulesFlat;
+    }
 
     if (changedEnvs.length > 0) {
       if (!context.permissions.canPublishFeature(feature, changedEnvs)) {

@@ -18,12 +18,14 @@ import {
   getDefaultPrerequisiteCondition,
   getDependentExperiments,
   getDependentFeatures,
+  getRulesForEnvironment,
   isFeatureStale,
   IsFeatureStaleResult,
   mergeRevision,
   liveRevisionFromFeature,
   fillRevisionFromFeature,
   getReviewSetting,
+  normalizeRulesInput,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -93,7 +95,6 @@ import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import {
   addIdsToRules,
-  arrayMove,
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
@@ -104,6 +105,13 @@ import {
   getDraftRevision,
   assertCanAutoPublish,
 } from "back-end/src/services/features";
+import {
+  moveRuleInEnv,
+  projectRulesForEnv,
+  removeRuleAtEnvIndex,
+  stampRuleForEnvs,
+  updateRuleAtEnvIndex,
+} from "back-end/src/util/revisionRuleOps";
 import {
   getSDKPayloadCacheLocation,
   formatLegacyCacheKey,
@@ -687,6 +695,7 @@ export async function postFeatures(
     description: "",
     project: "",
     environmentSettings: {},
+    rules: [],
     customFields,
     ...otherProps,
     dateCreated: new Date(),
@@ -720,6 +729,21 @@ export async function postFeatures(
   }
 
   addIdsToRules(feature.environmentSettings, feature.id);
+
+  // v2: persist rules on the flat feature.rules array. Flatten any per-env
+  // rules that arrived via the legacy-shaped body. buildFeatureUpdate in the
+  // model layer will strip the stray envSettings[env].rules at write time.
+  const inboundEnvRules = Object.fromEntries(
+    Object.entries(feature.environmentSettings ?? {}).map(([env, settings]) => [
+      env,
+      ((settings as unknown as { rules?: FeatureRule[] }).rules ??
+        []) as FeatureRule[],
+    ]),
+  );
+  const flattenedInbound = normalizeRulesInput(inboundEnvRules);
+  if (flattenedInbound.length > 0) {
+    feature.rules = [...(feature.rules ?? []), ...flattenedInbound];
+  }
 
   await createFeature(context, feature);
   await context.models.watch.upsertWatch({
@@ -828,16 +852,13 @@ export async function postFeatureRebase(
     throw new Error("Please resolve conflicts before saving");
   }
 
-  const newRules: Record<string, FeatureRule[]> = {};
+  // v2: rules are a flat FeatureRule[]. Prefer the merge result, else fall
+  // back to the feature document's authoritative rules. environmentsEnabled
+  // remains a per-env flag, derived from envSettings.
+  const newRules: FeatureRule[] =
+    mergeResult.result.rules ?? feature.rules ?? [];
   const newEnvironmentsEnabled: Record<string, boolean> = {};
   environmentIds.forEach((env) => {
-    // Prefer the merge result, then fall back to the feature document's actual
-    // live state (authoritative). Do NOT fall back to live.rules[env] directly
-    // since old revisions may be sparse and would incorrectly resolve to [].
-    newRules[env] =
-      mergeResult.result.rules?.[env] ??
-      feature.environmentSettings?.[env]?.rules ??
-      [];
     newEnvironmentsEnabled[env] =
       mergeResult.result.environmentsEnabled?.[env] ??
       feature.environmentSettings?.[env]?.enabled ??
@@ -1176,14 +1197,10 @@ export async function postFeaturePublish(
     ? {
         ...filledLive,
         ...mergeResult.result,
-        // Merge rules per-environment: mergeResult.result.rules is sparse
-        // (only changed envs). A top-level spread would replace filledLive.rules
-        // entirely, making untouched envs appear as [] and incorrectly triggering
-        // review requirements for environments the draft never touched.
-        rules: {
-          ...filledLive.rules,
-          ...(mergeResult.result.rules ?? {}),
-        },
+        // v2: rules is a flat FeatureRule[]. If mergeResult produced a new
+        // rules array (i.e. any rule changes), use it; otherwise preserve
+        // the live rules so untouched envs don't look like they changed.
+        rules: mergeResult.result.rules ?? filledLive.rules ?? [],
       }
     : { ...revision, ...fillRevisionFromFeature(revision, feature) };
 
@@ -1228,12 +1245,25 @@ export async function postFeaturePublish(
       context.permissions.throwPermissionError();
     }
   }
-  // Otherwise, only the environments with rule changes are affected
+  // Otherwise, only the environments with rule changes are affected.
+  // v2: mergeResult.result.rules is a flat FeatureRule[] representing the
+  // post-merge state; derive changed envs by diffing per-env projections
+  // against the live rules.
   else {
-    const changedEnvs = Object.keys(mergeResult.result.rules || {});
-    if (changedEnvs.length > 0) {
-      if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
-        context.permissions.throwPermissionError();
+    const mergedRules = mergeResult.result.rules;
+    if (mergedRules) {
+      const liveRulesFlat: FeatureRule[] = filledLive.rules ?? [];
+      const changedEnvs = environmentIds.filter(
+        (env) =>
+          !isEqual(
+            getRulesForEnvironment(mergedRules, env),
+            getRulesForEnvironment(liveRulesFlat, env),
+          ),
+      );
+      if (changedEnvs.length > 0) {
+        if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+          context.permissions.throwPermissionError();
+        }
       }
     }
   }
@@ -1391,18 +1421,20 @@ export async function postFeatureRevert(
     mergeChanges.defaultValue = revision.defaultValue;
   }
 
+  // v2: rules are a flat FeatureRule[] on both revision and feature. We still
+  // need per-env diffing for permission checks, so project both sides through
+  // `getRulesForEnvironment` before comparing. If ANY env has a diff, we
+  // publish the revision's full flat rules array (mergeChanges.rules).
+  const revRules: FeatureRule[] = revision.rules ?? [];
+  const liveRules: FeatureRule[] = feature.rules ?? [];
   const changedEnvs: string[] = [];
+  let anyRulesChanged = false;
   environmentIds.forEach((env) => {
-    if (
-      revision.rules?.[env] &&
-      !isEqual(
-        revision.rules[env],
-        feature.environmentSettings?.[env]?.rules || [],
-      )
-    ) {
+    const revSlice = getRulesForEnvironment(revRules, env);
+    const liveSlice = getRulesForEnvironment(liveRules, env);
+    if (!isEqual(revSlice, liveSlice)) {
       changedEnvs.push(env);
-      mergeChanges.rules = mergeChanges.rules || {};
-      mergeChanges.rules[env] = revision.rules[env];
+      anyRulesChanged = true;
     }
 
     // Kill switches — sparse: only revert if this revision explicitly set them
@@ -1420,6 +1452,9 @@ export async function postFeatureRevert(
       }
     }
   });
+  if (anyRulesChanged) {
+    mergeChanges.rules = revRules;
+  }
   if (changedEnvs.length > 0) {
     if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
       context.permissions.throwPermissionError();
@@ -1499,16 +1534,11 @@ export async function postFeatureRevert(
   }
 
   // Build the full state of the target revision for the new revision document.
+  // v2: rules is a flat FeatureRule[], sourced from the target revision
+  // (fallback to the feature's own flat rules for sparse legacy revisions).
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: revision.defaultValue,
-    rules: Object.fromEntries(
-      environmentIds.map((env) => [
-        env,
-        revision.rules?.[env] ??
-          feature.environmentSettings?.[env]?.rules ??
-          [],
-      ]),
-    ),
+    rules: revision.rules ?? feature.rules ?? [],
   };
   if (revision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = revision.environmentsEnabled;
@@ -1585,10 +1615,6 @@ export async function postFeatureRevertDraft(
     throw new Error("Could not find feature");
   }
 
-  const allEnvironments = getEnvironments(org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentIds = environments.map((e) => e.id);
-
   const revision = await getRevision({
     context,
     organization: org.id,
@@ -1613,16 +1639,11 @@ export async function postFeatureRevertDraft(
   }
 
   // Build changes representing the full state of the target revision.
+  // v2: rules is a flat FeatureRule[], sourced from the target revision with
+  // a fallback to the feature's own flat rules for sparse legacy revisions.
   const changes: Partial<FeatureRevisionInterface> = {
     defaultValue: revision.defaultValue,
-    rules: Object.fromEntries(
-      environmentIds.map((env) => [
-        env,
-        revision.rules?.[env] ??
-          feature.environmentSettings?.[env]?.rules ??
-          [],
-      ]),
-    ),
+    rules: revision.rules ?? feature.rules ?? [],
   };
 
   if (revision.environmentsEnabled !== undefined) {
@@ -1984,14 +2005,13 @@ export async function postFeatureRule(
     }
   }
 
-  // Prepare rule addition changes (also includes ramp actions if needed)
+  // Prepare rule addition changes (v2: append a single rule scoped to the
+  // selected envs, preserving flat-array order).
+  const existingRules = cloneDeep(revision.rules ?? []);
+  const stampedRule = stampRuleForEnvs(rule, selectedEnvironments);
   const ruleAdditionChanges = {
-    rules: revision.rules ? cloneDeep(revision.rules) : {},
+    rules: [...existingRules, stampedRule],
   };
-  selectedEnvironments.forEach((env) => {
-    ruleAdditionChanges.rules[env] = ruleAdditionChanges.rules[env] || [];
-    ruleAdditionChanges.rules[env].push(rule);
-  });
 
   // Combine rule addition and ramp changes into a single revision update
   const combinedChanges: Record<string, unknown> = ruleAdditionChanges;
@@ -2102,8 +2122,40 @@ export async function postFeatureSync(
   };
   const updatesInRevision: Partial<FeatureInterface> = {};
 
+  // v2: revision rules are a flat FeatureRule[]. The Sync endpoint accepts a
+  // legacy-ish payload where each env's rules live under
+  // `environmentSettings[env].rules`; flatten that into the v2 shape. If the
+  // payload omits rules for an env, fall back to the feature's current rules
+  // for that env (projected from the flat array).
+  const liveFeatureRules: FeatureRule[] = feature.rules ?? [];
+  const buildNextFlatRules = (): FeatureRule[] => {
+    const result: FeatureRule[] = [];
+    environments.forEach((env) => {
+      // Prefer inbound env rules; else preserve existing rules for this env.
+      const inbound = (
+        data.environmentSettings as
+          | Record<string, { rules?: FeatureRule[] }>
+          | undefined
+      )?.[env]?.rules;
+      if (inbound !== undefined) {
+        inbound.forEach((r) =>
+          result.push({
+            ...r,
+            allEnvironments: false,
+            environments: [env],
+          } as FeatureRule),
+        );
+      } else {
+        getRulesForEnvironment(liveFeatureRules, env).forEach((r) =>
+          result.push(r),
+        );
+      }
+    });
+    return result;
+  };
+  const nextFlatRules = buildNextFlatRules();
   const changes: Pick<FeatureRevisionInterface, "rules" | "defaultValue"> = {
-    rules: {},
+    rules: nextFlatRules,
     defaultValue: data.defaultValue ?? feature.defaultValue,
   };
 
@@ -2118,27 +2170,24 @@ export async function postFeatureSync(
   }
 
   environments.forEach((env) => {
-    // Revision Changes
-    changes.rules[env] =
-      data.environmentSettings?.[env]?.rules ??
-      feature.environmentSettings?.[env]?.rules ??
-      [];
-
-    // Feature updates
+    // Feature updates mirror the flat rule set via envSettings.enabled only;
+    // the rules themselves live on feature.rules (v2) and are produced via
+    // changes.rules → createRevision → publishRevision.
     updatesInRevision.environmentSettings =
       updatesInRevision.environmentSettings || {};
     updatesInRevision.environmentSettings[env] = updatesInRevision
       .environmentSettings[env] || {
       enabled: feature.environmentSettings?.[env]?.enabled ?? false,
-      rules: changes.rules[env],
     };
 
+    const inboundEnvRules = (
+      data.environmentSettings as
+        | Record<string, { rules?: FeatureRule[] }>
+        | undefined
+    )?.[env]?.rules;
     if (
-      data.environmentSettings?.[env] &&
-      !isEqual(
-        data.environmentSettings[env].rules || [],
-        feature.environmentSettings?.[env]?.rules || [],
-      )
+      inboundEnvRules !== undefined &&
+      !isEqual(inboundEnvRules, getRulesForEnvironment(liveFeatureRules, env))
     ) {
       needsNewRevision = true;
     }
@@ -2232,29 +2281,18 @@ export async function postFeatureExperimentRefRule(
   const updates: Partial<FeatureInterface> = {
     environmentSettings: feature.environmentSettings,
   };
+
+  // v2: append a single experiment-ref rule scoped to all requested envs,
+  // preserving the existing flat feature.rules array.
+  const stampedRule = stampRuleForEnvs(
+    { ...rule, id: generateRuleId() } as FeatureRule,
+    environments,
+  );
+  const nextRules: FeatureRule[] = [...(feature.rules ?? []), stampedRule];
   const changes: Pick<FeatureRevisionInterface, "rules"> = {
-    rules: {},
+    rules: nextRules,
   };
-  environments.forEach((env) => {
-    const envRule = {
-      ...rule,
-      id: generateRuleId(),
-    };
-
-    // Revision changes
-    changes.rules[env] = [...(feature.environmentSettings?.[env]?.rules || [])];
-    changes.rules[env].push(envRule);
-
-    // Feature updates
-    updates.environmentSettings = updates.environmentSettings || {};
-    updates.environmentSettings[env] = updates.environmentSettings[env] || {
-      enabled: false,
-      rules: [],
-    };
-    updates.environmentSettings[env].rules =
-      updates.environmentSettings[env].rules || [];
-    updates.environmentSettings[env].rules.push(envRule);
-  });
+  updates.rules = nextRules;
 
   const revision = await createRevision({
     context,
@@ -2749,8 +2787,12 @@ export async function putFeatureRule(
   });
 
   // Capture the existing rule ID before editing (used for ramp schedule operations).
-  const existingRuleId: string | undefined =
-    (revision.rules?.[environment]?.[i]?.id as string | undefined) ?? undefined;
+  // v2: revision.rules is a flat FeatureRule[]; project to the env first so
+  // "position i in env X" maps consistently to a single rule.
+  const existingRuleId: string | undefined = projectRulesForEnv(
+    revision.rules ?? [],
+    environment,
+  ).envRules[i]?.id;
 
   // Prepare ramp action changes if needed (will be combined with rule changes)
   let rampActionsUpdate:
@@ -2792,21 +2834,18 @@ export async function putFeatureRule(
     // "clear" removes any pending ramp action for this rule without adding a new one
   }
 
-  // Prepare rule update changes
-  const ruleChanges = {
-    rules: revision.rules ? cloneDeep(revision.rules) : {},
-  };
-  if (!ruleChanges.rules[environment]) {
-    ruleChanges.rules[environment] = [];
-  }
-  if (!ruleChanges.rules[environment][i]) {
-    throw new Error("Unknown rule");
-  }
-  // Merge partial updates with existing rule
-  ruleChanges.rules[environment][i] = {
-    ...ruleChanges.rules[environment][i],
-    ...rule,
-  } as FeatureRule;
+  // Prepare rule update changes (v2: flat FeatureRule[] with env-projected
+  // index semantics). Partial updates are merged into the rule at env-pos
+  // `i`, preserving the rule's original env scope and id.
+  const existingRules = cloneDeep(revision.rules ?? []);
+  const { rules: nextRules } = updateRuleAtEnvIndex(
+    existingRules,
+    environment,
+    i,
+    (existing) =>
+      ({ ...existing, ...(rule as Partial<FeatureRule>) }) as FeatureRule,
+  );
+  const ruleChanges = { rules: nextRules };
 
   // Combine rule and ramp changes into a single revision update
   const combinedChanges: Record<string, unknown> = ruleChanges;
@@ -3179,13 +3218,16 @@ export async function postFeatureMoveRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules ? cloneDeep(revision.rules) : {} };
-  const rules = changes.rules[environment];
-  if (!rules || !rules[from] || !rules[to]) {
-    throw new Error("Invalid rule index");
-  }
-  const rule = rules[from];
-  changes.rules[environment] = arrayMove(rules, from, to);
+  // v2: reorder within the env-projected slice of the flat FeatureRule[]
+  // array, preserving positions of rules scoped to other envs.
+  const existingRules = cloneDeep(revision.rules ?? []);
+  const { rules: nextRules, moved: rule } = moveRuleInEnv(
+    existingRules,
+    environment,
+    from,
+    to,
+  );
+  const changes = { rules: nextRules };
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -3273,16 +3315,17 @@ export async function deleteFeatureRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules ? cloneDeep(revision.rules) : {} };
-  const rules = changes.rules[environment];
-  if (!rules || !rules[i]) {
-    throw new Error("Invalid rule index");
-  }
+  // v2: revision.rules is a flat FeatureRule[]. Remove the rule projected
+  // at env-position `i`; single-env rules are removed globally, multi-env
+  // scope is narrowed (see revisionRuleOps.removeRuleAtEnvIndex).
+  const existingRules = cloneDeep(revision.rules ?? []);
+  const { rules: nextRules, removed: rule } = removeRuleAtEnvIndex(
+    existingRules,
+    environment,
+    i,
+  );
+  const changes = { rules: nextRules };
 
-  const rule = rules[i];
-
-  changes.rules[environment] = rules.slice();
-  changes.rules[environment].splice(i, 1);
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -4004,21 +4047,19 @@ export async function getFeatureById(
   const trackingKeys = new Set<string>();
   let hasSafeRollout = false;
   fullRevisions.forEach((revision) => {
-    environments.forEach((env) => {
-      const rules = revision.rules?.[env];
-      if (!rules) return;
-      rules.forEach((rule) => {
-        // New rules store the experiment id directly
-        if (rule?.type === "experiment-ref") {
-          experimentIds.add(rule.experimentId);
-        }
-        // Old rules store the trackingKey
-        else if (rule?.type === "experiment") {
-          trackingKeys.add(rule.trackingKey || feature.id);
-        } else if (rule?.type === "safe-rollout") {
-          hasSafeRollout = true;
-        }
-      });
+    // v2: iterate the flat rules array directly; a rule scoped to multiple
+    // envs only needs to be visited once per revision for linking purposes.
+    (revision.rules ?? []).forEach((rule) => {
+      // New rules store the experiment id directly
+      if (rule?.type === "experiment-ref") {
+        experimentIds.add(rule.experimentId);
+      }
+      // Old rules store the trackingKey
+      else if (rule?.type === "experiment") {
+        trackingKeys.add(rule.trackingKey || feature.id);
+      } else if (rule?.type === "safe-rollout") {
+        hasSafeRollout = true;
+      }
     });
   });
   const experimentsMap: Map<string, ExperimentInterface> = new Map();
@@ -4053,11 +4094,17 @@ export async function getFeatureById(
         `Published revision defaultValue does not match feature ${org.id}.${feature.id}`,
       );
     }
-    const liveRules = live.rules ?? {};
+    // v2: both live.rules and feature.rules are flat FeatureRule[].
+    // Compare per-env projections so we can still pinpoint which env drifted.
+    const liveRulesFlat: FeatureRule[] = live.rules ?? [];
+    const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
     environments.forEach((env) => {
-      const settings = feature.environmentSettings?.[env];
-      if (!settings) return;
-      if (!isEqual(settings.rules || [], liveRules[env] || [])) {
+      if (
+        !isEqual(
+          getRulesForEnvironment(featureRulesFlat, env),
+          getRulesForEnvironment(liveRulesFlat, env),
+        )
+      ) {
         logger.error(
           `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`,
         );
@@ -4791,10 +4838,9 @@ async function evaluateBatchPrerequisiteStates({
     if (baseFeature) {
       const testFeature = cloneDeep(baseFeature);
       if (revision) {
-        for (const env of Object.keys(testFeature.environmentSettings || {})) {
-          testFeature.environmentSettings[env].rules =
-            revision?.rules?.[env] || [];
-        }
+        // v2: overlay the revision's flat rules onto the test feature so
+        // cycle detection walks the draft's rule prerequisites.
+        testFeature.rules = revision.rules ?? [];
       }
       testFeature.prerequisites = [
         ...(testFeature.prerequisites || []),
@@ -4827,15 +4873,15 @@ async function evaluateBatchPrerequisiteStates({
           const prerequisiteIds: string[] = (feature.prerequisites || []).map(
             (p) => p.id,
           );
-          for (const eid in feature.environmentSettings || {}) {
-            if (!environments.includes(eid)) continue;
-            const env = feature.environmentSettings?.[eid];
-            if (!env?.rules) continue;
-            for (const rule of env.rules || []) {
-              if (rule?.prerequisites?.length) {
-                const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
-                prerequisiteIds.push(...rulePrerequisiteIds);
-              }
+          // v2: iterate the flat rules array, keeping only rules whose scope
+          // intersects the org's enabled environments.
+          for (const rule of feature.rules ?? []) {
+            const applies =
+              rule.allEnvironments ||
+              (rule.environments || []).some((e) => environments.includes(e));
+            if (!applies) continue;
+            if (rule?.prerequisites?.length) {
+              prerequisiteIds.push(...rule.prerequisites.map((p) => p.id));
             }
           }
 
@@ -4903,28 +4949,20 @@ async function evaluateBatchPrerequisiteStates({
         (p) => p.id,
       );
 
-      if (testRevision && feature.id === testFeature.id) {
-        for (const env of Object.keys(testRevision.rules || {})) {
-          if (!environments.includes(env)) continue;
-          const rules = testRevision.rules[env] || [];
-          for (const rule of rules) {
-            if (rule?.prerequisites?.length) {
-              const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
-              prerequisiteIds.push(...rulePrerequisiteIds);
-            }
-          }
-        }
-      } else {
-        for (const eid in feature.environmentSettings || {}) {
-          if (!environments.includes(eid)) continue;
-          const env = feature.environmentSettings?.[eid];
-          if (!env?.rules) continue;
-          for (const rule of env.rules || []) {
-            if (rule?.prerequisites?.length) {
-              const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
-              prerequisiteIds.push(...rulePrerequisiteIds);
-            }
-          }
+      // v2: iterate the flat rules array (from the test revision if we're
+      // on the target feature, else from the feature itself), keeping only
+      // rules whose scope intersects the org's enabled environments.
+      const rulesToScan: FeatureRule[] =
+        testRevision && feature.id === testFeature.id
+          ? (testRevision.rules ?? [])
+          : (feature.rules ?? []);
+      for (const rule of rulesToScan) {
+        const applies =
+          rule.allEnvironments ||
+          (rule.environments || []).some((e) => environments.includes(e));
+        if (!applies) continue;
+        if (rule?.prerequisites?.length) {
+          prerequisiteIds.push(...rule.prerequisites.map((p) => p.id));
         }
       }
 
@@ -4960,10 +4998,9 @@ async function evaluateBatchPrerequisiteStates({
     const testRevision = revision ? cloneDeep(revision) : null;
 
     if (testRevision) {
-      for (const env of Object.keys(testFeature.environmentSettings || {})) {
-        testFeature.environmentSettings[env].rules =
-          testRevision?.rules?.[env] || [];
-      }
+      // v2: overlay the revision's flat rules onto the test feature so
+      // cycle detection walks the draft's current rule prerequisites.
+      testFeature.rules = testRevision.rules ?? [];
     }
 
     if (
@@ -5000,27 +5037,34 @@ async function evaluateBatchPrerequisiteStates({
     const testRevision = revision ? cloneDeep(revision) : null;
 
     if (testRevision) {
-      for (const env of Object.keys(testFeature.environmentSettings || {})) {
-        testFeature.environmentSettings[env].rules =
-          testRevision?.rules?.[env] || [];
-      }
+      // v2: overlay the revision's flat rules onto the test feature for
+      // cycle detection. We then splice/replace the rule at env-pos
+      // `ruleIndex` with an updated copy carrying the proposed prerequisites.
+      testFeature.rules = testRevision.rules ?? [];
 
       const { environment, ruleIndex, prerequisites } = checkRulePrerequisites;
-      testRevision.rules[environment] = testRevision.rules[environment] || [];
-      const existingRule = testRevision.rules[environment][ruleIndex];
+      const flat: FeatureRule[] = testRevision.rules ?? [];
+      const { envRules, parentIndices } = projectRulesForEnv(flat, environment);
+      const existingRule = envRules[ruleIndex];
       if (existingRule) {
-        testRevision.rules[environment][ruleIndex] = {
+        const parentIdx = parentIndices[ruleIndex];
+        flat[parentIdx] = {
           ...existingRule,
           prerequisites: prerequisites || [],
-        };
-      } else if (ruleIndex === testRevision.rules[environment].length) {
-        // New rule being created - add it with prerequisites for cycle check
-        testRevision.rules[environment].push({
-          type: "force",
-          value: "",
-          enabled: true,
-          prerequisites: prerequisites || [],
-        } as FeatureRule);
+        } as FeatureRule;
+        testRevision.rules = flat;
+      } else if (ruleIndex === envRules.length) {
+        // New rule being created - add it with prerequisites for cycle check.
+        const newRule = stampRuleForEnvs(
+          {
+            type: "force",
+            value: "",
+            enabled: true,
+            prerequisites: prerequisites || [],
+          } as FeatureRule,
+          [environment],
+        );
+        testRevision.rules = [...flat, newRule];
       }
     }
 
@@ -5141,9 +5185,10 @@ async function evaluatePrerequisiteStateAsync(
     }
 
     if (!skipRootConditions || !isTopLevel) {
-      if (
-        f.environmentSettings[env].rules?.filter((r) => !!r.enabled)?.length
-      ) {
+      // v2: project the feature's flat rules to this env to match the v1
+      // semantic of "any enabled rule for env makes state conditional".
+      const envRules = getRulesForEnvironment(f.rules ?? [], env);
+      if (envRules.filter((r) => !!r.enabled).length) {
         state = "conditional";
         value = undefined;
       }

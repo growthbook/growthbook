@@ -2,6 +2,7 @@ import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   checkIfRevisionNeedsReview,
+  getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -85,16 +86,20 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     changes.defaultValue = targetRevision.defaultValue;
   }
 
-  changes.rules = {};
   const changedEnvs: string[] = [];
+  // v2: rules live on a single flat array. Diff per-env via projection to
+  // preserve the UX of "which envs' rule lists would change" for permission
+  // checks, but persist the change at the whole-array level below.
+  const targetRulesFlat = targetRevision.rules ?? feature.rules ?? [];
+  const currentRulesFlat = feature.rules ?? [];
+  let anyRulesChanged = false;
   environmentIds.forEach((env) => {
-    const currentRules = feature.environmentSettings?.[env]?.rules || [];
-    const targetRules =
-      targetRevision.rules && env in targetRevision.rules
-        ? targetRevision.rules[env]
-        : currentRules;
-    changes.rules![env] = targetRules;
-    if (!isEqual(targetRules, currentRules)) changedEnvs.push(env);
+    const currentRules = getRulesForEnvironment(currentRulesFlat, env);
+    const targetRules = getRulesForEnvironment(targetRulesFlat, env);
+    if (!isEqual(targetRules, currentRules)) {
+      changedEnvs.push(env);
+      anyRulesChanged = true;
+    }
 
     if (
       targetRevision.environmentsEnabled &&
@@ -108,6 +113,9 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
   });
+  if (anyRulesChanged) {
+    changes.rules = targetRulesFlat;
+  }
 
   if (isPublish && changedEnvs.length > 0) {
     if (!req.context.permissions.canPublishFeature(feature, changedEnvs)) {
@@ -206,14 +214,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
   // used for per-field permission checks.
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: targetRevision.defaultValue,
-    rules: Object.fromEntries(
-      environmentIds.map((env) => [
-        env,
-        targetRevision.rules?.[env] ??
-          feature.environmentSettings?.[env]?.rules ??
-          [],
-      ]),
-    ),
+    rules: targetRevision.rules ?? feature.rules ?? [],
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;

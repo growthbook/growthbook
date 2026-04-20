@@ -3,6 +3,7 @@ import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   experimentHasLinkedChanges,
+  getRulesForEnvironment,
   parseIntWithDefaultCapped,
 } from "shared/util";
 import {
@@ -1005,7 +1006,8 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     if (f.archived) return;
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
-      const rules = f.environmentSettings?.[env]?.rules || [];
+      // v2: rules live on feature.rules, filter to this env.
+      const rules = getRulesForEnvironment(f.rules ?? [], env);
       rules
         .filter(
           (r) =>

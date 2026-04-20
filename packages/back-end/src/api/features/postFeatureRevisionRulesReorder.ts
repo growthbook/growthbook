@@ -1,6 +1,7 @@
-import cloneDeep from "lodash/cloneDeep";
 import { postFeatureRevisionRulesReorderValidator } from "shared/validators";
+import type { FeatureRule } from "shared/types/feature";
 import { resetReviewOnChange } from "shared/util";
+import { projectRulesForEnv } from "back-end/src/util/revisionRuleOps";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -48,7 +49,11 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
       );
     }
 
-    const envRules = revision.rules?.[environment] ?? [];
+    const flatRules: FeatureRule[] = revision.rules ?? [];
+    const { envRules, parentIndices } = projectRulesForEnv(
+      flatRules,
+      environment,
+    );
 
     const ruleMap = new Map(envRules.map((r) => [r.id, r]));
 
@@ -87,8 +92,19 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
       return { revision: toApiRevision(revision, req.context, feature) };
     }
 
-    const newRules = cloneDeep(revision.rules ?? {});
-    newRules[environment] = reordered;
+    // Fold the reordered env slice back into the flat revision.rules array,
+    // preserving other-env rule positions.
+    const parentIdxSet = new Set(parentIndices);
+    const newRules: FeatureRule[] = [];
+    let envCursor = 0;
+    flatRules.forEach((r, idx) => {
+      if (parentIdxSet.has(idx)) {
+        newRules.push(reordered[envCursor]);
+        envCursor++;
+      } else {
+        newRules.push(r);
+      }
+    });
 
     await updateRevision(
       req.context,

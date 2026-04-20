@@ -1,7 +1,11 @@
-import { validateFeatureValue, validateScheduleRules } from "shared/util";
+import {
+  validateFeatureValue,
+  validateScheduleRules,
+  getRulesForEnvironment,
+} from "shared/util";
 import { isEqual } from "lodash";
-import { updateFeatureValidator, RevisionRules } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import { updateFeatureValidator } from "shared/validators";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
@@ -13,11 +17,13 @@ import {
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToRules,
+  fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
+import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -254,10 +260,40 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // 2. rules / defaultValue
-    const revisedRules: RevisionRules = {};
-    Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
-      revisedRules[env] = settings.rules;
+    // v2: rules live on feature.rules (flat). Convert any inbound per-env
+    // rules into a flat array with single-env scope, then union with existing
+    // rules for envs the caller didn't touch so we don't lose them on partial
+    // updates.
+    const incomingEnvs = req.body.environments ?? {};
+    const touchedEnvs = new Set(Object.keys(incomingEnvs));
+    const inboundFlatRules: FeatureRule[] = [];
+    for (const [env, envSettings] of Object.entries(incomingEnvs)) {
+      if (!envSettings.rules) continue;
+      const envRules = fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+        feature,
+        envSettings.rules,
+      );
+      envRules.forEach((r) =>
+        inboundFlatRules.push(stampRuleForEnvs(r, [env])),
+      );
+    }
+    // Carry through untouched-env rules from the existing feature.
+    const preservedRules: FeatureRule[] = (feature.rules ?? []).filter((r) => {
+      if (r.allEnvironments) {
+        // An all-env rule can only be left alone if the caller didn't touch
+        // any env — otherwise it would be ambiguous which envs they meant to
+        // affect. This matches legacy v1 semantics (untouched envs preserved).
+        return true;
+      }
+      const envs = r.environments ?? [];
+      // Keep if none of the rule's envs were touched.
+      return envs.every((e) => !touchedEnvs.has(e));
     });
+    const revisedRulesFlat: FeatureRule[] = [
+      ...preservedRules,
+      ...inboundFlatRules,
+    ];
+
     const changedRuleEnvironments: string[] = [];
     let defaultValueChanged = false;
 
@@ -268,15 +304,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       defaultValueChanged = true;
     }
     if (updates.environmentSettings) {
-      Object.entries(updates.environmentSettings).forEach(([env, settings]) => {
-        if (
-          !isEqual(
-            settings.rules,
-            feature.environmentSettings?.[env]?.rules || [],
-          )
-        ) {
+      Object.keys(updates.environmentSettings).forEach((env) => {
+        const inboundEnv = getRulesForEnvironment(inboundFlatRules, env);
+        const currentEnv = getRulesForEnvironment(feature.rules ?? [], env);
+        if (!isEqual(inboundEnv, currentEnv)) {
           changedRuleEnvironments.push(env);
-          revisedRules[env] = settings.rules;
         }
       });
     }
@@ -345,7 +377,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           : {}),
         ...(hasRuleChanges || hasEnvEnabledChanges
           ? {
-              rules: revisedRules,
+              rules: revisedRulesFlat,
               ...(updates.defaultValue !== undefined
                 ? { defaultValue: updates.defaultValue }
                 : {}),

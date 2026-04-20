@@ -188,27 +188,29 @@ export const findOrCreateGeneratedHypothesis = async (
       environmentSettings: {
         production: {
           enabled: true,
-          rules: [
-            {
-              id: uniqid("fr_"),
-              experimentId: createdExperiment.id,
-              enabled: true,
-              description: "",
-              variations: [
-                {
-                  variationId: createdExperiment.variations[0].id,
-                  value: "false",
-                },
-                {
-                  variationId: createdExperiment.variations[1].id,
-                  value: "true",
-                },
-              ],
-              type: "experiment-ref",
-            },
-          ],
         },
       },
+      rules: [
+        {
+          id: uniqid("fr_"),
+          allEnvironments: false,
+          environments: ["production"],
+          experimentId: createdExperiment.id,
+          enabled: true,
+          description: "",
+          variations: [
+            {
+              variationId: createdExperiment.variations[0].id,
+              value: "false",
+            },
+            {
+              variationId: createdExperiment.variations[1].id,
+              value: "true",
+            },
+          ],
+          type: "experiment-ref",
+        },
+      ],
       linkedExperiments: [createdExperiment.id],
     });
     await context.models.watch.upsertWatch({

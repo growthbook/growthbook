@@ -8,7 +8,9 @@ import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
+  addIdsToFlatRules,
   addIdsToRules,
+  buildFeatureRulesFromApiEnvSettings,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
   getSavedGroupMap,
@@ -135,6 +137,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     archived: !!req.body.archived,
     version: 1,
     environmentSettings: {},
+    rules: [],
     prerequisites: (req.body?.prerequisites || []).map((p) => ({
       id: p,
       condition: `{"value": true}`,
@@ -150,6 +153,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   );
 
   feature.environmentSettings = environmentSettings;
+  // v2: rules live on feature.rules (flat array), sourced from the API's
+  // per-env payload stamped with single-env scope.
+  feature.rules = buildFeatureRulesFromApiEnvSettings(
+    feature,
+    orgEnvs,
+    req.body.environments ?? {},
+  );
 
   const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
 
@@ -173,6 +183,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   addIdsToRules(feature.environmentSettings, feature.id);
+  addIdsToFlatRules(feature.rules, feature.id);
 
   await createFeature(req.context, feature);
 

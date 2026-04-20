@@ -1,5 +1,6 @@
-import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
+import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
+import { ruleAppliesToEnv } from "shared/util";
 import {
   RevisionRampCreateAction,
   ExperimentRefRule,
@@ -204,16 +205,21 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
-    const newRules = cloneDeep(revision.rules ?? {});
-    const envRules = newRules[environment] ?? [];
-    const idx = envRules.findIndex((r) => r.id === req.params.ruleId);
+    // Locate the target rule by (env, id) against the flat v2 array. We use
+    // the env-projected slice so that the mental model "rule X in env Y"
+    // still applies even though storage is flat.
+    const flatRules: FeatureRule[] = revision.rules ?? [];
+    const envProjected = flatRules.filter((r) =>
+      ruleAppliesToEnv(r, environment),
+    );
+    const idx = envProjected.findIndex((r) => r.id === req.params.ruleId);
     if (idx === -1) {
       throw new NotFoundError(
         `Rule "${req.params.ruleId}" not found in environment "${environment}"`,
       );
     }
 
-    const oldRule = envRules[idx];
+    const oldRule = envProjected[idx];
 
     // Once a safe rollout is running, block edits to fields that would
     // corrupt the running experiment.
@@ -299,8 +305,13 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
-    envRules[idx] = updatedRule;
-    newRules[environment] = envRules;
+    // Fold the updated rule back into the flat array, preserving scope.
+    const { rules: newRules } = updateRuleAtEnvIndex(
+      flatRules,
+      environment,
+      idx,
+      () => updatedRule,
+    );
 
     const changes: RevisionChanges = { rules: newRules };
 

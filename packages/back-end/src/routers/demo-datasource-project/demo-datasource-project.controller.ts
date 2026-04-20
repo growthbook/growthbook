@@ -12,7 +12,7 @@ import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { DataSourceSettings } from "shared/types/datasource";
 import { ExperimentInterface } from "shared/types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
@@ -445,45 +445,44 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       defaultValue: "false",
       tags: DEMO_TAGS,
       environmentSettings: {},
+      rules: [],
     };
 
     environments.forEach((env) => {
       featureToCreate.environmentSettings[env] = {
         enabled: true,
-        rules: [
-          {
-            type: "force",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
-            value: "true",
-            condition: `{"is_employee":true}`,
-            enabled: true,
-          },
-          {
-            type: "experiment-ref",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-exp-rule`,
-            enabled: true,
-            experimentId: DEMO_DATA_EXPERIMENT_ID, // This value is replaced below after the experiment is created.
-            variations: [
-              {
-                variationId: "v0",
-                value: "false",
-              },
-              {
-                variationId: "v1",
-                value: "true",
-              },
-            ],
-          },
-        ],
       };
-
-      featureToCreate.environmentSettings[env].rules.forEach((rule) => {
-        if (rule.type === "experiment-ref") {
-          (rule as ExperimentRefRule).experimentId = createdExperiment.id;
-        }
-      });
+      featureToCreate.rules.push(
+        {
+          type: "force",
+          description: "",
+          id: `${getDemoDataSourceFeatureId()}-employee-force-rule-${env}`,
+          allEnvironments: false,
+          environments: [env],
+          value: "true",
+          condition: `{"is_employee":true}`,
+          enabled: true,
+        },
+        {
+          type: "experiment-ref",
+          description: "",
+          id: `${getDemoDataSourceFeatureId()}-exp-rule-${env}`,
+          allEnvironments: false,
+          environments: [env],
+          enabled: true,
+          experimentId: createdExperiment.id,
+          variations: [
+            {
+              variationId: "v0",
+              value: "false",
+            },
+            {
+              variationId: "v1",
+              value: "true",
+            },
+          ],
+        },
+      );
     });
 
     await createFeature(context, featureToCreate);

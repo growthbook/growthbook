@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { deleteFeatureRevisionRuleValidator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { resetReviewOnChange, ruleAppliesToEnv } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -50,21 +50,44 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
-    const newRules = cloneDeep(revision.rules ?? {});
-    const before = newRules[environment]?.length ?? 0;
-    const deletedRule = (newRules[environment] ?? []).find(
-      (r) => r.id === req.params.ruleId,
+    // v2: revision.rules is a flat FeatureRule[]. Scope deletion to rules
+    // that (a) match the ruleId (with support for the id__env disambiguation
+    // suffix) and (b) apply to the target environment. If a shared rule
+    // lives across multiple envs, narrow its scope to drop just this env.
+    const flat = cloneDeep(revision.rules ?? []);
+    const ruleStem = (r: { id?: string }) => (r.id ?? "").split("__")[0];
+    const matchesRule = (r: { id?: string }) =>
+      r.id === req.params.ruleId || ruleStem(r) === req.params.ruleId;
+    const deletedRule = flat.find(
+      (r) => matchesRule(r) && ruleAppliesToEnv(r, environment),
     );
-    newRules[environment] = (newRules[environment] ?? []).filter(
-      (r) => r.id !== req.params.ruleId,
-    );
-    if (newRules[environment].length === before) {
+    if (!deletedRule) {
       throw new NotFoundError(
         `Rule "${req.params.ruleId}" not found in environment "${environment}"`,
       );
     }
 
-    const changes: RevisionChanges = { rules: newRules };
+    const newFlat: typeof flat = [];
+    for (const r of flat) {
+      if (r !== deletedRule) {
+        newFlat.push(r);
+        continue;
+      }
+      // Multi-env scope: narrow rather than remove globally.
+      if (
+        !r.allEnvironments &&
+        Array.isArray(r.environments) &&
+        r.environments.length > 1
+      ) {
+        newFlat.push({
+          ...r,
+          environments: r.environments.filter((e) => e !== environment),
+        });
+      }
+      // Otherwise drop the rule.
+    }
+
+    const changes: RevisionChanges = { rules: newFlat };
 
     // Strip pending ramp actions for this rule so they don't fail at publish.
     const existingActions = revision.rampActions ?? [];
@@ -97,9 +120,10 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
     // Clean up the SafeRollout only if it's draft-only and hasn't started.
     // If it's still referenced by the live feature, publish handles lifecycle.
     if (deletedRule?.type === "safe-rollout" && deletedRule.safeRolloutId) {
-      const liveRules = Object.values(feature.environmentSettings ?? {})
-        .flatMap((env) => env.rules ?? [])
-        .filter((r) => r.type === "safe-rollout");
+      // v2: feature.rules is the authoritative flat rule array.
+      const liveRules = (feature.rules ?? []).filter(
+        (r) => r.type === "safe-rollout",
+      );
       const stillLive = liveRules.some(
         (r) =>
           "safeRolloutId" in r && r.safeRolloutId === deletedRule.safeRolloutId,

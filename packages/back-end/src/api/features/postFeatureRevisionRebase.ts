@@ -83,13 +83,10 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     );
   }
 
-  const newRules: Record<string, FeatureRule[]> = {};
+  const newRules: FeatureRule[] =
+    mergeResult.result.rules ?? feature.rules ?? [];
   const newEnvironmentsEnabled: Record<string, boolean> = {};
   environmentIds.forEach((env) => {
-    newRules[env] =
-      mergeResult.result.rules?.[env] ??
-      feature.environmentSettings?.[env]?.rules ??
-      [];
     newEnvironmentsEnabled[env] =
       mergeResult.result.environmentsEnabled?.[env] ??
       feature.environmentSettings?.[env]?.enabled ??
@@ -112,9 +109,14 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
 
   // A rebase that actually pulls in upstream changes must re-trigger review
   // per org policy — the prior approval was for pre-rebase content.
+  // v2: rules merge at the whole-array level, so when the rebase produced a
+  // new rules array we treat every env the feature is in as potentially
+  // changed for review-reset purposes. (The old per-env keys only reflected
+  // which envs had explicit overrides, not which rules actually changed.)
+  const rulesChanged = mergeResult.result.rules !== undefined;
   const changedEnvsFromRebase = Array.from(
     new Set([
-      ...Object.keys(mergeResult.result.rules ?? {}),
+      ...(rulesChanged ? environmentIds : []),
       ...Object.keys(mergeResult.result.environmentsEnabled ?? {}),
     ]),
   );

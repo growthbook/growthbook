@@ -49,6 +49,7 @@ const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
   const base = {
     id,
+    allEnvironments: false,
     description: input.description ?? "",
     enabled: input.enabled ?? true,
     condition: input.condition,
@@ -298,8 +299,15 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       );
     }
 
-    const newRules = cloneDeep(revision.rules ?? {});
-    newRules[environment] = [...(newRules[environment] ?? []), rule];
+    // v2: rules live on a flat top-level array. Stamp the new rule with
+    // single-env scope and append to the existing array.
+    const baseRules = cloneDeep(revision.rules ?? []);
+    const stampedRule: FeatureRule = {
+      ...rule,
+      allEnvironments: false,
+      environments: [environment],
+    };
+    const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
     const changes: RevisionChanges = { rules: newRules };
 

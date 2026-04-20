@@ -1014,7 +1014,8 @@ describe("SDK payload generation (scenario-specific)", () => {
         description: "",
         version: 1,
         prerequisites: [{ id: parentId, condition: '{"value": true}' }],
-        environmentSettings: { production: { enabled: true, rules: [] } },
+        environmentSettings: { production: { enabled: true } },
+        rules: [],
       } as FeatureInterface;
     }
 
@@ -1033,25 +1034,25 @@ describe("SDK payload generation (scenario-specific)", () => {
         description: "",
         version: 1,
         environmentSettings: {
-          production: {
-            enabled: true,
-            rules: [
-              {
-                type: "experiment",
-                id: "r1",
-                enabled: true,
-                coverage: 1,
-                values: [
-                  { value: "false", weight: 0.5, name: "C" },
-                  { value: "true", weight: 0.5, name: "T" },
-                ],
-                hashAttribute: "id",
-                seed: "s1",
-                prerequisites: [{ id: parentId, condition: '{"value": true}' }],
-              },
-            ],
-          },
+          production: { enabled: true },
         },
+        rules: [
+          {
+            type: "experiment",
+            id: "r1",
+            allEnvironments: false,
+            environments: ["production"],
+            enabled: true,
+            coverage: 1,
+            values: [
+              { value: "false", weight: 0.5, name: "C" },
+              { value: "true", weight: 0.5, name: "T" },
+            ],
+            hashAttribute: "id",
+            seed: "s1",
+            prerequisites: [{ id: parentId, condition: '{"value": true}' }],
+          },
+        ],
       } as FeatureInterface;
     }
 

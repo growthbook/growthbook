@@ -22,6 +22,7 @@ import {
   NodeHandler,
   recursiveWalk,
   checkIfRevisionNeedsReview,
+  ruleAppliesToEnv,
   stemRuleId,
 } from "shared/util";
 import {
@@ -1525,9 +1526,14 @@ export function addIdsToRules(
   environmentSettings: Record<string, FeatureEnvironment> = {},
   featureId: string,
 ) {
+  // v2: rules no longer live under environmentSettings. This is retained only
+  // to defensively stamp ids on any stray env.rules that may slip through
+  // during the migration window (e.g. legacy callers building the shape
+  // inline). Paired with addIdsToFlatRules for the authoritative v2 path.
   Object.values(environmentSettings).forEach((env) => {
-    if (env.rules && env.rules.length) {
-      env.rules.forEach((r) => {
+    const rules = (env as unknown as { rules?: FeatureRule[] }).rules;
+    if (rules && rules.length) {
+      rules.forEach((r) => {
         if (r.type === "experiment" && !r?.trackingKey) {
           r.trackingKey = featureId;
         }
@@ -1535,6 +1541,20 @@ export function addIdsToRules(
           r.id = generateRuleId();
         }
       });
+    }
+  });
+}
+
+export function addIdsToFlatRules(
+  rules: FeatureRule[] = [],
+  featureId: string,
+): void {
+  rules.forEach((r) => {
+    if (r.type === "experiment" && !r?.trackingKey) {
+      r.trackingKey = featureId;
+    }
+    if (!r.id) {
+      r.id = generateRuleId();
     }
   });
 }
@@ -2172,10 +2192,10 @@ export function sha256(str: string, salt: string): string {
     .digest("hex");
 }
 
-const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
+export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
-): FeatureInterface["environmentSettings"][string]["rules"] =>
+): FeatureRule[] =>
   rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {
@@ -2189,6 +2209,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         const experimentRefRule: ExperimentRefRule = {
           // missing id will be filled in by addIdsToRules
           id: r.id ?? "",
+          allEnvironments: false,
           type: r.type,
           enabled: r.enabled != null ? r.enabled : true,
           description: r.description ?? "",
@@ -2210,6 +2231,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         const experimentRule: ExperimentRule = {
           // missing id will be filled in by addIdsToRules
           id: r.id ?? "",
+          allEnvironments: false,
           type: r.type,
           hashAttribute: r.hashAttribute ?? "",
           coverage: r.coverage,
@@ -2227,6 +2249,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         const forceRule: ForceRule = {
           // missing id will be filled in by addIdsToRules
           id: r.id ?? "",
+          allEnvironments: false,
           type: r.type,
           description: r.description ?? "",
           value: validateFeatureValue(feature, r.value),
@@ -2245,6 +2268,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         const rolloutRule: RolloutRule = {
           // missing id will be filled in by addIdsToRules
           id: r.id ?? "",
+          allEnvironments: false,
           type: r.type,
           coverage: r.coverage,
           description: r.description ?? "",
@@ -2280,12 +2304,6 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
       ...acc,
       [e.id]: {
         enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
-        rules: incomingEnvs?.[e.id]?.rules
-          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
-              feature,
-              incomingEnvs[e.id].rules,
-            )
-          : [],
       },
     }),
     {} as Record<string, FeatureEnvironment>,
@@ -2301,15 +2319,39 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
       ...acc,
       [k]: {
         enabled: incomingEnvs[k].enabled ?? existing[k]?.enabled ?? false,
-        rules: incomingEnvs[k].rules
-          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
-              feature,
-              incomingEnvs[k].rules,
-            )
-          : (existing[k]?.rules ?? []),
       },
     };
   }, existing);
+};
+
+/**
+ * Build the v2 flat `feature.rules` array from the API's per-env payload.
+ * Each env's rule list is stamped with `allEnvironments: false` and
+ * `environments: [env]` so the rules retain their original env scope after
+ * being unified into a single top-level array.
+ */
+export const buildFeatureRulesFromApiEnvSettings = (
+  feature: FeatureInterface,
+  baseEnvs: Environment[],
+  incomingEnvs: ApiFeatureEnvSettings,
+): FeatureRule[] => {
+  const result: FeatureRule[] = [];
+  baseEnvs.forEach((e) => {
+    const apiRules = incomingEnvs?.[e.id]?.rules;
+    if (!apiRules) return;
+    const converted = fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+      feature,
+      apiRules,
+    );
+    converted.forEach((r) =>
+      result.push({
+        ...r,
+        allEnvironments: false,
+        environments: [e.id],
+      } as FeatureRule),
+    );
+  });
+  return result;
 };
 
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
@@ -2376,18 +2418,20 @@ export const reduceFeaturesWithPrerequisites = (
   }
 
   // block "always off" rules, or reduce "always on" rules
+  // v2: rules live on feature.rules (flat). We only touch rules that apply to
+  // the selected environment; other-env rules are carried through verbatim so
+  // feature.rules remains intact for downstream payload builders.
   for (let i = 0; i < newFeatures.length; i++) {
     const feature = newFeatures[i];
-    if (!feature.environmentSettings[environment]?.rules) continue;
+    const existingRules = feature.rules ?? [];
+    if (existingRules.length === 0) continue;
 
     const newFeatureRules: FeatureRule[] = [];
-
-    for (
-      let i = 0;
-      i < feature.environmentSettings[environment].rules.length;
-      i++
-    ) {
-      const rule = feature.environmentSettings[environment].rules[i];
+    for (const rule of existingRules) {
+      if (!ruleAppliesToEnv(rule, environment)) {
+        newFeatureRules.push(rule);
+        continue;
+      }
       const { removeRule, newPrerequisites } =
         getInlinePrerequisitesReductionInfo(
           rule.prerequisites || [],
@@ -2400,7 +2444,7 @@ export const reduceFeaturesWithPrerequisites = (
         newFeatureRules.push(rule);
       }
     }
-    newFeatures[i].environmentSettings[environment].rules = newFeatureRules;
+    newFeatures[i].rules = newFeatureRules;
   }
 
   return newFeatures;

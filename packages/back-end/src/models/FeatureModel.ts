@@ -562,7 +562,7 @@ export async function createFeature(
     );
   }
 
-  onFeatureCreate(context, feature).catch((e) => {
+  onFeatureCreate(context, toInterface(feature, context)).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature create");
   });
 }
@@ -609,7 +609,7 @@ export async function deleteAllFeaturesForAProject({
   });
 
   for (const feature of featuresToDelete) {
-    await deleteFeature(context, feature);
+    await deleteFeature(context, toInterface(feature, context));
   }
 }
 
