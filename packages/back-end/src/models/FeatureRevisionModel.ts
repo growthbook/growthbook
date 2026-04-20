@@ -815,12 +815,29 @@ export async function updateRevision(
     status = "pending-review";
   }
 
+  // Belt-and-suspenders: every current caller passes v2-shape rules, but
+  // `changes` is a loose shape that historically tolerated v1 inputs. Route
+  // any `rules` field through `normalizeRulesInputToV2` so that a regressed
+  // caller cannot silently persist a legacy per-env shape to disk. No-op on
+  // already-canonical v2 arrays (the pass-through branch in
+  // `normalizeRulesInputToV2`).
+  const normalizedChanges: RevisionChanges =
+    "rules" in changes && changes.rules !== undefined
+      ? {
+          ...changes,
+          rules: normalizeRulesInputToV2(changes.rules as unknown, {
+            orgEnvs: context.org.settings?.environments || [],
+            featureProject: feature.project,
+          }),
+        }
+      : changes;
+
   await runValidateFeatureRevisionHooks({
     context,
     feature,
     revision: {
       ...revision,
-      ...changes,
+      ...normalizedChanges,
       status,
     },
     original: revision,
@@ -840,7 +857,7 @@ export async function updateRevision(
     },
     {
       $set: {
-        ...changes,
+        ...normalizedChanges,
         status,
         dateUpdated: new Date(),
       },

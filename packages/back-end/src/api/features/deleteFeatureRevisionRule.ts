@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { deleteFeatureRevisionRuleValidator } from "shared/validators";
-import { resetReviewOnChange, ruleAppliesToEnv } from "shared/util";
+import { resetReviewOnChange, ruleAppliesToEnv, stemRuleId } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -52,12 +52,13 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
 
     // v2: revision.rules is a flat FeatureRule[]. Scope deletion to rules
     // that (a) match the ruleId (with support for the id__env disambiguation
-    // suffix) and (b) apply to the target environment. If a shared rule
-    // lives across multiple envs, narrow its scope to drop just this env.
+    // suffix via stemRuleId) and (b) apply to the target environment. If a
+    // shared rule lives across multiple envs, narrow its scope to drop just
+    // this env.
     const flat = cloneDeep(revision.rules ?? []);
-    const ruleStem = (r: { id?: string }) => (r.id ?? "").split("__")[0];
     const matchesRule = (r: { id?: string }) =>
-      r.id === req.params.ruleId || ruleStem(r) === req.params.ruleId;
+      r.id === req.params.ruleId ||
+      stemRuleId(r.id ?? "") === req.params.ruleId;
     const deletedRule = flat.find(
       (r) => matchesRule(r) && ruleAppliesToEnv(r, environment),
     );
