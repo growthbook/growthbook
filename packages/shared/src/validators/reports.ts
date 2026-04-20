@@ -16,8 +16,11 @@ const reportAnalysisSettingsSchema = z
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
     activationMetric: z.string().optional(),
+    dimension: z.string().optional(),
     dateStarted: z.string().optional(),
     dateEnded: z.string().optional(),
+    regressionAdjustmentEnabled: z.boolean().optional(),
+    sequentialTestingEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -126,9 +129,14 @@ const postReportBody = z
     dimension: z.string().describe("Dimension to cut results by").optional(),
     dateStarted: z
       .string()
+      .datetime({ offset: true })
       .describe("Analysis start date (ISO 8601)")
       .optional(),
-    dateEnded: z.string().describe("Analysis end date (ISO 8601)").optional(),
+    dateEnded: z
+      .string()
+      .datetime({ offset: true })
+      .describe("Analysis end date (ISO 8601)")
+      .optional(),
     regressionAdjustmentEnabled: z
       .boolean()
       .describe("Enable CUPED regression adjustment")

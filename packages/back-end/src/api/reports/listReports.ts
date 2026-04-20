@@ -3,6 +3,7 @@ import {
   getReportsByExperimentId,
   getReportsByOrg,
 } from "back-end/src/models/ReportModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   createApiRequestHandler,
   applyPagination,
@@ -14,9 +15,21 @@ export const listReports = createApiRequestHandler(listReportsValidator)(async (
 ) => {
   const { org } = req.context;
 
-  const reports = req.query.experimentId
-    ? await getReportsByExperimentId(org.id, req.query.experimentId)
-    : await getReportsByOrg(req.context, "");
+  let reports;
+  if (req.query.experimentId) {
+    // Gate by experiment read permission so an org-scoped key can't enumerate
+    // reports for experiments in projects the caller can't access.
+    const experiment = await getExperimentById(
+      req.context,
+      req.query.experimentId,
+    );
+    if (!experiment) {
+      throw new Error("Could not find experiment with that id");
+    }
+    reports = await getReportsByExperimentId(org.id, req.query.experimentId);
+  } else {
+    reports = await getReportsByOrg(req.context, "");
+  }
 
   const { filtered, returnFields } = applyPagination(reports, req.query);
 

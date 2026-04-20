@@ -33,12 +33,15 @@ export function toReportApiInterface(
         secondaryMetrics: settings.secondaryMetrics,
         guardrailMetrics: settings.guardrailMetrics,
         activationMetric: settings.activationMetric || undefined,
+        dimension: settings.dimension || undefined,
         dateStarted:
           settings.dateStarted?.toISOString?.() ??
           (settings.dateStarted ? String(settings.dateStarted) : undefined),
         dateEnded:
           settings.dateEnded?.toISOString?.() ??
           (settings.dateEnded ? String(settings.dateEnded) : undefined),
+        regressionAdjustmentEnabled: settings.regressionAdjustmentEnabled,
+        sequentialTestingEnabled: settings.sequentialTestingEnabled,
       };
     }
   } else if (report.type === "experiment") {
@@ -50,12 +53,15 @@ export function toReportApiInterface(
         secondaryMetrics: args.secondaryMetrics,
         guardrailMetrics: args.guardrailMetrics,
         activationMetric: args.activationMetric || undefined,
+        dimension: args.dimension || undefined,
         dateStarted:
           args.startDate?.toISOString?.() ??
           (args.startDate ? String(args.startDate) : undefined),
         dateEnded:
           args.endDate?.toISOString?.() ??
           (args.endDate ? String(args.endDate) : undefined),
+        regressionAdjustmentEnabled: args.regressionAdjustmentEnabled,
+        sequentialTestingEnabled: args.sequentialTestingEnabled,
       };
     }
   }

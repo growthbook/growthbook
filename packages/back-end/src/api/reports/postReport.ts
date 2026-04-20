@@ -3,18 +3,11 @@ import {
   experimentAnalysisSettings,
 } from "shared/validators";
 import { pick, omit } from "lodash";
-import uniqid from "uniqid";
 import { getAllVariations } from "shared/experiments";
-import {
-  ExperimentReportAnalysisSettings,
-  ExperimentSnapshotReportInterface,
-} from "shared/types/report";
+import { ExperimentReportAnalysisSettings } from "shared/types/report";
 import { getValidDate } from "shared/dates";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import {
-  createExperimentSnapshotModel,
-  getLatestSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { createReport, updateReport } from "back-end/src/models/ReportModel";
@@ -147,36 +140,13 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     details: JSON.stringify({ report: report.id }),
   });
 
-  // Clone the latest snapshot with reset status so a stale "success" isn't
-  // misleading if the fresh analysis below fails.
-  const clonedSnapshot = {
-    ...latestSnapshot,
-    id: uniqid("snp_"),
-    type: "report" as const,
-    report: report.id,
-    triggeredBy: "manual" as const,
-    status: "running" as const,
-    error: "",
-    queries: [],
-  };
-  await createExperimentSnapshotModel({
-    context: req.context,
-    data: clonedSnapshot,
-  });
-  await updateReport(org.id, report.id, { snapshot: clonedSnapshot.id });
-
   const metricMap = await getMetricMap(req.context);
   const factTableMap = await getFactTableMap(req.context);
 
-  const reportWithSnapshot: ExperimentSnapshotReportInterface = {
-    ...report,
-    snapshot: clonedSnapshot.id,
-  };
-
   try {
     const newSnapshot = await createReportSnapshot({
-      report: reportWithSnapshot,
-      previousSnapshot: clonedSnapshot,
+      report,
+      previousSnapshot: latestSnapshot,
       context: req.context,
       metricMap,
       factTableMap,
@@ -186,14 +156,14 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
 
     return {
       report: toReportApiInterface(
-        { ...reportWithSnapshot, snapshot: newSnapshot.id },
+        { ...report, snapshot: newSnapshot.id },
         newSnapshot,
       ),
     };
   } catch (e) {
     return {
       report: {
-        ...toReportApiInterface(reportWithSnapshot),
+        ...toReportApiInterface(report),
         snapshotStatus: "error" as const,
         snapshotError: (e as Error).message,
       },
