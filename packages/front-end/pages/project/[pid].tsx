@@ -5,9 +5,9 @@ import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { DEFAULT_CONFIDENCE_LEVEL } from "shared/src/settings/resolvers/genDefaultSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft } from "@/components/Icons";
@@ -22,6 +22,8 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -174,7 +176,7 @@ const ProjectPage: FC = () => {
         ) : null}
         <Flex align="center" justify="between" width="100%">
           <Flex align="start" direction="column">
-            <Heading size="7" as="h1">
+            <Heading size="2x-large" as="h1">
               {p.name}
             </Heading>
             <Flex gap="6" mb="4">
@@ -230,7 +232,7 @@ const ProjectPage: FC = () => {
                 <Frame>
                   <Flex gap="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="4">
+                      <Heading as="h4" size="medium">
                         Experiment Analysis
                       </Heading>
                     </Box>
@@ -239,7 +241,7 @@ const ProjectPage: FC = () => {
                         className="form-group align-items-start"
                         width="100%"
                       >
-                        <Heading as="h5" size="3">
+                        <Heading as="h5" size="small">
                           Stats Engine Settings
                         </Heading>
                         <Box mb="3">
@@ -334,7 +336,7 @@ const ProjectPage: FC = () => {
                 <Frame>
                   <Flex gap="4" mb="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="4">
+                      <Heading as="h4" size="medium">
                         Experiment Settings
                       </Heading>
                     </Box>
@@ -345,7 +347,7 @@ const ProjectPage: FC = () => {
                             commercialFeature="custom-launch-checklist"
                             premiumText="Custom pre-launch checklists are available to Enterprise customers"
                           >
-                            <Heading as="h5" size="3">
+                            <Heading as="h5" size="small">
                               Experiment Pre-Launch Checklist
                             </Heading>
                           </PremiumTooltip>

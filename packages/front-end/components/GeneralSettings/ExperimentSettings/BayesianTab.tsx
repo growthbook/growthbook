@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIDENCE_LEVEL } from "shared/src/settings/resolvers/genDefaultSettings";
+import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
 import { hasFileConfig } from "@/services/env";
 import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 import { StatsEngineSettingsForm } from "./StatsEngineSettings";
