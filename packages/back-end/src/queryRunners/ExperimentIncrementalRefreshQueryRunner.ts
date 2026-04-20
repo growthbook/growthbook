@@ -1016,6 +1016,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           this.model.settings.goalMetrics,
           this.model.settings.guardrailMetrics,
           this.model.settings.secondaryMetrics,
+          this.model.settings.metricSettings,
         );
       }
     }

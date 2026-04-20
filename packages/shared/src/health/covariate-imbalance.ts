@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
-import { ExperimentSnapshotAnalysis } from "shared/types/experiment-snapshot";
+import { getIntersectionBaseMetricIds } from "shared/experiments";
+import {
+  ExperimentSnapshotAnalysis,
+  MetricForSnapshot,
+} from "shared/types/experiment-snapshot";
 import { ExperimentReportResultDimension } from "shared/types/report";
 
 export const MetricVariationCovariateImbalanceResultValidator = z.object({
@@ -178,6 +182,7 @@ export function tabulateCovariateImbalance(
   goalMetrics: string[],
   guardrailMetrics: string[],
   secondaryMetrics: string[],
+  metricSettings: Pick<MetricForSnapshot, "id">[],
 ): CovariateImbalanceResult {
   const covariateImbalanceTable: CovariateImbalanceTableRow[] = [];
   const overallResult = analysis.results.find(
@@ -198,12 +203,27 @@ export function tabulateCovariateImbalance(
     };
   }
 
+  const allExperimentMetricIds = metricSettings.map((m) => m.id);
+  const goalMetricsForTable = getIntersectionBaseMetricIds(
+    goalMetrics,
+    allExperimentMetricIds,
+  );
+  const guardrailMetricsForTable = getIntersectionBaseMetricIds(
+    guardrailMetrics,
+    allExperimentMetricIds,
+  );
+  const secondaryMetricsForTable = getIntersectionBaseMetricIds(
+    secondaryMetrics,
+    allExperimentMetricIds,
+  );
+
   // Bonferroni: use threshold / nTests for significance (single p-value stored)
   const pValueThreshold = DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE;
   const numVariations = overallResult.variations.length;
   const nTests = Math.max(
     1,
-    (numVariations - 1) * (goalMetrics.length + guardrailMetrics.length),
+    (numVariations - 1) *
+      (goalMetricsForTable.length + guardrailMetricsForTable.length),
   );
   const adjustedThreshold = pValueThreshold / nTests;
 
@@ -214,21 +234,21 @@ export function tabulateCovariateImbalance(
 
   const goalMetricsResult = tabulateCovariateImbalanceByGroup(
     overallResult,
-    goalMetrics,
+    goalMetricsForTable,
     covariateImbalanceTable,
     adjustedThreshold,
     tabulatedMetricVariationByKey,
   );
   const guardrailMetricsResult = tabulateCovariateImbalanceByGroup(
     overallResult,
-    guardrailMetrics,
+    guardrailMetricsForTable,
     covariateImbalanceTable,
     adjustedThreshold,
     tabulatedMetricVariationByKey,
   );
   const secondaryMetricsResult = tabulateCovariateImbalanceByGroup(
     overallResult,
-    secondaryMetrics,
+    secondaryMetricsForTable,
     covariateImbalanceTable,
     adjustedThreshold,
     tabulatedMetricVariationByKey,
