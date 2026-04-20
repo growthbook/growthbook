@@ -248,7 +248,7 @@ export const createHoldout = async (
       experimentId: experiment.id,
       projects: data.projects || [],
       name: experiment.name,
-      doNotSetAsDefaultHoldout: data.doNotSetAsDefaultHoldout,
+      skipAsDefaultHoldout: data.skipAsDefaultHoldout,
       environmentSettings: data.environmentSettings || {},
       linkedFeatures: {},
       linkedExperiments: {},

@@ -5,7 +5,7 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
@@ -26,6 +26,7 @@ import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Checkbox from "@/ui/Checkbox";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -109,22 +110,16 @@ export default function Implementation({
     experiment.status !== "stopped" &&
     permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
 
-  async function toggleDefaultHoldoutState() {
+  async function setHoldoutDefaultState(isDefault: boolean) {
     if (!holdout) return;
     await apiCall(`/holdout/${holdout.id}`, {
       method: "PUT",
       body: JSON.stringify({
-        doNotSetAsDefaultHoldout: !holdout.doNotSetAsDefaultHoldout,
+        skipAsDefaultHoldout: !isDefault,
       }),
     });
     await mutate();
   }
-
-  const holdoutDefaultStateText = useMemo(() => {
-    return holdout?.doNotSetAsDefaultHoldout
-      ? `This holdout ${experiment.status === "draft" ? "will not be" : experiment.status === "running" ? "is not" : "was not"} selected by default for new experiments or features.`
-      : `This holdout ${experiment.status === "draft" ? "will be" : experiment.status === "running" ? "is" : "was"} a default for new experiments or features.`;
-  }, [holdout?.doNotSetAsDefaultHoldout, experiment.status]);
 
   return (
     <>
@@ -260,23 +255,15 @@ export default function Implementation({
               </>
             )}
             <Flex align="center" justify="between" mt="3">
-              <Text>
-                {holdoutDefaultStateText}
-                {canEditHoldoutDefaultState ? (
-                  <>
-                    {" "}
-                    <button
-                      type="button"
-                      className="btn btn-link p-0 align-baseline"
-                      onClick={toggleDefaultHoldoutState}
-                    >
-                      {holdout.doNotSetAsDefaultHoldout
-                        ? "Click to make default."
-                        : "Click to make opt-in."}
-                    </button>
-                  </>
-                ) : null}
-              </Text>
+              <Checkbox
+                value={!holdout.skipAsDefaultHoldout}
+                disabled={!canEditHoldoutDefaultState}
+                setValue={(isDefault) => {
+                  void setHoldoutDefaultState(isDefault);
+                }}
+                label="Use this holdout as a default for new experiments or features."
+                weight="regular"
+              />
             </Flex>
           </div>
         ) : null}

@@ -19,7 +19,7 @@ const BaseClass = MakeModelClass({
   },
   globallyUniquePrimaryKeys: false,
   defaultValues: {
-    doNotSetAsDefaultHoldout: false,
+    skipAsDefaultHoldout: false,
   } as Partial<HoldoutInterface>,
   additionalIndexes: [
     {

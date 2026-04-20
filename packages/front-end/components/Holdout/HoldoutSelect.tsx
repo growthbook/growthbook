@@ -67,7 +67,7 @@ export const HoldoutSelect = ({
   }, [holdouts, experimentsMap, selectedProject, getDatasourceById]);
 
   const requiredSelectableHoldouts = useMemo(
-    () => holdoutsWithExperiment.filter((h) => !h.doNotSetAsDefaultHoldout),
+    () => holdoutsWithExperiment.filter((h) => !h.skipAsDefaultHoldout),
     [holdoutsWithExperiment],
   );
 
