@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { UseFormReturn, useWatch } from "react-hook-form";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaPlusCircle, FaTimes } from "react-icons/fa";
+import omit from "lodash/omit";
 import { Namespaces } from "shared/types/organization";
 import useApi from "@/hooks/useApi";
 import { NamespaceApiResponse } from "@/pages/namespaces";
@@ -43,8 +44,39 @@ type NamespaceFormState = {
   name?: string;
   range?: RangeTuple;
   ranges?: RangeTuple[];
-  format?: string;
+  format?: "legacy" | "multiRange";
   hashAttribute?: string;
+};
+
+// Canonical shape we write into the form. Keeping this shape stable (no stray
+// keys, no `range` tuple) is what lets `isEqual(watched, defaults)` reliably
+// report real user changes instead of shape drift.
+type CanonicalNamespace =
+  | {
+      enabled: true;
+      name: string;
+      format: "legacy";
+      ranges: RangeTuple[];
+    }
+  | {
+      enabled: true;
+      name: string;
+      format: "multiRange";
+      hashAttribute: string;
+      ranges: RangeTuple[];
+    }
+  | {
+      enabled: false;
+      name: "";
+      format: "legacy";
+      ranges: RangeTuple[];
+    };
+
+const DISABLED_NAMESPACE: CanonicalNamespace = {
+  enabled: false,
+  name: "",
+  format: "legacy",
+  ranges: [],
 };
 
 export default function NamespaceSelector({
@@ -65,11 +97,7 @@ export default function NamespaceSelector({
   // picks instead of resetting to the largest-available gap.
   const namespaceRangesCache = useRef<Record<string, RangeTuple[]>>({});
   const namespacePath = `${formPrefix}namespace`;
-  const namespaceNamePath = `${namespacePath}.name`;
   const namespaceRangesPath = `${namespacePath}.ranges`;
-  const namespaceFormatPath = `${namespacePath}.format`;
-  const namespaceHashAttributePath = `${namespacePath}.hashAttribute`;
-  const namespaceEnabledPath = `${namespacePath}.enabled`;
 
   const namespaceState =
     (useWatch({
@@ -177,21 +205,34 @@ export default function NamespaceSelector({
       (n) => n.name === namespace,
     );
     if (existsInFiltered) return;
-    form.setValue(namespaceNamePath, "");
-    form.setValue(namespaceRangesPath, []);
+    // Reset to a canonical "enabled but unassigned" state so stale
+    // hashAttribute/format values from a previously-selected namespace
+    // can't leak into the persisted phase.
+    form.setValue(
+      namespacePath,
+      {
+        enabled,
+        name: "",
+        format: "legacy",
+        ranges: [],
+      } satisfies NamespaceFormState,
+      { shouldDirty: true, shouldTouch: true },
+    );
     setRangeDrafts({});
-  }, [
-    filteredNamespaces,
-    form,
-    namespace,
-    namespaceNamePath,
-    namespaceRangesPath,
-  ]);
+  }, [enabled, filteredNamespaces, form, namespace, namespacePath]);
 
   useEffect(() => {
     if (storedRanges.length > 0 || !legacyRange) return;
-    form.setValue(namespaceRangesPath, [legacyRange]);
-  }, [form, legacyRange, namespaceRangesPath, storedRanges.length]);
+    // Fold the legacy single-range tuple into the canonical `ranges` array
+    // and drop the legacy key so downstream diffs see a stable shape.
+    const current =
+      (form.getValues(namespacePath) as NamespaceFormState | undefined) ?? {};
+    form.setValue(
+      namespacePath,
+      { ...omit(current, "range"), ranges: [legacyRange] },
+      { shouldDirty: false, shouldTouch: false },
+    );
+  }, [form, legacyRange, namespacePath, storedRanges.length]);
 
   useEffect(() => {
     setRangeDrafts((current) => {
@@ -278,7 +319,26 @@ export default function NamespaceSelector({
         value={enabled}
         mb="2"
         setValue={(v) => {
-          form.setValue(namespaceEnabledPath, v);
+          if (v) {
+            // Enable with a canonical blank shape. Avoid mutating existing
+            // fields so we don't accidentally resurrect stale keys.
+            form.setValue(
+              namespacePath,
+              {
+                enabled: true,
+                name: namespace || "",
+                format: "legacy",
+                ranges: [],
+              } satisfies NamespaceFormState,
+              { shouldDirty: true, shouldTouch: true },
+            );
+          } else {
+            form.setValue(namespacePath, DISABLED_NAMESPACE, {
+              shouldDirty: true,
+              shouldTouch: true,
+            });
+            setRangeDrafts({});
+          }
         }}
       />
       {enabled && (
@@ -290,42 +350,49 @@ export default function NamespaceSelector({
               if (v === namespace) return;
               const selected = filteredNamespaces.find((n) => n.name === v);
               setRangeDrafts({});
-              form.setValue(namespaceNamePath, v);
 
-              // Set format from namespace definition so downstream consumers
-              // (applyNamespaceToPayload, toExperimentApiInterface) can discriminate
-              // between legacy and multiRange without relying on structural checks.
-              form.setValue(
-                namespaceFormatPath,
-                selected?.format === "multiRange" ? "multiRange" : "legacy",
-              );
-
-              // Set hashAttribute from namespace
-              if (
-                selected &&
-                "hashAttribute" in selected &&
-                selected.hashAttribute
-              ) {
-                form.setValue(
-                  namespaceHashAttributePath,
-                  selected.hashAttribute,
-                );
-              }
-
-              // Restore the user's previously-picked ranges for this
-              // namespace if they've been here before in this session.
-              // Otherwise fall back to the largest available gap.
+              // Restore the user's previously-picked ranges for this namespace
+              // if they've been here before in this session. Otherwise fall
+              // back to the largest available gap.
               const cachedRanges = namespaceRangesCache.current[v];
-              if (cachedRanges && cachedRanges.length > 0) {
-                form.setValue(namespaceRangesPath, cachedRanges);
-              } else {
-                const initialGap = getLargestGap(
-                  findGaps(namespaceUsage, v, featureId, trackingKey),
-                );
-                form.setValue(namespaceRangesPath, [
-                  [initialGap?.start || 0, initialGap?.end || 0],
-                ]);
-              }
+              const initialRanges: RangeTuple[] =
+                cachedRanges && cachedRanges.length > 0
+                  ? cachedRanges
+                  : (() => {
+                      const initialGap = getLargestGap(
+                        findGaps(namespaceUsage, v, featureId, trackingKey),
+                      );
+                      return [
+                        [
+                          initialGap?.start || 0,
+                          initialGap?.end || 0,
+                        ] as RangeTuple,
+                      ];
+                    })();
+
+              // Build the next form state as one canonical object so no stale
+              // keys (e.g. hashAttribute from a previously-selected
+              // multiRange namespace) can survive the switch.
+              const nextNs: NamespaceFormState =
+                selected?.format === "multiRange"
+                  ? {
+                      enabled: true,
+                      name: v,
+                      format: "multiRange",
+                      hashAttribute: selected.hashAttribute,
+                      ranges: initialRanges,
+                    }
+                  : {
+                      enabled: true,
+                      name: v,
+                      format: "legacy",
+                      ranges: initialRanges,
+                    };
+
+              form.setValue(namespacePath, nextNs, {
+                shouldDirty: true,
+                shouldTouch: true,
+              });
             }}
             placeholder="Choose a namespace..."
             options={namespaceOptions}
@@ -337,8 +404,7 @@ export default function NamespaceSelector({
                 "hashAttribute" in selectedNamespace &&
                 selectedNamespace.hashAttribute && (
                   <Callout status="info" variant="surface" size="sm" mb="3">
-                    <strong>Hash attribute:</strong>{" "}
-                    {`${selectedNamespace.hashAttribute}`}
+                    Hash attribute:{`${selectedNamespace.hashAttribute}`}
                   </Callout>
                 )}
               {selectedIsDifferentHash && (
