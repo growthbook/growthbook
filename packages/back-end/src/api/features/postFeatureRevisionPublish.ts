@@ -13,7 +13,7 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getLiveAndBaseRevisionsForFeature,
-  revisionToApiInterface,
+  toApiRevision,
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -182,5 +182,5 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     {},
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  return { revision: toApiRevision(finalRevision, req.context, feature) };
 });

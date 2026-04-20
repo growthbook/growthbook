@@ -1,5 +1,5 @@
 import { postFeatureRevisionDiscardValidator } from "shared/validators";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -63,5 +63,5 @@ export const postFeatureRevisionDiscard = createApiRequestHandler(
     {},
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  return { revision: toApiRevision(finalRevision, req.context, feature) };
 });

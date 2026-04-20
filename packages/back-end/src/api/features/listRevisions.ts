@@ -10,7 +10,7 @@ import {
   validatePagination,
 } from "back-end/src/util/handler";
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
 
 const emptyListResponse = (limit: number, offset: number) => ({
@@ -59,10 +59,13 @@ export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
 
     // ACL: load the single feature (return [] if unreadable to avoid leaking
     // existence), or restrict to readable projects when featureId is absent.
+    // When a single-feature scope is set, keep the feature in scope so its
+    // project can drive the env-bucket applicability in the API response.
     let featureIds: string[] | undefined;
+    let singleFeature: Awaited<ReturnType<typeof getFeature>> | undefined;
     if (featureId) {
-      const feature = await getFeature(req.context, featureId);
-      if (!feature) return emptyListResponse(limit, offset);
+      singleFeature = await getFeature(req.context, featureId);
+      if (!singleFeature) return emptyListResponse(limit, offset);
     } else {
       const readableProjects =
         req.context.permissions.getProjectsWithPermission("readData");
@@ -104,7 +107,12 @@ export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
       }),
     ]);
 
-    const mapped = revisions.map(revisionToApiInterface);
+    // Cross-feature listings don't have a per-revision feature in scope, so
+    // we pass `undefined` for the project — the env bucket is a safe
+    // superset over every org env rather than a project-scoped slice.
+    const mapped = revisions.map((r) =>
+      toApiRevision(r, req.context, singleFeature),
+    );
     const hasMore = skipPagination ? false : offset + limit < total;
     const nextOffset = hasMore ? offset + limit : null;
     const outLimit = skipPagination ? total : limit;

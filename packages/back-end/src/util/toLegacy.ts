@@ -8,8 +8,11 @@ import {
 } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { stemRuleId } from "shared/util";
+import {
+  getApplicableEnvIds,
+  ruleFootprint,
+} from "back-end/src/util/flattenRules";
 
 // ---------------------------------------------------------------------------
 // v2 -> v1 down-conversion (toLegacy)
@@ -51,18 +54,6 @@ export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
     environments?: string[];
   };
   return { ...rest, id: stemRuleId(id) } as unknown as V1FeatureRule;
-}
-
-/**
- * Compute the per-env footprint for a v2 rule, filtered to the org's
- * applicable envs for the feature. `allEnvironments: true` expands to every
- * applicable env; env-specific rules intersect their `environments` array
- * with the applicable set. Rules with no overlap return [].
- */
-function ruleFootprint(rule: FeatureRule, applicableEnvs: string[]): string[] {
-  if (rule.allEnvironments) return applicableEnvs;
-  const applicableSet = new Set(applicableEnvs);
-  return (rule.environments || []).filter((e) => applicableSet.has(e));
 }
 
 /**

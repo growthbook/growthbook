@@ -92,6 +92,10 @@ import {
   getHoldoutFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
+import {
+  getApplicableEnvIds,
+  ruleFootprint,
+} from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
@@ -1683,13 +1687,58 @@ function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   }
 }
 
-/** Convert a FeatureRevisionInterface to the API response shape. */
+/**
+ * Convenience wrapper around `revisionToApiInterface` that pulls the env
+ * list off the request context and the project off the (optional) parent
+ * feature. Nearly every call site fits this pattern — use this unless you
+ * need to override either input explicitly.
+ */
+export function toApiRevision(
+  rev: FeatureRevisionInterface,
+  ctx: ReqContext | ApiReqContext,
+  feature?: FeatureInterface | null,
+): z.infer<typeof apiFeatureRevisionValidator> {
+  return revisionToApiInterface(
+    rev,
+    ctx.org.settings?.environments ?? [],
+    feature?.project,
+  );
+}
+
+/**
+ * Convert a FeatureRevisionInterface to the v1 REST API response shape.
+ *
+ * The external contract is still per-env: `rules: Record<env,
+ * ApiFeatureRule[]>`. Internally the revision carries a v2 unified
+ * `rules: FeatureRule[]` array, so we bucket each rule into the envs it
+ * applies to (via `ruleFootprint`). `stemRuleId` inside `normalizeRuleForApi`
+ * strips any `__<env>` migration suffix so v1 consumers see the original
+ * pre-unification id.
+ *
+ * `orgEnvs` drives the bucket set. `featureProject` (optional) further
+ * restricts to envs applicable to that project. Callsites that don't have
+ * the parent feature in scope (e.g. the cross-feature `listRevisions`
+ * handler) may pass `undefined` — the result is a safe superset covering
+ * every org env.
+ */
 export function revisionToApiInterface(
   rev: FeatureRevisionInterface,
+  orgEnvs: Environment[],
+  featureProject?: string,
 ): z.infer<typeof apiFeatureRevisionValidator> {
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
   const rules: Record<string, ApiFeatureRule[]> = {};
-  for (const [env, envRules] of Object.entries(rev.rules ?? {})) {
-    rules[env] = (envRules || []).map(normalizeRuleForApi);
+  for (const env of applicableEnvs) rules[env] = [];
+  if (Array.isArray(rev.rules)) {
+    for (const rule of rev.rules) {
+      const envs = ruleFootprint(rule, applicableEnvs);
+      if (envs.length === 0) continue;
+      const normalized = normalizeRuleForApi(rule);
+      for (const env of envs) {
+        if (!rules[env]) rules[env] = [];
+        rules[env].push(normalized);
+      }
+    }
   }
 
   return {
@@ -1749,23 +1798,28 @@ export function getApiFeatureObj({
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
+  // Pre-bucket the v2 rules array into per-env ApiFeatureRule lists so the
+  // REST response keeps its env-keyed contract. Rules are iterated once;
+  // each rule lands in every env its footprint covers. `featureProject` is
+  // honored on the applicable env set so rules tagged `allEnvironments:
+  // true` don't leak into envs that are project-excluded.
+  const orgEnvs = organization.settings?.environments ?? [];
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  const featureRulesByEnv: Record<string, ApiFeatureRule[]> = {};
+  for (const env of environments) featureRulesByEnv[env] = [];
+  for (const rule of feature.rules ?? []) {
+    const envs = ruleFootprint(rule, applicableEnvs);
+    if (envs.length === 0) continue;
+    const apiRule = normalizeRuleForApi(rule);
+    for (const env of envs) {
+      if (!featureRulesByEnv[env]) featureRulesByEnv[env] = [];
+      featureRulesByEnv[env].push(apiRule);
+    }
+  }
   environments.forEach((env) => {
     const envSettings = feature.environmentSettings?.[env];
     const enabled = !!envSettings?.enabled;
-    const rules = (envSettings?.rules || []).map((rule) => ({
-      ...rule,
-      coverage:
-        rule.type === "rollout" || rule.type === "experiment"
-          ? (rule.coverage ?? 1)
-          : 1,
-      condition: rule.condition || "",
-      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
-        matchType: s.match,
-        savedGroups: s.ids,
-      })),
-      prerequisites: rule.prerequisites || [],
-      enabled: !!rule.enabled,
-    }));
+    const rules = featureRulesByEnv[env] ?? [];
     const definition = getFeatureDefinition({
       feature,
       groupMap,
@@ -1797,35 +1851,49 @@ export function getApiFeatureObj({
         : revision?.publishedBy?.name;
 
   const revisionDefs = revisions?.map((rev) => {
+    // Bucket the revision's v2 rules array once, then use the per-env lists
+    // to both populate `environmentRules` and drive the SDK payload
+    // compilation below.
+    const revRulesByEnv: Record<string, ApiFeatureRule[]> = {};
+    const revRawRulesByEnv: Record<string, FeatureRule[]> = {};
+    for (const env of environments) {
+      revRulesByEnv[env] = [];
+      revRawRulesByEnv[env] = [];
+    }
+    if (Array.isArray(rev?.rules)) {
+      for (const rule of rev.rules) {
+        const envs = ruleFootprint(rule, applicableEnvs);
+        if (envs.length === 0) continue;
+        const apiRule = normalizeRuleForApi(rule);
+        for (const env of envs) {
+          if (!revRulesByEnv[env]) revRulesByEnv[env] = [];
+          if (!revRawRulesByEnv[env]) revRawRulesByEnv[env] = [];
+          revRulesByEnv[env].push(apiRule);
+          revRawRulesByEnv[env].push(rule);
+        }
+      }
+    }
+
     const environmentRules: Record<string, ApiFeatureRule[]> = {};
     const environmentDefinitions: Record<string, string> = {};
     environments.forEach((env) => {
-      const rules = (rev?.rules?.[env] || []).map((rule) => ({
-        ...rule,
-        coverage:
-          rule.type === "rollout" || rule.type === "experiment"
-            ? (rule.coverage ?? 1)
-            : 1,
-        condition: rule.condition || "",
-        savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
-          matchType: s.match,
-          savedGroups: s.ids,
-        })),
-        prerequisites: rule.prerequisites || [],
-        enabled: !!rule.enabled,
-      }));
+      // Hand the SDK compiler a v2 feature synthesized from the revision's
+      // per-env rule slice. Every rule in this slice already applies to
+      // `env`, so we tag them `allEnvironments: true` for the scoped view
+      // — this keeps `getFeatureDefinition`'s v2 reader happy and avoids
+      // re-projecting inside the loop.
+      const slicedRules: FeatureRule[] = (revRawRulesByEnv[env] ?? []).map(
+        (r) => ({ ...r, allEnvironments: true, environments: undefined }),
+      );
       const definition = getFeatureDefinition({
-        feature: {
-          ...feature,
-          environmentSettings: { [env]: { enabled: true, rules } },
-        },
+        feature: { ...feature, rules: slicedRules },
         groupMap,
         experimentMap,
         environment: env,
         safeRolloutMap,
       });
 
-      environmentRules[env] = rules;
+      environmentRules[env] = revRulesByEnv[env] ?? [];
       environmentDefinitions[env] = JSON.stringify(definition);
     });
     const createdBy =

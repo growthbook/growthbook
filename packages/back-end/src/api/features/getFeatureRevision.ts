@@ -1,5 +1,5 @@
 import { getFeatureRevisionValidator } from "shared/validators";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -19,5 +19,5 @@ export const getFeatureRevision = createApiRequestHandler(
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
-  return { revision: revisionToApiInterface(revision) };
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

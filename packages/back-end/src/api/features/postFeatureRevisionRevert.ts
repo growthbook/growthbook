@@ -6,7 +6,7 @@ import {
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -249,7 +249,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
       canBypassApprovalChecks: false,
     });
 
-    return { revision: revisionToApiInterface(newDraft) };
+    return { revision: toApiRevision(newDraft, req.context, feature) };
   }
 
   // Bypass review gate via restApiBypassesReviews or bypassApprovalChecks.
@@ -337,5 +337,5 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     { revertedToVersion: targetRevision.version },
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  return { revision: toApiRevision(finalRevision, req.context, feature) };
 });

@@ -19,7 +19,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   getLiveAndBaseRevisionsForFeature,
-  revisionToApiInterface,
+  toApiRevision,
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -178,5 +178,5 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     { baseVersion: live.version },
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  return { revision: toApiRevision(finalRevision, req.context, feature) };
 });

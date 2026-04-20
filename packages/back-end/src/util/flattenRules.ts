@@ -98,6 +98,31 @@ export function getApplicableEnvIds(
 }
 
 /**
+ * Compute the per-env footprint for a v2 rule, filtered to a set of
+ * applicable envs (typically `getApplicableEnvIds(orgEnvs, featureProject)`).
+ *
+ *   - `rule.allEnvironments: true` → every applicable env
+ *   - `rule.environments: [...]`    → intersection with applicable set
+ *   - malformed (neither declared)  → [] (strict: no explicit scope, no
+ *                                        bucket. Callers that want a
+ *                                        permissive fallback should use
+ *                                        `getRulesForEnvironment` /
+ *                                        `ruleAppliesToEnv` from shared)
+ *
+ * Used by every v2→per-env projection (REST API response shape, legacy
+ * down-convert, event env fanout, SDK payload per-env rule extraction) so
+ * the same rule always lands in the same bucket set.
+ */
+export function ruleFootprint(
+  rule: FeatureRule,
+  applicableEnvs: string[],
+): string[] {
+  if (rule.allEnvironments) return applicableEnvs;
+  const applicableSet = new Set(applicableEnvs);
+  return (rule.environments || []).filter((e) => applicableSet.has(e));
+}
+
+/**
  * Resolve a ramp target to a unified FeatureRule. Returns undefined if no
  * match.
  *
@@ -387,9 +412,7 @@ export function flattenV1ToV2Rules(
         // legacy id — suffixing would be pure noise.
         const occs = groups.get(legacyId) ?? [];
         const needsSuffix = occs.length > 1 || dupInEnvIds.has(legacyId);
-        const id = needsSuffix
-          ? nextEnvSpecificId(legacyId, env)
-          : legacyId;
+        const id = needsSuffix ? nextEnvSpecificId(legacyId, env) : legacyId;
         const shaped = shapeRule(rule, id, [env]);
         if (shaped) output.push(shaped);
       }

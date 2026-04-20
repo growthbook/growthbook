@@ -10,7 +10,10 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import {
+  revisionToApiInterface,
+  toApiRevision,
+} from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 
@@ -114,7 +117,7 @@ export async function dispatchFeatureRevisionEvent<
   opts: { environments?: string[] } = {},
 ): Promise<void> {
   try {
-    const apiRevision = revisionToApiInterface(revision);
+    const apiRevision = toApiRevision(revision, ctx, feature);
     const projects = feature.project ? [feature.project] : [];
     const tags = feature.tags ?? [];
     const environments = deriveRevisionEventEnvironments(

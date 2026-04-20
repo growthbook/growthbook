@@ -1,5 +1,5 @@
 import { postFeatureRevisionValidator } from "shared/validators";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -56,5 +56,5 @@ export const postFeatureRevision = createApiRequestHandler(
     {},
   );
 
-  return { revision: revisionToApiInterface(newDraft) };
+  return { revision: toApiRevision(newDraft, req.context, feature) };
 });

@@ -6,7 +6,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { NotFoundError } from "back-end/src/util/errors";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import {
   createApiRequestHandler,
   validatePagination,
@@ -57,7 +57,9 @@ export const getFeatureRevisions = createApiRequestHandler(
     }),
   ]);
 
-  const revisions = pagedRevisions.map(revisionToApiInterface);
+  const revisions = pagedRevisions.map((r) =>
+    toApiRevision(r, req.context, feature),
+  );
   const hasMore = skipPagination ? false : offset + limit < total;
   const nextOffset = hasMore ? offset + limit : null;
   const outLimit = skipPagination ? total : limit;

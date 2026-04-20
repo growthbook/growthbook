@@ -1,6 +1,6 @@
 import { putFeatureRevisionDefaultValueValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -47,7 +47,7 @@ export const putFeatureRevisionDefaultValue = createApiRequestHandler(
       revision.defaultValue ?? feature.defaultValue ?? "";
     if (currentDefaultValue === req.body.defaultValue) {
       await discardIfJustCreated(req.context, revision, created);
-      return { revision: revisionToApiInterface(revision) };
+      return { revision: toApiRevision(revision, req.context, feature) };
     }
 
     await updateRevision(
@@ -84,7 +84,7 @@ export const putFeatureRevisionDefaultValue = createApiRequestHandler(
       "defaultValue",
     );
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { revision: toApiRevision(finalRevision, req.context, feature) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

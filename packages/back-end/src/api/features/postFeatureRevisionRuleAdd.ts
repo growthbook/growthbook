@@ -15,7 +15,7 @@ import type {
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -350,7 +350,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       },
     );
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { revision: toApiRevision(finalRevision, req.context, feature) };
   } catch (err) {
     if (createdSafeRolloutId) {
       try {

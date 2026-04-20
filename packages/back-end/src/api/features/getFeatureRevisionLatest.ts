@@ -1,6 +1,6 @@
 import { getFeatureRevisionLatestValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -33,5 +33,5 @@ export const getFeatureRevisionLatest = createApiRequestHandler(
     );
   }
 
-  return { revision: revisionToApiInterface(revision) };
+  return { revision: toApiRevision(revision, req.context, feature) };
 });
