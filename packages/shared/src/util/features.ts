@@ -34,7 +34,13 @@ import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
 } from "../sdk-versioning";
-import { getMatchingRules, includeExperimentInPayload, recursiveWalk } from ".";
+import {
+  getMatchingRules,
+  getRulesForEnvironment,
+  includeExperimentInPayload,
+  normalizeRulesInput,
+  recursiveWalk,
+} from ".";
 
 export const DRAFT_REVISION_STATUSES = [
   "draft",
@@ -91,12 +97,20 @@ export function mergeRevision(
 
   newFeature.defaultValue = revision.defaultValue;
 
+  // v2: rules live on a single top-level array. The revision carries the full
+  // intended rule set (produced by `createRevision` / `normalizeRulesInputToV2`
+  // on the back-end) so we replace wholesale. Missing `rules` on the revision
+  // means "revision didn't touch rules" — keep the feature's existing set.
+  if (revision.rules !== undefined) {
+    newFeature.rules = normalizeRulesInput(revision.rules);
+  }
+
+  // Env-level toggle overlay. `envSettings[env].rules` no longer exists in v2,
+  // so we only touch `enabled` here.
   const envSettings = newFeature.environmentSettings;
   environments.forEach((env) => {
-    envSettings[env] = envSettings[env] || {};
+    envSettings[env] = envSettings[env] || { enabled: false };
     envSettings[env].enabled = envSettings[env].enabled || false;
-    envSettings[env].rules =
-      revision.rules?.[env] || envSettings[env].rules || [];
 
     if (revision.environmentsEnabled && env in revision.environmentsEnabled) {
       envSettings[env].enabled = revision.environmentsEnabled[env];
@@ -422,7 +436,17 @@ function buildEnvResults(
       continue;
     }
 
-    const rules = (envSetting.rules ?? []).filter((r) => r.enabled);
+    // v2: rules live on the top-level `feature.rules` array. Pre-JIT-upgrade
+    // test fixtures still carry `environmentSettings[env].rules` — fall back
+    // to that shape when the v2 array is absent. Production readers always
+    // go through `buildFeatureInterface` so this branch is test-only.
+    const v2RulesForEnv = getRulesForEnvironment(feature.rules, envId);
+    const legacyRules = Array.isArray(feature.rules)
+      ? []
+      : ((envSetting as unknown as { rules?: FeatureRule[] }).rules ?? []);
+    const rules = (v2RulesForEnv.length ? v2RulesForEnv : legacyRules).filter(
+      (r) => r.enabled,
+    );
 
     const hasDependentsInEnv =
       hasActiveDependentExperiment ||
@@ -431,8 +455,17 @@ function buildEnvResults(
         if (!f) return false;
         // Global feature-level prerequisite
         if (f.prerequisites?.some((p) => p.id === feature.id)) return true;
-        // Rule-level prerequisite in this specific environment
-        return (f.environmentSettings?.[envId]?.rules ?? []).some(
+        // Rule-level prerequisite in this specific environment (v2 or legacy)
+        const depV2Rules = getRulesForEnvironment(f.rules, envId);
+        const depLegacyRules = Array.isArray(f.rules)
+          ? []
+          : ((
+              f.environmentSettings?.[envId] as unknown as {
+                rules?: FeatureRule[];
+              }
+            )?.rules ?? []);
+        const depRules = depV2Rules.length ? depV2Rules : depLegacyRules;
+        return depRules.some(
           (r) => r.enabled && r.prerequisites?.some((p) => p.id === feature.id),
         );
       });
@@ -708,12 +741,9 @@ export function liveRevisionFromFeature(
   return {
     ...liveRevision,
     defaultValue: feature.defaultValue,
-    rules: Object.fromEntries(
-      Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
-        env,
-        val.rules ?? [],
-      ]),
-    ),
+    // v2: rules live on a single flat top-level array; carry it over directly
+    // so the diff baseline uses the same shape as the draft.
+    rules: feature.rules ?? [],
     environmentsEnabled: Object.fromEntries(
       Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
         env,
@@ -774,12 +804,13 @@ export function draftDiffersFromLive(
 
   if (draft.defaultValue !== filledLive.defaultValue) return true;
   if (draft.archived !== filledLive.archived) return true;
+  // v2: rules is a single top-level array. A whole-array diff is the canonical
+  // "did rules change" check; per-env projection is only needed for UX / gating
+  // (see getDraftAffectedEnvironments). `envIds` is retained in the signature
+  // for now but no longer read here.
   if (
-    envIds.some(
-      (env) =>
-        JSON.stringify(draft.rules[env] ?? []) !==
-        JSON.stringify(filledLive.rules[env] ?? []),
-    )
+    JSON.stringify(normalizeRulesInput(draft.rules)) !==
+    JSON.stringify(normalizeRulesInput(filledLive.rules))
   )
     return true;
   if (
@@ -967,19 +998,26 @@ export function autoMerge(
   const result: MergeResultChanges = {};
   const diverged = live.version !== base.version;
 
+  // Normalize all three sides up front. Pre-migration audit logs / draft
+  // revisions may still arrive in v1 shape (Record<env, FeatureRule[]>);
+  // normalize to a canonical v2 FeatureRule[] before any merge reasoning.
+  const liveRules = normalizeRulesInput(live.rules);
+  const baseRules = normalizeRulesInput(base.rules);
+  const revRules = normalizeRulesInput(revision.rules);
+  // `environments` is retained in the signature for call-site compatibility
+  // and for the environmentsEnabled / override paths below, but rule merging
+  // now operates on the flat v2 array — not a per-env projection.
+  void environments;
+
   // No divergence path: only include revision changes that differ from base
   if (!diverged) {
     if (revision.defaultValue !== base.defaultValue) {
       result.defaultValue = revision.defaultValue;
     }
 
-    environments.forEach((env) => {
-      const rules = revision.rules?.[env];
-      if (!rules) return;
-      if (isEqual(rules, base.rules[env] || [])) return;
-      result.rules = result.rules || {};
-      result.rules[env] = rules;
-    });
+    if (revision.rules !== undefined && !isEqual(revRules, baseRules)) {
+      result.rules = revRules;
+    }
 
     // environmentsEnabled
     if (revision.environmentsEnabled) {
@@ -1067,54 +1105,42 @@ export function autoMerge(
     }
   }
 
-  // rules (per-env)
-  environments.forEach((env) => {
-    const rules = revision.rules?.[env];
-    if (!rules) return;
-    if (
-      isEqual(rules, base.rules[env] || []) ||
-      isEqual(rules, live.rules[env] || [])
-    ) {
-      return;
-    }
-
-    result.rules = result.rules || {};
-
-    if (
-      env in live.rules &&
-      !isEqual(live.rules[env] || [], base.rules[env] || []) &&
-      !isEqual(live.rules[env] || [], rules)
-    ) {
-      // Both sides changed — try per-rule merge before raising a conflict.
-      const autoMerged = tryRuleLevelMerge(
-        base.rules[env] || [],
-        live.rules[env] || [],
-        rules,
-      );
-      if (autoMerged !== null) {
-        result.rules[env] = autoMerged;
-      } else {
-        const conflictInfo: MergeConflict = {
-          name: `Rules - ${env}`,
-          key: `rules.${env}`,
-          base: JSON.stringify(base.rules[env], null, 2),
-          live: JSON.stringify(live.rules[env], null, 2),
-          revision: JSON.stringify(rules, null, 2),
-          resolved: false,
-        };
-        const strategy = strategies[conflictInfo.key];
-        if (strategy === "overwrite") {
-          conflictInfo.resolved = true;
-          result.rules[env] = rules;
-        } else if (strategy === "discard") {
-          conflictInfo.resolved = true;
+  // rules (flat v2 array — one conflict bucket for the whole rule set)
+  if (revision.rules !== undefined && !isEqual(revRules, baseRules)) {
+    if (!isEqual(revRules, liveRules)) {
+      if (!isEqual(liveRules, baseRules)) {
+        // Both sides diverged from base. Try a per-rule id-level merge before
+        // escalating to a conflict. The merge walks live order, substitutes
+        // revision-side edits for rules the revision changed, and appends
+        // rules the revision added. Rules the revision-didn't touch but live
+        // deleted stay deleted.
+        const autoMerged = tryRuleLevelMerge(baseRules, liveRules, revRules);
+        if (autoMerged !== null) {
+          result.rules = autoMerged;
+        } else {
+          const conflictInfo: MergeConflict = {
+            name: "Rules",
+            key: "rules",
+            base: JSON.stringify(baseRules, null, 2),
+            live: JSON.stringify(liveRules, null, 2),
+            revision: JSON.stringify(revRules, null, 2),
+            resolved: false,
+          };
+          const strategy = strategies[conflictInfo.key];
+          if (strategy === "overwrite") {
+            conflictInfo.resolved = true;
+            result.rules = revRules;
+          } else if (strategy === "discard") {
+            conflictInfo.resolved = true;
+          }
+          conflicts.push(conflictInfo);
         }
-        conflicts.push(conflictInfo);
+      } else {
+        // Only revision changed; adopt its rules wholesale.
+        result.rules = revRules;
       }
-    } else {
-      result.rules[env] = rules;
     }
-  });
+  }
 
   // environmentsEnabled (per-env boolean)
   if (revision.environmentsEnabled) {
@@ -1373,10 +1399,10 @@ export function isFeatureCyclic(
   const stack = new Set<string>();
 
   const newFeature = cloneDeep(feature);
-  if (revision) {
-    for (const env of Object.keys(newFeature.environmentSettings || {})) {
-      newFeature.environmentSettings[env].rules = revision?.rules?.[env] || [];
-    }
+  if (revision && revision.rules !== undefined) {
+    // v2: overlay the revision's top-level rules onto the feature. Per-env
+    // filtering happens downstream via `getRulesForEnvironment`.
+    newFeature.rules = normalizeRulesInput(revision.rules);
   }
   if (!envs) {
     envs = Object.keys(newFeature.environmentSettings || {});
@@ -1390,11 +1416,23 @@ export function isFeatureCyclic(
     visited.add(feature.id);
 
     const prerequisiteIds = (feature.prerequisites || []).map((p) => p.id);
-    for (const eid in feature.environmentSettings || {}) {
+    for (const eid of Object.keys(feature.environmentSettings || {})) {
       if (!envs?.includes(eid)) continue;
-      const env = feature.environmentSettings?.[eid];
-      if (!env?.rules) continue;
-      for (const rule of env.rules || []) {
+      // v2: project the flat top-level rules array to this env and inspect
+      // each rule's `prerequisites[]`. Legacy test fixtures still carry v1
+      // `environmentSettings[eid].rules` — fall back when v2 array is absent.
+      const v2RulesForEnv = getRulesForEnvironment(feature.rules, eid);
+      const legacyRulesForEnv = Array.isArray(feature.rules)
+        ? []
+        : ((
+            feature.environmentSettings?.[eid] as unknown as {
+              rules?: FeatureRule[];
+            }
+          )?.rules ?? []);
+      const rulesForEnv = v2RulesForEnv.length
+        ? v2RulesForEnv
+        : legacyRulesForEnv;
+      for (const rule of rulesForEnv) {
         if (rule?.prerequisites?.length) {
           const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
           prerequisiteIds.push(...rulePrerequisiteIds);
@@ -1463,10 +1501,22 @@ export function evaluatePrerequisiteState(
     }
 
     if (!skipRootConditions || !isTopLevel) {
-      if (
-        feature.environmentSettings[env].rules?.filter((r) => !!r.enabled)
-          ?.length
-      ) {
+      // v2: project the flat top-level rules array to this env. Legacy test
+      // fixtures still carry v1 `environmentSettings[env].rules`; fall back
+      // to that shape when the v2 array is absent. Production readers JIT
+      // upgrade at the model boundary so this fallback is test-only.
+      const v2RulesForEnv = getRulesForEnvironment(feature.rules, env);
+      const legacyRulesForEnv = Array.isArray(feature.rules)
+        ? []
+        : ((
+            feature.environmentSettings[env] as unknown as {
+              rules?: FeatureRule[];
+            }
+          ).rules ?? []);
+      const rulesForEnv = v2RulesForEnv.length
+        ? v2RulesForEnv
+        : legacyRulesForEnv;
+      if (rulesForEnv.some((r) => !!r.enabled)) {
         state = "conditional";
         value = undefined;
       }
@@ -1674,11 +1724,21 @@ export function getDraftAffectedEnvironments(
 ): string[] | "all" {
   if (revisionHasGlobalChange(revision, baseRevision)) return "all";
 
-  // Per-environment changes
+  // Per-environment changes. v2 `rules` is a flat array, so derive the per-env
+  // projection via `getRulesForEnvironment`. This preserves the env-granular
+  // "affected envs" semantic used by the review-gating UI: a rule with
+  // `allEnvironments: true` counts as touching every allowed env; a v2 rule
+  // with `environments: ["prod"]` counts only as touching prod.
+  const revRulesAll = normalizeRulesInput(revision.rules);
+  const baseRulesAll = normalizeRulesInput(baseRevision.rules);
   const envs = new Set<string>();
   for (const env of allEnvironments) {
-    const revRules = (revision.rules[env] || []).map(normalizeRuleForDiff);
-    const baseRules = (baseRevision.rules[env] || []).map(normalizeRuleForDiff);
+    const revRules = getRulesForEnvironment(revRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
+    const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
     if (!isEqual(revRules, baseRules)) {
       envs.add(env);
     }
@@ -1738,9 +1798,16 @@ export function checkIfRevisionNeedsReview({
   // Environment-specific changes: split into rules/values vs kill switches.
   // Rules/values always require approval. Kill switches only require approval
   // when featureRequireEnvironmentReview is true (default: true when unset).
+  // v2: rules live on a single flat top-level array. Project per-env via the
+  // shared helper so "rule changes in env X" correctly accounts for rules with
+  // `allEnvironments: true` and v2 `environments: [...]` scopes.
+  const revRulesAll = normalizeRulesInput(revision.rules);
+  const baseRulesAll = normalizeRulesInput(baseRevision.rules);
   const envsWithRuleChanges = affected.filter((env) => {
-    const revRules = (revision.rules?.[env] || []).map(normalizeRuleForDiff);
-    const baseRules = (baseRevision.rules?.[env] || []).map(
+    const revRules = getRulesForEnvironment(revRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
+    const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
       normalizeRuleForDiff,
     );
     return !isEqual(revRules, baseRules);

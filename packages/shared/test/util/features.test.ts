@@ -116,143 +116,105 @@ const revision: FeatureRevisionInterface = {
 };
 
 describe("autoMerge", () => {
+  // v2: rules live on a single flat top-level array. Each rule carries an
+  // `allEnvironments` boolean + optional `environments` scope. Helpers below
+  // stamp force rules with `environments: [env]` so the v2 shape is easy to
+  // read in each test.
+  const devRule = (id: string, value = "force"): FeatureRule => ({
+    type: "force",
+    description: "",
+    id,
+    value,
+    allEnvironments: false,
+    environments: ["dev"],
+  });
+  const prodRule = (id: string, value = "force"): FeatureRule => ({
+    type: "force",
+    description: "",
+    id,
+    value,
+    allEnvironments: false,
+    environments: ["prod"],
+  });
+
   it("Auto merges when there are no conflicts", () => {
+    const liveForce = prodRule("liveForce");
+    const revisionForce = devRule("revisionForce");
+
     const base: RevisionFields = {
       defaultValue: "base",
-      rules: {
-        dev: [],
-        prod: [],
-      },
+      rules: [],
       version: 4,
     };
     const live: RevisionFields = {
       defaultValue: "base",
-      rules: {
-        dev: [],
-        prod: [
-          {
-            type: "force",
-            description: "",
-            id: "liveForce",
-            value: "force",
-          },
-        ],
-      },
+      rules: [liveForce],
       version: 6,
     };
     const revision: RevisionFields = {
       defaultValue: "revision",
-      rules: {
-        dev: [
-          {
-            type: "force",
-            description: "",
-            id: "revisionForce",
-            value: "force",
-          },
-        ],
-        prod: [],
-      },
+      rules: [revisionForce],
       version: 5,
     };
 
+    // Diverged (live.version !== base.version) so autoMerge runs a three-way
+    // merge. Both sides added different ids, so tryRuleLevelMerge produces the
+    // union in live-first order.
     expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
       success: true,
       conflicts: [],
       result: {
         defaultValue: revision.defaultValue,
-        rules: {
-          dev: revision.rules["dev"],
-        },
+        rules: [liveForce, revisionForce],
       },
     });
   });
+
   it("Auto merges when live and base are the same revision", () => {
+    const revisionForce = devRule("revisionForce");
+
     const base: RevisionFields = {
       defaultValue: "base",
-      rules: {
-        dev: [],
-        prod: [],
-      },
+      rules: [],
       version: 4,
     };
     const revision: RevisionFields = {
       defaultValue: "revision",
-      rules: {
-        dev: [
-          {
-            type: "force",
-            description: "",
-            id: "revisionForce",
-            value: "force",
-          },
-        ],
-      },
+      rules: [revisionForce],
       version: 5,
     };
 
+    // Not diverged: autoMerge only reports the deltas (defaultValue +
+    // the new rule set).
     expect(autoMerge(base, base, revision, ["dev", "prod"], {})).toEqual({
       success: true,
       conflicts: [],
       result: {
         defaultValue: revision.defaultValue,
-        rules: {
-          dev: revision.rules["dev"],
-        },
+        rules: [revisionForce],
       },
     });
   });
+
   it("Handles merge conflicts", () => {
+    const baseShared = prodRule("sharedForce", "base");
+    const liveShared = prodRule("sharedForce", "live");
+    const revisionShared = prodRule("sharedForce", "revision");
+    const revisionForce = devRule("revisionForce");
+
     const base: RevisionFields = {
       defaultValue: "base",
-      rules: {
-        dev: [],
-        prod: [
-          {
-            type: "force",
-            description: "",
-            id: "sharedForce",
-            value: "base",
-          },
-        ],
-      },
+      rules: [baseShared],
       version: 4,
     };
     const live: RevisionFields = {
       defaultValue: "live",
-      rules: {
-        dev: [],
-        prod: [
-          {
-            type: "force",
-            description: "",
-            id: "sharedForce",
-            value: "live",
-          },
-        ],
-      },
+      rules: [liveShared],
       version: 6,
     };
     const revision: RevisionFields = {
       defaultValue: "revision",
-      rules: {
-        dev: [
-          {
-            type: "force",
-            description: "",
-            id: "revisionForce",
-            value: "force",
-          },
-        ],
-        prod: [
-          {
-            type: "force",
-            description: "",
-            id: "sharedForce",
-            value: "revision",
-          },
-        ],
-      },
+      rules: [revisionForce, revisionShared],
       version: 5,
     };
 
@@ -264,23 +226,26 @@ describe("autoMerge", () => {
       live: "live",
       revision: "revision",
     };
-    const prodConflict: MergeConflict = {
-      key: "rules.prod",
-      name: "Rules - prod",
+    // v2: rules merge at the whole-array level — a single "rules" conflict
+    // bucket, not per-env. `sharedForce` was edited by both sides, so
+    // tryRuleLevelMerge bails and we escalate.
+    const rulesConflict: MergeConflict = {
+      key: "rules",
+      name: "Rules",
       resolved: false,
-      base: JSON.stringify(base.rules["prod"], null, 2),
-      live: JSON.stringify(live.rules["prod"], null, 2),
-      revision: JSON.stringify(revision.rules["prod"], null, 2),
+      base: JSON.stringify([baseShared], null, 2),
+      live: JSON.stringify([liveShared], null, 2),
+      revision: JSON.stringify([revisionForce, revisionShared], null, 2),
     };
 
     expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
       success: false,
-      conflicts: [defaultValueConflict, prodConflict],
+      conflicts: [defaultValueConflict, rulesConflict],
     });
 
     expect(
       autoMerge(live, base, revision, ["dev", "prod"], {
-        "rules.prod": "discard",
+        rules: "discard",
       }),
     ).toEqual({
       success: false,
@@ -289,7 +254,7 @@ describe("autoMerge", () => {
           ...defaultValueConflict,
         },
         {
-          ...prodConflict,
+          ...rulesConflict,
           resolved: true,
         },
       ],
@@ -297,7 +262,7 @@ describe("autoMerge", () => {
 
     expect(
       autoMerge(live, base, revision, ["dev", "prod"], {
-        "rules.prod": "discard",
+        rules: "discard",
         defaultValue: "discard",
       }),
     ).toEqual({
@@ -308,20 +273,16 @@ describe("autoMerge", () => {
           resolved: true,
         },
         {
-          ...prodConflict,
+          ...rulesConflict,
           resolved: true,
         },
       ],
-      result: {
-        rules: {
-          dev: revision.rules["dev"],
-        },
-      },
+      result: {},
     });
 
     expect(
       autoMerge(live, base, revision, ["dev", "prod"], {
-        "rules.prod": "discard",
+        rules: "discard",
         defaultValue: "overwrite",
       }),
     ).toEqual({
@@ -332,21 +293,18 @@ describe("autoMerge", () => {
           resolved: true,
         },
         {
-          ...prodConflict,
+          ...rulesConflict,
           resolved: true,
         },
       ],
       result: {
         defaultValue: revision.defaultValue,
-        rules: {
-          dev: revision.rules["dev"],
-        },
       },
     });
 
     expect(
       autoMerge(live, base, revision, ["dev", "prod"], {
-        "rules.prod": "overwrite",
+        rules: "overwrite",
         defaultValue: "overwrite",
       }),
     ).toEqual({
@@ -357,84 +315,73 @@ describe("autoMerge", () => {
           resolved: true,
         },
         {
-          ...prodConflict,
+          ...rulesConflict,
           resolved: true,
         },
       ],
       result: {
         defaultValue: revision.defaultValue,
-        rules: {
-          dev: revision.rules["dev"],
-          prod: revision.rules["prod"],
-        },
+        rules: [revisionForce, revisionShared],
       },
     });
   });
 
   describe("tryRuleLevelMerge (via autoMerge)", () => {
-    const A = { type: "force" as const, id: "a", description: "", value: "a" };
-    const B = { type: "force" as const, id: "b", description: "", value: "b" };
-    const C = { type: "force" as const, id: "c", description: "", value: "c" };
+    // v2: flat FeatureRule[]. We keep the `environments: ["dev"]` scope on
+    // every rule so the merge semantics match the v1 "dev-only" tests.
+    const A = devRule("a", "a");
+    const B = devRule("b", "b");
+    const C = devRule("c", "c");
 
     it("live reorders rules, draft modifies one — absorbs reorder, uses live ordering", () => {
       const Bmod = { ...B, value: "b-updated" };
       const base: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A, B, C] },
+        rules: [A, B, C],
         version: 1,
       };
       const live: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [C, A, B] },
+        rules: [C, A, B],
         version: 2,
       };
       const revision: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A, Bmod, C] },
+        rules: [A, Bmod, C],
         version: 1,
       };
 
       const result = autoMerge(live, base, revision, ["dev"], {});
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.result.rules?.dev).toEqual([C, A, Bmod]);
+        expect(result.result.rules).toEqual([C, A, Bmod]);
       }
     });
 
     it("both sides add new rules — draft addition appended after live rules", () => {
-      const D = {
-        type: "force" as const,
-        id: "d",
-        description: "",
-        value: "d",
-      };
-      const E = {
-        type: "force" as const,
-        id: "e",
-        description: "",
-        value: "e",
-      };
+      const D = devRule("d", "d");
+      const E = devRule("e", "e");
 
       const base: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A] },
+        rules: [A],
         version: 1,
       };
       const live: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A, E] },
+        rules: [A, E],
         version: 2,
       };
       const revision: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A, D] },
+        rules: [A, D],
         version: 1,
       };
 
       const result = autoMerge(live, base, revision, ["dev"], {});
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.result.rules?.dev).toEqual([A, E, D]);
+        expect(result.result.rules).toEqual([A, E, D]);
       }
     });
 
@@ -442,24 +389,24 @@ describe("autoMerge", () => {
       const Cmod = { ...C, value: "c-updated" };
       const base: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A, B, C] },
+        rules: [A, B, C],
         version: 1,
       };
       const live: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A, C] },
+        rules: [A, C],
         version: 2,
       };
       const revision: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A, B, Cmod] },
+        rules: [A, B, Cmod],
         version: 1,
       };
 
       const result = autoMerge(live, base, revision, ["dev"], {});
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.result.rules?.dev).toEqual([A, Cmod]);
+        expect(result.result.rules).toEqual([A, Cmod]);
       }
     });
 
@@ -467,27 +414,27 @@ describe("autoMerge", () => {
       const Bmod = { ...B, value: "b-updated" };
       const base: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A, B] },
+        rules: [A, B],
         version: 1,
       };
       const live: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A] },
+        rules: [A],
         version: 2,
       };
       const revision: RevisionFields = {
         defaultValue: "true",
-        rules: { dev: [A, Bmod] },
+        rules: [A, Bmod],
         version: 1,
       };
 
       const result = autoMerge(live, base, revision, ["dev"], {});
       expect(result.success).toBe(false);
       if (!result.success) {
+        // v2: a single "rules" conflict for the whole flat array, not
+        // per-env buckets.
         expect(result.conflicts).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ key: "rules.dev" }),
-          ]),
+          expect.arrayContaining([expect.objectContaining({ key: "rules" })]),
         );
       }
     });

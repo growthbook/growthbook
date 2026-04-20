@@ -370,6 +370,61 @@ export function getRulesForEnvironment(
   return rules.filter((r) => ruleAppliesToEnv(r, environment));
 }
 
+/**
+ * Project a v2 `FeatureRule` onto the set of environments it affects,
+ * intersected with the caller-supplied applicable env set. Mirrors the
+ * back-end `ruleFootprint` helper so shared/front-end code can derive the
+ * same per-env fanout used by the API projection + audit/diff helpers.
+ *
+ * Semantics:
+ *   - `allEnvironments: true`            → every applicable env
+ *   - `environments: [...]` (v2)         → intersection with applicable envs
+ *   - unset/empty environments on v2     → empty (rule effectively scoped nowhere)
+ */
+export function ruleFootprint(
+  rule: FeatureRule,
+  applicableEnvs: string[],
+): string[] {
+  if (rule.allEnvironments) return applicableEnvs;
+  const applicableSet = new Set(applicableEnvs);
+  return (rule.environments || []).filter((e) => applicableSet.has(e));
+}
+
+/**
+ * Input shim for shared diff/merge helpers that may be fed a rules blob of
+ * ambiguous provenance during the v1→v2 migration window:
+ *   - v2 (canonical):      `FeatureRule[]` — returned as-is
+ *   - v1 (legacy):         `Record<env, FeatureRule[]>` — flattened to v2 by
+ *                          stamping each rule with `allEnvironments: false`
+ *                          + `environments: [env]`
+ *   - null/undefined/other: `[]`
+ *
+ * Not intended for persistence — callers that persist must go through the
+ * stronger `normalizeRulesInputToV2` on the back-end, which also handles
+ * `upgradeFeatureRule` defensive cleanup and id-collision suffixing.
+ */
+export function normalizeRulesInput(input: unknown): FeatureRule[] {
+  if (input == null) return [];
+  if (Array.isArray(input)) return input as FeatureRule[];
+  if (typeof input === "object") {
+    const out: FeatureRule[] = [];
+    for (const [env, rules] of Object.entries(
+      input as Record<string, FeatureRule[]>,
+    )) {
+      if (!Array.isArray(rules)) continue;
+      for (const r of rules) {
+        out.push({
+          ...r,
+          allEnvironments: false,
+          environments: [env],
+        } as FeatureRule);
+      }
+    }
+    return out;
+  }
+  return [];
+}
+
 export function isProjectListValidForProject(
   projects?: string[],
   project?: string,
