@@ -5,12 +5,14 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
@@ -66,6 +68,7 @@ export default function Implementation({
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
   const phases = experiment.phases || [];
+  const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -99,6 +102,29 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const canEditHoldoutDefaultState =
+    isHoldout &&
+    !!holdout &&
+    !experiment.archived &&
+    experiment.status !== "stopped" &&
+    permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
+
+  async function toggleDefaultHoldoutState() {
+    if (!holdout) return;
+    await apiCall(`/holdout/${holdout.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        doNotSetAsDefaultHoldout: !holdout.doNotSetAsDefaultHoldout,
+      }),
+    });
+    await mutate();
+  }
+
+  const holdoutDefaultStateText = useMemo(() => {
+    return holdout?.doNotSetAsDefaultHoldout
+      ? `This holdout ${experiment.status === "draft" ? "will not be" : experiment.status === "running" ? "is not" : "was not"} selected by default for new experiments or features.`
+      : `This holdout ${experiment.status === "draft" ? "will be" : experiment.status === "running" ? "is" : "was"} a default for new experiments or features.`;
+  }, [holdout?.doNotSetAsDefaultHoldout, experiment.status]);
 
   return (
     <>
@@ -233,6 +259,25 @@ export default function Implementation({
                 )}
               </>
             )}
+            <Flex align="center" justify="between" mt="3">
+              <Text>
+                {holdoutDefaultStateText}
+                {canEditHoldoutDefaultState ? (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      className="btn btn-link p-0 align-baseline"
+                      onClick={toggleDefaultHoldoutState}
+                    >
+                      {holdout.doNotSetAsDefaultHoldout
+                        ? "Click to make default."
+                        : "Click to make opt-in."}
+                    </button>
+                  </>
+                ) : null}
+              </Text>
+            </Flex>
           </div>
         ) : null}
         {experiment.status !== "draft" && !hasLinkedChanges && !isHoldout ? (
