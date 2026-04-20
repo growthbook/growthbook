@@ -139,7 +139,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       publish: true,
       changes: { environmentsEnabled: changedToggles },
       org: req.organization,
-      canBypassApprovalChecks: true, // review gate already enforced above
+      canBypassApprovalChecks: true, // review gate enforced above
     });
 
     const updatedFeature = await applyRevisionChanges(

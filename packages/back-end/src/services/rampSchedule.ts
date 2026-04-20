@@ -4,6 +4,7 @@ import { EventUser } from "shared/types/events/event-types";
 import {
   FeatureRulePatch,
   RampScheduleInterface,
+  RampScheduleTemplateInterface,
   RampStepAction,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
@@ -33,6 +34,37 @@ interface EntityHandler {
       environment?: string | null;
     },
   ): Promise<void>;
+}
+
+export function forceMatchesValueType(
+  value: unknown,
+  valueType: FeatureInterface["valueType"],
+): boolean {
+  if (value === null || value === undefined) return false;
+  const t = typeof value;
+  if (valueType === "boolean") return t === "boolean";
+  if (valueType === "number") return t === "number";
+  if (valueType === "string") return t === "string";
+  if (valueType === "json") return t === "object";
+  return false;
+}
+
+// Remap template actions to the real target/rule; drop `force` values whose
+// type doesn't match the feature.
+export function remapTemplateActions(
+  actions: RampScheduleTemplateInterface["steps"][number]["actions"],
+  targetId: string,
+  ruleId: string,
+  valueType: FeatureInterface["valueType"],
+): RampStepAction[] {
+  return (actions ?? []).map((a) => {
+    const patch = { ...a.patch, ruleId };
+    if ("force" in patch && !forceMatchesValueType(patch.force, valueType)) {
+      const { force: _force, ...rest } = patch;
+      return { targetType: "feature-rule" as const, targetId, patch: rest };
+    }
+    return { targetType: "feature-rule" as const, targetId, patch };
+  });
 }
 
 // Accumulates patches from step 0 through stepIndex for each targetId.

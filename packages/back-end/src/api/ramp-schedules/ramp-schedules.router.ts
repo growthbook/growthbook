@@ -10,8 +10,13 @@ import {
   addTargetRampSchedule,
   ejectTargetRampSchedule,
 } from "./rampScheduleActions";
+import { listRampSchedules } from "./listRampSchedules";
+import { postRampSchedule } from "./postRampSchedule";
 
 export const rampSchedulesRoutes: OpenApiRoute[] = [
+  // CRUD
+  listRampSchedules,
+  postRampSchedule,
   // Actions
   startRampSchedule,
   pauseRampSchedule,

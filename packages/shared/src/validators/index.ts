@@ -20,6 +20,7 @@ export * from "./queries";
 export * from "./safe-rollout";
 export * from "./ramp-schedule";
 export * from "./ramp-schedule-notifications";
+export * from "./feature-revision-notifications";
 export * from "./saved-group";
 export * from "./saved-queries";
 export * from "./segment";
@@ -28,6 +29,7 @@ export * from "./snapshot-analysis-chunks";
 export * from "./webhook-secrets";
 export * from "./webhooks";
 export * from "./event-webhook";
+export * from "./feature-webhook-schemas";
 // Load watch before events - events imports base-types which imports validators, creating a cycle.
 // Having watch (and apikey) loaded first ensures they're available when the cycle is hit.
 export * from "./watch";
@@ -38,6 +40,7 @@ export * from "./experiment-info";
 export * from "./experiment-warnings";
 
 export * from "./features";
+export * from "./feature-revisions";
 export * from "./holdout";
 export * from "./projects";
 export * from "./safe-rollout-notifications";
