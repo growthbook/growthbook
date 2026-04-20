@@ -1097,7 +1097,7 @@ export async function setDefaultValue(
   user: EventUser,
   requireReview: boolean,
 ) {
-  await updateRevision(
+  return updateRevision(
     context,
     feature,
     revision,
@@ -1451,9 +1451,12 @@ async function createRampSchedulesForRevision(
             }))
           : [];
 
+    // null = explicitly cleared (skip template); undefined = not set (fall back to template).
     const endActions: RampStepAction[] =
       action.endActions !== undefined
-        ? action.endActions.map(normalizeAction)
+        ? Array.isArray(action.endActions)
+          ? action.endActions.map(normalizeAction)
+          : []
         : template?.endPatch && Object.keys(template.endPatch).length > 0
           ? [
               {

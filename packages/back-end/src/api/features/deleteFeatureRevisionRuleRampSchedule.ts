@@ -2,6 +2,7 @@ import type { RevisionRampDetachAction } from "shared/validators";
 import { deleteFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { revisionToApiInterface } from "back-end/src/services/features";
+import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -103,8 +104,20 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       featureId: feature.id,
       version: revision.version,
     });
+    const finalRevision = updated ?? revision;
 
-    return { revision: revisionToApiInterface(updated ?? revision) };
+    await recordRevisionUpdate(
+      req.context,
+      feature,
+      finalRevision,
+      "rule.rampSchedule.remove",
+      {
+        environments: [environment],
+        auditDetails: { ruleId },
+      },
+    );
+
+    return { revision: revisionToApiInterface(finalRevision) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

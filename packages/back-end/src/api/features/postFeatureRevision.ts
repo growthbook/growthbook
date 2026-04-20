@@ -1,10 +1,12 @@
 import { postFeatureRevisionValidator } from "shared/validators";
 import { revisionToApiInterface } from "back-end/src/services/features";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { createRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { auditDetailsCreate } from "back-end/src/services/audit";
 
 export const postFeatureRevision = createApiRequestHandler(
   postFeatureRevisionValidator,
@@ -34,6 +36,25 @@ export const postFeatureRevision = createApiRequestHandler(
     org: req.context.org,
     canBypassApprovalChecks: false,
   });
+
+  await req.audit({
+    event: "feature.revision.create",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsCreate({
+      featureId: feature.id,
+      version: newDraft.version,
+      baseVersion: newDraft.baseVersion,
+      comment: newDraft.comment,
+    }),
+  });
+
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    feature,
+    newDraft,
+    "revision.created",
+    {},
+  );
 
   return { revision: revisionToApiInterface(newDraft) };
 });
