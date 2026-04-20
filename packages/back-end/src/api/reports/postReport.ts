@@ -161,9 +161,13 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
       ),
     };
   } catch (e) {
+    // Clear the placeholder snapshot so a subsequent GET doesn't read back a
+    // "success" status from the original experiment snapshot this report
+    // never ran against.
+    await updateReport(org.id, report.id, { snapshot: "" });
     return {
       report: {
-        ...toReportApiInterface(report),
+        ...toReportApiInterface({ ...report, snapshot: "" }),
         snapshotStatus: "error" as const,
         snapshotError: (e as Error).message,
       },

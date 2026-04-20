@@ -3,7 +3,10 @@ import {
   getReportsByExperimentId,
   getReportsByOrg,
 } from "back-end/src/models/ReportModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  getAllExperiments,
+  getExperimentById,
+} from "back-end/src/models/ExperimentModel";
 import {
   createApiRequestHandler,
   applyPagination,
@@ -28,7 +31,19 @@ export const listReports = createApiRequestHandler(listReportsValidator)(async (
     }
     reports = await getReportsByExperimentId(org.id, req.query.experimentId);
   } else {
-    reports = await getReportsByOrg(req.context, "");
+    // Post-filter by accessible experiments — getReportsByOrg with an empty
+    // project skips its own project gate, which would otherwise leak reports
+    // across projects the caller can't read.
+    const allReports = await getReportsByOrg(req.context, "");
+    const accessibleExperiments = await getAllExperiments(req.context, {
+      includeArchived: true,
+    });
+    const accessibleExperimentIds = new Set(
+      accessibleExperiments.map((e) => e.id),
+    );
+    reports = allReports.filter(
+      (r) => !r.experimentId || accessibleExperimentIds.has(r.experimentId),
+    );
   }
 
   const { filtered, returnFields } = applyPagination(reports, req.query);
