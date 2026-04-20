@@ -71,6 +71,7 @@ export default {
           collapsed: false,
           items: [
             "features/publishing-and-approval-flows", // Publishing & Approval Flows (NEW)
+            "features/json-schema-validation", // JSON Schema Validation
             "features/stale-detection", // Stale Feature Detection
             "features/code-references", // Code References
             "features/diagnostics", // Feature Diagnostics
