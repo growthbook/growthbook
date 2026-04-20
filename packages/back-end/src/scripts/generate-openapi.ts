@@ -9,6 +9,7 @@ const openApiTags = [
   "projects",
   "environments",
   "features",
+  "feature-revisions",
   "ramp-schedules",
   "data-sources",
   "fact-tables",
@@ -47,6 +48,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   features: {
     display: "Feature Flags",
     description: "Control your feature flags programatically",
+  },
+  "feature-revisions": {
+    display: "Feature Revisions",
+    description:
+      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nThese endpoints are in beta and are subject to change.",
   },
   "ramp-schedules": {
     display: "Ramp Schedules",

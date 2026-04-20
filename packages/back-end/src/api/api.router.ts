@@ -40,7 +40,6 @@ import { factMetricsRoutes } from "./fact-metrics/fact-metrics.router";
 import { bulkImportRoutes } from "./bulk-import/bulk-import.router";
 import { membersRoutes } from "./members/members.router";
 import { openaiRoutes } from "./openai/openai.router";
-import { ingestionRoutes } from "./ingestion/ingestion.router";
 import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
@@ -152,7 +151,6 @@ export const allRoutes = [
   ...bulkImportRoutes,
   ...codeRefsRoutes,
   ...membersRoutes,
-  ...ingestionRoutes,
   ...queriesRoutes,
   ...settingsRoutes,
   ...informationSchemaTablesRoutes,
@@ -165,7 +163,6 @@ export const apiModelTagMeta: Record<
   string,
   { displayName?: string; description?: string }
 > = {};
-
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
   if (!apiConfig) return;

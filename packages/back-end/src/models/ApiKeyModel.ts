@@ -7,6 +7,7 @@ import {
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -18,9 +19,11 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
   additionalIndexes: [{ fields: { id: 1 } }],
+  skipDateUpdatedFields: ["lastUsed"],
   defaultValues: {
     limitAccessByEnvironment: false,
     environments: [],
+    lastUsed: null,
   },
 });
 
@@ -41,9 +44,16 @@ export class ApiKeyModel extends BaseClass {
       );
     }
   }
-  protected canUpdate(_existing: ApiKeyInterface): boolean {
-    // ApiKeys should be immutable
-    return false;
+  protected canUpdate(
+    apiKey: ApiKeyInterface,
+    updates: Partial<ApiKeyInterface>,
+  ): boolean {
+    // API keys are immutable except for toggling `disabled`.
+    // Anything else (key value, role, etc.) must never be edited.
+    // `lastUsed` is written by auth middleware via the dangerous bypass and never hits this path.
+    const keys = Object.keys(updates);
+    if (keys.length !== 1 || keys[0] !== "disabled") return false;
+    return this.canDelete(apiKey);
   }
   protected canDelete(apiKey: ApiKeyInterface): boolean {
     if (apiKey.secret) {
@@ -214,6 +224,26 @@ export class ApiKeyModel extends BaseClass {
     if (!doc) this.context.throwNotFoundError();
 
     await this.delete(doc);
+  }
+
+  public async setDisabled(id: string, disabled: boolean): Promise<void> {
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
+    await this.update(doc, { disabled });
+  }
+
+  // Called from authentication middleware on every API request attempt.
+  // Fires even for disabled keys so operators can see whether a key is still
+  // being used before deleting it. Runs before the request context exists, so
+  // it's a static raw $set scoped by the (key, organization) pair.
+  public static async dangerousRecordUsageByKey(
+    key: string,
+    organization: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { key, organization },
+      { $set: { lastUsed: new Date() } },
+    );
   }
 
   public async getVisualEditorApiKey(

@@ -114,14 +114,6 @@ export async function _dangerourslyGetAllDatasourcesByOrganizations(
   return docs.map(toInterface);
 }
 
-// WARNING: This does not restrict by organization
-export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    type: "growthbook_clickhouse",
-  });
-  return docs.map(toInterface);
-}
-
 export async function getGrowthbookDatasource(context: ReqContext) {
   const orgId = context.org.id;
   const doc: DataSourceDocument | null = await DataSourceModel.findOne({

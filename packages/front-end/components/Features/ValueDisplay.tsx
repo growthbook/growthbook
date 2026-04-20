@@ -5,7 +5,7 @@ import {
 } from "shared/types/feature";
 import React, { CSSProperties, useMemo, useState } from "react";
 import stringify from "json-stringify-pretty-compact";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
@@ -91,10 +91,10 @@ export default function ValueDisplay({
 
   return (
     <>
-      <div style={{ position: "relative" }}>
-        <div style={fullStyle} className={fullClassName}>
+      <Box position="relative">
+        <Box style={fullStyle} className={fullClassName}>
           <InlineCode language="json" code={formatted} />
-        </div>
+        </Box>
         {!isFullscreen && (
           <Flex
             align="center"
@@ -142,7 +142,7 @@ export default function ValueDisplay({
             )}
           </Flex>
         )}
-      </div>
+      </Box>
       {modalOpen && (
         <Modal
           header="Feature Value"

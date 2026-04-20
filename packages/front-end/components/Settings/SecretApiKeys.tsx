@@ -55,6 +55,18 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
     [mutate, apiCall],
   );
 
+  const onToggleDisabled = useCallback(
+    (keyId: string | undefined, disabled: boolean) => async () => {
+      if (!keyId) return;
+      await apiCall(`/keys/${keyId}/disabled`, {
+        method: "PUT",
+        body: JSON.stringify({ disabled }),
+      });
+      mutate();
+    },
+    [apiCall, mutate],
+  );
+
   return (
     <div className="mb-4">
       {open && canCreateKeys && (
@@ -78,6 +90,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             canCreateKeys={canCreateKeys}
             canDeleteKeys={canDeleteKeys}
             onReveal={onReveal}
+            onToggleDisabled={canDeleteKeys ? onToggleDisabled : undefined}
           />
         )}
         {canCreateKeys && (

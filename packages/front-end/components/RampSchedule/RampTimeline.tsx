@@ -2,13 +2,13 @@ import { Fragment, useState, type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
-import { abbreviateAgo } from "shared/src/dates";
+import { abbreviateAgo } from "shared/dates";
 import {
   RampScheduleInterface,
   RampScheduleStatus,
   RampStepAction,
   RampTrigger,
-} from "shared/src/validators/ramp-schedule";
+} from "shared/validators";
 import stringify from "json-stringify-pretty-compact";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
