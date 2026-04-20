@@ -820,7 +820,6 @@ describe("featureEntityHandler.applyActions", () => {
       }),
     ).rejects.toThrow(/not found/);
   });
-
 });
 
 // ---------------------------------------------------------------------------

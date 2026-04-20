@@ -20,7 +20,6 @@ import {
 } from "shared/types/datasource";
 import {
   FeatureDraftChanges,
-  FeatureInterface,
   FeatureRule,
   JSONSchemaDef,
   LegacyFeatureInterface,
@@ -384,8 +383,7 @@ export function applyNonRuleFeatureUpgrades<
   feature.version = feature.version || 1;
 
   if (feature.jsonSchema) {
-    feature.jsonSchema.schemaType =
-      feature.jsonSchema.schemaType || "schema";
+    feature.jsonSchema.schemaType = feature.jsonSchema.schemaType || "schema";
     feature.jsonSchema.simple = feature.jsonSchema.simple || {
       type: "object",
       fields: [],
@@ -504,7 +502,6 @@ export function upgradeV0Feature(
 
   return newFeature;
 }
-
 
 export function upgradeOrganizationDoc(
   doc: OrganizationInterface,

@@ -242,7 +242,11 @@ export async function validateExperimentFeatureUpdates({
       }
 
       const ruleIds = Array.from(
-        new Set(matchingRules.map((m) => m.rule.id).filter((id): id is string => !!id)),
+        new Set(
+          matchingRules
+            .map((m) => m.rule.id)
+            .filter((id): id is string => !!id),
+        ),
       );
       const projectedRevision = applyPartialFeatureRuleUpdatesToRevision(
         revision,

@@ -56,21 +56,14 @@ export default function AssignmentTester({
 
   const hasPrerequisites = useMemo(() => {
     if (feature?.prerequisites?.length) return true;
-    if (
-      Object.values(feature?.environmentSettings ?? {}).some((env) =>
-        env?.rules?.some((rule) => !!rule?.prerequisites?.length),
-      )
-    )
+    if ((feature?.rules ?? []).some((rule) => !!rule?.prerequisites?.length))
       return true;
     return false;
   }, [feature]);
 
   const hasScheduled = useMemo(() => {
-    return Object.values(feature?.environmentSettings ?? {}).some((env) =>
-      env?.rules?.some(
-        (rule) =>
-          !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length,
-      ),
+    return (feature?.rules ?? []).some(
+      (rule) => !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length,
     );
   }, [feature]);
   const { hasCommercialFeature } = useUser();

@@ -27,6 +27,7 @@ import {
   featureHasEnvironment,
   generateVariationId,
   getMatchingRules,
+  getRulesForEnvironment,
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
@@ -270,7 +271,7 @@ export function useFeatureSearch({
 }
 
 export function getRules(feature: FeatureInterface, environment: string) {
-  return feature?.environmentSettings?.[environment]?.rules ?? [];
+  return getRulesForEnvironment(feature.rules, environment);
 }
 export function getFeatureDefaultValue(feature: {
   defaultValue?: string;
@@ -684,8 +685,8 @@ export function getAffectedRevisionEnvs(
   if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
 
   return enabledEnvs.filter((env) => {
-    const liveRules = liveFeature.environmentSettings?.[env]?.rules || [];
-    const revisionRules = revision.rules?.[env] || [];
+    const liveRules = getRulesForEnvironment(liveFeature.rules, env);
+    const revisionRules = getRulesForEnvironment(revision.rules, env);
 
     return !isEqual(liveRules, revisionRules);
   });
@@ -743,6 +744,7 @@ export function getDefaultRuleValue({
       type: "rollout",
       description: "",
       id: "",
+      allEnvironments: false,
       value,
       coverage: 1, // we are hardcoding the coverage to 1 for now
       condition: "",
@@ -765,6 +767,7 @@ export function getDefaultRuleValue({
       type: "safe-rollout",
       description: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       safeRolloutId: "",
       enabled: true,
@@ -788,6 +791,7 @@ export function getDefaultRuleValue({
       type: "experiment",
       description: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       enabled: true,
       hashAttribute,
@@ -828,6 +832,7 @@ export function getDefaultRuleValue({
       description: "",
       experimentId: "",
       id: "",
+      allEnvironments: false,
       variations: [],
       condition: "",
       enabled: true,
@@ -850,6 +855,7 @@ export function getDefaultRuleValue({
       description: "",
       name: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       enabled: true,
       hashAttribute,
@@ -889,6 +895,7 @@ export function getDefaultRuleValue({
       type: "force",
       description: "",
       id: "",
+      allEnvironments: false,
       value,
       enabled: true,
       condition: "",

@@ -1,9 +1,7 @@
 import { FeatureRule } from "shared/validators";
-import {
-  FeatureInterface,
-  LegacyFeatureInterface,
-} from "shared/types/feature";
+import { FeatureInterface, LegacyFeatureInterface } from "shared/types/feature";
 import { Environment } from "shared/types/organization";
+import { suffixRuleId } from "shared/util";
 import {
   FeatureModel,
   buildFeatureInterface,
@@ -11,7 +9,6 @@ import {
   toInterface,
 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
-import { suffixRuleId } from "shared/util";
 
 // ---------------------------------------------------------------------------
 // buildFeatureInterface is the pure-function core of FeatureModel.toInterface.
@@ -62,10 +59,7 @@ function v2Rule(id: string, opts: Partial<FeatureRule> = {}): FeatureRule {
 }
 
 // A minimal v1 legacy rule (no allEnvironments/environments).
-function v1Rule(
-  id: string,
-  overrides: Partial<Record<string, unknown>> = {},
-) {
+function v1Rule(id: string, overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id,
     type: "force",

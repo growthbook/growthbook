@@ -380,6 +380,7 @@ export const transformLDFeatureFlag = (
   const defaultValue = variationValues[defaultValueIndex];
 
   const gbEnvironments: FeatureInterface["environmentSettings"] = {};
+  const allRules: FeatureRule[] = [];
   envKeys.forEach((envKey) => {
     const envData = environments[envKey];
 
@@ -417,6 +418,7 @@ export const transformLDFeatureFlag = (
           type: "force",
           id: `rule_prereqs_${i}`,
           description: `Prerequisite feature ${i + 1}`,
+          allEnvironments: false,
           prerequisites: [
             {
               id: key,
@@ -445,6 +447,7 @@ export const transformLDFeatureFlag = (
         type: "force",
         id: `rule_targets_${i}`,
         description: "Targets",
+        allEnvironments: false,
         condition: JSON.stringify({
           id: {
             $in: target.values,
@@ -485,6 +488,7 @@ export const transformLDFeatureFlag = (
             type: "experiment",
             id: rule._id || `rule_${i}`,
             description: rule.description || "",
+            allEnvironments: false,
             condition: JSON.stringify(cond),
             enabled: true,
             hashAttribute: rule.rollout.bucketBy || "id",
@@ -507,6 +511,7 @@ export const transformLDFeatureFlag = (
           type: "force",
           id: rule._id || `rule_${i}`,
           description: rule.description || "",
+          allEnvironments: false,
           condition: JSON.stringify(cond),
           enabled: true,
           value: variationValues[rule.variation],
@@ -529,6 +534,7 @@ export const transformLDFeatureFlag = (
         type: "force",
         id: `rule_fallthrough`,
         description: "Fallthrough",
+        allEnvironments: false,
         enabled: true,
         value: variationValues[fallthrough],
         condition: "{}",
@@ -538,8 +544,10 @@ export const transformLDFeatureFlag = (
 
     gbEnvironments[envKey] = {
       enabled: environments[envKey].on,
-      rules: rules,
     };
+    for (const r of rules) {
+      allRules.push({ ...r, allEnvironments: false, environments: [envKey] });
+    }
   });
 
   const owner = _maintainer
@@ -548,6 +556,7 @@ export const transformLDFeatureFlag = (
 
   return {
     environmentSettings: gbEnvironments,
+    rules: allRules,
     defaultValue: defaultValue,
     project,
     id: key,

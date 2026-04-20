@@ -5,7 +5,6 @@ import { z } from "zod";
 import {
   simpleSchemaFieldValidator,
   simpleSchemaValidator,
-  FeatureRule,
   FeatureInterface,
   V1FeatureRule,
   V1FeatureEnvironment,

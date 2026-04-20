@@ -1538,7 +1538,7 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
       value: "true",
       description: "",
     };
-    const origFeature: LegacyFeatureInterface = ({
+    const origFeature: LegacyFeatureInterface = {
       dateCreated: new Date("2024-01-01"),
       dateUpdated: new Date("2024-01-01"),
       organization: "org_123",
@@ -1548,7 +1548,7 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
       id: "feat_pipeline_shared",
       environments: ["dev", "production"],
       rules: [origRule],
-    } as unknown) as LegacyFeatureInterface;
+    } as unknown as LegacyFeatureInterface;
 
     const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
 
@@ -1573,7 +1573,7 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
       value: "true",
       description: "",
     };
-    const origFeature: LegacyFeatureInterface = ({
+    const origFeature: LegacyFeatureInterface = {
       dateCreated: new Date("2024-01-01"),
       dateUpdated: new Date("2024-01-01"),
       organization: "org_123",
@@ -1583,7 +1583,7 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
       id: "feat_pipeline_legacy",
       environments: ["dev", "production"],
       rules: [origRule],
-    } as unknown) as LegacyFeatureInterface;
+    } as unknown as LegacyFeatureInterface;
 
     const v2Rules = runV0ToV2(origFeature, ["dev", "production", "staging"]);
 
@@ -1595,7 +1595,7 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
   });
 
   it("emits an empty v2 rules array for a v0 doc with no rules", () => {
-    const origFeature: LegacyFeatureInterface = ({
+    const origFeature: LegacyFeatureInterface = {
       dateCreated: new Date("2024-01-01"),
       dateUpdated: new Date("2024-01-01"),
       organization: "org_123",
@@ -1605,7 +1605,7 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
       id: "feat_pipeline_empty",
       environments: ["dev", "production"],
       rules: [],
-    } as unknown) as LegacyFeatureInterface;
+    } as unknown as LegacyFeatureInterface;
 
     const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
     expect(v2Rules).toEqual([]);
@@ -1615,7 +1615,7 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
     // An old v0 experiment rule with un-normalized weights and no coverage.
     // upgradeV0Feature -> upgradeFeatureRule backfills coverage during the v1
     // step; flattenV1ToV2Rules then carries those normalized values forward.
-    const origRule = ({
+    const origRule = {
       type: "experiment",
       description: "",
       hashAttribute: "id",
@@ -1625,8 +1625,8 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
         { value: "a", weight: 0.1 },
         { value: "b", weight: 0.4 },
       ],
-    } as unknown) as FeatureRule;
-    const origFeature: LegacyFeatureInterface = ({
+    } as unknown as FeatureRule;
+    const origFeature: LegacyFeatureInterface = {
       dateCreated: new Date("2024-01-01"),
       dateUpdated: new Date("2024-01-01"),
       organization: "org_123",
@@ -1636,7 +1636,7 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
       id: "feat_pipeline_exp",
       environments: ["dev", "production"],
       rules: [origRule],
-    } as unknown) as LegacyFeatureInterface;
+    } as unknown as LegacyFeatureInterface;
 
     const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
     expect(v2Rules).toHaveLength(1);

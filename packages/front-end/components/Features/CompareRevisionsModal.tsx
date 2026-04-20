@@ -93,7 +93,7 @@ function revisionToDiffInput(
 ): FeatureRevisionDiffInput {
   return {
     defaultValue: r.defaultValue,
-    rules: r.rules ?? {},
+    rules: Array.isArray(r.rules) ? r.rules : [],
     environmentsEnabled: r.environmentsEnabled,
     prerequisites: r.prerequisites,
     holdout: r.holdout ?? null,
@@ -606,8 +606,12 @@ function rampDiffsForRevision(
 // so the diff shows the rule *in context* (whole env array) rather than in
 // isolation.
 
+// Internal per-env bucketed view used by the log replay engine. This is
+// decoupled from `FeatureRevisionInterface["rules"]` (which is v2-flat):
+// logs reference rules by env+index, so the replay bookkeeping reconstructs
+// the per-env state before projecting back to a flat v2 array for display.
 type ReplayState = {
-  rules: NonNullable<FeatureRevisionInterface["rules"]>;
+  rules: Record<string, FeatureRevisionRule[]>;
   defaultValue: FeatureRevisionInterface["defaultValue"];
   prerequisites: NonNullable<FeatureRevisionInterface["prerequisites"]>;
   environmentsEnabled: NonNullable<
@@ -615,11 +619,31 @@ type ReplayState = {
   >;
 };
 
+type FeatureRevisionRule = NonNullable<
+  FeatureRevisionInterface["rules"]
+>[number];
+
+function bucketRevisionRulesByEnv(
+  rules: FeatureRevisionInterface["rules"] | null | undefined,
+): Record<string, FeatureRevisionRule[]> {
+  const out: Record<string, FeatureRevisionRule[]> = {};
+  if (!Array.isArray(rules)) return out;
+  for (const r of rules) {
+    const envs = r.allEnvironments ? null : (r.environments ?? []);
+    if (envs === null) continue; // allEnvironments: caller overlays via envsEnabled
+    for (const e of envs) {
+      out[e] = out[e] ?? [];
+      out[e].push(r);
+    }
+  }
+  return out;
+}
+
 function initialReplayState(
   base: FeatureRevisionInterface | null,
 ): ReplayState {
   return {
-    rules: base?.rules ?? {},
+    rules: bucketRevisionRulesByEnv(base?.rules),
     defaultValue: base?.defaultValue ?? "",
     prerequisites: base?.prerequisites ?? [],
     environmentsEnabled: base?.environmentsEnabled ?? {},
@@ -662,10 +686,7 @@ function applyLogEntry(state: ReplayState, log: RevisionLog): ReplayState {
 
   if (log.action.startsWith("add rule") && envs.length) {
     for (const env of envs) {
-      rules[env] = [
-        ...(rules[env] ?? []),
-        parsed as FeatureRevisionInterface["rules"][string][number],
-      ];
+      rules[env] = [...(rules[env] ?? []), parsed as FeatureRevisionRule];
     }
     return { ...state, rules };
   }
@@ -1452,10 +1473,10 @@ export default function CompareRevisionsModal({
   const stepDiffs = useFeatureRevisionDiff({
     current: stepRevA
       ? revisionToDiffInput(stepRevA)
-      : { defaultValue: "", rules: {} },
+      : { defaultValue: "", rules: [] },
     draft: stepRevB
       ? revisionToDiffInput(stepRevB)
-      : { defaultValue: "", rules: {} },
+      : { defaultValue: "", rules: [] },
   });
 
   const singleRevFirst =
@@ -1467,10 +1488,10 @@ export default function CompareRevisionsModal({
   const mergedDiffs = useFeatureRevisionDiff({
     current: singleRevFirst
       ? revisionToDiffInput(singleRevFirst)
-      : { defaultValue: "", rules: {} },
+      : { defaultValue: "", rules: [] },
     draft: singleRevLast
       ? revisionToDiffInput(singleRevLast)
-      : { defaultValue: "", rules: {} },
+      : { defaultValue: "", rules: [] },
   });
 
   // Use baseFeature for the left side so environmentsEnabled is dense rather than the sparse delta on the live revision
@@ -1487,7 +1508,7 @@ export default function CompareRevisionsModal({
     current:
       previewDraftVersion !== null
         ? liveBaseInput
-        : { defaultValue: "", rules: {} },
+        : { defaultValue: "", rules: [] },
     draft: previewDraftRev
       ? {
           // Merge environmentsEnabled on top of the live base so every env is explicit
@@ -1497,7 +1518,7 @@ export default function CompareRevisionsModal({
             ...(previewDraftRev.environmentsEnabled ?? {}),
           },
         }
-      : { defaultValue: "", rules: {} },
+      : { defaultValue: "", rules: [] },
   });
   const previewDisplayLoading =
     previewDraftVersion !== null &&

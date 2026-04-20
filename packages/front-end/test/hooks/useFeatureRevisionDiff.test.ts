@@ -8,23 +8,46 @@ describe("useFeatureRevisionDiff", () => {
   it("should not show diff for unmodified environments when only one environment is changed", () => {
     const current: FeatureRevisionDiffInput = {
       defaultValue: "false",
-      rules: {
-        production: [
-          { id: "rule1", description: "test", type: "force", value: "true" },
-        ],
-        staging: [
-          { id: "rule2", description: "test", type: "force", value: "false" },
-        ],
-      },
+      rules: [
+        {
+          id: "rule1",
+          description: "test",
+          type: "force",
+          value: "true",
+          allEnvironments: false,
+          environments: ["production"],
+        },
+        {
+          id: "rule2",
+          description: "test",
+          type: "force",
+          value: "false",
+          allEnvironments: false,
+          environments: ["staging"],
+        },
+      ],
     };
 
     const draft: FeatureRevisionDiffInput = {
       defaultValue: "false",
-      rules: {
-        production: [
-          { id: "rule1", description: "test", type: "force", value: "changed" },
-        ],
-      },
+      rules: [
+        {
+          id: "rule1",
+          description: "test",
+          type: "force",
+          value: "changed",
+          allEnvironments: false,
+          environments: ["production"],
+        },
+        {
+          id: "rule2",
+          description: "test",
+          type: "force",
+          value: "false",
+          allEnvironments: false,
+          environments: ["staging"],
+        },
+      ],
     };
 
     const { result } = renderHook(() =>

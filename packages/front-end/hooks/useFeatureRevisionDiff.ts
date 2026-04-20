@@ -4,6 +4,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RevisionMetadata } from "shared/src/validators/features";
 import type { MergeResultChanges } from "shared/util";
+import { getRulesForEnvironment } from "shared/util";
 import {
   renderFeatureDefaultValue,
   renderFeatureRules,
@@ -46,12 +47,7 @@ export const featureToFeatureRevisionDiffInput = (
 
   return {
     defaultValue: feature.defaultValue,
-    rules: Object.fromEntries(
-      Object.entries(feature.environmentSettings).map(([envId, env]) => [
-        envId,
-        env.rules,
-      ]),
-    ),
+    rules: feature.rules ?? [],
     environmentsEnabled,
     prerequisites: feature.prerequisites,
     holdout: feature.holdout ?? null,
@@ -264,11 +260,32 @@ export function useFeatureRevisionDiff({
       });
     }
 
-    // 6. Rules (per environment)
-    const draftEnvironments = Object.keys(draft.rules || {});
-    draftEnvironments.forEach((envId) => {
-      const currentRules = current.rules?.[envId] || [];
-      const draftRules = draft.rules?.[envId] || [];
+    // 6. Rules (per environment, projected from the unified v2 rules array)
+    const draftRulesArr = Array.isArray(draft.rules) ? draft.rules : [];
+    const currentRulesArr = Array.isArray(current.rules) ? current.rules : [];
+    const envSet = new Set<string>();
+    for (const r of draftRulesArr) {
+      if (r.allEnvironments) continue;
+      (r.environments ?? []).forEach((e) => envSet.add(e));
+    }
+    for (const r of currentRulesArr) {
+      if (r.allEnvironments) continue;
+      (r.environments ?? []).forEach((e) => envSet.add(e));
+    }
+    const hasAllEnvRule =
+      draftRulesArr.some((r) => r.allEnvironments) ||
+      currentRulesArr.some((r) => r.allEnvironments);
+    if (hasAllEnvRule) {
+      Object.keys(draft.environmentsEnabled ?? {}).forEach((e) =>
+        envSet.add(e),
+      );
+      Object.keys(current.environmentsEnabled ?? {}).forEach((e) =>
+        envSet.add(e),
+      );
+    }
+    envSet.forEach((envId) => {
+      const currentRules = getRulesForEnvironment(currentRulesArr, envId);
+      const draftRules = getRulesForEnvironment(draftRulesArr, envId);
 
       if (!isEqual(currentRules, draftRules)) {
         diffs.push({

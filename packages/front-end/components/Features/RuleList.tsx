@@ -260,7 +260,7 @@ export default function RuleList({
           />
         )}
         <SortableContext items={items} strategy={verticalListSortingStrategy}>
-          {items.map(({ ...rule }, i) => (
+          {items.map((rule, i) => (
             <SortableRule
               key={i + rule.id}
               environment={environment}

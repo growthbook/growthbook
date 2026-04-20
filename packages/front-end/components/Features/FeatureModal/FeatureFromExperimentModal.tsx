@@ -64,8 +64,7 @@ const genEnvironmentSettings = ({
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
-    const rules = [];
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = { enabled };
   });
 
   return envSettings;
@@ -118,6 +117,7 @@ const genFormDefaultValues = ({
     project,
     tags: experiment.tags || [],
     environmentSettings,
+    rules: [],
     customFields: customFieldValues,
     variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {
@@ -286,6 +286,7 @@ export default function FeatureFromExperimentModal({
           type: "experiment-ref",
           description: "",
           id: "",
+          allEnvironments: false,
           condition: "",
           enabled: true,
           scheduleRules: [],
@@ -336,12 +337,10 @@ export default function FeatureFromExperimentModal({
             },
           );
         } else {
-          // Add experiment rule to all environments
-          Object.values(featureToCreate.environmentSettings).forEach(
-            (settings) => {
-              settings.rules.push(rule);
-            },
-          );
+          featureToCreate.rules = [
+            ...(featureToCreate.rules ?? []),
+            { ...rule, allEnvironments: true },
+          ];
 
           await apiCall<{ feature: FeatureInterface }>(`/feature`, {
             method: "POST",

@@ -84,22 +84,20 @@ function getDummyData(
   const ruleIds = new Set<string>();
   const sources = new Set<string>(["defaultValue"]);
   const values = new Set<string>([feature.defaultValue]);
-  Object.values(feature.environmentSettings).forEach((env) => {
-    env.rules.forEach((rule) => {
-      if (rule.id) ruleIds.add(rule.id);
-      if (rule.type === "force") {
-        sources.add("force");
-        values.add(rule.value);
-      } else if (rule.type === "rollout") {
-        sources.add("rollout");
-        values.add(rule.value);
-      } else if (rule.type === "experiment-ref") {
-        sources.add("experiment");
-        rule.variations.forEach((v) => {
-          if (v.value) values.add(v.value);
-        });
-      }
-    });
+  (feature.rules ?? []).forEach((rule) => {
+    if (rule.id) ruleIds.add(rule.id);
+    if (rule.type === "force") {
+      sources.add("force");
+      values.add(rule.value);
+    } else if (rule.type === "rollout") {
+      sources.add("rollout");
+      values.add(rule.value);
+    } else if (rule.type === "experiment-ref") {
+      sources.add("experiment");
+      rule.variations.forEach((v) => {
+        if (v.value) values.add(v.value);
+      });
+    }
   });
   return {
     total: Math.floor(Math.random() * 500),

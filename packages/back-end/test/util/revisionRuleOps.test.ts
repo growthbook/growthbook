@@ -23,7 +23,10 @@ const envRule = (
     ...extras,
   }) as FeatureRule;
 
-const allEnvRule = (id: string, extras: Partial<FeatureRule> = {}): FeatureRule =>
+const allEnvRule = (
+  id: string,
+  extras: Partial<FeatureRule> = {},
+): FeatureRule =>
   ({
     id,
     description: "",
@@ -61,7 +64,11 @@ describe("updateRuleAtEnvIndex", () => {
     const dev2 = envRule("dev2", "dev");
     const rules = [dev1, prod1, dev2];
 
-    const { rules: next, updated, existing } = updateRuleAtEnvIndex(
+    const {
+      rules: next,
+      updated,
+      existing,
+    } = updateRuleAtEnvIndex(
       rules,
       "dev",
       1, // second dev-projected rule = dev2 at parent idx 2
@@ -77,9 +84,9 @@ describe("updateRuleAtEnvIndex", () => {
 
   it("throws when i out of range", () => {
     const rules = [envRule("a", "dev")];
-    expect(() =>
-      updateRuleAtEnvIndex(rules, "dev", 5, (r) => r),
-    ).toThrow("Unknown rule");
+    expect(() => updateRuleAtEnvIndex(rules, "dev", 5, (r) => r)).toThrow(
+      "Unknown rule",
+    );
   });
 });
 

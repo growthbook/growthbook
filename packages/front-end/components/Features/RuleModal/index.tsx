@@ -844,6 +844,8 @@ export default function RuleModal({
           description: "",
           experimentId: res.experiment.id,
           id: values.id,
+          allEnvironments: values.allEnvironments ?? false,
+          environments: values.environments,
           condition: "",
           savedGroups: [],
           enabled: values.enabled ?? true,
@@ -918,7 +920,7 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
-      const correctedRule = validateFeatureRule(values, feature);
+      const correctedRule = validateFeatureRule(values as FeatureRule, feature);
       if (correctedRule) {
         form.reset(correctedRule);
         throw new Error(

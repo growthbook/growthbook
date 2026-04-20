@@ -13,7 +13,7 @@ const makeRevision = (
   rules: FeatureRule[],
   overrides: Partial<FeatureRevisionInterface> = {},
 ): FeatureRevisionInterface =>
-  (({
+  ({
     organization: "org",
     featureId: "feat",
     version: 2,
@@ -21,7 +21,7 @@ const makeRevision = (
     status: "draft",
     rules,
     ...overrides,
-  } as unknown) as FeatureRevisionInterface);
+  }) as unknown as FeatureRevisionInterface;
 
 describe("applyPartialFeatureRuleUpdatesToRevision", () => {
   it("overlays updates onto the targeted rule (single match)", () => {
@@ -110,7 +110,12 @@ describe("applyPartialFeatureRuleUpdatesToRevision", () => {
 
   it("returns the revision unchanged for an empty match list", () => {
     const revision = makeRevision([
-      ({ id: "r1", type: "force", value: "true", enabled: true } as unknown) as FeatureRule,
+      {
+        id: "r1",
+        type: "force",
+        value: "true",
+        enabled: true,
+      } as unknown as FeatureRule,
     ]);
     const next = applyPartialFeatureRuleUpdatesToRevision(revision, [], {
       enabled: false,
