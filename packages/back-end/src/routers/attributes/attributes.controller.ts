@@ -6,7 +6,6 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
-import { ReqContext } from "back-end/types/request";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 
@@ -349,26 +348,3 @@ export const getAttributeReferences = async (
 
   return res.status(200).json({ status: 200, references });
 };
-
-export async function removeTagInAttribute(
-  context: ReqContext,
-  tag: string,
-): Promise<void> {
-  const { org } = context;
-  const attributeSchema = org.settings?.attributeSchema || [];
-
-  const hasTag = attributeSchema.some((a) => (a.tags || []).includes(tag));
-  if (!hasTag) return;
-
-  const updatedAttributeSchema = attributeSchema.map((attr) => ({
-    ...attr,
-    tags: (attr.tags || []).filter((t) => t !== tag),
-  }));
-
-  await updateOrganization(org.id, {
-    settings: {
-      ...org.settings,
-      attributeSchema: updatedAttributeSchema,
-    },
-  });
-}

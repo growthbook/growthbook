@@ -1,10 +1,10 @@
 import { validateFeatureValue, validateScheduleRules } from "shared/util";
 import { isEqual } from "lodash";
-import type { UpdateFeatureResponse } from "shared/types/openapi";
 import { updateFeatureValidator, RevisionRules } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
@@ -24,18 +24,26 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
-import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
+import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
-  async (req): Promise<UpdateFeatureResponse> => {
+  async (req) => {
     const feature = await getFeature(req.context, req.params.id);
     if (!feature) {
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
 
-    const { owner, archived, description, project, tags, customFields } =
-      req.body;
+    const {
+      owner: ownerInput,
+      archived,
+      description,
+      project,
+      tags,
+      customFields,
+    } = req.body;
+    const owner = await resolveOwnerToUserId(ownerInput, req.context);
 
     const effectiveProject =
       typeof project === "undefined" ? feature.project : project;
@@ -161,11 +169,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
-        ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
+        ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
         : null;
 
     const updates: Partial<FeatureInterface> = {
-      ...(owner != null ? { owner } : {}),
+      ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
       ...(archived != null ? { archived } : {}),
       ...(description != null ? { description } : {}),
       ...(project != null ? { project } : {}),
@@ -209,7 +217,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       );
     }
 
-    const canBypass = !!req.context.org.settings?.restApiBypassesReviews;
+    // Callers can skip the review gate either because the org has opted in
+    // to unrestricted REST API writes, or because their token/role grants
+    // the bypassApprovalChecks permission for this feature's project.
+    const canBypass =
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
 
     // Tags go into the revision metadata; capture them before stripping from updates.
     const newTagsForDiff = updates.tags;

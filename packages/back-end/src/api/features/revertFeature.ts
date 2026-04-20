@@ -5,7 +5,6 @@ import {
   checkIfRevisionNeedsReview,
 } from "shared/util";
 import { isEqual } from "lodash";
-import { ToggleFeatureResponse } from "shared/types/openapi";
 import { revertFeatureValidator } from "shared/validators";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -19,12 +18,13 @@ import {
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
-  async (req): Promise<ToggleFeatureResponse> => {
+  async (req) => {
     const context = req.context;
 
     const feature = await getFeature(context, req.params.id);
@@ -50,7 +50,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       version: version,
     });
     if (!revision) {
-      throw new Error("Could not find feature revision");
+      throw new NotFoundError("Could not find feature revision");
     }
 
     if (
@@ -60,7 +60,6 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       throw new Error("Can only revert to previously published revisions");
     }
 
-    // Build the set of changes this revert would apply.
     const changes: MergeResultChanges = {};
 
     if (revision.defaultValue !== feature.defaultValue) {
@@ -75,18 +74,19 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       changes.defaultValue = revision.defaultValue;
     }
 
+    // Populate all envs so createRevision doesn't default missing ones to [].
+    changes.rules = {};
     const changedEnvs: string[] = [];
     environmentIds.forEach((env) => {
-      if (
-        revision.rules?.[env] &&
-        !isEqual(
-          revision.rules[env],
-          feature.environmentSettings?.[env]?.rules || [],
-        )
-      ) {
+      const currentRules = feature.environmentSettings?.[env]?.rules || [];
+      // Missing env in target revision → preserve current state.
+      const targetRules =
+        revision.rules && env in revision.rules
+          ? revision.rules[env]
+          : currentRules;
+      changes.rules![env] = targetRules;
+      if (!isEqual(targetRules, currentRules)) {
         changedEnvs.push(env);
-        changes.rules = changes.rules || {};
-        changes.rules[env] = revision.rules[env];
       }
 
       if (
@@ -111,6 +111,14 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       revision.prerequisites !== undefined &&
       !isEqual(revision.prerequisites, feature.prerequisites || [])
     ) {
+      if (
+        !context.permissions.canPublishFeature(
+          feature,
+          Array.from(getEnabledEnvironments(feature, environmentIds)),
+        )
+      ) {
+        context.permissions.throwPermissionError();
+      }
       changes.prerequisites = revision.prerequisites;
     }
 
@@ -159,13 +167,25 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         metadataChanges.valueType = m.valueType;
         hasMetaChange = true;
       }
-      if (hasMetaChange) changes.metadata = metadataChanges;
+      if (hasMetaChange) {
+        if (
+          !context.permissions.canPublishFeature(
+            feature,
+            Array.from(getEnabledEnvironments(feature, environmentIds)),
+          )
+        ) {
+          context.permissions.throwPermissionError();
+        }
+        changes.metadata = metadataChanges;
+      }
     }
 
-    const apiBypassesReviews =
-      !!req.context.org.settings?.restApiBypassesReviews;
+    // Bypass via restApiBypassesReviews or bypassApprovalChecks.
+    const canBypass =
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
 
-    if (!apiBypassesReviews) {
+    if (!canBypass) {
       const liveRevision = await getRevision({
         context,
         organization: feature.organization,
@@ -178,7 +198,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       const reviewRequired = checkIfRevisionNeedsReview({
         feature,
         baseRevision: liveRevision,
-        revision,
+        revision: { ...liveRevision, ...changes } as typeof liveRevision,
         allEnvironments: allEnvironmentIds,
         settings: req.organization.settings,
         requireApprovalsLicensed:
@@ -187,7 +207,8 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       if (reviewRequired) {
         throw new PermissionError(
           "This revert requires approval before changes can be published. " +
-            "Enable 'REST API always bypasses approval requirements' in organization settings.",
+            "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+            "or use a role/token that grants bypassApprovalChecks on this project.",
         );
       }
     }
@@ -200,7 +221,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         org: req.organization,
         changes,
         comment: comment ?? `Reverted to revision #${version}`,
-        canBypassApprovalChecks: apiBypassesReviews,
+        canBypassApprovalChecks: canBypass,
       });
 
     await req.audit({

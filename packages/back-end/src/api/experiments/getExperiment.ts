@@ -8,14 +8,13 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   getExperimentValidator,
 } from "shared/validators";
-import { GetExperimentResponse } from "shared/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 
 export const getExperiment = createApiRequestHandler(getExperimentValidator)(
-  async (req): Promise<GetExperimentResponse> => {
+  async (req) => {
     const experiment = await getExperimentById(req.context, req.params.id);
     if (!experiment) {
       throw new Error("Could not find experiment with that id");

@@ -1,7 +1,9 @@
 import Agenda from "agenda";
 import { Queries } from "shared/types/query";
 import {
+  errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
+  dangerousFindStalledRunningSnapshotsFromAllOrgs,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
@@ -12,7 +14,10 @@ import {
   findRunningPastExperimentsByQueryId,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
-import { getStaleQueries } from "back-end/src/models/QueryModel";
+import {
+  getQueryStatusesByIds,
+  getStaleQueries,
+} from "back-end/src/models/QueryModel";
 import {
   findReportsByQueryId,
   updateReport,
@@ -21,6 +26,12 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 const JOB_NAME = "expireOldQueries";
+
+// The time after which a snapshot is considered stalled
+const STALLED_SNAPSHOT_THRESHOLD_MS = 60 * 60 * 1000;
+// The allowable time between the last query finishing and the snapshot being finalized
+const STALLED_FINALIZE_GRACE_MS = 10 * 60 * 1000;
+const STALLED_SNAPSHOT_REAP_LIMIT = 50;
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
   queries.forEach((q) => {
@@ -49,14 +60,13 @@ const expireOldQueries = async () => {
     updateQueryStatus(snapshot.queries, queryIds);
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     await updateSnapshot({
-      organization: snapshot.organization,
+      context,
       id: snapshot.id,
       updates: {
         error: "Queries were interupted. Please try updating results again.",
         status: "error",
         queries: snapshot.queries,
       },
-      context,
     });
 
     // Release the incremental refresh lock if this snapshot held it.
@@ -128,7 +138,67 @@ const expireOldQueries = async () => {
       error: "Queries were interupted. Please try refreshing the results.",
     });
   }
+
+  try {
+    await reapStalledSnapshots();
+  } catch (e) {
+    logger.error(e, "Failed to reap stalled snapshots");
+  }
 };
+
+async function reapStalledSnapshots() {
+  const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
+  const candidates = await dangerousFindStalledRunningSnapshotsFromAllOrgs(
+    stalledBefore,
+    STALLED_SNAPSHOT_REAP_LIMIT,
+  );
+
+  for (const snapshot of candidates) {
+    const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
+    if (!queryIds.length) continue;
+
+    const statuses = await getQueryStatusesByIds(
+      snapshot.organization,
+      queryIds,
+    );
+    if (statuses.length !== queryIds.length) continue;
+    const allTerminal = statuses.every(
+      (q) => q.status === "succeeded" || q.status === "failed",
+    );
+    if (!allTerminal) continue;
+
+    const latestFinishedAt = Math.max(
+      ...statuses.map((s) => s.finishedAt?.getTime() ?? 0),
+    );
+    if (Date.now() - latestFinishedAt < STALLED_FINALIZE_GRACE_MS) continue;
+
+    const statusById = new Map(statuses.map((s) => [s.id, s.status]));
+    snapshot.queries.forEach((q) => {
+      q.status = statusById.get(q.query) ?? q.status;
+    });
+
+    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+    const reaped = await errorSnapshotIfStillRunning(context, snapshot.id, {
+      queries: snapshot.queries,
+      error:
+        "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.",
+    });
+    if (!reaped) continue;
+
+    logger.info(
+      `Reaped stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
+    );
+
+    await context.models.incrementalRefresh
+      .releaseLock(snapshot.experiment, snapshot.id)
+      .catch((e) =>
+        logger.warn(
+          e,
+          "Failed to release incremental lock for stalled snapshot",
+        ),
+      );
+  }
+}
 
 export default async function (agenda: Agenda) {
   agenda.define(JOB_NAME, expireOldQueries);

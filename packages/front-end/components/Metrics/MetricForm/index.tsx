@@ -1407,7 +1407,6 @@ const MetricForm: FC<MetricFormProps> = ({
                           inputGroupClassName="d-inline-flex w-150px"
                           append="days"
                           min="0"
-                          max="100"
                           disabled={!hasRegressionAdjustmentFeature}
                           helpText={
                             <>
@@ -1422,7 +1421,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           {...form.register("regressionAdjustmentDays", {
                             valueAsNumber: true,
                             validate: (v) => {
-                              return !(v <= 0 || v > 100);
+                              return v === undefined || v > 0;
                             },
                           })}
                         />

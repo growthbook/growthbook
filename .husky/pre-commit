@@ -5,17 +5,15 @@ has_changes() {
   git status --porcelain | grep '^[MADRC]' | grep -E "$1" || true
 }
 
-# API type generation: check if any API spec inputs are in the staged changes
-apichanged=$(has_changes "back-end/src/api/specs|back-end/src/api/openapi|back-end/src/api/api.router.ts|back-end/src/scripts/generate-doc-models-for-openapi-schemas.ts|back-end/src/scripts/generate-openapi.mjs")
+# OpenAPI spec generation: check if any spec inputs are in the staged changes
+apichanged=$(has_changes "back-end/src/api/specs|back-end/src/api/api.router.ts|back-end/src/api/ApiModel.ts|shared/src/validators")
 if [ -n "$apichanged" ]; then
-  echo "#### API spec inputs changed, running generate-api-types"
-  if ! pnpm generate-api-types; then
-    echo "#### generate-api-types failed"
+  echo "#### API spec inputs changed, running generate-openapi"
+  if ! pnpm generate-openapi; then
+    echo "#### generate-openapi failed"
     exit 1
   fi
-  git add packages/shared/types/openapi.d.ts
   git add packages/back-end/generated/spec.yaml
-  git add packages/shared/src/validators/openapi.ts
 fi
 
 eslintconfigchanged=$(has_changes "eslint.config.mjs")

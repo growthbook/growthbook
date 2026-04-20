@@ -1,4 +1,3 @@
-import { GetFeatureResponse } from "shared/types/openapi";
 import { getFeatureValidator } from "shared/validators";
 import {
   getFeatureRevisionsByStatus,
@@ -14,7 +13,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
   req,
-): Promise<GetFeatureResponse> => {
+) => {
   const revisionFilter = req.query.withRevisions || "none";
   const fetchRevisions = ["all", "drafts", "published"].includes(
     revisionFilter || "none",

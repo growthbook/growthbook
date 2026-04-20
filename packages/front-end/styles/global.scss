@@ -907,10 +907,6 @@ main.main {
   background-color: var(--table-row-highlight-background-color);
 }
 
-.webhook-filters .select-all .gb-multi-select__control {
-  background-color: var(--table-row-highlight-background-color) !important;
-}
-
 .experiment-switch-page {
   opacity: 0.6;
   transition: opacity 0.2s;

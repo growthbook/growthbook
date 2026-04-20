@@ -220,7 +220,6 @@ export default function StatsEngineSettings() {
                   containerClassName="mb-0"
                   append="days"
                   min="0"
-                  max="100"
                   disabled={
                     !hasCommercialFeature("regression-adjustment") ||
                     hasFileConfig()
@@ -228,7 +227,7 @@ export default function StatsEngineSettings() {
                   {...form.register("regressionAdjustmentDays", {
                     valueAsNumber: true,
                     validate: (v) => {
-                      return !(v <= 0 || v > 100);
+                      return v === undefined || v > 0;
                     },
                   })}
                 />

@@ -1,6 +1,5 @@
 import { useMemo } from "react";
-import Text from "@/ui/Text";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 
@@ -47,20 +46,14 @@ export default function SelectOwner({
       disabled={disabled}
       placeholder={placeholder}
       onChange={onChange}
-      formatOptionLabel={({ label }) => {
-        return (
-          <>
-            <span>
-              {label !== "" && (
-                <UserAvatar name={label} size="sm" variant="soft" />
-              )}
-              <Text weight="regular" color="text-mid" ml="1">
-                {label === "" ? "None" : label}
-              </Text>
-            </span>
-          </>
-        );
-      }}
+      formatOptionLabel={(option) => (
+        <Owner
+          ownerId={option.value}
+          gap="1"
+          textColor="text-mid"
+          weight="regular"
+        />
+      )}
     />
   );
 }

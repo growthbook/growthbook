@@ -8,6 +8,7 @@ import {
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
+import { UpdateProps } from "shared/types/base-model";
 import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
@@ -21,7 +22,7 @@ import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
   planExperimentSnapshot,
-} from "back-end/src/controllers/experiments";
+} from "back-end/src/services/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
@@ -157,7 +158,7 @@ export async function updateDashboard(
 
   const updatedDashboard = await context.models.dashboards.updateById(
     id,
-    updates as Partial<DashboardInterface>,
+    updates as UpdateProps<DashboardInterface>,
   );
 
   res.status(200).json({

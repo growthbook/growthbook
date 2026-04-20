@@ -1,4 +1,3 @@
-import { ListSavedGroupsResponse } from "shared/types/openapi";
 import { listSavedGroupsValidator } from "shared/validators";
 import {
   applyPagination,
@@ -7,7 +6,7 @@ import {
 
 export const listSavedGroups = createApiRequestHandler(
   listSavedGroupsValidator,
-)(async (req): Promise<ListSavedGroupsResponse> => {
+)(async (req) => {
   const savedGroups = await req.context.models.savedGroups.getAll();
 
   // TODO: Move sorting/limiting to the database query for better performance

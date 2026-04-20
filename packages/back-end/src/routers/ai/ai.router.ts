@@ -10,6 +10,12 @@ const router = express.Router();
 const AIController = wrapController(rawAIController);
 
 router.get(
+  "/token-usage",
+  validateRequestMiddleware({}),
+  AIController.getTokenUsage,
+);
+
+router.get(
   "/prompts",
   validateRequestMiddleware({}),
   AIController.getAIPrompts,

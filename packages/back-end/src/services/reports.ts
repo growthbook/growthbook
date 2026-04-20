@@ -460,6 +460,7 @@ export async function createReportSnapshot({
       );
     snapshotData =
       (await getLatestSnapshot({
+        context,
         experiment: experiment.id,
         phase: Math.max(experiment.phases.length - 1, 0),
         type: "standard",
@@ -574,6 +575,8 @@ export async function createReportSnapshot({
     queries: [],
     unknownVariations: [],
     multipleExposures: 0,
+    hasChunkedAnalyses: false,
+    chunkedAnalysesMeta: [],
     analyses: snapshotData.analyses.map((analysis) => ({
       ...analysis,
       dateCreated: new Date(),
@@ -594,6 +597,7 @@ export async function createReportSnapshot({
   }
 
   const snapshot = await createExperimentSnapshotModel({
+    context,
     data: snapshotData,
   });
 

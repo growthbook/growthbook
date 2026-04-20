@@ -6,9 +6,9 @@ import {
   ExperimentResultStatusData,
   ExperimentResultsType,
 } from "shared/types/experiment";
-import { computeAIUsageData } from "shared/ai";
+import { computeAIUsageData, formatAIRateLimitRetryMessage } from "shared/ai";
 import { useForm } from "react-hook-form";
-import { experimentHasLinkedChanges } from "shared/util";
+import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
 import { datetime } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -70,11 +70,8 @@ const StopExperimentForm: FC<{
       },
       (responseData) => {
         if (responseData.status === 429) {
-          const retryAfter = parseInt(responseData.retryAfter);
-          const hours = Math.floor(retryAfter / 3600);
-          const minutes = Math.floor((retryAfter % 3600) / 60);
           throw new Error(
-            `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+            formatAIRateLimitRetryMessage(responseData.retryAfter),
           );
         } else if (responseData.message) {
           throw new Error(responseData.message);
@@ -283,11 +280,11 @@ const StopExperimentForm: FC<{
                 }
                 value={form.watch("winner") + ""}
                 onChange={(v) => {
-                  form.setValue("winner", parseInt(v) || 0);
+                  form.setValue("winner", parseIntWithDefault(v, 0));
 
                   form.setValue(
                     "releasedVariationId",
-                    variations[parseInt(v)]?.id ||
+                    variations[parseIntWithDefault(v, 0)]?.id ||
                       form.watch("releasedVariationId"),
                   );
                 }}

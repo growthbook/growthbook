@@ -1,5 +1,5 @@
 import { SegmentInterface } from "shared/types/segment";
-import { UpdateSegmentResponse } from "shared/types/openapi";
+import { UpdateProps } from "shared/types/base-model";
 import { updateSegmentValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -7,7 +7,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 
 export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
-  async (req): Promise<UpdateSegmentResponse> => {
+  async (req) => {
     const existing = await req.context.models.segments.getById(req.params.id);
 
     if (!existing) {
@@ -70,7 +70,7 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
       }
     }
 
-    const updates: Partial<SegmentInterface> = {};
+    const updates: UpdateProps<SegmentInterface> = {};
     if (req.body.name) updates.name = req.body.name;
     if (req.body.description !== undefined) {
       updates.description = req.body.description;
@@ -84,6 +84,7 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
     if (req.body.query) updates.sql = req.body.query;
     if (req.body.factTableId) updates.factTableId = req.body.factTableId;
     if (req.body.filters) updates.filters = req.body.filters;
+    if (req.body.owner !== undefined) updates.owner = req.body.owner;
 
     const segment = await req.context.models.segments.update(existing, updates);
 

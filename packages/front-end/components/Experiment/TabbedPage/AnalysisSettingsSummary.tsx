@@ -651,6 +651,11 @@ export default function AnalysisSettingsSummary({
                 nextUpdate={experiment.nextSnapshotAttempt}
                 autoUpdateEnabled={experiment.autoSnapshots}
                 showAutoUpdateWidget={true}
+                failedString={
+                  latest && !latest.queries.length && latest.error
+                    ? `Snapshot update failed: ${latest.error}`
+                    : undefined
+                }
                 queries={
                   latest &&
                   (status === "failed" || status === "partially-succeeded")

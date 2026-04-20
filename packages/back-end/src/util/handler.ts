@@ -1,10 +1,12 @@
 import { Request, RequestHandler } from "express";
 import { z, ZodType, ZodNever, output } from "zod";
-import { ApiPaginationFields } from "shared/types/openapi";
+import { ApiPaginationFields } from "shared/validators";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
+import { HttpVerb } from "back-end/src/api/apiModelHandlers";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
+import { ConflictError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
 export type ApiRequest<
@@ -20,10 +22,45 @@ export type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-export type ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {
+export type ExampleRequest<
+  Params = unknown,
+  Body = unknown,
+  Query = unknown,
+  Response = unknown,
+> = {
+  params?: Params;
+  body?: Body;
+  query?: Query;
+  response?: Response;
+};
+
+export type RequestSchemas<ParamsSchema, BodySchema, QuerySchema> = {
   bodySchema?: BodySchema;
   querySchema?: QuerySchema;
   paramsSchema?: ParamsSchema;
+};
+
+export type ApiEndpointSpec<
+  ParamsSchema,
+  BodySchema,
+  QuerySchema,
+  ResponseSchema,
+> = RequestSchemas<ParamsSchema, BodySchema, QuerySchema> & {
+  responseSchema: ResponseSchema;
+  method: HttpVerb;
+  path: string;
+  operationId: string;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  middleware?: RequestHandler[];
+  exampleRequest?: ExampleRequest<
+    z.infer<ParamsSchema>,
+    z.infer<BodySchema>,
+    z.infer<QuerySchema>,
+    z.infer<ResponseSchema>
+  >;
+  excludeFromSpec?: boolean;
 };
 
 function validate<T extends ZodType>(
@@ -54,25 +91,91 @@ function validate<T extends ZodType>(
   };
 }
 
+export type WrappedRequestHandler<
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
+  ResponseSchema extends ZodType = ZodType<never>,
+> = RequestHandler<
+  z.infer<ParamsSchema>,
+  ApiErrorResponse | z.infer<ResponseSchema>,
+  z.infer<BodySchema>,
+  z.infer<QuerySchema>
+>;
+
+export type OpenApiRoute<
+  ParamsSchema extends ZodType = ZodType<unknown>,
+  BodySchema extends ZodType = ZodType<unknown>,
+  QuerySchema extends ZodType = ZodType<unknown>,
+  ResponseSchema extends ZodType = ZodType<unknown>,
+> = {
+  method: HttpVerb;
+  path: string;
+  operationId: string;
+  handler: WrappedRequestHandler<
+    ParamsSchema,
+    BodySchema,
+    QuerySchema,
+    ResponseSchema
+  >;
+  middleware?: RequestHandler[];
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  schemas: {
+    params?: ParamsSchema;
+    body?: BodySchema;
+    query?: QuerySchema;
+    response?: ResponseSchema;
+  };
+  exampleRequest?: ExampleRequest<
+    z.infer<ParamsSchema>,
+    z.infer<BodySchema>,
+    z.infer<QuerySchema>,
+    z.infer<ResponseSchema>
+  >;
+  excludeFromSpec?: boolean;
+};
+
 export function createApiRequestHandler<
   ParamsSchema extends ZodType = ZodType<never>,
   BodySchema extends ZodType = ZodType<never>,
   QuerySchema extends ZodType = ZodType<never>,
->({
-  paramsSchema,
-  bodySchema,
-  querySchema,
-}: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {}) {
-  return <ResponseType>(
+  ResponseSchema extends ZodType = ZodType<never>,
+>(
+  data: ApiEndpointSpec<ParamsSchema, BodySchema, QuerySchema, ResponseSchema>,
+) {
+  const {
+    paramsSchema,
+    bodySchema,
+    querySchema,
+    responseSchema,
+    summary,
+    description,
+    exampleRequest,
+    tags,
+    operationId,
+    method,
+    path,
+    middleware,
+    excludeFromSpec,
+  } = data;
+
+  return (
     handler: (
-      req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>,
-    ) => Promise<ResponseType>,
+      req: ApiRequest<
+        z.infer<ResponseSchema>,
+        ParamsSchema,
+        BodySchema,
+        QuerySchema
+      >,
+    ) => Promise<z.infer<ResponseSchema>>,
   ) => {
-    const wrappedHandler: RequestHandler<
-      z.infer<ParamsSchema>,
-      ApiErrorResponse | ResponseType,
-      z.infer<BodySchema>,
-      z.infer<QuerySchema>
+    const wrappedHandler: WrappedRequestHandler<
+      ParamsSchema,
+      BodySchema,
+      QuerySchema,
+      ResponseSchema
     > = async (req, res, next) => {
       try {
         const allErrors: string[] = [];
@@ -109,7 +212,7 @@ export function createApiRequestHandler<
         try {
           const result = await handler(
             req as ApiRequest<
-              ApiErrorResponse | ResponseType,
+              ApiErrorResponse | z.infer<ResponseSchema>,
               ParamsSchema,
               BodySchema,
               QuerySchema
@@ -117,15 +220,43 @@ export function createApiRequestHandler<
           );
           return res.status(200).json(result);
         } catch (e) {
-          return res.status(e.status || 400).json({
-            message: e.message,
-          });
+          const body: ApiErrorResponse = { message: e.message };
+          // Surface the structured conflicts so clients can react to them.
+          if (e instanceof ConflictError && e.conflicts) {
+            body.conflicts = e.conflicts;
+          }
+          return res.status(e.status || 400).json(body);
         }
       } catch (e) {
         next(e);
       }
     };
-    return wrappedHandler;
+
+    const route: OpenApiRoute<
+      ParamsSchema,
+      BodySchema,
+      QuerySchema,
+      ResponseSchema
+    > = {
+      method,
+      path,
+      operationId,
+      summary,
+      description,
+      tags,
+      exampleRequest,
+      middleware,
+      schemas: {
+        params: paramsSchema,
+        body: bodySchema,
+        query: querySchema,
+        response: responseSchema,
+      },
+      handler: wrappedHandler,
+      excludeFromSpec,
+    };
+
+    return route;
   };
 }
 

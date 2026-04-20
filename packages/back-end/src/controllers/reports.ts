@@ -57,7 +57,7 @@ export async function postReportFromSnapshot(
 
   const reportArgs = req.body || {};
 
-  const snapshot = await findSnapshotById(org.id, req.params.snapshot);
+  const snapshot = await findSnapshotById(context, req.params.snapshot);
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
@@ -137,6 +137,7 @@ export async function postReportFromSnapshot(
           "dateEnded",
           "name",
           "variationWeights",
+          "variations",
           "banditEvents",
           "coverage",
         ]),
@@ -150,7 +151,7 @@ export async function postReportFromSnapshot(
 
   // Save the snapshot
   snapshot.report = doc.id;
-  await createExperimentSnapshotModel({ data: snapshot });
+  await createExperimentSnapshotModel({ context, data: snapshot });
 
   await req.audit({
     event: "experiment.analysis",
@@ -262,8 +263,7 @@ export async function getReportPublic(
 
   const snapshot =
     report.type === "experiment-snapshot"
-      ? (await findSnapshotById(report.organization, report.snapshot)) ||
-        undefined
+      ? (await findSnapshotById(context, report.snapshot)) || undefined
       : undefined;
 
   const _experiment = report.experimentId
@@ -351,8 +351,7 @@ export async function refreshReport(
     }
 
     const snapshot =
-      (await findSnapshotById(report.organization, report.snapshot)) ||
-      undefined;
+      (await findSnapshotById(context, report.snapshot)) || undefined;
 
     try {
       const newSnapshot = await createReportSnapshot({
@@ -613,10 +612,8 @@ export async function cancelReport(
 
   if (report.type === "experiment-snapshot") {
     const snapshot = report.snapshot
-      ? (await findLatestRunningSnapshotByReportId(
-          report.organization,
-          report.id,
-        )) || undefined
+      ? (await findLatestRunningSnapshotByReportId(context, report.id)) ||
+        undefined
       : undefined;
     if (!snapshot) {
       return res.status(400).json({

@@ -15,11 +15,19 @@ import type {
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import { isEqual } from "lodash";
-import { dateGranularity } from "shared/validators";
+import { createParser } from "nuqs";
 import {
+  encodeExplorationConfig,
   calculateProductAnalyticsDateRange,
   getDateGranularity,
+  mapDatabaseTypeToEnum,
 } from "shared/enterprise";
+import { dateGranularity, explorationConfigValidator } from "shared/validators";
+
+export { mapDatabaseTypeToEnum };
+
+export const PA_AI_CHAT_INITIAL_MESSAGE_KEY = "pa-ai-chat-initial-message";
+export const PA_AI_CHAT_INITIAL_MODEL_KEY = "pa-ai-chat-initial-model";
 
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
@@ -184,46 +192,6 @@ export function getMaxDimensions(dataset: ExplorationDataset): number {
   return maxDimensions;
 }
 
-export function mapDatabaseTypeToEnum(
-  dbType: string,
-): "string" | "number" | "date" | "boolean" | "other" {
-  const lowerType = dbType.toLowerCase();
-
-  // Numbers
-  if (
-    lowerType.includes("int") ||
-    lowerType.includes("numeric") ||
-    lowerType.includes("decimal") ||
-    lowerType.includes("float") ||
-    lowerType.includes("double") ||
-    lowerType.includes("real")
-  ) {
-    return "number";
-  }
-
-  // Dates
-  if (lowerType.includes("date") || lowerType.includes("time")) {
-    return "date";
-  }
-
-  // Booleans
-  if (lowerType.includes("bool")) {
-    return "boolean";
-  }
-
-  // Strings (varchar, char, text, etc.)
-  if (
-    lowerType.includes("char") ||
-    lowerType.includes("text") ||
-    lowerType.includes("string")
-  ) {
-    return "string";
-  }
-
-  // Default to other
-  return "other";
-}
-
 export function getInferredTimestampColumn(
   columnTypes: Record<string, string>,
 ): string | null {
@@ -267,7 +235,6 @@ export function validateDimensions(
   getFactTableById: (id: string) => FactTableInterface | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationConfig {
-  // Validate dimensions against commonColumns
   const columns = getCommonColumns(
     config.dataset,
     getFactTableById,
@@ -277,6 +244,7 @@ export function validateDimensions(
 
   let validDimensions = config.dimensions.filter((d) => {
     if (d.dimensionType !== "dynamic") return true;
+    if (columns.length === 0) return true;
     return columns.some((c) => c.column === d.column || d.column === null);
   });
   if (validDimensions.length > maxDims) {
@@ -364,10 +332,10 @@ export function cleanConfigForSubmission(
   config: ExplorationConfig,
 ): ExplorationConfig {
   const cleanedDataset = removeIncompleteInputs(config.dataset);
-  // remove any dimensions with a null column
-  const cleanedDimensions = config.dimensions.filter(
-    (d) => "column" in d && d.column !== null,
-  );
+  const cleanedDimensions = config.dimensions.filter((d) => {
+    if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
+    return "column" in d && d.column !== null;
+  });
   return {
     ...config,
     dataset: cleanedDataset,
@@ -464,15 +432,6 @@ export function compareConfig(
   return { needsFetch, needsUpdate: true };
 }
 
-export function formatShortAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 1) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
-
 export function getRefreshInterval(elapsedSeconds: number): number {
   if (elapsedSeconds < 60) return 10_000; // 0-59s: update every 10s
   if (elapsedSeconds < 3600) return 60_000; // 1-59m: update every 60s
@@ -541,6 +500,31 @@ export function computeGroupTotals(
   }
   return totals;
 }
+
+export type DecodeConfigResult =
+  | { config: ExplorationConfig; error: null }
+  | { config: null; error: string };
+
+export function decodeExplorationConfig(encoded: string): DecodeConfigResult {
+  try {
+    const parsed = JSON.parse(decodeURIComponent(atob(encoded)));
+    const config = explorationConfigValidator.parse(parsed);
+    return { config, error: null };
+  } catch {
+    return {
+      config: null,
+      error: "The URL contains an invalid or outdated explorer configuration.",
+    };
+  }
+}
+
+export const explorationConfigParser = createParser<ExplorationConfig>({
+  parse: (raw) => {
+    const result = decodeExplorationConfig(raw);
+    return result.config;
+  },
+  serialize: (config) => encodeExplorationConfig(config),
+});
 
 /**
  * Sort exploration result rows to match the visual ordering of the chart.
