@@ -63,6 +63,30 @@ export function getNamespaceHashAttribute(
 }
 
 /**
+ * Shape returned by public API endpoints for a namespace attached to a
+ * feature rule or experiment phase. Keeps the legacy `range` field for
+ * backward compatibility (populated with the first range) and adds the full
+ * `ranges` list so multiRange namespaces are fully visible to API consumers.
+ */
+export function toApiNamespace(namespace: NamespaceValue | null | undefined):
+  | {
+      enabled: true;
+      name: string;
+      range: [number, number];
+      ranges: [number, number][];
+    }
+  | undefined {
+  if (!namespace?.enabled) return undefined;
+  const ranges = getNamespaceRanges(namespace);
+  return {
+    enabled: true,
+    name: namespace.name,
+    range: ranges[0] ?? [0, 0],
+    ranges,
+  };
+}
+
+/**
  * Calculate total coverage of a namespace (sum of all ranges)
  */
 export function calculateNamespaceCoverage(namespace: NamespaceValue): number {

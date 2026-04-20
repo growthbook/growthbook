@@ -1,7 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
-  Filter,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
@@ -386,39 +385,47 @@ export function applyNamespaceToPayload(
 ): void {
   const nsDefinition = namespacesMap?.get(namespace.name);
 
-  // When a namespace map entry is present its format is authoritative.
-  // Fall back to the utility function only when no map entry exists
+  // When the namespace is defined on the org, trust its format; otherwise fall
+  // back to the structural check on the phase/rule's namespace shape.
   const multiRange = nsDefinition
     ? nsDefinition.format === "multiRange"
     : isMultiRangeNamespaceFormat(namespace);
+
+  // Some legacy docs stored strings like "0.5" in range tuples — coerce defensively.
+  const ranges = getNamespaceRanges(namespace).map(
+    ([start, end]) =>
+      [Number(start) || 0, Number(end) || 0] as [number, number],
+  );
+
   if (multiRange) {
-    const hashAttribute = getNamespaceHashAttribute(
+    // Namespace bucketing is independent of the rule's own variation bucketing.
+    // Populate only the Filter object: the SDK reads filter.attribute /
+    // filter.hashVersion via getHashAttribute independently of rule.hashAttribute
+    // (see packages/sdk-js/src/core.ts `isFilteredOut`). Mutating rule.hashAttribute
+    // here would silently re-bucket every user of a running experiment.
+    const filterAttribute = getNamespaceHashAttribute(
       namespace,
       nsDefinition?.hashAttribute || rule.hashAttribute || "id",
     );
-    rule.hashAttribute = hashAttribute;
-    rule.hashVersion =
-      ("hashVersion" in namespace ? namespace.hashVersion : 2) || 2;
-
+    const filterHashVersion =
+      ("hashVersion" in namespace && namespace.hashVersion) || 2;
     const seed = nsDefinition?.seed || namespace.name;
 
     rule.filters = [
       ...(rule.filters || []),
       {
-        attribute: hashAttribute,
-        seed: seed,
-        name: namespace.name,
-        hashVersion: 2,
-        ranges: getNamespaceRanges(namespace),
-      } as Filter & { name: string },
+        attribute: filterAttribute,
+        seed,
+        hashVersion: filterHashVersion,
+        ranges,
+      },
     ];
-  } else {
-    // Legacy format: use tuple for backward compatibility
-    const ranges = getNamespaceRanges(namespace);
-    const range = ranges[0] || ([0, 0] as [number, number]);
-
-    rule.namespace = [namespace.name, range[0], range[1]];
+    return;
   }
+
+  // Legacy format: use tuple on the rule itself for backward compatibility.
+  const [start, end] = ranges[0] ?? [0, 0];
+  rule.namespace = [namespace.name, start, end];
 }
 
 export function namespacesToMap(

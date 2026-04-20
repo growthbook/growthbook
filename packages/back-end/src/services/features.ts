@@ -14,8 +14,8 @@ import {
   evaluatePrerequisiteState,
   filterProjectsByEnvironmentWithNull,
   isDefined,
-  isMultiRangeNamespaceFormat,
   PrerequisiteStateResult,
+  toApiNamespace,
   validateCondition,
   validateFeatureValue,
   getSavedGroupsValuesFromGroupMap,
@@ -1686,15 +1686,7 @@ function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         disableStickyBucketing: rule.disableStickyBucketing,
         bucketVersion: rule.bucketVersion,
         minBucketVersion: rule.minBucketVersion,
-        namespace: rule.namespace
-          ? {
-              enabled: rule.namespace.enabled,
-              name: rule.namespace.name,
-              range: isMultiRangeNamespaceFormat(rule.namespace)
-                ? (rule.namespace.ranges?.[0] ?? [0, 0])
-                : rule.namespace.range,
-            }
-          : undefined,
+        namespace: toApiNamespace(rule.namespace),
         value: rule.values,
       };
     case "experiment-ref":

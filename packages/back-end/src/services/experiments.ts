@@ -23,10 +23,10 @@ import {
   DRAFT_REVISION_STATUSES,
   generateVariationId,
   getMatchingRules,
+  getNamespaceRanges,
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
-  isMultiRangeNamespaceFormat,
   MatchingRule,
   validateCondition,
 } from "shared/util";
@@ -2211,12 +2211,14 @@ export async function toExperimentApiInterface(
         savedGroups: s.ids,
       })),
       namespace: p.namespace?.enabled
-        ? {
-            namespaceId: p.namespace.name,
-            range: isMultiRangeNamespaceFormat(p.namespace)
-              ? (p.namespace.ranges?.[0] ?? [0, 0])
-              : (p.namespace.range ?? [0, 0]),
-          }
+        ? (() => {
+            const ranges = getNamespaceRanges(p.namespace);
+            return {
+              namespaceId: p.namespace.name,
+              range: ranges[0] ?? [0, 0],
+              ranges,
+            };
+          })()
         : undefined,
     })),
     settings: {

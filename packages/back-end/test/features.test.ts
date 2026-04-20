@@ -1390,7 +1390,7 @@ describe("SDK Payloads", () => {
           id: "abc",
           key: "exp-multi-key",
           coverage: 1,
-          hashAttribute: "login_id",
+          hashAttribute: "user_id",
           hashVersion: 2,
           meta: [
             { key: "ctrl", name: "Control" },
@@ -1402,7 +1402,6 @@ describe("SDK Payloads", () => {
               attribute: "login_id",
               seed: "custom-seed",
               hashVersion: 2,
-              name: "multi-ns",
               ranges: [
                 [0, 0.2],
                 [0.5, 0.7],
@@ -1591,7 +1590,12 @@ describe("SDK Payloads", () => {
       namespaces,
     });
 
-    expect(result.rules[0].hashAttribute).toEqual("rule_attr");
+    // The experiment's own hashAttribute ("id") must not be overridden by the
+    // namespace's hashAttribute — they are independent in the SDK.
+    expect(result.rules[0].hashAttribute).toEqual("id");
+    // The filter carries the namespace's hashAttribute; in this test the phase's
+    // namespace has its own hashAttribute override ("rule_attr") that wins over
+    // the org-level namespace default ("ns_attr").
     expect(result.rules[0].filters?.[0].attribute).toEqual("rule_attr");
   });
 
