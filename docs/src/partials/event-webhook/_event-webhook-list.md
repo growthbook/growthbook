@@ -2367,6 +2367,10 @@ Triggered when an experiment is created
                 namespace?: {
                     namespaceId: string;
                     range: number[];
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -2609,6 +2613,10 @@ Triggered when an experiment is updated
                 namespace?: {
                     namespaceId: string;
                     range: number[];
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -2812,6 +2820,10 @@ Triggered when an experiment is updated
                 namespace?: {
                     namespaceId: string;
                     range: number[];
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -3059,6 +3071,10 @@ Triggered when an experiment is deleted
                 namespace?: {
                     namespaceId: string;
                     range: number[];
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
