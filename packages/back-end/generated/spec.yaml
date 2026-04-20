@@ -188,6 +188,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: reports
+    x-displayName: reports
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -369,6 +372,9 @@ tags:
   - name: RampScheduleTemplate_model
     x-displayName: RampScheduleTemplate
     description: <SchemaDefinition schemaRef="#/components/schemas/RampScheduleTemplate" />
+  - name: Report_model
+    x-displayName: Report
+    description: <SchemaDefinition schemaRef="#/components/schemas/Report" />
   - name: SavedGroup_model
     x-displayName: SavedGroup
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
@@ -12456,6 +12462,177 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/eject-target'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /reports:
+    get:
+      operationId: listReports
+      summary: Get all reports
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - name: experimentId
+          in: query
+          description: Filter reports by experiment id
+          schema:
+            description: Filter reports by experiment id
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      reports:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Report'
+                    required:
+                      - reports
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/reports' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postReport
+      summary: Create a new report
+      tags:
+        - reports
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                experimentId:
+                  description: The experiment to create a report for
+                  type: string
+                title:
+                  description: Report title (defaults to experiment name)
+                  type: string
+                description:
+                  description: Report description
+                  type: string
+                statsEngine:
+                  description: Stats engine override
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                goalMetrics:
+                  description: Goal metric IDs (defaults to experiment's goal metrics)
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  description: >-
+                    Secondary metric IDs (defaults to experiment's secondary
+                    metrics)
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  description: >-
+                    Guardrail metric IDs (defaults to experiment's guardrail
+                    metrics)
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  description: Activation metric ID
+                  type: string
+                dimension:
+                  description: Dimension to cut results by
+                  type: string
+                dateStarted:
+                  description: Analysis start date (ISO 8601)
+                  type: string
+                dateEnded:
+                  description: Analysis end date (ISO 8601)
+                  type: string
+                regressionAdjustmentEnabled:
+                  description: Enable CUPED regression adjustment
+                  type: boolean
+                sequentialTestingEnabled:
+                  description: Enable sequential testing
+                  type: boolean
+              required:
+                - experimentId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/reports' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /reports/{id}:
+    get:
+      operationId: getReport
+      summary: Get a single report
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/reports/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /reports/{id}/refresh:
+    post:
+      operationId: postReportRefresh
+      summary: Refresh a report by re-running its analysis
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/reports/{id}/refresh'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /transform-copy:
     post:
       operationId: postCopyTransform
@@ -23891,6 +24068,81 @@ components:
         - currentStepIndex
         - nextStepAt
       additionalProperties: false
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+        dateUpdated:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum:
+            - experiment-snapshot
+            - experiment
+        status:
+          type: string
+          enum:
+            - published
+            - private
+        experimentId:
+          type: string
+        snapshotId:
+          description: Snapshot ID (experiment-snapshot type only)
+          type: string
+        snapshotStatus:
+          description: Status of the latest snapshot (poll this after refresh)
+          type: string
+          enum:
+            - running
+            - success
+            - error
+        snapshotError:
+          description: Error message if snapshot failed
+          type: string
+        analysisSettings:
+          type: object
+          properties:
+            statsEngine:
+              type: string
+              enum:
+                - bayesian
+                - frequentist
+            goalMetrics:
+              type: array
+              items:
+                type: string
+            secondaryMetrics:
+              type: array
+              items:
+                type: string
+            guardrailMetrics:
+              type: array
+              items:
+                type: string
+            activationMetric:
+              type: string
+            dateStarted:
+              type: string
+            dateEnded:
+              type: string
+          additionalProperties: false
+        results:
+          $ref: '#/components/schemas/ExperimentResults'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - title
+        - description
+        - type
+      additionalProperties: false
     Dashboard:
       type: object
       properties:
@@ -27861,6 +28113,7 @@ x-tagGroups:
       - settings
       - attributes
       - usage
+      - reports
       - Dashboards
       - CustomFields
       - MetricGroups
@@ -27918,6 +28171,7 @@ x-tagGroups:
       - Query_model
       - RampSchedule_model
       - RampScheduleTemplate_model
+      - Report_model
       - SavedGroup_model
       - ScheduleRule_model
       - SdkConnection_model

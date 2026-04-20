@@ -1,0 +1,36 @@
+import { getReportValidator } from "shared/validators";
+import { getReportById } from "back-end/src/models/ReportModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
+import { toSnapshotApiInterface } from "back-end/src/services/experiments";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { toReportApiInterface } from "./toReportApiInterface";
+
+export const getReport = createApiRequestHandler(getReportValidator)(async (
+  req,
+) => {
+  const { org } = req.context;
+
+  const report = await getReportById(org.id, req.params.id);
+  if (!report) {
+    throw new Error("Could not find report with that id");
+  }
+
+  const experiment = report.experimentId
+    ? await getExperimentById(req.context, report.experimentId)
+    : null;
+
+  if (report.type === "experiment-snapshot") {
+    const snapshot = await findSnapshotById(req.context, report.snapshot);
+    const apiReport = toReportApiInterface(report, snapshot);
+
+    if (snapshot?.status === "success" && experiment) {
+      const results = toSnapshotApiInterface(experiment, snapshot);
+      return { report: { ...apiReport, results } };
+    }
+
+    return { report: apiReport };
+  }
+
+  return { report: toReportApiInterface(report) };
+});
