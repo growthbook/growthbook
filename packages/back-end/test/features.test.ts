@@ -11,6 +11,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   createInterfaceEnvSettingsFromApiEnvSettings,
+  generateRuleId,
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
@@ -1876,3 +1877,25 @@ describe("createInterfaceEnvSettingsFromApiEnvSettings", () => {
     expect(result.production.rules[0]).not.toHaveProperty("prerequisites");
   });
 });
+
+// ---------------------------------------------------------------------------
+// generateRuleId invariant lock
+// ---------------------------------------------------------------------------
+// The v1→v2 flatten layer appends `__<env>` to rule ids on collision. The
+// stem-strip convention (`id.split("__")[0]`) only works if server-generated
+// rule ids never contain `__`. uniqid() produces alphanumeric output, so the
+// invariant holds by construction — this test locks it in so a future change
+// to the id format can't silently break every stem-matching call site (ramp
+// resolution, SDK payload stripping, telemetry lookup, audit renderers).
+// ---------------------------------------------------------------------------
+
+describe("generateRuleId invariant", () => {
+  it("never produces an id containing the `__` migration-suffix delimiter", () => {
+    for (let i = 0; i < 200; i++) {
+      const id = generateRuleId();
+      expect(id.startsWith("fr_")).toBe(true);
+      expect(id.includes("__")).toBe(false);
+    }
+  });
+});
+

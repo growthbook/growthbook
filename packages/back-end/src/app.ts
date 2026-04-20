@@ -897,11 +897,6 @@ app.post(
   "/feature/:id/:version/comment",
   featuresController.postFeatureReviewOrComment,
 );
-app.post(
-  "/feature/:id/:version/copyEnvironment",
-  featuresController.postCopyEnvironmentRules,
-);
-
 app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources

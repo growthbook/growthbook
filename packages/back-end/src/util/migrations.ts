@@ -418,9 +418,8 @@ export function applyNonRuleFeatureUpgrades<
  * re-distributing rules from `feature.rules` (which is legitimate top-level
  * data in v2) into `environmentSettings[env].rules` (v1-only storage),
  * effectively reverting v2 docs to v1 and causing re-flattening on every
- * read with potentially regenerated uids. The caller MUST structurally
- * discriminate v0 before invoking this — v0 is identified by the ABSENCE of
- * `environmentSettings` on the doc.
+ * read. The caller MUST structurally discriminate v0 before invoking this —
+ * v0 is identified by the ABSENCE of `environmentSettings` on the doc.
  */
 export function upgradeV0Feature(
   feature: LegacyFeatureInterface,

@@ -1,4 +1,5 @@
 import { FeatureRule } from "shared/validators";
+import { stemRuleId, suffixRuleId } from "shared/util";
 import {
   FeatureInterface,
   V1FeatureInterface,
@@ -10,13 +11,17 @@ import {
   toLegacyRevision,
   toLegacyRule,
 } from "back-end/src/util/toLegacy";
+import { buildFeatureInterface } from "back-end/src/models/FeatureModel";
+import { buildFeatureRevisionInterface } from "back-end/src/models/FeatureRevisionModel";
+import { ReqContext } from "back-end/types/request";
 
 // ---------------------------------------------------------------------------
 // toLegacyFeature / toLegacyRevision project v2 features and revisions back
 // to the v1 shape consumed by /api/v1 REST responses. The critical contracts:
 //   1. Per-env explosion: a v2 rule is copied into every env in its footprint.
-//   2. uid preservation: v2-only scope fields are stripped, but the `uid` is
-//      kept on every copy so v1 clients can still reference rules stably.
+//   2. id stem-stripping: v2-only scope fields are stripped, and any migration
+//      `__<env>` suffix is removed from `rule.id` so v1 clients see the
+//      original legacy id.
 //   3. Per-env order preserves global v2 order (as a stable projection).
 //   4. environmentSettings entries for existing envs keep their enabled flag
 //      and prerequisites, gaining a `rules` key in the process.
@@ -31,14 +36,9 @@ const ORG_ENVS: Environment[] = [
   { id: "production", description: "" },
 ];
 
-function v2Rule(
-  id: string,
-  uid: string,
-  opts: Partial<FeatureRule> = {},
-): FeatureRule {
+function v2Rule(id: string, opts: Partial<FeatureRule> = {}): FeatureRule {
   return {
     id,
-    uid,
     type: "force",
     description: "",
     value: "true",
@@ -76,9 +76,15 @@ const BASE_REVISION = {
   log: [],
 };
 
+function mockContext(envs: Environment[] = ORG_ENVS): ReqContext {
+  return {
+    org: { settings: { environments: envs } },
+  } as unknown as ReqContext;
+}
+
 describe("toLegacyRule", () => {
-  it("strips allEnvironments and environments but keeps uid and content", () => {
-    const v2 = v2Rule("r1", "ruid_abc", {
+  it("strips allEnvironments and environments and keeps content", () => {
+    const v2 = v2Rule("r1", {
       allEnvironments: false,
       environments: ["dev"],
       description: "hello",
@@ -87,15 +93,32 @@ describe("toLegacyRule", () => {
     expect(v1).not.toHaveProperty("allEnvironments");
     expect(v1).not.toHaveProperty("environments");
     expect(v1.id).toBe("r1");
-    // uid survives via passthrough
-    expect((v1 as unknown as { uid?: string }).uid).toBe("ruid_abc");
     expect((v1 as unknown as { description?: string }).description).toBe(
       "hello",
     );
   });
 
+  it("stem-strips the __<env> migration suffix from rule.id", () => {
+    const v2 = v2Rule(suffixRuleId("fr_abc", "production"), {
+      allEnvironments: false,
+      environments: ["production"],
+    } as Partial<FeatureRule>);
+    const v1 = toLegacyRule(v2);
+    // v1 clients see the bare legacy id, never the migration suffix.
+    expect(v1.id).toBe("fr_abc");
+  });
+
+  it("stem-strips counter suffixes as well (__<env>__N)", () => {
+    const v2 = v2Rule(suffixRuleId("fr_abc", "dev", 2), {
+      allEnvironments: false,
+      environments: ["dev"],
+    } as Partial<FeatureRule>);
+    const v1 = toLegacyRule(v2);
+    expect(v1.id).toBe("fr_abc");
+  });
+
   it("does not mutate the input", () => {
-    const v2 = v2Rule("r1", "ruid_abc", { environments: ["dev"] });
+    const v2 = v2Rule("r1", { environments: ["dev"] });
     const snapshot = JSON.parse(JSON.stringify(v2));
     toLegacyRule(v2);
     expect(v2).toEqual(snapshot);
@@ -113,7 +136,7 @@ describe("toLegacyFeature", () => {
           dev: { enabled: true },
           production: { enabled: true },
         },
-        rules: [v2Rule("r1", "ruid_r1", { allEnvironments: true })],
+        rules: [v2Rule("r1", { allEnvironments: true })],
         prerequisites: [],
       } as unknown as FeatureInterface;
 
@@ -121,9 +144,7 @@ describe("toLegacyFeature", () => {
       expect(v1.environmentSettings?.dev?.rules).toHaveLength(1);
       expect(v1.environmentSettings?.production?.rules).toHaveLength(1);
       expect(v1.environmentSettings?.dev?.rules?.[0].id).toBe("r1");
-      expect(
-        (v1.environmentSettings?.dev?.rules?.[0] as { uid?: string }).uid,
-      ).toBe("ruid_r1");
+      expect(v1.environmentSettings?.production?.rules?.[0].id).toBe("r1");
     });
 
     it("emits env-specific rule only into its declared environments", () => {
@@ -134,7 +155,7 @@ describe("toLegacyFeature", () => {
           production: { enabled: true },
         },
         rules: [
-          v2Rule("r1", "ruid_r1_dev", {
+          v2Rule("r1", {
             allEnvironments: false,
             environments: ["dev"],
           } as Partial<FeatureRule>),
@@ -167,7 +188,7 @@ describe("toLegacyFeature", () => {
           enterprise: { enabled: true },
         },
         rules: [
-          v2Rule("r1", "ruid_r1_ent", {
+          v2Rule("r1", {
             allEnvironments: false,
             environments: ["enterprise"],
           } as Partial<FeatureRule>),
@@ -191,12 +212,12 @@ describe("toLegacyFeature", () => {
           production: { enabled: true },
         },
         rules: [
-          v2Rule("r1", "ruid_r1", { allEnvironments: true }),
-          v2Rule("r2", "ruid_r2", {
+          v2Rule("r1", { allEnvironments: true }),
+          v2Rule("r2", {
             allEnvironments: false,
             environments: ["dev"],
           } as Partial<FeatureRule>),
-          v2Rule("r3", "ruid_r3", { allEnvironments: true }),
+          v2Rule("r3", { allEnvironments: true }),
         ],
         prerequisites: [],
       } as unknown as FeatureInterface;
@@ -301,7 +322,7 @@ describe("toLegacyFeature", () => {
           dev: { enabled: true },
           production: { enabled: true },
         },
-        rules: [v2Rule("r1", "ruid_r1", { allEnvironments: true })],
+        rules: [v2Rule("r1", { allEnvironments: true })],
         prerequisites: [],
       } as unknown as FeatureInterface;
 
@@ -317,7 +338,7 @@ describe("toLegacyFeature", () => {
         environmentSettings: {
           dev: { enabled: true },
         },
-        rules: [v2Rule("r1", "ruid_r1", { allEnvironments: true })],
+        rules: [v2Rule("r1", { allEnvironments: true })],
         prerequisites: [],
       } as unknown as FeatureInterface;
 
@@ -347,32 +368,31 @@ describe("toLegacyFeature", () => {
     });
   });
 
-  // ================= uid stability =================
+  // ================= id stem-stripping on down-conversion =================
 
-  describe("uid preservation", () => {
-    it("keeps the same uid on every exploded copy of a merged rule", () => {
+  describe("id stem-stripping", () => {
+    it("keeps the same legacy id on every exploded copy of a merged rule", () => {
       const v2: FeatureInterface = {
         ...BASE_FEATURE,
         environmentSettings: {
           dev: { enabled: true },
           production: { enabled: true },
         },
-        rules: [v2Rule("r1", "ruid_merged", { allEnvironments: true })],
+        rules: [v2Rule("fr_merged", { allEnvironments: true })],
         prerequisites: [],
       } as unknown as FeatureInterface;
 
       const v1 = toLegacyFeature(v2, ORG_ENVS);
-      const devUid = (v1.environmentSettings?.dev?.rules?.[0] as {
-        uid?: string;
-      })?.uid;
-      const prodUid = (v1.environmentSettings?.production?.rules?.[0] as {
-        uid?: string;
-      })?.uid;
-      expect(devUid).toBe("ruid_merged");
-      expect(prodUid).toBe("ruid_merged");
+      expect(v1.environmentSettings?.dev?.rules?.[0].id).toBe("fr_merged");
+      expect(v1.environmentSettings?.production?.rules?.[0].id).toBe(
+        "fr_merged",
+      );
     });
 
-    it("keeps distinct uids for split rules with the same legacy id", () => {
+    it("stem-strips __<env> suffixes on split rules (v1 clients see the base id)", () => {
+      // A non-mergeable collision pair coming out of the flattener: two rules
+      // with the same stem `fr_abc` but different env-suffixes. v1 clients
+      // should only ever see the bare stem.
       const v2: FeatureInterface = {
         ...BASE_FEATURE,
         environmentSettings: {
@@ -380,12 +400,12 @@ describe("toLegacyFeature", () => {
           production: { enabled: true },
         },
         rules: [
-          v2Rule("r1", "ruid_r1_dev", {
+          v2Rule(suffixRuleId("fr_abc", "dev"), {
             allEnvironments: false,
             environments: ["dev"],
             value: "A",
           } as Partial<FeatureRule>),
-          v2Rule("r1", "ruid_r1_prod", {
+          v2Rule(suffixRuleId("fr_abc", "production"), {
             allEnvironments: false,
             environments: ["production"],
             value: "B",
@@ -395,13 +415,8 @@ describe("toLegacyFeature", () => {
       } as unknown as FeatureInterface;
 
       const v1 = toLegacyFeature(v2, ORG_ENVS);
-      expect(
-        (v1.environmentSettings?.dev?.rules?.[0] as { uid?: string }).uid,
-      ).toBe("ruid_r1_dev");
-      expect(
-        (v1.environmentSettings?.production?.rules?.[0] as { uid?: string })
-          .uid,
-      ).toBe("ruid_r1_prod");
+      expect(v1.environmentSettings?.dev?.rules?.[0].id).toBe("fr_abc");
+      expect(v1.environmentSettings?.production?.rules?.[0].id).toBe("fr_abc");
     });
   });
 
@@ -415,7 +430,7 @@ describe("toLegacyFeature", () => {
           dev: { enabled: true },
           production: { enabled: true },
         },
-        rules: [v2Rule("r1", "ruid_r1", { allEnvironments: true })],
+        rules: [v2Rule("r1", { allEnvironments: true })],
         prerequisites: [],
       } as unknown as FeatureInterface;
       const snapshot = JSON.parse(JSON.stringify(v2));
@@ -433,7 +448,6 @@ describe("toLegacyRevision", () => {
       rules: [
         {
           id: "r1",
-          uid: "ruid_r1",
           type: "force",
           description: "",
           value: "true",
@@ -446,7 +460,28 @@ describe("toLegacyRevision", () => {
     const v1 = toLegacyRevision(raw, ORG_ENVS, "");
     expect(v1.rules.dev).toHaveLength(1);
     expect(v1.rules.production).toHaveLength(1);
-    expect((v1.rules.dev[0] as { uid?: string }).uid).toBe("ruid_r1");
+    expect(v1.rules.dev[0].id).toBe("r1");
+  });
+
+  it("stem-strips __<env> suffixes during down-conversion", () => {
+    const raw = {
+      ...BASE_REVISION,
+      rules: [
+        {
+          id: suffixRuleId("fr_abc", "dev"),
+          type: "force",
+          description: "",
+          value: "A",
+          enabled: true,
+          allEnvironments: false,
+          environments: ["dev"],
+        },
+      ] as unknown as FeatureRule[],
+    } as FeatureRevisionInterface;
+
+    const v1 = toLegacyRevision(raw, ORG_ENVS, "");
+    expect(v1.rules.dev).toHaveLength(1);
+    expect(v1.rules.dev[0].id).toBe("fr_abc");
   });
 
   it("emits only the declared env for split rules", () => {
@@ -455,7 +490,6 @@ describe("toLegacyRevision", () => {
       rules: [
         {
           id: "r1",
-          uid: "ruid_r1_dev",
           type: "force",
           description: "",
           value: "true",
@@ -493,7 +527,6 @@ describe("toLegacyRevision", () => {
       rules: [
         {
           id: "r1",
-          uid: "ruid_r1",
           type: "force",
           description: "",
           value: "true",
@@ -532,7 +565,6 @@ describe("toLegacyRevision", () => {
       rules: [
         {
           id: "r1",
-          uid: "ruid_r1",
           type: "force",
           description: "",
           value: "true",
@@ -548,28 +580,12 @@ describe("toLegacyRevision", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Round-trip stability test: buildFeatureInterface(toLegacyFeature(x)) should
-// produce a doc whose rules align with x modulo uid generation. We do NOT
-// expect uids to match here — that's not the round-trip we care about.
-// The uid-preserving round-trip is via legacyToV2Feature (Phase 6a) which
-// uses match-by-uid instead of from-scratch flatten.
-//
-// What we DO verify here: the shape invariants — rule ids, allEnvironments
-// flags, envSettings structure — survive a v2 -> toLegacy -> buildFeature
-// trip. This is a weaker invariant than Phase 6a's uid-stable round-trip
-// but catches gross mis-explosion bugs.
+// Round-trip stability: buildFeatureInterface(toLegacyFeature(x)) should
+// produce a doc whose rules align with x on shape (ids, allEnvironments,
+// environments). With uid retired, the contract simplifies — we just need
+// rule.id to be stable modulo the deterministic __<env> suffixing the
+// flattener applies on legacy data.
 // ---------------------------------------------------------------------------
-
-import { buildFeatureInterface } from "back-end/src/models/FeatureModel";
-import { buildFeatureRevisionInterface } from "back-end/src/models/FeatureRevisionModel";
-import { generateRuleUid } from "back-end/src/util/flattenRules";
-import { ReqContext } from "back-end/types/request";
-
-function mockContext(envs: Environment[] = ORG_ENVS): ReqContext {
-  return {
-    org: { settings: { environments: envs } },
-  } as unknown as ReqContext;
-}
 
 describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
   it("preserves rule ids and allEnvironments=true flag through the round-trip", () => {
@@ -579,7 +595,7 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
         dev: { enabled: true },
         production: { enabled: true },
       },
-      rules: [v2Rule("r1", "ruid_r1", { allEnvironments: true })],
+      rules: [v2Rule("r1", { allEnvironments: true })],
       prerequisites: [],
     } as unknown as FeatureInterface;
 
@@ -593,7 +609,9 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
     expect(roundTripped.rules[0].allEnvironments).toBe(true);
   });
 
-  it("preserves split rules through the round-trip", () => {
+  it("preserves split rules through the round-trip (with __<env> suffixes)", () => {
+    // Two non-mergeable rules with the same stem id, different values per env.
+    // After a down-then-up cycle, the flattener will re-suffix them.
     const v2: FeatureInterface = {
       ...BASE_FEATURE,
       environmentSettings: {
@@ -601,12 +619,12 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
         production: { enabled: true },
       },
       rules: [
-        v2Rule("r1", "ruid_r1_dev", {
+        v2Rule(suffixRuleId("fr_abc", "dev"), {
           allEnvironments: false,
           environments: ["dev"],
           value: "A",
         } as Partial<FeatureRule>),
-        v2Rule("r1", "ruid_r1_prod", {
+        v2Rule(suffixRuleId("fr_abc", "production"), {
           allEnvironments: false,
           environments: ["production"],
           value: "B",
@@ -620,7 +638,6 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
       v1 as unknown as V1FeatureInterface,
       mockContext(),
     );
-    // Both rules survive; each is scoped to a single env.
     expect(roundTripped.rules).toHaveLength(2);
     const devRule = roundTripped.rules.find(
       (r) => r.environments?.[0] === "dev",
@@ -632,35 +649,28 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
     expect(prodRule).toBeDefined();
     expect((devRule as FeatureRule & { value?: string }).value).toBe("A");
     expect((prodRule as FeatureRule & { value?: string }).value).toBe("B");
+    // Both rules re-flattened end up with __<env> suffixed ids; stems match.
+    expect(stemRuleId(devRule!.id)).toBe("fr_abc");
+    expect(stemRuleId(prodRule!.id)).toBe("fr_abc");
   });
 });
 
 // ---------------------------------------------------------------------------
 // Multi-cycle stability
 //
-// Real-world pipelines repeatedly convert between v1 and v2 — e.g. every read
-// from disk goes through the JIT, and v1 REST responses go through toLegacy.
-// A writer that opens a feature, saves, re-opens, saves again etc. will walk
-// many cycles. We need every cycle to converge to a fixed point — otherwise
-// uids churn forever and external references (ramp targets, audit log anchors)
-// break silently.
+// Every read from disk goes through the JIT, and v1 REST responses go through
+// toLegacy. A writer that opens a feature, saves, re-opens, saves again etc.
+// will walk many cycles. Every cycle must converge to a fixed point —
+// otherwise rule ids churn forever and external references (ramp targets,
+// audit log anchors) break silently.
 //
 // Stability invariants we assert:
-//
-//   1. JIT-generated uids (the "fresh v1 on disk" case) are stable under
-//      v1 -> v2 -> v1 -> v2 -> ... iteration because the JIT formula is
-//      `hash(featureId, legacyId, envContext)` and `toLegacyFeature` preserves
-//      legacyId + env footprint. After the first flatten, subsequent cycles
-//      must be identity.
-//
-//   2. Random/custom uids (the "v2 doc created post-Phase-3" case) are NOT
-//      preserved by the JIT today — the flattener overwrites the incoming
-//      uid with the formula value. This is documented pre-Phase-6a behavior:
-//      `legacyToV2Feature` (match-by-uid) will fix it, at which point these
-//      assertions should be flipped to equality. Until then, the "instability"
-//      test below protects against accidental regressions in the other
-//      direction (e.g. a formula change that happens to preserve *some* uids).
-//
+//   1. Mergeable legacy rules (same id + identical content across envs)
+//      converge to a single allEnvironments=true v2 rule and stay there.
+//   2. Non-mergeable legacy rules (same id but different content per env)
+//      get __<env> suffixes on the first flatten; subsequent cycles are
+//      identity because toLegacy stem-strips and the flattener re-applies
+//      the same deterministic suffixing.
 //   3. Revisions follow the same rules as features.
 // ---------------------------------------------------------------------------
 
@@ -681,10 +691,10 @@ describe("multi-cycle v1/v2 conversion stability", () => {
     return snapshots;
   }
 
-  // ================= JIT-uid stability =================
+  // ================= Mergeable rules =================
 
-  describe("JIT-generated uids are stable across N cycles (fresh v1 data)", () => {
-    it("allEnvironments rule: uid stable across 4 cycles", () => {
+  describe("mergeable legacy rules collapse and stay collapsed", () => {
+    it("allEnvironments rule: stable across 4 cycles", () => {
       const rawV1: V1FeatureInterface = {
         ...BASE_FEATURE,
         environmentSettings: {
@@ -717,17 +727,19 @@ describe("multi-cycle v1/v2 conversion stability", () => {
       } as unknown as V1FeatureInterface;
 
       const [c1, c2, c3, c4] = cycleFeature(rawV1, 4);
-      // All cycles must be deep-equal on rules (including uid) and envSettings.
       expect(c2.rules).toEqual(c1.rules);
       expect(c3.rules).toEqual(c1.rules);
       expect(c4.rules).toEqual(c1.rules);
-      // And the uid matches the JIT formula.
-      const expectedUid = generateRuleUid(FEATURE_ID, "r1", "*");
-      expect(c1.rules[0].uid).toBe(expectedUid);
-      expect(c4.rules[0].uid).toBe(expectedUid);
+      expect(c1.rules).toHaveLength(1);
+      expect(c1.rules[0].id).toBe("r1");
+      expect(c1.rules[0].allEnvironments).toBe(true);
     });
+  });
 
-    it("env-specific split: distinct uids stable across 4 cycles", () => {
+  // ================= Non-mergeable rules =================
+
+  describe("non-mergeable legacy rules get suffixed and stay stable", () => {
+    it("env-specific split: distinct suffixed ids stable across 4 cycles", () => {
       const rawV1: V1FeatureInterface = {
         ...BASE_FEATURE,
         environmentSettings: {
@@ -763,12 +775,13 @@ describe("multi-cycle v1/v2 conversion stability", () => {
       expect(c2.rules).toEqual(c1.rules);
       expect(c3.rules).toEqual(c1.rules);
       expect(c4.rules).toEqual(c1.rules);
-      // Two rules, one per env, each with its env-scoped uid.
       expect(c1.rules).toHaveLength(2);
-      const uidDev = generateRuleUid(FEATURE_ID, "r1", "dev");
-      const uidProd = generateRuleUid(FEATURE_ID, "r1", "production");
-      const seenUids = c1.rules.map((r) => r.uid).sort();
-      expect(seenUids).toEqual([uidDev, uidProd].sort());
+      const ids = c1.rules.map((r) => r.id).sort();
+      expect(ids).toEqual(
+        [suffixRuleId("r1", "dev"), suffixRuleId("r1", "production")].sort(),
+      );
+      // Every rule has the same stem.
+      expect(c1.rules.every((r) => stemRuleId(r.id) === "r1")).toBe(true);
     });
 
     it("mixed (merged + split + env-only): stable across cycles", () => {
@@ -827,10 +840,16 @@ describe("multi-cycle v1/v2 conversion stability", () => {
       const [c1, c2, c3] = cycleFeature(rawV1, 3);
       expect(c2.rules).toEqual(c1.rules);
       expect(c3.rules).toEqual(c1.rules);
-      // Expected: m1 merged (allEnvironments), d1 dev-only, s1 split into two.
+      // Expected: m1 merged (allEnvironments), d1 dev-only, s1 split into two
+      // __<env>-suffixed rules.
       expect(c1.rules).toHaveLength(4);
       const merged = c1.rules.find((r) => r.id === "m1");
       expect(merged?.allEnvironments).toBe(true);
+      const splits = c1.rules.filter((r) => stemRuleId(r.id) === "s1");
+      expect(splits).toHaveLength(2);
+      expect(splits.map((r) => r.id).sort()).toEqual(
+        [suffixRuleId("s1", "dev"), suffixRuleId("s1", "production")].sort(),
+      );
     });
 
     it("v2 output reaches fixed point after the first cycle (not just convergent)", () => {
@@ -865,74 +884,13 @@ describe("multi-cycle v1/v2 conversion stability", () => {
         prerequisites: [],
       } as unknown as V1FeatureInterface;
 
-      // After the first flatten we've stamped uids. Everything after c1 is
-      // a read of already-flattened data, so c2..cN must be identity on rules.
+      // After the first flatten we've assigned ids (merged or __<env>-suffixed).
+      // Everything after c1 is a read of already-flattened data, so c2..cN
+      // must be identity on rules.
       const snapshots = cycleFeature(rawV1, 5);
       for (let i = 1; i < snapshots.length; i++) {
         expect(snapshots[i].rules).toEqual(snapshots[0].rules);
       }
-    });
-  });
-
-  // ================= Documented pre-Phase-6a behavior =================
-
-  describe("custom uids on a pre-existing v2 doc (pre-Phase-6a behavior)", () => {
-    it("JIT overwrites incoming custom uids on re-flatten", () => {
-      // A v2 doc written by the mutation layer with a random/custom uid
-      // (simulating what Phase 3+ will produce). We can round-trip via
-      // toLegacyFeature, but since there is no uid-aware adapter yet
-      // (Phase 6a), the JIT regenerates the uid from the formula on read.
-      //
-      // If this test ever starts failing (i.e. the uid *is* preserved), that
-      // means someone accidentally wired uid preservation into the JIT or
-      // `legacyToV2Feature` has landed. Flip the assertion to `toBe(customUid)`.
-      const customUid = "ruid_custom_written_by_phase3";
-      const v2: FeatureInterface = {
-        ...BASE_FEATURE,
-        environmentSettings: {
-          dev: { enabled: true },
-          production: { enabled: true },
-        },
-        rules: [v2Rule("r1", customUid, { allEnvironments: true })],
-        prerequisites: [],
-      } as unknown as FeatureInterface;
-
-      const v1 = toLegacyFeature(v2, ORG_ENVS);
-      const roundTripped = buildFeatureInterface(
-        v1 as unknown as V1FeatureInterface,
-        mockContext(),
-      );
-
-      const expectedUid = generateRuleUid(FEATURE_ID, "r1", "*");
-      expect(roundTripped.rules[0].uid).toBe(expectedUid);
-      expect(roundTripped.rules[0].uid).not.toBe(customUid);
-    });
-
-    it("once JIT has stamped a formula-derived uid, further cycles are stable", () => {
-      // Even though the first cycle churned the uid, subsequent cycles have
-      // a formula-derived uid (the JIT's own output) and therefore stay put.
-      const customUid = "ruid_custom_written_by_phase3";
-      const v2: FeatureInterface = {
-        ...BASE_FEATURE,
-        environmentSettings: {
-          dev: { enabled: true },
-          production: { enabled: true },
-        },
-        rules: [v2Rule("r1", customUid, { allEnvironments: true })],
-        prerequisites: [],
-      } as unknown as FeatureInterface;
-
-      // Start from v2; first cycle is the lossy one.
-      const v1_1 = toLegacyFeature(v2, ORG_ENVS) as unknown as V1FeatureInterface;
-      const v2_1 = buildFeatureInterface(v1_1, mockContext());
-      // Subsequent cycles are lossless.
-      const v1_2 = toLegacyFeature(v2_1, ORG_ENVS) as unknown as V1FeatureInterface;
-      const v2_2 = buildFeatureInterface(v1_2, mockContext());
-      const v1_3 = toLegacyFeature(v2_2, ORG_ENVS) as unknown as V1FeatureInterface;
-      const v2_3 = buildFeatureInterface(v1_3, mockContext());
-
-      expect(v2_2.rules).toEqual(v2_1.rules);
-      expect(v2_3.rules).toEqual(v2_1.rules);
     });
   });
 
@@ -960,7 +918,7 @@ describe("multi-cycle v1/v2 conversion stability", () => {
       return snapshots;
     }
 
-    it("JIT-generated revision uids are stable across 4 cycles", () => {
+    it("merged revision rules stable across 4 cycles", () => {
       // Start from a v1-shaped revision (rules is a Record<env, rules[]>).
       const rawV1Rev = {
         ...BASE_REVISION,
@@ -992,7 +950,7 @@ describe("multi-cycle v1/v2 conversion stability", () => {
       expect(c4.rules).toEqual(c1.rules);
     });
 
-    it("split rules stable across cycles", () => {
+    it("split revision rules stable across cycles", () => {
       const rawV1Rev = {
         ...BASE_REVISION,
         rules: {
@@ -1021,6 +979,10 @@ describe("multi-cycle v1/v2 conversion stability", () => {
       expect(c2.rules).toEqual(c1.rules);
       expect(c3.rules).toEqual(c1.rules);
       expect((c1.rules as FeatureRule[]).length).toBe(2);
+      // Both rules share the stem `r1`.
+      expect(
+        (c1.rules as FeatureRule[]).every((r) => stemRuleId(r.id) === "r1"),
+      ).toBe(true);
     });
   });
 });

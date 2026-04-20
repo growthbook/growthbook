@@ -7,6 +7,7 @@ import {
   includeExperimentInPayload,
   isDefined,
   recursiveWalk,
+  stemRuleId,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -504,7 +505,12 @@ export function getFeatureDefinition({
       })
       ?.map((r) => {
         const rule: FeatureDefinitionRule = {
-          ...(includeRuleIds && r.id != null ? { id: r.id } : {}),
+          // SDK payloads only expose the bare legacy rule id; any internal
+          // `__<env>` migration suffix is stem-stripped so downstream
+          // telemetry / result tracking keeps using the original id.
+          ...(includeRuleIds && r.id != null
+            ? { id: stemRuleId(r.id) }
+            : {}),
         } as FeatureDefinitionRule;
 
         // Experiment reference rules inherit everything from the experiment
@@ -643,7 +649,7 @@ export function getFeatureDefinition({
               allowedKeys.featureRuleKeys,
             ) as FeatureDefinitionRule;
             if (includeRuleIds && r.id != null) {
-              (picked as Record<string, unknown>).id = r.id;
+              (picked as Record<string, unknown>).id = stemRuleId(r.id);
             }
             return picked;
           }
@@ -804,7 +810,7 @@ export function getFeatureDefinition({
             allowedKeys.featureRuleKeys,
           ) as FeatureDefinitionRule;
           if (includeRuleIds && r.id != null) {
-            picked.id = r.id;
+            picked.id = stemRuleId(r.id);
           }
           return picked;
         }

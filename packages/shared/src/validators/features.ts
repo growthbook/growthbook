@@ -59,10 +59,12 @@ export const baseRule = z
   .object({
     description: z.string(),
     condition: z.string().optional(),
+    // Rule identifier. For rules authored post-v2 this is `fr_<uniqid>` from
+    // `generateRuleId()`. For rules unified from a v1 collision, the flatten
+    // step appends a `__<env>` suffix to disambiguate — see
+    // `shared/src/util/ruleId.ts` for the stem/suffix helpers. Every external
+    // surface (SDK payload, tracking, UI telemetry) stem-strips this id.
     id: z.string(),
-    // Stable identifier for the unified rule array. Deterministic for JIT-migrated
-    // rules (hash of featureId, legacyId, envContext); random for newly-created rules.
-    uid: z.string(),
     // When true the rule applies in every environment and `environments` is omitted.
     // When false the rule applies only in environments listed in `environments`.
     allEnvironments: z.boolean(),
@@ -216,14 +218,14 @@ export type FeatureEnvironment = z.infer<typeof featureEnvironment>;
 // v1 (legacy, pre-unification) validators
 // ---------------------------------------------------------------------------
 // These schemas describe on-disk feature data from before the v2 rule
-// unification (`uid` / `allEnvironments` / top-level `rules` array). They are
+// unification (`allEnvironments` / top-level `rules` array). They are
 // deliberately PERMISSIVE:
-//   - `.passthrough()` so unknown fields (including round-tripped v2 scope
-//     fields like `uid`) survive parsing. The user explicitly requested that
-//     downconversion preserve uids for reconversion stability; these schemas
-//     must therefore tolerate uid-bearing legacy rules without stripping.
+//   - `.passthrough()` so unknown fields survive parsing. A v2 → v1
+//     downconversion may pass suffixed ids (e.g. `fr_abc__production`)
+//     through; these schemas accept them without stripping, so the v1 REST
+//     response is a faithful projection of the v2 shape.
 //   - Constructive (explicit field-by-field) rather than `Omit<FeatureRule,
-//     "uid" | ...>`. That way, adding a field to v2 `FeatureRule` does NOT
+//     ...>`. That way, adding a field to v2 `FeatureRule` does NOT
 //     implicitly change `V1FeatureRule`. V1 types evolve only when we
 //     consciously decide a field was present in v1 data on disk.
 //   - Well-known common fields are explicitly typed as optional to give

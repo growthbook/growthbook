@@ -11,7 +11,7 @@ import {
   toInterface,
 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
-import { generateRuleUid } from "back-end/src/util/flattenRules";
+import { suffixRuleId } from "shared/util";
 
 // ---------------------------------------------------------------------------
 // buildFeatureInterface is the pure-function core of FeatureModel.toInterface.
@@ -24,14 +24,14 @@ import { generateRuleUid } from "back-end/src/util/flattenRules";
 //   3. v2 (envSettings has no rules key)          — pass-through (no corruption)
 //   4. v1 with v0 crust                           — v1 wins, v0 top-level rules ignored
 //   5. v2 with empty envSettings                  — classified as v2 (no rules key)
-//   6. partial migration (v1 env rules + v2-shaped top-level rules with uids)
+//   6. partial migration (v1 env rules + v2-shaped top-level rules)
 //                                                 — v1 wins, top-level rules overwritten
 //
 // The critical invariant: v2 documents MUST NOT be re-flattened. Calling the
 // function twice on the same v2 input must produce identical output (same
-// uids, same order, same content). This protects against the class of bugs
+// ids, same order, same content). This protects against the class of bugs
 // where the v0 upgrader was silently re-distributing v2 top-level rules into
-// envSettings, causing uid regeneration on every read.
+// envSettings, causing id churn on every read.
 // ---------------------------------------------------------------------------
 
 const FEATURE_ID = "feat_test";
@@ -47,16 +47,11 @@ function mockContext(envs: Environment[] = ORG_ENVS): ReqContext {
   } as unknown as ReqContext;
 }
 
-// A minimal but valid v2 FeatureRule with uid + allEnvironments. Content
-// fields are arbitrary — what matters is the unification scope metadata.
-function v2Rule(
-  id: string,
-  uid: string,
-  opts: Partial<FeatureRule> = {},
-): FeatureRule {
+// A minimal but valid v2 FeatureRule with allEnvironments. Content fields
+// are arbitrary — what matters is the unification scope metadata.
+function v2Rule(id: string, opts: Partial<FeatureRule> = {}): FeatureRule {
   return {
     id,
-    uid,
     type: "force",
     description: "",
     value: "true",
@@ -66,7 +61,7 @@ function v2Rule(
   } as unknown as FeatureRule;
 }
 
-// A minimal v1 legacy rule (no uid/allEnvironments/environments).
+// A minimal v1 legacy rule (no allEnvironments/environments).
 function v1Rule(
   id: string,
   overrides: Partial<Record<string, unknown>> = {},
@@ -109,7 +104,6 @@ describe("buildFeatureInterface", () => {
       // Same rule in both envs after v0 upgrade → merges to allEnvironments=true.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
-      expect(out.rules[0].uid).toBe(generateRuleUid(FEATURE_ID, "r1", "*"));
       expect(out.rules[0].allEnvironments).toBe(true);
     });
 
@@ -126,7 +120,7 @@ describe("buildFeatureInterface", () => {
   // ================= 2. v1 (envSettings[env].rules present) =================
 
   describe("v1 documents (envSettings[env].rules)", () => {
-    it("flattens identical rules across envs to a single allEnvironments=true v2 rule", () => {
+    it("flattens identical rules across envs to a single allEnvironments=true v2 rule with bare id", () => {
       const v1: LegacyFeatureInterface = {
         ...BASE_META,
         environmentSettings: {
@@ -142,10 +136,9 @@ describe("buildFeatureInterface", () => {
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
       expect(out.rules[0].allEnvironments).toBe(true);
-      expect(out.rules[0].uid).toBe(generateRuleUid(FEATURE_ID, "r1", "*"));
     });
 
-    it("splits env-divergent rules into per-env uids", () => {
+    it("splits env-divergent rules into per-env suffixed ids", () => {
       const v1: LegacyFeatureInterface = {
         ...BASE_META,
         environmentSettings: {
@@ -166,10 +159,8 @@ describe("buildFeatureInterface", () => {
       const prodRule = out.rules.find(
         (r) => r.environments?.[0] === "production",
       );
-      expect(devRule?.uid).toBe(generateRuleUid(FEATURE_ID, "r1", "dev"));
-      expect(prodRule?.uid).toBe(
-        generateRuleUid(FEATURE_ID, "r1", "production"),
-      );
+      expect(devRule?.id).toBe(suffixRuleId("r1", "dev"));
+      expect(prodRule?.id).toBe(suffixRuleId("r1", "production"));
     });
 
     it("emits empty rules array when envSettings has rules key but no rules", () => {
@@ -189,15 +180,14 @@ describe("buildFeatureInterface", () => {
   // ================= 3. v2 (envSettings has no rules key) =================
 
   describe("v2 documents (unified)", () => {
-    it("passes through v2 top-level rules without regenerating uids", () => {
-      const uid = generateRuleUid(FEATURE_ID, "r1", "*");
+    it("passes through v2 top-level rules without rewriting ids", () => {
       const v2: FeatureInterface = {
         ...BASE_META,
         environmentSettings: {
           dev: { enabled: true, prerequisites: [] },
           production: { enabled: true, prerequisites: [] },
         },
-        rules: [v2Rule("r1", uid)],
+        rules: [v2Rule("r1")],
         prerequisites: [],
       } as unknown as FeatureInterface;
 
@@ -206,14 +196,11 @@ describe("buildFeatureInterface", () => {
         mockContext(),
       );
       expect(out.rules).toHaveLength(1);
-      expect(out.rules[0].uid).toBe(uid);
-      expect(out.rules[0].allEnvironments).toBe(true);
       expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].allEnvironments).toBe(true);
     });
 
     it("is idempotent: calling buildFeatureInterface twice produces identical output", () => {
-      const uid1 = generateRuleUid(FEATURE_ID, "r1", "*");
-      const uid2 = generateRuleUid(FEATURE_ID, "r2", "dev");
       const v2: FeatureInterface = {
         ...BASE_META,
         environmentSettings: {
@@ -221,8 +208,8 @@ describe("buildFeatureInterface", () => {
           production: { enabled: true, prerequisites: [] },
         },
         rules: [
-          v2Rule("r1", uid1, { allEnvironments: true }),
-          v2Rule("r2", uid2, {
+          v2Rule("r1", { allEnvironments: true }),
+          v2Rule("r2", {
             allEnvironments: false,
             environments: ["dev"],
           } as Partial<FeatureRule>),
@@ -238,23 +225,34 @@ describe("buildFeatureInterface", () => {
         first as unknown as LegacyFeatureInterface,
         mockContext(),
       );
-      expect(second.rules.map((r) => r.uid)).toEqual(
-        first.rules.map((r) => r.uid),
-      );
       expect(second.rules.map((r) => r.id)).toEqual(
         first.rules.map((r) => r.id),
       );
+      expect(second.rules.map((r) => r.allEnvironments)).toEqual(
+        first.rules.map((r) => r.allEnvironments),
+      );
     });
 
-    it("preserves unified rule uids even when input rules predate recent content upgrades", () => {
-      const uid = "ruid_stable_abc";
+    it("preserves migration-suffixed rule ids on v2 pass-through", () => {
+      // Simulates a v2 doc that was previously flattened from a v1 collision:
+      // the on-disk rule carries a `__<env>` suffix. The v2 read path must
+      // NOT rename it (that would churn references).
       const v2: FeatureInterface = {
         ...BASE_META,
         environmentSettings: {
           dev: { enabled: true, prerequisites: [] },
           production: { enabled: true, prerequisites: [] },
         },
-        rules: [v2Rule("r1", uid)],
+        rules: [
+          v2Rule(suffixRuleId("r1", "dev"), {
+            allEnvironments: false,
+            environments: ["dev"],
+          } as Partial<FeatureRule>),
+          v2Rule(suffixRuleId("r1", "production"), {
+            allEnvironments: false,
+            environments: ["production"],
+          } as Partial<FeatureRule>),
+        ],
         prerequisites: [],
       } as unknown as FeatureInterface;
 
@@ -262,7 +260,10 @@ describe("buildFeatureInterface", () => {
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
-      expect(out.rules[0].uid).toBe(uid);
+      expect(out.rules.map((r) => r.id).sort()).toEqual([
+        suffixRuleId("r1", "dev"),
+        suffixRuleId("r1", "production"),
+      ]);
     });
   });
 
@@ -272,8 +273,8 @@ describe("buildFeatureInterface", () => {
     it("ignores top-level v0 rules, uses v1 env settings as authoritative", () => {
       const v1WithCrust: LegacyFeatureInterface = {
         ...BASE_META,
-        environments: ["dev"], // v0 crust
-        rules: [v1Rule("r_stale", { value: "STALE" }) as FeatureRule], // v0 crust
+        environments: ["dev"],
+        rules: [v1Rule("r_stale", { value: "STALE" }) as FeatureRule],
         environmentSettings: {
           dev: {
             enabled: true,
@@ -289,7 +290,6 @@ describe("buildFeatureInterface", () => {
       const out = buildFeatureInterface(v1WithCrust, mockContext());
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r_real");
-      // Critical: r_stale must NOT appear in the v2 output.
       expect(out.rules.find((r) => r.id === "r_stale")).toBeUndefined();
     });
   });
@@ -313,8 +313,6 @@ describe("buildFeatureInterface", () => {
         mockContext(),
       );
       expect(out.rules).toEqual([]);
-      // envSettings must survive unchanged (modulo env inheritance which is
-      // a no-op for a fully-defined envSettings map).
       expect(Object.keys(out.environmentSettings)).toEqual(
         expect.arrayContaining(["dev", "production"]),
       );
@@ -324,11 +322,7 @@ describe("buildFeatureInterface", () => {
       const v2: FeatureInterface = {
         ...BASE_META,
         environmentSettings: {},
-        rules: [
-          v2Rule("r1", generateRuleUid(FEATURE_ID, "r1", "*"), {
-            allEnvironments: true,
-          }),
-        ],
+        rules: [v2Rule("r1", { allEnvironments: true })],
         prerequisites: [],
       } as unknown as FeatureInterface;
 
@@ -337,7 +331,7 @@ describe("buildFeatureInterface", () => {
         mockContext(),
       );
       expect(out.rules).toHaveLength(1);
-      expect(out.rules[0].uid).toBe(generateRuleUid(FEATURE_ID, "r1", "*"));
+      expect(out.rules[0].id).toBe("r1");
     });
   });
 
@@ -345,14 +339,11 @@ describe("buildFeatureInterface", () => {
 
   describe("partial migration: v1 env rules + populated top-level rules", () => {
     it("classifies as v1 when env settings have rules key; top-level rules are overwritten by flattener", () => {
-      // Simulates a doc mid-migration: envSettings still v1-shaped, but
-      // top-level rules has some out-of-date content. The v1 branch wins.
       const v1PartialMigration: LegacyFeatureInterface = {
         ...BASE_META,
         rules: [
           {
             id: "r_from_top_level",
-            uid: "ruid_stale_top_level",
             type: "force",
             value: "OLD",
             description: "",
@@ -372,7 +363,6 @@ describe("buildFeatureInterface", () => {
       } as LegacyFeatureInterface;
 
       const out = buildFeatureInterface(v1PartialMigration, mockContext());
-      // Top-level stale rule is gone; env-settings rule is authoritative.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r_from_env");
       expect(
@@ -384,7 +374,10 @@ describe("buildFeatureInterface", () => {
   // ================= Env inheritance =================
 
   describe("env inheritance", () => {
-    it("v1 path: expands sparse env settings via parent chain before flattening", () => {
+    // Phase 3 removed env inheritance from the rule flattening pipeline.
+    // Env-level inheritance for non-rule fields (enabled, prerequisites)
+    // still runs — those continue to expand across the parent chain.
+    it("v1 path: does NOT propagate rules across inherited envs", () => {
       const envsWithParent: Environment[] = [
         { id: "dev", description: "" },
         { id: "staging", description: "", parent: "dev" },
@@ -398,24 +391,37 @@ describe("buildFeatureInterface", () => {
             enabled: true,
             rules: [v1Rule("r1") as FeatureRule],
           },
-          // staging inherits from dev
         },
       } as LegacyFeatureInterface;
 
       const out = buildFeatureInterface(v1, mockContext(envsWithParent));
-      // r1 present in dev + production + inherited staging = all 3 applicable
-      // envs → collapses to allEnvironments=true.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
-      expect(out.rules[0].allEnvironments).toBe(true);
+      expect(out.rules[0].allEnvironments).toBe(false);
+      expect(out.rules[0].environments).toEqual(["dev", "production"]);
+    });
+
+    it("v1 path: still inherits non-rule envSettings fields (enabled) across parent chain", () => {
+      const envsWithParent: Environment[] = [
+        { id: "dev", description: "" },
+        { id: "staging", description: "", parent: "dev" },
+      ];
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(v1, mockContext(envsWithParent));
+      expect(out.environmentSettings.staging).toBeDefined();
+      expect(out.environmentSettings.staging.enabled).toBe(true);
     });
   });
 
   // ================= Non-rule upgrades + envSettings preservation =================
 
   describe("non-rule upgrades on v2 documents", () => {
-    // applyNonRuleFeatureUpgrades must still run for v2 documents. We test the
-    // observable side effects: `version` backfill and `jsonSchema` defaulting.
     it("backfills version=1 when version is missing on a v2 doc", () => {
       const { version: _v, ...noVersionMeta } = BASE_META;
       const v2 = {
@@ -446,7 +452,6 @@ describe("buildFeatureInterface", () => {
           schema: "{}",
           date: new Date("2024-01-01"),
           enabled: true,
-          // schemaType + simple omitted — should be filled by applyNonRuleFeatureUpgrades
         },
       } as unknown as FeatureInterface;
 
@@ -489,7 +494,6 @@ describe("buildFeatureInterface", () => {
       const envs: Environment[] = [
         { id: "dev", description: "" },
         { id: "production", description: "" },
-        // enterprise-only env restricted to projects it doesn't cover
         { id: "enterprise", description: "", projects: ["proj_other"] },
       ];
       const v1: LegacyFeatureInterface = {
@@ -505,8 +509,6 @@ describe("buildFeatureInterface", () => {
       } as LegacyFeatureInterface;
 
       const out = buildFeatureInterface(v1, mockContext(envs));
-      // r1 is in dev + production, which are the only envs applicable to
-      // proj_main → collapses to allEnvironments=true.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].allEnvironments).toBe(true);
     });
@@ -514,10 +516,10 @@ describe("buildFeatureInterface", () => {
 });
 
 // ---------------------------------------------------------------------------
-// buildFeatureUpdate: pre-Phase-3 write chokepoint. Pure transform that
-// scrubs v1-shape `rules` keys from environmentSettings entries so writes
-// never accidentally re-introduce v1-shape data that would re-trigger the
-// flatten path on the next read. See the helper's docstring for context.
+// buildFeatureUpdate: write chokepoint. Pure transform that scrubs v1-shape
+// `rules` keys from environmentSettings entries so writes never accidentally
+// re-introduce v1-shape data that would re-trigger the flatten path on the
+// next read.
 // ---------------------------------------------------------------------------
 
 describe("buildFeatureUpdate", () => {
@@ -574,28 +576,13 @@ describe("buildFeatureUpdate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// toInterface round-trip integration tests.
-//
-// `toInterface` is the thin Mongoose-document wrapper around
-// `buildFeatureInterface`: it calls `doc.toJSON()`, strips `__v` and `_id`,
-// and delegates. The bulk of JIT-migration correctness is covered by the
-// `buildFeatureInterface` tests above. These tests exist to lock in the
-// contract at the Mongoose-hydration boundary: a document constructed via
-// `new FeatureModel({...})` (as Mongoose hydrates on read from MongoDB)
-// must round-trip to the exact same v2 `FeatureInterface` as calling
+// toInterface round-trip integration tests. Verify that a document
+// constructed via `new FeatureModel({...})` (as Mongoose hydrates on read)
+// round-trips to the same v2 `FeatureInterface` as calling
 // `buildFeatureInterface` directly on the raw payload.
-//
-// Mongoose documents are created in-memory via `new FeatureModel({...})`.
-// No database connection is needed; `.toJSON()` runs purely on the
-// in-memory document. The Mixed-typed `rules` and `environmentSettings`
-// schema fields mean Mongoose passes those blobs through unchanged,
-// which is exactly what the JIT migration expects.
 // ---------------------------------------------------------------------------
 
 describe("toInterface round-trip", () => {
-  // Build a raw Mongo document payload and feed it through both
-  // `buildFeatureInterface(raw)` and `toInterface(new FeatureModel(raw))`.
-  // The two must agree modulo Mongoose-injected metadata.
   const runRoundTrip = (raw: Record<string, unknown>) => {
     const direct = buildFeatureInterface(
       raw as unknown as LegacyFeatureInterface,
@@ -619,42 +606,34 @@ describe("toInterface round-trip", () => {
     };
     const { direct, viaDoc } = runRoundTrip(raw);
 
-    // Rules array parity — same length, same ids, same uids, same scope.
     expect(viaDoc.rules).toHaveLength(direct.rules.length);
     expect(viaDoc.rules.map((r) => r.id)).toEqual(
       direct.rules.map((r) => r.id),
     );
-    expect(viaDoc.rules.map((r) => r.uid)).toEqual(
-      direct.rules.map((r) => r.uid),
-    );
     expect(viaDoc.rules[0].allEnvironments).toBe(true);
 
-    // Core fields survive the Mongoose round-trip.
     expect(viaDoc.id).toBe(FEATURE_ID);
     expect(viaDoc.defaultValue).toBe(direct.defaultValue);
     expect(viaDoc.valueType).toBe(direct.valueType);
 
-    // Mongoose metadata must be stripped — `_id` and `__v` are never exposed
-    // to the application layer.
     expect((viaDoc as unknown as { _id?: unknown })._id).toBeUndefined();
     expect((viaDoc as unknown as { __v?: unknown }).__v).toBeUndefined();
   });
 
-  it("v2 hydrated via Mongoose passes through without regenerating uids", () => {
-    const uid = generateRuleUid(FEATURE_ID, "r1", "*");
+  it("v2 hydrated via Mongoose passes through without rewriting ids", () => {
     const raw = {
       ...BASE_META,
       environmentSettings: {
         dev: { enabled: true, prerequisites: [] },
         production: { enabled: true, prerequisites: [] },
       },
-      rules: [v2Rule("r1", uid)],
+      rules: [v2Rule("r1")],
     };
     const { direct, viaDoc } = runRoundTrip(raw);
 
     expect(viaDoc.rules).toHaveLength(1);
-    expect(viaDoc.rules[0].uid).toBe(uid);
-    expect(viaDoc.rules[0].uid).toBe(direct.rules[0].uid);
+    expect(viaDoc.rules[0].id).toBe("r1");
+    expect(viaDoc.rules[0].id).toBe(direct.rules[0].id);
     expect(viaDoc.rules[0].allEnvironments).toBe(true);
   });
 
@@ -664,7 +643,6 @@ describe("toInterface round-trip", () => {
       environments: ["dev", "production"],
       rules: [v1Rule("r1") as FeatureRule],
     };
-    // Strip envSettings field from BASE_META so this looks like a true v0 doc.
     delete (raw as Record<string, unknown>).environmentSettings;
 
     const { direct, viaDoc } = runRoundTrip(raw);
@@ -672,16 +650,12 @@ describe("toInterface round-trip", () => {
     expect(viaDoc.rules).toHaveLength(1);
     expect(viaDoc.rules[0].id).toBe("r1");
     expect(viaDoc.rules[0].allEnvironments).toBe(true);
-    expect(viaDoc.rules[0].uid).toBe(direct.rules[0].uid);
+    expect(viaDoc.rules[0].id).toBe(direct.rules[0].id);
   });
 
   it("idempotent: writing a v2 doc's toInterface result back in yields the same output", () => {
     // Simulates a read -> (no-op transform) -> hydrate-as-v2 -> read loop.
-    // Uids and ordering must be stable across the round-trip; this is the
-    // core invariant protecting against the "re-flattens on every read" class
-    // of bugs.
-    const uid1 = generateRuleUid(FEATURE_ID, "r1", "*");
-    const uid2 = generateRuleUid(FEATURE_ID, "r2", "dev");
+    // Ids and ordering must be stable across the round-trip.
     const raw = {
       ...BASE_META,
       environmentSettings: {
@@ -689,8 +663,8 @@ describe("toInterface round-trip", () => {
         production: { enabled: true, prerequisites: [] },
       },
       rules: [
-        v2Rule("r1", uid1, { allEnvironments: true }),
-        v2Rule("r2", uid2, {
+        v2Rule("r1", { allEnvironments: true }),
+        v2Rule("r2", {
           allEnvironments: false,
           environments: ["dev"],
         } as Partial<FeatureRule>),
@@ -703,12 +677,7 @@ describe("toInterface round-trip", () => {
       mockContext(),
     );
 
-    expect(second.rules.map((r) => r.uid)).toEqual(
-      first.rules.map((r) => r.uid),
-    );
-    expect(second.rules.map((r) => r.id)).toEqual(
-      first.rules.map((r) => r.id),
-    );
+    expect(second.rules.map((r) => r.id)).toEqual(first.rules.map((r) => r.id));
     expect(second.rules.map((r) => r.allEnvironments)).toEqual(
       first.rules.map((r) => r.allEnvironments),
     );
@@ -723,7 +692,6 @@ describe("toInterface round-trip", () => {
       },
     };
     const doc = new FeatureModel(raw);
-    // Sanity: Mongoose does inject _id on construction.
     const rawJson = doc.toJSON<Record<string, unknown>>();
     expect(rawJson._id).toBeDefined();
 

@@ -65,13 +65,13 @@ export interface JSONSchemaDef {
 // v1 — Pre-unification. Has `environmentSettings[env].rules` with per-env rule
 //      arrays. May also carry leftover top-level `rules` from a partial v0->v1
 //      migration that never scrubbed the old field; that top-level crust is
-//      ignored in the v1 path. Rules have no `uid`, no `allEnvironments`, no
+//      ignored in the v1 path. Rules have no `allEnvironments`, no
 //      `environments` fields. Flattened into v2 by `flattenV1ToV2Rules`.
 //
 // v2 — Unified (canonical; post-cutover). `FeatureInterface` itself. Top-level
-//      `rules: FeatureRule[]` where every rule has a stable `uid`, a boolean
-//      `allEnvironments`, and an optional `environments` list. Each env in
-//      `environmentSettings` is `{ enabled, prerequisites }` — NO `rules` key.
+//      `rules: FeatureRule[]` where every rule has a boolean `allEnvironments`
+//      and an optional `environments` list. Each env in `environmentSettings`
+//      is `{ enabled, prerequisites }` — NO `rules` key.
 //      The absence of a `rules` key on every env object is the structural
 //      signal that a document is already v2 (see `isV2FeatureEnvSettings`).
 //      New writes go through `buildFeatureUpdate` which replaces each env
@@ -80,10 +80,10 @@ export interface JSONSchemaDef {
 
 // v1 per-env environment settings and v1 rule types are zod-backed in
 // shared/validators/features.ts and re-exported here. They are permissive
-// (`.passthrough()`) by design so (a) downconverted v2 rules keep their
-// `uid` for reconversion stability, and (b) future v2-only fields added to
-// `FeatureRule` do NOT implicitly widen `V1FeatureRule`. See the doc block
-// next to the zod definitions for rationale.
+// (`.passthrough()`) by design so (a) downconverted v2 rules can pass their
+// (possibly-suffixed) `id` through unchanged, and (b) future v2-only fields
+// added to `FeatureRule` do NOT implicitly widen `V1FeatureRule`. See the
+// doc block next to the zod definitions for rationale.
 
 // v1 feature document on disk. Has `environmentSettings[env].rules`. May or
 // may not have stale top-level `rules` left over from a v0->v1 migration that

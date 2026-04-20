@@ -144,13 +144,16 @@ export async function updateExperimentRefVariations({
     settings: orgSettings,
   });
 
+  // Post-Phase-3: match rules by id on the v2 unified rule array.
+  // MatchingRule entries duplicate across envs under the new getMatchingRules;
+  // editFeatureRules dedupes by ruleId so the overlay is applied once per rule.
   const updatedRevision = await editFeatureRules(
     context,
     feature,
     revision,
     matchingRules.map((m) => ({
+      ruleId: m.rule.id,
       environmentId: m.environmentId,
-      i: m.i,
     })),
     { variations: updatedVariationValues },
     user,
@@ -238,13 +241,12 @@ export async function validateExperimentFeatureUpdates({
         context.permissions.throwPermissionError();
       }
 
-      const matches = matchingRules.map((m) => ({
-        environmentId: m.environmentId,
-        i: m.i,
-      }));
+      const ruleIds = Array.from(
+        new Set(matchingRules.map((m) => m.rule.id).filter((id): id is string => !!id)),
+      );
       const projectedRevision = applyPartialFeatureRuleUpdatesToRevision(
         revision,
-        matches,
+        ruleIds,
         { variations: updatedVariationValues },
       );
       await assertCanAutoPublish(context, feature, projectedRevision);

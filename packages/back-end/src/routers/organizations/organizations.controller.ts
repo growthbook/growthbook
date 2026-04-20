@@ -63,7 +63,6 @@ import {
   getRecentWatchedAudits,
   isValidAuditEntityType,
 } from "back-end/src/services/audit";
-import { upgradeAuditDetailsListForRead } from "back-end/src/services/auditUpgrade";
 import {
   getAllFeatures,
   hasNonDemoFeature,
@@ -241,7 +240,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 
     res.status(200).json({
       status: 200,
-      events: upgradeAuditDetailsListForRead(docs, context),
+      events: docs,
       experiments,
     });
   } catch (e) {
@@ -326,7 +325,7 @@ export async function getAllHistory(
 
   res.status(200).json({
     status: 200,
-    events: upgradeAuditDetailsListForRead(paginatedEvents, context),
+    events: paginatedEvents,
     total,
     nextCursor,
   });
@@ -413,7 +412,7 @@ export async function getHistory(
 
   res.status(200).json({
     status: 200,
-    events: upgradeAuditDetailsListForRead(paginatedEvents, context),
+    events: paginatedEvents,
     total,
     nextCursor,
   });

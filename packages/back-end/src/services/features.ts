@@ -22,6 +22,7 @@ import {
   NodeHandler,
   recursiveWalk,
   checkIfRevisionNeedsReview,
+  stemRuleId,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -1619,7 +1620,11 @@ function eventUserToString(
 function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
-    id: rule.id,
+    // v1 REST API surfaces only ever see the bare legacy id. Internally a
+    // migration-suffixed id (e.g. `fr_abc__production`) may be present when
+    // the flattener had to split a non-mergeable collision; we stem-strip
+    // here so external consumers keep referencing rules by their original id.
+    id: stemRuleId(rule.id),
     condition: rule.condition || "",
     enabled: !!rule.enabled,
     scheduleRules: rule.scheduleRules,
@@ -1895,30 +1900,31 @@ export function getApiFeatureObj({
   return featureRecord;
 }
 
+/**
+ * Returns the earliest future schedule-rule timestamp across all rules on the
+ * feature, or null if none are scheduled. Post-unification (Phase 3) this
+ * operates on the v2 top-level `rules` array. The `environments` argument is
+ * no longer consumed (schedule rules are not env-scoped at the write-layer
+ * level — a single rule either has scheduleRules or doesn't) but is kept for
+ * callsite stability until Phase 5a removes it from callers.
+ */
 export function getNextScheduledUpdate(
-  envSettings: Record<string, FeatureEnvironment>,
-  environments: string[],
+  rules: FeatureRule[] | undefined,
+  _environments?: string[],
 ): Date | null {
-  if (!envSettings) {
+  if (!rules || rules.length === 0) {
     return null;
   }
 
   const dates: string[] = [];
-
-  environments.forEach((env) => {
-    const rules = envSettings[env]?.rules;
-
-    if (!rules) return;
-
-    rules.forEach((rule: FeatureRule) => {
-      if (rule?.scheduleRules) {
-        rule.scheduleRules.forEach((scheduleRule) => {
-          if (scheduleRule.timestamp !== null) {
-            dates.push(scheduleRule.timestamp);
-          }
-        });
-      }
-    });
+  rules.forEach((rule) => {
+    if (rule?.scheduleRules) {
+      rule.scheduleRules.forEach((scheduleRule) => {
+        if (scheduleRule.timestamp !== null) {
+          dates.push(scheduleRule.timestamp);
+        }
+      });
+    }
   });
 
   const sortedFutureDates = dates

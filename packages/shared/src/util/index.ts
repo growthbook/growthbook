@@ -28,6 +28,7 @@ import { featureHasEnvironment } from "./features";
 export * from "./features";
 export * from "./saved-groups";
 export * from "./metric-time-series";
+export * from "./ruleId";
 export * from "./numbers";
 export * from "./types";
 export * from "./errors";
@@ -270,6 +271,19 @@ export type MatchingRule = {
   rule: FeatureRule;
 };
 
+/**
+ * Scan the v2 unified rule array (from `revision.rules` if provided, else
+ * `feature.rules`) and emit one `MatchingRule` entry per (rule × applicable
+ * env) pair that passes `filter`. Multi-env rules fan out to one entry per
+ * env they cover; single-env rules emit exactly one entry. Rules with
+ * `allEnvironments: true` fan out across every valid env in `environments`.
+ *
+ * `i` is the rule's index in the UNIFIED rule array (same across every
+ * fan-out entry for a given rule). Callers that identify a rule by
+ * `(environmentId, i)` were the v1 contract; under v2 the authoritative
+ * match handle is `rule.id` — `i` is preserved only for backward-compatible
+ * display/logging.
+ */
 export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
@@ -278,31 +292,37 @@ export function getMatchingRules(
   omitDisabledEnvironments: boolean = false,
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
+  const allRules: FeatureRule[] = revision?.rules ?? feature.rules ?? [];
 
-  if (feature.environmentSettings) {
-    Object.entries(feature.environmentSettings).forEach(
-      ([environmentId, settings]) => {
-        if (!isValidEnvironment(environmentId, environments)) return;
+  allRules.forEach((rule, i) => {
+    if (!filter(rule)) return;
 
-        if (omitDisabledEnvironments && !settings.enabled) return;
+    // Resolve the env list this rule applies to. `allEnvironments` collapses
+    // to "every applicable env visible to the caller"; otherwise the rule's
+    // own `environments[]` declaration wins. If the rule has neither field
+    // (malformed), default to allEnvironments semantics so it still surfaces
+    // in at least one bucket rather than silently vanishing.
+    const ruleEnvs = rule.allEnvironments
+      ? environments
+      : rule.environments && rule.environments.length > 0
+      ? rule.environments
+      : environments;
 
-        const rules = revision ? revision.rules[environmentId] : settings.rules;
+    ruleEnvs.forEach((environmentId) => {
+      if (!isValidEnvironment(environmentId, environments)) return;
 
-        if (rules) {
-          rules.forEach((rule, i) => {
-            if (filter(rule)) {
-              matches.push({
-                rule,
-                i,
-                environmentEnabled: settings.enabled,
-                environmentId,
-              });
-            }
-          });
-        }
-      },
-    );
-  }
+      const envSettings = feature.environmentSettings?.[environmentId];
+      const environmentEnabled = !!envSettings?.enabled;
+      if (omitDisabledEnvironments && !environmentEnabled) return;
+
+      matches.push({
+        rule,
+        i,
+        environmentEnabled,
+        environmentId,
+      });
+    });
+  });
 
   return matches;
 }

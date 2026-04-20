@@ -68,7 +68,7 @@ export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
   if (!feature) return;
 
   const nextScheduledUpdate = getNextScheduledUpdate(
-    feature.environmentSettings || {},
+    feature.rules,
     context.environments,
   );
 

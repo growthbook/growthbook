@@ -74,7 +74,6 @@ import {
 } from "back-end/src/services/organizations";
 import {
   addLinkedExperiment,
-  copyFeatureEnvironmentRules,
   createFeature,
   deleteFeature,
   editFeatureRule,
@@ -2527,14 +2526,20 @@ export async function postFeatureSchema(
 
 export async function putSafeRolloutStatus(
   req: AuthRequest<
-    { status: SafeRolloutRule["status"]; environment: string; i: number },
+    {
+      status: SafeRolloutRule["status"];
+      environment: string;
+      ruleId: string;
+    },
     { id: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { status, environment, i } = req.body;
+  // Post-Phase-3: the FE sends `ruleId` (the unified rule's public id).
+  // `environment` is kept for audit-log context and reset-review scoping.
+  const { status, environment, ruleId } = req.body;
   const { org } = context;
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -2560,11 +2565,11 @@ export async function putSafeRolloutStatus(
     context,
     feature,
     revision,
-    environment,
-    i,
+    ruleId,
     { status },
     res.locals.eventAudit,
     resetReview,
+    environment,
   );
 
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
@@ -4550,68 +4555,11 @@ export async function deletePrerequisite(
     .json({ status: 200, draftVersion: deleteDraft.version });
 }
 
-export async function postCopyEnvironmentRules(
-  req: AuthRequest<
-    { sourceEnv: string; targetEnv: string },
-    { id: string; version: string }
-  >,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id, version } = req.params;
-  const { sourceEnv, targetEnv } = req.body;
-
-  const feature = await getFeature(context, id);
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
-
-  const allEnvironments = getEnvironments(context.org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentIds = environments.map((e) => e.id);
-
-  if (
-    !environmentIds.includes(sourceEnv) ||
-    !environmentIds.includes(targetEnv)
-  ) {
-    throw new Error("Invalid environment");
-  }
-
-  if (sourceEnv === targetEnv) {
-    throw new Error("Source and target environments should be different");
-  }
-
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  const revision = await getDraftRevision(context, feature, parseInt(version));
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: [targetEnv],
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
-
-  await copyFeatureEnvironmentRules(
-    context,
-    feature,
-    revision,
-    sourceEnv,
-    targetEnv,
-    res.locals.eventAudit,
-    resetReview,
-  );
-
-  res.status(200).json({
-    status: 200,
-    version: revision.version,
-  });
-}
+// Removed in Phase 3: `postCopyEnvironmentRules` + `copyFeatureEnvironmentRules`.
+// See `copyFeatureEnvironmentRules` comment in FeatureModel.ts for the
+// explanatory breadcrumb. The front-end modals (`CopyRuleModal`,
+// `CompareEnvironmentsModal`) and the `/copyEnvironment` route callsites are
+// removed in Phase 7a; the route registration in `app.ts` is removed now.
 
 // Evaluate prerequisite states with JIT feature loading for cross-project prerequisites
 export async function getPrerequisiteStates(

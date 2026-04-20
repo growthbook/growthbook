@@ -748,13 +748,14 @@ describe("featureEntityHandler.applyActions", () => {
     expect((patched as { coverage?: number })?.coverage).toBe(0.75);
   });
 
-  it("with environment: selects the matching env-scoped rule when multiple rules share the ruleId", async () => {
-    // In v2, multiple rules may share a legacy `id` but differ by scope
-    // (e.g., one scoped to production, one scoped to staging). The
-    // `environment` on the target picks which rule to resolve.
+  it("with environment: selects the matching env-scoped rule when multiple rules share the ruleId stem", async () => {
+    // In v2, multiple rules may share a legacy `id` stem but differ by scope
+    // (e.g., one scoped to production, one scoped to staging). When the
+    // flattener detects a non-mergeable collision, each rule gets a
+    // deterministic `__<env>` suffix on its id. Ramp targets match by stem
+    // + env, so the `environment` on the target picks which rule to resolve.
     const prodRule: FeatureRule = {
-      id: RULE_ID,
-      uid: "ruid_prod_" + RULE_ID,
+      id: RULE_ID + "__production",
       allEnvironments: false,
       environments: ["production"],
       type: "rollout",
@@ -765,7 +766,7 @@ describe("featureEntityHandler.applyActions", () => {
     };
     const stagingRule: FeatureRule = {
       ...prodRule,
-      uid: "ruid_staging_" + RULE_ID,
+      id: RULE_ID + "__staging",
       environments: ["staging"],
     };
     mockGetFeature.mockResolvedValue({
@@ -790,14 +791,14 @@ describe("featureEntityHandler.applyActions", () => {
     const rules: FeatureRule[] = forceResult.rules ?? [];
 
     const patchedProd = rules.find(
-      (r: FeatureRule) => r.uid === "ruid_prod_" + RULE_ID,
+      (r: FeatureRule) => r.id === RULE_ID + "__production",
     );
     const patchedStaging = rules.find(
-      (r: FeatureRule) => r.uid === "ruid_staging_" + RULE_ID,
+      (r: FeatureRule) => r.id === RULE_ID + "__staging",
     );
 
     expect((patchedProd as { coverage?: number })?.coverage).toBe(0.9);
-    // The staging-scoped rule is a different uid and must be untouched.
+    // The staging-scoped rule has a different suffixed id and must be untouched.
     expect((patchedStaging as { coverage?: number })?.coverage).toBe(0.1);
   });
 

@@ -9,6 +9,7 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { stemRuleId } from "shared/util";
 
 // ---------------------------------------------------------------------------
 // v2 -> v1 down-conversion (toLegacy)
@@ -20,36 +21,36 @@ import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 // (/api/v1) can keep its existing contract while the internal model is v2.
 //
 // Round-trip contract:
-//   - `uid` is preserved on every exploded copy. `V1FeatureRule` is a zod
-//     `.passthrough()` schema, so the uid survives (de)serialization even
-//     though v1 clients don't know the field exists. Clients that do know
-//     about it (ramp targets, audit log diff renderers) get stable refs.
+//   - v2 `rule.id` is stem-stripped on down-conversion — any `__<env>`
+//     suffix added during v1->v2 collision disambiguation is removed so v1
+//     clients see the original pre-migration id. When the v1 response is
+//     round-tripped back through `flattenV1ToV2Rules` (on a subsequent v1
+//     PUT), the collision detection re-derives the suffix deterministically,
+//     yielding byte-identical v2 output.
 //   - The reverse direction — reconstituting v2 from an incoming v1 PUT —
-//     is handled by `legacyToV2Feature` / `legacyToV2Revision` (Phase 6a).
-//     That adapter matches by uid first, falling back to (id, env). Together
-//     with these exploders, the full round-trip `legacyToV2(toLegacy(x)) ≡ x`
-//     is the key stability invariant for frequent v1 writers.
-//   - These adapters do NOT go back through `flattenV1ToV2Rules` on read.
-//     The output is a REST response body, not on-disk data. The JIT flatten
-//     still generates uids from the legacy-id formula because it only ever
-//     sees v0/v1 docs that lack uids.
+//     goes through `flattenV1ToV2Rules` (Phase 6a). Its content-based merge
+//     detection gives stable round-trip: if the rules were merged in v2,
+//     they were identical per-env in v1 and will re-merge; if they were
+//     split in v2, their per-env contents differ in v1 and will re-split
+//     with the same `__<env>` suffix.
 // ---------------------------------------------------------------------------
 
 /**
  * Down-convert one v2 FeatureRule to a v1 rule. Strips the v2-only scope
- * fields `allEnvironments` and `environments`; preserves every other field,
- * including `uid`.
+ * fields `allEnvironments` and `environments`, and stem-strips the `id` so
+ * any migration-added `__<env>` suffix is invisible to v1 clients.
  */
 export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
   const {
     allEnvironments: _a,
     environments: _e,
-    ...v1
+    id,
+    ...rest
   } = rule as FeatureRule & {
     allEnvironments?: boolean;
     environments?: string[];
   };
-  return v1 as unknown as V1FeatureRule;
+  return { ...rest, id: stemRuleId(id) } as unknown as V1FeatureRule;
 }
 
 /**
@@ -67,7 +68,8 @@ function ruleFootprint(rule: FeatureRule, applicableEnvs: string[]): string[] {
 /**
  * Project a v2 `FeatureInterface` to the v1 on-disk shape consumed by the
  * `/api/v1` REST surface: rules move from the top-level array back into
- * `environmentSettings[env].rules`, with uids preserved.
+ * `environmentSettings[env].rules`, with migration id suffixes stripped so
+ * v1 clients see the pre-unification ids.
  *
  * Per-env rule order: for each env we emit rules in the order they appear in
  * `feature.rules`, filtered to that env's footprint. That preserves v2's

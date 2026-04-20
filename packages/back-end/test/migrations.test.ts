@@ -1525,7 +1525,7 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
     )) {
       rulesByEnv[envId] = (envObj?.rules || []) as FeatureRule[];
     }
-    return flattenV1ToV2Rules(v1.id, rulesByEnv, {
+    return flattenV1ToV2Rules(rulesByEnv, {
       envOrder,
       applicableEnvs: envOrder,
     });
@@ -1557,10 +1557,6 @@ describe("v0 -> v2 Feature Migration Pipeline", () => {
     expect(v2Rules[0].allEnvironments).toBe(true);
     // Per-env scoping must be absent when allEnvironments is true.
     expect(v2Rules[0].environments).toBeUndefined();
-    // uid stamping must happen (content-hash; we just assert presence, the
-    // exact value is covered in flattenRules.test.ts).
-    expect(typeof v2Rules[0].uid).toBe("string");
-    expect((v2Rules[0].uid as string).length).toBeGreaterThan(0);
   });
 
   it("scopes v0 rules to dev+production when the org has additional envs the v0 doc can't reach", () => {

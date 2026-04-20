@@ -22,7 +22,6 @@ import {
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import {
   flattenV1ToV2Rules,
   getApplicableEnvIds,
@@ -145,16 +144,20 @@ export function buildFeatureRevisionInterface(
     // path. Returns new objects now (upgradeFeatureRule is pure).
     revision.rules = rawRules.map((r) => upgradeFeatureRule(r));
   } else {
+    // v1 legacy path: `rules` is a `Record<env, FeatureRule[]>`. Flatten to
+    // the v2 unified array. Post-Phase-3 we intentionally DO NOT apply
+    // `applyEnvironmentInheritance` to the rules record here: a unified
+    // rule declares its own env scope (`allEnvironments` or `environments`),
+    // so inheriting rules from a parent env would double-count rules
+    // already written explicitly. The first write-through via
+    // `applyRevisionChanges` normalizes legacy sparse-env revisions to
+    // fully-scoped v2 rules on disk. Env-level inheritance for toggles
+    // and prerequisites is still applied on the FEATURE read path (see
+    // `buildFeatureInterface`) and is unaffected by this change.
     const v1Record =
       (rawRules as V1FeatureRevisionInterface["rules"] | undefined) || {};
-    const inherited = applyEnvironmentInheritance(
-      orgEnvs,
-      v1Record,
-    ) as V1RulesByEnv;
-    // Heal ancient rule content (e.g. pre-coverage experiments) before
-    // flattening, so v1 rules and v2 rules pass through the same upgrade.
     const upgraded: V1RulesByEnv = {};
-    for (const [envId, envRules] of Object.entries(inherited)) {
+    for (const [envId, envRules] of Object.entries(v1Record)) {
       upgraded[envId] = (envRules || []).map(
         (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
       );
@@ -162,7 +165,7 @@ export function buildFeatureRevisionInterface(
     const applicableEnvs = opts?.featureProject
       ? getApplicableEnvIds(orgEnvs, opts.featureProject)
       : undefined;
-    revision.rules = flattenV1ToV2Rules(revision.featureId, upgraded, {
+    revision.rules = flattenV1ToV2Rules(upgraded, {
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
     });

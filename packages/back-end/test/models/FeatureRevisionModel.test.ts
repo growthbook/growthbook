@@ -3,7 +3,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { buildFeatureRevisionInterface } from "back-end/src/models/FeatureRevisionModel";
 import { ReqContext } from "back-end/types/request";
-import { generateRuleUid } from "back-end/src/util/flattenRules";
+import { suffixRuleId } from "shared/util";
 
 // ---------------------------------------------------------------------------
 // buildFeatureRevisionInterface is the pure-function core of
@@ -14,7 +14,7 @@ import { generateRuleUid } from "back-end/src/util/flattenRules";
 // Integration test matrix:
 //   1. v2 rules (FeatureRule[] array)           — pass-through
 //   2. v1 rules (Record<env, FeatureRule[]>)    — flattened via flattenV1ToV2Rules
-//   3. v2 symmetry with buildFeatureInterface   — upgradeFeatureRule applied
+//   3. upgradeFeatureRule symmetry              — applied on both paths
 //   4. featureProject hint                      — allEnvironments collapse
 //   5. Backfills for old revisions              — status, baseVersion, etc.
 // ---------------------------------------------------------------------------
@@ -66,14 +66,12 @@ describe("buildFeatureRevisionInterface", () => {
   // ================= 1. v2 rules (array) pass-through =================
 
   describe("v2 rules (already flat)", () => {
-    it("passes through v2 rule array without regenerating uids", () => {
-      const uid = generateRuleUid(FEATURE_ID, "r1", "*");
+    it("passes through v2 rule array without rewriting ids", () => {
       const raw = {
         ...BASE_REVISION,
         rules: [
           {
             id: "r1",
-            uid,
             type: "force",
             description: "",
             value: "true",
@@ -85,18 +83,15 @@ describe("buildFeatureRevisionInterface", () => {
 
       const out = buildFeatureRevisionInterface(raw, mockContext());
       expect(out.rules).toHaveLength(1);
-      expect(out.rules[0].uid).toBe(uid);
       expect(out.rules[0].id).toBe("r1");
     });
 
-    it("is idempotent: calling twice yields identical uids", () => {
-      const uid = generateRuleUid(FEATURE_ID, "r1", "*");
+    it("is idempotent: calling twice yields identical rules", () => {
       const raw = {
         ...BASE_REVISION,
         rules: [
           {
             id: "r1",
-            uid,
             type: "force",
             description: "",
             value: "true",
@@ -111,16 +106,36 @@ describe("buildFeatureRevisionInterface", () => {
         first as FeatureRevisionInterface,
         mockContext(),
       );
-      expect(second.rules.map((r) => r.uid)).toEqual(
-        first.rules.map((r) => r.uid),
+      expect(second.rules.map((r) => r.id)).toEqual(
+        first.rules.map((r) => r.id),
       );
+    });
+
+    it("preserves migration-suffixed rule ids on v2 pass-through", () => {
+      const raw = {
+        ...BASE_REVISION,
+        rules: [
+          {
+            id: suffixRuleId("r1", "dev"),
+            type: "force",
+            description: "",
+            value: "true",
+            enabled: true,
+            allEnvironments: false,
+            environments: ["dev"],
+          },
+        ] as FeatureRule[],
+      } as FeatureRevisionInterface;
+
+      const out = buildFeatureRevisionInterface(raw, mockContext());
+      expect(out.rules[0].id).toBe(suffixRuleId("r1", "dev"));
     });
   });
 
   // ================= 2. v1 rules (Record<env, rules>) flatten =================
 
   describe("v1 rules (legacy env-keyed record)", () => {
-    it("flattens identical rules across envs to allEnvironments=true (with featureProject hint)", () => {
+    it("flattens identical rules across envs to allEnvironments=true (with featureProject hint) and keeps bare id", () => {
       const raw = {
         ...BASE_REVISION,
         rules: {
@@ -129,18 +144,12 @@ describe("buildFeatureRevisionInterface", () => {
         },
       } as unknown as FeatureRevisionInterface;
 
-      // applicableEnvs only gets computed when featureProject is truthy,
-      // which is what lets the flattener collapse a full-footprint rule to
-      // `allEnvironments: true`. Callers without a project hint get
-      // per-env rules with explicit `environments: [...]` instead — still
-      // semantically correct, just not collapsed.
       const out = buildFeatureRevisionInterface(raw, mockContext(), {
         featureProject: "proj_main",
       });
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
       expect(out.rules[0].allEnvironments).toBe(true);
-      expect(out.rules[0].uid).toBe(generateRuleUid(FEATURE_ID, "r1", "*"));
     });
 
     it("emits explicit environments list when no featureProject hint is given", () => {
@@ -159,7 +168,7 @@ describe("buildFeatureRevisionInterface", () => {
       expect(out.rules[0].environments).toEqual(["dev", "production"]);
     });
 
-    it("splits env-divergent rules into per-env uids", () => {
+    it("splits env-divergent rules into per-env suffixed ids", () => {
       const raw = {
         ...BASE_REVISION,
         rules: {
@@ -174,10 +183,8 @@ describe("buildFeatureRevisionInterface", () => {
       const prodRule = out.rules.find(
         (r) => r.environments?.[0] === "production",
       );
-      expect(devRule?.uid).toBe(generateRuleUid(FEATURE_ID, "r1", "dev"));
-      expect(prodRule?.uid).toBe(
-        generateRuleUid(FEATURE_ID, "r1", "production"),
-      );
+      expect(devRule?.id).toBe(suffixRuleId("r1", "dev"));
+      expect(prodRule?.id).toBe(suffixRuleId("r1", "production"));
     });
 
     it("emits empty rules array when all env arrays are empty", () => {
@@ -213,7 +220,6 @@ describe("buildFeatureRevisionInterface", () => {
                 { value: "a", weight: 0.5 },
                 { value: "b", weight: 0.5 },
               ],
-              // coverage intentionally missing
             },
           ],
         },
@@ -226,13 +232,11 @@ describe("buildFeatureRevisionInterface", () => {
     });
 
     it("heals a pre-coverage experiment rule on the v2 path", () => {
-      const uid = generateRuleUid(FEATURE_ID, "r_exp", "*");
       const raw = {
         ...BASE_REVISION,
         rules: [
           {
             id: "r_exp",
-            uid,
             allEnvironments: true,
             type: "experiment",
             description: "",
@@ -242,7 +246,6 @@ describe("buildFeatureRevisionInterface", () => {
               { value: "a", weight: 0.5 },
               { value: "b", weight: 0.5 },
             ],
-            // coverage intentionally missing
           },
         ] as unknown as FeatureRule[],
       } as FeatureRevisionInterface;
@@ -250,8 +253,7 @@ describe("buildFeatureRevisionInterface", () => {
       const out = buildFeatureRevisionInterface(raw, mockContext());
       const rule = out.rules[0] as FeatureRule & { coverage?: number };
       expect(rule.coverage).toBe(1);
-      // uid preserved through the healing pass
-      expect(rule.uid).toBe(uid);
+      expect(rule.id).toBe("r_exp");
     });
   });
 
