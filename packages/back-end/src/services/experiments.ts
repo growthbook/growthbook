@@ -1078,7 +1078,7 @@ export function getSnapshotQueryRunnerKind({
   experiment,
   snapshotType,
   hasSnapshotDimensions,
-  hasMaterializedUnitsTable = true,
+  hasMaterializedUnitsTable,
 }: {
   allowIncrementalRefresh: boolean;
   isExperimentCompatibleWithIncrementalRefresh: boolean;
@@ -1086,7 +1086,7 @@ export function getSnapshotQueryRunnerKind({
   experiment: ExperimentInterface;
   snapshotType: SnapshotType;
   hasSnapshotDimensions: boolean;
-  hasMaterializedUnitsTable?: boolean;
+  hasMaterializedUnitsTable: boolean;
 }): SnapshotQueryRunnerKind {
   if (
     allowIncrementalRefresh &&
