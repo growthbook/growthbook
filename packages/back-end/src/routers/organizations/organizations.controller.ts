@@ -13,7 +13,6 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
-import { v4 as uuidv4 } from "uuid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
@@ -23,7 +22,6 @@ import {
   CreateOrganizationPostBody,
   Invite,
   MemberRoleWithProjects,
-  Namespaces,
   NamespaceFormat,
   NamespaceUsage,
   OrganizationInterface,
@@ -106,6 +104,7 @@ import { ConfigFile } from "back-end/src/init/config";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
+import { buildNamespace } from "back-end/src/util/namespaces";
 import {
   deleteUser,
   getUserById,
@@ -1117,19 +1116,14 @@ export async function postNamespaces(
   // the display name.
   const name = uniqid("ns-");
 
-  if (!hashAttribute) {
-    throw new Error("Hash attribute is required for namespaces");
-  }
-
-  const newNamespace: Namespaces = {
+  const newNamespace = buildNamespace({
     name,
     label,
     description,
     status,
+    format,
     hashAttribute,
-    seed: uuidv4(),
-    format: format || "multiRange",
-  };
+  });
 
   await updateOrganization(org.id, {
     settings: {
@@ -1191,34 +1185,22 @@ export async function putNamespaces(
   }
 
   const updatedNamespaces = namespaces.map((n) => {
-    if (n.name === name) {
-      if (n.format === "multiRange") {
-        const newHashAttribute = hashAttribute || n.hashAttribute;
-        if (!newHashAttribute) {
-          throw new Error(
-            "Hash attribute is required for multi-range namespaces",
-          );
-        }
-        return {
-          name: n.name,
-          label,
-          description,
-          status,
-          hashAttribute: newHashAttribute,
-          seed: n.seed || uuidv4(),
-          format: "multiRange",
-        } as Namespaces;
-      } else {
-        return {
-          name: n.name,
-          label,
-          description,
-          status,
-          format: "legacy",
-        } as Namespaces;
-      }
-    }
-    return n;
+    if (n.name !== name) return n;
+
+    const existingHashAttribute =
+      n.format === "multiRange" ? n.hashAttribute : undefined;
+    const existingSeed = n.format === "multiRange" ? n.seed : undefined;
+
+    return buildNamespace({
+      name: n.name,
+      label,
+      description,
+      status,
+      format: n.format ?? "legacy",
+      hashAttribute,
+      existingHashAttribute,
+      existingSeed,
+    });
   });
 
   await updateOrganization(org.id, {
