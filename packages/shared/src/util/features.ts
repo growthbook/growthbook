@@ -88,6 +88,86 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
   }
 }
 
+/**
+ * JIT-migrate a feature snapshot from the legacy v1 shape (rules nested under
+ * `environmentSettings[env].rules`) to the canonical v2 shape
+ * (`feature.rules: FeatureRule[]` at the top level, env-scoped via
+ * `allEnvironments` / `environments`).
+ *
+ * Intended as a view-only converter at the front-end model boundary — audit
+ * log snapshots, legacy cached responses, imported fixtures. Never used on
+ * the persistence path (back-end uses `normalizeRulesInputToV2` with full
+ * content-merge/id-suffix semantics; this naive flatten is sufficient for
+ * diff/render).
+ *
+ * Semantics:
+ *   - If `snapshot.rules` is already an array, the snapshot is assumed v2
+ *     and returned unchanged (no cloning cost).
+ *   - If `snapshot.environmentSettings` carries any v1 `rules` arrays, those
+ *     are flattened to a top-level `rules` array, stamped with
+ *     `allEnvironments: false` + `environments: [env]` via `normalizeRulesInput`.
+ *     Per-env `rules` is stripped from the cloned `environmentSettings` so
+ *     the diff viewer does not double-count or flag the legacy field under
+ *     "other changes".
+ *   - Cloning is shallow-per-env: only envs carrying rules are rewritten.
+ *
+ * Idempotent: `toV2FeatureSnapshot(toV2FeatureSnapshot(x)) === first
+ * result`. Safe to apply at multiple boundaries.
+ *
+ * NOTE: Does not merge content-identical rules across envs (naive stamp).
+ * For diff/render this is correct — diffing two snapshots normalized the
+ * same way is content-preserving. For persistence use
+ * `normalizeRulesInputToV2` which runs full `flattenV1ToV2Rules`.
+ */
+export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
+  snapshot: T,
+): T {
+  if (!snapshot) return snapshot;
+  // Already v2 — trust the top-level array (even if empty: an empty v2 array
+  // is semantically distinct from "rules live on env settings").
+  if (Array.isArray(snapshot.rules)) return snapshot;
+
+  const envSettings = snapshot.environmentSettings;
+  if (!envSettings || typeof envSettings !== "object") return snapshot;
+
+  // Find v1-shape rule buckets. The v2 `FeatureEnvironment` type has no
+  // `rules` field so the cast is load-bearing — historical audit snapshots
+  // carry a shape the current type system no longer describes.
+  const rulesByEnv: Record<string, FeatureRule[]> = {};
+  let sawV1Rules = false;
+  for (const [env, setting] of Object.entries(envSettings)) {
+    const legacyRules = (setting as unknown as { rules?: FeatureRule[] })
+      ?.rules;
+    if (Array.isArray(legacyRules)) {
+      sawV1Rules = true;
+      rulesByEnv[env] = legacyRules;
+    }
+  }
+  if (!sawV1Rules) return snapshot;
+
+  const flat = normalizeRulesInput(rulesByEnv);
+
+  // Strip `rules` from each envSettings entry in a fresh object so the
+  // original snapshot is not mutated.
+  const strippedEnvSettings: Record<string, unknown> = {};
+  for (const [env, setting] of Object.entries(envSettings)) {
+    if (setting && typeof setting === "object" && "rules" in setting) {
+      const { rules: _stripped, ...rest } = setting as unknown as {
+        rules?: FeatureRule[];
+      } & Record<string, unknown>;
+      strippedEnvSettings[env] = rest;
+    } else {
+      strippedEnvSettings[env] = setting;
+    }
+  }
+
+  return {
+    ...snapshot,
+    rules: flat,
+    environmentSettings: strippedEnvSettings,
+  } as T;
+}
+
 export function mergeRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,

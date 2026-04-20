@@ -12,6 +12,7 @@ import {
   FeatureEnvironment,
 } from "shared/types/feature";
 import { RevisionMetadata } from "shared/types/feature-revision";
+import { getRulesForEnvironment, toV2FeatureSnapshot } from "shared/util";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import Text from "@/ui/Text";
@@ -865,9 +866,15 @@ const FEATURE_JSON_KEYS = new Set([
 
 // Recursively parses embedded JSON strings in a FeatureInterface snapshot.
 // Used as `normalizeSnapshot` in the audit diff config.
+//
+// Also JIT-migrates pre-v2 snapshots (rules under `environmentSettings[env].rules`)
+// to the canonical v2 shape (top-level `rules: FeatureRule[]`). Historical audit
+// log entries captured before the v2 migration still carry the v1 shape; without
+// this the Rules section would show no diff (post-v2 envSettings has no rules field).
 export function normalizeFeatureSnapshot(
   snapshot: FeatureInterface,
 ): FeatureInterface {
+  snapshot = toV2FeatureSnapshot(snapshot);
   function walk(obj: unknown): unknown {
     if (Array.isArray(obj)) return obj.map(walk);
     if (obj !== null && typeof obj === "object") {
@@ -929,8 +936,19 @@ export function renderFeatureRulesSection(
     string,
     FeatureEnvironment
   >;
+  // Enumerate envs from settings (for the `enabled` toggle) unioned with any
+  // envs referenced by rule scoping — covers snapshots where a rule targets
+  // an env that isn't in envSettings (rare but possible with `allEnvironments`).
+  const envsFromRules = new Set<string>();
+  for (const r of [...(pre?.rules ?? []), ...(post.rules ?? [])]) {
+    for (const env of r.environments ?? []) envsFromRules.add(env);
+  }
   const allEnvs = [
-    ...new Set([...Object.keys(preEnvs), ...Object.keys(postEnvs)]),
+    ...new Set([
+      ...Object.keys(preEnvs),
+      ...Object.keys(postEnvs),
+      ...envsFromRules,
+    ]),
   ];
   const sections: ReactNode[] = [];
 
@@ -939,8 +957,8 @@ export function renderFeatureRulesSection(
     const postEnv = postEnvs[env];
     const preEnabled = preEnv?.enabled;
     const postEnabled = postEnv?.enabled;
-    const preRules: FeatureRule[] = preEnv?.rules ?? [];
-    const postRules: FeatureRule[] = postEnv?.rules ?? [];
+    const preRules = getRulesForEnvironment(pre?.rules, env);
+    const postRules = getRulesForEnvironment(post.rules, env);
 
     const enabledChanged =
       preEnabled !== undefined &&
@@ -1124,8 +1142,16 @@ export function getFeatureRulesBadges(
     string,
     FeatureEnvironment
   >;
+  const envsFromRules = new Set<string>();
+  for (const r of [...(pre?.rules ?? []), ...(post.rules ?? [])]) {
+    for (const env of r.environments ?? []) envsFromRules.add(env);
+  }
   const allEnvs = [
-    ...new Set([...Object.keys(preEnvs), ...Object.keys(postEnvs)]),
+    ...new Set([
+      ...Object.keys(preEnvs),
+      ...Object.keys(postEnvs),
+      ...envsFromRules,
+    ]),
   ];
   return allEnvs.flatMap((env) => {
     const badges: DiffBadge[] = [];
@@ -1143,8 +1169,8 @@ export function getFeatureRulesBadges(
     }
     badges.push(
       ...featureRuleChangeBadges(
-        preEnvs[env]?.rules ?? [],
-        postEnvs[env]?.rules ?? [],
+        getRulesForEnvironment(pre?.rules, env),
+        getRulesForEnvironment(post.rules, env),
         env,
       ),
     );

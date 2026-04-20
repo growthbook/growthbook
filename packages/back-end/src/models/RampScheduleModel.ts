@@ -8,6 +8,7 @@ import {
   RampStepAction,
   rampScheduleValidator,
 } from "shared/validators";
+import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -586,18 +587,52 @@ export class RampScheduleModel extends BaseClass {
   // is optional: when omitted, any env matches; when provided, targets scoped
   // to that env OR to a wildcard (null/empty env) both match, since a wildcard
   // target applies to every environment.
+  //
+  // Stem-based matching: the caller may pass either the public rule id
+  // (`fr_abc`) or a migration-suffixed id (`fr_abc__production`). Both forms
+  // resolve to the same underlying rule via `stemRuleId`. On the DB side we
+  // use an anchored regex that matches any stored ruleId sharing that stem
+  // (bare stem OR stem followed by the env-suffix delimiter), then
+  // re-validate in memory as defense in depth. This parallels the
+  // symmetric stem matching done on the feature side by `resolveRampTarget`
+  // so a ramp authored pre-migration continues to resolve post-migration,
+  // and vice versa.
   public async findByTargetRule(
     ruleId: string,
     environment?: string | null,
   ): Promise<RampScheduleInterface[]> {
-    const targetMatch: Record<string, unknown> = { ruleId };
+    const stem = stemRuleId(ruleId);
+    // Rule ids are alphanumeric + `_` by construction, but escape regex
+    // metachars defensively so a pathological legacy id can't break the
+    // query or leak into the regex engine.
+    const escapedStem = stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const stemRegex = new RegExp(
+      `^${escapedStem}(?:${RULE_ID_ENV_SUFFIX_DELIMITER}|$)`,
+    );
+    const targetMatch: Record<string, unknown> = {
+      ruleId: { $regex: stemRegex },
+    };
     if (environment) {
       targetMatch.environment = { $in: [environment, null, ""] };
     }
-    return this._find({
+    const candidates = await this._find({
       status: { $nin: ["completed", "rolled-back"] },
       targets: { $elemMatch: targetMatch },
     });
+
+    // In-memory re-filter: the $elemMatch already enforces per-target
+    // conjunction in the DB, but re-applying the check here (a) guards
+    // against any future drift in the driver's $elemMatch semantics and
+    // (b) makes the matching criteria explicit at the type boundary.
+    return candidates.filter((s) =>
+      s.targets.some((t) => {
+        if (stemRuleId(t.ruleId ?? "") !== stem) return false;
+        if (!environment) return true;
+        // Wildcard targets (null/empty env) apply to every env.
+        if (!t.environment) return true;
+        return t.environment === environment;
+      }),
+    );
   }
 
   public async getActiveSchedules(): Promise<RampScheduleInterface[]> {

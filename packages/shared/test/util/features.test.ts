@@ -24,6 +24,7 @@ import {
   inferSimpleSchemaFromValue,
   ruleAppliesToEnv,
   getRulesForEnvironment,
+  toV2FeatureSnapshot,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -1928,5 +1929,108 @@ describe("getRulesForEnvironment", () => {
       production: [mk("a", { allEnvironments: true })],
     } as unknown as FeatureRule[];
     expect(getRulesForEnvironment(v1Like, "production")).toEqual([]);
+  });
+});
+
+describe("toV2FeatureSnapshot", () => {
+  const mkRule = (id: string, extra?: Partial<FeatureRule>): FeatureRule =>
+    ({
+      type: "force",
+      id,
+      description: "",
+      value: "x",
+      enabled: true,
+      ...extra,
+    }) as FeatureRule;
+
+  it("passes through a v2-shaped snapshot unchanged (same reference)", () => {
+    const v2: FeatureInterface = {
+      ...feature,
+      rules: [mkRule("r1", { allEnvironments: true, environments: [] })],
+      environmentSettings: {
+        production: { enabled: true },
+        dev: { enabled: false },
+      },
+    };
+    expect(toV2FeatureSnapshot(v2)).toBe(v2);
+  });
+
+  it("flattens a v1 snapshot (rules under envSettings) to v2 and strips env rules", () => {
+    const v1 = {
+      ...feature,
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [mkRule("a"), mkRule("b")],
+        },
+        dev: {
+          enabled: false,
+          rules: [mkRule("c")],
+        },
+      },
+    } as unknown as FeatureInterface;
+
+    const migrated = toV2FeatureSnapshot(v1);
+
+    expect(Array.isArray(migrated.rules)).toBe(true);
+    expect((migrated.rules ?? []).map((r) => r.id)).toEqual(["a", "b", "c"]);
+    for (const r of migrated.rules ?? []) {
+      expect(r.allEnvironments).toBe(false);
+    }
+    expect((migrated.rules ?? [])[0].environments).toEqual(["production"]);
+    expect((migrated.rules ?? [])[2].environments).toEqual(["dev"]);
+
+    // env settings no longer carry rules
+    const envSettings = migrated.environmentSettings as Record<
+      string,
+      Record<string, unknown>
+    >;
+    expect(envSettings.production).not.toHaveProperty("rules");
+    expect(envSettings.dev).not.toHaveProperty("rules");
+    expect(envSettings.production.enabled).toBe(true);
+    expect(envSettings.dev.enabled).toBe(false);
+  });
+
+  it("leaves snapshots without rules-in-envSettings unchanged", () => {
+    const bare: FeatureInterface = {
+      ...feature,
+      environmentSettings: {
+        production: { enabled: true },
+      },
+    };
+    expect(toV2FeatureSnapshot(bare)).toBe(bare);
+  });
+
+  it("is idempotent", () => {
+    const v1 = {
+      ...feature,
+      environmentSettings: {
+        production: { enabled: true, rules: [mkRule("a")] },
+      },
+    } as unknown as FeatureInterface;
+    const once = toV2FeatureSnapshot(v1);
+    const twice = toV2FeatureSnapshot(once);
+    expect(twice).toBe(once);
+  });
+
+  it("does not mutate the input snapshot", () => {
+    const prodRules = [mkRule("a")];
+    const input = {
+      ...feature,
+      environmentSettings: {
+        production: { enabled: true, rules: prodRules },
+      },
+    } as unknown as FeatureInterface;
+    toV2FeatureSnapshot(input);
+    expect(
+      (
+        input.environmentSettings.production as unknown as {
+          rules?: FeatureRule[];
+        }
+      ).rules,
+    ).toBe(prodRules);
+    expect(
+      (input as unknown as { rules?: FeatureRule[] }).rules,
+    ).toBeUndefined();
   });
 });

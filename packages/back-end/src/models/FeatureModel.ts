@@ -11,6 +11,7 @@ import {
   autoMerge,
   fillRevisionFromFeature,
   PermissionError,
+  stemRuleId,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -1080,13 +1081,15 @@ export async function addFeatureRule(
 
   const applicableEnvs = getEnvironmentIdsFromOrg(context.org);
   const isAllEnvs =
-    !envs ||
-    envs.length === 0 ||
-    applicableEnvs.every((e) => envs.includes(e));
+    !envs || envs.length === 0 || applicableEnvs.every((e) => envs.includes(e));
 
   const scopedRule: FeatureRule = isAllEnvs
     ? ({ ...rule, allEnvironments: true } as FeatureRule)
-    : ({ ...rule, allEnvironments: false, environments: [...envs!] } as FeatureRule);
+    : ({
+        ...rule,
+        allEnvironments: false,
+        environments: [...envs!],
+      } as FeatureRule);
 
   const nextRules: FeatureRule[] = [...(revision.rules ?? []), scopedRule];
 
@@ -1166,8 +1169,8 @@ export async function editFeatureRules(
     envs.length === 0
       ? `rule ${matches[0]?.ruleId ?? ""}`
       : envs.length === 1
-      ? `in ${envs[0]}`
-      : `in ${envs.join(", ")}`;
+        ? `in ${envs[0]}`
+        : `in ${envs.join(", ")}`;
 
   const updatedRevision = await updateRevision(
     context,
@@ -1631,7 +1634,7 @@ async function createRampSchedulesForRevision(
             ...step,
             actions: step.actions.map(normalizeAction),
           }))
-          : template
+        : template
           ? template.steps.map((s) => ({
               trigger: s.trigger,
               actions: remapTemplateActions(
@@ -1717,8 +1720,13 @@ async function applyDetachRampActions(
         action.rampScheduleId,
       );
       if (existing) {
+        // Stem-match so a detach action authored against a pre-migration
+        // (bare) rule id correctly targets a post-migration suffixed target
+        // (e.g. `fr_abc` on the action matches `fr_abc__production` on the
+        // target) and vice versa. See `stemRuleId` for the invariant.
+        const actionStem = stemRuleId(action.ruleId);
         const remainingTargets = existing.targets.filter(
-          (t) => t.ruleId !== action.ruleId,
+          (t) => stemRuleId(t.ruleId ?? "") !== actionStem,
         );
         if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
           await context.models.rampSchedules.deleteById(existing.id);
@@ -1755,27 +1763,37 @@ async function cleanupOrphanedRampSchedules(
     // where it should exist, the "create" action will not fire again. The user must
     // re-create the ramp. This is the safe, explicit behavior.
 
-    // Collect all rule IDs that existed in the old and new features.
+    // Collect all rule id STEMS that existed in the old and new features.
     // Post-Phase-3: rules live on the v2 top-level `feature.rules` array,
     // not under per-env `environmentSettings[env].rules`.
-    const oldRuleIds = new Set<string>(
+    //
+    // Stem-based comparison (not raw id) is critical because the flatten
+    // step can rewrite a rule's id across revisions — e.g. a mergeable rule
+    // with id `fr_abc` may be split into `fr_abc__production` and
+    // `fr_abc__dev` once its per-env content diverges. Comparing raw ids
+    // would flag `fr_abc` as "deleted" even though the rule logically
+    // still exists (now under a suffixed id). Ramp targets always reference
+    // the stem identity, so the cleanup decision must use the same lens.
+    const oldStems = new Set<string>(
       (oldFeature.rules ?? [])
-        .map((r) => r?.id)
+        .map((r) => (r?.id ? stemRuleId(r.id) : null))
         .filter((id): id is string => !!id),
     );
-    const newRuleIds = new Set<string>(
+    const newStems = new Set<string>(
       (newFeature.rules ?? [])
-        .map((r) => r?.id)
+        .map((r) => (r?.id ? stemRuleId(r.id) : null))
         .filter((id): id is string => !!id),
     );
 
-    // Find rule IDs that were removed (existed in old but not in new).
-    const deletedRuleIds = Array.from(oldRuleIds).filter(
-      (id) => !newRuleIds.has(id),
+    // Stems that were removed (existed in old but no longer have any
+    // corresponding v2 rule in new). A stem survives if ANY surviving rule
+    // shares it — so a split doesn't look like a delete.
+    const deletedStems = new Set<string>(
+      [...oldStems].filter((s) => !newStems.has(s)),
     );
 
     // Query all ramp schedules for this feature and check if any targets
-    // reference the deleted rules.
+    // reference the deleted rule stems.
     const allRamps = await context.models?.rampSchedules?.getAllByFeatureId?.(
       newFeature.id,
     );
@@ -1785,8 +1803,10 @@ async function cleanupOrphanedRampSchedules(
     for (const ramp of allRamps) {
       const remainingTargets = (ramp?.targets ?? []).filter(
         (target: RampScheduleInterface["targets"][0]) => {
-          // Keep targets that reference rules that still exist.
-          return target?.ruleId && !deletedRuleIds.includes(target.ruleId);
+          // Keep targets whose stem still resolves to a rule on the
+          // new feature. Empty/missing ruleId never resolves → drop.
+          if (!target?.ruleId) return false;
+          return !deletedStems.has(stemRuleId(target.ruleId));
         },
       );
 
