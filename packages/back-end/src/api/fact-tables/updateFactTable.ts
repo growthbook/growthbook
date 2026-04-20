@@ -12,6 +12,7 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 
 // Type override to handle auto-generated OpenAPI types vs internal types
 type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
@@ -107,26 +108,28 @@ export const updateFactTable = createApiRequestHandler(
     await addTagsDiff(req.organization.id, factTable.tags, data.tags);
   }
 
+  const updatedFactTable = {
+    ...factTable,
+    ...req.body,
+    columns: req.body.columns
+      ? (
+          req.body.columns as NonNullable<UpdateFactTableRequest["columns"]>
+        ).map((col) => ({
+          ...col,
+          name: col.name ?? col.column,
+          description: col.description ?? "",
+          numberFormat: col.numberFormat ?? "",
+          dateCreated:
+            factTable.columns.find((c) => c.column === col.column)
+              ?.dateCreated || new Date(),
+          dateUpdated: new Date(),
+          deleted: false,
+        }))
+      : factTable.columns,
+  };
+  const ownerEmailMap = await buildOwnerEmailMap([updatedFactTable.owner]);
   return {
-    factTable: toFactTableApiInterface({
-      ...factTable,
-      ...req.body,
-      columns: req.body.columns
-        ? (
-            req.body.columns as NonNullable<UpdateFactTableRequest["columns"]>
-          ).map((col) => ({
-            ...col,
-            name: col.name ?? col.column,
-            description: col.description ?? "",
-            numberFormat: col.numberFormat ?? "",
-            dateCreated:
-              factTable.columns.find((c) => c.column === col.column)
-                ?.dateCreated || new Date(),
-            dateUpdated: new Date(),
-            deleted: false,
-          }))
-        : factTable.columns,
-    }),
+    factTable: toFactTableApiInterface(updatedFactTable, ownerEmailMap),
   };
 });
 

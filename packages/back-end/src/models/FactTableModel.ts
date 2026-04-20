@@ -17,6 +17,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -686,26 +687,30 @@ export async function deleteFactFilter(
 
 export function toFactTableApiInterface(
   factTable: FactTableInterface,
+  ownerEmailMap?: Map<string, string | undefined>,
 ): ApiFactTable {
-  return {
-    ...omit(factTable, [
-      "organization",
-      "filters",
-      "dateCreated",
-      "dateUpdated",
-    ]),
-    columns: factTable.columns.map((col) => ({
-      ...col,
-      alwaysInlineFilter: col.alwaysInlineFilter ?? false,
-      isAutoSliceColumn: col.isAutoSliceColumn ?? false,
-      dateCreated: col.dateCreated.toISOString(),
-      dateUpdated: col.dateUpdated.toISOString(),
-      topValuesDate: col.topValuesDate?.toISOString(),
-    })),
-    managedBy: factTable.managedBy || "",
-    dateCreated: factTable.dateCreated?.toISOString() || "",
-    dateUpdated: factTable.dateUpdated?.toISOString() || "",
-  };
+  return withOwnerEmail(
+    {
+      ...omit(factTable, [
+        "organization",
+        "filters",
+        "dateCreated",
+        "dateUpdated",
+      ]),
+      columns: factTable.columns.map((col) => ({
+        ...col,
+        alwaysInlineFilter: col.alwaysInlineFilter ?? false,
+        isAutoSliceColumn: col.isAutoSliceColumn ?? false,
+        dateCreated: col.dateCreated.toISOString(),
+        dateUpdated: col.dateUpdated.toISOString(),
+        topValuesDate: col.topValuesDate?.toISOString(),
+      })),
+      managedBy: factTable.managedBy || "",
+      dateCreated: factTable.dateCreated?.toISOString() || "",
+      dateUpdated: factTable.dateUpdated?.toISOString() || "",
+    },
+    ownerEmailMap,
+  );
 }
 
 export function toFactTableFilterApiInterface(

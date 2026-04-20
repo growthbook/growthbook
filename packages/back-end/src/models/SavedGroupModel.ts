@@ -7,6 +7,7 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -110,19 +111,25 @@ export class SavedGroupModel extends BaseClass {
     return groups as SavedGroupWithoutValues[];
   }
 
-  public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {
-    return {
-      id: savedGroup.id,
-      type: savedGroup.type,
-      values: savedGroup.values || [],
-      condition: savedGroup.condition || "",
-      name: savedGroup.groupName,
-      attributeKey: savedGroup.attributeKey || "",
-      dateCreated: savedGroup.dateCreated.toISOString(),
-      dateUpdated: savedGroup.dateUpdated.toISOString(),
-      owner: savedGroup.owner || "",
-      description: savedGroup.description,
-      projects: savedGroup.projects || [],
-    };
+  public toApiInterface(
+    savedGroup: SavedGroupInterface,
+    ownerEmailMap?: Map<string, string | undefined>,
+  ): ApiSavedGroup {
+    return withOwnerEmail(
+      {
+        id: savedGroup.id,
+        type: savedGroup.type,
+        values: savedGroup.values || [],
+        condition: savedGroup.condition || "",
+        name: savedGroup.groupName,
+        attributeKey: savedGroup.attributeKey || "",
+        dateCreated: savedGroup.dateCreated.toISOString(),
+        dateUpdated: savedGroup.dateUpdated.toISOString(),
+        owner: savedGroup.owner || "",
+        description: savedGroup.description,
+        projects: savedGroup.projects || [],
+      },
+      ownerEmailMap,
+    );
   }
 }

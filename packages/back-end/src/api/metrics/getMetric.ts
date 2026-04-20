@@ -2,6 +2,7 @@ import { getMetricValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { toMetricApiInterface } from "back-end/src/services/experiments";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getMetric = createApiRequestHandler(getMetricValidator)(async (
@@ -16,7 +17,13 @@ export const getMetric = createApiRequestHandler(getMetricValidator)(async (
     ? await getDataSourceById(req.context, metric.datasource)
     : null;
 
+  const ownerEmailMap = await buildOwnerEmailMap([metric.owner]);
   return {
-    metric: toMetricApiInterface(req.organization, metric, datasource),
+    metric: toMetricApiInterface(
+      req.organization,
+      metric,
+      datasource,
+      ownerEmailMap,
+    ),
   };
 });

@@ -3,6 +3,7 @@ import {
   findDimensionById,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getDimension = createApiRequestHandler(getDimensionValidator)(
@@ -15,8 +16,9 @@ export const getDimension = createApiRequestHandler(getDimensionValidator)(
       throw new Error("Could not find dimension with that id");
     }
 
+    const ownerEmailMap = await buildOwnerEmailMap([dimension.owner]);
     return {
-      dimension: toDimensionApiInterface(dimension),
+      dimension: toDimensionApiInterface(dimension, ownerEmailMap),
     };
   },
 );

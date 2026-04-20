@@ -406,6 +406,35 @@ export abstract class BaseModel<
     return keys;
   }
 
+  protected async enrichOwnerEmail<TDoc extends object>(
+    apiDoc: TDoc,
+  ): Promise<TDoc> {
+    if (!("owner" in apiDoc) || typeof apiDoc.owner !== "string") {
+      return apiDoc;
+    }
+    // Dynamic import: ownerEmail → UserModel → services/auth → TeamModel →
+    // BaseModel would form a cycle if imported statically.
+    const { buildOwnerEmailMap, withOwnerEmail } = await import(
+      "back-end/src/services/ownerEmail"
+    );
+    const map = await buildOwnerEmailMap([apiDoc.owner]);
+    return withOwnerEmail(apiDoc, map);
+  }
+
+  protected async enrichOwnerEmails<TDoc extends object>(
+    apiDocs: TDoc[],
+  ): Promise<TDoc[]> {
+    if (apiDocs.length === 0) return apiDocs;
+    const { buildOwnerEmailMap, withOwnerEmail } = await import(
+      "back-end/src/services/ownerEmail"
+    );
+    const ownerValues = apiDocs.map((doc) =>
+      "owner" in doc && typeof doc.owner === "string" ? doc.owner : undefined,
+    );
+    const map = await buildOwnerEmailMap(ownerValues);
+    return apiDocs.map((doc) => withOwnerEmail(doc, map));
+  }
+
   public async handleApiGet(
     req: ApiRequest<
       unknown,
@@ -417,7 +446,7 @@ export abstract class BaseModel<
     const { id } = req.params as { id: string };
     const doc = await this.getById(id);
     if (!doc) req.context.throwNotFoundError();
-    return this.toApiInterface(doc);
+    return this.enrichOwnerEmail(this.toApiInterface(doc));
   }
   public async handleApiCreate(
     req: ApiRequest<
@@ -429,7 +458,9 @@ export abstract class BaseModel<
   ): Promise<z.infer<ApiT>> {
     const rawBody = req.body;
     const toCreate = await this.processApiCreateBody(rawBody);
-    return this.toApiInterface(await this.create(toCreate));
+    return this.enrichOwnerEmail(
+      this.toApiInterface(await this.create(toCreate)),
+    );
   }
   protected async processApiCreateBody(
     rawBody: unknown,
@@ -444,7 +475,9 @@ export abstract class BaseModel<
       ExtractCrudSchema<CVO, "list", "querySchema">
     >,
   ): Promise<z.infer<ApiT>[]> {
-    return (await this.getAll()).map(this.toApiInterface.bind(this));
+    return this.enrichOwnerEmails(
+      (await this.getAll()).map(this.toApiInterface.bind(this)),
+    );
   }
   public async handleApiDelete(
     req: ApiRequest<
@@ -469,7 +502,9 @@ export abstract class BaseModel<
     const { id } = req.params as { id: string };
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);
-    return this.toApiInterface(await this.updateById(id, toUpdate));
+    return this.enrichOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+    );
   }
   protected async processApiUpdateBody(
     rawBody: unknown,

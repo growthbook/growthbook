@@ -2,6 +2,7 @@ import { listMetricsValidator } from "shared/validators";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
 import { toMetricApiInterface } from "back-end/src/services/experiments";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -25,12 +26,14 @@ export const listMetrics = createApiRequestHandler(listMetricsValidator)(async (
     req.query,
   );
 
+  const ownerEmailMap = await buildOwnerEmailMap(filtered.map((m) => m.owner));
   return {
     metrics: filtered.map((metric) =>
       toMetricApiInterface(
         req.organization,
         metric,
         datasources.find((ds) => ds.id === metric.datasource) || null,
+        ownerEmailMap,
       ),
     ),
     ...returnFields,

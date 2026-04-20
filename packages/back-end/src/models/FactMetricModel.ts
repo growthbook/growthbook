@@ -21,6 +21,7 @@ import {
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
 import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,
@@ -517,7 +518,10 @@ export class FactMetricModel extends BaseClass {
     return newColumnRef;
   }
 
-  public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
+  public toApiInterface(
+    factMetric: FactMetricInterface,
+    ownerEmailMap?: Map<string, string | undefined>,
+  ): ApiFactMetric {
     const {
       quantileSettings,
       cappingSettings,
@@ -536,41 +540,44 @@ export class FactMetricModel extends BaseClass {
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
-    return {
-      ...otherFields,
-      riskThresholdDanger: loseRisk,
-      riskThresholdSuccess: winRisk,
-      targetMDE: targetMDE || DEFAULT_TARGET_MDE,
-      metricType: metricType,
-      quantileSettings: quantileSettings || undefined,
-      cappingSettings: {
-        ...cappingSettings,
-        type: cappingSettings.type || "none",
+    return withOwnerEmail(
+      {
+        ...otherFields,
+        riskThresholdDanger: loseRisk,
+        riskThresholdSuccess: winRisk,
+        targetMDE: targetMDE || DEFAULT_TARGET_MDE,
+        metricType: metricType,
+        quantileSettings: quantileSettings || undefined,
+        cappingSettings: {
+          ...cappingSettings,
+          type: cappingSettings.type || "none",
+        },
+        windowSettings: {
+          ...windowSettings,
+          type: windowSettings.type || "none",
+        },
+        managedBy: factMetric.managedBy || "",
+        numerator: FactMetricModel.addLegacyFiltersToColumnRef(numerator),
+        denominator: denominator
+          ? FactMetricModel.addLegacyFiltersToColumnRef(denominator)
+          : undefined,
+        regressionAdjustmentSettings: {
+          override: regressionAdjustmentOverride || false,
+          ...(regressionAdjustmentOverride
+            ? {
+                enabled: regressionAdjustmentEnabled || false,
+              }
+            : null),
+          ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
+            ? {
+                days: regressionAdjustmentDays || 0,
+              }
+            : null),
+        },
+        dateCreated: dateCreated?.toISOString() || "",
+        dateUpdated: dateUpdated?.toISOString() || "",
       },
-      windowSettings: {
-        ...windowSettings,
-        type: windowSettings.type || "none",
-      },
-      managedBy: factMetric.managedBy || "",
-      numerator: FactMetricModel.addLegacyFiltersToColumnRef(numerator),
-      denominator: denominator
-        ? FactMetricModel.addLegacyFiltersToColumnRef(denominator)
-        : undefined,
-      regressionAdjustmentSettings: {
-        override: regressionAdjustmentOverride || false,
-        ...(regressionAdjustmentOverride
-          ? {
-              enabled: regressionAdjustmentEnabled || false,
-            }
-          : null),
-        ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
-          ? {
-              days: regressionAdjustmentDays || 0,
-            }
-          : null),
-      },
-      dateCreated: dateCreated?.toISOString() || "",
-      dateUpdated: dateUpdated?.toISOString() || "",
-    };
+      ownerEmailMap,
+    );
   }
 }

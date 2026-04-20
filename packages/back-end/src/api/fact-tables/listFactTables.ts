@@ -3,6 +3,7 @@ import {
   getAllFactTablesForOrganization,
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -20,9 +21,12 @@ export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
     // TODO: Move pagination (limit/offset) to database for better performance
     const { filtered, returnFields } = applyPagination(factTables, req.query);
 
+    const ownerEmailMap = await buildOwnerEmailMap(
+      filtered.map((ft) => ft.owner),
+    );
     return {
       factTables: filtered.map((factTable) =>
-        toFactTableApiInterface(factTable),
+        toFactTableApiInterface(factTable, ownerEmailMap),
       ),
       ...returnFields,
     };

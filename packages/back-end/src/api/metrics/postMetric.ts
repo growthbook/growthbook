@@ -1,6 +1,7 @@
 import { postMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import {
   createMetric,
   postMetricApiPayloadIsValid,
@@ -39,8 +40,14 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(async (
   );
 
   const createdMetric = await createMetric(req.context, metric);
+  const ownerEmailMap = await buildOwnerEmailMap([createdMetric.owner]);
 
   return {
-    metric: toMetricApiInterface(req.organization, createdMetric, datasource),
+    metric: toMetricApiInterface(
+      req.organization,
+      createdMetric,
+      datasource,
+      ownerEmailMap,
+    ),
   };
 });

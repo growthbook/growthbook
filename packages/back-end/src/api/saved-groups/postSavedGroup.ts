@@ -1,5 +1,6 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
 import { postSavedGroupValidator } from "shared/validators";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
@@ -86,8 +87,12 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       projects,
     });
 
+    const ownerEmailMap = await buildOwnerEmailMap([savedGroup.owner]);
     return {
-      savedGroup: req.context.models.savedGroups.toApiInterface(savedGroup),
+      savedGroup: req.context.models.savedGroups.toApiInterface(
+        savedGroup,
+        ownerEmailMap,
+      ),
     };
   },
 );

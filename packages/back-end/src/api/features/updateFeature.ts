@@ -18,6 +18,7 @@ import {
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -404,6 +405,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     });
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const ownerEmailMap = await buildOwnerEmailMap([updatedFeature.owner]);
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
@@ -412,6 +414,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         experimentMap,
         revision,
         safeRolloutMap,
+        ownerEmailMap,
       }),
     };
   },

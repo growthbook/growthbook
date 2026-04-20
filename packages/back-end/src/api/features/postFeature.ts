@@ -13,6 +13,7 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -199,6 +200,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     featureId: feature.id,
     version: feature.version,
   });
+  const ownerEmailMap = await buildOwnerEmailMap([feature.owner]);
 
   return {
     feature: getApiFeatureObj({
@@ -208,6 +210,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
       experimentMap,
       revision,
       safeRolloutMap,
+      ownerEmailMap,
     }),
   };
 });

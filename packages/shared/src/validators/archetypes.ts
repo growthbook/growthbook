@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ownerField } from "./owner-field";
+import { ownerEmailField, ownerField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
 // Corresponds to schemas/Archetype.yaml
@@ -13,6 +13,7 @@ export const apiArchetypeValidator = namedSchema(
       name: z.string(),
       description: z.string().optional(),
       owner: ownerField,
+      ownerEmail: ownerEmailField,
       isPublic: z.boolean(),
       attributes: z
         .record(z.string(), z.any())

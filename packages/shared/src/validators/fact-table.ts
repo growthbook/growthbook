@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
@@ -384,6 +384,7 @@ export const apiFactTableValidator = namedSchema(
       name: z.string(),
       description: z.string(),
       owner: ownerField,
+      ownerEmail: ownerEmailField,
       projects: z.array(z.string()),
       tags: z.array(z.string()),
       datasource: z.string(),

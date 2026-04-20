@@ -18,6 +18,7 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -72,6 +73,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       });
       const safeRolloutMap =
         await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+      const ownerEmailMap = await buildOwnerEmailMap([feature.owner]);
       return {
         feature: getApiFeatureObj({
           feature,
@@ -80,6 +82,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
           experimentMap,
           revision,
           safeRolloutMap,
+          ownerEmailMap,
         }),
       };
     }
@@ -169,6 +172,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     });
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const ownerEmailMap = await buildOwnerEmailMap([updatedFeature.owner]);
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
@@ -177,6 +181,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         experimentMap,
         revision: latestRevision,
         safeRolloutMap,
+        ownerEmailMap,
       }),
     };
   },

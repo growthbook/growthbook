@@ -94,6 +94,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
+import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
@@ -1732,6 +1733,7 @@ export function getApiFeatureObj({
   revision,
   revisions,
   safeRolloutMap,
+  ownerEmailMap,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -1740,6 +1742,7 @@ export function getApiFeatureObj({
   revision: FeatureRevisionInterface | null;
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  ownerEmailMap?: Map<string, string | undefined>;
 }): ApiFeatureWithRevisions {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
@@ -1892,7 +1895,7 @@ export function getApiFeatureObj({
     ...(feature.holdout != null ? { holdout: feature.holdout } : {}),
   };
 
-  return featureRecord;
+  return withOwnerEmail(featureRecord, ownerEmailMap);
 }
 
 export function getNextScheduledUpdate(

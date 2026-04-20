@@ -2,6 +2,7 @@ import { updateDimensionValidator } from "shared/validators";
 import { DimensionInterface } from "shared/types/dimension";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import {
   findDimensionById,
   updateDimension as updateDimensionModel,
@@ -45,7 +46,9 @@ export const updateDimension = createApiRequestHandler(
 
   await updateDimensionModel(req.context, dimension, updates);
 
+  const updatedDimension = { ...dimension, ...updates };
+  const ownerEmailMap = await buildOwnerEmailMap([updatedDimension.owner]);
   return {
-    dimension: toDimensionApiInterface({ ...dimension, ...updates }),
+    dimension: toDimensionApiInterface(updatedDimension, ownerEmailMap),
   };
 });

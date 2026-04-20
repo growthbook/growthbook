@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -19,6 +19,7 @@ export const apiMetricGroupValidator = namedSchema(
   "MetricGroup",
   apiBaseSchema.safeExtend({
     owner: ownerField,
+    ownerEmail: ownerEmailField,
     name: z.string(),
     description: z.string(),
     tags: z.array(z.string()),

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
@@ -57,6 +57,7 @@ export const apiSavedGroupValidator = namedSchema(
       dateUpdated: z.string().meta({ format: "date-time" }),
       name: z.string(),
       owner: ownerField.optional(),
+      ownerEmail: ownerEmailField,
       condition: z
         .string()
         .describe(

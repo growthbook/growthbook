@@ -1,5 +1,6 @@
 import { getSegmentValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
+import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getSegment = createApiRequestHandler(getSegmentValidator)(async (
@@ -10,7 +11,8 @@ export const getSegment = createApiRequestHandler(getSegmentValidator)(async (
     throw new Error("Could not find segment with that id");
   }
 
+  const ownerEmailMap = await buildOwnerEmailMap([segment.owner]);
   return {
-    segment: toSegmentApiInterface(segment),
+    segment: toSegmentApiInterface(segment, ownerEmailMap),
   };
 });

@@ -114,6 +114,6 @@ export class ExperimentTemplatesModel extends BaseClass {
     const docs = await (projectId
       ? this._find({ project: projectId })
       : this.getAll());
-    return docs.map(this.toApiInterface.bind(this));
+    return this.enrichOwnerEmails(docs.map(this.toApiInterface.bind(this)));
   }
 }

@@ -5,6 +5,7 @@ import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { ALLOW_CREATE_DIMENSIONS } from "back-end/src/util/secrets";
+import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
 
 const dimensionSchema = new mongoose.Schema({
   id: String,
@@ -142,17 +143,21 @@ export async function deleteDimensionById(
 
 export function toDimensionApiInterface(
   dimension: DimensionInterface,
+  ownerEmailMap?: Map<string, string | undefined>,
 ): ApiDimension {
-  return {
-    id: dimension.id,
-    name: dimension.name,
-    description: dimension.description || "",
-    owner: dimension.owner || "",
-    identifierType: dimension.userIdType || "user_id",
-    query: dimension.sql,
-    datasourceId: dimension.datasource || "",
-    dateCreated: dimension.dateCreated?.toISOString() || "",
-    dateUpdated: dimension.dateUpdated?.toISOString() || "",
-    managedBy: dimension.managedBy || "",
-  };
+  return withOwnerEmail(
+    {
+      id: dimension.id,
+      name: dimension.name,
+      description: dimension.description || "",
+      owner: dimension.owner || "",
+      identifierType: dimension.userIdType || "user_id",
+      query: dimension.sql,
+      datasourceId: dimension.datasource || "",
+      dateCreated: dimension.dateCreated?.toISOString() || "",
+      dateUpdated: dimension.dateUpdated?.toISOString() || "",
+      managedBy: dimension.managedBy || "",
+    },
+    ownerEmailMap,
+  );
 }
