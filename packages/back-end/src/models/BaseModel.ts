@@ -471,8 +471,11 @@ export abstract class BaseModel<
       ExtractCrudSchema<CVO, "list", "querySchema">
     >,
   ): Promise<z.infer<ApiT>[]> {
+    // Explicit single-arg call — `.map(this.toApiInterface.bind(this))` would
+    // leak the array index as the 2nd arg, which subclass overrides may
+    // interpret as `ownerEmailMap` and dereference with `.get()`.
     return this.enrichOwnerEmails(
-      (await this.getAll()).map(this.toApiInterface.bind(this)),
+      (await this.getAll()).map((doc) => this.toApiInterface(doc)),
     );
   }
   public async handleApiDelete(
