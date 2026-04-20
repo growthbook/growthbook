@@ -1,6 +1,6 @@
 import { putArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import {
   getArchetypeById,
   toArchetypeApiInterface,
@@ -39,7 +39,10 @@ export const putArchetype = createApiRequestHandler(putArchetypeValidator)(
       details: auditDetailsUpdate(archetype, updatedArchetype),
     });
 
-    const ownerEmailMap = await buildOwnerEmailMap([updatedArchetype.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [updatedArchetype.owner],
+      req.context,
+    );
     return {
       archetype: toArchetypeApiInterface(updatedArchetype, ownerEmailMap),
     };

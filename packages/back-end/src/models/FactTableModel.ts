@@ -17,7 +17,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
-import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
+import { withOwnerEmail } from "back-end/src/services/owner";
 
 const audit = createModelAuditLogger({
   entity: "factTable",

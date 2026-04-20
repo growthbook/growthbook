@@ -1,6 +1,6 @@
 import { SegmentInterface } from "shared/types/segment";
 import { ApiSegment } from "shared/validators";
-import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
+import { withOwnerEmail } from "back-end/src/services/owner";
 
 export function toSegmentApiInterface(
   segment: SegmentInterface,

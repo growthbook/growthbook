@@ -1,8 +1,10 @@
 import uniqid from "uniqid";
 import { postDimensionValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import {
+  resolveOwnerToUserId,
+  buildOwnerEmailMap,
+} from "back-end/src/services/owner";
 import {
   createDimension,
   toDimensionApiInterface,
@@ -35,7 +37,10 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
       organization,
     });
 
-    const ownerEmailMap = await buildOwnerEmailMap([dimension.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [dimension.owner],
+      req.context,
+    );
     return {
       dimension: toDimensionApiInterface(dimension, ownerEmailMap),
     };

@@ -32,7 +32,11 @@ import {
 } from "back-end/src/api/ApiModel";
 import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  buildOwnerEmailMap,
+  resolveOwnerToUserId,
+  withOwnerEmail,
+} from "back-end/src/services/owner";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -412,12 +416,7 @@ export abstract class BaseModel<
     if (!("owner" in apiDoc) || typeof apiDoc.owner !== "string") {
       return apiDoc;
     }
-    // Dynamic import: ownerEmail → UserModel → services/auth → TeamModel →
-    // BaseModel would form a cycle if imported statically.
-    const { buildOwnerEmailMap, withOwnerEmail } = await import(
-      "back-end/src/services/ownerEmail"
-    );
-    const map = await buildOwnerEmailMap([apiDoc.owner]);
+    const map = await buildOwnerEmailMap([apiDoc.owner], this.context);
     return withOwnerEmail(apiDoc, map);
   }
 
@@ -425,13 +424,10 @@ export abstract class BaseModel<
     apiDocs: TDoc[],
   ): Promise<TDoc[]> {
     if (apiDocs.length === 0) return apiDocs;
-    const { buildOwnerEmailMap, withOwnerEmail } = await import(
-      "back-end/src/services/ownerEmail"
-    );
     const ownerValues = apiDocs.map((doc) =>
       "owner" in doc && typeof doc.owner === "string" ? doc.owner : undefined,
     );
-    const map = await buildOwnerEmailMap(ownerValues);
+    const map = await buildOwnerEmailMap(ownerValues, this.context);
     return apiDocs.map((doc) => withOwnerEmail(doc, map));
   }
 

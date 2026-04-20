@@ -129,6 +129,7 @@ describe("features API", () => {
       permissions: defaultPermissions(),
       getProjects: async () => [{ id: "project" }],
       getUserByEmail: jest.fn().mockResolvedValue(null),
+      getUsersByIds: jest.fn().mockResolvedValue([]),
       ...overrides,
     });
 

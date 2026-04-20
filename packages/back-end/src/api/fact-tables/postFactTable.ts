@@ -8,8 +8,10 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import {
+  resolveOwnerToUserId,
+  buildOwnerEmailMap,
+} from "back-end/src/services/owner";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req) => {
@@ -64,7 +66,10 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       await addTags(req.organization.id, data.tags);
     }
 
-    const ownerEmailMap = await buildOwnerEmailMap([factTable.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [factTable.owner],
+      req.context,
+    );
     return {
       factTable: toFactTableApiInterface(factTable, ownerEmailMap),
     };

@@ -7,7 +7,7 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
-import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
+import { withOwnerEmail } from "back-end/src/services/owner";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

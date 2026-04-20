@@ -3,7 +3,7 @@ import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import {
   applyFilter,
   applyPagination,
@@ -26,6 +26,7 @@ export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
 
     const ownerEmailMap = await buildOwnerEmailMap(
       filtered.map((d) => d.owner),
+      req.context,
     );
     return {
       dimensions: filtered.map((dimension) =>

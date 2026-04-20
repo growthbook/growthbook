@@ -3,7 +3,10 @@ import { validateFeatureValue, validateScheduleRules } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerToUserId,
+  buildOwnerEmailMap,
+} from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -13,7 +16,6 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -200,7 +202,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     featureId: feature.id,
     version: feature.version,
   });
-  const ownerEmailMap = await buildOwnerEmailMap([feature.owner]);
+  const ownerEmailMap = await buildOwnerEmailMap([feature.owner], req.context);
 
   return {
     feature: getApiFeatureObj({

@@ -3,7 +3,7 @@ import {
   getAllFactTablesForOrganization,
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -23,6 +23,7 @@ export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
 
     const ownerEmailMap = await buildOwnerEmailMap(
       filtered.map((ft) => ft.owner),
+      req.context,
     );
     return {
       factTables: filtered.map((factTable) =>

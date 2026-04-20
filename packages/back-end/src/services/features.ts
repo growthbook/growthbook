@@ -94,7 +94,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
-import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
+import { withOwnerEmail } from "back-end/src/services/owner";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {

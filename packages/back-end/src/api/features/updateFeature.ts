@@ -4,7 +4,10 @@ import { updateFeatureValidator, RevisionRules } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerToUserId,
+  buildOwnerEmailMap,
+} from "back-end/src/services/owner";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
@@ -18,7 +21,6 @@ import {
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -405,7 +407,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     });
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-    const ownerEmailMap = await buildOwnerEmailMap([updatedFeature.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [updatedFeature.owner],
+      req.context,
+    );
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,

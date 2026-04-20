@@ -2,7 +2,7 @@ import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
@@ -85,7 +85,10 @@ export const updateSavedGroup = createApiRequestHandler(
 
   // If there are no changes, return early
   if (Object.keys(fieldsToUpdate).length === 0) {
-    const ownerEmailMap = await buildOwnerEmailMap([savedGroup.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [savedGroup.owner],
+      req.context,
+    );
     return {
       savedGroup: req.context.models.savedGroups.toApiInterface(
         savedGroup,
@@ -100,7 +103,7 @@ export const updateSavedGroup = createApiRequestHandler(
   );
 
   const merged = { ...savedGroup, ...updatedSavedGroup };
-  const ownerEmailMap = await buildOwnerEmailMap([merged.owner]);
+  const ownerEmailMap = await buildOwnerEmailMap([merged.owner], req.context);
   return {
     savedGroup: req.context.models.savedGroups.toApiInterface(
       merged,

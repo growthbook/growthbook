@@ -2,7 +2,7 @@ import { postSegmentValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
@@ -67,7 +67,7 @@ export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
   };
 
   const segment = await req.context.models.segments.create(segmentData);
-  const ownerEmailMap = await buildOwnerEmailMap([segment.owner]);
+  const ownerEmailMap = await buildOwnerEmailMap([segment.owner], req.context);
 
   return {
     segment: toSegmentApiInterface(segment, ownerEmailMap),

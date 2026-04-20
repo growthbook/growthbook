@@ -3,7 +3,7 @@ import {
   getFactTable as findFactTableById,
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFactTable = createApiRequestHandler(getFactTableValidator)(
@@ -13,7 +13,10 @@ export const getFactTable = createApiRequestHandler(getFactTableValidator)(
       throw new Error("Could not find factTable with that id");
     }
 
-    const ownerEmailMap = await buildOwnerEmailMap([factTable.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [factTable.owner],
+      req.context,
+    );
     return {
       factTable: toFactTableApiInterface(factTable, ownerEmailMap),
     };

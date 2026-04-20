@@ -17,7 +17,7 @@ import {
 } from "shared/types/fact-table";
 import { OrganizationInterface } from "shared/types/organization";
 import { getFactTable } from "back-end/src/models/FactTableModel";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
@@ -218,7 +218,10 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     );
     const factMetric = await req.context.models.factMetrics.create(data);
 
-    const ownerEmailMap = await buildOwnerEmailMap([factMetric.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [factMetric.owner],
+      req.context,
+    );
     return {
       factMetric: req.context.models.factMetrics.toApiInterface(
         factMetric,

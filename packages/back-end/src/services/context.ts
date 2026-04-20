@@ -73,7 +73,7 @@ import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
-import { getUserByEmail } from "back-end/src/models/UserModel";
+import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -425,6 +425,12 @@ export class ReqContextClass {
   // This is defined on the context to prevent a circular dependency between UserModel and BaseModel
   public async getUserByEmail(email: string): Promise<UserInterface | null> {
     return getUserByEmail(email);
+  }
+
+  // Defined on the context for the same reason as getUserByEmail — lets owner
+  // helpers fetch users without statically importing UserModel.
+  public async getUsersByIds(ids: string[]): Promise<UserInterface[]> {
+    return getUsersByIds(ids);
   }
 
   // Cache projects since they are needed many places in the code

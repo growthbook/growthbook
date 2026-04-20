@@ -1,5 +1,5 @@
 import { listFactMetricsValidator } from "shared/validators";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -17,7 +17,10 @@ export const listFactMetrics = createApiRequestHandler(
   // TODO: Move pagination (limit/offset) to database for better performance
   const { filtered, returnFields } = applyPagination(factMetrics, req.query);
 
-  const ownerEmailMap = await buildOwnerEmailMap(filtered.map((m) => m.owner));
+  const ownerEmailMap = await buildOwnerEmailMap(
+    filtered.map((m) => m.owner),
+    req.context,
+  );
   return {
     factMetrics: filtered.map((factMetric) =>
       req.context.models.factMetrics.toApiInterface(factMetric, ownerEmailMap),

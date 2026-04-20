@@ -4,7 +4,7 @@ import { omit } from "lodash";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { ApiArchetype } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
-import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
+import { withOwnerEmail } from "back-end/src/services/owner";
 
 const archetypeSchema = new mongoose.Schema({
   id: {

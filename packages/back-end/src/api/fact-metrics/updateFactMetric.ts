@@ -7,7 +7,7 @@ import {
   UpdateFactMetricProps,
 } from "shared/types/fact-table";
 import { getFactTable } from "back-end/src/models/FactTableModel";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
@@ -160,7 +160,10 @@ export const updateFactMetric = createApiRequestHandler(
     updates,
   );
 
-  const ownerEmailMap = await buildOwnerEmailMap([newFactMetric.owner]);
+  const ownerEmailMap = await buildOwnerEmailMap(
+    [newFactMetric.owner],
+    req.context,
+  );
   return {
     factMetric: req.context.models.factMetrics.toApiInterface(
       newFactMetric,

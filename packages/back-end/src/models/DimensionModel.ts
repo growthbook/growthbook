@@ -5,7 +5,7 @@ import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { ALLOW_CREATE_DIMENSIONS } from "back-end/src/util/secrets";
-import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
+import { withOwnerEmail } from "back-end/src/services/owner";
 
 const dimensionSchema = new mongoose.Schema({
   id: String,

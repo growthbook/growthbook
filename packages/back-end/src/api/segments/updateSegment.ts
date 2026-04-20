@@ -2,7 +2,7 @@ import { SegmentInterface } from "shared/types/segment";
 import { UpdateProps } from "shared/types/base-model";
 import { updateSegmentValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTable } from "back-end/src/models/FactTableModel";
@@ -88,7 +88,10 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
     if (req.body.owner !== undefined) updates.owner = req.body.owner;
 
     const segment = await req.context.models.segments.update(existing, updates);
-    const ownerEmailMap = await buildOwnerEmailMap([segment.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [segment.owner],
+      req.context,
+    );
 
     return {
       segment: toSegmentApiInterface(segment, ownerEmailMap),

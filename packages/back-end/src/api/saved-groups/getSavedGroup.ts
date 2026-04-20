@@ -1,5 +1,5 @@
 import { getSavedGroupValidator } from "shared/validators";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
@@ -11,7 +11,10 @@ export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
       throw new Error("Could not find savedGroup with that id");
     }
 
-    const ownerEmailMap = await buildOwnerEmailMap([savedGroup.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [savedGroup.owner],
+      req.context,
+    );
     return {
       savedGroup: req.context.models.savedGroups.toApiInterface(
         savedGroup,

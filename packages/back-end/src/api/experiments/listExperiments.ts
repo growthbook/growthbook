@@ -5,7 +5,7 @@ import {
 import { ProjectInterface } from "shared/types/project";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -41,7 +41,10 @@ export const listExperiments = createApiRequestHandler(
     projects.map((p) => [p.id, p]),
   );
 
-  const ownerEmailMap = await buildOwnerEmailMap(filtered.map((e) => e.owner));
+  const ownerEmailMap = await buildOwnerEmailMap(
+    filtered.map((e) => e.owner),
+    req.context,
+  );
   const promises = filtered.map((experiment) =>
     toExperimentApiInterface(
       req.context,

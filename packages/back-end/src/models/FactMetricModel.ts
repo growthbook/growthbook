@@ -21,7 +21,7 @@ import {
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { withOwnerEmail } from "back-end/src/services/ownerEmailHelpers";
+import { withOwnerEmail } from "back-end/src/services/owner";
 import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,

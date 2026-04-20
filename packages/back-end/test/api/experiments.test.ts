@@ -84,6 +84,7 @@ describe("experiments API", () => {
         canUpdateExperiment: () => true,
         canAddComment: () => true,
       },
+      getUsersByIds: jest.fn().mockResolvedValue([]),
     });
   });
 

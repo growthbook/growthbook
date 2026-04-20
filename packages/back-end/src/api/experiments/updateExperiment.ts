@@ -16,11 +16,13 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import {
+  buildOwnerEmailMap,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -252,7 +254,10 @@ export const updateExperiment = createApiRequestHandler(
     details: auditDetailsUpdate(experiment, updatedExperiment),
   });
 
-  const ownerEmailMap = await buildOwnerEmailMap([updatedExperiment.owner]);
+  const ownerEmailMap = await buildOwnerEmailMap(
+    [updatedExperiment.owner],
+    req.context,
+  );
   const apiExperiment = await toExperimentApiInterface(
     req.context,
     updatedExperiment as ExperimentInterfaceExcludingHoldouts,

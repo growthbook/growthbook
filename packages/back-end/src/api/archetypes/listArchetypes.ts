@@ -1,6 +1,6 @@
 import { listArchetypesValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import {
   getAllArchetypes,
   toArchetypeApiInterface,
@@ -18,6 +18,7 @@ export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
 
     const ownerEmailMap = await buildOwnerEmailMap(
       filteredArchetypes.map((a) => a.owner),
+      req.context,
     );
     return {
       archetypes: filteredArchetypes.map((archetype) =>

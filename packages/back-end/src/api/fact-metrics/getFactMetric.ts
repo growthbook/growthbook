@@ -1,5 +1,5 @@
 import { getFactMetricValidator } from "shared/validators";
-import { buildOwnerEmailMap } from "back-end/src/services/ownerEmail";
+import { buildOwnerEmailMap } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
@@ -15,7 +15,10 @@ export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
       throw new Error("Could not find factMetric with that id");
     }
 
-    const ownerEmailMap = await buildOwnerEmailMap([factMetric.owner]);
+    const ownerEmailMap = await buildOwnerEmailMap(
+      [factMetric.owner],
+      req.context,
+    );
     return {
       factMetric: req.context.models.factMetrics.toApiInterface(
         factMetric,
