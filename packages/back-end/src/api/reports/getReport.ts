@@ -20,6 +20,12 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
     ? await getExperimentById(req.context, report.experimentId)
     : null;
 
+  // getExperimentById returns null if the caller can't read the project,
+  // so reject here to avoid leaking report metadata across projects.
+  if (report.experimentId && !experiment) {
+    throw new Error("Could not find report with that id");
+  }
+
   if (report.type === "experiment-snapshot") {
     const snapshot = await findSnapshotById(req.context, report.snapshot);
     const apiReport = toReportApiInterface(report, snapshot);

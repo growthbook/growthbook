@@ -27,6 +27,12 @@ export const postReportRefresh = createApiRequestHandler(
     ? await getExperimentById(req.context, report.experimentId)
     : null;
 
+  // getExperimentById returns null if the caller can't read the project.
+  // canUpdateReport({}) would otherwise degrade to an org-level check.
+  if (report.experimentId && !experiment) {
+    throw new Error("Could not find report with that id");
+  }
+
   if (!req.context.permissions.canUpdateReport(experiment || {})) {
     req.context.permissions.throwPermissionError();
   }
