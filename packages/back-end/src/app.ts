@@ -360,9 +360,13 @@ app.get(
 // Secret API routes (no JWT or CORS)
 app.use(
   "/api/v1",
-  // TODO add authentication
+  // Reflect the request origin and allow credentials so the front-end's
+  // fetchRaw (which sends `credentials: "include"`) isn't blocked by the
+  // browser. API key / JWT auth are both header-based, so reflecting the
+  // origin does not weaken auth.
   cors({
-    origin: "*",
+    credentials: true,
+    origin: true,
   }),
   apiRouter,
 );
