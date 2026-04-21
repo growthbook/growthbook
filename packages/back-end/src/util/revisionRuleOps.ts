@@ -66,6 +66,41 @@ export function updateRuleAtEnvIndex(
 }
 
 /**
+ * Update a rule by its ID in the flat array.
+ * Preferred over `updateRuleAtEnvIndex` for v2 callers that have a stable
+ * `rule.id` — works for all-env rules, single-env rules, and pending rules
+ * (`environments: []`) that don't project into any env.
+ */
+export function updateRuleById(
+  rules: FeatureRule[],
+  ruleId: string,
+  updater: (existing: FeatureRule) => FeatureRule,
+): { rules: FeatureRule[]; updated: FeatureRule; existing: FeatureRule } {
+  const idx = rules.findIndex((r) => r.id === ruleId);
+  if (idx === -1) throw new Error("Unknown rule");
+  const existing = rules[idx];
+  const updated = updater(existing);
+  const next = [...rules.slice(0, idx), updated, ...rules.slice(idx + 1)];
+  return { rules: next, updated, existing };
+}
+
+/**
+ * Update a rule by its flat (unfiltered) index in the rules array.
+ * Fallback for when no `ruleId` is available.
+ */
+export function updateRuleAtFlatIndex(
+  rules: FeatureRule[],
+  i: number,
+  updater: (existing: FeatureRule) => FeatureRule,
+): { rules: FeatureRule[]; updated: FeatureRule; existing: FeatureRule } {
+  const existing = rules[i];
+  if (!existing) throw new Error("Unknown rule");
+  const updated = updater(existing);
+  const next = [...rules.slice(0, i), updated, ...rules.slice(i + 1)];
+  return { rules: next, updated, existing };
+}
+
+/**
  * Remove the rule projected at env-position `i` from the flat array.
  *
  * Narrowing semantics (aligned with `narrowRuleForEnvRemoval`):
@@ -143,6 +178,23 @@ export function removeRuleAtEnvIndex(
   return { rules: next, removed };
 }
 
+/**
+ * Remove a rule by its ID from the flat array.
+ * Preferred over `removeRuleAtEnvIndex` for v2 callers that have a stable
+ * `rule.id` — removes globally regardless of env scope, including pending
+ * rules (`environments: []`) that don't project into any env.
+ */
+export function removeRuleById(
+  rules: FeatureRule[],
+  ruleId: string,
+): { rules: FeatureRule[]; removed: FeatureRule } {
+  const idx = rules.findIndex((r) => r.id === ruleId);
+  if (idx === -1) throw new Error("Unknown rule");
+  const removed = rules[idx];
+  const next = [...rules.slice(0, idx), ...rules.slice(idx + 1)];
+  return { rules: next, removed };
+}
+
 export function moveRuleInEnv(
   rules: FeatureRule[],
   environment: string,
@@ -205,10 +257,6 @@ export function stampRuleForEnvs<T extends FeatureRule>(
   rule: T,
   environments: string[],
 ): T {
-  if (rule.allEnvironments === true) {
-    const { environments: _drop, ...rest } = rule;
-    return { ...rest, allEnvironments: true } as T;
-  }
   return {
     ...rule,
     allEnvironments: false,

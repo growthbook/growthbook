@@ -375,7 +375,12 @@ export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
   /** Display name. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
   name: z.string().optional(),
-  /** If set, patches are scoped to this environment only; absent/null applies to all environments sharing the ruleId. */
+  /**
+   * @deprecated New ramp actions must omit this field and target exclusively
+   * by `ruleId`.  Retained as optional/nullable so pre-migration actions
+   * stored in the DB continue to deserialize and resolve correctly via
+   * `resolveRampTargets` in `flattenRules.ts`.
+   */
   environment: z.string().optional().nullable(),
   /** Load steps and endActions from a saved template. Explicit steps/endActions take precedence. */
   templateId: z.string().optional(),

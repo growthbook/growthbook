@@ -143,10 +143,14 @@ interface SortableProps {
   rule: FeatureRule;
   feature: FeatureInterface;
   environment: string;
+  /** Stable rule ID for edit/duplicate addressing. When present, the modal
+   * looks up the rule by ID rather than by (environment, i) projection. */
+  ruleId?: string;
   mutate: () => void;
   setRuleModal: (args: {
     environment: string;
     i: number;
+    ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
     detachRampOnSave?: boolean;
@@ -208,6 +212,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule,
       feature,
       environment,
+      ruleId,
       setRuleModal,
       mutate,
       handle,
@@ -521,7 +526,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <DropdownMenuGroup>
                           <DropdownMenuItem
                             onClick={() => {
-                              setRuleModal({ environment, i, mode: "edit" });
+                              setRuleModal({ environment, i, ruleId, mode: "edit" });
                               setDropdownOpen(false);
                             }}
                           >
@@ -533,6 +538,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 setRuleModal({
                                   environment,
                                   i,
+                                  ruleId,
                                   mode: "duplicate",
                                 });
                                 setDropdownOpen(false);
@@ -558,12 +564,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    environment,
+                                    ...(rule.id
+                                      ? { ruleId: rule.id }
+                                      : { environment, i }),
                                     rule: {
                                       ...rule,
                                       enabled: !rule.enabled,
                                     },
-                                    i,
                                   }),
                                 },
                               );
@@ -590,9 +597,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                       {
                                         method: "PUT",
                                         body: JSON.stringify({
-                                          environment,
+                                          ...(rule.id
+                                            ? { ruleId: rule.id }
+                                            : { environment, i }),
                                           rule,
-                                          i,
                                           rampSchedule: { mode: "clear" },
                                         }),
                                       },
@@ -874,10 +882,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   `/feature/${feature.id}/${version}/rule`,
                                   {
                                     method: "DELETE",
-                                    body: JSON.stringify({
-                                      environment,
-                                      i,
-                                    }),
+                                    body: JSON.stringify(
+                                      rule.id
+                                        ? { ruleId: rule.id }
+                                        : { environment, i },
+                                    ),
                                   },
                                 );
                                 await mutate();

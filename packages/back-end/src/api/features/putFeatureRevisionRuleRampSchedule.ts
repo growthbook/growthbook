@@ -93,11 +93,7 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       );
     }
 
-    const action = normalizeInlineRampSchedule(
-      scheduleInput,
-      canonicalRuleId,
-      environment,
-    );
+    const action = normalizeInlineRampSchedule(scheduleInput, canonicalRuleId);
 
     // Replace any existing pending ramp action for this rule. Filter tolerant
     // to both the canonical id AND the caller-provided id, so stale entries

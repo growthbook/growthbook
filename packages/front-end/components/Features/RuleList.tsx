@@ -64,6 +64,7 @@ export default function RuleList({
   setRuleModal: (args: {
     environment: string;
     i: number;
+    ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
   }) => void;
@@ -216,17 +217,28 @@ export default function RuleList({
 
             if (oldIndex === -1 || newIndex === -1) return;
 
+            // Optimistic UI update uses env-projected indices.
             const newRules = arrayMove(items, oldIndex, newIndex);
-
             setItems(newRules);
+
+            // API uses flat indices — the backend always operates on
+            // feature.rules[] directly and doesn't need the env context.
+            const flatRules = feature.rules ?? [];
+            const flatOldIndex = flatRules.findIndex(
+              (r) => r.id === (active.id as string),
+            );
+            const flatNewIndex = flatRules.findIndex(
+              (r) => r.id === (over.id as string),
+            );
+            if (flatOldIndex === -1 || flatNewIndex === -1) return;
+
             const res = await apiCall<{ version: number }>(
               `/feature/${feature.id}/${version}/reorder`,
               {
                 method: "POST",
                 body: JSON.stringify({
-                  environment,
-                  from: oldIndex,
-                  to: newIndex,
+                  from: flatOldIndex,
+                  to: flatNewIndex,
                 }),
               },
             );

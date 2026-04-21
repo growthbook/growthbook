@@ -54,20 +54,17 @@ function normalizeRevisionRampCreateAction(
 export const DRAFT_STATUSES = ACTIVE_DRAFT_STATUSES;
 
 // Build a RevisionRampCreateAction from an inline ramp schedule input.
-// `environment` is optional: post-v2 authoring can target by `ruleId` alone.
-// When omitted the stored action's env is left undefined, which flows through
-// to `target.environment = null` at publish time (wildcard — patches apply to
-// every env sharing the resolved rule).
+// `environment` is intentionally omitted — v2 ramp actions target by
+// `ruleId` alone.  Legacy stored actions may still carry an `environment`
+// field that the resolver handles, but new emissions must not set it.
 export function normalizeInlineRampSchedule(
   input: InlineRampScheduleInput,
   ruleId: string,
-  environment?: string,
 ): RevisionRampCreateAction {
   return normalizeRevisionRampCreateAction({
     ...input,
     mode: "create" as const,
     ruleId,
-    environment,
     steps: input.steps ?? [],
   });
 }
@@ -142,9 +139,9 @@ export function assertValidEnvironment(
 }
 
 // Build a RevisionRampCreateAction from start/end dates (enable/disable).
+// `environment` is intentionally absent — new actions target by `ruleId` only.
 export function buildScheduleRampAction(
   ruleId: string,
-  environment: string,
   startDate?: string | null,
   endDate?: string | null,
 ): RevisionRampCreateAction {
@@ -168,7 +165,6 @@ export function buildScheduleRampAction(
     mode: "create",
     name: "Rule schedule",
     ruleId,
-    environment,
     steps,
   };
 

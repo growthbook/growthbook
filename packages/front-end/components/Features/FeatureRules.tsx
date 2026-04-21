@@ -117,44 +117,50 @@ export default function FeatureRules({
     if (!pendingRuleEdit) return;
     const { environment, ruleId } = pendingRuleEdit;
 
+    // Try preferred env first, then any env the rule projects into.
     const preferredRules = getRules(feature, environment);
     const preferredIdx = preferredRules.findIndex((r) => r.id === ruleId);
     if (preferredIdx !== -1) {
       setEnv(environment);
-      setRuleModal({ i: preferredIdx, environment, mode: "edit" });
+      setRuleModal({ i: preferredIdx, environment, ruleId, mode: "edit" });
       onPendingRuleEditHandled?.();
       return;
     }
 
-    // Fall back: find any env the rule projects into. Covers the case where
-    // the caller's env was stale (rule since re-scoped away) and also
-    // `allEnvironments` / multi-env rules whose first applicable env isn't
-    // the caller's.
     for (const e of environments) {
       if (e.id === environment) continue;
       const projected = getRules(feature, e.id);
       const idx = projected.findIndex((r) => r.id === ruleId);
       if (idx !== -1) {
         setEnv(e.id);
-        setRuleModal({ i: idx, environment: e.id, mode: "edit" });
+        setRuleModal({ i: idx, environment: e.id, ruleId, mode: "edit" });
         onPendingRuleEditHandled?.();
         return;
       }
     }
 
-    // Pending rule (`environments: []`) has no projection anywhere. The
-    // modal's (env, index) contract can't address it, so surface a no-op
-    // rather than silently fail. (A future v2-native edit-by-id flow will
-    // remove this gap.)
+    // Pending rule (environments: []) doesn't project into any env tab.
+    // Switch to the "All environments" flat view and open by ruleId.
+    const flatRule = (feature.rules ?? []).find((r) => r.id === ruleId);
+    if (flatRule) {
+      setEnv(null);
+      setRuleModal({
+        i: -1,
+        environment: environments[0]?.id ?? "",
+        ruleId,
+        mode: "edit",
+      });
+      onPendingRuleEditHandled?.();
+      return;
+    }
 
-    console.warn(
-      `[deep-link] rule "${ruleId}" is not visible in any environment tab; open it from the Pending section once scope is set.`,
-    );
+    console.warn(`[deep-link] rule "${ruleId}" not found in feature.rules`);
     onPendingRuleEditHandled?.();
   }, [pendingRuleEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ruleModal, setRuleModal] = useState<{
     i: number;
     environment: string;
+    ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
     detachRampOnSave?: boolean;
@@ -328,11 +334,7 @@ export default function FeatureRules({
                       `/feature/${feature.id}/${currentVersion}/reorder`,
                       {
                         method: "POST",
-                        body: JSON.stringify({
-                          environment: "",
-                          from: oldIndex,
-                          to: newIndex,
-                        }),
+                        body: JSON.stringify({ from: oldIndex, to: newIndex }),
                       },
                     );
                     await mutate();
@@ -347,21 +349,14 @@ export default function FeatureRules({
                 >
                   <Flex direction="column" gap="3">
                     {allEnvItems.map((rule) => {
-                      // Compute the canonical (env, index) pair for the edit modal.
-                      // Rules with specific envs use their first listed env; rules
-                      // covering all envs (or legacy undefined) use environments[0].
-                      // Pending rules (environments: []) fall back to environments[0]
-                      // with editIndex=-1 — a known gap until v2 edit-by-id lands.
-                      const canonicalEnv =
+                      // All-envs view: address rules by ID, not by env-projected
+                      // index. This works for all rules including pending ones
+                      // (environments: []) that don't project into any env tab.
+                      const displayEnv =
                         rule.allEnvironments === true ||
-                        rule.environments === undefined ||
-                        rule.environments.length === 0
+                        !rule.environments?.length
                           ? (environments[0]?.id ?? "")
                           : rule.environments[0];
-                      const editIndex = getRules(
-                        feature,
-                        canonicalEnv,
-                      ).findIndex((r) => r.id === rule.id);
                       const rampSchedule = rampSchedules?.find((rs) =>
                         rs.targets.some((t) => t.ruleId === rule.id),
                       );
@@ -370,8 +365,9 @@ export default function FeatureRules({
                           key={rule.id}
                           rule={rule}
                           feature={feature}
-                          environment={canonicalEnv}
-                          i={editIndex}
+                          environment={displayEnv}
+                          i={-1}
+                          ruleId={rule.id}
                           mutate={mutate}
                           setRuleModal={setRuleModal}
                           unreachable={false}
@@ -397,16 +393,11 @@ export default function FeatureRules({
                           (r) => r.id === allEnvDragId,
                         );
                         if (!rule) return null;
-                        const canonicalEnv =
+                        const displayEnv =
                           rule.allEnvironments === true ||
-                          rule.environments === undefined ||
-                          rule.environments.length === 0
+                          !rule.environments?.length
                             ? (environments[0]?.id ?? "")
                             : rule.environments[0];
-                        const editIndex = getRules(
-                          feature,
-                          canonicalEnv,
-                        ).findIndex((r) => r.id === rule.id);
                         const rampSchedule = rampSchedules?.find((rs) =>
                           rs.targets.some((t) => t.ruleId === rule.id),
                         );
@@ -414,8 +405,9 @@ export default function FeatureRules({
                           <Rule
                             rule={rule}
                             feature={feature}
-                            environment={canonicalEnv}
-                            i={editIndex}
+                            environment={displayEnv}
+                            i={-1}
+                            ruleId={rule.id}
                             mutate={mutate}
                             setRuleModal={setRuleModal}
                             unreachable={false}
@@ -524,6 +516,7 @@ export default function FeatureRules({
           feature={feature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
+          ruleId={ruleModal.ruleId}
           safeRolloutsMap={safeRolloutsMap}
           environment={ruleModal.environment}
           mutate={mutate}

@@ -62,8 +62,18 @@ export type PostFeatureRuleBody = {
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
-  environment: string;
-  i: number;
+  /**
+   * Preferred rule locator. Stable across env-scope changes; works for
+   * pending rules (`environments: []`) that don't project into any env.
+   */
+  ruleId?: string;
+  /**
+   * Flat (unfiltered) index fallback — position in `revision.rules[]`,
+   * NOT an env-projected index. Used when `ruleId` is absent.
+   */
+  i?: number;
+  /** @deprecated env-projected index addressing; kept for caller compat. */
+  environment?: string;
   rampSchedule?:
     | InlineRampScheduleCreate
     | InlineRampScheduleUpdate

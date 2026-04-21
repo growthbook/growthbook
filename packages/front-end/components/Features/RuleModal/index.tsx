@@ -93,6 +93,10 @@ export interface Props {
   mutate: () => void;
   i: number;
   environment: string;
+  /** Stable rule ID. When provided (edit/duplicate), the rule is looked up by
+   * ID from `feature.rules` directly — works for pending rules (`environments:
+   * []`) that don't project into any env tab. */
+  ruleId?: string;
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
@@ -127,6 +131,7 @@ export default function RuleModal({
   i,
   mutate,
   environment,
+  ruleId,
   defaultType = "",
   setVersion,
   mode,
@@ -141,8 +146,13 @@ export default function RuleModal({
 
   const attributeSchema = useAttributeSchema(false, feature.project);
 
+  // When a stable ruleId is provided (edit/duplicate from the all-envs view),
+  // look up by ID directly so pending rules (environments:[]) are reachable.
+  // Fall back to env-projected index for env-tab callers that don't pass ruleId.
   const rules = getRules(feature, environment);
-  const rule: (typeof rules)[number] | undefined = rules[i];
+  const rule: (typeof rules)[number] | undefined = ruleId
+    ? (feature.rules ?? []).find((r) => r.id === ruleId)
+    : rules[i];
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -1174,8 +1184,8 @@ export default function RuleModal({
               method: "PUT",
               body: JSON.stringify({
                 rule: values,
-                environment,
-                i,
+                // Prefer stable ruleId addressing; fall back to flat index.
+                ...(rule?.id ? { ruleId: rule.id } : { i, environment }),
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),

@@ -286,14 +286,13 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, environment)
+      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       // A startDate implies the rule should be disabled until the ramp fires.
       if (schedule.startDate) rule.enabled = false;
       resolvedRampAction = buildScheduleRampAction(
         rule.id,
-        environment,
         schedule.startDate,
         schedule.endDate,
       );

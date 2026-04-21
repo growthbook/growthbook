@@ -1,6 +1,5 @@
 import isEqual from "lodash/isEqual";
-import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
-import { ruleAppliesToEnv } from "shared/util";
+import { ruleAppliesToEnv, resetReviewOnChange } from "shared/util";
 import {
   RevisionRampCreateAction,
   ExperimentRefRule,
@@ -11,8 +10,8 @@ import {
   RulePatchInput,
   putFeatureRevisionRuleValidator,
 } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -317,11 +316,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(
-          inlineRampSchedule,
-          updatedRule.id,
-          environment,
-        )
+      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       const hasLegacySchedule =
@@ -339,7 +334,6 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         if (schedule.startDate) updatedRule.enabled = false;
         resolvedRampAction = buildScheduleRampAction(
           updatedRule.id,
-          environment,
           schedule.startDate,
           schedule.endDate,
         );

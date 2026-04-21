@@ -106,12 +106,12 @@ import {
   assertCanAutoPublish,
 } from "back-end/src/services/features";
 import {
-  moveRuleInEnv,
   moveFlatRule,
   projectRulesForEnv,
   removeRuleAtEnvIndex,
   stampRuleForEnvs,
-  updateRuleAtEnvIndex,
+  updateRuleAtFlatIndex,
+  removeRuleById,
 } from "back-end/src/util/revisionRuleOps";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import {
@@ -1989,11 +1989,6 @@ export async function postFeatureRule(
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
-        // Single environment: scope patches to that env. Multiple: no scope (affects all matching ruleIds).
-        environment:
-          selectedEnvironments.length === 1
-            ? selectedEnvironments[0]
-            : undefined,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
         // null = explicitly cleared (no end actions); undefined = not set (fall back to template)
         endActions:
@@ -2767,7 +2762,13 @@ export async function putFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, i, rampSchedule: rampSchedulePayload } = req.body;
+  const {
+    environment,
+    rule,
+    ruleId,
+    i,
+    rampSchedule: rampSchedulePayload,
+  } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -2778,8 +2779,12 @@ export async function putFeatureRule(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!environmentIds.includes(environment)) {
-    throw new Error("Invalid environment");
+  // Legacy env-validation: only enforced when the caller uses the old
+  // (environment, i) addressing and no ruleId is supplied.
+  if (!ruleId && i === undefined && environment) {
+    if (!environmentIds.includes(environment)) {
+      throw new Error("Invalid environment");
+    }
   }
 
   if (
@@ -2839,20 +2844,37 @@ export async function putFeatureRule(
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  // Resolve which rule we're editing.
+  //   ruleId (preferred) — stable ID; works for pending rules (environments:[])
+  //   i (fallback)       — flat unfiltered index in revision.rules[]
+  const existingRules = cloneDeep(revision.rules ?? []);
+  let flatIdx: number;
+  if (ruleId) {
+    flatIdx = existingRules.findIndex((r) => r.id === ruleId);
+    if (flatIdx === -1) throw new Error("Unknown rule");
+  } else if (i !== undefined) {
+    if (!existingRules[i]) throw new Error("Unknown rule");
+    flatIdx = i;
+  } else {
+    throw new Error("Must provide ruleId or i to identify the rule");
+  }
+  const existingRule = existingRules[flatIdx];
+  const existingRuleId = existingRule.id;
+
+  // Derive affected environments from the rule's own scope for permission checks,
+  // review gates, and audit records — not from the caller-supplied `environment`.
+  const ruleChangedEnvs: string[] =
+    existingRule.allEnvironments || existingRule.environments === undefined
+      ? environmentIds
+      : (existingRule.environments ?? []);
+
   const resetReview = resetReviewOnChange({
     feature,
-    changedEnvironments: [environment],
+    changedEnvironments: ruleChangedEnvs,
     defaultValueChanged: false,
     settings: org?.settings,
   });
-
-  // Capture the existing rule ID before editing (used for ramp schedule operations).
-  // v2: revision.rules is a flat FeatureRule[]; project to the env first so
-  // "position i in env X" maps consistently to a single rule.
-  const existingRuleId: string | undefined = projectRulesForEnv(
-    revision.rules ?? [],
-    environment,
-  ).envRules[i]?.id;
 
   // Prepare ramp action changes if needed (will be combined with rule changes)
   let rampActionsUpdate:
@@ -2860,12 +2882,10 @@ export async function putFeatureRule(
     | RevisionRampDetachAction
     | undefined;
   if (rampSchedulePayload && existingRuleId) {
-    const ruleId = existingRuleId;
     if (rampSchedulePayload.mode === "create") {
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
-        environment,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
         // null = explicitly cleared (no end actions); undefined = not set (fall back to template)
         endActions:
@@ -2874,18 +2894,18 @@ export async function putFeatureRule(
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
-        ruleId,
+        ruleId: existingRuleId,
       };
       rampActionsUpdate = createAction;
     } else if (rampSchedulePayload.mode === "detach") {
       const hasPendingCreate = (revision.rampActions ?? []).some(
-        (a) => a.mode === "create" && a.ruleId === ruleId,
+        (a) => a.mode === "create" && a.ruleId === existingRuleId,
       );
       if (!hasPendingCreate) {
         const detachAction: RevisionRampDetachAction = {
           mode: "detach",
           rampScheduleId: rampSchedulePayload.rampScheduleId,
-          ruleId,
+          ruleId: existingRuleId,
           deleteScheduleWhenEmpty: rampSchedulePayload.deleteScheduleWhenEmpty,
         };
         rampActionsUpdate = detachAction;
@@ -2894,19 +2914,12 @@ export async function putFeatureRule(
     // "clear" removes any pending ramp action for this rule without adding a new one
   }
 
-  // Prepare rule update changes (v2: flat FeatureRule[] with env-projected
-  // index semantics). Partial updates are merged into the rule at env-pos
-  // `i`, preserving the rule's original env scope and id.
-  //
-  // Scope-invariant: when the merged rule ends up with `allEnvironments:
-  // true`, drop any stale `environments` list from the existing rule so we
-  // don't persist a contradictory pair (caller UI sends an empty list but the
-  // merge would otherwise retain the old explicit envs).
-  const existingRules = cloneDeep(revision.rules ?? []);
-  const { rules: nextRules } = updateRuleAtEnvIndex(
+  // Update the rule in the flat array at the resolved flat index.
+  // Scope-invariant: when the merged rule ends up with `allEnvironments: true`,
+  // drop any stale `environments` list so we don't persist a contradictory pair.
+  const { rules: nextRules } = updateRuleAtFlatIndex(
     existingRules,
-    environment,
-    i,
+    flatIdx,
     (existing) => {
       const merged = {
         ...existing,
@@ -2956,7 +2969,7 @@ export async function putFeatureRule(
     {
       user: res.locals.eventAudit,
       action: "edit rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
-      subject: `${environment} rule ${i}`,
+      subject: `rule ${existingRuleId ?? flatIdx}`,
       value: JSON.stringify(rule),
     },
     resetReview,
@@ -2966,7 +2979,7 @@ export async function putFeatureRule(
     feature,
     updatedRevisionAfterRuleEdit ?? revision,
     "rule.update",
-    { environments: [environment] },
+    { environments: ruleChangedEnvs },
   );
 
   // Handle real-time "update" mode separately (operates on live schedule, not revision-bound)
@@ -3267,7 +3280,7 @@ export async function postFeatureToggle(
 
 export async function postFeatureMoveRule(
   req: AuthRequest<
-    { environment: string; from: number; to: number },
+    { from: number; to: number },
     { id: string; version: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
@@ -3275,15 +3288,11 @@ export async function postFeatureMoveRule(
   const context = getContextFromReq(req);
   const { environments, org } = context;
   const { id, version } = req.params;
-  const { environment, from, to } = req.body;
+  const { from, to } = req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
-  }
-  // environment="" signals a flat reorder from the "All environments" view.
-  if (environment !== "" && !environments.includes(environment)) {
-    throw new Error("Invalid environment");
   }
 
   if (
@@ -3296,18 +3305,19 @@ export async function postFeatureMoveRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const existingRules = cloneDeep(revision.rules ?? []);
-  const isFlatReorder = environment === "";
 
-  // Flat reorder: operates directly on feature.rules[] without env projection.
-  // Env-scoped reorder: moves within the projected slice, preserving other-env positions.
-  const { rules: nextRules, moved: rule } = isFlatReorder
-    ? moveFlatRule(existingRules, from, to)
-    : moveRuleInEnv(existingRules, environment, from, to);
+  // Always operate on the flat rules array — callers send flat indices.
+  const { rules: nextRules, moved: rule } = moveFlatRule(
+    existingRules,
+    from,
+    to,
+  );
 
-  const changedEnvironments = isFlatReorder ? environments : [environment];
-  const auditSubject = isFlatReorder
-    ? `in all environments from position ${from + 1} to ${to + 1}`
-    : `in ${environment} from position ${from + 1} to ${to + 1}`;
+  // Derive changed environments from the moved rule's actual scope.
+  const changedEnvironments = rule.allEnvironments
+    ? environments
+    : (rule.environments ?? []);
+  const auditSubject = `from position ${from + 1} to ${to + 1}`;
 
   const changes = { rules: nextRules };
   const resetReview = resetReviewOnChange({
@@ -3370,21 +3380,27 @@ export async function getDraftandReviewRevisions(
 
 export async function deleteFeatureRule(
   req: AuthRequest<
-    { environment: string; i: number },
+    { environment: string; i: number; ruleId?: string },
     { id: string; version: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
-  const { environments, org } = context;
+  const { org } = context;
   const { id, version } = req.params;
-  const { environment, i } = req.body;
+  const { environment, i, ruleId } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  if (!environments.includes(environment)) {
+
+  const allEnvironments = getEnvironments(context.org);
+  const featureEnvs = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = featureEnvs.map((e) => e.id);
+
+  // Legacy env-validation only enforced when using old (environment, i) path.
+  if (!ruleId && environment && !environmentIds.includes(environment)) {
     throw new Error("Invalid environment");
   }
 
@@ -3396,28 +3412,42 @@ export async function deleteFeatureRule(
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  // v2: revision.rules is a flat FeatureRule[]. Remove the rule projected
-  // at env-position `i`; single-env rules are removed globally, multi-env
-  // scope is narrowed (see revisionRuleOps.removeRuleAtEnvIndex). Pass the
-  // project-filtered applicable envs so `allEnvironments: true` rules narrow
-  // to `applicable \ {env}` instead of being deleted globally.
   const existingRules = cloneDeep(revision.rules ?? []);
-  const applicableEnvs = getApplicableEnvIds(
-    getEnvironments(org),
-    feature.project,
-  );
-  const { rules: nextRules, removed: rule } = removeRuleAtEnvIndex(
-    existingRules,
-    environment,
-    i,
-    applicableEnvs,
-  );
+
+  let nextRules: FeatureRule[];
+  let rule: FeatureRule;
+  let ruleChangedEnvs: string[];
+
+  if (ruleId) {
+    // v2 preferred path: remove by stable rule ID, no env projection needed.
+    ({ rules: nextRules, removed: rule } = removeRuleById(
+      existingRules,
+      ruleId,
+    ));
+    ruleChangedEnvs =
+      rule.allEnvironments || rule.environments === undefined
+        ? environmentIds
+        : (rule.environments ?? []);
+  } else {
+    // Legacy env-projected path for backward compat.
+    const applicableEnvs = getApplicableEnvIds(
+      getEnvironments(org),
+      feature.project,
+    );
+    ({ rules: nextRules, removed: rule } = removeRuleAtEnvIndex(
+      existingRules,
+      environment,
+      i,
+      applicableEnvs,
+    ));
+    ruleChangedEnvs = [environment];
+  }
+
   const changes = { rules: nextRules };
 
   const resetReview = resetReviewOnChange({
     feature,
-    changedEnvironments: [environment],
+    changedEnvironments: ruleChangedEnvs,
     defaultValueChanged: false,
     settings: org?.settings,
   });
@@ -3429,7 +3459,7 @@ export async function deleteFeatureRule(
     {
       user: res.locals.eventAudit,
       action: "delete rule",
-      subject: `in ${environment} (position ${i + 1})`,
+      subject: `rule ${ruleId ?? `${environment} position ${i + 1}`}`,
       value: JSON.stringify(rule),
     },
     resetReview,
@@ -3439,7 +3469,7 @@ export async function deleteFeatureRule(
     feature,
     updatedRevisionAfterRuleDelete ?? revision,
     "rule.delete",
-    { environments: [environment] },
+    { environments: ruleChangedEnvs },
   );
 
   res.status(200).json({
