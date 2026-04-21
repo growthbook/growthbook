@@ -1,6 +1,12 @@
-import { putFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
+import {
+  putFeatureRevisionRuleRampScheduleValidator,
+  putFeatureRevisionRuleRampScheduleV2Validator,
+} from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
-import { toApiRevision } from "back-end/src/services/features";
+import {
+  toApiRevision,
+  toApiRevisionV2,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -152,6 +158,91 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     );
 
     return { revision: toApiRevision(finalRevision, req.context, feature) };
+  } catch (err) {
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
+  }
+});
+
+export const putFeatureRevisionRuleRampScheduleV2 = createApiRequestHandler(
+  putFeatureRevisionRuleRampScheduleV2Validator,
+)(async (req) => {
+  // V2: no `environment` in body. All other logic is identical.
+  const feature = await getFeature(req.context, req.params.id);
+  if (!feature) throw new NotFoundError("Could not find feature");
+
+  if (
+    !req.context.permissions.canUpdateFeature(feature, {}) ||
+    !req.context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  const { ruleId } = req.params;
+  const { revisionTitle, revisionComment, ...scheduleInput } = req.body;
+
+  const { revision, created } = await resolveOrCreateRevision(
+    req.context,
+    req.organization.id,
+    feature,
+    req.params.version,
+    { title: revisionTitle, comment: revisionComment },
+  );
+
+  try {
+    if (!isDraftStatus(revision.status)) {
+      throw new BadRequestError(`Cannot edit a revision with status "${revision.status}"`);
+    }
+
+    const draftMatch = resolveRampTarget({ ruleId, environment: null }, revision.rules ?? []);
+    const liveMatch = resolveRampTarget({ ruleId, environment: null }, feature.rules ?? []);
+    const match = draftMatch ?? liveMatch;
+    if (!match) throw new NotFoundError(`Rule "${ruleId}" not found`);
+
+    const canonicalRuleId = match.id;
+
+    const liveSchedules = await req.context.models.rampSchedules.findByTargetRule(canonicalRuleId, undefined);
+    if (liveSchedules.length > 0) {
+      throw new BadRequestError(
+        `Rule "${canonicalRuleId}" already has a live ramp schedule.` +
+          ` Update it via PUT /api/v2/ramp-schedules/${liveSchedules[0].id}.`,
+      );
+    }
+
+    const action = normalizeInlineRampSchedule(scheduleInput, canonicalRuleId);
+
+    const filtered = (revision.rampActions ?? []).filter(
+      (a) => a.ruleId !== canonicalRuleId && a.ruleId !== ruleId,
+    );
+    const newRampActions = [...filtered, action];
+
+    const orgEnvs = getEnvironments(req.organization);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+    const changedEnvironments = ruleFootprint(match, applicableEnvs);
+
+    await updateRevision(
+      req.context,
+      feature,
+      revision,
+      { rampActions: newRampActions },
+      { user: req.context.auditUser, action: "set ramp schedule", subject: canonicalRuleId, value: JSON.stringify(action) },
+      resetReviewOnChange({ feature, changedEnvironments, defaultValueChanged: false, settings: req.organization.settings }),
+    );
+
+    const updated = await getRevision({
+      context: req.context,
+      organization: req.organization.id,
+      featureId: feature.id,
+      version: revision.version,
+    });
+    const finalRevision = updated ?? revision;
+
+    await recordRevisionUpdate(req.context, feature, finalRevision, "rule.rampSchedule.set", {
+      environments: changedEnvironments,
+      auditDetails: { ruleId: canonicalRuleId },
+    });
+
+    return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

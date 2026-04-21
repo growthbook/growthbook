@@ -1,4 +1,7 @@
-import { toggleFeatureValidator } from "shared/validators";
+import {
+  toggleFeatureValidator,
+  toggleFeatureV2Validator,
+} from "shared/validators";
 import {
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
@@ -16,6 +19,7 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   getApiFeatureObj,
+  getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
@@ -181,3 +185,153 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     };
   },
 );
+
+export const toggleFeatureV2 = createApiRequestHandler(
+  toggleFeatureV2Validator,
+)(async (req) => {
+  // Identical logic to v1 — only the response serializer (getApiFeatureObjV2)
+  // differs. Static imports are shared with the v1 handler above.
+  const feature = await getFeature(req.context, req.params.id);
+  if (!feature) {
+    throw new Error("Could not find a feature with that key");
+  }
+
+  const environmentIds = getEnvironmentIdsFromOrg(req.organization);
+
+  if (
+    !req.context.permissions.canUpdateFeature(feature, {}) ||
+    !req.context.permissions.canPublishFeature(
+      feature,
+      Object.keys(req.body.environments),
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  const toggles: Record<string, boolean> = {};
+  Object.keys(req.body.environments).forEach((env) => {
+    if (!environmentIds.includes(env)) {
+      throw new Error(`Unknown environment: '${env}'`);
+    }
+    const state = [true, "true", "1", 1].includes(req.body.environments[env]);
+    toggles[env] = state;
+  });
+
+  const changedToggles: Record<string, boolean> = {};
+  for (const [env, state] of Object.entries(toggles)) {
+    if (feature.environmentSettings?.[env]?.enabled !== state) {
+      changedToggles[env] = state;
+    }
+  }
+
+  const groupMap = await getSavedGroupMap(req.context);
+  const experimentMap = await getExperimentMapForFeature(
+    req.context,
+    feature.id,
+  );
+
+  if (Object.keys(changedToggles).length === 0) {
+    const revision = await getRevision({
+      context: req.context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: feature.version,
+    });
+    const safeRolloutMap =
+      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    return {
+      feature: getApiFeatureObjV2({
+        feature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+        revision,
+        safeRolloutMap,
+      }),
+    };
+  }
+
+  const canBypass =
+    !!req.context.org.settings?.restApiBypassesReviews ||
+    req.context.permissions.canBypassApprovalChecks(feature);
+  const liveRevision = await getRevision({
+    context: req.context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!liveRevision)
+    throw new Error("Could not load live revision for feature");
+
+  const fakeRevision = { ...liveRevision, environmentsEnabled: changedToggles };
+  const reviewRequired = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: liveRevision,
+    revision: fakeRevision,
+    allEnvironments: environmentIds,
+    settings: req.organization.settings,
+    requireApprovalsLicensed:
+      req.context.hasPremiumFeature("require-approvals"),
+  });
+
+  if (reviewRequired && !canBypass) {
+    const affectedEnvs = getDraftAffectedEnvironments(
+      fakeRevision,
+      liveRevision,
+      environmentIds,
+    );
+    const envList =
+      affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
+    throw new PermissionError(
+      `This feature requires a review before publishing changes to: ${envList}. ` +
+        "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+        "or use a role/token that grants bypassApprovalChecks on this project.",
+    );
+  }
+
+  const revision = await createRevision({
+    context: req.context,
+    feature,
+    user: req.eventAudit,
+    baseVersion: feature.version,
+    comment: "Created via REST API",
+    environments: environmentIds,
+    publish: true,
+    changes: { environmentsEnabled: changedToggles },
+    org: req.organization,
+    canBypassApprovalChecks: true,
+  });
+
+  const updatedFeature = await applyRevisionChanges(
+    req.context,
+    feature,
+    revision,
+    { environmentsEnabled: changedToggles },
+  );
+
+  await req.audit({
+    event: "feature.toggle",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsUpdate(feature, updatedFeature),
+    reason: req.body.reason,
+  });
+
+  const latestRevision = await getRevision({
+    context: req.context,
+    organization: updatedFeature.organization,
+    featureId: updatedFeature.id,
+    version: updatedFeature.version,
+  });
+  const safeRolloutMap =
+    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+  return {
+    feature: getApiFeatureObjV2({
+      feature: updatedFeature,
+      organization: req.organization,
+      groupMap,
+      experimentMap,
+      revision: latestRevision,
+      safeRolloutMap,
+    }),
+  };
+});

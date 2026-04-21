@@ -61,6 +61,10 @@ export type ApiEndpointSpec<
     z.infer<ResponseSchema>
   >;
   excludeFromSpec?: boolean;
+  version?: "v1" | "v2";
+  deprecated?: boolean;
+  /** RFC 8594 deprecation timestamp, e.g. "@1776988800". Emitted as the `Deprecation` response header. */
+  deprecationDate?: string;
 };
 
 function validate<T extends ZodType>(
@@ -119,6 +123,11 @@ export type OpenApiRoute<
     ResponseSchema
   >;
   middleware?: RequestHandler[];
+  /** API version prefix for the OpenAPI spec path (default: "v1"). */
+  version?: "v1" | "v2";
+  deprecated?: boolean;
+  /** RFC 8594 deprecation timestamp, e.g. "@1776988800". Emitted as the `Deprecation` response header. */
+  deprecationDate?: string;
   summary?: string;
   description?: string;
   tags?: string[];
@@ -159,6 +168,9 @@ export function createApiRequestHandler<
     path,
     middleware,
     excludeFromSpec,
+    version,
+    deprecated,
+    deprecationDate,
   } = data;
 
   return (
@@ -246,6 +258,9 @@ export function createApiRequestHandler<
       tags,
       exampleRequest,
       middleware,
+      version,
+      deprecated,
+      deprecationDate,
       schemas: {
         params: paramsSchema,
         body: bodySchema,

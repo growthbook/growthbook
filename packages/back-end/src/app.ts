@@ -358,8 +358,10 @@ app.get(
 );
 
 // Secret API routes (no JWT or CORS)
+// Routes register themselves with version prefixes (/v1/..., /v2/...) so we
+// mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
-  "/api/v1",
+  "/api",
   // TODO add authentication
   cors({
     origin: "*",

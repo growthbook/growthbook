@@ -3,7 +3,9 @@ import { v4 as uuidv4 } from "uuid";
 import {
   RevisionRampCreateAction,
   postFeatureRevisionRuleAddValidator,
+  postFeatureRevisionRuleAddV2Validator,
   RuleCreateInput,
+  RuleCreateInputV2,
 } from "shared/validators";
 import type {
   ExperimentRefRule,
@@ -15,7 +17,10 @@ import type {
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { toApiRevision } from "back-end/src/services/features";
+import {
+  toApiRevision,
+  toApiRevisionV2,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -394,6 +399,210 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       } catch {
         // best effort
       }
+    }
+    await discardIfJustCreated(req.context, revision, created);
+    throw err;
+  }
+});
+
+export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
+  postFeatureRevisionRuleAddV2Validator,
+)(async (req) => {
+  const feature = await getFeature(req.context, req.params.id);
+  if (!feature) throw new NotFoundError("Could not find feature");
+
+  if (
+    !req.context.permissions.canUpdateFeature(feature, {}) ||
+    !req.context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  const { schedule } = req.body;
+  const inlineRampSchedule = req.body.rampSchedule;
+  const ruleInput = req.body.rule as RuleCreateInputV2;
+
+  const { revision, created } = await resolveOrCreateRevision(
+    req.context,
+    req.organization.id,
+    feature,
+    req.params.version,
+    { title: req.body.revisionTitle, comment: req.body.revisionComment },
+  );
+
+  let createdSafeRolloutId: string | undefined;
+  let linkedExperimentId: string | undefined;
+  let linkedHoldoutId: string | undefined;
+  try {
+    if (!isDraftStatus(revision.status)) {
+      throw new BadRequestError(`Cannot edit a revision with status "${revision.status}"`);
+    }
+
+    if (ruleInput.type === "experiment-ref") {
+      const anyMissing = ruleInput.variations.some((v) => !v.variationId);
+      const allMissing = ruleInput.variations.every((v) => !v.variationId);
+      if (anyMissing && !allMissing) {
+        throw new BadRequestError(
+          "Either provide variationId for all variations or none; mixed inputs are not allowed.",
+        );
+      }
+      const needsHoldoutCheck = Boolean(feature.holdout?.id);
+      if (anyMissing || needsHoldoutCheck) {
+        const experiment = await getExperimentById(req.context, ruleInput.experimentId);
+        if (!experiment) throw new NotFoundError(`Could not find experiment "${ruleInput.experimentId}"`);
+
+        if (anyMissing) {
+          const phaseVariations = getLatestPhaseVariations(experiment);
+          if (phaseVariations.length < ruleInput.variations.length) {
+            throw new BadRequestError(`Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`);
+          }
+          ruleInput.variations = ruleInput.variations.map((v, i) => ({
+            variationId: phaseVariations[i].id,
+            value: v.value,
+          }));
+        }
+
+        if (needsHoldoutCheck && feature.holdout?.id) {
+          const expHasLinkedChanges = (experiment.linkedFeatures?.length ?? 0) > 0 || experiment.hasURLRedirects || experiment.hasVisualChangesets;
+          if (experiment.status !== "draft" || (experiment.holdoutId && experiment.holdoutId !== feature.holdout.id) || expHasLinkedChanges) {
+            throw new BadRequestError("Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.");
+          }
+          if (!experiment.holdoutId) {
+            await updateExperiment({ context: req.context, experiment, changes: { holdoutId: feature.holdout.id } });
+            linkedExperimentId = experiment.id;
+            const holdout = await req.context.models.holdout.getById(feature.holdout.id);
+            await req.context.models.holdout.updateById(feature.holdout.id, {
+              linkedExperiments: { ...holdout?.linkedExperiments, [experiment.id]: { id: experiment.id, dateAdded: new Date() } },
+            });
+            linkedHoldoutId = feature.holdout.id;
+          }
+        }
+      }
+    }
+
+    // V2: derive scope from the rule itself, not from a body `environment` field.
+    const { allEnvironments, environments, ...baseRuleInput } = ruleInput as RuleCreateInputV2 & { allEnvironments?: boolean; environments?: string[] };
+    const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
+
+    validateRuleConditions(rule);
+    await validateRuleReferences(rule, req.context);
+
+    if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
+      if (!req.context.hasPremiumFeature("safe-rollout")) {
+        req.context.throwPlanDoesNotAllowError("Safe Rollout rules require an Enterprise plan.");
+      }
+
+      const { rampUpSchedule, ...validatableFields } = (ruleInput as typeof ruleInput & { type: "safe-rollout"; safeRolloutFields: Record<string, unknown> }).safeRolloutFields;
+      const validatedFields = await validateCreateSafeRolloutFields(validatableFields, req.context);
+
+      const defaultRampSteps = [{ percent: 0.1 }, { percent: 0.25 }, { percent: 0.5 }, { percent: 0.75 }, { percent: 1 }];
+      // V2: safe-rollout requires a single-env scope (allEnvironments must be false).
+      // Use environments[0] for the SafeRollout entity's `environment` field.
+      const targetEnvs = allEnvironments ? undefined : (environments ?? []);
+      if (!targetEnvs || targetEnvs.length !== 1) {
+        throw new BadRequestError("Safe Rollout rules must target exactly one environment (allEnvironments: false, environments: [\"<env>\"]).");
+      }
+      const safeRollout = await req.context.models.safeRollout.create({
+        ...validatedFields,
+        environment: targetEnvs[0],
+        featureId: feature.id,
+        status: "running",
+        autoSnapshots: true,
+        rampUpSchedule: {
+          enabled: rampUpSchedule?.enabled ?? false,
+          step: 0,
+          steps: rampUpSchedule?.steps ?? defaultRampSteps,
+          rampUpCompleted: false,
+          nextUpdate: undefined,
+        },
+      });
+
+      if (!safeRollout) throw new InternalServerError("Failed to create safe rollout");
+      createdSafeRolloutId = safeRollout.id;
+      (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
+    }
+
+    let resolvedRampAction = inlineRampSchedule
+      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id)
+      : undefined;
+    if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
+      if (schedule.startDate) rule.enabled = false;
+      resolvedRampAction = buildScheduleRampAction(rule.id, schedule.startDate, schedule.endDate);
+    }
+
+    // V2: stamp scope from the rule's own allEnvironments/environments fields.
+    const baseRules = cloneDeep(revision.rules ?? []);
+    const stampedRule: FeatureRule = {
+      ...rule,
+      allEnvironments: allEnvironments ?? true,
+      environments: allEnvironments ? undefined : (environments ?? []),
+    };
+    const newRules: FeatureRule[] = [...baseRules, stampedRule];
+
+    const changes: RevisionChanges = { rules: newRules };
+
+    if (resolvedRampAction) {
+      const existing = revision.rampActions ?? [];
+      const filtered = existing.filter((a) => a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId);
+      changes.rampActions = [...filtered, resolvedRampAction];
+    }
+
+    // Compute affected envs for review reset.
+    const affectedEnvs = allEnvironments
+      ? Object.keys(feature.environmentSettings ?? {})
+      : (environments ?? []);
+
+    await updateRevision(
+      req.context,
+      feature,
+      revision,
+      changes,
+      {
+        user: req.context.auditUser,
+        action: "add rule",
+        subject: allEnvironments ? "all environments" : `to ${(environments ?? []).join(", ")}`,
+        value: JSON.stringify(rule),
+      },
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: affectedEnvs,
+        defaultValueChanged: false,
+        settings: req.organization.settings,
+      }),
+    );
+
+    const updated = await getRevision({
+      context: req.context,
+      organization: req.organization.id,
+      featureId: feature.id,
+      version: revision.version,
+    });
+    const finalRevision = updated ?? revision;
+
+    await recordRevisionUpdate(req.context, feature, finalRevision, "rule.add", {
+      environments: affectedEnvs,
+      auditDetails: { ruleId: rule.id, ruleType: rule.type },
+    });
+
+    return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
+  } catch (err) {
+    if (createdSafeRolloutId) {
+      try { await req.context.models.safeRollout.deleteById(createdSafeRolloutId); } catch { /* best effort */ }
+    }
+    if (linkedExperimentId) {
+      try {
+        const exp = await getExperimentById(req.context, linkedExperimentId);
+        if (exp) await updateExperiment({ context: req.context, experiment: exp, changes: { holdoutId: "" } });
+      } catch { /* best effort */ }
+    }
+    if (linkedHoldoutId && linkedExperimentId) {
+      try {
+        const holdout = await req.context.models.holdout.getById(linkedHoldoutId);
+        if (holdout?.linkedExperiments?.[linkedExperimentId]) {
+          const { [linkedExperimentId]: _omit, ...rest } = holdout.linkedExperiments;
+          await req.context.models.holdout.updateById(linkedHoldoutId, { linkedExperiments: rest });
+        }
+      } catch { /* best effort */ }
     }
     await discardIfJustCreated(req.context, revision, created);
     throw err;

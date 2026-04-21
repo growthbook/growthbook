@@ -54,6 +54,10 @@ import {
   ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
   ApiFeatureRule,
+  ApiFeatureRuleV2,
+  apiFeatureRevisionV2Validator,
+  ApiFeatureWithRevisionsV2,
+  ApiFeatureEnvironmentV2,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -1640,7 +1644,7 @@ function eventUserToString(
   return user.name || undefined;
 }
 
-function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
+export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
     // v1 REST response emits the FULL qualified rule id (including any
@@ -1799,6 +1803,186 @@ export function revisionToApiInterface(
           : undefined,
       },
     }),
+  };
+}
+
+// ---- V2 serializers ----
+
+/**
+ * Serializes a FeatureRule to the v2 API shape: all v1 fields plus
+ * `allEnvironments` and `environments` scope fields.
+ */
+export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
+  const base = normalizeRuleForApi(rule);
+  return {
+    ...base,
+    allEnvironments: rule.allEnvironments ?? true,
+    ...(rule.environments !== undefined && { environments: rule.environments }),
+  };
+}
+
+/**
+ * Convert a FeatureRevisionInterface to the v2 REST API response shape.
+ *
+ * Unlike v1 (`revisionToApiInterface`), the v2 response exposes a flat
+ * `rules: FeatureRuleV2[]` array instead of a per-environment record. Each
+ * rule carries its own environment scope via `allEnvironments` / `environments`.
+ */
+export function revisionToApiInterfaceV2(
+  rev: FeatureRevisionInterface,
+  _orgEnvs: Environment[],
+  _featureProject?: string,
+): z.infer<typeof apiFeatureRevisionV2Validator> {
+  const rules: ApiFeatureRuleV2[] = Array.isArray(rev.rules)
+    ? rev.rules.map(normalizeRuleForApiV2)
+    : [];
+
+  return {
+    featureId: rev.featureId,
+    baseVersion: rev.baseVersion,
+    version: rev.version,
+    comment: rev.comment || "",
+    date:
+      rev.dateCreated?.toISOString?.() ||
+      new Date(rev.dateCreated).toISOString(),
+    status: rev.status,
+    createdBy: eventUserToString(rev.createdBy),
+    publishedBy: eventUserToString(rev.publishedBy),
+    defaultValue: rev.defaultValue,
+    rules,
+    ...(rev.environmentsEnabled !== undefined && {
+      environmentsEnabled: rev.environmentsEnabled,
+    }),
+    ...(rev.prerequisites !== undefined && {
+      prerequisites: rev.prerequisites,
+    }),
+    ...(rev.metadata !== undefined && {
+      metadata: {
+        ...rev.metadata,
+        jsonSchema: rev.metadata.jsonSchema
+          ? {
+              ...rev.metadata.jsonSchema,
+              date:
+                rev.metadata.jsonSchema.date?.toISOString?.() ||
+                (rev.metadata.jsonSchema.date
+                  ? new Date(rev.metadata.jsonSchema.date).toISOString()
+                  : undefined),
+            }
+          : undefined,
+      },
+    }),
+  };
+}
+
+/**
+ * Convenience wrapper around `revisionToApiInterfaceV2`.
+ */
+export function toApiRevisionV2(
+  rev: FeatureRevisionInterface,
+  ctx: ReqContext | ApiReqContext,
+  feature?: FeatureInterface | null,
+): z.infer<typeof apiFeatureRevisionV2Validator> {
+  return revisionToApiInterfaceV2(
+    rev,
+    ctx.org.settings?.environments ?? [],
+    feature?.project,
+  );
+}
+
+/**
+ * Serialize a feature to the v2 REST API shape.
+ *
+ * Differences from v1 (`getApiFeatureObj`):
+ * - `rules`: top-level flat array of v2 rules (with scope fields)
+ * - `environments[env]`: no `rules` field; only `enabled`, `defaultValue`,
+ *   and `definition`.
+ */
+export function getApiFeatureObjV2({
+  feature,
+  organization,
+  groupMap,
+  experimentMap,
+  revision,
+  revisions,
+  safeRolloutMap,
+}: {
+  feature: FeatureInterface;
+  organization: OrganizationInterface;
+  groupMap: GroupMap;
+  experimentMap: Map<string, ExperimentInterface>;
+  revision: FeatureRevisionInterface | null;
+  revisions?: FeatureRevisionInterface[];
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
+}): ApiFeatureWithRevisionsV2 {
+  const defaultValue = feature.defaultValue;
+  const featureEnvironments: Record<string, ApiFeatureEnvironmentV2> = {};
+  const environments = getEnvironmentIdsFromOrg(organization);
+  const orgEnvs = organization.settings?.environments ?? [];
+
+  // Build environments map WITHOUT rules (just enabled, defaultValue, definition).
+  environments.forEach((env) => {
+    const envSettings = feature.environmentSettings?.[env];
+    const enabled = !!envSettings?.enabled;
+    const definition = getFeatureDefinition({
+      feature,
+      groupMap,
+      experimentMap,
+      environment: env,
+      safeRolloutMap,
+    });
+    featureEnvironments[env] = { enabled, defaultValue };
+    if (definition) {
+      featureEnvironments[env].definition = JSON.stringify(definition);
+    }
+  });
+
+  // Build flat v2 rules array — expose ALL rules (consumer can filter by scope).
+  const apiRules: ApiFeatureRuleV2[] = (feature.rules ?? []).map(
+    normalizeRuleForApiV2,
+  );
+
+  // Build v2 revision summaries.
+  const revisionDefs = revisions?.map((rev) =>
+    revisionToApiInterfaceV2(rev, orgEnvs, feature.project),
+  );
+
+  const createdBy =
+    revision?.createdBy?.type === "api_key"
+      ? "API"
+      : revision?.createdBy?.type === "system"
+        ? "SYSTEM"
+        : revision?.createdBy?.name;
+  const publishedBy =
+    revision?.publishedBy?.type === "api_key"
+      ? "API"
+      : revision?.publishedBy?.type === "system"
+        ? "SYSTEM"
+        : revision?.publishedBy?.name;
+
+  return {
+    id: feature.id,
+    description: feature.description || "",
+    archived: !!feature.archived,
+    dateCreated: feature.dateCreated.toISOString(),
+    dateUpdated: feature.dateUpdated.toISOString(),
+    defaultValue: feature.defaultValue,
+    rules: apiRules,
+    environments: featureEnvironments,
+    prerequisites: (feature?.prerequisites || []).map((p) => p.id),
+    owner: feature.owner || "",
+    project: feature.project || "",
+    tags: feature.tags || [],
+    valueType: feature.valueType,
+    revision: {
+      comment: revision?.comment || "",
+      date: revision?.dateCreated.toISOString() || "",
+      createdBy: createdBy || "",
+      publishedBy: publishedBy || "",
+      version: feature.version,
+    },
+    revisions: revisionDefs,
+    customFields: feature.customFields ?? {},
+    ...(feature.holdout != null ? { holdout: feature.holdout } : {}),
   };
 }
 

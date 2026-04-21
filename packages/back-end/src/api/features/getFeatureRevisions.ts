@@ -1,4 +1,7 @@
-import { getFeatureRevisionsValidator } from "shared/validators";
+import {
+  getFeatureRevisionsValidator,
+  getFeatureRevisionsV2Validator,
+} from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import {
   getFeatureRevisionsByStatus,
@@ -6,7 +9,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { NotFoundError } from "back-end/src/util/errors";
-import { toApiRevision } from "back-end/src/services/features";
+import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
 import {
   createApiRequestHandler,
   validatePagination,
@@ -59,6 +62,66 @@ export const getFeatureRevisions = createApiRequestHandler(
 
   const revisions = pagedRevisions.map((r) =>
     toApiRevision(r, req.context, feature),
+  );
+  const hasMore = skipPagination ? false : offset + limit < total;
+  const nextOffset = hasMore ? offset + limit : null;
+  const outLimit = skipPagination ? total : limit;
+  const outOffset = skipPagination ? 0 : offset;
+  return {
+    revisions,
+    limit: outLimit,
+    offset: outOffset,
+    count: revisions.length,
+    total,
+    hasMore,
+    nextOffset,
+  };
+});
+
+export const getFeatureRevisionsV2 = createApiRequestHandler(
+  getFeatureRevisionsV2Validator,
+)(async (req) => {
+  const feature = await getFeature(req.context, req.params.id);
+  if (!feature) throw new NotFoundError("Could not find feature");
+
+  const { status, author } = req.query;
+
+  const skipPagination = stringToBoolean(req.query.skipPagination?.toString());
+  if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
+    throw new Error(
+      "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
+    );
+  }
+  let limit: number;
+  let offset: number;
+  if (skipPagination) {
+    limit = req.query.limit ?? 10;
+    offset = req.query.offset ?? 0;
+  } else {
+    ({ limit, offset } = validatePagination(req.query));
+  }
+
+  const [pagedRevisions, total] = await Promise.all([
+    getFeatureRevisionsByStatus({
+      context: req.context,
+      organization: req.organization.id,
+      featureId: req.params.id,
+      status,
+      author,
+      limit,
+      offset,
+      sort: "desc",
+      skipPagination,
+    }),
+    countDocuments(req.organization.id, {
+      featureId: req.params.id,
+      status,
+      author,
+    }),
+  ]);
+
+  const revisions = pagedRevisions.map((r) =>
+    toApiRevisionV2(r, req.context, feature),
   );
   const hasMore = skipPagination ? false : offset + limit < total;
   const nextOffset = hasMore ? offset + limit : null;

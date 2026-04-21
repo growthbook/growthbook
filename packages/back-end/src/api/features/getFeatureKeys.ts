@@ -1,4 +1,7 @@
-import { getFeatureKeysValidator } from "shared/validators";
+import {
+  getFeatureKeysValidator,
+  getFeatureKeysV2Validator,
+} from "shared/validators";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -11,3 +14,13 @@ export const getFeatureKeys = createApiRequestHandler(getFeatureKeysValidator)(
     return features.map((f) => f.id);
   },
 );
+
+export const getFeatureKeysV2 = createApiRequestHandler(
+  getFeatureKeysV2Validator,
+)(async (req) => {
+  const features = await getAllFeatures(req.context, {
+    projects: req.query.projectId ? [req.query.projectId] : undefined,
+  });
+
+  return features.map((f) => f.id);
+});
