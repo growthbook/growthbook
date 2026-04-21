@@ -1,4 +1,5 @@
-import { FC } from "react";
+import { FC, useState, ReactElement } from "react";
+import { IconButton } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -27,6 +28,7 @@ import {
 } from "shared/experiments";
 import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { FaCaretRight } from "react-icons/fa";
+import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
@@ -40,6 +42,7 @@ import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import UsersTable from "./UsersTable";
 
 export const includeVariation = (
@@ -84,6 +87,13 @@ const BreakDownResults: FC<{
   differenceType: DifferenceType;
   metricTagFilter?: string[];
   metricsFilter?: string[];
+  sliceTagsFilter?: string[];
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   renderMetricName?: (
@@ -137,6 +147,8 @@ const BreakDownResults: FC<{
   differenceType,
   metricTagFilter,
   metricsFilter,
+  sliceTagsFilter,
+  customMetricSlices,
   experimentType,
   ssrPolyfills,
   renderMetricName,
@@ -168,7 +180,23 @@ const BreakDownResults: FC<{
     dimensionId?.split(":")?.[1] ||
     "Dimension";
 
-  const { tables } = useExperimentDimensionRows({
+  // Expanded state for dimension value rows (to show slices underneath)
+  const [expandedDimensionRows, setExpandedDimensionRows] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleExpandedDimensionRow = (
+    metricId: string,
+    dimensionValue: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => {
+    const key = `${metricId}:${dimensionValue}:${resultGroup}`;
+    setExpandedDimensionRows((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const { tables, getSliceCountForDimensionRow } = useExperimentDimensionRows({
     results,
     goalMetrics,
     secondaryMetrics,
@@ -177,6 +205,8 @@ const BreakDownResults: FC<{
     ssrPolyfills,
     metricTagFilter,
     metricsFilter,
+    sliceTagsFilter,
+    customMetricSlices,
     sortBy,
     sortDirection,
     customMetricOrder,
@@ -186,6 +216,8 @@ const BreakDownResults: FC<{
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
+    shouldShowMetricSlices: true,
+    expandedDimensionRows,
   });
 
   const activationMetricObj = activationMetric
@@ -195,6 +227,9 @@ const BreakDownResults: FC<{
 
   const isBandit = experimentType === "multi-armed-bandit";
   const isHoldout = experimentType === "holdout";
+
+  // Filter slice rows based on expansion state when there's no slice filter
+  const hasSliceFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
 
   // Wrap drilldown to include dimension info
   const handleRowClick = drilldownContext
@@ -244,6 +279,9 @@ const BreakDownResults: FC<{
       </div>
 
       {tables.map((table, i) => {
+        // Filter out hidden slice rows
+        const visibleRows = table.rows.filter((row) => !row.isHiddenByFilter);
+
         return (
           <>
             <h4
@@ -273,11 +311,11 @@ const BreakDownResults: FC<{
               setVariationFilter={setVariationFilter}
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
-              rows={table.rows}
+              rows={visibleRows}
               onRowClick={handleRowClick}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
-              tableRowAxis="dimension" // todo: dynamic grouping?
+              tableRowAxis="dimension"
               labelHeader={
                 renderMetricName ? (
                   renderMetricName(table.metric)
@@ -297,28 +335,13 @@ const BreakDownResults: FC<{
               pValueCorrection={pValueCorrection}
               differenceType={differenceType}
               setDifferenceType={setDifferenceType}
-              renderLabelColumn={({ label }) => (
-                <div
-                  className="pl-3 font-weight-bold"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 1,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                    color: "var(--color-text-mid)",
-                  }}
-                >
-                  {label ? (
-                    label === NULL_DIMENSION_VALUE ? (
-                      <em>{formatDimensionValueForDisplay(label)}</em>
-                    ) : (
-                      label
-                    )
-                  ) : (
-                    <em>unknown</em>
-                  )}
-                </div>
-              )}
+              renderLabelColumn={renderDimensionLabelColumn({
+                hasSliceFilter: hasSliceFilter ?? false,
+                sliceTagsFilter,
+                expandedDimensionRows,
+                toggleExpandedDimensionRow,
+                getSliceCountForDimensionRow,
+              })}
               isTabActive={true}
               isBandit={isBandit}
               ssrPolyfills={ssrPolyfills}
@@ -342,3 +365,108 @@ const BreakDownResults: FC<{
   );
 };
 export default BreakDownResults;
+
+// Helper function to render dimension value labels with expand/collapse for slices
+function renderDimensionLabelColumn({
+  hasSliceFilter,
+  sliceTagsFilter: _sliceTagsFilter,
+  expandedDimensionRows,
+  toggleExpandedDimensionRow,
+  getSliceCountForDimensionRow: _getSliceCountForDimensionRow,
+}: {
+  hasSliceFilter: boolean;
+  sliceTagsFilter?: string[];
+  expandedDimensionRows: Record<string, boolean>;
+  toggleExpandedDimensionRow: (
+    metricId: string,
+    dimensionValue: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => void;
+  getSliceCountForDimensionRow: (
+    metricId: string,
+    dimensionValue: string,
+  ) => number;
+}) {
+  return function renderLabelColumn({
+    label,
+    row,
+  }: {
+    label: string | ReactElement;
+    row?: ExperimentTableRow;
+  }) {
+    // For slice rows, use the slice row rendering from getRenderLabelColumn
+    if (row?.isSliceRow) {
+      return getRenderLabelColumn({})({
+        label: label as string,
+        metric: row.metric,
+        row,
+      });
+    }
+
+    // For dimension value rows, show expand/collapse if there are slices
+    const dimensionValue = row?.dimensionValue || (label as string);
+    const metricId = row?.metric?.id || "";
+    const resultGroup = row?.resultGroup || "goal";
+    const expandedKey = `${metricId}:${dimensionValue}:${resultGroup}`;
+    const isExpanded = !!expandedDimensionRows?.[expandedKey];
+
+    const numSlices = row?.numSlices || 0;
+    const hasSlices = numSlices > 0;
+    const shouldShowExpandButton =
+      hasSlices && !row?.labelOnly && !hasSliceFilter;
+
+    return (
+      <div className="pl-3" style={{ position: "relative" }}>
+        {shouldShowExpandButton && (
+          <div style={{ position: "absolute", left: 7, marginTop: 3 }}>
+            <Tooltip
+              body={
+                isExpanded ? "Collapse metric slices" : "Expand metric slices"
+              }
+              tipPosition="top"
+            >
+              <IconButton
+                size="1"
+                variant="ghost"
+                radius="full"
+                onClick={() =>
+                  toggleExpandedDimensionRow(
+                    metricId,
+                    dimensionValue,
+                    resultGroup,
+                  )
+                }
+              >
+                {isExpanded ? (
+                  <PiCaretCircleDown size={16} />
+                ) : (
+                  <PiCaretCircleRight size={16} />
+                )}
+              </IconButton>
+            </Tooltip>
+          </div>
+        )}
+        <span
+          className="ml-2 font-weight-bold"
+          style={{
+            display: "-webkit-box",
+            WebkitLineClamp: 1,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            color: "var(--color-text-mid)",
+          }}
+        >
+          {label ? (
+            label === NULL_DIMENSION_VALUE ? (
+              <em>{formatDimensionValueForDisplay(label as string)}</em>
+            ) : (
+              label
+            )
+          ) : (
+            <em>unknown</em>
+          )}
+        </span>
+      </div>
+    );
+  };
+}

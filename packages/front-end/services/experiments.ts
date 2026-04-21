@@ -186,6 +186,8 @@ export type ExperimentTableRow = {
   allSliceLevels?: string[];
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
+  // Dimension breakdown properties
+  dimensionValue?: string;
 };
 
 export function useDomain(
