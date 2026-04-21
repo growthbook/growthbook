@@ -1191,13 +1191,16 @@ export async function putNamespaces(
       n.format === "multiRange" ? n.hashAttribute : undefined;
     const existingSeed = n.format === "multiRange" ? n.seed : undefined;
 
+    // Treat missing fields as "leave alone" — partial PUTs (e.g. the
+    // Disable/Enable toggle on the namespaces page) should not blank out
+    // existing display fields on the namespace.
     return buildNamespace({
       name: n.name,
-      label,
-      description,
-      status,
+      label: label ?? n.label ?? n.name,
+      description: description ?? n.description ?? "",
+      status: status ?? n.status ?? "active",
       format: n.format ?? "legacy",
-      hashAttribute,
+      hashAttribute: hashAttribute ?? existingHashAttribute,
       existingHashAttribute,
       existingSeed,
     });

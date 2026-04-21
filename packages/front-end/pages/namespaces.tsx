@@ -114,10 +114,18 @@ const NamespacesPage: FC = () => {
                     await refreshOrganization();
                   }}
                   onArchive={async () => {
+                    // Preserve label / format / hashAttribute so the toggle
+                    // doesn't blank out display fields on the namespace.
                     const newNamespace = {
-                      name: ns.name,
-                      description: ns.description,
-                      status: ns?.status === "inactive" ? "active" : "inactive",
+                      label: ns.label || ns.name,
+                      description: ns.description ?? "",
+                      status: (ns?.status === "inactive"
+                        ? "active"
+                        : "inactive") as "active" | "inactive",
+                      format: ns.format ?? "legacy",
+                      ...(ns.format === "multiRange"
+                        ? { hashAttribute: ns.hashAttribute }
+                        : {}),
                     };
                     await apiCall(
                       `/organization/namespaces/${encodeURIComponent(ns.name)}`,
