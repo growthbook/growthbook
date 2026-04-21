@@ -50,27 +50,22 @@ export default function RuleEnvironmentScopeField({
         gap="0"
         options={[
           { value: "all", label: "All environments" },
-          {
-            value: "specific",
-            label: "Specific environments",
-            itemClassName: "mb-0",
-            renderOutsideItem: true,
-            renderOnSelect: (
-              <Box pl="5" pt="1">
-                <MultiSelectField
-                  value={selectedEnvironments}
-                  onChange={(vals) => setSelectedEnvironments(vals)}
-                  options={options}
-                  placeholder="No environments selected"
-                  sort={false}
-                  showCopyButton={false}
-                  containerStyle={{ minWidth: 300 }}
-                />
-              </Box>
-            ),
-          },
+          { value: "specific", label: "Specific environments" },
         ]}
       />
+      {!allEnvironments && (
+        <Box pl="5">
+          <MultiSelectField
+            value={selectedEnvironments}
+            onChange={(vals) => setSelectedEnvironments(vals)}
+            options={options}
+            placeholder="No environments selected"
+            sort={false}
+            showCopyButton={false}
+            containerClassName="w-full"
+          />
+        </Box>
+      )}
     </Box>
   );
 }
