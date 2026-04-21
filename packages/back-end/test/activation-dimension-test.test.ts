@@ -76,7 +76,7 @@ describe("Activation Dimension SQL Generation", () => {
     const settings = createMockSettings();
     const activationMetric = createMockActivationMetric();
 
-    const query = bqIntegration.getExperimentAggregateUnitsQuery({
+    const params: ExperimentAggregateUnitsQueryParams = {
       settings,
       activationMetric,
       segment: null,
@@ -84,7 +84,8 @@ describe("Activation Dimension SQL Generation", () => {
       dimensions: [],
       useUnitsTable: false,
       unitsTableFullName: "",
-    } as unknown as ExperimentAggregateUnitsQueryParams);
+    };
+    const query = bqIntegration.getExperimentAggregateUnitsQuery(params);
 
     // Verify the activation dimension logic is present
     expect(query).toContain("first_activation_timestamp");
@@ -97,15 +98,21 @@ describe("Activation Dimension SQL Generation", () => {
 
     // Core bug fix for issue #4789: timestamp boundary condition
     // Users with first_activation_timestamp after experiment end should be "Not Activated"
-    expect(query).toContain("first_activation_timestamp IS NULL");
-    expect(query).toContain("first_activation_timestamp >");
+    const cutoffTimestamp = bqIntegration["toTimestamp"](
+      settings.endDate,
+    ).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    expect(query).toMatch(
+      new RegExp(
+        `first_activation_timestamp IS NULL\\s+OR first_activation_timestamp > ${cutoffTimestamp}`,
+      ),
+    );
   });
 
   it("Should not generate dim_activated column when activation metric is not provided", () => {
     const bqIntegration = createBigQueryIntegration();
     const settings = createMockSettings();
 
-    const query = bqIntegration.getExperimentAggregateUnitsQuery({
+    const params: ExperimentAggregateUnitsQueryParams = {
       settings,
       activationMetric: null,
       segment: null,
@@ -113,7 +120,8 @@ describe("Activation Dimension SQL Generation", () => {
       dimensions: [],
       useUnitsTable: false,
       unitsTableFullName: "",
-    } as unknown as ExperimentAggregateUnitsQueryParams);
+    };
+    const query = bqIntegration.getExperimentAggregateUnitsQuery(params);
 
     // Without activation metric, dim_activated column should not be generated
     expect(query).not.toContain("dim_activated");
