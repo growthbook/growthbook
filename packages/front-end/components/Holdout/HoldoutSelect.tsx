@@ -72,16 +72,6 @@ export const HoldoutSelect = ({
   );
 
   useEffect(() => {
-    // If all selectable holdouts are optional, default to "None".
-    if (
-      requiredSelectableHoldouts.length === 0 &&
-      selectedHoldoutId &&
-      holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)
-    ) {
-      setHoldout("");
-      return;
-    }
-
     // check to see if the holdout still exists and if not, set the holdout to the first valid holdout
     if (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)) {
       setHoldout(requiredSelectableHoldouts[0]?.id ?? "");
