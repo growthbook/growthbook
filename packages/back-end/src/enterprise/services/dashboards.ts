@@ -168,6 +168,7 @@ export async function updateExperimentDashboards({
     project: dashboardProject,
     experiment,
   });
+  const metricGroups = await context.models.metricGroups.getAll();
 
   for (const snapshotSettings of uniqueSnapshotSettings) {
     const additionalAnalysisSettings =
@@ -188,6 +189,7 @@ export async function updateExperimentDashboards({
       postStratificationEnabled,
       dimension: snapshotSettings.dimensionId,
       pValueThreshold: scopedDashboardSettings.pValueThreshold.value,
+      metricGroups,
     });
 
     const queryRunner = await createSnapshot({

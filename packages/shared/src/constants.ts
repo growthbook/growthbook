@@ -6,6 +6,7 @@ export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 export const DEFAULT_P_VALUE_CORRECTION = null;
+export const DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE = 0.001;
 export const DEFAULT_GUARDRAIL_ALPHA = 0.05; //used for early stopping for safe
 // Metric defaults
 export const DEFAULT_METRIC_WINDOW = "conversion";
