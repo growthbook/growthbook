@@ -1283,10 +1283,7 @@ export async function applyRevisionChanges(
 
   // Handle holdout removal separately since updateFeature only does $set
   if (removeHoldout) {
-    await FeatureModel.updateOne(
-      { organization: context.org.id, id: feature.id },
-      { $unset: { holdout: "" } },
-    );
+    await removeHoldoutFromFeature(context, feature);
     // Remove holdout from the feature object so the returned feature is correct
     const { holdout: _, ...featureWithoutHoldout } = feature;
     return await updateFeature(
