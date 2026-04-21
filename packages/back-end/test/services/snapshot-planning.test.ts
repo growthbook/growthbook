@@ -147,6 +147,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });
@@ -162,6 +163,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental");
   });
@@ -177,6 +179,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "exploratory",
         hasSnapshotDimensions: true,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental-exploratory");
   });
@@ -192,6 +195,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "exploratory",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental");
   });
@@ -209,6 +213,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });

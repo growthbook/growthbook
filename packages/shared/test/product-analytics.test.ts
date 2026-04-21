@@ -1,7 +1,7 @@
+import { generateProductAnalyticsSQL } from "shared/enterprise";
 import { format } from "shared/sql";
 import { ExplorationConfig } from "shared/validators";
 import { SqlHelpers } from "shared/types/sql";
-import { generateProductAnalyticsSQL } from "shared/src/enterprise/product-analytics/sql";
 import {
   FactMetricInterface,
   FactTableInterface,

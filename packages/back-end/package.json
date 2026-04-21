@@ -110,7 +110,7 @@
     "mssql": "^12.2.0",
     "mysql2": "^3.11.3",
     "node-fetch": "^2.6.1",
-    "nodemailer": "^8.0.4",
+    "nodemailer": "^8.0.5",
     "number-format.js": "^2.0.9",
     "nunjucks": "^3.2.4",
     "openai": "6.10.0",
