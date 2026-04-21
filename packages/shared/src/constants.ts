@@ -266,6 +266,7 @@ export const entityEvents = {
     "approval-bypassed",
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
+  eventForwarderConfig: ["create", "update", "delete"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
