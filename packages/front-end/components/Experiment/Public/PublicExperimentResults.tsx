@@ -126,6 +126,7 @@ export default function PublicExperimentResults({
         ) : (
           <MetricDrilldownProvider
             experimentId={experiment.id}
+            projectId={experiment.project}
             phase={phase}
             experimentStatus={experiment.status}
             analysis={analysis ?? null}

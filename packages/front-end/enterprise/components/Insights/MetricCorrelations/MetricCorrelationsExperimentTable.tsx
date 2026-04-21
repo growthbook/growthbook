@@ -104,8 +104,8 @@ const ExperimentWithMetricsTable: FC<Props> = ({
   const end = start + numPerPage;
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
+  const { ciUpper, ciLower } = useConfidenceLevels(undefined);
+  const pValueThreshold = usePValueThreshold(undefined);
 
   const expData: MetricExperimentData[] = [];
   experimentsWithSnapshot.forEach((e) => {

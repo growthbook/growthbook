@@ -52,7 +52,7 @@ export interface AnalysisResultSummaryProps {
   };
   differenceType: DifferenceType;
   isBandit?: boolean;
-  projectId?: string;
+  projectId: string | undefined;
   ssrPolyfills?: SSRPolyfills;
 }
 
@@ -70,7 +70,7 @@ export default function AnalysisResultSummary({
 
   const _pValueThreshold = usePValueThreshold(projectId);
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
 
   if (!data) return null;
 

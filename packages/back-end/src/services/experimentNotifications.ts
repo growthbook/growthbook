@@ -37,7 +37,7 @@ import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
-  getSignificanceSettingsForOrg,
+  getSignificanceSettingsForProject,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 
@@ -294,7 +294,7 @@ export const computeExperimentChanges = async ({
   const statsEngine = currentAnalysis.settings.statsEngine;
   const projectId = experiment.project;
   const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
-    await getSignificanceSettingsForOrg(context, projectId);
+    await getSignificanceSettingsForProject(context, projectId);
   const metricDefaults = getMetricDefaultsForOrg(context);
 
   // Apply p-value correction to match what the UI and analysisSummary use,

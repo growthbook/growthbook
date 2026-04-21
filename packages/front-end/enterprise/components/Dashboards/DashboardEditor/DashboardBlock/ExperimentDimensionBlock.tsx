@@ -108,6 +108,7 @@ export default function ExperimentDimensionBlock({
   return (
     <MetricDrilldownProvider
       experimentId={experiment.id}
+      projectId={experiment.project}
       phase={experiment.phases.length - 1}
       experimentStatus={experiment.status}
       analysis={analysis}
@@ -134,6 +135,7 @@ export default function ExperimentDimensionBlock({
     >
       <BreakDownResults
         experimentId={experiment.id}
+        projectId={experiment.project}
         noStickyHeader
         idPrefix={blockId}
         key={snapshot.dimension}

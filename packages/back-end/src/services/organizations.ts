@@ -8,6 +8,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import {
+  DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
@@ -185,11 +186,11 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
 
 async function resolveScopedSettingsForProject(
   context: ReqContext,
-  projectId?: string,
+  projectId: string | undefined,
 ) {
   const project =
     projectId && projectId.length > 0
-      ? ((await context.models.projects.getById(projectId)) ?? undefined)
+      ? (await context.getProjects()).find((p) => p.id === projectId)
       : undefined;
   return getScopedSettings({
     organization: context.org,
@@ -200,7 +201,7 @@ async function resolveScopedSettingsForProject(
 function confidenceLevelsFromScopedSettings(
   settings: ReturnType<typeof getScopedSettings>["settings"],
 ) {
-  const ciUpper = settings.confidenceLevel.value || 0.95;
+  const ciUpper = settings.confidenceLevel.value || DEFAULT_CONFIDENCE_LEVEL;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,
@@ -209,9 +210,9 @@ function confidenceLevelsFromScopedSettings(
   };
 }
 
-export async function getConfidenceLevelsForOrg(
+export async function getConfidenceLevelsForProject(
   context: ReqContext,
-  projectId?: string,
+  projectId: string | undefined,
 ) {
   const { settings } = await resolveScopedSettingsForProject(
     context,
@@ -226,9 +227,9 @@ export async function getConfidenceLevelsForOrg(
  * a caller needs more than one of these values for the same project to avoid
  * the N round trips that calling each individual helper would incur.
  */
-export async function getSignificanceSettingsForOrg(
+export async function getSignificanceSettingsForProject(
   context: ReqContext,
-  projectId?: string,
+  projectId: string | undefined,
 ): Promise<{
   ciUpper: number;
   ciLower: number;
@@ -329,9 +330,10 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
   return context.org.settings?.metricDefaults || METRIC_DEFAULTS;
 }
 
-export async function getPValueThresholdForOrg(
+export async function getPValueThresholdForProject(
   context: ReqContext,
-  projectId?: string,
+  // undefined project means fall back to org setting
+  projectId: string | undefined,
 ): Promise<number> {
   const { settings } = await resolveScopedSettingsForProject(
     context,
@@ -340,9 +342,10 @@ export async function getPValueThresholdForOrg(
   return settings.pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD;
 }
 
-export async function getPValueCorrectionForOrg(
+export async function getPValueCorrectionForProject(
   context: ReqContext,
-  projectId?: string,
+  // undefined project means fall back to org setting
+  projectId: string | undefined,
 ): Promise<PValueCorrection> {
   const { settings } = await resolveScopedSettingsForProject(
     context,

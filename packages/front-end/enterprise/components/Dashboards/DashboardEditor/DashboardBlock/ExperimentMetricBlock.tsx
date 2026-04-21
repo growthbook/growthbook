@@ -128,6 +128,7 @@ export default function ExperimentMetricBlock({
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds
         : undefined,
+    projectId: experiment.project,
   });
 
   // Filter rows based on expansion state when there's no slice filter
@@ -155,6 +156,7 @@ export default function ExperimentMetricBlock({
   return (
     <MetricDrilldownProvider
       experimentId={experiment.id}
+      projectId={experiment.project}
       phase={lastPhaseIndex}
       experimentStatus={experiment.status}
       analysis={analysis}
@@ -188,6 +190,7 @@ export default function ExperimentMetricBlock({
               key={resultGroup}
               id={blockId}
               experimentId={experiment.id}
+              projectId={experiment.project}
               phase={experiment.phases.length - 1}
               variations={variations}
               variationFilter={variationFilter}

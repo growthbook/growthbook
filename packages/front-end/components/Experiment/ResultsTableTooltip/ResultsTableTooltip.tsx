@@ -58,7 +58,7 @@ interface Props
   close: () => void;
   differenceType: DifferenceType;
   isBandit?: boolean;
-  projectId?: string;
+  projectId: string | undefined;
   ssrPolyfills?: SSRPolyfills;
   transitionClassName?: string;
 }

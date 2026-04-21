@@ -19,7 +19,9 @@ export function getConfidenceLevelHighlight(percent: number | undefined): {
           ? "#e27202"
           : percent < 90
             ? "#B39F01"
-            : ""
+            : percent >= 100
+              ? "#c73333"
+              : ""
       : "";
 
   const warningMsg =
@@ -36,7 +38,9 @@ export function getConfidenceLevelHighlight(percent: number | undefined): {
                 ? "Use caution with values below 90%"
                 : percent >= 99
                   ? "Confidence levels 99% and higher can take lots of data to achieve"
-                  : ""
+                  : percent >= 100
+                    ? "Confidence levels 100% and higher are not possible"
+                    : ""
       : "";
 
   return { highlightColor, warningMsg };

@@ -96,6 +96,7 @@ export default function ExperimentTimeSeriesBlock({
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds
         : undefined,
+    projectId: experiment.project,
   });
 
   // Filter rows based on expansion state when there's no slice filter

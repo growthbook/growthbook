@@ -50,7 +50,7 @@ export interface UseExperimentDimensionRowsParams {
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
-  projectId?: string;
+  projectId: string | undefined;
 }
 
 export interface UseExperimentDimensionRowsReturn {
@@ -86,7 +86,7 @@ export function useExperimentDimensionRows({
 
   const _pValueThreshold = usePValueThreshold(projectId);
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold(undefined) || _pValueThreshold;
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {

@@ -38,6 +38,7 @@ interface MetricDrilldownSlicesProps {
   setVariationFilter: (filter: number[] | undefined) => void;
   // Props for ResultsTable
   experimentId: string;
+  projectId: string | undefined;
   phase: number;
   variations: ExperimentReportVariation[];
   startDate: string;
@@ -72,6 +73,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   variationFilter,
   setVariationFilter,
   experimentId,
+  projectId,
   phase,
   variations,
   startDate,
@@ -192,6 +194,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
 
       <ResultsTable
         experimentId={experimentId}
+        projectId={projectId}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}

@@ -23,7 +23,7 @@ import ExperimentTimeSeriesGraph, {
 
 interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
-  projectId?: string;
+  projectId: string | undefined;
   phase: number;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;

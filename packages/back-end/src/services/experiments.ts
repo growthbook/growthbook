@@ -184,7 +184,7 @@ import {
 import {
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
-  getSignificanceSettingsForOrg,
+  getSignificanceSettingsForProject,
 } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
@@ -4242,7 +4242,7 @@ export async function computeResultsStatus({
       ? experiment.project
       : undefined;
   const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
-    await getSignificanceSettingsForOrg(context, projectId);
+    await getSignificanceSettingsForProject(context, projectId);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();

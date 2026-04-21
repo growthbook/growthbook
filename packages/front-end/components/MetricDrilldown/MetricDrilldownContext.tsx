@@ -33,6 +33,7 @@ export interface MetricDrilldownProviderProps {
 
   // Required experiment/analysis data
   experimentId: string;
+  projectId: string | undefined;
   phase: number;
   experimentStatus?: ExperimentStatus;
   analysis: ExperimentSnapshotAnalysis | null;
@@ -86,6 +87,7 @@ interface OpenModalInfo {
 export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
   children,
   experimentId,
+  projectId,
   phase,
   experimentStatus,
   analysis,
@@ -186,6 +188,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           baselineRow={baselineRow}
           variationFilter={variationFilter}
           experimentId={experimentId}
+          projectId={projectId}
           phase={phase}
           experimentStatus={experimentStatus}
           variations={variations}

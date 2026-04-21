@@ -79,6 +79,7 @@ interface MetricDrilldownModalProps {
 
   // Experiment context props
   experimentId: string;
+  projectId: string | undefined;
   phase: number;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
@@ -133,6 +134,7 @@ interface MetricDrilldownContentProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   experimentId: string;
+  projectId: string | undefined;
   phase: number;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
@@ -170,6 +172,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   localDifferenceType,
   setLocalDifferenceType,
   experimentId,
+  projectId,
   phase,
   experimentStatus,
   variations,
@@ -220,6 +223,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
+    projectId,
   });
 
   const mainMetricRow = useMemo(() => {
@@ -298,6 +302,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
         <MetricDrilldownOverview
           row={mainMetricRow}
           experimentId={experimentId}
+          projectId={projectId}
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           phase={phase}
@@ -339,6 +344,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           variationFilter={localVariationFilter}
           setVariationFilter={setLocalVariationFilter}
           experimentId={experimentId}
+          projectId={projectId}
           phase={phase}
           variations={variations}
           startDate={startDate}
@@ -362,6 +368,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
         <MetricDrilldownDebug
           row={mainMetricRow}
           metric={metric}
+          projectId={projectId}
           statsEngine={statsEngine}
           differenceType={localDifferenceType}
           setDifferenceType={setLocalDifferenceType}
@@ -407,6 +414,7 @@ const MetricDrilldownModal = ({
   variationFilter,
   // Experiment context
   experimentId,
+  projectId,
   phase,
   experimentStatus,
   variations,
@@ -477,6 +485,7 @@ const MetricDrilldownModal = ({
     localDifferenceType,
     setLocalDifferenceType,
     experimentId,
+    projectId,
     phase,
     experimentStatus,
     variations,

@@ -62,7 +62,7 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
-import { getPValueThresholdForOrg } from "back-end/src/services/organizations";
+import { getPValueThresholdForProject } from "back-end/src/services/organizations";
 import { getSourceIntegrationObject } from "./datasource";
 import { computeResultsStatus, isJoinableMetric } from "./experiments";
 
@@ -489,7 +489,10 @@ export async function createSafeRolloutSnapshot({
 
   const srFeature = await getFeature(context, safeRollout.featureId);
   const srProjectId = srFeature?.project ?? undefined;
-  const pValueThreshold = await getPValueThresholdForOrg(context, srProjectId);
+  const pValueThreshold = await getPValueThresholdForProject(
+    context,
+    srProjectId,
+  );
 
   const analysisSettings = getDefaultExperimentAnalysisSettingsForSafeRollout(
     org,

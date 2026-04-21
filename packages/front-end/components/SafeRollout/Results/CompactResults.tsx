@@ -37,7 +37,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ResultsTable from "./ResultsTable";
 
 const CompactResults: FC<{
-  projectId?: string;
+  projectId: string | undefined;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
@@ -89,7 +89,7 @@ const CompactResults: FC<{
 
   const _pValueThreshold = usePValueThreshold(projectId);
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold(undefined) || _pValueThreshold;
 
   const { expandedGoals, expandedGuardrails } = useMemo(() => {
     const expandedGoals = expandMetricGroups(

@@ -46,7 +46,7 @@ import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
   id: string;
-  projectId?: string;
+  projectId: string | undefined;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
@@ -120,9 +120,9 @@ export default function ResultsTable({
   const _pValueThreshold = usePValueThreshold(projectId);
 
   const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
+    ssrPolyfills?.useConfidenceLevels?.(undefined) || _confidenceLevels;
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [tableCellScale, setTableCellScale] = useState(1);

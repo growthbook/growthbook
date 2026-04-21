@@ -21,6 +21,7 @@ import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;
   experimentId: string;
+  projectId: string | undefined;
   reportDate: Date;
   isLatestPhase: boolean;
   phase: number;
@@ -46,6 +47,7 @@ interface MetricDrilldownOverviewProps {
 function MetricDrilldownOverview({
   row,
   experimentId,
+  projectId,
   reportDate,
   isLatestPhase,
   phase,
@@ -102,6 +104,7 @@ function MetricDrilldownOverview({
     <Flex direction="column" gap="6">
       <ResultsTable
         experimentId={experimentId}
+        projectId={projectId}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}

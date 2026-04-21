@@ -11,6 +11,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import React, { RefObject } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -24,6 +25,7 @@ import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDril
 
 export default function ReportResults({
   report,
+  experiment,
   snapshot,
   snapshotError,
   mutateReport,
@@ -35,6 +37,7 @@ export default function ReportResults({
   showDetails,
 }: {
   report: ExperimentSnapshotReportInterface;
+  experiment: Partial<ExperimentInterfaceStringDates> | undefined;
   snapshot?: ExperimentSnapshotInterface;
   snapshotError?: Error;
   mutateReport?: () => Promise<unknown> | unknown;
@@ -163,6 +166,7 @@ export default function ReportResults({
         ) : (
           <MetricDrilldownProvider
             experimentId={report.experimentId ?? ""}
+            projectId={experiment?.project}
             phase={phase}
             analysis={analysis ?? null}
             variations={variations}
@@ -212,12 +216,14 @@ export default function ReportResults({
                 statsEngine={
                   analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
                 }
+                projectId={experiment?.project}
                 differenceType={analysis.settings.differenceType}
                 ssrPolyfills={ssrPolyfills}
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
                 experimentId={snapshot.experiment}
+                projectId={experiment?.project}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -256,6 +262,7 @@ export default function ReportResults({
             ) : showCompactResults ? (
               <CompactResults
                 experimentId={snapshot.experiment}
+                projectId={experiment?.project}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}

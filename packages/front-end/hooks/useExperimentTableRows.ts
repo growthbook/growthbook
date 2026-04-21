@@ -71,7 +71,7 @@ export interface UseExperimentTableRowsParams {
   shouldShowMetricSlices?: boolean;
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
-  projectId?: string;
+  projectId: string | undefined;
 }
 
 export interface UseExperimentTableRowsReturn {
@@ -116,7 +116,7 @@ export function useExperimentTableRows({
 
   const _pValueThreshold = usePValueThreshold(projectId);
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold(undefined) || _pValueThreshold;
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {

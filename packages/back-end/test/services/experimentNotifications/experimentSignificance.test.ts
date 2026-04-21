@@ -8,7 +8,7 @@ import { insertMetric } from "back-end/src/models/MetricModel";
 import { ExperimentModel } from "back-end/src/models/ExperimentModel";
 import {
   getMetricDefaultsForOrg,
-  getSignificanceSettingsForOrg,
+  getSignificanceSettingsForProject,
 } from "back-end/src/services/organizations";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
@@ -25,7 +25,7 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 jest.mock("back-end/src/services/organizations", () => ({
   getEnvironmentIdsFromOrg: jest.fn(),
   getMetricDefaultsForOrg: jest.fn(),
-  getSignificanceSettingsForOrg: jest.fn(),
+  getSignificanceSettingsForProject: jest.fn(),
 }));
 
 const testCases = [
@@ -155,7 +155,7 @@ describe("Experiment Significance notifications", () => {
       testCases,
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
         getLatestSnapshot.mockReturnValue(beforeSnapshot);
-        getSignificanceSettingsForOrg.mockResolvedValue({
+        getSignificanceSettingsForProject.mockResolvedValue({
           ...params.getConfidenceLevelsForOrg,
           pValueCorrection: params.getPValueCorrectionForOrg,
           pValueThreshold: params.getPValueThresholdForOrg,

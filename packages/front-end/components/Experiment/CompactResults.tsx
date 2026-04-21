@@ -49,7 +49,7 @@ import DataQualityWarning from "./DataQualityWarning";
 
 const CompactResults: FC<{
   experimentId: string;
-  projectId?: string;
+  projectId: string | undefined;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];

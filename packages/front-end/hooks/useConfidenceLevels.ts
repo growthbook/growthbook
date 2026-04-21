@@ -1,8 +1,9 @@
 import { getScopedSettings } from "shared/settings";
+import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
-export default function useConfidenceLevels(projectId?: string) {
+export default function useConfidenceLevels(projectId: string | undefined) {
   const { organization } = useUser();
   const { getProjectById } = useDefinitions();
   const project =
@@ -10,7 +11,7 @@ export default function useConfidenceLevels(projectId?: string) {
       ? (getProjectById(projectId) ?? undefined)
       : undefined;
   const { settings } = getScopedSettings({ organization, project });
-  const ciUpper = settings.confidenceLevel.value || 0.95;
+  const ciUpper = settings.confidenceLevel.value || DEFAULT_CONFIDENCE_LEVEL;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,

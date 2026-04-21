@@ -43,7 +43,7 @@ type Metric = {
 
 const DateResults: FC<{
   variations: ExperimentReportVariation[];
-  projectId?: string;
+  projectId: string | undefined;
   results: ExperimentReportResultDimension[];
   seriestype: string;
   goalMetrics: string[];
@@ -72,9 +72,9 @@ const DateResults: FC<{
   const _displayCurrency = useCurrency();
 
   const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
+    ssrPolyfills?.useConfidenceLevels?.(undefined) || _confidenceLevels;
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
   const [cumulativeState, setCumulative] = useState(false);

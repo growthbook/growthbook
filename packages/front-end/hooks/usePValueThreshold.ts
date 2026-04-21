@@ -3,7 +3,7 @@ import { getScopedSettings } from "shared/settings";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
-export default function usePValueThreshold(projectId?: string) {
+export default function usePValueThreshold(projectId: string | undefined) {
   const { organization } = useUser();
   const { getProjectById } = useDefinitions();
   const project =

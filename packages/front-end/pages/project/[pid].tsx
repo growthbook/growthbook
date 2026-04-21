@@ -267,7 +267,7 @@ const ProjectPage: FC = () => {
                                 Frequentist
                               </TabsTrigger>
                             </TabsList>
-                            <TabsContent value="bayesian">
+                            <TabsContent value="bayesian" forceMount>
                               <Box mt="4">
                                 <h4 className="mb-4 text-purple">
                                   Bayesian Settings
@@ -298,7 +298,7 @@ const ProjectPage: FC = () => {
                                 </div>
                               </Box>
                             </TabsContent>
-                            <TabsContent value="frequentist">
+                            <TabsContent value="frequentist" forceMount>
                               <Box mt="4">
                                 <h4 className="mb-4 text-purple">
                                   Frequentist Settings

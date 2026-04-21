@@ -70,7 +70,7 @@ import VariationChooserColumnLabel from "./VariationChooserColumnLabel";
 export type ResultsTableProps = {
   id: string;
   experimentId: string;
-  projectId?: string;
+  projectId: string | undefined;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -307,9 +307,9 @@ export default function ResultsTable({
   const _orgSettings = useOrgSettings();
 
   const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
+    ssrPolyfills?.useConfidenceLevels?.(undefined) || _confidenceLevels;
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
   const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
 

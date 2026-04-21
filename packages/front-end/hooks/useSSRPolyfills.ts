@@ -1,5 +1,8 @@
 import { useCallback, useMemo } from "react";
-import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
+import {
+  DEFAULT_CONFIDENCE_LEVEL,
+  DEFAULT_P_VALUE_THRESHOLD,
+} from "shared/constants";
 import { ExperimentReportSSRData } from "shared/types/report";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
@@ -86,15 +89,16 @@ export default function useSSRPolyfills(
       : "USD";
   };
   const usePValueThresholdSSR = () => {
-    const pValueThreshold = usePValueThreshold();
+    const pValueThreshold = usePValueThreshold(undefined);
     return hasCsrSettings
       ? pValueThreshold
       : ssrData?.settings?.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD;
   };
   const useConfidenceLevelsSSR = () => {
-    const confidenceLevels = useConfidenceLevels();
+    const confidenceLevels = useConfidenceLevels(undefined);
     if (hasCsrSettings) return confidenceLevels;
-    const ciUpper = ssrData?.settings?.confidenceLevel || 0.95;
+    const ciUpper =
+      ssrData?.settings?.confidenceLevel || DEFAULT_CONFIDENCE_LEVEL;
     return {
       ciUpper,
       ciLower: 1 - ciUpper,

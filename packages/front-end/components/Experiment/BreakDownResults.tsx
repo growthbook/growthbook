@@ -55,7 +55,7 @@ export const includeVariation = (
 
 const BreakDownResults: FC<{
   experimentId: string;
-  projectId?: string;
+  projectId: string | undefined;
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];

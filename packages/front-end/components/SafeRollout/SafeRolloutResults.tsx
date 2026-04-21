@@ -37,8 +37,9 @@ const WarningIcon = () => (
 
 const SafeRolloutResults: FC<{
   safeRollout: SafeRolloutInterface;
+  projectId: string | undefined;
   draftMode?: boolean;
-}> = ({ safeRollout, draftMode = false }) => {
+}> = ({ safeRollout, projectId, draftMode = false }) => {
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
@@ -180,6 +181,7 @@ const SafeRolloutResults: FC<{
 
             {showCompactResults ? (
               <CompactResults
+                projectId={projectId}
                 variations={SAFE_ROLLOUT_VARIATIONS}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}

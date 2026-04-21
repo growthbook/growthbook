@@ -69,9 +69,9 @@ export default function ExperimentResultTooltipContent({
   const { getFactTableById: _getFactTableById } = useDefinitions();
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
 
-  const _pValueThreshold = usePValueThreshold();
+  const _pValueThreshold = usePValueThreshold(undefined);
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold(undefined) || _pValueThreshold;
 
   const ci = stats?.ciAdjusted ?? stats?.ci;
 
