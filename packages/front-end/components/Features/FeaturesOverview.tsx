@@ -52,7 +52,6 @@ import {
   getAffectedRevisionEnvs,
   getPrerequisites,
   getRules,
-  isRuleInactive,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -95,7 +94,6 @@ import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
-import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
 import {
@@ -242,10 +240,6 @@ export default function FeaturesOverview({
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
-  const [hideInactive, setHideInactive] = useLocalStorage(
-    `hide-disabled-rules`,
-    false,
-  );
   const [descriptionExpanded, setDescriptionExpanded] = useLocalStorage(
     `feature-description-expanded`,
     false,
@@ -602,13 +596,9 @@ export default function FeaturesOverview({
   const hasCustomFields = (featureCustomFields?.length ?? 0) > 0;
 
   let hasRules = false;
-  let hasInactiveRules = false;
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    if (r.some((r) => isRuleInactive(r, experimentsMap))) {
-      hasInactiveRules = true;
-    }
   });
 
   const variables = {
@@ -1784,19 +1774,9 @@ export default function FeaturesOverview({
                 pt="4"
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
-                <Flex align="center" justify="between" mb="2">
-                  <Heading as="h4" size="small" mb="0">
-                    Rules
-                  </Heading>
-                  <label className="font-weight-semibold">
-                    <Switch
-                      disabled={!hasInactiveRules}
-                      value={!hasInactiveRules ? false : !hideInactive}
-                      onChange={(state) => setHideInactive(!state)}
-                      label="Show inactive"
-                    />
-                  </label>
-                </Flex>
+                <Heading as="h4" size="small" mb="2">
+                  Rules
+                </Heading>
                 {environments.length > 0 ? (
                   <>
                     {!hasRules && (
@@ -1817,7 +1797,6 @@ export default function FeaturesOverview({
                       mutate={mutate}
                       currentVersion={currentVersion}
                       setVersion={setVersion}
-                      hideInactive={hideInactive}
                       isDraft={isDraft}
                       safeRolloutsMap={safeRolloutsMap}
                       holdout={holdout}

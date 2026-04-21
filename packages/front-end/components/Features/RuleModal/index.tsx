@@ -76,7 +76,6 @@ import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
-import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import {
   type RampSectionState,
   defaultRampSectionState,
@@ -308,10 +307,34 @@ export default function RuleModal({
     defaultValues,
   });
 
+  // On edit/duplicate, seed scope from the existing rule. Legacy rules with
+  // `environments === undefined` are treated as permissive (= all envs). On
+  // create, seed from org default ("all envs") or fall back to the current
+  // env tab.
+  const existingRuleAllEnvs = rule?.allEnvironments === true;
+  const existingRuleEnvList = Array.isArray(rule?.environments)
+    ? (rule?.environments ?? [])
+    : undefined;
+  const existingRuleScopeIsAll =
+    existingRuleAllEnvs ||
+    (rule !== undefined &&
+      rule.allEnvironments !== true &&
+      existingRuleEnvList === undefined);
+
+  const [scopeAllEnvs, setScopeAllEnvs] = useState<boolean>(() => {
+    if (mode === "edit" || mode === "duplicate") return existingRuleScopeIsAll;
+    // New rules: default to "All environments" only when no active env tab.
+    return !environment;
+  });
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>(
-    mode === "create" && settings.defaultFeatureRulesInAllEnvs
-      ? environments.map((env) => env.id)
-      : [environment],
+    () => {
+      if (mode === "edit" || mode === "duplicate") {
+        if (existingRuleScopeIsAll) return [];
+        return existingRuleEnvList ?? [environment];
+      }
+      // New rules: pre-select the active env tab (or empty if "All" fallback).
+      return environment ? [environment] : [];
+    },
   );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
@@ -614,6 +637,24 @@ export default function RuleModal({
     // unset the ID if we're duplicating the rule.
     if (mode === "duplicate") {
       values.id = "";
+    }
+
+    // Merge rule-level env scope from the modal state. Safe-rollout rules are
+    // pinned to a single env by the controller, so skip scope for them.
+    if (values.type !== "safe-rollout") {
+      if (scopeAllEnvs) {
+        values = {
+          ...values,
+          allEnvironments: true,
+          environments: [],
+        };
+      } else {
+        values = {
+          ...values,
+          allEnvironments: false,
+          environments: selectedEnvironments,
+        };
+      }
     }
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
@@ -1228,7 +1269,9 @@ export default function RuleModal({
               environments:
                 values.type === "safe-rollout"
                   ? [environment]
-                  : selectedEnvironments,
+                  : scopeAllEnvs
+                    ? environments.map((e) => e.id)
+                    : selectedEnvironments,
               safeRolloutFields,
               rampSchedule: rampScheduleInline,
             } as PostFeatureRuleBody),
@@ -1269,7 +1312,7 @@ export default function RuleModal({
             <PiCaretRight className="position-relative" style={{ top: -1 }} />
           </>
         }
-        ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
+        ctaEnabled={!!overviewRuleType}
         header="New Rule"
         useRadixButton={true}
         submit={submitOverview}
@@ -1404,34 +1447,24 @@ export default function RuleModal({
             />
           </>
         )}
-
-        {environments.length > 1 && overviewRuleType !== "safe-rollout" && (
-          <EnvironmentSelect
-            environments={environments}
-            project={feature.project}
-            environmentSettings={Object.fromEntries(
-              environments.map((env) => [
-                env.id,
-                { enabled: selectedEnvironments.includes(env.id) },
-              ]),
-            )}
-            setValue={(env, enabled) => {
-              if (enabled) {
-                setSelectedEnvironments((prev) => [
-                  ...new Set([...prev, env.id]),
-                ]);
-              } else {
-                setSelectedEnvironments((prev) =>
-                  prev.filter((id) => id !== env.id),
-                );
-              }
-            }}
-            label="Create Rule in Environments"
-          />
-        )}
       </Modal>
     );
   }
+
+  const envScopeProps = {
+    environments,
+    allEnvironments: scopeAllEnvs,
+    setAllEnvironments: setScopeAllEnvs,
+    selectedEnvironments,
+    setSelectedEnvironments,
+  };
+
+  // Resolved env list used by child components that care about which envs the
+  // rule currently covers (prereq cycle checks, targeting previews, etc).
+  // When `allEnvironments` is on, treat every applicable env as in-scope.
+  const effectiveEnvList = scopeAllEnvs
+    ? environments.map((e) => e.id)
+    : selectedEnvironments;
 
   return (
     <FormProvider {...form}>
@@ -1473,7 +1506,7 @@ export default function RuleModal({
           <StandardRuleFields
             ruleType={ruleType}
             feature={feature}
-            environments={selectedEnvironments}
+            environments={effectiveEnvList}
             defaultValues={defaultValues}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
@@ -1489,6 +1522,7 @@ export default function RuleModal({
             scheduleType={scheduleType}
             setScheduleType={setScheduleType}
             pendingDetach={hasPendingDetach}
+            envScope={envScopeProps!}
           />
         )}
 
@@ -1507,6 +1541,7 @@ export default function RuleModal({
             setScheduleToggleEnabled={setScheduleToggleEnabled}
             mode={mode}
             isDraft={!safeRollout?.startedAt}
+            envScope={envScopeProps}
           />
         )}
 
@@ -1520,6 +1555,7 @@ export default function RuleModal({
             noSchedule={!defaultHasSchedule}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
+            envScope={envScopeProps!}
           />
         ) : null}
 
@@ -1529,6 +1565,7 @@ export default function RuleModal({
             feature={feature}
             existingRule={mode === "edit"}
             changeRuleType={changeRuleType}
+            envScope={envScopeProps!}
           />
         ) : null}
 
@@ -1542,7 +1579,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environments={selectedEnvironments}
+                  environments={effectiveEnvList}
                   defaultValues={defaultValues}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
@@ -1593,6 +1630,7 @@ export default function RuleModal({
                   setCustomFields={(customFields) =>
                     form.setValue("customFields", customFields)
                   }
+                  envScope={i === 0 ? envScopeProps : undefined}
                 />
               </Page>
             ))
@@ -1606,7 +1644,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environments={selectedEnvironments}
+                  environments={effectiveEnvList}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
                     form.setValue("prerequisites", prerequisites)
@@ -1651,6 +1689,7 @@ export default function RuleModal({
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
                   }
+                  envScope={i === 0 ? envScopeProps : undefined}
                 />
               </Page>
             ))

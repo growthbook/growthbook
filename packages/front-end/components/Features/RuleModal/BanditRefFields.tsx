@@ -16,15 +16,20 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useExperiments } from "@/hooks/useExperiments";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 
 export default function BanditRefFields({
   feature,
   existingRule,
   changeRuleType,
+  envScope,
 }: {
   feature: FeatureInterface;
   existingRule: boolean;
   changeRuleType: (v: string) => void;
+  envScope: EnvScopeProps;
 }) {
   const form = useFormContext();
 
@@ -159,6 +164,8 @@ export default function BanditRefFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
+
+      <RuleEnvironmentScopeField {...envScope} my="5" />
     </>
   );
 }

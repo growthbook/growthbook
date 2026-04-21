@@ -174,15 +174,41 @@ export function moveRuleInEnv(
 }
 
 /**
+ * Reorder the flat `feature.rules[]` array directly (no env projection).
+ * Used when the caller is operating on the "All environments" view where
+ * the canonical order of the underlying flat array is unambiguous.
+ */
+export function moveFlatRule(
+  rules: FeatureRule[],
+  from: number,
+  to: number,
+): { rules: FeatureRule[]; moved: FeatureRule } {
+  if (!rules[from] || !rules[to]) {
+    throw new Error("Invalid rule index");
+  }
+  const moved = rules[from];
+  const reordered = [...rules];
+  reordered.splice(from, 1);
+  reordered.splice(to, 0, moved);
+  return { rules: reordered, moved };
+}
+
+/**
  * Build a v2 rule for the selected env scope. Callers pass the per-request
- * raw rule plus the list of envs the rule should apply to. If the selected
- * envs span the org's applicable envs or include "allEnvironments"-like
- * semantics the caller should set `allEnvironments: true` directly instead.
+ * raw rule plus the list of envs the rule should apply to.
+ *
+ * If the caller marks the inbound rule as `allEnvironments: true`, preserve
+ * that semantic (future envs auto-include) and strip the explicit env list.
+ * Otherwise stamp an explicit env list and force `allEnvironments: false`.
  */
 export function stampRuleForEnvs<T extends FeatureRule>(
   rule: T,
   environments: string[],
 ): T {
+  if (rule.allEnvironments === true) {
+    const { environments: _drop, ...rest } = rule;
+    return { ...rest, allEnvironments: true } as T;
+  }
   return {
     ...rule,
     allEnvironments: false,

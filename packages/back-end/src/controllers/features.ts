@@ -107,6 +107,7 @@ import {
 } from "back-end/src/services/features";
 import {
   moveRuleInEnv,
+  moveFlatRule,
   projectRulesForEnv,
   removeRuleAtEnvIndex,
   stampRuleForEnvs,
@@ -2896,13 +2897,29 @@ export async function putFeatureRule(
   // Prepare rule update changes (v2: flat FeatureRule[] with env-projected
   // index semantics). Partial updates are merged into the rule at env-pos
   // `i`, preserving the rule's original env scope and id.
+  //
+  // Scope-invariant: when the merged rule ends up with `allEnvironments:
+  // true`, drop any stale `environments` list from the existing rule so we
+  // don't persist a contradictory pair (caller UI sends an empty list but the
+  // merge would otherwise retain the old explicit envs).
   const existingRules = cloneDeep(revision.rules ?? []);
   const { rules: nextRules } = updateRuleAtEnvIndex(
     existingRules,
     environment,
     i,
-    (existing) =>
-      ({ ...existing, ...(rule as Partial<FeatureRule>) }) as FeatureRule,
+    (existing) => {
+      const merged = {
+        ...existing,
+        ...(rule as Partial<FeatureRule>),
+      } as FeatureRule;
+      if (merged.allEnvironments === true) {
+        const { environments: _drop, ...rest } = merged as FeatureRule & {
+          environments?: string[];
+        };
+        return { ...rest, allEnvironments: true } as FeatureRule;
+      }
+      return merged;
+    },
   );
   const ruleChanges = { rules: nextRules };
 
@@ -3264,7 +3281,8 @@ export async function postFeatureMoveRule(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  if (!environments.includes(environment)) {
+  // environment="" signals a flat reorder from the "All environments" view.
+  if (environment !== "" && !environments.includes(environment)) {
     throw new Error("Invalid environment");
   }
 
@@ -3277,19 +3295,24 @@ export async function postFeatureMoveRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  // v2: reorder within the env-projected slice of the flat FeatureRule[]
-  // array, preserving positions of rules scoped to other envs.
   const existingRules = cloneDeep(revision.rules ?? []);
-  const { rules: nextRules, moved: rule } = moveRuleInEnv(
-    existingRules,
-    environment,
-    from,
-    to,
-  );
+  const isFlatReorder = environment === "";
+
+  // Flat reorder: operates directly on feature.rules[] without env projection.
+  // Env-scoped reorder: moves within the projected slice, preserving other-env positions.
+  const { rules: nextRules, moved: rule } = isFlatReorder
+    ? moveFlatRule(existingRules, from, to)
+    : moveRuleInEnv(existingRules, environment, from, to);
+
+  const changedEnvironments = isFlatReorder ? environments : [environment];
+  const auditSubject = isFlatReorder
+    ? `across all environments from position ${from + 1} to ${to + 1}`
+    : `in ${environment} from position ${from + 1} to ${to + 1}`;
+
   const changes = { rules: nextRules };
   const resetReview = resetReviewOnChange({
     feature,
-    changedEnvironments: [environment],
+    changedEnvironments,
     defaultValueChanged: false,
     settings: org?.settings,
   });
@@ -3301,7 +3324,7 @@ export async function postFeatureMoveRule(
     {
       user: res.locals.eventAudit,
       action: "move rule",
-      subject: `in ${environment} from position ${from + 1} to ${to + 1}`,
+      subject: auditSubject,
       value: JSON.stringify(rule),
     },
     resetReview,
@@ -3311,7 +3334,7 @@ export async function postFeatureMoveRule(
     feature,
     updatedRevisionAfterMove ?? revision,
     "rule.reorder",
-    { environments: [environment] },
+    { environments: changedEnvironments },
   );
 
   res.status(200).json({

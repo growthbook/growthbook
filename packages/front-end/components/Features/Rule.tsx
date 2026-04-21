@@ -46,6 +46,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
+import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/ui/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
@@ -313,61 +314,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const ruleTags: React.ReactNode[] = [];
     const ruleCtas: React.ReactNode[] = [];
-
-    // Read-only environment scope chip. Post-unification a single rule object
-    // can apply to many envs; surfacing that inline prevents the illusion that
-    // each env tab is a disjoint per-env rule list.
-    //   allEnvironments:true          → "All envs"
-    //   environments: [current]       → omitted (implicit from the env tab)
-    //   environments: [a, b, …]       → "a, b, …" (explicit cross-env scope)
-    //   environments: []              → "Pending (no envs)"
-    //   environments: undefined       → omitted (legacy permissive fallback)
-    if (rule.allEnvironments) {
-      ruleTags.push(
-        <Tooltip
-          key="env-scope"
-          body="This rule applies to every environment."
-          tipPosition="bottom"
-        >
-          <Badge label="All envs" color="gray" variant="soft" size="xs" />
-        </Tooltip>,
-      );
-    } else if (Array.isArray(rule.environments)) {
-      if (rule.environments.length === 0) {
-        ruleTags.push(
-          <Tooltip
-            key="env-scope"
-            body="This rule is not yet targeted at any environment."
-            tipPosition="bottom"
-          >
-            <Badge label="Pending" color="amber" variant="soft" size="xs" />
-          </Tooltip>,
-        );
-      } else if (
-        rule.environments.length > 1 ||
-        (rule.environments.length === 1 && rule.environments[0] !== environment)
-      ) {
-        const envList = rule.environments.join(", ");
-        ruleTags.push(
-          <Tooltip
-            key="env-scope"
-            body={`Scope: ${envList}`}
-            tipPosition="bottom"
-          >
-            <Badge
-              label={
-                rule.environments.length <= 3
-                  ? envList
-                  : `${rule.environments.length} envs`
-              }
-              color="gray"
-              variant="soft"
-              size="xs"
-            />
-          </Tooltip>,
-        );
-      }
-    }
 
     if (rampSchedule) {
       ruleTags.push(
@@ -995,6 +941,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       </Flex>
                     </Callout>
                   )}
+                <RuleEnvScopeBadges
+                  rule={rule}
+                  environments={environments}
+                  currentEnvironment={environment}
+                />
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {rule.type === "safe-rollout" && safeRollout ? (
                     <>
