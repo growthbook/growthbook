@@ -154,6 +154,8 @@ We use the frequentist engine with sequential testing disabled to calculate the 
 
 We adjust for testing multiple metrics using a Bonferroni correction including all goal and guardrail metric-variation pairs as standalone tests. We exclude secondary metrics from causing the overall health status to fail as well as from contributing to the Bonferroni-corrected threshold. This means if you have 3 arms (2 variation test arms), 2 goal metrics, 35 secondary metrics, and 2 guardrail metrics, we would correct for a total of (2 goal _ 2 arms + 2 guardrail _ 2 arms) = 8 total tests.
 
+Note: we exclude metric slices and quantile metrics from the pre-exposure bias check.
+
 ### Multiple Exposures
 
 This alert indicates that there a substantial number of users (or other unit) in your experiment that have been exposed to multiple variations. At its core, this means that your Experiment Assignment Query is returning data that has rows that look like the following:
