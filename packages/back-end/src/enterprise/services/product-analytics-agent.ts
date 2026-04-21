@@ -362,30 +362,74 @@ function explorationConfigFromLatestRun(
 }
 
 /**
+ * Light singularization so queries like "page views" still match metrics
+ * named "Page View" (and vice versa). Deliberately simple — this is a
+ * heuristic, not a full stemmer.
+ */
+function singularizeWord(word: string): string {
+  if (word.length <= 3) return word;
+  if (word.endsWith("ies") && word.length > 4) {
+    return word.slice(0, -3) + "y";
+  }
+  if (/(sses|shes|ches|xes|zes)$/.test(word)) {
+    return word.slice(0, -2);
+  }
+  if (
+    word.endsWith("s") &&
+    !word.endsWith("ss") &&
+    !word.endsWith("us") &&
+    !word.endsWith("is")
+  ) {
+    return word.slice(0, -1);
+  }
+  return word;
+}
+
+function normalizeForSearch(text: string): string {
+  return text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(singularizeWord)
+    .join(" ");
+}
+
+/**
  * Score a search query against a haystack string.
  * - Exact name/id match with the full query: 10
  * - Full query found as substring in haystack: 5
  * - Per-token: each token found in haystack adds 1 point
+ * Matching is also performed on a singularized form of both the query and
+ * the haystack so plural/singular differences don't hide results.
  * Returns 0 if no tokens match.
  */
 function scoreSearch(
   q: string,
+  qNorm: string,
   tokens: string[],
+  tokensNorm: string[],
   haystack: string,
+  haystackNorm: string,
   name: string,
   id: string,
 ): number {
   const nameLower = name.toLowerCase();
   const idLower = id.toLowerCase();
-  const exactMatch = nameLower === q || idLower === q;
+  const exactMatch =
+    nameLower === q || idLower === q || normalizeForSearch(nameLower) === qNorm;
   if (exactMatch) return 10;
 
-  const fullSubstring = haystack.includes(q);
+  const fullSubstring = haystack.includes(q) || haystackNorm.includes(qNorm);
   let score = fullSubstring ? 5 : 0;
 
   if (tokens.length > 1) {
-    for (const token of tokens) {
-      if (haystack.includes(token)) score += 1;
+    for (let i = 0; i < tokens.length; i++) {
+      if (
+        haystack.includes(tokens[i]) ||
+        haystackNorm.includes(tokensNorm[i])
+      ) {
+        score += 1;
+      }
     }
   }
 
@@ -401,6 +445,8 @@ async function executeSearch(
   const q = query.trim().toLowerCase();
   const isBlank = q.length === 0;
   const tokens = q.split(/\s+/).filter(Boolean);
+  const qNorm = normalizeForSearch(q);
+  const tokensNorm = tokens.map(singularizeWord);
 
   type ScoredResult = { score: number; name: string; result: unknown };
   const all: ScoredResult[] = [];
@@ -431,7 +477,17 @@ async function executeSearch(
     ]
       .join(" ")
       .toLowerCase();
-    const score = scoreSearch(q, tokens, haystack, m.name, m.id);
+    const haystackNorm = normalizeForSearch(haystack);
+    const score = scoreSearch(
+      q,
+      qNorm,
+      tokens,
+      tokensNorm,
+      haystack,
+      haystackNorm,
+      m.name,
+      m.id,
+    );
     if (score > 0) {
       all.push({ score, name: m.name, result: metricResult });
     }
@@ -455,7 +511,17 @@ async function executeSearch(
     const haystack = [ft.id, ft.name, ft.eventName ?? ""]
       .join(" ")
       .toLowerCase();
-    const score = scoreSearch(q, tokens, haystack, ft.name, ft.id);
+    const haystackNorm = normalizeForSearch(haystack);
+    const score = scoreSearch(
+      q,
+      qNorm,
+      tokens,
+      tokensNorm,
+      haystack,
+      haystackNorm,
+      ft.name,
+      ft.id,
+    );
     if (score > 0) {
       all.push({ score, name: ft.name, result: ftResult });
     }
