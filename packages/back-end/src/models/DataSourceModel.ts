@@ -9,7 +9,7 @@ import {
   DataSourceType,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
-import { ApiDataSource } from "shared/types/openapi";
+import { ApiDataSource } from "shared/validators";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
   encryptParams,
@@ -111,14 +111,6 @@ export async function _dangerourslyGetAllDatasourcesByOrganizations(
     organization: { $in: organizations },
   });
 
-  return docs.map(toInterface);
-}
-
-// WARNING: This does not restrict by organization
-export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    type: "growthbook_clickhouse",
-  });
   return docs.map(toInterface);
 }
 

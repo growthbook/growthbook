@@ -1,5 +1,4 @@
 import { postSegmentValidator } from "shared/validators";
-import { PostSegmentResponse } from "shared/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
@@ -7,7 +6,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
   req,
-): Promise<PostSegmentResponse> => {
+) => {
   const datasourceDoc = await getDataSourceById(
     req.context,
     req.body.datasourceId,
@@ -54,7 +53,7 @@ export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
 
   const segmentData = {
     name: req.body.name,
-    owner: req.context.userId || "",
+    owner: req.body.owner || "",
     description: req.body.description || "",
     userIdType: req.body.identifierType,
     sql: req.body.query,

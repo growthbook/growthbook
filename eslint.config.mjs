@@ -225,6 +225,11 @@ export default defineConfig([
               group: ["*back-end*", "**/sdk-{js,react}*"],
               message: "front-end can only import from shared or itself.",
             },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
+            },
           ],
         },
       ],
@@ -337,6 +342,11 @@ export default defineConfig([
               group: ["*front-end*", "**/sdk-{js,react}*"],
               message: "back-end can only import from shared or itself.",
             },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
+            },
           ],
         },
       ],
@@ -407,6 +417,11 @@ export default defineConfig([
               group: ["*back-end*", "*front-end*"],
               message: "shared cannot import from back-end or front-end.",
             },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Within shared, use relative paths or import from shared without /src/",
+            },
           ],
         },
       ],
@@ -440,6 +455,12 @@ export default defineConfig([
             "CallExpression[callee.type='MemberExpression'][callee.property.name='default']",
           message:
             "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead.",
+        },
+        {
+          selector:
+            "Property[key.name='owner'] CallExpression[callee.type='MemberExpression'][callee.object.name='z'][callee.property.name='string']",
+          message:
+            "Use ownerField or ownerInputField from 'shared/validators' instead of a bare z.string() for owner properties to ensure consistent API documentation.",
         },
       ],
     },

@@ -178,9 +178,11 @@ export async function runFreeFormQuery(
 
   const sql = integration.getFreeFormQuery(query, limit);
   try {
-    const { results, duration, columns } = await integration.runTestQuery(sql, [
-      "timestamp",
-    ]);
+    const { results, duration, columns } = await integration.runTestQuery(
+      sql,
+      ["timestamp"],
+      "freeFormQuery",
+    );
 
     // Build a type map from SQL engine metadata
     const typeMap = new Map<string, FactTableColumnType>();
@@ -335,9 +337,11 @@ export async function testQuery(
     limit,
   });
   try {
-    const { results, duration } = await integration.runTestQuery(sql, [
-      "timestamp",
-    ]);
+    const { results, duration } = await integration.runTestQuery(
+      sql,
+      ["timestamp"],
+      "testQuery",
+    );
     return {
       results,
       duration,
@@ -373,7 +377,7 @@ export async function testQueryValidity(
 
   const sql = integration.getTestValidityQuery(query.query, testDays);
   try {
-    const results = await integration.runTestQuery(sql);
+    const results = await integration.runTestQuery(sql, undefined, "testQuery");
 
     let columns: Set<string>;
 

@@ -9,7 +9,6 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { getSelectedColumnDatatype } from "shared/experiments";
-import { PostFactMetricResponse } from "shared/types/openapi";
 import {
   getCappingTailState,
   postFactMetricValidator,
@@ -68,6 +67,7 @@ export async function getCreateMetricPropsFromBody(
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
+    priorSettings,
     numerator,
     denominator,
     riskThresholdSuccess,
@@ -136,7 +136,7 @@ export async function getCreateMetricPropsFromBody(
     cappingSettings: {
       type: "",
     },
-    priorSettings: {
+    priorSettings: priorSettings ?? {
       override: false,
       proper: false,
       mean: 0,
@@ -217,7 +217,7 @@ export async function getCreateMetricPropsFromBody(
 }
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
-  async (req): Promise<PostFactMetricResponse> => {
+  async (req) => {
     if (
       req.body.metricAutoSlices &&
       req.body.metricAutoSlices.length > 0 &&
@@ -233,7 +233,6 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
       req.organization,
       lookupFactTable,
     );
-
     const factMetric = await req.context.models.factMetrics.create(data);
 
     return {

@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { ChevronDownIcon, Flex } from "@radix-ui/themes";
 import { PiDatabase, PiCheck } from "react-icons/pi";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
+import Button from "@/ui/Button";
 
 export default function DataSourceDropdown() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -13,9 +13,11 @@ export default function DataSourceDropdown() {
     useExplorerContext();
   const { datasources } = useDefinitions();
 
+  const isDataSourceEmpty = datasources.length === 0;
+
   const triggerLabel =
     datasources.find((ds) => ds.id === draftExploreState?.datasource)?.name ||
-    "Data Source";
+    "Select a data source";
 
   const isCurrentDatasource = (dsId: string) =>
     dsId === draftExploreState?.datasource;
@@ -24,13 +26,14 @@ export default function DataSourceDropdown() {
     <DropdownMenu
       open={dropdownOpen}
       onOpenChange={setDropdownOpen}
+      disabled={isDataSourceEmpty}
       trigger={
-        <Link>
+        <Button variant="ghost" icon={<PiDatabase />}>
           <Flex align="center" gap="2">
-            <PiDatabase />
             <Text weight="medium">{triggerLabel}</Text>
+            <ChevronDownIcon />
           </Flex>
-        </Link>
+        </Button>
       }
     >
       {datasources.map((ds) =>

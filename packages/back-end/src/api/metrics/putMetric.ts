@@ -1,6 +1,6 @@
-import { PutMetricResponse } from "shared/types/openapi";
 import { putMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
 import {
   putMetricApiPayloadIsValid,
@@ -9,7 +9,7 @@ import {
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(async (
   req,
-): Promise<PutMetricResponse> => {
+) => {
   const metric = await getMetricById(req.context, req.params.id);
 
   if (!metric) {
@@ -26,7 +26,11 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
     throw new Error(validationResult.error);
   }
 
-  const updated = putMetricApiPayloadToMetricInterface(req.body);
+  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
+  const updated = putMetricApiPayloadToMetricInterface({
+    ...req.body,
+    ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+  });
 
   await updateMetric(req.context, metric, updated);
 

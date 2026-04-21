@@ -1,4 +1,3 @@
-import { ListArchetypesResponse } from "shared/types/openapi";
 import { listArchetypesValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -7,7 +6,7 @@ import {
 } from "back-end/src/models/ArchetypeModel";
 
 export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
-  async (req): Promise<ListArchetypesResponse> => {
+  async (req) => {
     const archetypes = await getAllArchetypes(
       req.context.org.id,
       req.context.userId,

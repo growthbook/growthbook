@@ -1,4 +1,3 @@
-import { ListDimensionsResponse } from "shared/types/openapi";
 import { listDimensionsValidator } from "shared/validators";
 import {
   findDimensionsByOrganization,
@@ -11,7 +10,7 @@ import {
 } from "back-end/src/util/handler";
 
 export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
-  async (req): Promise<ListDimensionsResponse> => {
+  async (req) => {
     const dimensions = await findDimensionsByOrganization(req.organization.id);
 
     // TODO: Move sorting/limiting to the database query for better performance

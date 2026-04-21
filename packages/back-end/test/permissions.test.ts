@@ -5067,6 +5067,48 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
 
     expect(permissions.canBypassApprovalChecks({ project: "" })).toEqual(true);
   });
+
+  it("User with project admin role able to bypassApprovalCheck for features in their project", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("gbDefault_projectAdmin", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(permissions.canBypassApprovalChecks({ project: "abc123" })).toEqual(
+      true,
+    );
+  });
+
+  it("User with project admin role unable to bypassApprovalCheck for features outside their project", async () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("gbDefault_projectAdmin", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    expect(
+      permissions.canBypassApprovalChecks({ project: "other_project" }),
+    ).toEqual(false);
+  });
 });
 
 describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {

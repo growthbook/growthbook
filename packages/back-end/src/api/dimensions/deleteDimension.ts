@@ -1,4 +1,3 @@
-import { DeleteDimensionResponse } from "shared/types/openapi";
 import { deleteDimensionValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -8,7 +7,7 @@ import {
 
 export const deleteDimension = createApiRequestHandler(
   deleteDimensionValidator,
-)(async (req): Promise<DeleteDimensionResponse> => {
+)(async (req) => {
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 

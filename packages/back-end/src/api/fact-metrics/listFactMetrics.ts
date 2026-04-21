@@ -1,4 +1,3 @@
-import { ListFactMetricsResponse } from "shared/types/openapi";
 import { listFactMetricsValidator } from "shared/validators";
 import {
   applyPagination,
@@ -7,7 +6,7 @@ import {
 
 export const listFactMetrics = createApiRequestHandler(
   listFactMetricsValidator,
-)(async (req): Promise<ListFactMetricsResponse> => {
+)(async (req) => {
   const factMetrics = await req.context.models.factMetrics.getAllSorted({
     datasourceId: req.query.datasourceId,
     factTableId: req.query.factTableId,

@@ -11,6 +11,7 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import {
   factMetricValidator,
+  ApiFactMetric,
   validateCappingSettingsOrdering,
 } from "shared/validators";
 import {
@@ -21,7 +22,6 @@ import {
   LegacyColumnRef,
   LegacyFactMetricInterface,
 } from "shared/types/fact-table";
-import { ApiFactMetric } from "shared/types/openapi";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";

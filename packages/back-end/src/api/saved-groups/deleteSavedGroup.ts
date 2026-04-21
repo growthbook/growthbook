@@ -1,10 +1,9 @@
-import { DeleteSavedGroupResponse } from "shared/types/openapi";
 import { deleteSavedGroupValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const deleteSavedGroup = createApiRequestHandler(
   deleteSavedGroupValidator,
-)(async (req): Promise<DeleteSavedGroupResponse> => {
+)(async (req) => {
   const savedGroup = await req.context.models.savedGroups.getById(
     req.params.id,
   );

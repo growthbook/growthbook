@@ -98,6 +98,10 @@ export default function FeatureVariationsInput({
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
+  // editingIds already encodes the notion of having bespoke IDs, so if it is false
+  // it is probably safe to renormalize variation keys on sort
+  const forceRenormalizeVariationKeysOnSort =
+    !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
 
   const setEqualWeights = () => {
     if (!variations || !setWeight) return;
@@ -260,7 +264,9 @@ export default function FeatureVariationsInput({
           {!hideVariationIds &&
             !startEditingIndexes &&
             !valueAsId &&
-            !hideValueField && (
+            !hideValueField &&
+            !disableVariations &&
+            setVariations && (
               <div className="mb-2">
                 {!editingIds ? (
                   <Link
@@ -285,10 +291,12 @@ export default function FeatureVariationsInput({
                       {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
                     </th>
                   )}
-                  {!hideVariationIds && !hideValueField && editingIds && (
-                    <th>Id</th>
+                  {!hideVariationIds &&
+                    !hideValueField &&
+                    (editingIds || valueAsId) && <th>Id</th>}
+                  {hideVariationIds && !hideValueField && !valueAsId && (
+                    <th>Value to Force</th>
                   )}
-                  {hideVariationIds && !valueAsId && <th>Value to Force</th>}
                   <th>Variation Name</th>
                   {showDescriptions && <th>Description</th>}
                   {!hideSplits && (
@@ -347,6 +355,9 @@ export default function FeatureVariationsInput({
                 {variations && (
                   <SortableVariationsList
                     valuesAsIds={idsMatchIndexes}
+                    forceRenormalizeVariationKeysOnSort={
+                      forceRenormalizeVariationKeysOnSort
+                    }
                     variations={variations}
                     setVariations={
                       !disableVariations ? setVariations : undefined

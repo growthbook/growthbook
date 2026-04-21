@@ -1,4 +1,3 @@
-import { ListFactTablesResponse } from "shared/types/openapi";
 import { listFactTablesValidator } from "shared/validators";
 import {
   getAllFactTablesForOrganization,
@@ -10,7 +9,7 @@ import {
 } from "back-end/src/util/handler";
 
 export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
-  async (req): Promise<ListFactTablesResponse> => {
+  async (req) => {
     // Filter at the database level for better performance
     const factTables = await getAllFactTablesForOrganization(req.context, {
       datasourceId: req.query.datasourceId,

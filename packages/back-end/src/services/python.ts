@@ -2,7 +2,10 @@ import { ChildProcess, spawn } from "child_process";
 import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
-import { CloudWatch } from "aws-sdk";
+import {
+  CloudWatchClient,
+  PutMetricDataCommand,
+} from "@aws-sdk/client-cloudwatch";
 import { createPool } from "generic-pool";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 import JSON5 from "json5";
@@ -41,9 +44,9 @@ const STATS_ENGINE_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "GB_STATS_ENGINE_TIMEOUT_MS" },
 );
 
-let cloudWatch: CloudWatch | null = null;
+let cloudWatchClient: CloudWatchClient | null = null;
 if (IS_CLOUD) {
-  cloudWatch = new CloudWatch({
+  cloudWatchClient = new CloudWatchClient({
     region: process.env.AWS_REGION || "us-east-1",
   });
 }
@@ -248,14 +251,15 @@ export const statsServerPool = createPool(
     testOnBorrow: true,
     evictionRunIntervalMillis: 60000,
     numTestsPerEvictionRun: 2,
+    acquireTimeoutMillis: STATS_ENGINE_TIMEOUT_MS,
   },
 );
 
-function publishPoolSizeToCloudWatch(value: number) {
-  if (!cloudWatch) return;
+async function publishPoolSizeToCloudWatch(value: number) {
+  if (!cloudWatchClient) return;
   try {
-    cloudWatch.putMetricData(
-      {
+    await cloudWatchClient.send(
+      new PutMetricDataCommand({
         Namespace: "GrowthBook/PythonStatsPool",
         MetricData: [
           {
@@ -264,22 +268,14 @@ function publishPoolSizeToCloudWatch(value: number) {
             Unit: "Count",
           },
         ],
-      },
-      (error) => {
-        if (error && ENVIRONMENT === "production") {
-          logger.error(
-            "Failed to publish Python stats pool size to CloudWatch (callback): " +
-              error.message,
-          );
-        }
-      },
+      }),
     );
   } catch (error) {
     // When not running on AWS, no need to publish to cloudwatch or warn us every minute.
     if (ENVIRONMENT === "production") {
       logger.error(
         "Failed to publish Python stats pool size to CloudWatch: " +
-          error.message,
+          (error instanceof Error ? error.message : String(error)),
       );
     }
   }

@@ -857,7 +857,6 @@ const AnalysisForm: FC<{
             )}
             <ExperimentMetricsSelector
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
-              excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
               project={experiment.project}

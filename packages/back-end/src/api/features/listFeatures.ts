@@ -1,5 +1,5 @@
-import { ListFeaturesResponse } from "shared/types/openapi";
-import { listFeaturesValidator } from "shared/validators";
+import { listFeaturesValidator, ListFeaturesResponse } from "shared/validators";
+import { stringToBoolean } from "shared/util";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import {
@@ -34,14 +34,16 @@ const emptyListResponse = (
 });
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
-  async (req): Promise<ListFeaturesResponse> => {
+  async (req) => {
     const projectId = req.query.projectId;
-    if (req.query.skipPagination && !API_ALLOW_SKIP_PAGINATION) {
+    const skipPagination = stringToBoolean(
+      req.query.skipPagination?.toString(),
+    );
+    if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
       throw new Error(
         "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
       );
     }
-    const skipPagination = !!req.query.skipPagination;
     let limit: number;
     let offset: number;
     if (skipPagination) {

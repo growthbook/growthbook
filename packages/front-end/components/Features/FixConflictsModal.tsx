@@ -141,7 +141,10 @@ export function ExpandableConflict({
                   )}
                   {liveRevision?.createdBy && (
                     <Text size="small" color="text-low">
-                      <EventUser user={liveRevision.createdBy} display="name" />
+                      <EventUser
+                        user={liveRevision.createdBy}
+                        display="name-email"
+                      />
                     </Text>
                   )}
                   {liveRevision && (
@@ -203,7 +206,7 @@ export function ExpandableConflict({
                     <Text size="small" color="text-low">
                       <EventUser
                         user={draftRevision.createdBy}
-                        display="name"
+                        display="name-email"
                       />
                     </Text>
                   )}

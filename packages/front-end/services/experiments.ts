@@ -203,7 +203,9 @@ export function useDomain(
       return;
     }
 
-    const baseline = row.variations[variations[0].index];
+    const baselineVariation = variations?.[0];
+    if (baselineVariation?.index === undefined) return;
+    const baseline = row.variations[baselineVariation.index];
     if (!baseline) return;
     variations?.forEach((v: ExperimentReportVariation, i) => {
       // Skip for baseline
@@ -746,9 +748,10 @@ export function convertTemplateToExperiment(
     "templateMetadata",
     "targeting",
   ]);
+  const defaultVariations = getDefaultVariations(2);
   return {
     ...templateWithoutTemplateFields,
-    variations: getDefaultVariations(2),
+    variations: defaultVariations,
     phases: [
       {
         dateStarted: new Date().toISOString().substr(0, 16),
@@ -756,6 +759,10 @@ export function convertTemplateToExperiment(
         name: "Main",
         reason: "",
         variationWeights: getEqualWeights(2),
+        variations: defaultVariations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
         ...template.targeting,
       },
     ],
