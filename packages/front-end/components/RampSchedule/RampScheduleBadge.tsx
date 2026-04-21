@@ -82,17 +82,25 @@ export default function RampScheduleBadge({
   }
 
   const baseLabel = getRampStatusLabel(rs);
+
+  const prefix = simpleSchedule ? "Schedule" : "Ramp";
+  const featureContextLabels: Partial<Record<string, string>> = {
+    pending: `${prefix} pending`,
+    ready: simpleSchedule ? "Scheduled" : "Ramp scheduled",
+    running: `${prefix} active`,
+    paused: `${prefix} paused`,
+    "pending-approval": `${prefix} needs approval`,
+    completed: `${prefix} complete`,
+    "rolled-back": "Rolled Back",
+  };
   const displayLabel = featureRuleContext
-    ? `schedule: ${baseLabel.replace(/^schedule start is /, "").replace(/^schedule: /, "")}`
+    ? (featureContextLabels[rs.status] ??
+      `${prefix} ${baseLabel.toLowerCase()}`)
     : baseLabel;
 
   const badge = (
     <Badge
-      label={
-        rs.status === "running"
-          ? "Running"
-          : displayLabel + (timingLabel ? ` · ${timingLabel}` : "")
-      }
+      label={displayLabel + (timingLabel ? ` · ${timingLabel}` : "")}
       color={getRampBadgeColor(rs.status)}
       radius="full"
     />
@@ -111,7 +119,7 @@ export default function RampScheduleBadge({
           ? dateRow("Completed", completedAt)
           : "Schedule completed."}
         {featureRuleContext && (
-          <> The ramp schedule may be safely removed from this rule.</>
+          <>The ramp may be safely removed by editing this rule.</>
         )}
       </p>
     ) : pausedAt ? (

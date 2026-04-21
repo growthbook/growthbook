@@ -17,6 +17,7 @@ import {
   PiRewind,
   PiArrowUUpLeft,
   PiArrowUUpRight,
+  PiTrash,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
@@ -322,6 +323,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           rs={rampSchedule}
           pendingDetach={!!hasPendingDetach}
           simpleSchedule={isSimpleSchedule}
+          featureRuleContext
         />,
       );
     }
@@ -526,7 +528,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <DropdownMenuGroup>
                           <DropdownMenuItem
                             onClick={() => {
-                              setRuleModal({ environment, i, ruleId, mode: "edit" });
+                              setRuleModal({
+                                environment,
+                                i,
+                                ruleId,
+                                mode: "edit",
+                              });
                               setDropdownOpen(false);
                             }}
                           >
@@ -843,22 +850,56 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                       </DropdownMenuItem>
                                     </>
                                   )}
-                                  {/* Restart — terminal states */}
+                                  {/* Restart / Remove — terminal states */}
                                   {rampIsTerminal && (
-                                    <DropdownMenuItem
-                                      onClick={async () => {
-                                        await apiCall(
-                                          `/ramp-schedule/${rampSchedule.id}/actions/reset`,
-                                          { method: "POST" },
-                                        );
-                                        await mutate();
-                                        setDropdownOpen(false);
-                                      }}
-                                    >
-                                      <Flex align="center" gap="2">
-                                        <PiRewind /> Restart ramp
-                                      </Flex>
-                                    </DropdownMenuItem>
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={async () => {
+                                          await apiCall(
+                                            `/ramp-schedule/${rampSchedule.id}/actions/reset`,
+                                            { method: "POST" },
+                                          );
+                                          await mutate();
+                                          setDropdownOpen(false);
+                                        }}
+                                      >
+                                        <Flex align="center" gap="2">
+                                          <PiRewind /> Restart ramp
+                                        </Flex>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={async () => {
+                                          const res = await apiCall<{
+                                            version: number;
+                                          }>(
+                                            `/feature/${feature.id}/${version}/rule`,
+                                            {
+                                              method: "PUT",
+                                              body: JSON.stringify({
+                                                ...(rule.id
+                                                  ? { ruleId: rule.id }
+                                                  : { environment, i }),
+                                                rule,
+                                                rampSchedule: {
+                                                  mode: "detach",
+                                                  rampScheduleId:
+                                                    rampSchedule.id,
+                                                  deleteScheduleWhenEmpty: true,
+                                                },
+                                              }),
+                                            },
+                                          );
+                                          if (res.version)
+                                            setVersion(res.version);
+                                          await mutate();
+                                          setDropdownOpen(false);
+                                        }}
+                                      >
+                                        <Flex align="center" gap="2">
+                                          <PiTrash /> Remove schedule
+                                        </Flex>
+                                      </DropdownMenuItem>
+                                    </>
                                   )}
                                 </>
                               )}
