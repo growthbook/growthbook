@@ -42,55 +42,8 @@ import Badge from "@/ui/Badge";
 import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
 import { useAuth } from "@/services/auth";
 import HoldoutValueModal from "./HoldoutValueModal";
+import EnvFilterTrigger from "./EnvFilterTrigger";
 import { Rule, SortableRule } from "./Rule";
-
-function EnvFilterTrigger({
-  label,
-  count,
-  isActive,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  const countBadge = (
-    <Badge
-      label={String(count)}
-      radius="full"
-      variant="solid"
-      color="violet"
-      size="sm"
-    />
-  );
-
-  return (
-    <button
-      className="rt-reset"
-      style={{ cursor: "pointer" }}
-      onClick={onClick}
-    >
-      <Badge
-        label={
-          <>
-            <span title={label}>{label}</span>
-            {countBadge}
-          </>
-        }
-        color={isActive ? "violet" : "gray"}
-        variant="outline"
-        radius="full"
-        size="lg"
-        style={
-          isActive
-            ? undefined
-            : { opacity: 0.4, backgroundColor: "var(--gray-a2)" }
-        }
-      />
-    </button>
-  );
-}
 
 export default function FeatureRules({
   environments,
