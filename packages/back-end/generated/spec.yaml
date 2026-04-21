@@ -9848,6 +9848,12 @@ paths:
                         type is percentile, this is the percentile value (from
                         0.0 to 1.0).
                       type: number
+                    lowerValue:
+                      description: >-
+                        When lower-tail capping is used: for absolute capping,
+                        the lower bound; for percentile capping, the lower
+                        percentile (from 0.0 to 1.0).
+                      type: number
                     ignoreZeros:
                       description: >-
                         If true and capping is `percentile`, zeros will be
@@ -10359,6 +10365,12 @@ paths:
                         When type is absolute, this is the absolute value. When
                         type is percentile, this is the percentile value (from
                         0.0 to 1.0).
+                      type: number
+                    lowerValue:
+                      description: >-
+                        When lower-tail capping is used: for absolute capping,
+                        the lower bound; for percentile capping, the lower
+                        percentile (from 0.0 to 1.0).
                       type: number
                     ignoreZeros:
                       description: >-
@@ -22920,6 +22932,12 @@ components:
               description: >-
                 When type is absolute, this is the absolute value. When type is
                 percentile, this is the percentile value (from 0.0 to 1.0).
+              type: number
+            lowerValue:
+              description: >-
+                When lower-tail capping is used: for absolute capping, the lower
+                bound; for percentile capping, the lower percentile (from 0.0 to
+                1.0).
               type: number
             ignoreZeros:
               description: >-
