@@ -5,7 +5,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
-  buildOwnerEmailMap,
+  resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -202,17 +202,17 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     featureId: feature.id,
     version: feature.version,
   });
-  const ownerEmailMap = await buildOwnerEmailMap([feature.owner], req.context);
-
   return {
-    feature: getApiFeatureObj({
-      feature,
-      organization: req.organization,
-      groupMap,
-      experimentMap,
-      revision,
-      safeRolloutMap,
-      ownerEmailMap,
-    }),
+    feature: await resolveOwnerEmail(
+      getApiFeatureObj({
+        feature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+        revision,
+        safeRolloutMap,
+      }),
+      req.context,
+    ),
   };
 });

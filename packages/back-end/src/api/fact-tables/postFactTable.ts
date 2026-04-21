@@ -10,7 +10,7 @@ import { addTags } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
-  buildOwnerEmailMap,
+  resolveOwnerEmail,
 } from "back-end/src/services/owner";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
@@ -66,12 +66,11 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       await addTags(req.organization.id, data.tags);
     }
 
-    const ownerEmailMap = await buildOwnerEmailMap(
-      [factTable.owner],
-      req.context,
-    );
     return {
-      factTable: toFactTableApiInterface(factTable, ownerEmailMap),
+      factTable: await resolveOwnerEmail(
+        toFactTableApiInterface(factTable),
+        req.context,
+      ),
     };
   },
 );

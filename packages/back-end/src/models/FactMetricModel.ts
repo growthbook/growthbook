@@ -21,7 +21,6 @@ import {
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { withOwnerEmail } from "back-end/src/services/owner";
 import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,
@@ -518,10 +517,7 @@ export class FactMetricModel extends BaseClass {
     return newColumnRef;
   }
 
-  public toApiInterface(
-    factMetric: FactMetricInterface,
-    ownerEmailMap?: Map<string, string | undefined>,
-  ): ApiFactMetric {
+  public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
     const {
       quantileSettings,
       cappingSettings,
@@ -540,7 +536,7 @@ export class FactMetricModel extends BaseClass {
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
-    const apiFactMetric: ApiFactMetric = {
+    return {
       ...otherFields,
       riskThresholdDanger: loseRisk,
       riskThresholdSuccess: winRisk,
@@ -576,6 +572,5 @@ export class FactMetricModel extends BaseClass {
       dateCreated: dateCreated?.toISOString() || "",
       dateUpdated: dateUpdated?.toISOString() || "",
     };
-    return withOwnerEmail(apiFactMetric, ownerEmailMap);
   }
 }

@@ -17,7 +17,7 @@ import {
 } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
-  buildOwnerEmailMap,
+  resolveOwnerEmail,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -254,15 +254,12 @@ export const updateExperiment = createApiRequestHandler(
     details: auditDetailsUpdate(experiment, updatedExperiment),
   });
 
-  const ownerEmailMap = await buildOwnerEmailMap(
-    [updatedExperiment.owner],
+  const apiExperiment = await resolveOwnerEmail(
+    await toExperimentApiInterface(
+      req.context,
+      updatedExperiment as ExperimentInterfaceExcludingHoldouts,
+    ),
     req.context,
-  );
-  const apiExperiment = await toExperimentApiInterface(
-    req.context,
-    updatedExperiment as ExperimentInterfaceExcludingHoldouts,
-    undefined,
-    ownerEmailMap,
   );
   return {
     experiment: apiExperiment,

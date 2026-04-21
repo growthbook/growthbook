@@ -33,9 +33,9 @@ import {
 import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
 import {
-  buildOwnerEmailMap,
+  resolveOwnerEmail,
+  resolveOwnerEmails,
   resolveOwnerToUserId,
-  withOwnerEmail,
 } from "back-end/src/services/owner";
 
 export type Context = ApiReqContext | ReqContext;
@@ -410,27 +410,6 @@ export abstract class BaseModel<
     return keys;
   }
 
-  protected async enrichOwnerEmail<TDoc extends object>(
-    apiDoc: TDoc,
-  ): Promise<TDoc> {
-    if (!("owner" in apiDoc) || typeof apiDoc.owner !== "string") {
-      return apiDoc;
-    }
-    const map = await buildOwnerEmailMap([apiDoc.owner], this.context);
-    return withOwnerEmail(apiDoc, map);
-  }
-
-  protected async enrichOwnerEmails<TDoc extends object>(
-    apiDocs: TDoc[],
-  ): Promise<TDoc[]> {
-    if (apiDocs.length === 0) return apiDocs;
-    const ownerValues = apiDocs.map((doc) =>
-      "owner" in doc && typeof doc.owner === "string" ? doc.owner : undefined,
-    );
-    const map = await buildOwnerEmailMap(ownerValues, this.context);
-    return apiDocs.map((doc) => withOwnerEmail(doc, map));
-  }
-
   public async handleApiGet(
     req: ApiRequest<
       unknown,
@@ -442,7 +421,7 @@ export abstract class BaseModel<
     const { id } = req.params as { id: string };
     const doc = await this.getById(id);
     if (!doc) req.context.throwNotFoundError();
-    return this.enrichOwnerEmail(this.toApiInterface(doc));
+    return resolveOwnerEmail(this.toApiInterface(doc), this.context);
   }
   public async handleApiCreate(
     req: ApiRequest<
@@ -454,8 +433,9 @@ export abstract class BaseModel<
   ): Promise<z.infer<ApiT>> {
     const rawBody = req.body;
     const toCreate = await this.processApiCreateBody(rawBody);
-    return this.enrichOwnerEmail(
+    return resolveOwnerEmail(
       this.toApiInterface(await this.create(toCreate)),
+      this.context,
     );
   }
   protected async processApiCreateBody(
@@ -471,11 +451,9 @@ export abstract class BaseModel<
       ExtractCrudSchema<CVO, "list", "querySchema">
     >,
   ): Promise<z.infer<ApiT>[]> {
-    // Explicit single-arg call — `.map(this.toApiInterface.bind(this))` would
-    // leak the array index as the 2nd arg, which subclass overrides may
-    // interpret as `ownerEmailMap` and dereference with `.get()`.
-    return this.enrichOwnerEmails(
+    return resolveOwnerEmails(
       (await this.getAll()).map((doc) => this.toApiInterface(doc)),
+      this.context,
     );
   }
   public async handleApiDelete(
@@ -501,8 +479,9 @@ export abstract class BaseModel<
     const { id } = req.params as { id: string };
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);
-    return this.enrichOwnerEmail(
+    return resolveOwnerEmail(
       this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
     );
   }
   protected async processApiUpdateBody(

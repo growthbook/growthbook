@@ -10,7 +10,7 @@ import {
 } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
-import { buildOwnerEmailMap } from "back-end/src/services/owner";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 
@@ -50,15 +50,12 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
     );
     const enhancedStatus = { status, detailedStatus };
 
-    const ownerEmailMap = await buildOwnerEmailMap(
-      [experiment.owner],
+    const apiExperiment = await resolveOwnerEmail(
+      await toExperimentApiInterface(
+        req.context,
+        experiment as ExperimentInterfaceExcludingHoldouts,
+      ),
       req.context,
-    );
-    const apiExperiment = await toExperimentApiInterface(
-      req.context,
-      experiment as ExperimentInterfaceExcludingHoldouts,
-      undefined,
-      ownerEmailMap,
     );
     return {
       experiment: { ...apiExperiment, enhancedStatus },

@@ -7,7 +7,6 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
-import { withOwnerEmail } from "back-end/src/services/owner";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -111,11 +110,8 @@ export class SavedGroupModel extends BaseClass {
     return groups as SavedGroupWithoutValues[];
   }
 
-  public toApiInterface(
-    savedGroup: SavedGroupInterface,
-    ownerEmailMap?: Map<string, string | undefined>,
-  ): ApiSavedGroup {
-    const apiSavedGroup: ApiSavedGroup = {
+  public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {
+    return {
       id: savedGroup.id,
       type: savedGroup.type,
       values: savedGroup.values || [],
@@ -128,6 +124,5 @@ export class SavedGroupModel extends BaseClass {
       description: savedGroup.description,
       projects: savedGroup.projects || [],
     };
-    return withOwnerEmail(apiSavedGroup, ownerEmailMap);
   }
 }

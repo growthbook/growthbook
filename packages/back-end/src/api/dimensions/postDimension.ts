@@ -3,7 +3,7 @@ import { postDimensionValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
-  buildOwnerEmailMap,
+  resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import {
   createDimension,
@@ -37,12 +37,11 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
       organization,
     });
 
-    const ownerEmailMap = await buildOwnerEmailMap(
-      [dimension.owner],
-      req.context,
-    );
     return {
-      dimension: toDimensionApiInterface(dimension, ownerEmailMap),
+      dimension: await resolveOwnerEmail(
+        toDimensionApiInterface(dimension),
+        req.context,
+      ),
     };
   },
 );

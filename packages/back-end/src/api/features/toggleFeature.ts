@@ -18,7 +18,7 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { buildOwnerEmailMap } from "back-end/src/services/owner";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -73,20 +73,18 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       });
       const safeRolloutMap =
         await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-      const ownerEmailMap = await buildOwnerEmailMap(
-        [feature.owner],
-        req.context,
-      );
       return {
-        feature: getApiFeatureObj({
-          feature,
-          organization: req.organization,
-          groupMap,
-          experimentMap,
-          revision,
-          safeRolloutMap,
-          ownerEmailMap,
-        }),
+        feature: await resolveOwnerEmail(
+          getApiFeatureObj({
+            feature,
+            organization: req.organization,
+            groupMap,
+            experimentMap,
+            revision,
+            safeRolloutMap,
+          }),
+          req.context,
+        ),
       };
     }
 
@@ -175,20 +173,18 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     });
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-    const ownerEmailMap = await buildOwnerEmailMap(
-      [updatedFeature.owner],
-      req.context,
-    );
     return {
-      feature: getApiFeatureObj({
-        feature: updatedFeature,
-        organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision: latestRevision,
-        safeRolloutMap,
-        ownerEmailMap,
-      }),
+      feature: await resolveOwnerEmail(
+        getApiFeatureObj({
+          feature: updatedFeature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision: latestRevision,
+          safeRolloutMap,
+        }),
+        req.context,
+      ),
     };
   },
 );

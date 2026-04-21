@@ -164,7 +164,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { getSignedImageUrl } from "back-end/src/services/files";
-import { withOwnerEmail } from "back-end/src/services/owner";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -2139,7 +2138,6 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterfaceExcludingHoldouts,
   projectMap?: Map<string, ProjectInterface>,
-  ownerEmailMap?: Map<string, string | undefined>,
 ): Promise<ApiExperiment> {
   const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
 
@@ -2311,7 +2309,7 @@ export async function toExperimentApiInterface(
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
   };
-  return withOwnerEmail(apiExperiment, ownerEmailMap);
+  return apiExperiment;
 }
 
 export function toSnapshotApiInterface(
@@ -3122,7 +3120,6 @@ export function toMetricApiInterface(
   organization: OrganizationInterface,
   metric: MetricInterface,
   datasource: DataSourceInterface | null,
-  ownerEmailMap?: Map<string, string | undefined>,
 ): ApiMetric {
   const metricDefaults = organization.settings?.metricDefaults;
 
@@ -3218,7 +3215,7 @@ export function toMetricApiInterface(
     }
   }
 
-  return withOwnerEmail(obj, ownerEmailMap);
+  return obj;
 }
 
 export const toNamespaceRange = (

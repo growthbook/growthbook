@@ -1,5 +1,5 @@
 import { listSavedGroupsValidator } from "shared/validators";
-import { buildOwnerEmailMap } from "back-end/src/services/owner";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -16,13 +16,12 @@ export const listSavedGroups = createApiRequestHandler(
     req.query,
   );
 
-  const ownerEmailMap = await buildOwnerEmailMap(
-    filtered.map((s) => s.owner),
-    req.context,
-  );
   return {
-    savedGroups: filtered.map((savedGroup) =>
-      req.context.models.savedGroups.toApiInterface(savedGroup, ownerEmailMap),
+    savedGroups: await resolveOwnerEmails(
+      filtered.map((savedGroup) =>
+        req.context.models.savedGroups.toApiInterface(savedGroup),
+      ),
+      req.context,
     ),
     ...returnFields,
   };

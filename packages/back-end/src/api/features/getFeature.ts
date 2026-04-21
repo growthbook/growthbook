@@ -9,7 +9,7 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { buildOwnerEmailMap } from "back-end/src/services/owner";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
@@ -50,17 +50,18 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
               : undefined,
       })
     : undefined;
-  const ownerEmailMap = await buildOwnerEmailMap([feature.owner], req.context);
   return {
-    feature: getApiFeatureObj({
-      feature,
-      organization: req.organization,
-      groupMap,
-      experimentMap,
-      revision,
-      revisions,
-      safeRolloutMap,
-      ownerEmailMap,
-    }),
+    feature: await resolveOwnerEmail(
+      getApiFeatureObj({
+        feature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+        revision,
+        revisions,
+        safeRolloutMap,
+      }),
+      req.context,
+    ),
   };
 });
