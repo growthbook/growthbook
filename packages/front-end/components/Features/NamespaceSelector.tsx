@@ -19,7 +19,6 @@ import {
   normalizeRangeAfterLowerChange,
   normalizeRangeAfterUpperChange,
   getLargestGap,
-  mergeContiguousRanges,
   RangeTuple,
   shiftDraftKeysAfterRangeRemoval,
   subtractSelectedRangesFromGaps,
@@ -291,14 +290,12 @@ export default function NamespaceSelector({
     );
   };
 
-  const commitDraftValue = (index: number, field: 0 | 1, rawValue: string) => {
-    const draftKey = getDraftKey(index, field);
-    // Only merge when the user actually typed into this field. Blurring out of
-    // an untouched field (e.g. right after "Add Range", where the new row's
-    // default values sit flush against an existing range) must not collapse
-    // rows — otherwise "Add Range" appears to do nothing.
-    const hadDraft = draftKey in rangeDrafts;
+  const setRangeAtIndex = (index: number, nextRange: RangeTuple) => {
+    const newRanges = ranges.map((r, i) => (i === index ? nextRange : r));
+    form.setValue(namespaceRangesPath, newRanges);
+  };
 
+  const commitDraftValue = (index: number, field: 0 | 1, rawValue: string) => {
     const parsed = Number.parseFloat(rawValue);
     const currentRange = ranges[index] || [0, 1];
     const availableGaps = getAvailableGapsForRange(index);
@@ -307,18 +304,10 @@ export default function NamespaceSelector({
         ? normalizeRangeAfterLowerChange(currentRange, parsed, availableGaps)
         : normalizeRangeAfterUpperChange(currentRange, parsed, availableGaps);
 
-    const newRanges = ranges.map((r, i) => (i === index ? nextRange : r));
-    const finalRanges = hadDraft ? mergeContiguousRanges(newRanges) : newRanges;
-    form.setValue(namespaceRangesPath, finalRanges);
-
+    setRangeAtIndex(index, nextRange);
     setRangeDrafts((current) => {
-      if (finalRanges.length !== newRanges.length) {
-        // Merge collapsed rows — drop all drafts so stale per-index state
-        // can't re-apply to the wrong row.
-        return {};
-      }
       const next = { ...current };
-      delete next[draftKey];
+      delete next[getDraftKey(index, field)];
       return next;
     });
   };

@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { Flex, Box, Text, Separator } from "@radix-ui/themes";
+import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -193,6 +194,17 @@ export default function EditTargetingModal({
 
     if (prerequisiteTargetingSdkIssues) {
       throw new Error("Prerequisite targeting issues must be resolved");
+    }
+
+    // Collapse contiguous / overlapping namespace ranges on save so the
+    // persisted phase carries a clean shape (e.g. [0.6, 0.9] + [0.9, 1] →
+    // [0.6, 1]). We do this here rather than while the user is editing so
+    // ranges don't flicker and collapse mid-edit.
+    const ns = value.namespace as
+      | { enabled?: boolean; ranges?: [number, number][] }
+      | undefined;
+    if (ns?.enabled && ns.ranges && ns.ranges.length > 0) {
+      ns.ranges = mergeContiguousRanges(ns.ranges);
     }
 
     await apiCall(`/experiment/${experiment.id}/targeting`, {
