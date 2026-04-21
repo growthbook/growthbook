@@ -291,27 +291,14 @@ export default function NamespaceSelector({
     );
   };
 
-  // Always write ranges through this helper so contiguous/overlapping ranges
-  // (e.g. [0.6, 0.9] + [0.9, 1]) collapse into one ([0.6, 1]) on commit. If
-  // merging reduces the row count, drop stale per-index drafts to avoid them
-  // re-applying to the wrong row.
-  const writeRanges = (next: RangeTuple[]) => {
-    const merged = mergeContiguousRanges(next);
-    form.setValue(namespaceRangesPath, merged);
-    if (merged.length !== next.length) {
-      setRangeDrafts({});
-    }
-  };
-
-  const setRangeAtIndex = (index: number, nextRange: RangeTuple) => {
-    const newRanges = ranges.map((r, i) =>
-      i === index ? ([...r] as RangeTuple) : r,
-    );
-    newRanges[index] = nextRange;
-    writeRanges(newRanges);
-  };
-
   const commitDraftValue = (index: number, field: 0 | 1, rawValue: string) => {
+    const draftKey = getDraftKey(index, field);
+    // Only merge when the user actually typed into this field. Blurring out of
+    // an untouched field (e.g. right after "Add Range", where the new row's
+    // default values sit flush against an existing range) must not collapse
+    // rows — otherwise "Add Range" appears to do nothing.
+    const hadDraft = draftKey in rangeDrafts;
+
     const parsed = Number.parseFloat(rawValue);
     const currentRange = ranges[index] || [0, 1];
     const availableGaps = getAvailableGapsForRange(index);
@@ -320,10 +307,18 @@ export default function NamespaceSelector({
         ? normalizeRangeAfterLowerChange(currentRange, parsed, availableGaps)
         : normalizeRangeAfterUpperChange(currentRange, parsed, availableGaps);
 
-    setRangeAtIndex(index, nextRange);
+    const newRanges = ranges.map((r, i) => (i === index ? nextRange : r));
+    const finalRanges = hadDraft ? mergeContiguousRanges(newRanges) : newRanges;
+    form.setValue(namespaceRangesPath, finalRanges);
+
     setRangeDrafts((current) => {
+      if (finalRanges.length !== newRanges.length) {
+        // Merge collapsed rows — drop all drafts so stale per-index state
+        // can't re-apply to the wrong row.
+        return {};
+      }
       const next = { ...current };
-      delete next[getDraftKey(index, field)];
+      delete next[draftKey];
       return next;
     });
   };
@@ -336,7 +331,7 @@ export default function NamespaceSelector({
         ...ranges,
         [largestAvailableGap.start, largestAvailableGap.end] as RangeTuple,
       ];
-      writeRanges(newRanges);
+      form.setValue(namespaceRangesPath, newRanges);
     }
   };
 
