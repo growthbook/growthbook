@@ -759,6 +759,9 @@ export function buildEffectiveDraft(
     ...(draftRevision.metadata !== undefined && {
       metadata: { ...filledLive.metadata, ...draftRevision.metadata },
     }),
+    ...("holdout" in draftRevision && {
+      holdout: draftRevision.holdout,
+    }),
   };
 }
 
@@ -810,6 +813,7 @@ export function draftDiffersFromLive(
         return true;
     }
   }
+  if (!isEqual(draft.holdout ?? null, filledLive.holdout ?? null)) return true;
   // Pending ramp actions (create/detach) are meaningful changes even if no feature content changed
   if ((draftRevision.rampActions ?? []).length > 0) return true;
   return false;

@@ -959,6 +959,74 @@ describe("draftDiffersFromLive", () => {
       ]),
     ).toBe(true);
   });
+
+  it("returns true when holdout is added to a feature without holdout", () => {
+    const draft: RevisionFields = {
+      ...liveRevision,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, feature, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns true when holdout is removed from a feature with holdout", () => {
+    const featureWithHoldout: FeatureInterface = {
+      ...feature,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    const draft: RevisionFields = {
+      ...liveRevision,
+      holdout: null,
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, featureWithHoldout, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns true when holdout is changed to a different one", () => {
+    const featureWithHoldout: FeatureInterface = {
+      ...feature,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    const draft: RevisionFields = {
+      ...liveRevision,
+      holdout: { id: "holdout-2", value: "different-value" },
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, featureWithHoldout, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns false when holdout is unchanged", () => {
+    const featureWithHoldout: FeatureInterface = {
+      ...feature,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    const liveRevisionWithHoldout: RevisionFields = {
+      ...liveRevision,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    const draft: RevisionFields = {
+      ...liveRevisionWithHoldout,
+      holdout: { id: "holdout-1", value: "holdout-value" },
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevisionWithHoldout, featureWithHoldout, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
