@@ -8,6 +8,7 @@ import {
   getNamespaceRanges,
   NamespaceValue,
 } from "shared/util";
+import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -41,23 +42,24 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 function getNamespaceDisplayData(
   namespace?: NamespaceValue,
   namespacesList?: { name: string; label?: string }[],
-): { range: number; minMax: [number, number]; name: string } {
+): { range: number; ranges: [number, number][]; name: string } {
   if (!namespace || !namespace.enabled) {
-    return { range: 1, minMax: [0, 0], name: "" };
+    return { range: 1, ranges: [], name: "" };
   }
   const range = calculateNamespaceCoverage(namespace);
-  const rangesArr = getNamespaceRanges(namespace);
-  const minMax: [number, number] =
-    rangesArr.length > 0
-      ? [
-          Math.min(...rangesArr.map((r) => r[0])),
-          Math.max(...rangesArr.map((r) => r[1])),
-        ]
-      : [0, 0];
+  // Mirror the merge that happens on save so the review accurately reflects
+  // what will be persisted. Without this, three discrete ranges like
+  // [0.2, 0.3], [0.6, 0.9], [0.9, 1] get collapsed into a single hull
+  // [0.2 - 1], hiding the gap between 0.3 and 0.6.
+  const ranges = mergeContiguousRanges(getNamespaceRanges(namespace));
   const name =
     namespacesList?.find((n) => n.name === namespace.name)?.label ||
     namespace.name;
-  return { range, minMax, name };
+  return { range, ranges, name };
+}
+
+function formatRanges(ranges: [number, number][]): string {
+  return ranges.map(([start, end]) => `[${start} - ${end}]`).join(" ");
 }
 
 export default function TargetingInfo({
@@ -82,7 +84,7 @@ export default function TargetingInfo({
   // Calculate total namespace allocation
   const {
     range: namespaceRange,
-    minMax: namespaceRanges,
+    ranges: namespaceRanges,
     name: namespaceName,
   } = getNamespaceDisplayData(phase.namespace, namespaces);
 
@@ -117,7 +119,7 @@ export default function TargetingInfo({
   const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
   const {
     range: changesNamespaceRange,
-    minMax: changesNamespaceRanges,
+    ranges: changesNamespaceRanges,
     name: changesNamespaceName,
   } = getNamespaceDisplayData(changes?.namespace, namespaces);
 
@@ -342,11 +344,12 @@ export default function TargetingInfo({
                             <span className="text-muted">
                               ({percentFormatter.format(namespaceRange)})
                             </span>
-                            {showNamespaceRanges && (
-                              <span className="text-muted small ml-1">
-                                [{namespaceRanges[0]} - {namespaceRanges[1]}]
-                              </span>
-                            )}
+                            {showNamespaceRanges &&
+                              namespaceRanges.length > 0 && (
+                                <span className="text-muted small ml-1">
+                                  {formatRanges(namespaceRanges)}
+                                </span>
+                              )}
                           </>
                         ) : (
                           <em>Global (all users)</em>
@@ -366,12 +369,12 @@ export default function TargetingInfo({
                             <span className="text-muted">
                               ({percentFormatter.format(changesNamespaceRange)})
                             </span>
-                            {showNamespaceRanges && (
-                              <span className="text-muted small ml-1">
-                                [{changesNamespaceRanges[0]} -{" "}
-                                {changesNamespaceRanges[1]}]
-                              </span>
-                            )}
+                            {showNamespaceRanges &&
+                              changesNamespaceRanges.length > 0 && (
+                                <span className="text-muted small ml-1">
+                                  {formatRanges(changesNamespaceRanges)}
+                                </span>
+                              )}
                           </>
                         ) : (
                           <em>Global (all users)</em>
