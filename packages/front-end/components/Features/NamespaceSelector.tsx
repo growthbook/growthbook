@@ -11,7 +11,7 @@ import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
-import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
@@ -425,15 +425,15 @@ export default function NamespaceSelector({
               {selectedNamespace &&
                 "hashAttribute" in selectedNamespace &&
                 selectedNamespace.hashAttribute && (
-                  <Callout status="info" variant="surface" size="sm" mb="3">
+                  <HelperText status="info" mb="3" size="sm">
                     Hash attribute:{`${selectedNamespace.hashAttribute}`}
-                  </Callout>
+                  </HelperText>
                 )}
               {selectedIsDifferentHash && (
-                <Callout status="info" mb="3" variant="surface" size="sm">
+                <HelperText status="warning" mb="3" size="sm">
                   This namespace hash attribute differs from the experiment hash
                   attribute.
-                </Callout>
+                </HelperText>
               )}
 
               <NamespaceUsageGraph
