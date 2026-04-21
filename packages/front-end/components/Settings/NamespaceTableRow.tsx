@@ -1,6 +1,6 @@
 import { Namespaces, NamespaceUsage } from "shared/types/organization";
 import Link from "next/link";
-import { MouseEventHandler, useState } from "react";
+import { MouseEventHandler, useMemo, useState } from "react";
 import { findGaps } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import NamespaceUsageGraph from "@/components/Features/NamespaceUsageGraph";
@@ -28,7 +28,20 @@ export default function NamespaceTableRow({
   onArchive,
   onEdit,
 }: Props) {
-  const experiments = usage[namespace.name] ?? [];
+  const experiments = useMemo(
+    () => usage[namespace.name] ?? [],
+    [usage, namespace.name],
+  );
+  // Count each feature-rule / experiment once regardless of how many ranges
+  // it reserves inside the namespace — the same experiment using
+  // [0.6, 0.9] + [0.9, 1.0] is still one active experiment, not two.
+  const uniqueExperimentCount = useMemo(() => {
+    const seen = new Set<string>();
+    for (const e of experiments) {
+      seen.add(`${e.link}|${e.trackingKey || e.id}`);
+    }
+    return seen.size;
+  }, [experiments]);
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canUpdateNamespace();
   const canDelete = permissionsUtil.canDeleteNamespace();
@@ -65,7 +78,7 @@ export default function NamespaceTableRow({
           {namespace.name}
         </td>
         <td onClick={expandRow}>{namespace.description}</td>
-        <td onClick={expandRow}>{experiments.length}</td>
+        <td onClick={expandRow}>{uniqueExperimentCount}</td>
         <td onClick={expandRow}>
           {percentFormatter.format(
             findGaps(usage, namespace.name).reduce(
