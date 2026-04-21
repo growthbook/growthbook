@@ -122,6 +122,36 @@ export function normalizeRangeAfterUpperChange(
   return [start, nextEndRaw];
 }
 
+/**
+ * Merge contiguous / overlapping ranges into a single range.
+ *
+ * Inputs like `[[0.6, 0.9], [0.9, 1]]` become `[[0.6, 1]]`. Ranges are sorted
+ * by start before merging, and any degenerate ranges (end <= start) are
+ * dropped so callers don't have to pre-filter. Field inputs snap to step 0.01
+ * so exact numeric equality is adequate for detecting contiguity here.
+ */
+export function mergeContiguousRanges(ranges: RangeTuple[]): RangeTuple[] {
+  if (ranges.length <= 1) {
+    return ranges.filter(([start, end]) => end > start);
+  }
+
+  const sorted = ranges
+    .filter(([start, end]) => end > start)
+    .slice()
+    .sort((a, b) => a[0] - b[0]);
+
+  const merged: RangeTuple[] = [];
+  for (const [start, end] of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && start <= last[1]) {
+      last[1] = Math.max(last[1], end);
+    } else {
+      merged.push([start, end]);
+    }
+  }
+  return merged;
+}
+
 export function shiftDraftKeysAfterRangeRemoval(
   drafts: Record<string, string>,
   removedIndex: number,

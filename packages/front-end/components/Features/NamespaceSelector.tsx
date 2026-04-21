@@ -19,6 +19,7 @@ import {
   normalizeRangeAfterLowerChange,
   normalizeRangeAfterUpperChange,
   getLargestGap,
+  mergeContiguousRanges,
   RangeTuple,
   shiftDraftKeysAfterRangeRemoval,
   subtractSelectedRangesFromGaps,
@@ -150,14 +151,28 @@ export default function NamespaceSelector({
     const activeNamespaces = allNamespaces.filter(
       (n) => n?.status !== "inactive",
     );
+
+    // Keep a namespace in the dropdown only if it still has room for this
+    // experiment. `findGaps` already excludes the current featureId/trackingKey,
+    // so a namespace the current experiment is allocated in keeps showing the
+    // experiment's own range as a usable gap. We always keep the currently
+    // selected namespace so the user can edit their existing range even if
+    // others have since filled the namespace up.
+    const hasAvailableRoom = (n: Namespaces) => {
+      if (n.name === namespace) return true;
+      const gaps = findGaps(namespaceUsage, n.name, featureId, trackingKey);
+      return gaps.some((g) => g.end - g.start > 0);
+    };
+    const allocatable = activeNamespaces.filter(hasAvailableRoom);
+
     const filtered = isFallbackMode
-      ? activeNamespaces.filter((n) => isLegacyNamespace(n))
-      : activeNamespaces;
-    const matchingNamespaces = activeNamespaces.filter((n) => {
+      ? allocatable.filter((n) => isLegacyNamespace(n))
+      : allocatable;
+    const matchingNamespaces = allocatable.filter((n) => {
       if (isLegacyNamespace(n)) return true;
       return n.hashAttribute === effectiveHashAttribute;
     });
-    const differentHashNamespaces = activeNamespaces.filter((n) => {
+    const differentHashNamespaces = allocatable.filter((n) => {
       if (isLegacyNamespace(n)) return false;
       return n.hashAttribute !== effectiveHashAttribute;
     });
@@ -176,6 +191,9 @@ export default function NamespaceSelector({
               label: n.label,
             })),
           ]) as SingleValue[],
+      // selectedNamespace lookup uses the unfiltered active set so a namespace
+      // that just filled up is still resolved (e.g. for the hash-attribute
+      // callout) when this experiment is the one tied to it.
       selectedNamespace: activeNamespaces.find((n) => n.name === namespace),
       selectedIsDifferentHash:
         !isFallbackMode &&
@@ -186,7 +204,15 @@ export default function NamespaceSelector({
             n.hashAttribute !== effectiveHashAttribute,
         ),
     };
-  }, [allNamespaces, effectiveHashAttribute, isFallbackMode, namespace]);
+  }, [
+    allNamespaces,
+    effectiveHashAttribute,
+    isFallbackMode,
+    namespace,
+    namespaceUsage,
+    featureId,
+    trackingKey,
+  ]);
 
   const persistedGaps = useMemo(
     () => findGaps(namespaceUsage, namespace, featureId, trackingKey),
@@ -265,12 +291,24 @@ export default function NamespaceSelector({
     );
   };
 
+  // Always write ranges through this helper so contiguous/overlapping ranges
+  // (e.g. [0.6, 0.9] + [0.9, 1]) collapse into one ([0.6, 1]) on commit. If
+  // merging reduces the row count, drop stale per-index drafts to avoid them
+  // re-applying to the wrong row.
+  const writeRanges = (next: RangeTuple[]) => {
+    const merged = mergeContiguousRanges(next);
+    form.setValue(namespaceRangesPath, merged);
+    if (merged.length !== next.length) {
+      setRangeDrafts({});
+    }
+  };
+
   const setRangeAtIndex = (index: number, nextRange: RangeTuple) => {
     const newRanges = ranges.map((r, i) =>
       i === index ? ([...r] as RangeTuple) : r,
     );
     newRanges[index] = nextRange;
-    form.setValue(namespaceRangesPath, newRanges);
+    writeRanges(newRanges);
   };
 
   const commitDraftValue = (index: number, field: 0 | 1, rawValue: string) => {
@@ -298,7 +336,7 @@ export default function NamespaceSelector({
         ...ranges,
         [largestAvailableGap.start, largestAvailableGap.end] as RangeTuple,
       ];
-      form.setValue(namespaceRangesPath, newRanges);
+      writeRanges(newRanges);
     }
   };
 
