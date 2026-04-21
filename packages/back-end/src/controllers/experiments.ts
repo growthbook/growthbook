@@ -1518,7 +1518,7 @@ export async function postExperiment(
     );
   } else if (
     // Holdout removal
-    data.holdoutId == "" &&
+    data.holdoutId === "" &&
     data.holdoutId !== experiment.holdoutId &&
     experiment.holdoutId
   ) {
