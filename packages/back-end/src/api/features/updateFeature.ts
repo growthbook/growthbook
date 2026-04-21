@@ -6,7 +6,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
-  buildOwnerEmailMap,
+  resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import {
   getFeature,
@@ -407,20 +407,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     });
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-    const ownerEmailMap = await buildOwnerEmailMap(
-      [updatedFeature.owner],
-      req.context,
-    );
     return {
-      feature: getApiFeatureObj({
-        feature: updatedFeature,
-        organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision,
-        safeRolloutMap,
-        ownerEmailMap,
-      }),
+      feature: await resolveOwnerEmail(
+        getApiFeatureObj({
+          feature: updatedFeature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision,
+          safeRolloutMap,
+        }),
+        req.context,
+      ),
     };
   },
 );

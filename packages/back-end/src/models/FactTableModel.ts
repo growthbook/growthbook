@@ -17,7 +17,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
-import { withOwnerEmail } from "back-end/src/services/owner";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -687,9 +686,8 @@ export async function deleteFactFilter(
 
 export function toFactTableApiInterface(
   factTable: FactTableInterface,
-  ownerEmailMap?: Map<string, string | undefined>,
 ): ApiFactTable {
-  const apiFactTable: ApiFactTable = {
+  return {
     ...omit(factTable, [
       "organization",
       "filters",
@@ -708,7 +706,6 @@ export function toFactTableApiInterface(
     dateCreated: factTable.dateCreated?.toISOString() || "",
     dateUpdated: factTable.dateUpdated?.toISOString() || "",
   };
-  return withOwnerEmail(apiFactTable, ownerEmailMap);
 }
 
 export function toFactTableFilterApiInterface(

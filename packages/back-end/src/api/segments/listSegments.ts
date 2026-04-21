@@ -1,6 +1,6 @@
 import { listSegmentsValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
-import { buildOwnerEmailMap } from "back-end/src/services/owner";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyFilter,
   applyPagination,
@@ -21,13 +21,10 @@ export const listSegments = createApiRequestHandler(listSegmentsValidator)(
       req.query,
     );
 
-    const ownerEmailMap = await buildOwnerEmailMap(
-      filtered.map((s) => s.owner),
-      req.context,
-    );
     return {
-      segments: filtered.map((segment) =>
-        toSegmentApiInterface(segment, ownerEmailMap),
+      segments: await resolveOwnerEmails(
+        filtered.map((segment) => toSegmentApiInterface(segment)),
+        req.context,
       ),
       ...returnFields,
     };

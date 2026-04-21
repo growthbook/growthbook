@@ -4,7 +4,6 @@ import { omit } from "lodash";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { ApiArchetype } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
-import { withOwnerEmail } from "back-end/src/services/owner";
 
 const archetypeSchema = new mongoose.Schema({
   id: {
@@ -138,7 +137,6 @@ export async function deleteArchetypeById(id: string, organization: string) {
 
 export function toArchetypeApiInterface(
   archetype: ArchetypeInterface,
-  ownerEmailMap?: Map<string, string | undefined>,
 ): ApiArchetype {
   let parsedAttributes = {};
   try {
@@ -151,7 +149,7 @@ export function toArchetypeApiInterface(
       "Failed to parse archetype attributes json",
     );
   }
-  const apiArchetype: ApiArchetype = {
+  return {
     id: archetype.id,
     dateCreated: archetype.dateCreated?.toISOString() || "",
     dateUpdated: archetype.dateUpdated?.toISOString() || "",
@@ -162,5 +160,4 @@ export function toArchetypeApiInterface(
     attributes: parsedAttributes,
     projects: archetype.projects || [],
   };
-  return withOwnerEmail(apiArchetype, ownerEmailMap);
 }

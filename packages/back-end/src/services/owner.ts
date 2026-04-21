@@ -120,11 +120,7 @@ export async function buildOwnerEmailMap(
   return map;
 }
 
-/**
- * Attaches a resolved `ownerEmail` to an API-shaped doc using a pre-built map.
- * Pure/sync — safe to import from any module.
- */
-export function withOwnerEmail<T extends object>(
+function withOwnerEmail<T extends object>(
   apiDoc: T,
   map: Map<string, string | undefined> | undefined,
 ): T {
@@ -133,4 +129,32 @@ export function withOwnerEmail<T extends object>(
   const email = map.get(apiDoc.owner);
   if (email === undefined) return apiDoc;
   return { ...apiDoc, ownerEmail: email };
+}
+
+/**
+ * Resolves `ownerEmail` for a single API doc.
+ * Combines buildOwnerEmailMap + withOwnerEmail into one call.
+ */
+export async function resolveOwnerEmail<T extends object>(
+  apiDoc: T,
+  context: ReqContext,
+): Promise<T> {
+  if (!("owner" in apiDoc) || typeof apiDoc.owner !== "string") return apiDoc;
+  const map = await buildOwnerEmailMap([apiDoc.owner], context);
+  return withOwnerEmail(apiDoc, map);
+}
+
+/**
+ * Resolves `ownerEmail` for a list of API docs in a single batched lookup.
+ */
+export async function resolveOwnerEmails<T extends object>(
+  apiDocs: T[],
+  context: ReqContext,
+): Promise<T[]> {
+  if (apiDocs.length === 0) return apiDocs;
+  const ownerValues = apiDocs.map((d) =>
+    "owner" in d && typeof d.owner === "string" ? d.owner : undefined,
+  );
+  const map = await buildOwnerEmailMap(ownerValues, context);
+  return apiDocs.map((d) => withOwnerEmail(d, map));
 }

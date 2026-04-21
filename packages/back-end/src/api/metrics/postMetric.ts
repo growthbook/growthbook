@@ -2,7 +2,7 @@ import { postMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
-  buildOwnerEmailMap,
+  resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import {
   createMetric,
@@ -42,17 +42,11 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(async (
   );
 
   const createdMetric = await createMetric(req.context, metric);
-  const ownerEmailMap = await buildOwnerEmailMap(
-    [createdMetric.owner],
-    req.context,
-  );
 
   return {
-    metric: toMetricApiInterface(
-      req.organization,
-      createdMetric,
-      datasource,
-      ownerEmailMap,
+    metric: await resolveOwnerEmail(
+      toMetricApiInterface(req.organization, createdMetric, datasource),
+      req.context,
     ),
   };
 });

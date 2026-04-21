@@ -13,7 +13,7 @@ import { addTagsDiff } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
-  buildOwnerEmailMap,
+  resolveOwnerEmail,
 } from "back-end/src/services/owner";
 
 // Type override to handle auto-generated OpenAPI types vs internal types
@@ -129,12 +129,11 @@ export const updateFactTable = createApiRequestHandler(
         }))
       : factTable.columns,
   };
-  const ownerEmailMap = await buildOwnerEmailMap(
-    [updatedFactTable.owner],
-    req.context,
-  );
   return {
-    factTable: toFactTableApiInterface(updatedFactTable, ownerEmailMap),
+    factTable: await resolveOwnerEmail(
+      toFactTableApiInterface(updatedFactTable),
+      req.context,
+    ),
   };
 });
 

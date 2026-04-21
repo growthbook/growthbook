@@ -1,12 +1,8 @@
 import { SegmentInterface } from "shared/types/segment";
 import { ApiSegment } from "shared/validators";
-import { withOwnerEmail } from "back-end/src/services/owner";
 
-export function toSegmentApiInterface(
-  segment: SegmentInterface,
-  ownerEmailMap?: Map<string, string | undefined>,
-): ApiSegment {
-  const apiSegment: ApiSegment = {
+export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
+  return {
     id: segment.id,
     name: segment.name,
     owner: segment.owner || "",
@@ -21,5 +17,4 @@ export function toSegmentApiInterface(
     managedBy: segment.managedBy || "",
     projects: segment.projects || [],
   };
-  return withOwnerEmail(apiSegment, ownerEmailMap);
 }
