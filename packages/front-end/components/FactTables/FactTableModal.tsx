@@ -270,7 +270,7 @@ export default function FactTableModal({
           </div>
         )}
 
-        {selectedDataSource && (!existing?.id || duplicate) && (
+        {selectedDataSource && (
           <>
             <a
               href="#"
@@ -295,7 +295,11 @@ export default function FactTableModal({
                       label: userIdType,
                     }),
                   )}
-                  helpText="The default values were auto-detected from your SQL query."
+                  helpText={
+                    !existing?.id || duplicate
+                      ? "The default values were auto-detected from your SQL query."
+                      : "Select which columns from your SQL should be treated as user identifier types."
+                  }
                   autoFocus={true}
                 />
               </div>
