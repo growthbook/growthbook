@@ -33,6 +33,7 @@ export * from "./signup-attribution";
 export * from "./snapshot-analysis-chunks";
 export * from "./webhook-secrets";
 export * from "./webhooks";
+export * from "./event-forwarder-config";
 export * from "./event-webhook";
 export * from "./feature-webhook-schemas";
 // Load watch before events - events imports base-types which imports validators, creating a cycle.
