@@ -151,10 +151,6 @@ interface SortableProps {
     mode: "create" | "edit" | "duplicate";
     detachRampOnSave?: boolean;
   }) => void;
-  setCopyRuleModal: (args: {
-    environment: string;
-    rules: FeatureRule[];
-  }) => void;
   unreachable?: boolean;
   version: number;
   setVersion: (version: number) => void;
@@ -213,7 +209,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       feature,
       environment,
       setRuleModal,
-      setCopyRuleModal,
       mutate,
       handle,
       unreachable,
@@ -544,19 +539,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               }}
                             >
                               Duplicate rule
-                            </DropdownMenuItem>
-                          )}
-                          {environments.length > 1 && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setCopyRuleModal({
-                                  environment,
-                                  rules: [rule],
-                                });
-                                setDropdownOpen(false);
-                              }}
-                            >
-                              Copy rule to environment(s)
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem

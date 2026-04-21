@@ -36,7 +36,6 @@ import track from "@/services/track";
 import { getRules, isRuleInactive } from "@/services/features";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
-import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
@@ -159,10 +158,6 @@ export default function FeatureRules({
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
     detachRampOnSave?: boolean;
-  } | null>(null);
-  const [copyRuleModal, setCopyRuleModal] = useState<{
-    environment: string;
-    rules: FeatureRule[];
   } | null>(null);
   const [holdoutModal, setHoldoutModal] = useState<boolean>(false);
 
@@ -379,7 +374,6 @@ export default function FeatureRules({
                           i={editIndex}
                           mutate={mutate}
                           setRuleModal={setRuleModal}
-                          setCopyRuleModal={setCopyRuleModal}
                           unreachable={false}
                           version={currentVersion}
                           setVersion={setVersion}
@@ -424,7 +418,6 @@ export default function FeatureRules({
                             i={editIndex}
                             mutate={mutate}
                             setRuleModal={setRuleModal}
-                            setCopyRuleModal={setCopyRuleModal}
                             unreachable={false}
                             version={currentVersion}
                             setVersion={setVersion}
@@ -480,7 +473,6 @@ export default function FeatureRules({
                 baseFeature={baseFeature}
                 mutate={mutate}
                 setRuleModal={setRuleModal}
-                setCopyRuleModal={setCopyRuleModal}
                 version={currentVersion}
                 setVersion={setVersion}
                 locked={isLocked}
@@ -542,18 +534,6 @@ export default function FeatureRules({
           rampSchedules={rampSchedules}
           detachRampOnSave={ruleModal.detachRampOnSave}
           draftRevision={draftRevision}
-        />
-      )}
-      {copyRuleModal !== null && (
-        <CopyRuleModal
-          feature={feature}
-          environment={copyRuleModal.environment}
-          version={currentVersion}
-          setVersion={setVersion}
-          rules={copyRuleModal.rules}
-          cancel={() => setCopyRuleModal(null)}
-          mutate={mutate}
-          safeRolloutsMap={safeRolloutsMap}
         />
       )}
       {holdoutModal && (

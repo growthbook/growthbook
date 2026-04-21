@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
@@ -43,7 +43,6 @@ export default function RuleList({
   mutate,
   environment,
   setRuleModal,
-  setCopyRuleModal,
   version,
   setVersion,
   locked,
@@ -67,10 +66,6 @@ export default function RuleList({
     i: number;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
-  }) => void;
-  setCopyRuleModal: (args: {
-    environment: string;
-    rules: FeatureRule[];
   }) => void;
   version: number;
   setVersion: (version: number) => void;
@@ -274,7 +269,6 @@ export default function RuleList({
               feature={feature}
               mutate={mutate}
               setRuleModal={setRuleModal}
-              setCopyRuleModal={setCopyRuleModal}
               unreachable={!!unreachableIndex && i >= unreachableIndex}
               version={version}
               setVersion={setVersion}
@@ -298,7 +292,6 @@ export default function RuleList({
               feature={feature}
               mutate={mutate}
               setRuleModal={setRuleModal}
-              setCopyRuleModal={setCopyRuleModal}
               version={version}
               setVersion={setVersion}
               locked={locked}

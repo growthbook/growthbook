@@ -3306,7 +3306,7 @@ export async function postFeatureMoveRule(
 
   const changedEnvironments = isFlatReorder ? environments : [environment];
   const auditSubject = isFlatReorder
-    ? `across all environments from position ${from + 1} to ${to + 1}`
+    ? `in all environments from position ${from + 1} to ${to + 1}`
     : `in ${environment} from position ${from + 1} to ${to + 1}`;
 
   const changes = { rules: nextRules };
