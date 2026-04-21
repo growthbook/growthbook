@@ -680,6 +680,12 @@ const revisionFieldFillers: Partial<{
   defaultValue: (feature, current) => current ?? feature.defaultValue,
   archived: (feature, current) => current ?? feature.archived ?? false,
   prerequisites: (feature, current) => current ?? feature.prerequisites ?? [],
+  // Backfill holdout from feature so that removing a holdout is detected as a change.
+  // Without this, comparing draft.holdout (null) vs base.holdout (undefined → null)
+  // would show no change when the feature actually has a holdout.
+  // Note: we check for undefined explicitly because null is a valid value (means removal).
+  holdout: (feature, current) =>
+    current !== undefined ? current : (feature.holdout ?? null),
 };
 
 // Backfills stale/missing fields on a revision before passing to autoMerge.

@@ -903,6 +903,64 @@ describe("fillRevisionFromFeature", () => {
     // existing field is preserved
     expect(filled.metadata?.description).toBe("hi");
   });
+
+  it("backfills holdout from feature when revision lacks it", () => {
+    const holdout = { id: "h-1", value: "holdout-value" };
+    const feature: FeatureInterface = { ...baseFeature, holdout };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      // holdout field missing from revision
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.holdout).toEqual(holdout);
+  });
+
+  it("does not overwrite explicit holdout value in revision", () => {
+    const featureHoldout = { id: "h-1", value: "feature-value" };
+    const revisionHoldout = { id: "h-2", value: "revision-value" };
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      holdout: revisionHoldout,
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.holdout).toEqual(revisionHoldout);
+  });
+
+  it("does not overwrite explicit null holdout in revision (removal)", () => {
+    const featureHoldout = { id: "h-1", value: "feature-value" };
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      holdout: null, // explicit removal
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.holdout).toBeNull();
+  });
+
+  it("backfills holdout as null when feature has no holdout", () => {
+    const feature: FeatureInterface = { ...baseFeature }; // no holdout
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      // holdout field missing from revision
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.holdout).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1264,6 +1322,40 @@ describe("autoMerge with holdout field", () => {
     const result = autoMerge(live, base, revision, [], {});
     expect(result.success).toBe(true);
     if (result.success) expect("holdout" in result.result).toBe(false);
+  });
+
+  it("no-divergence: detects holdout removal when base is backfilled via fillRevisionFromFeature", () => {
+    // This is the real-world bug scenario:
+    // 1. Feature has a holdout
+    // 2. Base revision was created before holdout tracking (no holdout field)
+    // 3. Draft revision has holdout: null to remove the holdout
+    // Without fillRevisionFromFeature backfilling base.holdout, autoMerge compares
+    // null vs undefined (→ null) and sees no change.
+    const featureWithHoldout: FeatureInterface = {
+      ...baseFeature,
+      holdout: holdout1,
+    };
+    const baseWithoutHoldoutField: RevisionFields = {
+      ...base,
+      // holdout field is NOT present (legacy revision)
+    };
+    const filledBase = fillRevisionFromFeature(
+      baseWithoutHoldoutField,
+      featureWithHoldout,
+    );
+    const liveWithHoldout: RevisionFields = { ...live, holdout: holdout1 };
+    const revision: RevisionFields = { ...base, version: 4, holdout: null };
+
+    // With fillRevisionFromFeature, base now has holdout from feature
+    expect(filledBase.holdout).toEqual(holdout1);
+
+    // autoMerge should detect the removal
+    const result = autoMerge(liveWithHoldout, filledBase, revision, [], {});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect("holdout" in result.result).toBe(true);
+      expect(result.result.holdout).toBeNull();
+    }
   });
 
   it("no-divergence: omits holdout when value unchanged (same id)", () => {
