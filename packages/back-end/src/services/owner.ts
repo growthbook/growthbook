@@ -132,8 +132,14 @@ function withOwnerEmail<T extends object>(
 }
 
 /**
- * Resolves `ownerEmail` for a single API doc.
- * Combines buildOwnerEmailMap + withOwnerEmail into one call.
+ * Attaches a resolved `ownerEmail` to a single API doc.
+ *
+ * - If the doc has no string `owner` field, it is returned unchanged.
+ * - If the `owner` cannot be resolved to an email (e.g. a legacy display name
+ *   or a userId no longer in the DB), the doc is returned unchanged.
+ * - Otherwise a shallow copy of the doc is returned with `ownerEmail` set.
+ *
+ * For lists of docs, prefer `resolveOwnerEmails` so the DB lookup is batched.
  */
 export async function resolveOwnerEmail<T extends object>(
   apiDoc: T,
@@ -145,7 +151,12 @@ export async function resolveOwnerEmail<T extends object>(
 }
 
 /**
- * Resolves `ownerEmail` for a list of API docs in a single batched lookup.
+ * Attaches a resolved `ownerEmail` to each API doc in a list.
+ *
+ * All owners are resolved in a single batched DB lookup (deduplicated and
+ * cached via `buildOwnerEmailMap`). Docs without an `owner`, or whose owner
+ * cannot be resolved, are returned unchanged. Other docs are shallow-copied
+ * with `ownerEmail` set.
  */
 export async function resolveOwnerEmails<T extends object>(
   apiDocs: T[],

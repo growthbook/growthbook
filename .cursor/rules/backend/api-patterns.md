@@ -306,6 +306,53 @@ src/api/
     ...
 ```
 
+### Resolving `ownerEmail` on API Responses
+
+Every external API response that includes an owner-bearing resource must expose a resolved `ownerEmail` alongside the raw `owner` field. Use the helpers in [src/services/owner.ts](../../../packages/back-end/src/services/owner.ts):
+
+- `resolveOwnerEmail(apiDoc, context)` — for a single API doc
+- `resolveOwnerEmails(apiDocs, context)` — for a list (batches the DB lookup)
+
+Both are no-ops for docs without a string `owner` field, so they're safe to call unconditionally.
+
+**Spec-based endpoints:** The default `handleApiGet`, `handleApiCreate`, `handleApiList`, and `handleApiUpdate` implementations in `BaseModel` already wrap their return value with the appropriate helper — no action needed unless you override them.
+
+**Overriding `handleApi*`:** When you override one of these methods you replace the base implementation, so call the helper yourself before returning:
+
+```typescript
+public override async handleApiList(
+  req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
+): Promise<ApiMyResource[]> {
+  const docs = await this._find({ project: req.query.projectId });
+  return resolveOwnerEmails(
+    docs.map((doc) => this.toApiInterface(doc)),
+    this.context,
+  );
+}
+```
+
+**Non-BaseModel endpoints:** Wrap the final API shape at the return statement. Use `resolveOwnerEmails` for lists so the user lookup is batched:
+
+```typescript
+// Single doc
+return {
+  archetype: await resolveOwnerEmail(
+    toArchetypeApiInterface(archetype),
+    req.context,
+  ),
+};
+
+// List
+return {
+  archetypes: await resolveOwnerEmails(
+    filtered.map((a) => toArchetypeApiInterface(a)),
+    req.context,
+  ),
+};
+```
+
+Call the helper on the final API-shaped object — don't try to look up owner emails inside `toApiInterface` or equivalent serializers, since they're sync and per-doc.
+
 ### Authentication (External API)
 
 - Uses API key authentication via `authenticateApiRequestMiddleware`

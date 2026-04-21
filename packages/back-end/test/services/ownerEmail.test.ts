@@ -3,6 +3,8 @@ import type { ReqContext } from "back-end/types/request";
 import {
   buildOwnerEmailMap,
   clearOwnerEmailCache,
+  resolveOwnerEmail,
+  resolveOwnerEmails,
 } from "back-end/src/services/owner";
 
 function makeContext(users: Partial<UserInterface>[]): ReqContext {
@@ -120,5 +122,120 @@ describe("buildOwnerEmailMap", () => {
     await buildOwnerEmailMap(["u_missing"], context);
     await buildOwnerEmailMap(["u_missing"], context);
     expect(context.getUsersByIds).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("resolveOwnerEmail", () => {
+  it("returns the doc unchanged when it has no owner field", async () => {
+    const context = makeContext([]);
+    const doc = { id: "x_1", name: "no owner" };
+    const result = await resolveOwnerEmail(doc, context);
+    expect(result).toBe(doc);
+    expect(context.getUsersByIds).not.toHaveBeenCalled();
+  });
+
+  it("returns the doc unchanged when owner is not a string", async () => {
+    const context = makeContext([]);
+    const doc = { id: "x_1", owner: null };
+    const result = await resolveOwnerEmail(doc, context);
+    expect(result).toBe(doc);
+    expect(context.getUsersByIds).not.toHaveBeenCalled();
+  });
+
+  it("attaches ownerEmail when owner is a userId resolvable via DB", async () => {
+    const context = makeContext([{ id: "u_1", email: "alice@example.com" }]);
+    const result = await resolveOwnerEmail(
+      { id: "x_1", owner: "u_1" },
+      context,
+    );
+    expect(result).toEqual({
+      id: "x_1",
+      owner: "u_1",
+      ownerEmail: "alice@example.com",
+    });
+  });
+
+  it("attaches ownerEmail equal to the owner value when owner is an email", async () => {
+    const context = makeContext([]);
+    const result = await resolveOwnerEmail(
+      { id: "x_1", owner: "alice@example.com" },
+      context,
+    );
+    expect(result).toEqual({
+      id: "x_1",
+      owner: "alice@example.com",
+      ownerEmail: "alice@example.com",
+    });
+    expect(context.getUsersByIds).not.toHaveBeenCalled();
+  });
+
+  it("leaves ownerEmail absent when owner is a legacy display name", async () => {
+    const context = makeContext([]);
+    const result = await resolveOwnerEmail(
+      { id: "x_1", owner: "legacyname" },
+      context,
+    );
+    expect(result).toEqual({ id: "x_1", owner: "legacyname" });
+    expect("ownerEmail" in result).toBe(false);
+  });
+
+  it("leaves ownerEmail absent when owner is a userId not found in DB", async () => {
+    const context = makeContext([]);
+    const result = await resolveOwnerEmail(
+      { id: "x_1", owner: "u_missing" },
+      context,
+    );
+    expect(result).toEqual({ id: "x_1", owner: "u_missing" });
+    expect("ownerEmail" in result).toBe(false);
+  });
+});
+
+describe("resolveOwnerEmails", () => {
+  it("returns the input array unchanged when empty", async () => {
+    const context = makeContext([]);
+    const input: { owner: string }[] = [];
+    const result = await resolveOwnerEmails(input, context);
+    expect(result).toBe(input);
+    expect(context.getUsersByIds).not.toHaveBeenCalled();
+  });
+
+  it("resolves owner emails for a mix of owner shapes in a single DB call", async () => {
+    const context = makeContext([
+      { id: "u_1", email: "alice@example.com" },
+      { id: "u_2", email: "bob@example.com" },
+    ]);
+    const docs = [
+      { id: "x_1", owner: "u_1" },
+      { id: "x_2", owner: "u_2" },
+      { id: "x_3", owner: "u_1" },
+      { id: "x_4", owner: "carol@example.com" },
+      { id: "x_5", owner: "legacyname" },
+      { id: "x_6", name: "no owner field" },
+    ];
+
+    const result = await resolveOwnerEmails(docs, context);
+
+    expect(result).toEqual([
+      { id: "x_1", owner: "u_1", ownerEmail: "alice@example.com" },
+      { id: "x_2", owner: "u_2", ownerEmail: "bob@example.com" },
+      { id: "x_3", owner: "u_1", ownerEmail: "alice@example.com" },
+      {
+        id: "x_4",
+        owner: "carol@example.com",
+        ownerEmail: "carol@example.com",
+      },
+      { id: "x_5", owner: "legacyname" },
+      { id: "x_6", name: "no owner field" },
+    ]);
+    expect(context.getUsersByIds).toHaveBeenCalledTimes(1);
+    expect(context.getUsersByIds).toHaveBeenCalledWith(["u_1", "u_2"]);
+  });
+
+  it("does not mutate input docs", async () => {
+    const context = makeContext([{ id: "u_1", email: "alice@example.com" }]);
+    const docs = [{ id: "x_1", owner: "u_1" }];
+    const result = await resolveOwnerEmails(docs, context);
+    expect(docs[0]).toEqual({ id: "x_1", owner: "u_1" });
+    expect(result[0]).not.toBe(docs[0]);
   });
 });
