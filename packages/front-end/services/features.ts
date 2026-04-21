@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
   NamespaceUsage,
@@ -90,6 +90,57 @@ export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
 } & Omit<ExperimentRule, "type">;
+
+/**
+ * Sentinel value stored in localStorage when the user has selected the
+ * "All environments" tab on the feature rules page. Using a non-empty string
+ * keeps Radix Tabs in controlled mode (empty string is falsy).
+ */
+export const FEATURE_RULES_ALL_ENVS = "__all__";
+
+/**
+ * Persists the selected environment tab for the feature rules view across
+ * page loads and applies any org-level `preferredEnvironment` setting on
+ * first visit. Returns `null` when "All environments" is active.
+ */
+export function useFeatureRulesEnv(): [
+  string | null,
+  (v: string | null) => void,
+] {
+  const [stored, setStored] = useLocalStorage<string>(
+    "featureRulesEnv",
+    FEATURE_RULES_ALL_ENVS,
+  );
+  const { settings } = useUser();
+  const environments = useEnvironments();
+  const hasApplied = useRef(false);
+
+  useEffect(() => {
+    if (hasApplied.current) return;
+    if (!settings) return;
+    hasApplied.current = true;
+
+    const preferred = settings.preferredEnvironment;
+    // Empty string means "remember previous" — leave localStorage untouched.
+    if (!preferred) return;
+    // __all__ is a valid stored value.
+    if (preferred === FEATURE_RULES_ALL_ENVS) {
+      setStored(FEATURE_RULES_ALL_ENVS);
+      return;
+    }
+    // Only apply a specific env if it actually exists in the org.
+    if (environments.some((e) => e.id === preferred)) {
+      setStored(preferred);
+    }
+  }, [settings, environments, setStored]);
+
+  const setEnv = useCallback(
+    (v: string | null) => setStored(v ?? FEATURE_RULES_ALL_ENVS),
+    [setStored],
+  );
+
+  return [stored === FEATURE_RULES_ALL_ENVS ? null : stored, setEnv];
+}
 
 export function useEnvironmentState() {
   const [state, setState] = useLocalStorage("currentEnvironment", "dev");

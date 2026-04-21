@@ -27,22 +27,27 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { Box, Container, Flex, Text } from "@radix-ui/themes";
-import clsx from "clsx";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiPlusBold } from "react-icons/pi";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
-import { getRules, isRuleInactive } from "@/services/features";
+import {
+  getRules,
+  isRuleInactive,
+  useFeatureRulesEnv,
+  FEATURE_RULES_ALL_ENVS,
+} from "@/services/features";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
-import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { useAuth } from "@/services/auth";
 import HoldoutValueModal from "./HoldoutValueModal";
-import EnvFilterTrigger from "./EnvFilterTrigger";
 import { Rule, SortableRule } from "./Rule";
+
+const ALL_ENVS = FEATURE_RULES_ALL_ENVS;
 
 export default function FeatureRules({
   environments,
@@ -84,7 +89,8 @@ export default function FeatureRules({
   const { apiCall } = useAuth();
   const envs = environments.map((e) => e.id);
   // null = "All environments" (unfiltered view); string = specific env filter
-  const [env, setEnv] = useState<string | null>(null);
+  // Persisted in localStorage; respects org-level preferredEnvironment setting.
+  const [env, setEnv] = useFeatureRulesEnv();
   // Optimistic local copy of feature.rules for the all-envs DnD view.
   const [allEnvItems, setAllEnvItems] = useState<FeatureRule[]>(
     feature.rules ?? [],
@@ -173,7 +179,7 @@ export default function FeatureRules({
     if (env !== null && !envs.includes(env)) {
       setEnv(null);
     }
-  }, [envs, env]);
+  }, [envs, env, setEnv]);
 
   const rulesByEnv = Object.fromEntries(
     environments.map((e) => {
@@ -181,10 +187,6 @@ export default function FeatureRules({
       return [e.id, rules];
     }),
   );
-
-  const tabEnvs = environments.slice(0, 4);
-  const dropdownEnvs = environments.slice(4);
-  const selectedDropdownEnv = dropdownEnvs.find((e) => e.id === env)?.id;
 
   // null env = "All environments" unfiltered view; otherwise filter to the selected env.
   const activeEnv =
@@ -202,95 +204,49 @@ export default function FeatureRules({
 
   return (
     <>
-      <Flex align="center" justify="between" mb="3" wrap="wrap" gap="2">
-        <Flex wrap="wrap" flexGrow="1" gap="2" align="center">
-          <EnvFilterTrigger
-            label="All Environments"
-            count={feature.rules?.length ?? 0}
-            isActive={env === null}
-            onClick={() => setEnv(null)}
-          />
-
-          {tabEnvs.map((e) => {
-            // A single rule can apply to many envs post-unification, so
-            // the same rule legitimately contributes to multiple tab counts.
-            const count = holdout?.environmentSettings?.[e.id]?.enabled
-              ? rulesByEnv[e.id].length + 1
-              : rulesByEnv[e.id].length;
-            return (
-              <EnvFilterTrigger
-                key={e.id}
-                label={e.id}
-                count={count}
-                isActive={env === e.id}
-                onClick={() => setEnv(e.id)}
-              />
-            );
-          })}
-
-          {dropdownEnvs.length === 1 &&
-            (() => {
-              const e = dropdownEnvs[0];
-              const count = holdout?.environmentSettings[e.id]?.enabled
+      <Tabs
+        value={env ?? ALL_ENVS}
+        onValueChange={(v) => setEnv(v === ALL_ENVS ? null : v)}
+        mb="3"
+      >
+        <Flex
+          align="center"
+          justify="between"
+          style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
+        >
+          <TabsList className="w-full" style={{ boxShadow: "none" }}>
+            <TabsTrigger value={ALL_ENVS}>
+              <Flex align="center" gap="2">
+                All Environments
+                <Badge
+                  label={String(feature.rules?.length ?? 0)}
+                  radius="full"
+                  variant="solid"
+                  color="violet"
+                  size="sm"
+                />
+              </Flex>
+            </TabsTrigger>
+            {environments.map((e) => {
+              const count = holdout?.environmentSettings?.[e.id]?.enabled
                 ? rulesByEnv[e.id].length + 1
                 : rulesByEnv[e.id].length;
               return (
-                <EnvFilterTrigger
-                  label={e.id}
-                  count={count}
-                  isActive={env === e.id}
-                  onClick={() => setEnv(e.id)}
-                />
+                <TabsTrigger key={e.id} value={e.id}>
+                  <Flex align="center" gap="2">
+                    {e.id}
+                    <Badge
+                      label={String(count)}
+                      radius="full"
+                      variant="solid"
+                      color="violet"
+                      size="sm"
+                    />
+                  </Flex>
+                </TabsTrigger>
               );
-            })()}
-        </Flex>
-
-        <Flex align="center" flexShrink="0">
-          {dropdownEnvs.length > 1 && (
-            <Flex
-              px="1"
-              direction="column"
-              justify="center"
-              align="center"
-              className={clsx("tab-trigger-container", {
-                active: !!selectedDropdownEnv,
-              })}
-            >
-              <Container
-                flexGrow="0"
-                minWidth={selectedDropdownEnv ? undefined : "100px"}
-              >
-                <EnvironmentDropdown
-                  containerClassName={"select-dropdown-no-underline"}
-                  env={selectedDropdownEnv}
-                  setEnv={setEnv}
-                  environments={dropdownEnvs}
-                  placeholder="Other..."
-                  formatOptionLabel={({ value }) => (
-                    <Flex align="center">
-                      <Flex maxWidth="150px">
-                        <Text weight="medium" truncate title={value}>
-                          {value}
-                        </Text>
-                      </Flex>
-                      <Badge
-                        ml="2"
-                        mr="3"
-                        label={
-                          holdout?.environmentSettings[value].enabled
-                            ? (rulesByEnv[value].length + 1).toString()
-                            : rulesByEnv[value].length.toString()
-                        }
-                        radius="full"
-                        variant="solid"
-                        color="violet"
-                      />
-                    </Flex>
-                  )}
-                />
-              </Container>
-            </Flex>
-          )}
+            })}
+          </TabsList>
 
           <Switch
             size="1"
@@ -300,7 +256,7 @@ export default function FeatureRules({
             label="Show inactive"
           />
         </Flex>
-      </Flex>
+      </Tabs>
 
       {/* Single content area — filtered by active env, null = show all */}
       <div className="mt-2">
