@@ -97,9 +97,14 @@ export default function CovariateImbalanceCard({
   const totalNumMetricsTested =
     goalAndGuardrailMetricsTested +
     (covariateImbalanceResult?.numSecondaryMetrics ?? 0);
+  const experimentHasMetrics =
+    goalMetricIds.length +
+      secondaryMetricIds.length +
+      guardrailMetricIds.length >
+    0;
 
   // Match packages/shared/src/health/covariate-imbalance.ts: per-metric flags use
-  // Bonferroni α_family / nTests (only goal + guardrail metrics count toward nTests).
+  // Bonferroni alpha_family / nTests (only goal + guardrail metrics count toward nTests).
   const numVariations = variations.length;
   const numBonferroniTests = Math.max(
     1,
@@ -136,7 +141,7 @@ export default function CovariateImbalanceCard({
           </Box>
         </Flex>
         <Text as="p" mt="1">
-          Detects differences in pre-exposure control vs treatment means
+          Detects differences in pre-exposure baseline and variation means
         </Text>
         <Separator size="4" my="3" />
         <Box pt="2">
@@ -149,7 +154,11 @@ export default function CovariateImbalanceCard({
           ) : totalNumMetricsTested === 0 ? (
             <Box mt="2">
               <Text color="text-low">
-                <i>No metrics have been added.</i>
+                <i>
+                  {experimentHasMetrics
+                    ? "No pre-exposure checks found in results."
+                    : "No metrics have been added."}
+                </i>
               </Text>
             </Box>
           ) : !isImbalanced ? (
