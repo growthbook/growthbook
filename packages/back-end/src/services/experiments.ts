@@ -1165,6 +1165,7 @@ export function getSnapshotQueryRunnerKind({
   experiment,
   snapshotType,
   hasSnapshotDimensions,
+  hasMaterializedUnitsTable,
 }: {
   allowIncrementalRefresh: boolean;
   isExperimentCompatibleWithIncrementalRefresh: boolean;
@@ -1172,6 +1173,7 @@ export function getSnapshotQueryRunnerKind({
   experiment: ExperimentInterface;
   snapshotType: SnapshotType;
   hasSnapshotDimensions: boolean;
+  hasMaterializedUnitsTable: boolean;
 }): SnapshotQueryRunnerKind {
   if (
     allowIncrementalRefresh &&
@@ -1180,7 +1182,11 @@ export function getSnapshotQueryRunnerKind({
     isExperimentCompatibleWithIncrementalRefresh
   ) {
     if (snapshotType === "exploratory" && !hasSnapshotDimensions) {
-      return "incremental";
+      // Dimension-less exploratory snapshots reuse the incremental runner in
+      // read-only mode (fullRefresh is clamped to false downstream). That only
+      // works if the warehouse units table has already been created by a prior
+      // standard snapshot — otherwise fall back to the non-pipeline runner.
+      return hasMaterializedUnitsTable ? "incremental" : "results";
     }
 
     return snapshotType === "exploratory"
@@ -1248,6 +1254,7 @@ async function planSnapshotQueryRunner({
     experiment,
     snapshotType,
     hasSnapshotDimensions: snapshotSettings.dimensions.length > 0,
+    hasMaterializedUnitsTable: !!incrementalRefreshModel?.unitsTableFullName,
   });
 }
 
@@ -1301,9 +1308,16 @@ export async function planSnapshot({
     ? await context.models.incrementalRefresh.getByExperimentId(experiment.id)
     : null;
 
-  // Full refresh when explicitly requested (!useCache) or when no prior
-  // incremental state exists (e.g. newly imported experiment)
-  const fullRefresh = !useCache || !incrementalRefreshModel;
+  // Full refresh when explicitly requested (!useCache), when no prior
+  // incremental state exists, or when the state doc exists but has no
+  // unitsTableFullName. The latter happens because acquireLock() upserts the
+  // doc before any warehouse table is created — unitsTableFullName is only
+  // populated after a successful CREATE, so a null value means the units
+  // table was never materialized (e.g. lock acquired but first run failed).
+  const fullRefresh =
+    !useCache ||
+    !incrementalRefreshModel ||
+    !incrementalRefreshModel.unitsTableFullName;
 
   const snapshotSettings = getSnapshotSettings({
     experiment,
