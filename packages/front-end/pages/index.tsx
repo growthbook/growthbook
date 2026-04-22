@@ -18,33 +18,32 @@ export default function Home(): React.ReactElement {
   const { organization } = useUser();
   const gb = useGrowthBook<AppFeatures>();
 
+  const hasFeatureOrExperiment = data
+    ? data.hasFeatures || data.hasExperiments
+    : undefined;
+
+  const willRedirect = hasFeatureOrExperiment === false;
+
   useEffect(() => {
     if (!organization) return;
-    if (!data) {
-      return;
-    }
+    if (!willRedirect) return;
 
-    // has features and experiments that are not demo projects
-    const { hasFeatures, hasExperiments } = data;
-    const hasFeatureOrExperiment = hasFeatures || hasExperiments;
     const intentToExperiment =
       organization?.demographicData?.ownerUsageIntents?.includes(
         "experiments",
       ) ||
       organization?.demographicData?.ownerUsageIntents?.length === 0 ||
       !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
-    if (!hasFeatureOrExperiment) {
-      const useNewOnboarding =
-        intentToExperiment &&
-        isCloud() &&
-        gb.isOn("experimentation-focused-onboarding");
-      if (!organization.isVercelIntegration && !useNewOnboarding) {
-        router.replace("/setup");
-      } else {
-        router.replace("/getstarted");
-      }
+    const useNewOnboarding =
+      intentToExperiment &&
+      isCloud() &&
+      gb.isOn("experimentation-focused-onboarding");
+    if (!organization.isVercelIntegration && !useNewOnboarding) {
+      router.replace("/setup");
+    } else {
+      router.replace("/getstarted");
     }
-  }, [organization, data?.hasFeatures, data?.hasExperiments]);
+  }, [organization, willRedirect, gb, router]);
 
   if (error) {
     return (
@@ -53,5 +52,6 @@ export default function Home(): React.ReactElement {
       </div>
     );
   }
-  return !data ? <LoadingOverlay /> : <GetStartedAndHomePage />;
+  if (!data || willRedirect) return <LoadingOverlay />;
+  return <GetStartedAndHomePage />;
 }
