@@ -58,6 +58,7 @@ export const DEFAULT_EXPLORE_STATE: ExplorationConfig = {
     startDate: null,
     endDate: null,
   },
+  showAs: "total",
 };
 
 export type ProductAnalyticsExplorationBlockType =

@@ -111,6 +111,7 @@ describe("productAnalytics", () => {
       type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
+      showAs: "total",
       dateRange: {
         predefined: "last7Days",
         startDate: null,
@@ -231,6 +232,7 @@ describe("productAnalytics", () => {
       type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
+      showAs: "total",
       dateRange: {
         predefined: "last7Days",
         startDate: null,
@@ -358,6 +360,7 @@ describe("productAnalytics", () => {
       type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
+      showAs: "total",
       dateRange: {
         predefined: "last7Days",
         startDate: null,
@@ -492,6 +495,7 @@ describe("productAnalytics", () => {
       type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
+      showAs: "total",
       dateRange: {
         predefined: "last7Days",
         startDate: null,

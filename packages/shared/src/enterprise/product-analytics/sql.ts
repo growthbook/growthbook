@@ -611,9 +611,16 @@ function getMetricData(
     }
   }
 
-  // For mean metrics, we need to count the units to calculate the average
+  // Always expose a denominator (unit count) for unit-aggregated non-ratio,
+  // non-quantile metrics so the frontend can render either the raw numerator
+  // (totals) or numerator/denominator (per-unit averages) based on the
+  // chart-level `showAs` setting.
   let rollupCountExpr: string | null = null;
-  if (metric.metricType === "mean" && selectedUnit) {
+  if (
+    selectedUnit &&
+    metric.metricType !== "ratio" &&
+    metric.metricType !== "quantile"
+  ) {
     rollupCountExpr = getRollupCountExpr(metric, alias);
   }
 

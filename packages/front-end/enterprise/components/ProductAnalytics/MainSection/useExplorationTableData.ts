@@ -2,9 +2,16 @@ import { useMemo } from "react";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
+  ShowAs,
 } from "shared/validators";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
-import { sortExplorationRows } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  sortExplorationRows,
+  getIsRatioByIndex,
+  getEffectiveMetricValue,
+  type RenderOpts,
+} from "@/enterprise/components/ProductAnalytics/util";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 type ColumnSlot =
   | { type: "dimension"; key: string; dimIndex: number }
@@ -65,10 +72,15 @@ function getDimensionCellValue(
 
 function getMetricCellValue(
   row: {
-    values: { numerator?: number | null; denominator?: number | null }[];
+    values: {
+      numerator?: number | null;
+      denominator?: number | null;
+      metricId?: string;
+    }[];
   },
   metricIndex: number,
   sub: "numerator" | "denominator" | "value" | "single",
+  opts: { showAs: ShowAs; isRatio: boolean },
 ): unknown {
   const value = row.values[metricIndex];
   if (sub === "numerator") {
@@ -77,17 +89,21 @@ function getMetricCellValue(
   if (sub === "denominator") {
     return value?.denominator != null ? value.denominator : "";
   }
-  if (sub === "value" || sub === "single") {
+  if (sub === "value") {
+    // 3-column split's Value cell: always show numerator/denominator.
+    // Only ratio metrics reach this branch.
     if (value?.numerator != null && value?.denominator != null) {
       return (value.numerator / value.denominator).toFixed(2);
     }
-    if (value?.numerator != null && sub === "single") {
-      const val = value.denominator
-        ? value.numerator / value.denominator
-        : value.numerator;
-      return val.toFixed(2);
-    }
     return "";
+  }
+  if (sub === "single") {
+    if (value?.numerator == null) return "";
+    const v = getEffectiveMetricValue(
+      { numerator: value.numerator, denominator: value.denominator ?? null },
+      opts,
+    );
+    return v.toFixed(2);
   }
   return "";
 }
@@ -101,12 +117,16 @@ function getSlotValue(
   context: {
     dimensionColumnHeaders: string[];
     submittedExploreState: { dimensions?: { dimensionType?: string }[] } | null;
+    renderOpts: RenderOpts;
   },
 ): unknown {
   if (slot.type === "dimension") {
     return getDimensionCellValue(row, slot.dimIndex, context);
   }
-  return getMetricCellValue(row, slot.metricIndex, slot.sub);
+  return getMetricCellValue(row, slot.metricIndex, slot.sub, {
+    showAs: context.renderOpts.showAs,
+    isRatio: context.renderOpts.isRatioByIndex[slot.metricIndex] ?? false,
+  });
 }
 
 export interface ExplorationTableData {
@@ -120,6 +140,16 @@ export default function useExplorationTableData(
   exploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig | null,
 ): ExplorationTableData {
+  const { getFactMetricById } = useDefinitions();
+
+  const renderOpts: RenderOpts = useMemo(
+    () => ({
+      showAs: submittedExploreState?.showAs ?? "total",
+      isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
+    }),
+    [submittedExploreState, getFactMetricById],
+  );
+
   const dimensionColumnHeaders = useMemo(() => {
     const headers: string[] = [];
     for (const dimension of submittedExploreState?.dimensions || []) {
@@ -141,17 +171,15 @@ export default function useExplorationTableData(
     return submittedExploreState?.dataset?.values.map((v) => v.name) || [];
   }, [submittedExploreState?.dataset?.values]);
 
-  const hasDenominatorAt = useMemo(() => {
-    const rawRows = exploration?.result?.rows || [];
-    const numValues = valueColumnHeaders.length;
-    const out: boolean[] = [];
-    for (let i = 0; i < numValues; i++) {
-      out[i] = rawRows.some((row) => row.values[i]?.denominator != null);
-    }
-    return out;
-  }, [exploration?.result?.rows, valueColumnHeaders.length]);
+  // Only ratio metrics get the 3-column Numerator/Denominator/Value split.
+  // Non-ratio metrics render as a single column whose value respects `showAs`.
+  const useSplitColumnsAt = useMemo(() => {
+    return valueColumnHeaders.map(
+      (_, i) => renderOpts.isRatioByIndex[i] ?? false,
+    );
+  }, [valueColumnHeaders, renderOpts.isRatioByIndex]);
 
-  const hasAnyDenominator = hasDenominatorAt.some(Boolean);
+  const hasAnyRatio = useSplitColumnsAt.some(Boolean);
 
   const columnSchema = useMemo((): ColumnSlot[] => {
     const schema: ColumnSlot[] = [];
@@ -159,7 +187,7 @@ export default function useExplorationTableData(
       schema.push({ type: "dimension", key: label, dimIndex: i });
     });
     valueColumnHeaders.forEach((name, i) => {
-      if (hasDenominatorAt[i]) {
+      if (useSplitColumnsAt[i]) {
         schema.push({
           type: "metric",
           key: `${name}_Numerator`,
@@ -188,7 +216,7 @@ export default function useExplorationTableData(
       }
     });
     return schema;
-  }, [dimensionColumnHeaders, valueColumnHeaders, hasDenominatorAt]);
+  }, [dimensionColumnHeaders, valueColumnHeaders, useSplitColumnsAt]);
 
   const orderedColumnKeys = useMemo(
     () => columnSchema.map((s) => s.key),
@@ -196,7 +224,7 @@ export default function useExplorationTableData(
   );
 
   const headerStructure = useMemo((): HeaderStructure | null => {
-    if (!hasAnyDenominator) return null;
+    if (!hasAnyRatio) return null;
     const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
     const row2Labels: string[] = [];
     for (const slot of columnSchema) {
@@ -219,18 +247,23 @@ export default function useExplorationTableData(
       }
     }
     return { row1, row2Labels };
-  }, [hasAnyDenominator, columnSchema, valueColumnHeaders]);
+  }, [hasAnyRatio, columnSchema, valueColumnHeaders]);
 
   const rowData = useMemo(() => {
     const rawRows = exploration?.result?.rows || [];
     const isTimeseries =
       submittedExploreState?.dimensions?.[0]?.dimensionType === "date";
 
-    const rowsToProcess = sortExplorationRows(rawRows, isTimeseries);
+    const rowsToProcess = sortExplorationRows(
+      rawRows,
+      isTimeseries,
+      renderOpts,
+    );
 
     const context = {
       dimensionColumnHeaders,
       submittedExploreState,
+      renderOpts,
     };
 
     return rowsToProcess.map((row) => {
@@ -246,6 +279,7 @@ export default function useExplorationTableData(
     dimensionColumnHeaders,
     columnSchema,
     submittedExploreState,
+    renderOpts,
   ]);
 
   const explorationReturnedNoData = useMemo(() => {

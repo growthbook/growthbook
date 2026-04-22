@@ -26,6 +26,7 @@ import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import GroupBySection from "./GroupBySection";
+import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
@@ -271,6 +272,7 @@ export default function ExplorerSideBar({
         {activeType === "data_source" && <DatasourceTabContent />}
       </Box>
 
+      {dataset?.values?.length > 0 && <ShowAsSection />}
       {dataset?.values?.length > 0 && <GroupBySection />}
     </Flex>
   );

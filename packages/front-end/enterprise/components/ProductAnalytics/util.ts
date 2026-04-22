@@ -13,6 +13,7 @@ import type {
   ExplorationDataset,
   ExplorationConfig,
   ProductAnalyticsResultRow,
+  ShowAs,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
@@ -367,8 +368,10 @@ function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
 
 /** Strips fields that only affect rendering, not data fetching. */
 function toFetchKey(config: ExplorationConfig): unknown {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { showAs, ...rest } = config;
   return {
-    ...config,
+    ...rest,
     chartType: getChartCategory(config.chartType),
     dataset: {
       ...config.dataset,
@@ -464,27 +467,68 @@ export function shouldChartSectionShow(params: {
 
 // --- Shared sorting helpers for chart & table ---
 
-export function getEffectiveMetricValue(v: {
-  numerator: number | null;
-  denominator: number | null;
-}): number {
-  const num = v.numerator ?? 0;
-  return v.denominator ? num / v.denominator : num;
+/**
+ * Build an array of `isRatio` flags indexed by dataset value position.
+ * Only metric datasets can contain ratio values; fact_table and data_source
+ * datasets never do.
+ */
+export function getIsRatioByIndex(
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): boolean[] {
+  if (!config?.dataset || config.dataset.type !== "metric") return [];
+  return config.dataset.values.map((v) => {
+    const m = getFactMetricById(v.metricId ?? "");
+    return m?.metricType === "ratio";
+  });
 }
 
-function getRowTotal(row: ProductAnalyticsResultRow): number {
-  return row.values.reduce((sum, v) => sum + getEffectiveMetricValue(v), 0);
+export interface RenderOpts {
+  showAs: ShowAs;
+  // Indexed by the metric value's position in the dataset.values array.
+  // Ratio metrics always render as numerator/denominator regardless of showAs.
+  isRatioByIndex: boolean[];
+}
+
+export function getEffectiveMetricValue(
+  v: { numerator: number | null; denominator: number | null },
+  opts: { showAs: ShowAs; isRatio: boolean },
+): number {
+  const num = v.numerator ?? 0;
+  if (opts.isRatio) {
+    return v.denominator ? num / v.denominator : num;
+  }
+  if (opts.showAs === "per_unit") {
+    return v.denominator ? num / v.denominator : num;
+  }
+  return num;
+}
+
+function getRowTotal(
+  row: ProductAnalyticsResultRow,
+  opts: RenderOpts,
+): number {
+  return row.values.reduce(
+    (sum, v, i) =>
+      sum +
+      getEffectiveMetricValue(v, {
+        showAs: opts.showAs,
+        isRatio: opts.isRatioByIndex[i] ?? false,
+      }),
+    0,
+  );
 }
 
 /** Compute the sum of all metric values grouped by a specific dimension index. */
 export function computeDimensionTotals(
   rows: ProductAnalyticsResultRow[],
   dimIndex: number,
+  opts: RenderOpts,
 ): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const row of rows) {
     const key = row.dimensions[dimIndex] ?? "";
-    totals[key] = (totals[key] ?? 0) + getRowTotal(row);
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
   }
   return totals;
 }
@@ -492,11 +536,12 @@ export function computeDimensionTotals(
 /** Compute the sum of all metric values grouped by the "group key" (all dimensions after the first). */
 export function computeGroupTotals(
   rows: ProductAnalyticsResultRow[],
+  opts: RenderOpts,
 ): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const row of rows) {
     const key = row.dimensions.slice(1).join(" - ");
-    totals[key] = (totals[key] ?? 0) + getRowTotal(row);
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
   }
   return totals;
 }
@@ -534,11 +579,12 @@ export const explorationConfigParser = createParser<ExplorationConfig>({
 export function sortExplorationRows(
   rows: ProductAnalyticsResultRow[],
   isTimeseries: boolean,
+  opts: RenderOpts,
 ): ProductAnalyticsResultRow[] {
   if (rows.length === 0) return rows;
 
-  const dim0Totals = computeDimensionTotals(rows, 0);
-  const groupTotals = computeGroupTotals(rows);
+  const dim0Totals = computeDimensionTotals(rows, 0, opts);
+  const groupTotals = computeGroupTotals(rows, opts);
 
   return [...rows].sort((a, b) => {
     const dim0A = a.dimensions[0] ?? "";
