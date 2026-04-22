@@ -261,6 +261,98 @@ describe("buildFeatureInterface", () => {
     });
   });
 
+  // ================= 3b. v1/v2 parity =================
+  //
+  // A v1 doc (envSettings[env].rules) and a hand-crafted v2 doc expressing the
+  // same logical rules must flatten to structurally identical FeatureInterface
+  // output. Guards against drift in rule id shape or ordering between the
+  // freshly-written v2 on-disk shape and legacy on-disk docs that still hit
+  // the JIT flatten path on read.
+
+  describe("v1/v2 on-disk parity", () => {
+    it("produces the same rules array for logically-equivalent v1 and v2 inputs", () => {
+      // Three rules covering the unification shape matrix:
+      //   - r_all: fires in every env (v1: same content in both envs; v2: allEnvironments=true)
+      //   - r_dev: dev-only
+      //   - r_prod: prod-only
+      const allContent = {
+        type: "force" as const,
+        value: "ALL",
+        enabled: true,
+        description: "",
+      };
+      const devContent = {
+        type: "force" as const,
+        value: "DEV",
+        enabled: true,
+        description: "",
+      };
+      const prodContent = {
+        type: "force" as const,
+        value: "PROD",
+        enabled: true,
+        description: "",
+      };
+
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: {
+            enabled: true,
+            rules: [
+              { id: "r_all", ...allContent },
+              { id: "r_dev", ...devContent },
+            ] as FeatureRule[],
+          },
+          production: {
+            enabled: true,
+            rules: [
+              { id: "r_all", ...allContent },
+              { id: "r_prod", ...prodContent },
+            ] as FeatureRule[],
+          },
+        },
+      } as LegacyFeatureInterface;
+
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, prerequisites: [] },
+          production: { enabled: true, prerequisites: [] },
+        },
+        rules: [
+          { id: "r_all", ...allContent, allEnvironments: true },
+          {
+            id: "r_dev",
+            ...devContent,
+            allEnvironments: false,
+            environments: ["dev"],
+          },
+          {
+            id: "r_prod",
+            ...prodContent,
+            allEnvironments: false,
+            environments: ["production"],
+          },
+        ] as unknown as FeatureRule[],
+        prerequisites: [],
+      } as unknown as FeatureInterface;
+
+      const fromV1 = buildFeatureInterface(v1, mockContext());
+      const fromV2 = buildFeatureInterface(
+        v2 as unknown as LegacyFeatureInterface,
+        mockContext(),
+      );
+
+      // Sort by id so we don't assert on the incidental per-env iteration
+      // order that the v1 flattener happens to produce today.
+      const byId = (a: FeatureRule, b: FeatureRule) => a.id.localeCompare(b.id);
+      expect([...fromV1.rules].sort(byId)).toEqual(
+        [...fromV2.rules].sort(byId),
+      );
+    });
+  });
+
   // ================= 4. v1 with v0 crust =================
 
   describe("v1 with v0 crust (partial v0->v1 migration)", () => {

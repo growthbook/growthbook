@@ -15,6 +15,8 @@ import {
   createInterfaceEnvSettingsFromApiEnvSettings,
   updateInterfaceEnvSettingsFromApiEnvSettings,
   getNextScheduledUpdate,
+  addIdsToFlatRules,
+  buildFeatureRulesFromApiEnvSettings,
 } from "back-end/src/services/features";
 import { setupApp } from "./api.setup";
 
@@ -238,6 +240,36 @@ describe("features API", () => {
       entity: { id: "id", object: "feature" },
       event: "feature.create",
     });
+  });
+
+  // Regression: client payloads arrive with `id: ""` on new rules; if the POST
+  // handler skips `addIdsToFlatRules` the rule is persisted unaddressable.
+  it("stamps ids on top-level rules when creating a feature", async () => {
+    defaultContext();
+    const unstampedRule = {
+      id: "",
+      type: "force",
+      description: "",
+      value: "true",
+      enabled: true,
+      allEnvironments: true,
+    };
+    (buildFeatureRulesFromApiEnvSettings as jest.Mock).mockReturnValueOnce([
+      unstampedRule,
+    ]);
+
+    const response = await request(app)
+      .post("/api/v1/features")
+      .send({
+        defaultValue: "false",
+        valueType: "boolean",
+        owner: testUser.id,
+        id: "stamp-me",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(addIdsToFlatRules).toHaveBeenCalledWith([unstampedRule], "stamp-me");
   });
 
   it("resolves email to userId when creating a feature", async () => {
