@@ -1200,8 +1200,16 @@ const updateFeatureBody = z
 
 // ---- Route validators ----
 
-/** RFC 8594 unix timestamp marking when the v1 feature endpoints were deprecated (2026-04-24T00:00:00Z). */
-export const FEATURE_V1_DEPRECATION_DATE = "@1776988800";
+/**
+ * RFC 8594 `Deprecation` header value for v1 feature endpoints.
+ *
+ * Emits `Deprecation: true` (boolean form, not a date) — signals "stop using
+ * this endpoint ASAP" without committing to a removal date. V1 endpoints are
+ * expected to remain available indefinitely for backward compatibility, but
+ * new integrations should always use v2. If we ever commit to a removal date,
+ * switch this to `@<unix-timestamp>` and add a `Sunset:` header alongside.
+ */
+export const FEATURE_V1_DEPRECATION_DATE = "true";
 
 export const listFeaturesValidator = {
   bodySchema: z.never(),

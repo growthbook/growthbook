@@ -1,8 +1,10 @@
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   putFeatureRevisionArchiveValidator,
   putFeatureRevisionArchiveV2Validator,
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -18,25 +20,28 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-export const putFeatureRevisionArchive = createApiRequestHandler(
-  putFeatureRevisionArchiveValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+async function archiveRevision(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number | "new" },
+  body: { archived: boolean; revisionTitle?: string; revisionComment?: string },
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError();
   }
 
   const { revision, created } = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
+    context,
+    organization.id,
     feature,
-    req.params.version,
-    { title: req.body.revisionTitle, comment: req.body.revisionComment },
+    params.version,
+    { title: body.revisionTitle, comment: body.revisionComment },
   );
 
   try {
@@ -47,117 +52,69 @@ export const putFeatureRevisionArchive = createApiRequestHandler(
     }
 
     const currentArchived = revision.archived ?? feature.archived ?? false;
-    if (currentArchived === req.body.archived) {
-      await discardIfJustCreated(req.context, revision, created);
-      return { revision: toApiRevision(revision, req.context, feature) };
+    if (currentArchived === body.archived) {
+      await discardIfJustCreated(context, revision, created);
+      return { feature, revision };
     }
 
     await updateRevision(
-      req.context,
+      context,
       feature,
       revision,
-      { archived: req.body.archived },
+      { archived: body.archived },
       {
-        user: req.context.auditUser,
-        action: req.body.archived ? "archive feature" : "unarchive feature",
+        user: context.auditUser,
+        action: body.archived ? "archive feature" : "unarchive feature",
         subject: "",
-        value: JSON.stringify({ archived: req.body.archived }),
+        value: JSON.stringify({ archived: body.archived }),
       },
       resetReviewOnChange({
         feature,
         changedEnvironments: [],
         defaultValueChanged: false,
-        settings: req.organization.settings,
+        settings: organization.settings,
       }),
     );
 
     const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
+      context,
+      organization: organization.id,
       featureId: feature.id,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
 
-    await recordRevisionUpdate(req.context, feature, finalRevision, "archive", {
-      auditDetails: { archived: req.body.archived },
+    await recordRevisionUpdate(context, feature, finalRevision, "archive", {
+      auditDetails: { archived: body.archived },
     });
 
-    return { revision: toApiRevision(finalRevision, req.context, feature) };
+    return { feature, revision: finalRevision };
   } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
+    await discardIfJustCreated(context, revision, created);
     throw err;
   }
+}
+
+export const putFeatureRevisionArchive = createApiRequestHandler(
+  putFeatureRevisionArchiveValidator,
+)(async (req) => {
+  const { feature, revision } = await archiveRevision(
+    req.context,
+    req.organization,
+    req.params,
+    req.body,
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });
 
 export const putFeatureRevisionArchiveV2 = createApiRequestHandler(
   putFeatureRevisionArchiveV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new NotFoundError("Could not find feature");
-
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const { revision, created } = await resolveOrCreateRevision(
+  const { feature, revision } = await archiveRevision(
     req.context,
-    req.organization.id,
-    feature,
-    req.params.version,
-    { title: req.body.revisionTitle, comment: req.body.revisionComment },
+    req.organization,
+    req.params,
+    req.body,
   );
-
-  try {
-    if (!isDraftStatus(revision.status)) {
-      throw new BadRequestError(
-        `Cannot edit a revision with status "${revision.status}"`,
-      );
-    }
-
-    const currentArchived = revision.archived ?? feature.archived ?? false;
-    if (currentArchived === req.body.archived) {
-      await discardIfJustCreated(req.context, revision, created);
-      return { revision: toApiRevisionV2(revision, req.context, feature) };
-    }
-
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      { archived: req.body.archived },
-      {
-        user: req.context.auditUser,
-        action: req.body.archived ? "archive feature" : "unarchive feature",
-        subject: "",
-        value: JSON.stringify({ archived: req.body.archived }),
-      },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [],
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
-    );
-
-    const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
-      featureId: feature.id,
-      version: revision.version,
-    });
-    const finalRevision = updated ?? revision;
-
-    await recordRevisionUpdate(req.context, feature, finalRevision, "archive", {
-      auditDetails: { archived: req.body.archived },
-    });
-
-    return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
-  } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
-    throw err;
-  }
+  return { revision: toApiRevisionV2(revision, req.context, feature) };
 });

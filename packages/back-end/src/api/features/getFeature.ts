@@ -1,4 +1,5 @@
 import { getFeatureValidator, getFeatureV2Validator } from "shared/validators";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getFeatureRevisionsByStatus,
   getRevision,
@@ -12,34 +13,34 @@ import {
 } from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
-  req,
-) => {
-  const revisionFilter = req.query.withRevisions || "none";
+// Shared core. Returns everything both v1 and v2 serializers need; callers only
+// differ in which `getApiFeatureObj*` they pass the result through.
+async function loadFeatureForApi(
+  context: ApiReqContext,
+  featureId: string,
+  withRevisions: string | undefined,
+) {
+  const revisionFilter = withRevisions || "none";
   const fetchRevisions = ["all", "drafts", "published"].includes(
-    revisionFilter || "none",
+    revisionFilter,
   );
-  const feature = await getFeatureDB(req.context, req.params.id);
+  const feature = await getFeatureDB(context, featureId);
   if (!feature) {
     throw new Error("Could not find a feature with that key");
   }
-
-  const groupMap = await getSavedGroupMap(req.context);
-  const experimentMap = await getExperimentMapForFeature(
-    req.context,
-    feature.id,
-  );
+  const groupMap = await getSavedGroupMap(context);
+  const experimentMap = await getExperimentMapForFeature(context, feature.id);
   const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
   const revision = await getRevision({
-    context: req.context,
+    context,
     organization: feature.organization,
     featureId: feature.id,
     version: feature.version,
   });
   const revisions = fetchRevisions
     ? await getFeatureRevisionsByStatus({
-        context: req.context,
+        context,
         organization: feature.organization,
         featureId: feature.id,
         status:
@@ -50,65 +51,44 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
               : undefined,
       })
     : undefined;
+
+  return {
+    feature,
+    groupMap,
+    experimentMap,
+    revision,
+    revisions,
+    safeRolloutMap,
+  };
+}
+
+export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
+  req,
+) => {
+  const data = await loadFeatureForApi(
+    req.context,
+    req.params.id,
+    req.query.withRevisions,
+  );
   return {
     feature: getApiFeatureObj({
-      feature,
+      ...data,
       organization: req.organization,
-      groupMap,
-      experimentMap,
-      revision,
-      revisions,
-      safeRolloutMap,
     }),
   };
 });
 
 export const getFeatureV2 = createApiRequestHandler(getFeatureV2Validator)(
   async (req) => {
-    const revisionFilter = req.query.withRevisions || "none";
-    const fetchRevisions = ["all", "drafts", "published"].includes(
-      revisionFilter || "none",
-    );
-    const feature = await getFeatureDB(req.context, req.params.id);
-    if (!feature) {
-      throw new Error("Could not find a feature with that key");
-    }
-
-    const groupMap = await getSavedGroupMap(req.context);
-    const experimentMap = await getExperimentMapForFeature(
+    const data = await loadFeatureForApi(
       req.context,
-      feature.id,
+      req.params.id,
+      req.query.withRevisions,
     );
-    const safeRolloutMap =
-      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-    const revision = await getRevision({
-      context: req.context,
-      organization: feature.organization,
-      featureId: feature.id,
-      version: feature.version,
-    });
-    const revisions = fetchRevisions
-      ? await getFeatureRevisionsByStatus({
-          context: req.context,
-          organization: feature.organization,
-          featureId: feature.id,
-          status:
-            revisionFilter === "drafts"
-              ? "draft"
-              : revisionFilter === "published"
-                ? "published"
-                : undefined,
-        })
-      : undefined;
     return {
       feature: getApiFeatureObjV2({
-        feature,
+        ...data,
         organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision,
-        revisions,
-        safeRolloutMap,
       }),
     };
   },

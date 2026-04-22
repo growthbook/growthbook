@@ -63,7 +63,10 @@ export type ApiEndpointSpec<
   excludeFromSpec?: boolean;
   version?: "v1" | "v2";
   deprecated?: boolean;
-  /** RFC 8594 deprecation timestamp, e.g. "@1776988800". Emitted as the `Deprecation` response header. */
+  /**
+   * RFC 8594 `Deprecation` header field value. Accepts either `"true"` (deprecated
+   * now, no removal date) or `"@<unix-timestamp>"` (deprecated as of that date).
+   */
   deprecationDate?: string;
 };
 
@@ -126,7 +129,10 @@ export type OpenApiRoute<
   /** API version prefix for the OpenAPI spec path (default: "v1"). */
   version?: "v1" | "v2";
   deprecated?: boolean;
-  /** RFC 8594 deprecation timestamp, e.g. "@1776988800". Emitted as the `Deprecation` response header. */
+  /**
+   * RFC 8594 `Deprecation` header field value. Accepts either `"true"` (deprecated
+   * now, no removal date) or `"@<unix-timestamp>"` (deprecated as of that date).
+   */
   deprecationDate?: string;
   summary?: string;
   description?: string;

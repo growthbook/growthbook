@@ -2,6 +2,7 @@ import {
   postFeatureRevisionValidator,
   postFeatureRevisionV2Validator,
 } from "shared/validators";
+import type { ApiRequestLocals } from "back-end/types/api";
 import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { NotFoundError } from "back-end/src/util/errors";
@@ -11,9 +12,12 @@ import { createRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 
-export const postFeatureRevision = createApiRequestHandler(
-  postFeatureRevisionValidator,
-)(async (req) => {
+async function createFeatureDraft(
+  req: Pick<ApiRequestLocals, "context" | "audit"> & {
+    params: { id: string };
+    body: { comment?: string; title?: string };
+  },
+) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -59,56 +63,19 @@ export const postFeatureRevision = createApiRequestHandler(
     {},
   );
 
-  return { revision: toApiRevision(newDraft, req.context, feature) };
+  return { feature, revision: newDraft };
+}
+
+export const postFeatureRevision = createApiRequestHandler(
+  postFeatureRevisionValidator,
+)(async (req) => {
+  const { feature, revision } = await createFeatureDraft(req);
+  return { revision: toApiRevision(revision, req.context, feature) };
 });
 
 export const postFeatureRevisionV2 = createApiRequestHandler(
   postFeatureRevisionV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new NotFoundError("Could not find feature");
-
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const environments = getEnvironmentIdsFromOrg(req.context.org);
-
-  const newDraft = await createRevision({
-    context: req.context,
-    feature,
-    user: req.context.auditUser,
-    baseVersion: feature.version,
-    comment: req.body.comment ?? "",
-    title: req.body.title,
-    environments,
-    publish: false,
-    changes: {},
-    org: req.context.org,
-    canBypassApprovalChecks: false,
-  });
-
-  await req.audit({
-    event: "feature.revision.create",
-    entity: { object: "feature", id: feature.id },
-    details: auditDetailsCreate({
-      featureId: feature.id,
-      version: newDraft.version,
-      baseVersion: newDraft.baseVersion,
-      comment: newDraft.comment,
-    }),
-  });
-
-  await dispatchFeatureRevisionEvent(
-    req.context,
-    feature,
-    newDraft,
-    "revision.created",
-    {},
-  );
-
-  return { revision: toApiRevisionV2(newDraft, req.context, feature) };
+  const { feature, revision } = await createFeatureDraft(req);
+  return { revision: toApiRevisionV2(revision, req.context, feature) };
 });

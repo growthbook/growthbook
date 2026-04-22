@@ -1,9 +1,11 @@
+import type { OrganizationInterface } from "shared/types/organization";
 import type { RevisionRampDetachAction } from "shared/validators";
 import {
   deleteFeatureRevisionRuleRampScheduleValidator,
   deleteFeatureRevisionRuleRampScheduleV2Validator,
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -26,29 +28,36 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
-  deleteFeatureRevisionRuleRampScheduleValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+async function clearRuleRampSchedule(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number | "new"; ruleId: string },
+  body: {
+    environment?: string;
+    revisionTitle?: string;
+    revisionComment?: string;
+  },
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError();
   }
 
-  const { ruleId } = req.params;
-  const { environment } = req.body;
-  if (environment) assertValidEnvironment(req.context, environment);
+  const { ruleId } = params;
+  const { environment } = body;
+  if (environment) assertValidEnvironment(context, environment);
 
   const { revision, created } = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
+    context,
+    organization.id,
     feature,
-    req.params.version,
-    { title: req.body.revisionTitle, comment: req.body.revisionComment },
+    params.version,
+    { title: body.revisionTitle, comment: body.revisionComment },
   );
 
   try {
@@ -83,11 +92,10 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
         (a.ruleId === canonicalRuleId || a.ruleId === ruleId),
     );
 
-    const liveSchedules =
-      await req.context.models.rampSchedules.findByTargetRule(
-        canonicalRuleId,
-        environment ?? undefined,
-      );
+    const liveSchedules = await context.models.rampSchedules.findByTargetRule(
+      canonicalRuleId,
+      environment ?? undefined,
+    );
 
     if (!hasPendingCreate && liveSchedules.length === 0) {
       throw new NotFoundError(
@@ -113,7 +121,7 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     // Affected env list: explicit env if provided, else the rule's footprint
     // across applicable envs (falls back to all applicable envs if the rule
     // isn't present on live or draft).
-    const orgEnvs = getEnvironments(req.organization);
+    const orgEnvs = getEnvironments(organization);
     const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
     const changedEnvironments = environment
       ? [environment]
@@ -122,12 +130,12 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
         : applicableEnvs;
 
     await updateRevision(
-      req.context,
+      context,
       feature,
       revision,
       { rampActions: newRampActions },
       {
-        user: req.context.auditUser,
+        user: context.auditUser,
         action: "clear ramp schedule",
         subject: canonicalRuleId,
         value: JSON.stringify({ ruleId: canonicalRuleId, environment }),
@@ -136,20 +144,20 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
         feature,
         changedEnvironments,
         defaultValueChanged: false,
-        settings: req.organization.settings,
+        settings: organization.settings,
       }),
     );
 
     const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
+      context,
+      organization: organization.id,
       featureId: feature.id,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
 
     await recordRevisionUpdate(
-      req.context,
+      context,
       feature,
       finalRevision,
       "rule.rampSchedule.remove",
@@ -159,129 +167,33 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       },
     );
 
-    return { revision: toApiRevision(finalRevision, req.context, feature) };
+    return { feature, revision: finalRevision };
   } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
+    await discardIfJustCreated(context, revision, created);
     throw err;
   }
+}
+
+export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
+  deleteFeatureRevisionRuleRampScheduleValidator,
+)(async (req) => {
+  const { feature, revision } = await clearRuleRampSchedule(
+    req.context,
+    req.organization,
+    req.params,
+    req.body,
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });
 
 export const deleteFeatureRevisionRuleRampScheduleV2 = createApiRequestHandler(
   deleteFeatureRevisionRuleRampScheduleV2Validator,
 )(async (req) => {
-  // V2: no `environment` in body. All other logic is identical.
-  const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new NotFoundError("Could not find feature");
-
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const { ruleId } = req.params;
-
-  const { revision, created } = await resolveOrCreateRevision(
+  const { feature, revision } = await clearRuleRampSchedule(
     req.context,
-    req.organization.id,
-    feature,
-    req.params.version,
-    { title: req.body.revisionTitle, comment: req.body.revisionComment },
+    req.organization,
+    req.params,
+    req.body,
   );
-
-  try {
-    if (!isDraftStatus(revision.status)) {
-      throw new BadRequestError(
-        `Cannot edit a revision with status "${revision.status}"`,
-      );
-    }
-
-    const resolvedRule =
-      resolveRampTarget({ ruleId, environment: null }, revision.rules ?? []) ??
-      resolveRampTarget({ ruleId, environment: null }, feature.rules ?? []);
-    const canonicalRuleId = resolvedRule?.id ?? ruleId;
-
-    const existing = revision.rampActions ?? [];
-    const hasPendingCreate = existing.some(
-      (a) =>
-        a.mode === "create" &&
-        (a.ruleId === canonicalRuleId || a.ruleId === ruleId),
-    );
-
-    const liveSchedules =
-      await req.context.models.rampSchedules.findByTargetRule(
-        canonicalRuleId,
-        undefined,
-      );
-
-    if (!hasPendingCreate && liveSchedules.length === 0) {
-      throw new NotFoundError(
-        `Rule "${canonicalRuleId}" has no ramp schedule to remove.`,
-      );
-    }
-
-    const filtered = existing.filter(
-      (a) => a.ruleId !== canonicalRuleId && a.ruleId !== ruleId,
-    );
-
-    let newRampActions = filtered;
-    if (liveSchedules.length > 0) {
-      const detach: RevisionRampDetachAction = {
-        mode: "detach",
-        ruleId: canonicalRuleId,
-        rampScheduleId: liveSchedules[0].id,
-      };
-      newRampActions = [...filtered, detach];
-    }
-
-    const orgEnvs = getEnvironments(req.organization);
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
-    const changedEnvironments = resolvedRule
-      ? ruleFootprint(resolvedRule, applicableEnvs)
-      : applicableEnvs;
-
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      { rampActions: newRampActions },
-      {
-        user: req.context.auditUser,
-        action: "clear ramp schedule",
-        subject: canonicalRuleId,
-        value: JSON.stringify({ ruleId: canonicalRuleId }),
-      },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments,
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
-    );
-
-    const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
-      featureId: feature.id,
-      version: revision.version,
-    });
-    const finalRevision = updated ?? revision;
-
-    await recordRevisionUpdate(
-      req.context,
-      feature,
-      finalRevision,
-      "rule.rampSchedule.remove",
-      {
-        environments: changedEnvironments,
-        auditDetails: { ruleId: canonicalRuleId },
-      },
-    );
-
-    return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
-  } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
-    throw err;
-  }
+  return { revision: toApiRevisionV2(revision, req.context, feature) };
 });

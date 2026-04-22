@@ -47,8 +47,6 @@ import { useAuth } from "@/services/auth";
 import HoldoutValueModal from "./HoldoutValueModal";
 import { Rule, SortableRule } from "./Rule";
 
-const ALL_ENVS = FEATURE_RULES_ALL_ENVS;
-
 export default function FeatureRules({
   environments,
   feature,
@@ -88,9 +86,11 @@ export default function FeatureRules({
 }) {
   const { apiCall } = useAuth();
   const envs = environments.map((e) => e.id);
-  // null = "All environments" (unfiltered view); string = specific env filter
+  // null = "All environments" (unfiltered view); string = specific env filter.
+  // `storedEnv` is the persisted value; `env` below is the value used for
+  // rendering/filtering with a transient fallback applied.
   // Persisted in localStorage; respects org-level preferredEnvironment setting.
-  const [env, setEnv] = useFeatureRulesEnv();
+  const [storedEnv, setEnv] = useFeatureRulesEnv();
   // Optimistic local copy of feature.rules for the all-envs DnD view.
   const [allEnvItems, setAllEnvItems] = useState<FeatureRule[]>(
     feature.rules ?? [],
@@ -173,13 +173,12 @@ export default function FeatureRules({
   } | null>(null);
   const [holdoutModal, setHoldoutModal] = useState<boolean>(false);
 
-  // If the selected env is removed from the org's environment list, fall back
-  // to the "All environments" view rather than showing a blank tab.
-  useEffect(() => {
-    if (env !== null && !envs.includes(env)) {
-      setEnv(null);
-    }
-  }, [envs, env, setEnv]);
+  // If the stored env is missing from this org's environment list (e.g. renamed
+  // or removed, or the user came from another org), display as "All environments"
+  // for this render. We intentionally do NOT persist the fallback: a transient
+  // env mismatch (e.g. switching orgs) should not wipe the user's saved choice.
+  const env =
+    storedEnv !== null && !envs.includes(storedEnv) ? null : storedEnv;
 
   const rulesByEnv = Object.fromEntries(
     environments.map((e) => {
@@ -205,8 +204,8 @@ export default function FeatureRules({
   return (
     <>
       <Tabs
-        value={env ?? ALL_ENVS}
-        onValueChange={(v) => setEnv(v === ALL_ENVS ? null : v)}
+        value={env ?? FEATURE_RULES_ALL_ENVS}
+        onValueChange={(v) => setEnv(v === FEATURE_RULES_ALL_ENVS ? null : v)}
         mb="3"
       >
         <Flex
@@ -215,7 +214,7 @@ export default function FeatureRules({
           style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
         >
           <TabsList className="w-full" style={{ boxShadow: "none" }}>
-            <TabsTrigger value={ALL_ENVS}>
+            <TabsTrigger value={FEATURE_RULES_ALL_ENVS}>
               <Flex align="center" gap="2">
                 All Environments
                 <Badge

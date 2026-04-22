@@ -15,9 +15,13 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 
-export const getFeatureRevisionMergeStatus = createApiRequestHandler(
-  getFeatureRevisionMergeStatusValidator,
-)(async (req) => {
+// Shared handler: v1 and v2 have identical request/response schemas and the
+// merge result contains internal rule shapes (not API-serialized).
+const mergeStatusHandler = async (req: {
+  context: Parameters<typeof getFeature>[0];
+  organization: { id: string };
+  params: { id: string; version: number };
+}) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -52,43 +56,12 @@ export const getFeatureRevisionMergeStatus = createApiRequestHandler(
     conflicts: mergeResult.conflicts,
     ...(mergeResult.success ? { result: mergeResult.result } : {}),
   };
-});
+};
+
+export const getFeatureRevisionMergeStatus = createApiRequestHandler(
+  getFeatureRevisionMergeStatusValidator,
+)(mergeStatusHandler);
 
 export const getFeatureRevisionMergeStatusV2 = createApiRequestHandler(
   getFeatureRevisionMergeStatusV2Validator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new NotFoundError("Could not find feature");
-
-  const revision = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: req.params.version,
-  });
-  if (!revision) throw new NotFoundError("Could not find feature revision");
-
-  const allEnvironments = getEnvironments(req.context.org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentIds = environments.map((e) => e.id);
-
-  const { live, base } = await getLiveAndBaseRevisionsForFeature({
-    context: req.context,
-    feature,
-    revision,
-  });
-
-  const mergeResult = autoMerge(
-    liveRevisionFromFeature(live, feature),
-    fillRevisionFromFeature(base, feature),
-    revision,
-    environmentIds,
-    {},
-  );
-
-  return {
-    success: mergeResult.success,
-    conflicts: mergeResult.conflicts,
-    ...(mergeResult.success ? { result: mergeResult.result } : {}),
-  };
-});
+)(mergeStatusHandler);

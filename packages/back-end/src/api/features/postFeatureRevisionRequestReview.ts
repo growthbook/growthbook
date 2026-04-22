@@ -2,6 +2,7 @@ import {
   postFeatureRevisionRequestReviewValidator,
   postFeatureRevisionRequestReviewV2Validator,
 } from "shared/validators";
+import type { ApiRequestLocals } from "back-end/types/api";
 import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -13,9 +14,12 @@ import {
   markRevisionAsReviewRequested,
 } from "back-end/src/models/FeatureRevisionModel";
 
-export const postFeatureRevisionRequestReview = createApiRequestHandler(
-  postFeatureRevisionRequestReviewValidator,
-)(async (req) => {
+async function requestReview(
+  req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
+    params: { id: string; version: number };
+    body: { comment?: string };
+  },
+) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -72,65 +76,19 @@ export const postFeatureRevisionRequestReview = createApiRequestHandler(
     { reviewComment: req.body.comment ?? null },
   );
 
-  return { revision: toApiRevision(finalRevision, req.context, feature) };
+  return { feature, revision: finalRevision };
+}
+
+export const postFeatureRevisionRequestReview = createApiRequestHandler(
+  postFeatureRevisionRequestReviewValidator,
+)(async (req) => {
+  const { feature, revision } = await requestReview(req);
+  return { revision: toApiRevision(revision, req.context, feature) };
 });
 
 export const postFeatureRevisionRequestReviewV2 = createApiRequestHandler(
   postFeatureRevisionRequestReviewV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new NotFoundError("Could not find feature");
-
-  if (!req.context.permissions.canManageFeatureDrafts(feature)) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const revision = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: req.params.version,
-  });
-  if (!revision) throw new NotFoundError("Could not find feature revision");
-
-  if (revision.status !== "draft") {
-    throw new BadRequestError(
-      `Can only request review on a draft (status is "${revision.status}")`,
-    );
-  }
-
-  await markRevisionAsReviewRequested(
-    req.context,
-    revision,
-    req.context.auditUser,
-    req.body.comment ?? "",
-  );
-
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: req.params.version,
-  });
-  const finalRevision = updated ?? revision;
-
-  await req.audit({
-    event: "feature.revision.requestReview",
-    entity: { object: "feature", id: feature.id },
-    details: auditDetailsUpdate(
-      { status: revision.status },
-      { status: finalRevision.status },
-      { version: revision.version, comment: req.body.comment ?? "" },
-    ),
-  });
-
-  await dispatchFeatureRevisionEvent(
-    req.context,
-    feature,
-    finalRevision,
-    "revision.reviewRequested",
-    { reviewComment: req.body.comment ?? null },
-  );
-
-  return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
+  const { feature, revision } = await requestReview(req);
+  return { revision: toApiRevisionV2(revision, req.context, feature) };
 });

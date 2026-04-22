@@ -1,8 +1,10 @@
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   putFeatureRevisionMetadataValidator,
   putFeatureRevisionMetadataV2Validator,
 } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
+import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -21,27 +23,42 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-export const putFeatureRevisionMetadata = createApiRequestHandler(
-  putFeatureRevisionMetadataValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+type RevisionMetadataBody = {
+  comment?: string;
+  title?: string;
+  description?: string;
+  owner?: unknown;
+  project?: string;
+  tags?: string[];
+  neverStale?: boolean;
+  customFields?: Record<string, unknown>;
+  [k: string]: unknown;
+};
+
+async function setRevisionMetadata(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number | "new" },
+  body: RevisionMetadataBody,
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError();
   }
 
-  const { comment, title, ...metadataFields } = req.body;
+  const { comment, title, ...metadataFields } = body;
 
   if (
     metadataFields.project !== undefined &&
     metadataFields.project !== feature.project
   ) {
     if (
-      req.context.org.settings?.requireProjectForFeatures &&
+      context.org.settings?.requireProjectForFeatures &&
       feature.project &&
       metadataFields.project === ""
     ) {
@@ -49,37 +66,37 @@ export const putFeatureRevisionMetadata = createApiRequestHandler(
     }
 
     if (metadataFields.project) {
-      await req.context.models.projects.ensureProjectsExist([
+      await context.models.projects.ensureProjectsExist([
         metadataFields.project,
       ]);
     }
 
-    const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
+    const orgEnvs = getEnvironmentIdsFromOrg(context.org);
     const enabledEnvs = Array.from(getEnabledEnvironments(feature, orgEnvs));
     if (
-      !req.context.permissions.canPublishFeature(feature, enabledEnvs) ||
-      !req.context.permissions.canPublishFeature(
+      !context.permissions.canPublishFeature(feature, enabledEnvs) ||
+      !context.permissions.canPublishFeature(
         { project: metadataFields.project },
         enabledEnvs,
       )
     ) {
-      req.context.permissions.throwPermissionError();
+      context.permissions.throwPermissionError();
     }
   }
 
   if (metadataFields.customFields !== undefined) {
     await validateCustomFields(
-      metadataFields.customFields,
-      req.context,
+      metadataFields.customFields as Record<string, unknown>,
+      context,
       metadataFields.project ?? feature.project,
     );
   }
 
   const { revision, created } = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
+    context,
+    organization.id,
     feature,
-    req.params.version,
+    params.version,
     { title, comment },
   );
 
@@ -96,24 +113,29 @@ export const putFeatureRevisionMetadata = createApiRequestHandler(
 
     if (Object.keys(metadataFields).length > 0) {
       // Merge into the existing metadata snapshot so omitted fields persist.
-      changes.metadata = { ...(revision.metadata ?? {}), ...metadataFields };
+      changes.metadata = {
+        ...(revision.metadata ?? {}),
+        ...(metadataFields as Partial<
+          NonNullable<RevisionChanges["metadata"]>
+        >),
+      };
     }
 
     if (Object.keys(changes).length === 0) {
       // No-op: drop any auto-created draft so it doesn't leak.
-      await discardIfJustCreated(req.context, revision, created);
-      return { revision: toApiRevision(revision, req.context, feature) };
+      await discardIfJustCreated(context, revision, created);
+      return { feature, revision };
     }
 
     // Tags are registered in the org's tag collection on publish (not here)
     // so discarded drafts don't leak orphaned tags.
     await updateRevision(
-      req.context,
+      context,
       feature,
       revision,
       changes,
       {
-        user: req.context.auditUser,
+        user: context.auditUser,
         action: "edit metadata",
         subject: "",
         value: JSON.stringify(changes),
@@ -122,143 +144,44 @@ export const putFeatureRevisionMetadata = createApiRequestHandler(
     );
 
     const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
+      context,
+      organization: organization.id,
       featureId: feature.id,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
 
-    await recordRevisionUpdate(
-      req.context,
-      feature,
-      finalRevision,
-      "metadata",
-      { auditDetails: { fields: Object.keys(changes) } },
-    );
+    await recordRevisionUpdate(context, feature, finalRevision, "metadata", {
+      auditDetails: { fields: Object.keys(changes) },
+    });
 
-    return { revision: toApiRevision(finalRevision, req.context, feature) };
+    return { feature, revision: finalRevision };
   } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
+    await discardIfJustCreated(context, revision, created);
     throw err;
   }
+}
+
+export const putFeatureRevisionMetadata = createApiRequestHandler(
+  putFeatureRevisionMetadataValidator,
+)(async (req) => {
+  const { feature, revision } = await setRevisionMetadata(
+    req.context,
+    req.organization,
+    req.params,
+    req.body,
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });
 
 export const putFeatureRevisionMetadataV2 = createApiRequestHandler(
   putFeatureRevisionMetadataV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new NotFoundError("Could not find feature");
-
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const { comment, title, ...metadataFields } = req.body;
-
-  if (
-    metadataFields.project !== undefined &&
-    metadataFields.project !== feature.project
-  ) {
-    if (
-      req.context.org.settings?.requireProjectForFeatures &&
-      feature.project &&
-      metadataFields.project === ""
-    ) {
-      throw new BadRequestError("Must specify a project");
-    }
-    if (metadataFields.project) {
-      await req.context.models.projects.ensureProjectsExist([
-        metadataFields.project,
-      ]);
-    }
-    const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
-    const enabledEnvs = Array.from(getEnabledEnvironments(feature, orgEnvs));
-    if (
-      !req.context.permissions.canPublishFeature(feature, enabledEnvs) ||
-      !req.context.permissions.canPublishFeature(
-        { project: metadataFields.project },
-        enabledEnvs,
-      )
-    ) {
-      req.context.permissions.throwPermissionError();
-    }
-  }
-
-  if (metadataFields.customFields !== undefined) {
-    await validateCustomFields(
-      metadataFields.customFields,
-      req.context,
-      metadataFields.project ?? feature.project,
-    );
-  }
-
-  const { revision, created } = await resolveOrCreateRevision(
+  const { feature, revision } = await setRevisionMetadata(
     req.context,
-    req.organization.id,
-    feature,
-    req.params.version,
-    { title, comment },
+    req.organization,
+    req.params,
+    req.body,
   );
-
-  try {
-    if (!isDraftStatus(revision.status)) {
-      throw new BadRequestError(
-        `Cannot edit a revision with status "${revision.status}"`,
-      );
-    }
-
-    const changes: RevisionChanges = {};
-    if (comment !== undefined) changes.comment = comment;
-    if (title !== undefined) changes.title = title;
-
-    if (Object.keys(metadataFields).length > 0) {
-      changes.metadata = { ...(revision.metadata ?? {}), ...metadataFields };
-    }
-
-    if (Object.keys(changes).length === 0) {
-      await discardIfJustCreated(req.context, revision, created);
-      return { revision: toApiRevisionV2(revision, req.context, feature) };
-    }
-
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "edit metadata",
-        subject: "",
-        value: JSON.stringify(changes),
-      },
-      false,
-    );
-
-    const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
-      featureId: feature.id,
-      version: revision.version,
-    });
-    const finalRevision = updated ?? revision;
-
-    await recordRevisionUpdate(
-      req.context,
-      feature,
-      finalRevision,
-      "metadata",
-      {
-        auditDetails: { fields: Object.keys(changes) },
-      },
-    );
-
-    return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
-  } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
-    throw err;
-  }
+  return { revision: toApiRevisionV2(revision, req.context, feature) };
 });

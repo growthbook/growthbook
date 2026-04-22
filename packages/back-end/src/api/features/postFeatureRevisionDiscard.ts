@@ -2,6 +2,7 @@ import {
   postFeatureRevisionDiscardValidator,
   postFeatureRevisionDiscardV2Validator,
 } from "shared/validators";
+import type { ApiRequestLocals } from "back-end/types/api";
 import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -13,9 +14,11 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 
-export const postFeatureRevisionDiscard = createApiRequestHandler(
-  postFeatureRevisionDiscardValidator,
-)(async (req) => {
+async function discardFeatureRevision(
+  req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
+    params: { id: string; version: number };
+  },
+) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -66,61 +69,19 @@ export const postFeatureRevisionDiscard = createApiRequestHandler(
     {},
   );
 
-  return { revision: toApiRevision(finalRevision, req.context, feature) };
+  return { feature, revision: finalRevision };
+}
+
+export const postFeatureRevisionDiscard = createApiRequestHandler(
+  postFeatureRevisionDiscardValidator,
+)(async (req) => {
+  const { feature, revision } = await discardFeatureRevision(req);
+  return { revision: toApiRevision(revision, req.context, feature) };
 });
 
 export const postFeatureRevisionDiscardV2 = createApiRequestHandler(
   postFeatureRevisionDiscardV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new NotFoundError("Could not find feature");
-
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const revision = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: req.params.version,
-  });
-  if (!revision) throw new NotFoundError("Could not find feature revision");
-
-  if (revision.status === "published" || revision.status === "discarded") {
-    throw new BadRequestError(`Cannot discard a ${revision.status} revision`);
-  }
-
-  await discardRevision(req.context, revision, req.context.auditUser);
-
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    version: req.params.version,
-  });
-  const finalRevision = updated ?? revision;
-
-  await req.audit({
-    event: "feature.revision.discard",
-    entity: { object: "feature", id: feature.id },
-    details: auditDetailsUpdate(
-      { status: revision.status },
-      { status: finalRevision.status },
-      { version: revision.version },
-    ),
-  });
-
-  await dispatchFeatureRevisionEvent(
-    req.context,
-    feature,
-    finalRevision,
-    "revision.discarded",
-    {},
-  );
-
-  return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
+  const { feature, revision } = await discardFeatureRevision(req);
+  return { revision: toApiRevisionV2(revision, req.context, feature) };
 });

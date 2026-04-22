@@ -3,15 +3,18 @@ import {
   deleteFeatureValidator,
   deleteFeatureV2Validator,
 } from "shared/validators";
+import type { ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 
-export const deleteFeatureById = createApiRequestHandler(
-  deleteFeatureValidator,
-)(async (req) => {
+// Single handler shared by v1 and v2: identical semantics, identical response
+// shape (`{ deletedId }`). Only the deprecation marker on the route spec differs.
+async function deleteFeatureHandler(
+  req: ApiRequestLocals & { params: { id: string } },
+) {
   const feature = await getFeature(req.context, req.params.id);
 
   if (!feature) {
@@ -65,57 +68,12 @@ export const deleteFeatureById = createApiRequestHandler(
   return {
     deletedId: req.params.id,
   };
-});
+}
+
+export const deleteFeatureById = createApiRequestHandler(
+  deleteFeatureValidator,
+)(deleteFeatureHandler);
 
 export const deleteFeatureByIdV2 = createApiRequestHandler(
   deleteFeatureV2Validator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
-
-  if (!feature) {
-    throw new Error(
-      `Unable to delete - could not find feature ID ${req.params.id}`,
-    );
-  }
-
-  const allEnvironments = getEnvironments(req.context.org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentsIds = environments.map((e) => e.id);
-
-  if (
-    !req.context.permissions.canDeleteFeature(feature) ||
-    !req.context.permissions.canManageFeatureDrafts(feature) ||
-    !req.context.permissions.canPublishFeature(
-      feature,
-      Array.from(getEnabledEnvironments(feature, environmentsIds)),
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  if (!feature.archived) {
-    const apiBypassesReviews =
-      !!req.context.org.settings?.restApiBypassesReviews;
-    if (!apiBypassesReviews) {
-      throw new PermissionError(
-        "Cannot delete a live feature via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
-          "Archive the feature first, or enable the bypass setting in organization settings.",
-      );
-    }
-  }
-
-  await deleteFeature(req.context, feature);
-
-  await req.audit({
-    event: "feature.delete",
-    entity: {
-      object: "feature",
-      id: req.params.id,
-    },
-    details: auditDetailsDelete(feature),
-  });
-
-  return {
-    deletedId: req.params.id,
-  };
-});
+)(deleteFeatureHandler);
