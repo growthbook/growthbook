@@ -139,6 +139,8 @@ function Root({
   useEffect(() => {
     if (open) {
       sendTrackingEvent("modal-open");
+    } else {
+      setError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -155,15 +157,8 @@ function Root({
     [size, error, scrollBodyToTop, sendTrackingEvent],
   );
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      setError(null);
-    }
-    onOpenChange(nextOpen);
-  };
-
   return (
-    <RadixDialog.Root open={open} onOpenChange={handleOpenChange}>
+    <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Content
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
