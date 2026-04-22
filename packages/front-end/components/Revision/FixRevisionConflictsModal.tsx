@@ -186,16 +186,19 @@ export default function FixRevisionConflictsModal({
   );
   const liveSnapshot = currentState;
 
+  // Raw output of checkMergeConflicts. We send this (not the wrapper below) as
+  // the optimistic-lock payload to /rebase, because the server recomputes the
+  // same shape and compares via JSON.stringify — the two must match byte-for-byte.
+  const rawConflictCheck = useMemo(
+    () => checkMergeConflicts(baseSnapshot, liveSnapshot, proposedChanges),
+    [baseSnapshot, liveSnapshot, proposedChanges],
+  );
+
   const mergeResult = useMemo(() => {
     const proposedAsPartial =
       patchOpsToPartial<Record<string, unknown>>(proposedChanges);
-    const conflictCheck = checkMergeConflicts(
-      baseSnapshot,
-      liveSnapshot,
-      proposedChanges,
-    );
 
-    const conflicts = conflictCheck.conflicts || [];
+    const conflicts = rawConflictCheck.conflicts || [];
     const resolvedChanges: Record<string, unknown> = { ...liveSnapshot };
     const unresolvedConflicts: Conflict[] = [];
 
@@ -236,7 +239,7 @@ export default function FixRevisionConflictsModal({
       newProposedChanges:
         unresolvedConflicts.length === 0 ? newProposedChanges : undefined,
     };
-  }, [baseSnapshot, liveSnapshot, proposedChanges, strategies]);
+  }, [liveSnapshot, proposedChanges, rawConflictCheck, strategies]);
 
   const hasChanges =
     mergeResult.newProposedChanges &&
@@ -255,7 +258,9 @@ export default function FixRevisionConflictsModal({
           await apiCall(`/revision/${revision.id}/rebase`, {
             method: "POST",
             body: JSON.stringify({
-              mergeResultSerialized: JSON.stringify(mergeResult),
+              // Must match the server's checkMergeConflicts() output exactly,
+              // not the wrapper mergeResult object used for UI state above.
+              mergeResultSerialized: JSON.stringify(rawConflictCheck),
               strategies,
             }),
           });

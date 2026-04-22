@@ -13,7 +13,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
-import Badge from "@/ui/Badge";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
 
 export interface Props {
   savedGroupId: string;
@@ -79,21 +79,7 @@ function RevisionRow({
         </Text>
       </Box>
       <Box flexShrink="0">
-        {isLive ? (
-          <Badge label="Live" color="teal" radius="full" />
-        ) : revision.status === "merged" ? (
-          <Badge label="Locked" color="gray" radius="full" />
-        ) : revision.status === "discarded" ? (
-          <Badge label="Discarded" color="red" radius="full" />
-        ) : revision.status === "approved" ? (
-          <Badge label="Approved" color="gray" radius="full" />
-        ) : revision.status === "changes-requested" ? (
-          <Badge label="Changes requested" color="amber" radius="full" />
-        ) : revision.status === "pending-review" ? (
-          <Badge label="Pending review" color="blue" radius="full" />
-        ) : revision.status === "draft" ? (
-          <Badge label="Draft" color="indigo" radius="full" />
-        ) : null}
+        {getStatusBadge(isLive ? "live" : revision.status)}
       </Box>
     </Flex>
   );
@@ -273,23 +259,13 @@ export default function SavedGroupRevisionDropdown({
         </Text>
       </Box>
       <Box flexShrink="0">
-        {selectedRevision ? (
-          selectedRevision.id === liveRevision?.id ? (
-            <Badge label="Live" color="teal" radius="full" />
-          ) : selectedRevision.status === "merged" ? (
-            <Badge label="Locked" color="gray" radius="full" />
-          ) : selectedRevision.status === "discarded" ? (
-            <Badge label="Discarded" color="red" radius="full" />
-          ) : selectedRevision.status === "approved" ? (
-            <Badge label="Approved" color="gray" radius="full" />
-          ) : selectedRevision.status === "changes-requested" ? (
-            <Badge label="Changes requested" color="amber" radius="full" />
-          ) : selectedRevision.status === "pending-review" ? (
-            <Badge label="Pending review" color="blue" radius="full" />
-          ) : (
-            <Badge label="Draft" color="indigo" radius="full" />
-          )
-        ) : null}
+        {selectedRevision
+          ? getStatusBadge(
+              selectedRevision.id === liveRevision?.id
+                ? "live"
+                : selectedRevision.status,
+            )
+          : null}
       </Box>
       <PiCaretDownBold style={{ flexShrink: 0 }} />
     </Flex>

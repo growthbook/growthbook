@@ -28,7 +28,6 @@ export interface Props {
   draftsOnly?: boolean;
   // Show only previously-published revisions
   publishedOnly?: boolean;
-  showArchivedToggle?: boolean;
 }
 
 function RevisionRow({
@@ -105,7 +104,6 @@ export default function RevisionDropdown({
   menuPlacement = "end",
   draftsOnly = false,
   publishedOnly = false,
-  showArchivedToggle = false,
 }: Props) {
   const liveVersion = feature.version;
   const initialPageSize = 5;
@@ -135,18 +133,13 @@ export default function RevisionDropdown({
     false,
   );
 
-  const [showArchived, setShowArchived] = useLocalStorage(
-    `revisionDropdown__showArchived__${feature.id}`,
-    false,
-  );
-
   const allSorted = [...revisions].sort((a, b) => b.version - a.version);
   const withoutLive = allSorted.filter((r) => r.version !== liveVersion);
 
   const activeDrafts = (r: MinimalFeatureRevisionInterface) =>
     (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
 
-  let displayList = publishedOnly
+  const displayList = publishedOnly
     ? withoutLive
         .filter((r) => r.status === "published")
         .filter(
@@ -179,13 +172,6 @@ export default function RevisionDropdown({
             return false;
           return true;
         });
-
-  // Filter out archived revisions if toggle is off
-  if (showArchivedToggle && !showArchived) {
-    displayList = displayList.filter(
-      (r) => !r.archived || r.version === version,
-    );
-  }
 
   const selectedIndex =
     draftsOnly || publishedOnly
@@ -227,10 +213,6 @@ export default function RevisionDropdown({
     (r) => r.status === "discarded",
   ).length;
   const generatedCount = allSorted.filter(isRampGenerated).length;
-
-  const archivedCount = showArchivedToggle
-    ? allSorted.filter((r) => r.archived).length
-    : 0;
 
   const triggerWidth = context === "header" ? 280 : "100%";
 
@@ -313,16 +295,6 @@ export default function RevisionDropdown({
               value={showDiscarded}
               onChange={setShowDiscarded}
             />
-          </Flex>
-        </RadixDropdownMenu.Label>
-      )}
-      {showArchivedToggle && archivedCount > 0 && (
-        <RadixDropdownMenu.Label>
-          <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
-            <Text size="small" color="text-low">
-              Show archived ({archivedCount})
-            </Text>
-            <Switch size="1" value={showArchived} onChange={setShowArchived} />
           </Flex>
         </RadixDropdownMenu.Label>
       )}

@@ -184,6 +184,7 @@ export function renderSavedGroupTargeting(
         "groupName",
         "owner",
         "description",
+        "archived",
         "attributeKey",
         "values",
         "projects",
@@ -314,6 +315,7 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
         "groupName",
         "owner",
         "description",
+        "archived",
         "condition",
         "type",
         "projects",
@@ -374,6 +376,28 @@ export function renderSavedGroupSettings(
     );
   }
 
+  // Archive/unarchive shows up here so a revision whose only change is
+  // archive state has a non-empty diff (otherwise the Review/Publish modal
+  // reports "No changes to submit" and Discard via the header is the only
+  // exit, which is how the archive-with-approval flow used to break).
+  const preArchived = !!pre?.archived;
+  const postArchived = !!post.archived;
+  if (
+    post.archived !== undefined &&
+    !isEqual(pre?.archived, post.archived) &&
+    preArchived !== postArchived
+  ) {
+    rows.push(
+      <ChangeField
+        key="archived"
+        label="Status"
+        changed
+        oldNode={preArchived ? "Archived" : "Active"}
+        newNode={postArchived ? "Archived" : "Active"}
+      />,
+    );
+  }
+
   rows.push(
     ...renderFallback(
       pre as Record<string, unknown>,
@@ -382,6 +406,7 @@ export function renderSavedGroupSettings(
         "groupName",
         "owner",
         "description",
+        "archived",
         "condition",
         "type",
         "attributeKey",
@@ -495,6 +520,7 @@ export function renderSavedGroupProjects(
         "groupName",
         "owner",
         "description",
+        "archived",
         "condition",
         "type",
         "attributeKey",
@@ -519,6 +545,13 @@ export function getSavedGroupSettingsBadges(pre: Pre, post: Post): DiffBadge[] {
     post.description !== undefined
   )
     badges.push({ label: "Edit description", action: "edit description" });
+  if (post.archived !== undefined && !!pre?.archived !== !!post.archived) {
+    badges.push(
+      post.archived
+        ? { label: "Archive", action: "archive" }
+        : { label: "Unarchive", action: "unarchive" },
+    );
+  }
   return badges;
 }
 

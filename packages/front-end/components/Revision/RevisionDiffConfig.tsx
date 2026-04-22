@@ -20,6 +20,7 @@ export const REVISION_SAVED_GROUP_DIFF_CONFIG: RevisionDiffConfig<SavedGroupInte
           "groupName",
           "owner",
           "description",
+          "archived",
         ] as (keyof SavedGroupInterface)[],
         render: renderSavedGroupSettings,
         getBadges: getSavedGroupSettingsBadges,

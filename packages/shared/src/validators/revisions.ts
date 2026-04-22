@@ -27,26 +27,6 @@ export const reviewValidator = z.object({
 });
 export type Review = z.infer<typeof reviewValidator>;
 
-// Activity log entry (for timeline/history)
-export const activityLogEntryValidator = z.object({
-  id: z.string(),
-  userId: z.string(),
-  action: z.enum([
-    "created",
-    "updated",
-    "reviewed",
-    "approved",
-    "requested-changes",
-    "commented",
-    "merged",
-    "discarded",
-    "reopened",
-  ]),
-  description: z.string().nullish(),
-  dateCreated: z.date(),
-});
-export type ActivityLogEntry = z.infer<typeof activityLogEntryValidator>;
-
 // To add a new entity type to the revision system:
 // 1. Add the string literal here (e.g. "feature")
 // 2. Create revisionFeatureTargetValidator with snapshot: <entityValidator> below
@@ -78,6 +58,37 @@ export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
   z.object({ op: z.literal("test"), path: z.string(), value: z.unknown() }),
 ]);
 export type JsonPatchOperation = z.infer<typeof jsonPatchOperationValidator>;
+
+// Activity log entry (for timeline/history)
+export const activityLogEntryValidator = z.object({
+  id: z.string(),
+  userId: z.string(),
+  action: z.enum([
+    "created",
+    "updated",
+    "reviewed",
+    "approved",
+    "requested-changes",
+    "commented",
+    "merged",
+    "discarded",
+    "reopened",
+  ]),
+  description: z.string().nullish(),
+  dateCreated: z.date(),
+  // Snapshot of `target.proposedChanges` as of immediately AFTER this entry
+  // was recorded. Only persisted for content-changing actions ("created",
+  // "updated"). The UI uses this (combined with the previous content
+  // entry's snapshot) to reconstruct a per-entry before/after diff without
+  // needing additional per-edit history. Optional for backward
+  // compatibility with entries created before this field existed.
+  proposedChangesSnapshot: z.array(jsonPatchOperationValidator).optional(),
+  // Snapshot of `target.snapshot` (the revision baseline) AFTER this entry,
+  // only persisted when the action changes the baseline itself (i.e. a
+  // rebase). Otherwise the revision's current `target.snapshot` is used.
+  targetSnapshot: z.unknown().optional(),
+});
+export type ActivityLogEntry = z.infer<typeof activityLogEntryValidator>;
 
 export const revisionSavedGroupTargetValidator = z.object({
   type: z.literal("saved-group"),

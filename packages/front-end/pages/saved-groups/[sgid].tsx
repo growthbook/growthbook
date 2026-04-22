@@ -17,8 +17,6 @@ import {
   PiLockSimple,
   PiPencilSimpleFill,
   PiArrowsLeftRightBold,
-  PiLink,
-  PiCheck,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { isIdListSupportedAttribute } from "shared/util";
@@ -32,6 +30,7 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -84,7 +83,6 @@ import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/Revision
 import { useUser } from "@/services/UserContext";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SavedGroupDraftSelectorForChanges, {
@@ -136,8 +134,6 @@ export default function EditSavedGroupPage() {
   );
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
-
-  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
@@ -1008,26 +1004,6 @@ export default function EditSavedGroupPage() {
             )}
           </Flex>
           <Flex align="center" gap="4" pr="2">
-            <Tooltip
-              body={copySuccess ? "Copied!" : "Copy link"}
-              tipPosition="bottom"
-              tipMinWidth="0"
-              style={{ marginBottom: -4 }}
-            >
-              <IconButton
-                variant="ghost"
-                size="2"
-                color="violet"
-                onClick={() => {
-                  const url =
-                    window.location.href.replace(/[?#].*/, "") +
-                    (selectedRevisionId ? `?flow=${selectedRevisionId}` : "");
-                  performCopy(url);
-                }}
-              >
-                {copySuccess ? <PiCheck /> : <PiLink />}
-              </IconButton>
-            </Tooltip>
             <SavedGroupRevisionDropdown
               savedGroupId={savedGroup.id}
               allRevisions={allRevisions}
@@ -1212,7 +1188,49 @@ export default function EditSavedGroupPage() {
                       </>
                     ),
                   }
-                : null;
+                : isLive
+                  ? (() => {
+                      const activeDrafts = allRevisions.filter(
+                        (r) =>
+                          r.status === "draft" ||
+                          r.status === "approved" ||
+                          r.status === "changes-requested" ||
+                          r.status === "pending-review",
+                      );
+                      if (activeDrafts.length === 0) return null;
+                      return {
+                        icon: <PiPencil size={18} />,
+                        color: "var(--gray-11)",
+                        bgColor: "var(--gray-a3)",
+                        message: (
+                          <>
+                            This saved group has{" "}
+                            <strong>
+                              {activeDrafts.length === 1
+                                ? "a draft revision"
+                                : `${activeDrafts.length} draft revisions`}
+                            </strong>
+                            {activeDrafts.length === 1 && (
+                              <>
+                                {". "}
+                                <span
+                                  style={{
+                                    cursor: "pointer",
+                                    color: "var(--accent-11)",
+                                    fontWeight: 600,
+                                    textUnderlineOffset: 2,
+                                  }}
+                                  onClick={() => selectFlow(activeDrafts[0])}
+                                >
+                                  Switch to draft
+                                </span>
+                              </>
+                            )}
+                          </>
+                        ),
+                      };
+                    })()
+                  : null;
 
           return (
             <>
@@ -1351,46 +1369,10 @@ export default function EditSavedGroupPage() {
                               </IconButton>
                             )}
                           <Box flexShrink="0">
-                            {isLive ? (
-                              <Badge label="Live" color="teal" radius="full" />
-                            ) : isMerged ? (
-                              <Badge
-                                label="Locked"
-                                color="gray"
-                                radius="full"
-                              />
-                            ) : isDiscarded ? (
-                              <Badge
-                                label="Discarded"
-                                color="red"
-                                radius="full"
-                              />
-                            ) : selectedRevision?.status === "approved" ? (
-                              <Badge
-                                label="Approved"
-                                color="gray"
-                                radius="full"
-                              />
-                            ) : selectedRevision?.status ===
-                              "changes-requested" ? (
-                              <Badge
-                                label="Changes requested"
-                                color="amber"
-                                radius="full"
-                              />
-                            ) : selectedRevision?.status ===
-                              "pending-review" ? (
-                              <Badge
-                                label="Pending review"
-                                color="blue"
-                                radius="full"
-                              />
-                            ) : (
-                              <Badge
-                                label="Draft"
-                                color="indigo"
-                                radius="full"
-                              />
+                            {getStatusBadge(
+                              isLive
+                                ? "live"
+                                : (selectedRevision?.status ?? "draft"),
                             )}
                           </Box>
                         </Flex>
@@ -1564,14 +1546,12 @@ export default function EditSavedGroupPage() {
                     ? "You cannot edit a merged revision."
                     : isDiscarded
                       ? "You cannot edit a discarded revision."
-                      : !selectedRevision
-                        ? "Create a new draft first."
-                        : ""
+                      : ""
                 }
               >
                 <Button
                   variant="outline"
-                  disabled={!!(!selectedRevision || isMerged || isDiscarded)}
+                  disabled={!!(isMerged || isDiscarded)}
                   onClick={() => {
                     if (!selectedRevision && userOpenRevision) {
                       selectFlow(userOpenRevision);
@@ -1648,15 +1628,13 @@ export default function EditSavedGroupPage() {
                       ? "You cannot edit a merged revision."
                       : isDiscarded
                         ? "You cannot edit a discarded revision."
-                        : !selectedRevision
-                          ? "Create a new draft first."
-                          : ""
+                        : ""
                   }
                 >
                   <Button
                     variant="ghost"
                     color="red"
-                    disabled={!!(!selectedRevision || isMerged || isDiscarded)}
+                    disabled={!!(isMerged || isDiscarded)}
                     onClick={() => {
                       // When viewing live, switch to/create draft first
                       if (!selectedRevision && userOpenRevision) {
@@ -1683,14 +1661,12 @@ export default function EditSavedGroupPage() {
                       ? "You cannot edit a merged revision."
                       : isDiscarded
                         ? "You cannot edit a discarded revision."
-                        : !selectedRevision
-                          ? "Create a new draft first."
-                          : ""
+                        : ""
                   }
                 >
                   <Button
                     variant="outline"
-                    disabled={!!(!selectedRevision || isMerged || isDiscarded)}
+                    disabled={!!(isMerged || isDiscarded)}
                     onClick={() => {
                       // When viewing live, switch to/create draft first
                       if (!selectedRevision && userOpenRevision) {

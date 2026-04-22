@@ -274,6 +274,16 @@ export class RevisionModel extends BaseClass {
           userId: doc.authorId,
           action: "created",
           dateCreated: doc.dateCreated,
+          // Capture the proposed changes that existed at the moment this
+          // revision was created so the UI can show a per-entry diff for
+          // the "created" row. For most revisions this is an empty array,
+          // but for revert-style revisions it contains the initial revert
+          // ops and the diff is meaningful.
+          proposedChangesSnapshot: doc.target.proposedChanges,
+          // Persist the original baseline separately so per-entry diffs
+          // stay correct even if the revision is later rebased (which
+          // mutates `target.snapshot` in place).
+          targetSnapshot: doc.target.snapshot,
         },
       ];
 
@@ -572,6 +582,10 @@ export class RevisionModel extends BaseClass {
           action: "updated",
           description: "Updated proposed changes",
           dateCreated: new Date(),
+          // Persist the cumulative proposed-changes state as of this edit
+          // so the UI can diff it against the previous entry's snapshot
+          // and show exactly what this particular edit changed.
+          proposedChangesSnapshot: proposedChanges,
         },
         ...(resetEntry ? [resetEntry] : []),
       ],
@@ -609,6 +623,11 @@ export class RevisionModel extends BaseClass {
           action: "updated" as const,
           description: "Rebased revision on current live state",
           dateCreated: new Date(),
+          // Rebase shifts both the baseline snapshot and the proposed
+          // changes. Persist both so the UI can reconstruct the state on
+          // either side of the rebase for a meaningful per-entry diff.
+          proposedChangesSnapshot: newProposedChanges,
+          targetSnapshot: cleanedSnapshot,
         },
         ...(resetEntry ? [resetEntry] : []),
       ],

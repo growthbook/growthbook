@@ -1,36 +1,58 @@
-import { FC, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
 import { Revision, RevisionStatus } from "shared/enterprise";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureMetaInfo } from "shared/types/feature";
+import Link from "next/link";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Frame from "@/ui/Frame";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import Field from "@/components/Forms/Field";
-import Pagination from "@/components/Pagination";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import Pagination from "@/ui/Pagination";
+import { DocLink } from "@/components/DocLink";
+import {
+  SyntaxFilter,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import {
   FilterDropdown,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import { buildSavedGroupRevisionUrl } from "@/components/Revision/revisionUtils";
 import { useRevisions } from "@/hooks/useRevisions";
 import useApi from "@/hooks/useApi";
+import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 20;
+
+// Statuses shown by default when the user hasn't typed or picked any status
+// filter. Kept off the visible search input so the placeholder is shown until
+// the user actively changes the filter.
+const DEFAULT_STATUSES: RevisionStatus[] = [
+  "pending-review",
+  "approved",
+  "changes-requested",
+];
+
+// Per design, the default view should lead with items that are blocking
+// reviewers, then items where the requestor still has work to do. Lower
+// numbers sort to the top. Statuses that are only shown when the user opts
+// into them (Draft, Published, Discarded) rank below all actionable items so
+// that if they are surfaced they do not push actionable items down.
+const STATUS_PRIORITY: Record<RevisionStatus, number> = {
+  "pending-review": 0,
+  "changes-requested": 1,
+  approved: 2,
+  draft: 3,
+  merged: 4,
+  discarded: 5,
+};
 
 type FeatureRevisionWithMeta = FeatureRevisionInterface & {
   featureMeta?: FeatureMetaInfo;
@@ -40,13 +62,22 @@ type FeatureRevisionWithMeta = FeatureRevisionInterface & {
 // listed/filtered/sorted together.
 type ApprovalRow = {
   id: string;
+  // Custom, user-authored revision title (e.g. "Fix checkout bug"). Empty if
+  // the requester didn't set one — in that case the table cell falls back to
+  // the "Revision N" label built from `version`.
   title: string;
+  // Numeric revision version. Used both to build the "Revision N" fallback
+  // label shown in the Revision column and to sort the column consistently
+  // when no custom title is set.
+  version: number;
   entityName: string;
   entityType: string;
   authorId: string;
   authorDisplay: string;
   status: RevisionStatus;
-  dateCreated: Date;
+  // Store as a numeric timestamp (ms) so useSearch's sort comparator (which
+  // only understands numbers/strings/arrays) can properly order rows by date.
+  dateCreated: number;
   url: string;
 };
 
@@ -58,6 +89,63 @@ function getEntityTypeLabel(entityType: string): string {
   return labels[entityType] || entityType;
 }
 
+// Dot + text rendering per design. Each actionable status is paired with a
+// colored dot; "Draft" is rendered as plain text and "Discarded" as italic
+// muted text since those rows are "nice to know" and should visually recede.
+// Colors reference Radix CSS variables so they track the active theme.
+const STATUS_DOT_COLOR: Partial<Record<RevisionStatus, string>> = {
+  "pending-review": "var(--red-9)",
+  "changes-requested": "var(--amber-9)",
+  approved: "var(--gray-12)",
+  merged: "var(--grass-9)",
+};
+
+const STATUS_LABEL: Record<RevisionStatus, string> = {
+  "pending-review": "Pending review",
+  "changes-requested": "Changes requested",
+  approved: "Approved",
+  merged: "Published",
+  draft: "Draft",
+  discarded: "Discarded",
+};
+
+function StatusDot({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-block",
+        width: 8,
+        height: 8,
+        borderRadius: 8,
+        backgroundColor: color,
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+function renderApprovalStatus(status: RevisionStatus) {
+  const label = STATUS_LABEL[status] ?? status;
+  if (status === "discarded") {
+    return (
+      <span style={{ fontStyle: "italic", color: "var(--gray-10)" }}>
+        {label}
+      </span>
+    );
+  }
+  const dot = STATUS_DOT_COLOR[status];
+  if (!dot) {
+    return <span>{label}</span>;
+  }
+  return (
+    <Flex gap="2" align="center">
+      <StatusDot color={dot} />
+      {label}
+    </Flex>
+  );
+}
+
 function revisionToRow(revision: Revision): ApprovalRow {
   const entityName =
     revision.target.type === "saved-group"
@@ -67,13 +155,14 @@ function revisionToRow(revision: Revision): ApprovalRow {
   return {
     id: revision.id,
     title: revision.title || "",
+    version: revision.version ?? 0,
     entityName,
     entityType: revision.target.type,
     authorId: revision.authorId,
     authorDisplay: "",
     status: revision.status,
-    dateCreated: new Date(revision.dateCreated),
-    url: `/saved-groups/${revision.target.id}?flow=${revision.id}`,
+    dateCreated: new Date(revision.dateCreated).getTime(),
+    url: buildSavedGroupRevisionUrl(revision.target.id, revision),
   };
 }
 
@@ -95,12 +184,13 @@ function featureRevisionToRow(
   return {
     id: `${revision.featureId}-v${revision.version}`,
     title: revision.title || revision.comment || "",
+    version: revision.version,
     entityName: revision.featureId,
     entityType: "feature",
     authorId,
     authorDisplay,
     status,
-    dateCreated: new Date(revision.dateCreated),
+    dateCreated: new Date(revision.dateCreated).getTime(),
     url: `/features/${revision.featureId}?v=${revision.version}`,
   };
 }
@@ -153,14 +243,24 @@ const ApprovalRequests: FC = () => {
   const approvalItems = useAddComputedFields(rows, (item) => ({
     ...item,
     authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
+    // Composite key so the default view sorts by status priority first and
+    // then by date-requested (newest first) within each status bucket. The
+    // date is subtracted so ascending numeric sort gives newest-first per
+    // bucket. Using a large status multiplier guarantees status dominates the
+    // sort regardless of timestamp magnitude.
+    _sortKey: STATUS_PRIORITY[item.status] * 1e15 - item.dateCreated,
   }));
 
   const { items, searchInputProps, SortableTH, syntaxFilters, setSearchValue } =
     useSearch({
       items: approvalItems,
       localStorageKey: "approvalRequestsList",
-      defaultSortField: "dateCreated",
-      defaultSortDir: -1,
+      // Design requirement: filters and sort should reset each time the user
+      // navigates to this page so the primary view (blocked, actionable
+      // items) is always front-and-center.
+      persistSort: false,
+      defaultSortField: "_sortKey",
+      defaultSortDir: 1,
       searchFields: ["entityName", "authorId", "title", "authorDisplay"],
       searchTermFilters: {
         status: (item) => item.status,
@@ -176,18 +276,17 @@ const ApprovalRequests: FC = () => {
       setSearchValue,
     });
 
-  // Default to showing only actionable statuses
-  const defaultApplied = useRef(false);
-  useEffect(() => {
-    if (!defaultApplied.current && !router.query.q) {
-      setSearchValue("status:draft,pending-review,approved,changes-requested");
-      defaultApplied.current = true;
-    }
-  }, [router.query.q, setSearchValue]);
+  // Whether the user has explicitly specified a status filter (via the search
+  // box or the Status FilterDropdown). When false we apply DEFAULT_STATUSES
+  // implicitly without putting anything in the visible search input.
+  const hasExplicitStatusFilter = useMemo(
+    () => syntaxFilters.some((f) => f.field === "status"),
+    [syntaxFilters],
+  );
 
   // Derive the server-side status filter from the parsed search filters so
   // changes from FilterDropdown / typing in the search box trigger a refetch.
-  // - No status filter → default to "open" (bounded, default inbox view).
+  // - No explicit status filter → use DEFAULT_STATUSES (the inbox default).
   // - Negated status filter → fetch all (server can't easily express NOT-in;
   //   the client filter still narrows the view).
   // - Otherwise → join the explicit status values for the server.
@@ -195,7 +294,7 @@ const ApprovalRequests: FC = () => {
     const f = syntaxFilters.find((x) => x.field === "status");
     let next: string | undefined;
     if (!f || f.values.length === 0) {
-      next = "open";
+      next = DEFAULT_STATUSES.join(",");
     } else if (f.negated) {
       next = undefined;
     } else {
@@ -204,12 +303,81 @@ const ApprovalRequests: FC = () => {
     setServerStatusFilter((prev) => (prev === next ? prev : next));
   }, [syntaxFilters]);
 
+  // Apply the implicit default-statuses filter on the client too so the
+  // visible table matches the server query even though nothing is typed in
+  // the search box.
+  const effectiveItems = useMemo(() => {
+    if (hasExplicitStatusFilter) return items;
+    const allowed = new Set<string>(DEFAULT_STATUSES);
+    return items.filter((item) => allowed.has(item.status));
+  }, [items, hasExplicitStatusFilter]);
+
+  // For the Status FilterDropdown only: surface the implicit default statuses
+  // as a synthetic syntax filter so the dropdown renders them as ticked when
+  // no explicit status filter has been set yet. This makes the default state
+  // discoverable without putting anything in the visible search box.
+  const statusDropdownSyntaxFilters = useMemo<SyntaxFilter[]>(() => {
+    if (hasExplicitStatusFilter) return syntaxFilters;
+    return [
+      ...syntaxFilters,
+      {
+        field: "status",
+        values: [...DEFAULT_STATUSES],
+        operator: "",
+        negated: false,
+      },
+    ];
+  }, [syntaxFilters, hasExplicitStatusFilter]);
+
+  // Custom updateQuery for the Status dropdown. When the user toggles a
+  // status while no explicit status filter is set, we first materialize the
+  // defaults into the search input (minus/plus the clicked value) so the
+  // resulting list matches what the ticks in the dropdown implied.
+  const updateStatusQuery = useCallback(
+    (filter: SyntaxFilter) => {
+      if (hasExplicitStatusFilter) {
+        updateQuery(filter);
+        return;
+      }
+      const clicked = filter.values[0];
+      const nextStatuses = (DEFAULT_STATUSES as string[]).includes(clicked)
+        ? DEFAULT_STATUSES.filter((s) => s !== clicked)
+        : [...DEFAULT_STATUSES, clicked as RevisionStatus];
+      const existing = searchInputProps.value.trim();
+      const term =
+        nextStatuses.length > 0 ? `status:${nextStatuses.join(",")}` : "";
+      const combined = existing
+        ? term
+          ? `${existing} ${term}`
+          : existing
+        : term;
+      setSearchValue(combined.trim());
+    },
+    [
+      hasExplicitStatusFilter,
+      updateQuery,
+      searchInputProps.value,
+      setSearchValue,
+    ],
+  );
+
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 whenever the filtered/sorted list shrinks below the
+  // current page's window so users don't end up stranded on an empty page
+  // after narrowing filters.
+  useEffect(() => {
+    const lastPage = Math.max(
+      1,
+      Math.ceil(effectiveItems.length / ITEMS_PER_PAGE),
+    );
+    if (currentPage > lastPage) setCurrentPage(1);
+  }, [effectiveItems.length, currentPage]);
 
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return items.slice(start, start + ITEMS_PER_PAGE);
-  }, [items, currentPage]);
+    return effectiveItems.slice(start, start + ITEMS_PER_PAGE);
+  }, [effectiveItems, currentPage]);
 
   const statusFilterItems = [
     {
@@ -228,13 +396,41 @@ const ApprovalRequests: FC = () => {
     { name: "Discarded", id: "discarded", searchValue: "discarded" },
   ];
 
+  // Per design, each filter trigger button surfaces the currently-applied
+  // value(s) inline (e.g. "Status: Pending review, Changes requested,
+  // Approved"), falling back to "Any" when no explicit filter is set. This
+  // matches the filter pattern elsewhere in the Figma (Metrics landing etc.).
+  const typeHeading = useMemo(() => {
+    const f = syntaxFilters.find((s) => s.field === "type");
+    if (!f || f.values.length === 0) return "Type: Any";
+    return `Type: ${f.values.map(getEntityTypeLabel).join(", ")}`;
+  }, [syntaxFilters]);
+
+  const authorHeading = useMemo(() => {
+    const f = syntaxFilters.find((s) => s.field === "author");
+    if (!f || f.values.length === 0) return "Requested by: Any";
+    return `Requested by: ${f.values
+      .map((v) => getUserDisplay(v) || v)
+      .join(", ")}`;
+  }, [syntaxFilters, getUserDisplay]);
+
+  const statusHeading = useMemo(() => {
+    const values: string[] = hasExplicitStatusFilter
+      ? (syntaxFilters.find((s) => s.field === "status")?.values ?? [])
+      : [...DEFAULT_STATUSES];
+    if (values.length === 0) return "Status: Any";
+    return `Status: ${values
+      .map((v) => STATUS_LABEL[v as RevisionStatus] ?? v)
+      .join(", ")}`;
+  }, [syntaxFilters, hasExplicitStatusFilter]);
+
   if (!hasFeature) {
     return (
-      <div className="container-fluid pagecontents">
+      <Box p="4" pr="5" className="container-fluid pagecontents">
         <Callout status="info">
           Approval flows require an Enterprise plan.
         </Callout>
-      </div>
+      </Box>
     );
   }
 
@@ -243,13 +439,14 @@ const ApprovalRequests: FC = () => {
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <Box p="4" pr="5" className="container-fluid pagecontents">
       <Box mb="5">
         <Heading as="h1" size="large" mb="2">
           Approval Requests
         </Heading>
         <Text color="text-low">
-          Review changes across your organization that require approval.
+          Review changes across your organization that require approval.{" "}
+          <DocLink docSection="publishingAndApprovalFlows">View Docs</DocLink>
         </Text>
       </Box>
 
@@ -261,7 +458,7 @@ const ApprovalRequests: FC = () => {
         <Flex gap="5" align="center">
           <FilterDropdown
             filter="type"
-            heading="Type"
+            heading={typeHeading}
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
@@ -274,7 +471,7 @@ const ApprovalRequests: FC = () => {
           />
           <FilterDropdown
             filter="author"
-            heading="Requested by"
+            heading={authorHeading}
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
@@ -287,76 +484,99 @@ const ApprovalRequests: FC = () => {
           />
           <FilterDropdown
             filter="status"
-            heading="Status"
-            syntaxFilters={syntaxFilters}
+            heading={statusHeading}
+            syntaxFilters={statusDropdownSyntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
             items={statusFilterItems}
-            updateQuery={updateQuery}
+            updateQuery={updateStatusQuery}
           />
         </Flex>
       </Flex>
 
       {/* Table */}
-      {items.length === 0 ? (
+      {effectiveItems.length === 0 ? (
         <Callout status="info">No approval requests found.</Callout>
       ) : (
         <>
-          <Frame p="0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortableTH field="title">Revision</SortableTH>
-                  <SortableTH field="entityName">Name</SortableTH>
-                  <SortableTH field="entityType">Type</SortableTH>
-                  <TableColumnHeader>Requested by</TableColumnHeader>
-                  <SortableTH field="dateCreated">Date Requested</SortableTH>
-                  <TableColumnHeader>Status</TableColumnHeader>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedItems.map((row) => {
-                  const displayName = row.authorDisplay || row.authorId;
-                  return (
-                    <TableRow
-                      key={row.id}
-                      onClick={() => router.push(row.url)}
-                      style={{ cursor: "pointer" }}
-                      className="hover-highlight"
+          <Table variant="list" roundedCorners stickyHeader={false}>
+            <TableHeader>
+              <TableRow>
+                <SortableTH field="entityName">Name</SortableTH>
+                <SortableTH field="version">Revision</SortableTH>
+                <SortableTH field="entityType">Type</SortableTH>
+                <SortableTH field="authorDisplay">Requested by</SortableTH>
+                <SortableTH field="dateCreated">Date Requested</SortableTH>
+                {/* Clicking Status sorts by the composite "status priority +
+                    date requested" key that also drives the page's default
+                    sort, so the column header reflects the default ordering
+                    and toggling ascending/descending behaves intuitively. */}
+                <SortableTH field="_sortKey">Status</SortableTH>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedItems.map((row) => (
+                <TableRow
+                  key={row.id}
+                  onClick={() => router.push(row.url)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(row.url);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="link"
+                  aria-label={row.entityName || row.title}
+                  style={{ cursor: "pointer" }}
+                  className="hover-highlight"
+                >
+                  <TableCell>
+                    <Link
+                      href={row.url}
+                      // Stop propagation so the row-level onClick doesn't also
+                      // fire (which would trigger `router.push` a second time).
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        textDecoration: "none",
+                        color: "inherit",
+                        display: "block",
+                      }}
                     >
-                      <TableCell>
-                        {row.title || <Text color="text-low">Untitled</Text>}
-                      </TableCell>
-                      <TableCell>{row.entityName}</TableCell>
-                      <TableCell>
-                        {getEntityTypeLabel(row.entityType)}
-                      </TableCell>
-                      <TableCell>
-                        {displayName ? (
-                          <Flex align="center" gap="2">
-                            <UserAvatar
-                              name={displayName}
-                              size="sm"
-                              variant="soft"
-                            />
-                            <span>{displayName}</span>
-                          </Flex>
-                        ) : (
-                          "--"
-                        )}
-                      </TableCell>
-                      <TableCell>{datetime(row.dateCreated)}</TableCell>
-                      <TableCell>{getStatusBadge(row.status)}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </Frame>
+                      {row.entityName}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      href={row.url}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        textDecoration: "none",
+                        color: "inherit",
+                        display: "block",
+                      }}
+                    >
+                      {row.title || `Revision ${row.version}`}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{getEntityTypeLabel(row.entityType)}</TableCell>
+                  <TableCell>
+                    {row.authorId ? (
+                      <Owner ownerId={row.authorId} />
+                    ) : (
+                      row.authorDisplay || "--"
+                    )}
+                  </TableCell>
+                  <TableCell>{datetime(new Date(row.dateCreated))}</TableCell>
+                  <TableCell>{renderApprovalStatus(row.status)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
 
-          {items.length > ITEMS_PER_PAGE && (
+          {effectiveItems.length > ITEMS_PER_PAGE && (
             <Pagination
-              numItemsTotal={items.length}
+              numItemsTotal={effectiveItems.length}
               perPage={ITEMS_PER_PAGE}
               currentPage={currentPage}
               onPageChange={setCurrentPage}
@@ -364,7 +584,7 @@ const ApprovalRequests: FC = () => {
           )}
         </>
       )}
-    </div>
+    </Box>
   );
 };
 

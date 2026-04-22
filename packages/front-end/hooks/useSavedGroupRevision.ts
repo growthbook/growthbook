@@ -21,9 +21,14 @@ export function useSavedGroupRevision(
   const { apiCall } = useAuth();
   const initializedDefaultSelectionFor = useRef<string | null>(null);
 
-  // Revision ID lives in ?flow= query param
-  const selectedRevisionId = router.isReady
-    ? ((router.query.flow as string) ?? null)
+  // Selected revision lives in the URL via `?v=<n>`.
+  const urlVersion = router.isReady
+    ? (() => {
+        const raw = router.query.v;
+        if (typeof raw !== "string" || !/^\d+$/.test(raw)) return null;
+        const n = Number(raw);
+        return Number.isInteger(n) ? n : null;
+      })()
     : null;
 
   const { data, mutate: mutateRevisions } = useApi<{
@@ -40,35 +45,83 @@ export function useSavedGroupRevision(
     [data?.revisions],
   );
 
-  // Derive selected revision from SWR data — single source of truth
-  // Look in ALL revisions (not just open ones) so discarded/merged revisions can be selected
-  const selectedRevision = useMemo(
-    () =>
-      selectedRevisionId
-        ? ((data?.revisions ?? []).find((f) => f.id === selectedRevisionId) ??
-          null)
-        : null,
-    [selectedRevisionId, data?.revisions],
-  );
+  // The "live" version is the version of the latest merged revision. This
+  // number is what `?v=` points to when viewing the live saved group.
+  const liveVersion = useMemo<number | null>(() => {
+    let max: number | null = null;
+    for (const r of data?.revisions ?? []) {
+      if (r.status !== "merged") continue;
+      if (r.version == null) continue;
+      if (max == null || r.version > max) max = r.version;
+    }
+    if (max != null) return max;
+    // No real merged revisions yet: the synthetic "Revision 1" stands in as live.
+    if (savedGroup && (data?.revisions?.length ?? 0) === 0) return 1;
+    return null;
+  }, [data?.revisions, savedGroup]);
+
+  // Refs give `updateUrl` stable access without listing these as dependencies.
+  const liveVersionRef = useRef(liveVersion);
+  liveVersionRef.current = liveVersion;
+
+  // Derive selected revision from SWR data — single source of truth.
+  // Look in ALL revisions (not just open ones) so discarded/merged revisions
+  // can still be selected. If the URL version matches the live version, we
+  // treat it as the live view (no revision selected).
+  const selectedRevision = useMemo(() => {
+    const revisions = data?.revisions ?? [];
+    if (urlVersion == null) return null;
+    if (urlVersion === liveVersion) return null;
+    return revisions.find((f) => f.version === urlVersion) ?? null;
+  }, [urlVersion, liveVersion, data?.revisions]);
+
+  const selectedRevisionId = selectedRevision?.id ?? null;
+  const hasSelectionInUrl = urlVersion != null;
 
   // Single URL-update helper. Uses routerRef (empty deps) to guarantee stability
   // so effects that depend on it don't re-run every time the router refreshes.
-  const updateUrl = useCallback((revisionId: string | null) => {
-    const r = routerRef.current;
-    if (!r.isReady) return;
-    const query: Record<string, string> = { sgid: r.query.sgid as string };
-    if (revisionId) query.flow = revisionId;
-    r.replace({ pathname: r.pathname, query }, undefined, { shallow: true });
-  }, []);
+  //
+  // Mirrors the features page behavior (see `pages/features/[fid].tsx`): use
+  // `router.push` for user-initiated navigation so browser back/forward steps
+  // through revisions, and `router.replace` for initial-load or invalid-URL
+  // corrections. Preserves unrelated query params and the URL hash.
+  //
+  // Passing `null` means "go to live" — the URL is populated with the live
+  // version so a `?v=` param is always present.
+  const updateUrl = useCallback(
+    (
+      revision: Pick<Revision, "version"> | null,
+      { replace = false }: { replace?: boolean } = {},
+    ) => {
+      const r = routerRef.current;
+      if (!r.isReady) return;
+      const query: Record<string, string | string[] | undefined> = {
+        ...r.query,
+      };
+      delete query.v;
+      const versionToUse = revision?.version ?? liveVersionRef.current;
+      if (versionToUse != null) {
+        query.v = String(versionToUse);
+      }
+      const hash = new URL(r.asPath, "http://x").hash.slice(1) || undefined;
+      const method = replace ? r.replace : r.push;
+      void method({ pathname: r.pathname, query, hash }, undefined, {
+        shallow: true,
+      });
+    },
+    [],
+  );
 
   // On initial load, default authors to their own most-recent open draft.
   // Respect any revision already in the URL (deep link / browser back).
+  // If no `?v=` is present, populate it with the live version so the URL
+  // always carries a version.
   useEffect(() => {
     if (!savedGroupId || !userId) return;
     if (!data) return;
     if (initializedDefaultSelectionFor.current === savedGroupId) return;
 
-    if (selectedRevisionId) {
+    if (hasSelectionInUrl) {
       initializedDefaultSelectionFor.current = savedGroupId;
       return;
     }
@@ -80,30 +133,31 @@ export function useSavedGroupRevision(
           new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
       )[0];
 
-    if (authoredOpenRevision) {
-      updateUrl(authoredOpenRevision.id);
-    }
+    updateUrl(authoredOpenRevision ?? null, { replace: true });
     initializedDefaultSelectionFor.current = savedGroupId;
+  }, [savedGroupId, userId, data, openRevisions, hasSelectionInUrl, updateUrl]);
+
+  // If the URL `?v=` points to a version that doesn't exist (deleted / invalid
+  // URL), reset to live. Skip this when `v` equals the live version (live view)
+  // or when `v` matches a real revision. This is a URL correction, not a user
+  // action, so replace instead of push.
+  useEffect(() => {
+    if (!data || !hasSelectionInUrl) return;
+    if (urlVersion === liveVersion) return;
+    if (selectedRevision) return;
+    updateUrl(null, { replace: true });
   }, [
-    savedGroupId,
-    userId,
     data,
-    openRevisions,
-    selectedRevisionId,
+    hasSelectionInUrl,
+    urlVersion,
+    liveVersion,
+    selectedRevision,
     updateUrl,
   ]);
 
-  // If the selected revision doesn't exist (deleted), deselect.
-  // Guard on `data` to avoid false-positive deselection before SWR has loaded.
-  useEffect(() => {
-    if (data && selectedRevisionId && !selectedRevision) {
-      updateUrl(null);
-    }
-  }, [data, selectedRevisionId, selectedRevision, updateUrl]);
-
   const selectFlow = useCallback(
     (revision: Revision | null) => {
-      updateUrl(revision?.id ?? null);
+      updateUrl(revision);
     },
     [updateUrl],
   );
@@ -133,7 +187,7 @@ export function useSavedGroupRevision(
         },
         { revalidate: true },
       );
-      updateUrl(revision.id);
+      updateUrl(revision);
     },
     [mutateRevisions, updateUrl],
   );
@@ -141,30 +195,40 @@ export function useSavedGroupRevision(
   const handlePublish = useCallback(
     async (revisionId: string) => {
       await apiCall(`/revision/${revisionId}/merge`, { method: "POST" });
-      mutateRevisions();
+      // Wait for the revisions list to update before rewriting the URL so the
+      // "live version" (max merged version) reflects the newly merged revision.
+      const updated = await mutateRevisions();
       savedGroupMutate(); // refresh live saved group data after merge
-      updateUrl(null);
+      const merged = (updated?.revisions ?? data?.revisions ?? []).find(
+        (r) => r.id === revisionId,
+      );
+      updateUrl(merged ?? null);
     },
-    [apiCall, mutateRevisions, savedGroupMutate, updateUrl],
+    [apiCall, mutateRevisions, savedGroupMutate, data?.revisions, updateUrl],
   );
 
   const handleDiscard = useCallback(
     async (revisionId: string) => {
       await apiCall(`/revision/${revisionId}/close`, { method: "POST" });
-      mutateRevisions();
+      await mutateRevisions();
       updateUrl(null);
     },
     [apiCall, mutateRevisions, updateUrl],
   );
 
+  // Accepts just the revision id so callers don't have to thread the full
+  // Revision through the UI. We resolve back to the cached revision so we can
+  // preserve selection (which requires knowing either its version or id).
   const handleReopen = useCallback(
     async (revisionId: string) => {
       await apiCall(`/revision/${revisionId}/reopen`, { method: "POST" });
-      mutateRevisions();
-      // Keep the reopened revision selected
-      updateUrl(revisionId);
+      const updated = await mutateRevisions();
+      const reopened = (updated?.revisions ?? data?.revisions ?? []).find(
+        (r) => r.id === revisionId,
+      );
+      if (reopened) updateUrl(reopened);
     },
-    [apiCall, mutateRevisions, updateUrl],
+    [apiCall, mutateRevisions, data?.revisions, updateUrl],
   );
 
   // Derive whether the current user already has an open revision on this resource

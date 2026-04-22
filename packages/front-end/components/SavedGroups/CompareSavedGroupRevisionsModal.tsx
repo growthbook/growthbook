@@ -1,5 +1,11 @@
 import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
+import {
+  ActivityLogEntry,
+  JsonPatchOperation,
+  Review,
+  Revision,
+  applyTopLevelPatchOps,
+} from "shared/enterprise";
 import React, {
   useCallback,
   useEffect,
@@ -10,6 +16,9 @@ import React, {
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiArrowsLeftRightBold,
+  PiCaretDownBold,
+  PiCaretLeftBold,
+  PiCaretRightBold,
   PiClockClockwise,
   PiWarningBold,
   PiX,
@@ -31,9 +40,12 @@ import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Badge from "@/ui/Badge";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import UserAvatar from "@/components/Avatar/UserAvatar";
+import { useUser } from "@/services/UserContext";
 import { RevisionDiff } from "@/components/Revision/RevisionDiff";
 import { useRevisionDiff } from "@/components/Revision/useRevisionDiff";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import styles from "./CompareSavedGroupRevisionsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "saved-group:compare-revisions";
@@ -68,35 +80,17 @@ function revisionLabelText(title: string | undefined | null): string {
 function RevisionStatusBadge({
   revision,
   liveRevisionId,
+  requiresApproval = true,
 }: {
   revision: Revision | null;
   liveRevisionId: string | null;
   requiresApproval?: boolean;
 }) {
   if (!revision) return null;
-
-  // Show live badge if this is the live revision
-  if (revision.id === liveRevisionId) {
-    return <Badge color="teal" variant="soft" label="Live" />;
-  }
-
-  // Otherwise show the actual revision status
-  switch (revision.status) {
-    case "draft":
-      return <Badge color="indigo" variant="soft" label="Draft" />;
-    case "pending-review":
-      return <Badge color="blue" variant="soft" label="Pending review" />;
-    case "approved":
-      return <Badge color="gray" variant="soft" label="Approved" />;
-    case "changes-requested":
-      return <Badge color="amber" variant="soft" label="Changes requested" />;
-    case "merged":
-      return <Badge color="gray" variant="soft" label="Locked" />;
-    case "discarded":
-      return <Badge color="red" variant="soft" label="Discarded" />;
-    default:
-      return null;
-  }
+  return getStatusBadge(
+    revision.id === liveRevisionId ? "live" : revision.status,
+    requiresApproval,
+  );
 }
 
 function RevisionCompareLabel({
@@ -184,6 +178,250 @@ function RevisionCompareLabel({
         )}
       </Flex>
     </Flex>
+  );
+}
+
+// Combined activity timeline for a single revision — merges the revision's
+// `reviews` and `activityLog` arrays into one chronologically ordered list.
+// Filters out lifecycle entries that double up with a review entry (reviewed,
+// commented, approved, requested-changes) so nothing appears twice.
+type ActivityTimelineItem =
+  | {
+      type: "review";
+      id: string;
+      userId: string;
+      createdAt: Date;
+      decision: Review["decision"];
+      comment: string | null;
+    }
+  | {
+      type: "activity";
+      id: string;
+      userId: string;
+      createdAt: Date;
+      action: ActivityLogEntry["action"];
+      description: string | null;
+      // Persisted only on content-changing actions (created / updated /
+      // rebased). Used to reconstruct a per-entry diff in the log-entry
+      // detail panel.
+      proposedChangesSnapshot: JsonPatchOperation[] | null;
+      targetSnapshot: unknown;
+    };
+
+function buildActivityTimeline(revision: Revision): ActivityTimelineItem[] {
+  const items: ActivityTimelineItem[] = [
+    ...revision.reviews.map((r) => ({
+      type: "review" as const,
+      id: r.id,
+      userId: r.userId,
+      createdAt: new Date(r.dateCreated),
+      decision: r.decision,
+      comment: r.comment ?? null,
+    })),
+    ...revision.activityLog
+      .filter(
+        (a) =>
+          !["reviewed", "commented", "approved", "requested-changes"].includes(
+            a.action,
+          ),
+      )
+      .map((a) => ({
+        type: "activity" as const,
+        id: a.id,
+        userId: a.userId,
+        createdAt: new Date(a.dateCreated),
+        action: a.action,
+        description: a.description ?? null,
+        proposedChangesSnapshot: a.proposedChangesSnapshot ?? null,
+        targetSnapshot: a.targetSnapshot,
+      })),
+  ];
+  items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  return items;
+}
+
+// Reconstruct the state on either side of a single activity-log entry by
+// replaying the per-entry snapshots in chronological order. Returns `null`
+// for entries that didn't change content (e.g. merged/discarded/reopened,
+// or any entry from a revision created before per-entry snapshots were
+// persisted).
+function buildPerEntryDiffSnapshots(
+  revision: Revision,
+  activityId: string,
+): {
+  baseSnapshot: SavedGroupInterface;
+  proposedSnapshot: SavedGroupInterface;
+} | null {
+  const contentEntries = revision.activityLog
+    .filter((e) => Array.isArray(e.proposedChangesSnapshot))
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
+    );
+  const targetIdx = contentEntries.findIndex((e) => e.id === activityId);
+  if (targetIdx === -1) return null;
+
+  // Initial baseline = first content entry's targetSnapshot if captured
+  // ("created" entry stores this), else fall back to the revision's current
+  // `target.snapshot` (best-effort for revisions created before this field
+  // existed and which haven't been rebased).
+  let runningBaseline: SavedGroupInterface =
+    (contentEntries[0]?.targetSnapshot as SavedGroupInterface | undefined) ??
+    (revision.target.snapshot as SavedGroupInterface);
+  let runningProposed: JsonPatchOperation[] = [];
+
+  for (let i = 0; i <= targetIdx; i++) {
+    const entry = contentEntries[i];
+    if (i === targetIdx) {
+      const beforeSnapshot = applyTopLevelPatchOps(
+        runningBaseline,
+        runningProposed,
+      ) as SavedGroupInterface;
+      const afterBaseline =
+        entry.targetSnapshot != null
+          ? (entry.targetSnapshot as SavedGroupInterface)
+          : runningBaseline;
+      const afterSnapshot = applyTopLevelPatchOps(
+        afterBaseline,
+        (entry.proposedChangesSnapshot ?? []) as JsonPatchOperation[],
+      ) as SavedGroupInterface;
+      return { baseSnapshot: beforeSnapshot, proposedSnapshot: afterSnapshot };
+    }
+    if (entry.targetSnapshot != null) {
+      runningBaseline = entry.targetSnapshot as SavedGroupInterface;
+    }
+    runningProposed = (entry.proposedChangesSnapshot ??
+      []) as JsonPatchOperation[];
+  }
+  return null;
+}
+
+function activityLabel(item: ActivityTimelineItem): string {
+  if (item.type === "review") {
+    switch (item.decision) {
+      case "approve":
+        return "Approved changes";
+      case "request-changes":
+        return "Requested changes";
+      case "comment":
+        return "Commented";
+      default:
+        return "Review";
+    }
+  }
+  switch (item.action) {
+    case "created":
+      return "Revision created";
+    case "updated":
+      return "Revision updated";
+    case "merged":
+      return "Merged";
+    case "discarded":
+      return "Discarded";
+    case "reopened":
+      return "Reopened";
+    default:
+      return item.action;
+  }
+}
+
+function LogEntryPanel({
+  item,
+  userDisplay,
+  diff,
+  diffMode,
+}: {
+  item: ActivityTimelineItem;
+  userDisplay: string;
+  // Diff to render in the panel. `null` means hide the diff section
+  // entirely (e.g. lifecycle entries such as merged / discarded / reopened
+  // and reviews — nothing content-wise changed).
+  diff: {
+    diffs: ReturnType<typeof useRevisionDiff<SavedGroupInterface>>["diffs"];
+    badges: ReturnType<typeof useRevisionDiff<SavedGroupInterface>>["badges"];
+    customRenderGroups: ReturnType<
+      typeof useRevisionDiff<SavedGroupInterface>
+    >["customRenderGroups"];
+  } | null;
+  // "per-entry" — the diff isolates exactly what this one action changed.
+  // "cumulative" — fallback for legacy entries (no per-entry snapshot
+  // recorded) — shows the whole revision's proposed changes.
+  diffMode: "per-entry" | "cumulative";
+}) {
+  const rows: [string, React.ReactNode][] = [
+    [
+      "Author",
+      <Flex align="center" gap="2" key="author">
+        <UserAvatar name={userDisplay} size="sm" variant="soft" />
+        <Text>{userDisplay}</Text>
+      </Flex>,
+    ],
+    ["Date", datetime(item.createdAt)],
+  ];
+
+  const comment = item.type === "review" ? item.comment : item.description;
+
+  return (
+    <Box>
+      <Heading as="h4" size="small" mb="3">
+        {activityLabel(item)}
+      </Heading>
+      <Flex direction="column" gap="2">
+        {rows.map(([label, value]) => (
+          <Flex key={label} align="center" gap="3">
+            <span style={{ minWidth: 72, flexShrink: 0 }}>
+              <Text color="text-mid">{label}</Text>
+            </span>
+            {value}
+          </Flex>
+        ))}
+        {comment ? (
+          <Flex align="start" gap="3" mt="2">
+            <span style={{ minWidth: 72, flexShrink: 0 }}>
+              <Text color="text-mid">Comment</Text>
+            </span>
+            <Box
+              pl="2"
+              style={{ borderLeft: "2px solid var(--gray-a4)", flex: 1 }}
+            >
+              <Text as="p" color="text-mid" mb="0">
+                {comment}
+              </Text>
+            </Box>
+          </Flex>
+        ) : null}
+      </Flex>
+      {diff ? (
+        <Box mt="4">
+          <Heading as="h5" size="small" color="text-mid" mb="2">
+            {diffMode === "per-entry"
+              ? "Changes in this entry"
+              : "Cumulative changes in this revision"}
+          </Heading>
+          {diffMode === "cumulative" ? (
+            <Text as="p" size="small" color="text-low" mb="2">
+              Per-entry changes weren&apos;t recorded for this revision, so
+              we&apos;re showing the cumulative diff for the whole revision
+              instead.
+            </Text>
+          ) : null}
+          {diff.diffs.length === 0 ? (
+            <Text color="text-low">
+              {diffMode === "per-entry"
+                ? "This entry did not change any content."
+                : "No changes proposed in this revision."}
+            </Text>
+          ) : (
+            <RevisionDiff
+              diffs={diff.diffs}
+              badges={diff.badges}
+              customRenderGroups={diff.customRenderGroups}
+            />
+          )}
+        </Box>
+      ) : null}
+    </Box>
   );
 }
 
@@ -311,6 +549,29 @@ export default function CompareSavedGroupRevisionsModal({
   const [previewDraftId, setPreviewDraftId] = useState<string | null>(
     initialPreviewDraft ?? null,
   );
+
+  // Audit-history drill-down state: which sidebar rows are expanded, and
+  // (optionally) which individual activity entry is being previewed in the
+  // right-hand panel.
+  const [expandedRevisionIds, setExpandedRevisionIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [activeActivity, setActiveActivity] = useState<{
+    revisionId: string;
+    activityId: string;
+  } | null>(null);
+
+  // Pre-compute the combined reviews + activityLog timeline for every
+  // revision once. This is cheap — both arrays are already on the revision.
+  const activityTimelinesById = useMemo(() => {
+    const map = new Map<string, ActivityTimelineItem[]>();
+    for (const rev of allRevisions) {
+      map.set(rev.id, buildActivityTimeline(rev));
+    }
+    return map;
+  }, [allRevisions]);
+
+  const { getUserDisplay } = useUser();
 
   // Compute selected revisions sorted by creation date
   const selectedSorted = useMemo(() => {
@@ -652,6 +913,63 @@ export default function CompareSavedGroupRevisionsModal({
     return { baseSnapshot, proposedSnapshot };
   }, [singleRevFirst, singleRevLast, savedGroup]);
 
+  // Snapshots for the "log entry" drill-down. For content-changing activity
+  // entries (created / updated / rebased) that were recorded with
+  // per-entry snapshots, we reconstruct the state immediately before and
+  // after that specific entry so the diff shows exactly what that one
+  // action changed.
+  //
+  // For legacy revisions (created before per-entry snapshots were
+  // persisted), we fall back to the cumulative revision diff so the user
+  // still gets useful context.
+  //
+  // For entries where no content change is associated with the action at
+  // all (reviews, merged/discarded/reopened), both snapshot computations
+  // return `null` and the UI hides the diff section.
+  const logEntryRevision = activeActivity
+    ? revisionById.get(activeActivity.revisionId) || null
+    : null;
+
+  const activeActivityItem = useMemo(() => {
+    if (!activeActivity) return null;
+    const timeline = activityTimelinesById.get(activeActivity.revisionId);
+    return timeline?.find((i) => i.id === activeActivity.activityId) ?? null;
+  }, [activeActivity, activityTimelinesById]);
+
+  // Per-entry snapshots — preferred when the entry has per-entry data
+  // recorded.
+  const perEntryDiffSnapshots = useMemo(() => {
+    if (!logEntryRevision || !activeActivity) return null;
+    return buildPerEntryDiffSnapshots(
+      logEntryRevision,
+      activeActivity.activityId,
+    );
+  }, [logEntryRevision, activeActivity]);
+
+  // Cumulative fallback snapshots — used when per-entry data isn't
+  // available but the entry is still content-related (i.e. an activity
+  // entry with a "created" / "updated" action, which predates per-entry
+  // snapshot persistence).
+  const cumulativeFallbackSnapshots = useMemo(() => {
+    if (!logEntryRevision || !activeActivityItem) return null;
+    if (activeActivityItem.type !== "activity") return null;
+    if (!["created", "updated"].includes(activeActivityItem.action))
+      return null;
+    const baseSnapshot = logEntryRevision.target
+      .snapshot as SavedGroupInterface;
+    const proposedSnapshot = applyTopLevelPatchOps(
+      baseSnapshot,
+      logEntryRevision.target.proposedChanges,
+    ) as SavedGroupInterface;
+    return { baseSnapshot, proposedSnapshot };
+  }, [logEntryRevision, activeActivityItem]);
+
+  const logEntryDiffMode: "per-entry" | "cumulative" = perEntryDiffSnapshots
+    ? "per-entry"
+    : "cumulative";
+  const logEntryDiffSnapshots =
+    perEntryDiffSnapshots ?? cumulativeFallbackSnapshots;
+
   // Call useRevisionDiff hooks at the top level for all scenarios
   const previewDraftDiff = useRevisionDiff<SavedGroupInterface>(
     previewDraftSnapshots?.baseSnapshot || savedGroup,
@@ -668,6 +986,12 @@ export default function CompareSavedGroupRevisionsModal({
   const singleDiff = useRevisionDiff<SavedGroupInterface>(
     singleDiffSnapshots?.baseSnapshot || savedGroup,
     singleDiffSnapshots?.proposedSnapshot || savedGroup,
+    REVISION_SAVED_GROUP_DIFF_CONFIG,
+  );
+
+  const logEntryDiff = useRevisionDiff<SavedGroupInterface>(
+    logEntryDiffSnapshots?.baseSnapshot || savedGroup,
+    logEntryDiffSnapshots?.proposedSnapshot || savedGroup,
     REVISION_SAVED_GROUP_DIFF_CONFIG,
   );
 
@@ -1000,6 +1324,8 @@ export default function CompareSavedGroupRevisionsModal({
                 const isDraftRevision =
                   !!minRev && ACTIVE_DRAFT_STATUSES.includes(minRev.status);
                 const rowId = `compare-rev-${id}`;
+                const isExpanded = expandedRevisionIds.has(id);
+                const timeline = activityTimelinesById.get(id) ?? [];
                 return (
                   <Box key={id} className={styles.rowWrapper}>
                     <label
@@ -1011,6 +1337,7 @@ export default function CompareSavedGroupRevisionsModal({
                             ? styles.rowSelected
                             : ""
                       }`}
+                      onClick={() => setActiveActivity(null)}
                     >
                       <span style={{ pointerEvents: "none" }}>
                         <Checkbox
@@ -1081,7 +1408,99 @@ export default function CompareSavedGroupRevisionsModal({
                           </Button>
                         </div>
                       )}
+                      <div className={styles.rowCaret}>
+                        <Tooltip
+                          body={
+                            isExpanded
+                              ? "Collapse audit history"
+                              : "Expand audit history"
+                          }
+                        >
+                          <button
+                            type="button"
+                            className={styles.expandChevron}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setExpandedRevisionIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(id)) {
+                                  next.delete(id);
+                                  if (activeActivity?.revisionId === id) {
+                                    setActiveActivity(null);
+                                  }
+                                } else {
+                                  next.add(id);
+                                }
+                                return next;
+                              });
+                            }}
+                          >
+                            {isExpanded ? (
+                              <PiCaretDownBold size={12} />
+                            ) : (
+                              <PiCaretRightBold size={12} />
+                            )}
+                          </button>
+                        </Tooltip>
+                      </div>
                     </label>
+                    {isExpanded && (
+                      <div className={styles.logSubRows}>
+                        {timeline.length === 0 ? (
+                          <Text size="small" color="text-low" ml="2">
+                            No activity recorded
+                          </Text>
+                        ) : (
+                          timeline.map((item) => {
+                            const isActive =
+                              activeActivity?.revisionId === id &&
+                              activeActivity.activityId === item.id;
+                            return (
+                              <div
+                                key={item.id}
+                                className={`${styles.logSubRow} ${
+                                  isActive ? styles.logSubRowActive : ""
+                                }`}
+                                onClick={() =>
+                                  setActiveActivity(
+                                    isActive
+                                      ? null
+                                      : { revisionId: id, activityId: item.id },
+                                  )
+                                }
+                              >
+                                <Flex
+                                  direction="column"
+                                  gap="1"
+                                  style={{ minWidth: 0, flex: 1 }}
+                                >
+                                  <div
+                                    style={{
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                      fontWeight: isActive ? "bold" : 500,
+                                    }}
+                                  >
+                                    {activityLabel(item)}
+                                  </div>
+                                  <Text size="small" color="text-low">
+                                    {datetime(item.createdAt)}
+                                    {item.userId
+                                      ? ` · ${
+                                          getUserDisplay(item.userId) ||
+                                          item.userId
+                                        }`
+                                      : ""}
+                                  </Text>
+                                </Flex>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </Box>
                 );
               })}
@@ -1094,7 +1513,60 @@ export default function CompareSavedGroupRevisionsModal({
           className={`${styles.sidebar} overflow-auto`}
           style={{ minHeight: 0 }}
         >
-          {previewDraftId !== null ? (
+          {activeActivity !== null &&
+          (() => {
+            const timeline = activityTimelinesById.get(
+              activeActivity.revisionId,
+            );
+            return timeline?.some((i) => i.id === activeActivity.activityId);
+          })() ? (
+            // Audit history drill-down panel
+            (() => {
+              const timeline =
+                activityTimelinesById.get(activeActivity.revisionId) ?? [];
+              const item = timeline.find(
+                (i) => i.id === activeActivity.activityId,
+              );
+              const rev = revisionById.get(activeActivity.revisionId);
+              if (!item) return null;
+              const userDisplay = getUserDisplay(item.userId) || item.userId;
+              return (
+                <>
+                  <Box
+                    pb="3"
+                    mb="3"
+                    style={{ borderBottom: "1px solid var(--gray-5)" }}
+                  >
+                    <Flex align="center" gap="2" wrap="wrap">
+                      <Tooltip body="Return to revision">
+                        <button
+                          type="button"
+                          className={styles.backButton}
+                          onClick={() => setActiveActivity(null)}
+                        >
+                          <PiCaretLeftBold size={16} />
+                        </button>
+                      </Tooltip>
+                      <Heading as="h2" size="small" mb="0">
+                        Log entry
+                      </Heading>
+                      {rev ? (
+                        <Text size="small" color="text-low">
+                          · {revisionLabelText(rev.title)}
+                        </Text>
+                      ) : null}
+                    </Flex>
+                  </Box>
+                  <LogEntryPanel
+                    item={item}
+                    userDisplay={userDisplay}
+                    diff={logEntryDiffSnapshots ? logEntryDiff : null}
+                    diffMode={logEntryDiffMode}
+                  />
+                </>
+              );
+            })()
+          ) : previewDraftId !== null ? (
             // Preview draft mode
             <>
               <Box

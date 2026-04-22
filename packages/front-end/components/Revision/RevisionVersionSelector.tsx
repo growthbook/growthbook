@@ -2,7 +2,7 @@ import React from "react";
 import { Revision } from "shared/enterprise";
 import { Box, Flex } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
-import Badge from "@/ui/Badge";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 
@@ -168,35 +168,7 @@ export default function RevisionVersionSelector({
                 )}
               </Box>
               <Box flexShrink="0">
-                {revision ? (
-                  <Badge
-                    label={
-                      revision.status === "merged"
-                        ? "Locked"
-                        : revision.status === "discarded"
-                          ? "Discarded"
-                          : revision.status === "approved"
-                            ? "Approved"
-                            : revision.status === "changes-requested"
-                              ? "Changes requested"
-                              : "Draft"
-                    }
-                    color={
-                      revision.status === "merged"
-                        ? "gray"
-                        : revision.status === "discarded"
-                          ? "red"
-                          : revision.status === "approved"
-                            ? "gray"
-                            : revision.status === "changes-requested"
-                              ? "amber"
-                              : "indigo"
-                    }
-                    radius="full"
-                  />
-                ) : (
-                  <Badge label="Live" color="teal" radius="full" />
-                )}
+                {getStatusBadge(revision ? revision.status : "live")}
               </Box>
             </Flex>
           );

@@ -20,7 +20,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import Badge from "@/ui/Badge";
+import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
@@ -203,13 +203,8 @@ export default function IdLists({
                       </td>
                       <td>{s.ownerNameDisplay}</td>
                       <td>
-                        {openRevisionTargetIds?.has(s.id) && (
-                          <Badge
-                            label="Pending review"
-                            color="blue"
-                            variant="soft"
-                          />
-                        )}
+                        {openRevisionTargetIds?.has(s.id) &&
+                          getStatusBadge("pending-review")}
                       </td>
                       <td>{ago(s.dateUpdated)}</td>
                       <td style={{ width: 30 }}>

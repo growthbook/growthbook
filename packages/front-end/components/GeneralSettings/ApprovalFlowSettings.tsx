@@ -87,13 +87,14 @@ export default function ApprovalFlowSettings() {
         <Box mb="6" width="100%">
           <Frame p="3" mb="0">
             <Heading as="h4" size="small" weight="semibold" mb="4">
-              Features
+              Drafts and Approvals
             </Heading>
 
             <Text as="p" size="medium" mb="4" color="text-low">
-              All changes to features are tracked as revisions. Kill switch
-              changes always open a modal where you can choose to save to a
-              draft or auto-publish.
+              All changes to features are tracked as revisions. Requiring
+              approvals adds a review step before any change goes live. Kill
+              switch changes always prompt a confirmation regardless of approval
+              settings.
             </Text>
 
             {hasRequireApprovals && (
@@ -200,8 +201,8 @@ export default function ApprovalFlowSettings() {
                         />
                         <Checkbox
                           id={`toggle-block-self-approval-${i}`}
-                          label="Require approval from a non-editor"
-                          description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
+                          label="Block contributors from self-approving"
+                          description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
                           value={
                             !!form.watch(
                               `requireReviews.${i}.blockSelfApproval`,
@@ -269,7 +270,7 @@ export default function ApprovalFlowSettings() {
                             <Checkbox
                               id="toggle-restApiBypassesReviews"
                               label="REST API always bypasses approval requirements"
-                              description="When disabled, API changes that would require review are blocked with an error."
+                              description="When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants bypassApprovalChecks on the feature's project."
                               value={
                                 form.watch("restApiBypassesReviews") !== false
                               }

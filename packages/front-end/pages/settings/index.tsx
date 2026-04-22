@@ -18,6 +18,7 @@ import {
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
+import Link from "next/link";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
@@ -428,6 +429,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsTrigger>
             <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
             <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
+            <TabsTrigger value="custom">
+              <PremiumTooltip commercialFeature="custom-markdown">
+                Custom Markdown
+              </PremiumTooltip>
+            </TabsTrigger>
             <TabsTrigger value="ai">
               <PremiumTooltip commercialFeature="ai-suggestions">
                 AI Settings
@@ -467,6 +473,28 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
             </TabsContent>
 
+            <TabsContent value="custom">
+              <Frame>
+                <Flex>
+                  <Box width="300px">
+                    <PremiumTooltip commercialFeature="custom-markdown">
+                      Custom Markdown
+                    </PremiumTooltip>
+                  </Box>
+                  <Box>
+                    {hasCommercialFeature("custom-markdown") ? (
+                      <Link href="/settings/custom-markdown">
+                        View Custom Markdown Settings
+                      </Link>
+                    ) : (
+                      <span className="text-muted">
+                        View Custom Markdown Settings
+                      </span>
+                    )}
+                  </Box>
+                </Flex>
+              </Frame>
+            </TabsContent>
             <TabsContent value="ai">
               <AISettings promptForm={promptForm} />
             </TabsContent>

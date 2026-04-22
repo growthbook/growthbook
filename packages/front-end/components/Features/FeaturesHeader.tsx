@@ -204,7 +204,6 @@ export default function FeaturesHeader({
         version={version ?? feature.version}
         setVersion={setVersion}
         context="header"
-        showArchivedToggle={true}
       />
       <DropdownMenu
         trigger={
