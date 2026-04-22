@@ -659,6 +659,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Share/ShareModal.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/SqlExplorer/BigValueChart.tsx": {
     "no-restricted-imports": {
       "count": 2
