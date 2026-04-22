@@ -1,7 +1,4 @@
-import {
-  POLICY_DISPLAY_GROUPS,
-  POLICY_METADATA_MAP,
-} from "../src/permissions";
+import { POLICY_DISPLAY_GROUPS, POLICY_METADATA_MAP } from "../src/permissions";
 
 describe("policy display groups", () => {
   it("includes product analytic dashboards policy group", () => {
