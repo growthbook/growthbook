@@ -1,5 +1,8 @@
 import type { ExperimentInterface } from "shared/types/experiment";
-import { getMaxExperimentDurationAnchor } from "../src/experiments/maxExperimentDuration";
+import {
+  formatMaxExperimentDuration,
+  getMaxExperimentDurationAnchor,
+} from "../src/experiments/maxExperimentDuration";
 
 function baseBandit(
   overrides: Partial<
@@ -43,6 +46,25 @@ function baseBandit(
     ...overrides,
   };
 }
+
+describe("formatMaxExperimentDuration", () => {
+  it("uses singular unit when value is 1", () => {
+    expect(formatMaxExperimentDuration({ value: 1, unit: "months" })).toBe(
+      "1 month",
+    );
+  });
+
+  it("uses plural unit when value is not 1", () => {
+    expect(formatMaxExperimentDuration({ value: 3, unit: "months" })).toBe(
+      "3 months",
+    );
+  });
+
+  it("returns em dash when duration is missing", () => {
+    expect(formatMaxExperimentDuration(undefined)).toBe("—");
+    expect(formatMaxExperimentDuration(null)).toBe("—");
+  });
+});
 
 describe("getMaxExperimentDurationAnchor", () => {
   it("uses first bandit event date for MAB in exploit (not banditStageDateStarted)", () => {

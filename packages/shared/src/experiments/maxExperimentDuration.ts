@@ -17,6 +17,25 @@ export type MaxExperimentDuration = {
   unit: MaxExperimentDurationUnit;
 };
 
+/** Human-readable duration for summary rows and labels. */
+export function formatMaxExperimentDuration(
+  duration: MaxExperimentDuration | null | undefined,
+): string {
+  if (
+    duration == null ||
+    duration.value == null ||
+    Number.isNaN(duration.value) ||
+    !duration.unit
+  ) {
+    return "—";
+  }
+  const unit =
+    duration.value === 1 && duration.unit.endsWith("s")
+      ? duration.unit.slice(0, -1)
+      : duration.unit;
+  return `${duration.value} ${unit}`;
+}
+
 /** Default for newly created experiments when the field is omitted. */
 export const DEFAULT_NEW_EXPERIMENT_MAX_DURATION: MaxExperimentDuration = {
   value: 3,

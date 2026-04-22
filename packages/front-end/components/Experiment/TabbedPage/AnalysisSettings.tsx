@@ -6,6 +6,7 @@ import {
   ExperimentMetricInterface,
   getMetricLink,
   isFactMetric,
+  formatMaxExperimentDuration,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -149,6 +150,19 @@ export default function AnalysisSettings({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+
+  const maxExperimentDurationColumn = !isPublic ? (
+    <div className="col-4">
+      <div className="h5">Maximum experiment duration</div>
+      <div>
+        {experiment.maxExperimentDuration ? (
+          formatMaxExperimentDuration(experiment.maxExperimentDuration)
+        ) : (
+          <em>Not specified</em>
+        )}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <>
@@ -371,6 +385,7 @@ export default function AnalysisSettings({
                 </Link>
               </div>
             </div>
+            {maxExperimentDurationColumn}
           </div>
         )}
         {isBandit && (
@@ -395,7 +410,11 @@ export default function AnalysisSettings({
                   : "hours"}
               </div>
             </div>
+            {maxExperimentDurationColumn}
           </div>
+        )}
+        {!isPublic && !isBandit && (isHoldout || !hasDecisionFramework) && (
+          <div className="row mt-4">{maxExperimentDurationColumn}</div>
         )}
       </div>
     </>
