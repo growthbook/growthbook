@@ -1,6 +1,9 @@
 import { postMetricValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
 import {
   createMetric,
   postMetricApiPayloadIsValid,
@@ -41,6 +44,9 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(async (
   const createdMetric = await createMetric(req.context, metric);
 
   return {
-    metric: toMetricApiInterface(req.organization, createdMetric, datasource),
+    metric: await resolveOwnerEmail(
+      toMetricApiInterface(req.organization, createdMetric, datasource),
+      req.context,
+    ),
   };
 });

@@ -2189,7 +2189,7 @@ export async function toExperimentApiInterface(
   const experimentType = experiment.type || "standard";
 
   const activationMetric = experiment.activationMetric;
-  return {
+  const apiExperiment: ApiExperiment = {
     id: experiment.id,
     trackingKey: experiment.trackingKey,
     name: experiment.name || "",
@@ -2345,6 +2345,7 @@ export async function toExperimentApiInterface(
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
   };
+  return apiExperiment;
 }
 
 export function toSnapshotApiInterface(
