@@ -266,6 +266,11 @@ export const experimentAnalysisSummaryHealth = z.object({
       }),
     ])
     .optional(),
+  covariateImbalance: z
+    .object({
+      isImbalanced: z.boolean(),
+    })
+    .optional(),
 });
 export type ExperimentAnalysisSummaryHealth = z.infer<
   typeof experimentAnalysisSummaryHealth

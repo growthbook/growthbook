@@ -182,6 +182,7 @@ export function getAnalysisSettingsFromReportArgs(
     differenceType: args.differenceType ?? "relative",
     baselineVariationIndex: 0,
     numGoalMetrics: args.goalMetrics.length,
+    numGuardrailMetrics: args.guardrailMetrics.length,
   };
 }
 export function getSnapshotSettingsFromReportArgs(
@@ -537,6 +538,7 @@ export async function createReportSnapshot({
     regressionAdjustmentEnabled,
     postStratificationEnabled,
     dimension: report.experimentAnalysisSettings.dimension,
+    metricGroups,
   });
 
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {

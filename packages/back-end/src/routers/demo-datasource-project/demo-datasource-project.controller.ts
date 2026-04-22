@@ -495,6 +495,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       pValueThreshold:
         org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
       numGoalMetrics: goalMetrics.length,
+      numGuardrailMetrics: createdExperiment.guardrailMetrics?.length ?? 0,
     };
 
     const metricMap = await getMetricMap(context);
