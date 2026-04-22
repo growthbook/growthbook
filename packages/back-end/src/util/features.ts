@@ -240,14 +240,8 @@ export function getEnabledEnvironments(
       .filter((e) => settings[e].enabled)
       .filter((e) => {
         if (!ruleFilter) return true;
-        // v2: rules live on the top-level `feature.rules` array scoped by
-        // `allEnvironments` / `environments[]`. Project the unified array
-        // down to just the rules applicable to this env, then test the
-        // caller-supplied filter + enabled-check as before.
-        //
-        // Legacy fallback: v1 fixtures (pre-JIT-upgrade test docs) still
-        // carry rules on `settings[e].rules`. Production readers always go
-        // through `buildFeatureInterface`, so this branch is test-only.
+        // Fallback to v1 `settings[e].rules` for test fixtures that skip the
+        // JIT upgrade in `buildFeatureInterface`.
         let envRules: FeatureRule[] = getRulesForEnvironment(feature.rules, e);
         if (envRules.length === 0 && !Array.isArray(feature.rules)) {
           envRules =
@@ -299,8 +293,7 @@ export function getSDKPayloadKeysByDiff(
     "valueType",
     "nextScheduledUpdate",
     "holdout",
-    // Top-level `prerequisites` apply everywhere; changes must invalidate
-    // every enabled env's cached SDK payload.
+    // Top-level prerequisites apply to every enabled env's payload.
     "prerequisites",
   ];
 
@@ -315,12 +308,9 @@ export function getSDKPayloadKeysByDiff(
     ).forEach((e) => environments.add(e));
   }
 
-  // v2: rule changes live on `feature.rules` (flat array) and no longer
-  // surface via `environmentSettings` diffs. Compare the flat arrays by
-  // rule.id and expand each changed rule to its env footprint so only the
-  // affected envs' SDK payloads are invalidated. We still skip envs that are
-  // disabled both before AND after (no payload to refresh either way), to
-  // match the existing per-env-settings branch below.
+  // Diff rules by id; each changed rule invalidates only the envs in its
+  // footprint (union of old and new). Skip envs disabled both before and
+  // after — no payload exists to refresh.
   const envIsRelevant = (e: string): boolean => {
     const oldEnabled = !!originalFeature.environmentSettings?.[e]?.enabled;
     const newEnabled = !!updatedFeature.environmentSettings?.[e]?.enabled;
@@ -341,9 +331,6 @@ export function getSDKPayloadKeysByDiff(
   oldRulesById.forEach((oldRule, id) => {
     const newRule = newRulesById.get(id);
     if (!newRule || !isEqual(oldRule, newRule)) {
-      // Union of old and new footprints: a re-scoped or removed rule must
-      // invalidate both the envs it used to apply to and the ones it now
-      // applies to.
       addRuleEnvs(oldRule);
       addRuleEnvs(newRule);
     }
@@ -351,8 +338,7 @@ export function getSDKPayloadKeysByDiff(
   newRulesById.forEach((newRule, id) => {
     if (!oldRulesById.has(id)) addRuleEnvs(newRule);
   });
-  // Rule-order changes (same ids, different sequence) affect evaluation even
-  // if no rule object differs individually.
+  // Reordered rules (same ids) still affect evaluation.
   const oldIdOrder = (originalFeature.rules ?? []).map((r) => r.id).join("\0");
   const newIdOrder = (updatedFeature.rules ?? []).map((r) => r.id).join("\0");
   if (oldIdOrder !== newIdOrder) {
@@ -474,21 +460,9 @@ export function getFeatureDefinition({
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
 
-  // Rule source is the v2 unified array on the revision (draft/published
-  // snapshot) or the feature itself (live). Filter to just the rules
-  // applicable to this env — `allEnvironments: true` or an
-  // `environments[]` list that includes us. Input order is preserved so the
-  // SDK payload sees a stable per-env sub-ordering of the unified array.
-  //
-  // Legacy fallback: if neither revision nor feature carries a v2 array
-  // (e.g. a not-yet-JIT-upgraded v1 document handed in directly, or a unit
-  // test fixture that predates the v2 migration), fall back to the per-env
-  // `settings.rules` shape. Production readers always route through
-  // `buildFeatureInterface` / `buildFeatureRevisionInterface`, so this
-  // fallback is dead code on the live path. The cast reflects that
-  // `FeatureEnvironment` no longer declares `rules` (it moved to the
-  // top-level array in v2) but v1 test fixtures still carry it as runtime
-  // data.
+  // Rule source: the revision's unified array (draft/published) or the
+  // feature's (live), projected per env. Legacy `settings.rules` fallback
+  // is test-only — production readers flow through `buildFeatureInterface`.
   const v2Rules = revision?.rules ?? feature.rules;
   const rules: FeatureRule[] = Array.isArray(v2Rules)
     ? getRulesForEnvironment(v2Rules, environment)
@@ -582,18 +556,9 @@ export function getFeatureDefinition({
       })
       ?.map((r) => {
         const rule: FeatureDefinitionRule = {
-          // SDK payload rule id contract (confirmed 2026-04-20):
-          //   SDK payloads emit the STEM id (no `__<env>` migration suffix)
-          //   so a single rule that was split across envs at flatten time
-          //   (e.g. a non-mergeable collision → `fr_abc__production` +
-          //   `fr_abc__staging`) still reports as `fr_abc` in SDK-side
-          //   telemetry (`d.ruleId` rows in the feature usage pipeline).
-          //   Deliberately diverges from the REST API contract, which emits
-          //   the FULL qualified id because REST clients must echo it back
-          //   on PUT/DELETE. Two consumers, two contracts — don't unify.
-          //   See `normalizeRuleForApi` in `services/features.ts` for the
-          //   REST path; see `FeatureUsageGraph` on the front-end for the
-          //   telemetry consumer that keys its label map off the stem.
+          // SDK payload emits the STEM id so split rules
+          // (`fr_abc__production` + `fr_abc__staging`) report as `fr_abc`
+          // in telemetry. REST emits the qualified id; see `normalizeRuleForApi`.
           ...(includeRuleIds && r.id != null ? { id: stemRuleId(r.id) } : {}),
         } as FeatureDefinitionRule;
 

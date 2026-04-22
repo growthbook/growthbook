@@ -7,13 +7,8 @@ import type { ApiFeatureEnvSettings } from "./postFeature";
 
 export type ApiRuleV2Input = z.infer<typeof postFeatureRuleV2>;
 
-/**
- * Convert a v2 API rule input (from POST/PUT bodies) to the internal
- * `FeatureRule` shape. Scope fields are preserved verbatim; `id` is left
- * blank for new rules and filled in later by `addIdsToFlatRules`.
- *
- * Shared between `postFeatureV2` and `updateFeatureV2`.
- */
+// Convert a v2 API rule input to the internal `FeatureRule` shape. New rules
+// leave `id` blank; `addIdsToFlatRules` fills it in downstream.
 export function mapV2ApiRuleToFeatureRule(r: ApiRuleV2Input): FeatureRule {
   const { allEnvironments, environments, ...ruleInput } = r;
   const baseRule = {
@@ -57,8 +52,7 @@ export function mapV2ApiRuleToFeatureRule(r: ApiRuleV2Input): FeatureRule {
   };
 }
 
-// Fields that belong on a revision's `metadata` object rather than
-// directly on the feature. Shared by v1/v2 update handlers.
+// Fields tracked on a revision's metadata rather than directly on the feature.
 const METADATA_FIELDS = [
   "owner",
   "description",
@@ -68,11 +62,8 @@ const METADATA_FIELDS = [
   "jsonSchema",
 ] as const;
 
-/**
- * Move any metadata-like fields from `updates` into a separate
- * `metadataChanges` object, mutating `updates` to remove them. Keeps v1/v2
- * update handlers in sync on which fields are revision-tracked.
- */
+// Split metadata-like fields out of `updates` and into a separate object.
+// Mutates `updates` to remove them.
 export function extractRevisionMetadata(
   updates: Partial<FeatureInterface>,
 ): Record<string, unknown> {
@@ -86,10 +77,6 @@ export function extractRevisionMetadata(
   return metadataChanges;
 }
 
-/**
- * Throw if `projectId` is provided but doesn't match any project the org has
- * access to. Shared by feature POST/PUT handlers.
- */
 export async function assertValidProjectId(
   projectId: string | undefined | null,
   context: ApiReqContext,
@@ -101,11 +88,7 @@ export async function assertValidProjectId(
   }
 }
 
-/**
- * Throw if the request sets a holdout that doesn't exist. Accepts the
- * nullable body shape used by v1/v2 update handlers. `null` (intentional
- * removal) and `undefined` (no change) are both no-ops.
- */
+// `null` (explicit removal) and `undefined` (no change) are both no-ops.
 export async function assertValidHoldout(
   holdout: { id: string } | null | undefined,
   context: ApiReqContext,
@@ -117,10 +100,7 @@ export async function assertValidHoldout(
   }
 }
 
-/**
- * Validate `scheduleRules` on any v1-shape environment rules in the request
- * body. Pro/Enterprise gated. Shared by `postFeature` and `updateFeature`.
- */
+// Pro/Enterprise gated. Validates scheduleRules on v1-shape env rules.
 export function validateEnvRulesScheduleRules(
   envBody: ApiFeatureEnvSettings | undefined,
   context: ApiReqContext,

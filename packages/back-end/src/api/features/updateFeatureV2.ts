@@ -98,7 +98,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     );
   }
 
-  // V2: environments is {[env]: {enabled?}} — no rules inside.
   if (req.body.environments != null) {
     validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
   }
@@ -123,15 +122,12 @@ export const updateFeatureV2 = createApiRequestHandler(
       ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
       : null;
 
-  // V2: top-level `rules[]` with scope fields replaces per-env rules.
-  // If provided, convert to internal FeatureRule[] with proper scope.
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
     inboundFlatRules = req.body.rules.map(mapV2ApiRuleToFeatureRule);
     addIdsToFlatRules(inboundFlatRules, feature.id);
   }
 
-  // Build enabled-toggle changes from the v2 environments map.
   const changedEnvEnabled: Record<string, boolean> = {};
   if (req.body.environments) {
     for (const [env, s] of Object.entries(req.body.environments)) {

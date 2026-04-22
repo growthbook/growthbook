@@ -4,24 +4,14 @@ import { ruleAppliesToEnv } from "shared/util";
 /**
  * Env-scoped CRUD helpers for the v2 flat `FeatureRule[]` array.
  *
- * In v2, rules live on a single top-level array (either `feature.rules` or
- * `revision.rules`). Each rule carries a scope (`allEnvironments: true` OR
- * `environments: [...]`). The legacy UI still operates in per-environment
- * terms ("delete rule 2 in production"), so these helpers project the flat
- * array down to the env the caller asked about, let them mutate by
- * position, and fold the edit back into the flat array preserving order of
- * rules scoped to other envs.
+ * Rules carry their own scope (`allEnvironments: true` or `environments: [...]`).
+ * The legacy UI addresses them per-environment ("rule 2 in production"), so
+ * these helpers project the flat array down to one env, mutate by position,
+ * then fold the edit back preserving order of other-env rules.
  *
- * Scope decisions (matching the cutover UX):
- *   - Update at env-position `i` mutates the underlying rule in place,
- *     keeping its original scope. A rule with `allEnvironments: true` stays
- *     all-env; a single-env rule stays single-env.
- *   - Delete at env-position `i` removes the rule globally unless the rule
- *     is explicitly multi-env scoped (`environments: [X, Y]`), in which case
- *     we narrow the scope to the remaining envs. Multi-env scope is not
- *     produced by any current write path but the helper is defensive.
- *   - Move at env-position reorders the env-projected slice and re-anchors
- *     the flat array so other-env rules keep their relative positions.
+ * Delete narrowing: an `allEnvironments` rule is narrowed to
+ * `applicableEnvs \ {env}` (or deleted when empty); a multi-env rule drops
+ * `env` from its list; a single-env rule is deleted globally.
  */
 
 export interface EnvProjection {
@@ -65,12 +55,8 @@ export function updateRuleAtEnvIndex(
   return { rules: next, updated, existing };
 }
 
-/**
- * Update a rule by its ID in the flat array.
- * Preferred over `updateRuleAtEnvIndex` for v2 callers that have a stable
- * `rule.id` — works for all-env rules, single-env rules, and pending rules
- * (`environments: []`) that don't project into any env.
- */
+// Update a rule by its stable id. Works for all-env, single-env, and
+// pending rules (`environments: []`) that don't project into any env.
 export function updateRuleById(
   rules: FeatureRule[],
   ruleId: string,
@@ -84,10 +70,7 @@ export function updateRuleById(
   return { rules: next, updated, existing };
 }
 
-/**
- * Update a rule by its flat (unfiltered) index in the rules array.
- * Fallback for when no `ruleId` is available.
- */
+// Update by flat (unfiltered) index. Fallback when no `ruleId` is available.
 export function updateRuleAtFlatIndex(
   rules: FeatureRule[],
   i: number,
@@ -101,21 +84,16 @@ export function updateRuleAtFlatIndex(
 }
 
 /**
- * Remove the rule projected at env-position `i` from the flat array.
+ * Remove the rule at env-position `i` from the flat array.
  *
- * Narrowing semantics (aligned with `narrowRuleForEnvRemoval`):
- *   - `allEnvironments: true`                       → narrow to `applicableEnvs \ {env}`
- *                                                    (deletes globally only if that set is empty)
- *   - `environments: [a, b, …]` with size > 1       → drop `env` from the list
- *   - `environments: [env]` (single-env)            → delete globally
- *   - `environments: []` (pending)                  → delete globally (already no footprint)
- *   - `environments: undefined` (permissive)        → treat as allEnvironments
+ * Narrowing (see also `narrowRuleForEnvRemoval`):
+ *   - `allEnvironments: true` → narrow to `applicableEnvs \ {env}`, or
+ *     delete globally if that set is empty.
+ *   - `environments: [a, b, …]` (>1) → drop `env`.
+ *   - single-env or pending → delete globally.
  *
- * The optional `applicableEnvs` arg is the org's applicable env id list
- * (project-filtered). When omitted we fall back to the legacy single-env
- * narrowing: `allEnvironments: true` rules are deleted globally. Callers
- * that hit the v2 contract (controllers, API routes) should always supply
- * `applicableEnvs` so allEnvironments rules narrow correctly.
+ * Callers on the v2 contract should always supply `applicableEnvs`;
+ * omitting it triggers legacy behavior (all-env rules delete globally).
  */
 export function removeRuleAtEnvIndex(
   rules: FeatureRule[],
@@ -155,8 +133,7 @@ export function removeRuleAtEnvIndex(
       ];
       return { rules: next, removed };
     }
-    // Legacy fallback path: no applicableEnvs supplied — delete globally to
-    // match pre-v2 single-env behavior.
+    // Legacy fallback: no applicableEnvs supplied → delete globally.
     const next = [...rules.slice(0, parentIdx), ...rules.slice(parentIdx + 1)];
     return { rules: next, removed };
   }
@@ -178,12 +155,8 @@ export function removeRuleAtEnvIndex(
   return { rules: next, removed };
 }
 
-/**
- * Remove a rule by its ID from the flat array.
- * Preferred over `removeRuleAtEnvIndex` for v2 callers that have a stable
- * `rule.id` — removes globally regardless of env scope, including pending
- * rules (`environments: []`) that don't project into any env.
- */
+// Remove a rule by its stable id. Removes globally regardless of scope,
+// including pending rules (`environments: []`).
 export function removeRuleById(
   rules: FeatureRule[],
   ruleId: string,
@@ -225,11 +198,8 @@ export function moveRuleInEnv(
   return { rules: result, moved };
 }
 
-/**
- * Reorder the flat `feature.rules[]` array directly (no env projection).
- * Used when the caller is operating on the "All environments" view where
- * the canonical order of the underlying flat array is unambiguous.
- */
+// Reorder the flat array directly (no env projection). Used by the
+// "All environments" view where flat order is canonical.
 export function moveFlatRule(
   rules: FeatureRule[],
   from: number,
@@ -245,14 +215,7 @@ export function moveFlatRule(
   return { rules: reordered, moved };
 }
 
-/**
- * Build a v2 rule for the selected env scope. Callers pass the per-request
- * raw rule plus the list of envs the rule should apply to.
- *
- * If the caller marks the inbound rule as `allEnvironments: true`, preserve
- * that semantic (future envs auto-include) and strip the explicit env list.
- * Otherwise stamp an explicit env list and force `allEnvironments: false`.
- */
+// Stamp a rule with an explicit env list (forces `allEnvironments: false`).
 export function stampRuleForEnvs<T extends FeatureRule>(
   rule: T,
   environments: string[],

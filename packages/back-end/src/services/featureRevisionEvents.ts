@@ -20,27 +20,10 @@ import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 type RevisionChange = FeatureRevisionUpdatedPayload["change"];
 
 /**
- * Derive the list of environments a revision event is relevant to, used to
- * fan out webhook/Slack notifications through env-scoped filters.
- *
- * Precedence:
- *   1. Caller-provided `overrideEnvironments` (e.g. specific env(s) touched
- *      for `revision.updated`).
- *   2. v2 `revision.rules`: union of each rule's env scope. `allEnvironments:
- *      true` expands to every env applicable to the feature's project;
- *      `environments[]` contributes its declared envs.
- *   3. Fallback: `Object.keys(feature.environmentSettings)` — the feature's
- *      configured envs when the revision has no rules (or is still in a
- *      legacy v1 shape we can't walk).
- *
- * The output is then filtered through `inProject` so env-scoped webhook
- * filters (e.g. "only notify for 'production' in project X") don't receive
- * envs that are excluded from this feature's project. Input order is
- * preserved within each source to keep downstream logs stable; dedupe is
- * stable first-occurrence.
- *
- * Exported for unit testing — the main dispatcher just calls this and
- * hands the result to `createEvent`.
+ * Envs a revision event applies to, used to fan out webhook/Slack
+ * notifications. Precedence: `overrideEnvironments` → union of rule scopes
+ * on `revision.rules` → feature's configured envs. Result is filtered to
+ * envs applicable to the feature's project.
  */
 export function deriveRevisionEventEnvironments(
   feature: FeatureInterface,
@@ -63,10 +46,8 @@ export function deriveRevisionEventEnvironments(
   if (overrideEnvironments !== undefined) {
     rawEnvironments = overrideEnvironments;
   } else if (Array.isArray(revision.rules) && revision.rules.length > 0) {
-    // v2 array: collect envs each rule opts into. `allEnvironments: true`
-    // expands to the feature's applicable env set rather than "every org
-    // env" so project-scoped envs don't pollute events for features in
-    // other projects.
+    // Union of each rule's scope. `allEnvironments: true` expands to the
+    // feature's applicable envs, not every org env.
     const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
     const declared = new Set<string>();
     for (const rule of revision.rules) {

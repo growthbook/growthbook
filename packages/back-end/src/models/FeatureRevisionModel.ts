@@ -86,27 +86,15 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
 );
 
 /**
- * Pure JIT migration from a raw revision document to a v2
- * FeatureRevisionInterface. Exposed for integration tests; the Mongoose-level
- * `toInterface` wrapper below strips doc metadata and delegates here.
+ * Pure JIT migration from a raw revision doc to a v2 FeatureRevisionInterface.
+ * Backfills legacy fields, then flattens v1 `Record<env, FeatureRule[]>` to
+ * the v2 unified array via `flattenV1ToV2Rules`. Already-v2 arrays pass
+ * through (with a defensive `upgradeFeatureRule` pass).
  *
- * Steps:
- *   1. Backfill historical missing fields (publishedBy.type, status, etc.).
- *   2. If `revision.rules` is v1-shaped (a `Record<env, FeatureRule[]>`),
- *      apply env inheritance (expand sparse per-env records), heal each rule
- *      via `upgradeFeatureRule`, then flatten via `flattenV1ToV2Rules` into
- *      the v2 `FeatureRule[]` array. Already-v2 arrays pass through
- *      untouched (see `isV2RevisionRules`) except for a defensive
- *      `upgradeFeatureRule` pass for symmetry with `buildFeatureInterface`.
- *   3. If `opts.featureProject` is provided, `applicableEnvs` is computed
- *      from the org's env list + project. Merged rules whose footprint
- *      covers every applicable env collapse to `allEnvironments: true`.
- *      Without this hint, the JIT conservatively emits explicit
- *      `environments` lists — still semantically correct, just no
- *      `allEnvironments: true` collapse.
- *
- * Callers that have the parent feature in scope should prefer
- * `toInterfaceWithFeature` below so the collapse can happen.
+ * `opts.featureProject`: lets merged rules whose footprint covers every
+ * applicable env collapse to `allEnvironments: true`. Without it the JIT
+ * conservatively emits explicit env lists (still correct). Prefer
+ * `revisionToInterfaceWithFeature` when the parent feature is in scope.
  */
 export function buildFeatureRevisionInterface(
   raw: FeatureRevisionInterface,
@@ -139,22 +127,15 @@ export function buildFeatureRevisionInterface(
   const rawRules = revision.rules as unknown;
 
   if (isV2RevisionRules(rawRules)) {
-    // v2 pass-through. Apply upgradeFeatureRule defensively (symmetric with
-    // buildFeatureInterface) so pre-coverage experiment rules get healed on
-    // read regardless of whether we arrive via the feature path or revision
-    // path. Returns new objects now (upgradeFeatureRule is pure).
+    // v2 pass-through; heal pre-coverage experiment rules symmetric with
+    // `buildFeatureInterface`.
     revision.rules = rawRules.map((r) => upgradeFeatureRule(r));
   } else {
-    // v1 legacy path: `rules` is a `Record<env, FeatureRule[]>`. Flatten to
-    // the v2 unified array. Post-Phase-3 we intentionally DO NOT apply
-    // `applyEnvironmentInheritance` to the rules record here: a unified
-    // rule declares its own env scope (`allEnvironments` or `environments`),
-    // so inheriting rules from a parent env would double-count rules
-    // already written explicitly. The first write-through via
-    // `applyRevisionChanges` normalizes legacy sparse-env revisions to
-    // fully-scoped v2 rules on disk. Env-level inheritance for toggles
-    // and prerequisites is still applied on the FEATURE read path (see
-    // `buildFeatureInterface`) and is unaffected by this change.
+    // v1 legacy: `rules` is `Record<env, FeatureRule[]>`. Flatten to the v2
+    // unified array. We deliberately skip `applyEnvironmentInheritance` here:
+    // unified rules declare their own scope, so inheriting from a parent env
+    // would double-count. The first write-through via `applyRevisionChanges`
+    // normalizes sparse-env revisions to fully-scoped v2 rules on disk.
     const v1Record =
       (rawRules as V1FeatureRevisionInterface["rules"] | undefined) || {};
     const upgraded: V1RulesByEnv = {};
@@ -174,8 +155,7 @@ export function buildFeatureRevisionInterface(
   return revision;
 }
 
-// Thin Mongoose-level wrapper. Strips doc metadata and delegates to the pure
-// `buildFeatureRevisionInterface`.
+// Mongoose wrapper over `buildFeatureRevisionInterface`.
 function toInterface(
   doc: FeatureRevisionDocument,
   context: ReqContext | ApiReqContext,
@@ -185,13 +165,9 @@ function toInterface(
   return buildFeatureRevisionInterface(revision, context, opts);
 }
 
-/**
- * Wrapper around `toInterface` for callers that already have the parent feature
- * in scope. Passes `feature.project` so rule flattening can collapse to
- * `allEnvironments: true` when a rule covers every applicable env for the
- * feature. Prefer this over `toInterface(doc, context)` whenever the feature
- * is available (most paired feature/revision read paths).
- */
+// Passes `feature.project` so flattening can collapse to `allEnvironments: true`
+// when a rule covers every applicable env. Prefer this whenever the feature
+// is in scope.
 export function revisionToInterfaceWithFeature(
   doc: FeatureRevisionDocument,
   context: ReqContext | ApiReqContext,
@@ -816,12 +792,9 @@ export async function updateRevision(
     status = "pending-review";
   }
 
-  // Belt-and-suspenders: every current caller passes v2-shape rules, but
-  // `changes` is a loose shape that historically tolerated v1 inputs. Route
-  // any `rules` field through `normalizeRulesInputToV2` so that a regressed
-  // caller cannot silently persist a legacy per-env shape to disk. No-op on
-  // already-canonical v2 arrays (the pass-through branch in
-  // `normalizeRulesInputToV2`).
+  // Belt-and-suspenders: `changes` historically tolerated v1 inputs. Route
+  // any `rules` through `normalizeRulesInputToV2` so a regressed caller
+  // can't persist a legacy per-env shape. No-op on already-v2 arrays.
   const normalizedChanges: RevisionChanges =
     "rules" in changes && changes.rules !== undefined
       ? {
@@ -833,8 +806,7 @@ export async function updateRevision(
         }
       : changes;
 
-  // Defensive uniqueness guard for v2 rules. Mirrors the one in
-  // `updateFeature` — see that comment for rationale.
+  // Uniqueness guard — mirrors the one in `updateFeature`.
   if (Array.isArray(normalizedChanges.rules)) {
     assertUniqueRuleIds(
       normalizedChanges.rules as FeatureRule[],

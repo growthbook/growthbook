@@ -1529,10 +1529,9 @@ export function addIdsToRules(
   environmentSettings: Record<string, FeatureEnvironment> = {},
   featureId: string,
 ) {
-  // v2: rules no longer live under environmentSettings. This is retained only
-  // to defensively stamp ids on any stray env.rules that may slip through
-  // during the migration window (e.g. legacy callers building the shape
-  // inline). Paired with addIdsToFlatRules for the authoritative v2 path.
+  // Defensive: rules no longer live under environmentSettings, but stamp
+  // any stray env.rules during the migration window. Paired with
+  // `addIdsToFlatRules` (authoritative v2 path).
   Object.values(environmentSettings).forEach((env) => {
     const rules = (env as unknown as { rules?: FeatureRule[] }).rules;
     if (rules && rules.length) {
@@ -1647,13 +1646,10 @@ function eventUserToString(
 export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
-    // v1 REST response emits the FULL qualified rule id (including any
-    // `__<env>` migration suffix). Clients must echo the id exactly on
-    // subsequent PUT/DELETE calls — mutation endpoints enforce strict id
-    // matching, so stem-stripping here would silently break the round-trip.
-    // Deliberately diverges from the SDK payload contract, which emits the
-    // stem (see `getFeatureDefinition` in `util/features.ts`). REST and SDK
-    // have different consumers and different identity needs — don't unify.
+    // REST emits the fully qualified id (with any `__<env>` suffix).
+    // Mutation endpoints enforce exact id matching, so stem-stripping here
+    // would break PUT/DELETE round-trips. SDK payloads stem-strip instead;
+    // see `getFeatureDefinition`.
     id: rule.id,
     condition: rule.condition || "",
     enabled: !!rule.enabled,
@@ -1713,12 +1709,8 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   }
 }
 
-/**
- * Convenience wrapper around `revisionToApiInterface` that pulls the env
- * list off the request context and the project off the (optional) parent
- * feature. Nearly every call site fits this pattern — use this unless you
- * need to override either input explicitly.
- */
+// Convenience wrapper that pulls the env list off the request context and
+// the project off the (optional) parent feature.
 export function toApiRevision(
   rev: FeatureRevisionInterface,
   ctx: ReqContext | ApiReqContext,
@@ -1732,22 +1724,11 @@ export function toApiRevision(
 }
 
 /**
- * Convert a FeatureRevisionInterface to the v1 REST API response shape.
- *
- * The external contract is still per-env: `rules: Record<env,
- * ApiFeatureRule[]>`. Internally the revision carries a v2 unified
- * `rules: FeatureRule[]` array, so we bucket each rule into the envs it
- * applies to (via `ruleFootprint`). Rule ids are emitted fully qualified —
- * any `__<env>` migration suffix is preserved so REST clients can echo
- * them back on PUT/DELETE (mutation endpoints enforce exact id matching).
- * This diverges from the SDK payload, which stem-strips; see
- * `normalizeRuleForApi` for the rationale.
- *
- * `orgEnvs` drives the bucket set. `featureProject` (optional) further
- * restricts to envs applicable to that project. Callsites that don't have
- * the parent feature in scope (e.g. the cross-feature `listRevisions`
- * handler) may pass `undefined` — the result is a safe superset covering
- * every org env.
+ * v1 REST response shape: per-env `rules: Record<env, ApiFeatureRule[]>`.
+ * Internally rules are a flat `FeatureRule[]`, so each rule is bucketed
+ * into the envs it applies to (`ruleFootprint`). `featureProject`, when
+ * provided, restricts the bucket set to envs applicable to that project;
+ * otherwise every org env is included.
  */
 export function revisionToApiInterface(
   rev: FeatureRevisionInterface,
@@ -1808,10 +1789,7 @@ export function revisionToApiInterface(
 
 // ---- V2 serializers ----
 
-/**
- * Serializes a FeatureRule to the v2 API shape: all v1 fields plus
- * `allEnvironments` and `environments` scope fields.
- */
+// v2 API rule shape: v1 fields + `allEnvironments` / `environments` scope.
 export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
   const base = normalizeRuleForApi(rule);
   return {
@@ -1821,13 +1799,8 @@ export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
   };
 }
 
-/**
- * Convert a FeatureRevisionInterface to the v2 REST API response shape.
- *
- * Unlike v1 (`revisionToApiInterface`), the v2 response exposes a flat
- * `rules: FeatureRuleV2[]` array instead of a per-environment record. Each
- * rule carries its own environment scope via `allEnvironments` / `environments`.
- */
+// v2 exposes a flat `rules: FeatureRuleV2[]` array; each rule carries its
+// own scope via `allEnvironments` / `environments`.
 export function revisionToApiInterfaceV2(
   rev: FeatureRevisionInterface,
 ): z.infer<typeof apiFeatureRevisionV2Validator> {
@@ -1872,11 +1845,7 @@ export function revisionToApiInterfaceV2(
   };
 }
 
-/**
- * Convenience wrapper around `revisionToApiInterfaceV2`. Kept as a thin alias
- * to mirror the `toApiRevision` v1 helper at call sites; v2 serialization is
- * context-free (rules carry their own env scope).
- */
+// Mirrors `toApiRevision` at call sites; v2 serialization is context-free.
 export function toApiRevisionV2(
   rev: FeatureRevisionInterface,
 ): z.infer<typeof apiFeatureRevisionV2Validator> {
@@ -1884,12 +1853,8 @@ export function toApiRevisionV2(
 }
 
 /**
- * Serialize a feature to the v2 REST API shape.
- *
- * Differences from v1 (`getApiFeatureObj`):
- * - `rules`: top-level flat array of v2 rules (with scope fields)
- * - `environments[env]`: no `rules` field; only `enabled`, `defaultValue`,
- *   and `definition`.
+ * v2 feature API shape: top-level flat `rules` array + `environments[env]`
+ * containing only `enabled` / `defaultValue` / `definition` (no rules).
  */
 export function getApiFeatureObjV2({
   feature,
@@ -1912,7 +1877,6 @@ export function getApiFeatureObjV2({
   const featureEnvironments: Record<string, ApiFeatureEnvironmentV2> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
 
-  // Build environments map WITHOUT rules (just enabled, defaultValue, definition).
   environments.forEach((env) => {
     const envSettings = feature.environmentSettings?.[env];
     const enabled = !!envSettings?.enabled;
@@ -1929,12 +1893,10 @@ export function getApiFeatureObjV2({
     }
   });
 
-  // Build flat v2 rules array — expose ALL rules (consumer can filter by scope).
   const apiRules: ApiFeatureRuleV2[] = (feature.rules ?? []).map(
     normalizeRuleForApiV2,
   );
 
-  // Build v2 revision summaries.
   const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
 
   const createdBy =
@@ -2593,10 +2555,8 @@ export const reduceFeaturesWithPrerequisites = (
     }
   }
 
-  // block "always off" rules, or reduce "always on" rules
-  // v2: rules live on feature.rules (flat). We only touch rules that apply to
-  // the selected environment; other-env rules are carried through verbatim so
-  // feature.rules remains intact for downstream payload builders.
+  // Block "always off" rules and reduce "always on" rules for this env.
+  // Rules scoped to other envs are carried through verbatim.
   for (let i = 0; i < newFeatures.length; i++) {
     const feature = newFeatures[i];
     const existingRules = feature.rules ?? [];

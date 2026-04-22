@@ -89,7 +89,6 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       customFields: req.body.customFields,
     };
 
-    // V2: environments is {[env]: {enabled?}} — no rules inside.
     const envSettings: Record<string, { enabled?: boolean }> =
       req.body.environments ?? {};
     const v1EnvSettings: ApiFeatureEnvSettings = Object.fromEntries(
@@ -104,7 +103,6 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       v1EnvSettings,
     );
 
-    // V2: rules come from the top-level `rules` array with scope fields.
     feature.rules = (req.body.rules ?? []).map(mapV2ApiRuleToFeatureRule);
 
     const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);

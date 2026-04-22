@@ -89,50 +89,26 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
 }
 
 /**
- * JIT-migrate a feature snapshot from the legacy v1 shape (rules nested under
- * `environmentSettings[env].rules`) to the canonical v2 shape
- * (`feature.rules: FeatureRule[]` at the top level, env-scoped via
- * `allEnvironments` / `environments`).
+ * View-only JIT migration of a v1 feature snapshot (rules under
+ * `environmentSettings[env].rules`) to v2 (top-level `feature.rules`).
  *
- * Intended as a view-only converter at the front-end model boundary — audit
- * log snapshots, legacy cached responses, imported fixtures. Never used on
- * the persistence path (back-end uses `normalizeRulesInputToV2` with full
- * content-merge/id-suffix semantics; this naive flatten is sufficient for
- * diff/render).
- *
- * Semantics:
- *   - If `snapshot.rules` is already an array, the snapshot is assumed v2
- *     and returned unchanged (no cloning cost).
- *   - If `snapshot.environmentSettings` carries any v1 `rules` arrays, those
- *     are flattened to a top-level `rules` array, stamped with
- *     `allEnvironments: false` + `environments: [env]` via `normalizeRulesInput`.
- *     Per-env `rules` is stripped from the cloned `environmentSettings` so
- *     the diff viewer does not double-count or flag the legacy field under
- *     "other changes".
- *   - Cloning is shallow-per-env: only envs carrying rules are rewritten.
- *
- * Idempotent: `toV2FeatureSnapshot(toV2FeatureSnapshot(x)) === first
- * result`. Safe to apply at multiple boundaries.
- *
- * NOTE: Does not merge content-identical rules across envs (naive stamp).
- * For diff/render this is correct — diffing two snapshots normalized the
- * same way is content-preserving. For persistence use
- * `normalizeRulesInputToV2` which runs full `flattenV1ToV2Rules`.
+ * Used at the front-end model boundary for audit log snapshots, cached
+ * responses, fixtures. Idempotent. Does NOT merge content-identical rules
+ * across envs — naive stamp with `allEnvironments: false` +
+ * `environments: [env]`. For persistence use `normalizeRulesInputToV2`.
  */
 export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
   snapshot: T,
 ): T {
   if (!snapshot) return snapshot;
-  // Already v2 — trust the top-level array (even if empty: an empty v2 array
-  // is semantically distinct from "rules live on env settings").
+  // Already v2 — trust the top-level array (empty is meaningful).
   if (Array.isArray(snapshot.rules)) return snapshot;
 
   const envSettings = snapshot.environmentSettings;
   if (!envSettings || typeof envSettings !== "object") return snapshot;
 
-  // Find v1-shape rule buckets. The v2 `FeatureEnvironment` type has no
-  // `rules` field so the cast is load-bearing — historical audit snapshots
-  // carry a shape the current type system no longer describes.
+  // v2 `FeatureEnvironment` has no `rules` field; cast is load-bearing
+  // for historical audit snapshots.
   const rulesByEnv: Record<string, FeatureRule[]> = {};
   let sawV1Rules = false;
   for (const [env, setting] of Object.entries(envSettings)) {
@@ -147,8 +123,6 @@ export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
 
   const flat = normalizeRulesInput(rulesByEnv);
 
-  // Strip `rules` from each envSettings entry in a fresh object so the
-  // original snapshot is not mutated.
   const strippedEnvSettings: Record<string, unknown> = {};
   for (const [env, setting] of Object.entries(envSettings)) {
     if (setting && typeof setting === "object" && "rules" in setting) {
@@ -177,16 +151,12 @@ export function mergeRevision(
 
   newFeature.defaultValue = revision.defaultValue;
 
-  // v2: rules live on a single top-level array. The revision carries the full
-  // intended rule set (produced by `createRevision` / `normalizeRulesInputToV2`
-  // on the back-end) so we replace wholesale. Missing `rules` on the revision
-  // means "revision didn't touch rules" — keep the feature's existing set.
+  // A revision carries the full intended rule set; replace wholesale when
+  // present. `undefined` means the revision didn't touch rules.
   if (revision.rules !== undefined) {
     newFeature.rules = normalizeRulesInput(revision.rules);
   }
 
-  // Env-level toggle overlay. `envSettings[env].rules` no longer exists in v2,
-  // so we only touch `enabled` here.
   const envSettings = newFeature.environmentSettings;
   environments.forEach((env) => {
     envSettings[env] = envSettings[env] || { enabled: false };
@@ -516,10 +486,8 @@ function buildEnvResults(
       continue;
     }
 
-    // v2: rules live on the top-level `feature.rules` array. Pre-JIT-upgrade
-    // test fixtures still carry `environmentSettings[env].rules` — fall back
-    // to that shape when the v2 array is absent. Production readers always
-    // go through `buildFeatureInterface` so this branch is test-only.
+    // Fall back to v1 `environmentSettings[env].rules` for test fixtures
+    // that skip `buildFeatureInterface`'s JIT upgrade.
     const v2RulesForEnv = getRulesForEnvironment(feature.rules, envId);
     const legacyRules = Array.isArray(feature.rules)
       ? []
@@ -827,8 +795,6 @@ export function liveRevisionFromFeature(
   return {
     ...liveRevision,
     defaultValue: feature.defaultValue,
-    // v2: rules live on a single flat top-level array; carry it over directly
-    // so the diff baseline uses the same shape as the draft.
     rules: feature.rules ?? [],
     environmentsEnabled: Object.fromEntries(
       Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
@@ -893,10 +859,8 @@ export function draftDiffersFromLive(
 
   if (draft.defaultValue !== filledLive.defaultValue) return true;
   if (draft.archived !== filledLive.archived) return true;
-  // v2: rules is a single top-level array. A whole-array diff is the canonical
-  // "did rules change" check; per-env projection is only needed for UX / gating
-  // (see getDraftAffectedEnvironments). `envIds` is retained in the signature
-  // for now but no longer read here.
+  // Whole-array diff is the canonical "did rules change" check; per-env
+  // projection is only needed for UX/gating (see `getDraftAffectedEnvironments`).
   if (
     JSON.stringify(normalizeRulesInput(draft.rules)) !==
     JSON.stringify(normalizeRulesInput(filledLive.rules))
@@ -940,11 +904,8 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (!mergeResult.success) return true;
   const r = mergeResult.result;
   if (r.defaultValue !== undefined) return true;
-  // `rules` is a flat `FeatureRule[]` post-unification. `autoMerge` only sets
-  // this field when revision rules differ from base, so presence (even an
-  // explicit `[]` representing "all rules deleted") is a meaningful change.
-  // Falling back to `Object.keys(r.rules || {}).length > 0` would silently
-  // report "no changes" for a revision that deletes every rule.
+  // `autoMerge` sets `rules` only when they differ from base. Presence
+  // (including an explicit `[]` meaning "all rules deleted") is meaningful.
   if (r.rules !== undefined) return true;
   if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
   if (r.prerequisites !== undefined) return true;
@@ -1890,12 +1851,10 @@ export function checkIfRevisionNeedsReview({
   }
   if (affected.length === 0) return false;
 
-  // Environment-specific changes: split into rules/values vs kill switches.
-  // Rules/values always require approval. Kill switches only require approval
-  // when featureRequireEnvironmentReview is true (default: true when unset).
-  // v2: rules live on a single flat top-level array. Project per-env via the
-  // shared helper so "rule changes in env X" correctly accounts for rules with
-  // `allEnvironments: true` and v2 `environments: [...]` scopes.
+  // Env-specific changes split into rules/values vs kill switches.
+  // Rules/values always require approval; kill switches only when
+  // `featureRequireEnvironmentReview` is true (default when unset).
+  // Project rules per-env to account for `allEnvironments` / `environments` scopes.
   const revRulesAll = normalizeRulesInput(revision.rules);
   const baseRulesAll = normalizeRulesInput(baseRevision.rules);
   const envsWithRuleChanges = affected.filter((env) => {

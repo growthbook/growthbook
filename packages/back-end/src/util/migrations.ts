@@ -266,9 +266,8 @@ export function upgradeDatasourceObject(
   return datasource;
 }
 
-// v0-only helper: redistribute top-level legacy rules into
-// `environmentSettings[env].rules` (a v1-shape field). Operates on
-// V1FeatureEnvironment because the output of the v0 upgrader is a v1 document.
+// v0-only: redistribute top-level legacy rules into
+// `environmentSettings[env].rules`.
 function updateEnvironmentSettings(
   rules: V1FeatureRule[],
   environments: string[],
@@ -294,8 +293,7 @@ function updateEnvironmentSettings(
   feature.environmentSettings[environment] = settings as V1FeatureEnvironment;
 }
 
-// v0-only helper: checks if the legacy `draft` block (`Record<env,
-// FeatureRule[]>`) diverges from the current v1 environmentSettings rules.
+// v0-only: does the legacy `draft` diverge from the v1 envSettings rules?
 function draftHasChanges(
   feature: V1FeatureInterface,
   draft: FeatureDraftChanges,
@@ -321,14 +319,9 @@ function draftHasChanges(
 }
 
 /**
- * Heal an ancient rule on read. Returns a NEW rule object; does not mutate
- * the input. Today only covers the pre-`coverage` experiment rule case, but
- * new rule-level backfills should be added here.
- *
- * Intentionally pure so callers can freely share rule references (e.g. the
- * same object appearing on both a feature and a revision). A prior in-place
- * version had surprising aliasing semantics; keeping the pure contract
- * makes JIT-migration chokepoints safe to compose.
+ * Heal a single ancient rule on read. Pure — returns a new rule object so
+ * callers can safely share references (e.g. the same rule on a feature and
+ * its revision). Add new rule-level backfills here.
  */
 export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // Old style experiment rule without coverage
@@ -361,18 +354,9 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
 }
 
 /**
- * Non-rule, non-shape upgrades shared by v1 and v2 feature documents. Safe to
- * call on either. Mutates the input for convenience; also returns it.
- *
- * Covers:
- *   - Backfilling `version` when missing (ancient docs that pre-date explicit
- *     version tracking).
- *   - Backfilling `jsonSchema.schemaType` and `jsonSchema.simple` when the doc
- *     pre-dates the schema-type split.
- *
- * Deliberately does NOT touch rules. Callers are responsible for running
- * `upgradeFeatureRule` over the appropriate rule array for their shape
- * (v1: `environmentSettings[env].rules`; v2: `feature.rules`).
+ * Non-rule, non-shape backfills shared by v1 and v2 docs: `version` and
+ * `jsonSchema.schemaType` / `jsonSchema.simple`. Mutates and returns.
+ * Rules must be upgraded separately via `upgradeFeatureRule`.
  */
 export function applyNonRuleFeatureUpgrades<
   T extends {
@@ -394,30 +378,15 @@ export function applyNonRuleFeatureUpgrades<
 }
 
 /**
- * Upgrade a v0 feature document into a v1 shape.
+ * v0 → v1 upgrade. v0 is the pre-`environmentSettings` on-disk shape: rules
+ * and an `environments: string[]` list live at the top level of the feature.
+ * Redistributes rules into `environmentSettings.{dev,production}.rules`,
+ * seeds `enabled` from the legacy env list, promotes `draft` → `legacyDraft`,
+ * and applies `upgradeFeatureRule` / `applyNonRuleFeatureUpgrades`.
  *
- * v0 is the pre-`environmentSettings` on-disk shape. It stores rules at the
- * top level of the feature (`feature.rules`) and a top-level `environments:
- * string[]` list. This shape is rare in production (~137 of 162,795 features
- * at time of cutover). v1 introduced `environmentSettings[env].rules`.
- *
- * This function:
- *   - Redistributes the top-level `rules` array into
- *     `environmentSettings.dev.rules` and `environmentSettings.production.rules`.
- *   - Seeds `environmentSettings[env].enabled` from the top-level
- *     `environments` list.
- *   - Backfills `version` from the legacy `revision.version` field if present.
- *   - Applies `upgradeFeatureRule` to each per-env rule.
- *   - Converts the old top-level `draft` field into `legacyDraft` for the
- *     revision backfill pipeline to pick up.
- *   - Applies `applyNonRuleFeatureUpgrades` (version + jsonSchema defaults).
- *
- * CRITICAL: Do NOT call this on v1 or v2 documents — it will corrupt them by
- * re-distributing rules from `feature.rules` (which is legitimate top-level
- * data in v2) into `environmentSettings[env].rules` (v1-only storage),
- * effectively reverting v2 docs to v1 and causing re-flattening on every
- * read. The caller MUST structurally discriminate v0 before invoking this —
- * v0 is identified by the ABSENCE of `environmentSettings` on the doc.
+ * CRITICAL: callers MUST structurally discriminate v0 first (no
+ * `environmentSettings` on the doc). Running this on a v1/v2 doc would
+ * re-distribute legitimate v2 top-level rules into v1-only storage.
  */
 export function upgradeV0Feature(
   feature: LegacyFeatureInterface,
@@ -438,9 +407,8 @@ export function upgradeV0Feature(
   for (const env in newFeature.environmentSettings) {
     const settings = newFeature.environmentSettings[env];
     if (settings?.rules) {
-      // V1FeatureRule is a permissive passthrough schema, not a structural
-      // subset of the v2 discriminated-union FeatureRule. Cast across the
-      // boundary; upgradeFeatureRule preserves unknown fields via spread.
+      // V1FeatureRule is a passthrough schema (not a structural subset of
+      // the v2 union); upgradeFeatureRule preserves unknown fields.
       settings.rules = settings.rules.map(
         (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
       );
@@ -472,14 +440,8 @@ export function upgradeV0Feature(
         },
       );
 
-      // The produced legacyDraft is structurally a V1FeatureRevisionInterface
-      // (v1-shaped `rules: Record<env, V1FeatureRule[]>`) even though the
-      // ambient type on FeatureInterface.legacyDraft is the v2
-      // FeatureRevisionInterface. The JIT pipeline in
-      // FeatureRevisionModel.toInterface flattens it back to the v2 array on
-      // read. Cast through unknown — the field type would need a union of
-      // v1/v2 revision shapes to remove the cast, which would pollute v2
-      // callers for a transitional concern.
+      // legacyDraft is v1-shaped here (`rules: Record<env, V1FeatureRule[]>`);
+      // `FeatureRevisionModel.toInterface` flattens it to v2 on read.
       newFeature.legacyDraft = {
         baseVersion: newFeature.version,
         comment: draft.comment || "",

@@ -59,26 +59,13 @@ export const baseRule = z
   .object({
     description: z.string(),
     condition: z.string().optional(),
-    // Rule identifier. For rules authored post-v2 this is `fr_<uniqid>` from
-    // `generateRuleId()`. For rules unified from a v1 collision, the flatten
-    // step appends a `__<env>` suffix to disambiguate — see
-    // `shared/src/util/ruleId.ts` for the stem/suffix helpers.
-    //
-    // Surface contract diverges intentionally:
-    //   - REST API (v1 + v2): emits the FULL qualified id on read; clients
-    //     must echo it back on PUT/DELETE (exact-match enforcement).
-    //   - SDK payload + UI telemetry: stem-strips the id so per-rule metrics
-    //     stay stable across the v1→v2 unification boundary.
-    // The validator does NOT refine-reject `__` here because a legitimate
-    // migration-suffixed id must round-trip through the schema. New user-
-    // authored ids flow through `generateRuleId()` which never emits `__`,
-    // so this is enforced by construction, not by validator.
+    // `fr_<uniqid>` for new rules; post-migration rules from a v1 collision
+    // carry a `__<env>` suffix. REST emits the qualified id; SDK/UI stem-strip.
+    // See `shared/src/util/ruleId.ts`.
     id: z.string(),
-    // When true the rule applies in every environment and `environments` is omitted.
-    // When false the rule applies only in environments listed in `environments`.
+    // Wildcard env scope. When true, `environments` must be omitted.
     allEnvironments: z.boolean(),
-    // Environments in which this rule is active. Required when allEnvironments=false;
-    // must be omitted when allEnvironments=true.
+    // Env list when `allEnvironments` is false.
     environments: z.array(z.string()).optional(),
     enabled: z.boolean().optional(),
     scheduleRules: z.array(scheduleRule).optional(),
@@ -212,8 +199,8 @@ export const featureRule = z.union([
 
 export type FeatureRule = z.infer<typeof featureRule>;
 
-// Rules no longer live per-environment; see `featureInterface.rules`.
-// featureEnvironment carries only env-level settings (kill switch + prerequisites).
+// Env-level settings only (kill switch + prerequisites). Rules live on
+// `featureInterface.rules`.
 export const featureEnvironment = z
   .object({
     enabled: z.boolean(),
@@ -226,32 +213,14 @@ export type FeatureEnvironment = z.infer<typeof featureEnvironment>;
 // ---------------------------------------------------------------------------
 // v1 (legacy, pre-unification) validators
 // ---------------------------------------------------------------------------
-// These schemas describe on-disk feature data from before the v2 rule
-// unification (`allEnvironments` / top-level `rules` array). They are
-// deliberately PERMISSIVE:
-//   - `.passthrough()` so unknown fields survive parsing. A v2 → v1
-//     downconversion may pass suffixed ids (e.g. `fr_abc__production`)
-//     through; these schemas accept them without stripping, so the v1 REST
-//     response is a faithful projection of the v2 shape.
-//   - Constructive (explicit field-by-field) rather than `Omit<FeatureRule,
-//     ...>`. That way, adding a field to v2 `FeatureRule` does NOT
-//     implicitly change `V1FeatureRule`. V1 types evolve only when we
-//     consciously decide a field was present in v1 data on disk.
-//   - Well-known common fields are explicitly typed as optional to give
-//     callers IDE autocomplete; everything else is wildcard-unknown.
-//
-// Use these when parsing/validating incoming legacy-shaped payloads at API
-// boundaries. The JIT chokepoints (FeatureModel.toInterface,
-// FeatureRevisionModel.toInterface) do NOT currently call `.parse()` — they
-// cast through the types — because Mongoose already returns typed objects.
-// The schemas exist for future parse sites (REST v1 ingress, audit-log
-// ingestion, webhook payloads, etc.).
+// Deliberately permissive `.passthrough()` schemas for on-disk legacy data.
+// Constructed field-by-field so evolving v2 `FeatureRule` doesn't implicitly
+// change `V1FeatureRule`.
 // ---------------------------------------------------------------------------
 
 export const v1FeatureRule = z
   .object({
     id: z.string(),
-    // Well-known optional fields for IDE convenience. None are enforced.
     type: z.string().optional(),
     enabled: z.boolean().optional(),
     description: z.string().optional(),

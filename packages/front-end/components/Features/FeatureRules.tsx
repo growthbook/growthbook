@@ -86,12 +86,11 @@ export default function FeatureRules({
 }) {
   const { apiCall } = useAuth();
   const envs = environments.map((e) => e.id);
-  // null = "All environments" (unfiltered view); string = specific env filter.
-  // `storedEnv` is the persisted value; `env` below is the value used for
-  // rendering/filtering with a transient fallback applied.
-  // Persisted in localStorage; respects org-level preferredEnvironment setting.
+  // null env = "All environments" unfiltered view.
+  // `storedEnv` is persisted (localStorage / org preferredEnvironment);
+  // `env` below applies a transient fallback for rendering.
   const [storedEnv, setEnv] = useFeatureRulesEnv();
-  // Optimistic local copy of feature.rules for the all-envs DnD view.
+  // Optimistic local copy for the all-envs DnD view.
   const [allEnvItems, setAllEnvItems] = useState<FeatureRule[]>(
     feature.rules ?? [],
   );
@@ -113,12 +112,9 @@ export default function FeatureRules({
     isRuleInactive(r, experimentsMap),
   );
 
-  // Open the rule modal when triggered externally (e.g. from the ramp
-  // timeline CTA). The RuleModal resolves rules by (env, positional index),
-  // so pending rules (`environments: []`) and rules that don't apply to the
-  // caller-supplied env need a fallback: search every env's projection for a
-  // match, prefer the caller's env if present, else pick the first env where
-  // the rule appears.
+  // Open the rule modal when triggered externally (e.g. ramp timeline CTA).
+  // RuleModal addresses rules by (env, index), so for pending/unmatched rules
+  // we fall back to any env the rule projects into.
   useEffect(() => {
     if (!pendingRuleEdit) return;
     const { environment, ruleId } = pendingRuleEdit;
@@ -145,8 +141,7 @@ export default function FeatureRules({
       }
     }
 
-    // Pending rule (environments: []) doesn't project into any env tab.
-    // Switch to the "All environments" flat view and open by ruleId.
+    // Pending rule: switch to the flat "All environments" view and open by id.
     const flatRule = (feature.rules ?? []).find((r) => r.id === ruleId);
     if (flatRule) {
       setEnv(null);
@@ -173,10 +168,9 @@ export default function FeatureRules({
   } | null>(null);
   const [holdoutModal, setHoldoutModal] = useState<boolean>(false);
 
-  // If the stored env is missing from this org's environment list (e.g. renamed
-  // or removed, or the user came from another org), display as "All environments"
-  // for this render. We intentionally do NOT persist the fallback: a transient
-  // env mismatch (e.g. switching orgs) should not wipe the user's saved choice.
+  // If the stored env isn't in this org (renamed, removed, or different org),
+  // fall back to "All environments" for this render without persisting —
+  // a transient mismatch shouldn't wipe the user's saved choice.
   const env =
     storedEnv !== null && !envs.includes(storedEnv) ? null : storedEnv;
 
@@ -187,7 +181,6 @@ export default function FeatureRules({
     }),
   );
 
-  // null env = "All environments" unfiltered view; otherwise filter to the selected env.
   const activeEnv =
     env === null ? null : (environments.find((e) => e.id === env) ?? null);
   const liveHoldoutActive =
@@ -304,9 +297,8 @@ export default function FeatureRules({
                 >
                   <Flex direction="column" gap="3">
                     {allEnvItems.map((rule) => {
-                      // All-envs view: address rules by ID, not by env-projected
-                      // index. This works for all rules including pending ones
-                      // (environments: []) that don't project into any env tab.
+                      // All-envs view addresses rules by id (works for
+                      // pending rules that don't project into any env).
                       const displayEnv =
                         rule.allEnvironments === true ||
                         !rule.environments?.length

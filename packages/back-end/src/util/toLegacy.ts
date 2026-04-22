@@ -13,38 +13,13 @@ import {
   ruleFootprint,
 } from "back-end/src/util/flattenRules";
 
-// ---------------------------------------------------------------------------
-// v2 -> v1 down-conversion (toLegacy)
-// ---------------------------------------------------------------------------
-//
-// Mirrors the v1 -> v2 JIT chokepoints (buildFeatureInterface,
-// buildFeatureRevisionInterface). These adapters explode the v2 top-level
-// `rules: FeatureRule[]` into the v1 per-env shape so the v1 REST API layer
-// (/api/v1) can keep its existing contract while the internal model is v2.
-//
-// Round-trip contract:
-//   - v2 `rule.id` is preserved verbatim on down-conversion — any `__<env>`
-//     migration suffix stays on the emitted v1 rule. REST mutation endpoints
-//     (PUT/DELETE) enforce exact id matching, so clients must round-trip the
-//     same id they received on GET. When a v1 PUT round-trips back through
-//     `flattenV1ToV2Rules`, the flattener's content-based grouping uses
-//     `stemRuleId` internally so suffixed and bare ids merge/split
-//     identically — the output is byte-stable across cycles.
-//   - The reverse direction — reconstituting v2 from an incoming v1 PUT —
-//     goes through `flattenV1ToV2Rules` (Phase 6a). Its content-based merge
-//     detection gives stable round-trip: if the rules were merged in v2,
-//     they were identical per-env in v1 and will re-merge; if they were
-//     split in v2, their per-env contents differ in v1 and will re-split
-//     with the same `__<env>` suffix.
-// ---------------------------------------------------------------------------
+// v2 -> v1 down-conversion for the /api/v1 REST surface. Mirrors the
+// v1 -> v2 JIT chokepoints. Rule ids are preserved verbatim (including any
+// `__<env>` suffix) so clients can round-trip them back on PUT/DELETE;
+// reverse conversion flows through `flattenV1ToV2Rules`, which merges/splits
+// by content so the cycle is byte-stable.
 
-/**
- * Down-convert one v2 FeatureRule to a v1 rule. Strips the v2-only scope
- * fields `allEnvironments` and `environments`. The `id` is preserved
- * verbatim (including any `__<env>` migration suffix) so REST clients can
- * echo it back on subsequent PUT/DELETE calls — the SDK payload, which has
- * different identity needs, is the only surface that stem-strips.
- */
+// Strip v2-only scope fields. Preserves id verbatim (see file header).
 export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
   const {
     allEnvironments: _a,
@@ -58,20 +33,11 @@ export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
 }
 
 /**
- * Project a v2 `FeatureInterface` to the v1 on-disk shape consumed by the
- * `/api/v1` REST surface: rules move from the top-level array back into
- * `environmentSettings[env].rules`, preserving any `__<env>` migration
- * suffix on the id so clients can round-trip the id back on PUT/DELETE.
- *
- * Per-env rule order: for each env we emit rules in the order they appear in
- * `feature.rules`, filtered to that env's footprint. That preserves v2's
- * global rule order as a per-env sub-ordering (stable partial-order projection).
- *
- * environmentSettings policy: we emit entries for the union of
- * `(applicableEnvs, existing envSettings keys)`. This preserves any existing
- * env state (enabled flag, prerequisites) for envs the v2 doc already
- * recorded, even envs that are no longer applicable to the feature's project
- * — clients may still render them as disabled/archived.
+ * v2 → v1 feature projection: top-level rules move back into
+ * `environmentSettings[env].rules`. Per-env rule order preserves v2's global
+ * order (stable partial-order projection). Entries are emitted for the union
+ * of (applicableEnvs ∪ existing envSettings keys) so disabled/archived envs
+ * round-trip cleanly.
  */
 export function toLegacyFeature(
   feature: FeatureInterface,
@@ -93,9 +59,6 @@ export function toLegacyFeature(
     }
   }
 
-  // Preserve existing env state (enabled, prerequisites) and attach the
-  // computed rule list. Cover both applicable envs and any envs already
-  // present in envSettings (so disabled/archived envs round-trip cleanly).
   const envSettings: Record<string, V1FeatureEnvironment> = {};
   const allEnvIds = new Set<string>([
     ...applicableEnvs,
@@ -112,8 +75,6 @@ export function toLegacyFeature(
     };
   }
 
-  // Strip the v2 top-level rules array from the output — v1 docs don't have
-  // it (except as v0 crust, which we never emit).
   const {
     rules: _v2Rules,
     environmentSettings: _oldEnvSettings,
@@ -126,14 +87,9 @@ export function toLegacyFeature(
 }
 
 /**
- * Project a v2 `FeatureRevisionInterface` to the v1 revision shape: rules
- * become a `Record<env, V1FeatureRule[]>` keyed by environment. Everything
- * else on the revision is copied through unchanged.
- *
- * `featureProject` drives the applicable-env filter identically to
- * `toLegacyFeature`. Callers that don't have the parent feature in scope
- * should pass undefined; they'll get every org env in the record, which is a
- * safe superset.
+ * v2 → v1 revision projection: rules become `Record<env, V1FeatureRule[]>`.
+ * `featureProject` scopes the env set; omit it for a safe superset (every
+ * org env).
  */
 export function toLegacyRevision(
   revision: FeatureRevisionInterface,
@@ -142,12 +98,9 @@ export function toLegacyRevision(
 ): V1FeatureRevisionInterface {
   const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
 
-  // Include entries for the union of (applicableEnvs, environmentsEnabled
-  // keys). Mirrors `toLegacyFeature`'s (applicableEnvs, envSettings keys) union
-  // so v1 clients iterating `Object.keys(revision.rules)` don't miss envs the
-  // revision still tracks via `environmentsEnabled` (e.g. disabled/archived).
-  // Non-applicable envs remain empty-array placeholders; `ruleFootprint`
-  // filters rule assignment to applicable envs only.
+  // Union with `environmentsEnabled` keys so v1 clients iterating
+  // `Object.keys(revision.rules)` see disabled/archived envs the revision
+  // still tracks. `ruleFootprint` limits rule assignment to applicable envs.
   const envIds = new Set<string>([
     ...applicableEnvs,
     ...Object.keys(revision.environmentsEnabled ?? {}),
