@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import Button from "@/ui/Button";
 import Dialog, { Size, TrackingEventModalProps } from "@/ui/Dialog";
-import DialogForm, { useDialogForm } from "./DialogForm";
+import DialogForm, { useDialogForm } from "../DialogForm";
 
 function SubmitButton({
   cta,
@@ -40,11 +40,11 @@ export type Props = TrackingEventModalProps & {
   children: ReactNode;
 };
 
-// FormDialog is the opinionated wrapper around the composable Dialog
+// DialogLayout is the opinionated wrapper around the composable Dialog
 // primitives: header + scrollable body + Cancel / Save footer, optionally
 // wired to a form submit. New dialogs with one-off layouts should compose
 // <Dialog.Root> primitives directly instead of reaching for more props here.
-export default function FormDialog({
+export default function DialogLayout({
   open,
   header,
   headerAction,

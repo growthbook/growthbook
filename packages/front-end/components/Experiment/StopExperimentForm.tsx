@@ -23,7 +23,7 @@ import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import { AppFeatures } from "@/types/app-features";
-import FormDialog from "@/components/Dialog/FormDialog";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
@@ -206,7 +206,7 @@ const StopExperimentForm: FC<{
   });
 
   return (
-    <FormDialog
+    <DialogLayout
       trackingEventModalType="stop-experiment-form"
       trackingEventModalSource={source}
       header={
@@ -407,7 +407,7 @@ const StopExperimentForm: FC<{
           </div>
         </div>
       </Flex>
-    </FormDialog>
+    </DialogLayout>
   );
 };
 

@@ -20,8 +20,8 @@ import {
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
-import ErrorDisplay from "./ErrorDisplay";
-import Text from "./Text";
+import ErrorDisplay from "../ErrorDisplay";
+import Text from "../Text";
 
 export type Size = "md" | "lg";
 
@@ -48,7 +48,7 @@ function getMaxWidth(size: Size) {
 //
 // Dialog.Root owns error + tracking state and exposes it here so that
 // Dialog.Body can render an error automatically, and the DialogForm wrapper
-// (in components/Dialog) can report submit outcomes without the consumer
+// (in ui/Dialog/Patterns) can report submit outcomes without the consumer
 // wiring anything up.
 // ---------------------------------------------------------------------------
 
@@ -106,6 +106,7 @@ function Root({
   const [modalUuid] = useState(uuidv4());
   const [error, setError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const scrollBodyToTop = useCallback(() => {
     setTimeout(() => {
@@ -148,6 +149,19 @@ function Root({
     }
   }, [open, sendTrackingEvent]);
 
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      const target = e.target as Element;
+      if (!target.closest("[data-radix-scroll-area-viewport]")) {
+        e.preventDefault();
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
   const ctx = useMemo<DialogContextValue>(
     () => ({
       error,
@@ -162,6 +176,7 @@ function Root({
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Content
+        ref={contentRef}
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
         maxHeight="85vh"
@@ -240,10 +255,9 @@ function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error } = useDialogContext();
   return (
     <ScrollArea type="auto" mt="4" mb="3" ref={bodyRef}>
-      <Box overflowX="hidden" pr="7">
+      <Box overflowX="hidden" pr="7" pl="1">
         {error && <ErrorDisplay error={error} mb="5" />}
-        {/* Left padding is used to prevent the focused outline on fields from being cut off */}
-        <Box style={{ paddingLeft: "1px" }}>{children}</Box>
+        {children}
       </Box>
     </ScrollArea>
   );
@@ -283,9 +297,9 @@ const Close = RadixDialog.Close;
 // Namespace export.
 //
 // Consumers use <Dialog.Root>, <Dialog.Header>, <Dialog.Title>, etc. — see
-// components/Dialog/FormDialog for a reference composition, and the Base UI /
-// Radix Themes Dialog docs for the design intent. Form semantics live in
-// components/Dialog/DialogForm; import <DialogForm> from there directly.
+// ui/Dialog/Patterns/DialogLayout for a reference composition, and the Base UI
+// / Radix Themes Dialog docs for the design intent. Form semantics live in
+// ui/Dialog/Patterns/DialogForm; import <DialogForm> from there directly.
 // ---------------------------------------------------------------------------
 
 const Dialog = {

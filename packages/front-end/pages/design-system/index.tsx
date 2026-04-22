@@ -33,7 +33,7 @@ import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
-import DialogStories from "@/ui/Dialog.stories";
+import DialogStories from "@/ui/Dialog/Dialog.stories";
 
 type StoryEntry = {
   name: string;

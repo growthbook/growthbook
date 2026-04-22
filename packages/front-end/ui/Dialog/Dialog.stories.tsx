@@ -1,13 +1,13 @@
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useState } from "react";
 import { PiArrowLeft } from "react-icons/pi";
-import DialogForm, { useDialogForm } from "@/components/Dialog/DialogForm";
 import Stepper from "@/components/Stepper/Stepper";
-import Dialog, { Size } from "./Dialog";
-import Button from "./Button";
-import { Select, SelectItem } from "./Select";
-import Text from "./Text";
-import Checkbox from "./Checkbox";
+import Dialog, { Size } from "@/ui/Dialog";
+import Button from "../Button";
+import { Select, SelectItem } from "../Select";
+import Text from "../Text";
+import Checkbox from "../Checkbox";
+import DialogForm, { useDialogForm } from "./DialogForm";
 
 function SubmitButton() {
   const { loading } = useDialogForm();

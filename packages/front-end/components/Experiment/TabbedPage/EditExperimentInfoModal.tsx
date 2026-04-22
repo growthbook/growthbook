@@ -10,7 +10,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
-import FormDialog from "@/components/Dialog/FormDialog";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Text from "@/ui/Text";
 
 export type FocusSelector = "project" | "tags" | "name" | "projects";
@@ -45,7 +45,7 @@ export default function EditExperimentInfoModal({
   });
 
   return (
-    <FormDialog
+    <DialogLayout
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
@@ -116,6 +116,6 @@ export default function EditExperimentInfoModal({
           restrict use of some Data Sources and Metrics.
         </Callout>
       ) : null}
-    </FormDialog>
+    </DialogLayout>
   );
 }
