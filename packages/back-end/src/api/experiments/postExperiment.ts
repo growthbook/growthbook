@@ -151,12 +151,19 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
 
     // check if tracking key is unique
-    if (!payload.bypassDuplicateKeyCheck) {
-      const existingByTrackingKey = await getExperimentByTrackingKey(
-        req.context,
-        payload.trackingKey,
-      );
-      if (existingByTrackingKey) {
+    const existingByTrackingKey = await getExperimentByTrackingKey(
+      req.context,
+      payload.trackingKey,
+    );
+    if (existingByTrackingKey) {
+      // If organization requires unique tracking keys, always reject duplicates
+      if (req.organization.settings?.requireUniqueExperimentTrackingKeys) {
+        throw new Error(
+          `An experiment with tracking key "${payload.trackingKey}" already exists. Your organization requires unique experiment tracking keys.`,
+        );
+      }
+      // Otherwise, allow duplicates only if explicitly requested
+      if (!payload.bypassDuplicateKeyCheck) {
         throw new Error(
           `Experiment with tracking key already exists: ${payload.trackingKey}`,
         );
