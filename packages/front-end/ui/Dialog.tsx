@@ -3,6 +3,7 @@ import {
   Flex,
   Inset,
   Dialog as RadixDialog,
+  ScrollArea,
   Separator,
 } from "@radix-ui/themes";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
@@ -170,7 +171,7 @@ function Root({
             overflow: "hidden",
             paddingTop: "32px",
             paddingLeft: "40px",
-            paddingRight: "40px",
+            paddingRight: "0",
             paddingBottom: "24px",
             "--inset-padding-left": "40px",
             "--inset-padding-right": "40px",
@@ -193,7 +194,15 @@ function Root({
 
 function Header({ children }: { children: ReactNode }) {
   return (
-    <Flex py="2" flexShrink="0" justify="between" align="center" gap="3" mb="1">
+    <Flex
+      py="2"
+      flexShrink="0"
+      justify="between"
+      align="center"
+      gap="3"
+      mb="1"
+      pr="7"
+    >
       {children}
     </Flex>
   );
@@ -209,7 +218,7 @@ function Title({ children }: { children: ReactNode }) {
 
 function Description({ children }: { children: ReactNode | string }) {
   return (
-    <Box flexShrink="0">
+    <Box flexShrink="0" pr="7">
       <RadixDialog.Description size="2" mb="0">
         <Text color="text-mid" size="large">
           {children}
@@ -229,19 +238,13 @@ function Description({ children }: { children: ReactNode | string }) {
 function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error } = useDialogContext();
   return (
-    <Box
-      ref={bodyRef}
-      mt="4"
-      mb="3"
-      mx="-7"
-      px="7"
-      flexGrow="1"
-      overflowY="auto"
-      overflowX="hidden"
-    >
-      {error && <ErrorDisplay error={error} mb="5" />}
-      {children}
-    </Box>
+    <ScrollArea type="auto" mt="4" mb="3" ref={bodyRef}>
+      <Box overflowX="hidden" pr="7">
+        {error && <ErrorDisplay error={error} mb="5" />}
+        {/* Left padding is used to prevent the focused outline on fields from being cut off */}
+        <Box style={{ paddingLeft: "1px" }}>{children}</Box>
+      </Box>
+    </ScrollArea>
   );
 }
 
@@ -263,7 +266,7 @@ function Footer({
       <Inset side="x">
         <Separator size="4" my="5" />
       </Inset>
-      <Flex gap="3" justify={justify}>
+      <Flex gap="3" justify={justify} pr="7">
         {children}
       </Flex>
     </Box>
