@@ -38,7 +38,7 @@ export default function ExperimentTimeSeriesBlock({
 
   const _pValueThreshold = usePValueThreshold(experiment.project);
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
 
   const result = analysis.results[0];
 

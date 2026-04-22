@@ -10,6 +10,7 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { FactTableInterface } from "shared/types/fact-table";
 import { DimensionInterface } from "shared/types/dimension";
 import { ProjectInterface } from "shared/types/project";
+import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
@@ -88,17 +89,31 @@ export default function useSSRPolyfills(
       ? (ssrData?.settings?.displayCurrency ?? "USD")
       : "USD";
   };
-  const usePValueThresholdSSR = () => {
-    const pValueThreshold = usePValueThreshold(undefined);
-    return hasCsrSettings
-      ? pValueThreshold
-      : ssrData?.settings?.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD;
+  const usePValueThresholdSSR = (projectId: string | undefined) => {
+    const pValueThreshold = usePValueThreshold(projectId);
+    if (hasCsrSettings) return pValueThreshold;
+    const project =
+      projectId && projectId.length > 0
+        ? (getProjectByIdSSR(projectId) ?? undefined)
+        : undefined;
+    const { settings } = getScopedSettings({
+      organization: { settings: ssrData?.settings || {} },
+      project,
+    });
+    return settings.pValueThreshold.value || DEFAULT_P_VALUE_THRESHOLD;
   };
-  const useConfidenceLevelsSSR = () => {
-    const confidenceLevels = useConfidenceLevels(undefined);
+  const useConfidenceLevelsSSR = (projectId: string | undefined) => {
+    const confidenceLevels = useConfidenceLevels(projectId);
     if (hasCsrSettings) return confidenceLevels;
-    const ciUpper =
-      ssrData?.settings?.confidenceLevel || DEFAULT_CONFIDENCE_LEVEL;
+    const project =
+      projectId && projectId.length > 0
+        ? (getProjectByIdSSR(projectId) ?? undefined)
+        : undefined;
+    const { settings } = getScopedSettings({
+      organization: { settings: ssrData?.settings || {} },
+      project,
+    });
+    const ciUpper = settings.confidenceLevel.value || DEFAULT_CONFIDENCE_LEVEL;
     return {
       ciUpper,
       ciLower: 1 - ciUpper,

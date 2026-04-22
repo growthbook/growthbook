@@ -107,9 +107,10 @@ export default function ReportResults({
   const _confidenceLevels = useConfidenceLevels(experiment?.project);
   const _pValueThreshold = usePValueThreshold(experiment?.project);
   const { ciUpper } =
-    ssrPolyfills?.useConfidenceLevels?.(undefined) || _confidenceLevels;
+    ssrPolyfills?.useConfidenceLevels?.(experiment?.project) ||
+    _confidenceLevels;
   const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
+    ssrPolyfills?.usePValueThreshold?.(experiment?.project) || _pValueThreshold;
   const significanceThresholds: SignificanceThresholds = {
     confidenceLevel: ciUpper,
     pValueThreshold,
