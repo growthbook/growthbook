@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, namespacesToMap } from "shared/util";
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
@@ -27,7 +27,6 @@ import {
 import {
   evaluateFeature,
   getSavedGroupMap,
-  namespacesToMap,
 } from "back-end/src/services/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";

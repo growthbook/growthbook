@@ -149,10 +149,9 @@ export default function EditTargetingModal({
     defaultValues,
   });
 
-  // Subscribe to the entire form so change detection re-runs on any edit
-  // (including range additions/edits and namespace switches inside
-  // NamespaceSelector, which persist via form.setValue and otherwise wouldn't
-  // trigger a re-render here).
+  // useWatch so that form.setValue calls from NamespaceSelector (a child)
+  // trigger a re-render here. Control flags are excluded because they're
+  // mutated programmatically by the change-type step, not by the user.
   const watchedValues = useWatch({ control: form.control });
   const pickForCompare = <T extends Record<string, unknown>>(v: T) =>
     omit(v, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);

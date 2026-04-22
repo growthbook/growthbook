@@ -23,6 +23,7 @@ import {
   NodeHandler,
   recursiveWalk,
   checkIfRevisionNeedsReview,
+  namespacesToMap,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -71,7 +72,6 @@ import {
 import {
   Environment,
   OrganizationInterface,
-  Namespaces,
   SDKAttribute,
   SDKAttributeSchema,
 } from "shared/types/organization";
@@ -484,30 +484,6 @@ export function generateAutoExperimentsPayload({
       return exp;
     });
   return sdkExperiments.filter(isValidSDKExperiment);
-}
-
-/**
- * Convert namespaces array to Map for efficient lookups
- */
-export function namespacesToMap(
-  namespaces?: Namespaces[],
-): Map<
-  string,
-  { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
-> {
-  if (!namespaces) return new Map();
-  return new Map(
-    namespaces.map((ns) => [
-      ns.name,
-      {
-        // For legacy, hashAttribute and seed might be missing but we try to preserve them if available
-        hashAttribute:
-          ("hashAttribute" in ns ? ns.hashAttribute : undefined) || "id",
-        seed: ("seed" in ns ? ns.seed : undefined) || ns.name,
-        format: ns.format,
-      },
-    ]),
-  );
 }
 
 export async function getSavedGroupMap(

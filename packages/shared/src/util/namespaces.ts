@@ -1,3 +1,5 @@
+import { Namespaces } from "shared/types/organization";
+
 // These types are defined locally (not imported from validators/shared) to avoid
 // circular dependencies in the shared package's import graph.
 // Keep in sync with the Zod schemas in validators/shared.ts.
@@ -157,6 +159,26 @@ export function percentageToRanges(percentage: number): [number, number][] {
   if (decimal <= 0) return [];
   if (decimal >= 1) return [[0, 1]];
   return [[0, decimal]];
+}
+
+export function namespacesToMap(
+  namespaces?: Namespaces[],
+): Map<
+  string,
+  { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+> {
+  if (!namespaces) return new Map();
+  return new Map(
+    namespaces.map((ns) => [
+      ns.name,
+      {
+        hashAttribute:
+          ("hashAttribute" in ns ? ns.hashAttribute : undefined) || "id",
+        seed: ("seed" in ns ? ns.seed : undefined) || ns.name,
+        format: ns.format,
+      },
+    ]),
+  );
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   includeExperimentInPayload,
   isDefined,
   isMultiRangeNamespaceFormat,
+  namespacesToMap,
   recursiveWalk,
   getNamespaceRanges,
   getNamespaceHashAttribute,
@@ -31,11 +32,7 @@ import {
   replaceSavedGroups,
   SDKCapability,
 } from "shared/sdk-versioning";
-import {
-  OrganizationInterface,
-  Environment,
-  Namespaces,
-} from "shared/types/organization";
+import { OrganizationInterface, Environment } from "shared/types/organization";
 import {
   FeatureInterface,
   FeatureRule,
@@ -426,26 +423,6 @@ export function applyNamespaceToPayload(
   // Legacy format: use tuple on the rule itself for backward compatibility.
   const [start, end] = ranges[0] ?? [0, 0];
   rule.namespace = [namespace.name, start, end];
-}
-
-export function namespacesToMap(
-  namespaces?: Namespaces[],
-): Map<
-  string,
-  { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
-> {
-  if (!namespaces) return new Map();
-  return new Map(
-    namespaces.map((ns) => [
-      ns.name,
-      {
-        hashAttribute:
-          ("hashAttribute" in ns ? ns.hashAttribute : undefined) || "id",
-        seed: ("seed" in ns ? ns.seed : undefined) || ns.name,
-        format: ns.format,
-      },
-    ]),
-  );
 }
 
 export function getFeatureDefinition({

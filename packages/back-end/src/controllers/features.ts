@@ -24,6 +24,7 @@ import {
   liveRevisionFromFeature,
   fillRevisionFromFeature,
   getReviewSetting,
+  namespacesToMap,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -101,7 +102,6 @@ import {
   generateRuleId,
   getFeatureDefinitions,
   getSavedGroupMap,
-  namespacesToMap,
   getLiveAndBaseRevisionsForFeature,
   getDraftRevision,
   assertCanAutoPublish,
