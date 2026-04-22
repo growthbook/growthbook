@@ -3,7 +3,7 @@ import { statsEngines } from "shared/constants";
 import { customMetricSlice } from "./experiments";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { ownerField } from "./owner-field";
+import { ownerEmailField, ownerField } from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -58,6 +58,7 @@ export const apiExperimentTemplateValidator = namedSchema(
   apiBaseSchema.safeExtend({
     project: z.string().optional(),
     owner: ownerField,
+    ownerEmail: ownerEmailField,
 
     templateMetadata: z.object({
       name: z.string(),

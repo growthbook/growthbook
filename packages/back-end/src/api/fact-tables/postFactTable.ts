@@ -8,7 +8,10 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req) => {
@@ -64,7 +67,10 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
     }
 
     return {
-      factTable: toFactTableApiInterface(factTable),
+      factTable: await resolveOwnerEmail(
+        toFactTableApiInterface(factTable),
+        req.context,
+      ),
     };
   },
 );

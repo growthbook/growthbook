@@ -18,6 +18,7 @@ import {
   chanceToWinFlatPrior,
   getRowFilterSQL,
   getEffectiveLookbackOverride,
+  getIntersectionBaseMetricIds,
 } from "../src/experiments";
 import { LookbackOverride } from "../src/validators/experiments";
 
@@ -1613,5 +1614,29 @@ describe("getEffectiveLookbackOverride", () => {
     expect(
       getEffectiveLookbackOverride(undefined, windowOverride),
     ).toBeUndefined();
+  });
+});
+
+describe("getIntersectionBaseMetricIds", () => {
+  it("returns non-slice subset ids when superset is empty", () => {
+    expect(
+      getIntersectionBaseMetricIds(["a", "b", "m_goal?dim:country=us"], []),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("omits slice metrics and keeps base ids in superset order", () => {
+    const sliceId = "m_goal?dim:country=us";
+    expect(
+      getIntersectionBaseMetricIds(["m_goal"], ["m_goal", sliceId, "other"]),
+    ).toEqual(["m_goal"]);
+  });
+
+  it("includes every base metric in the subset that appears in the superset", () => {
+    expect(
+      getIntersectionBaseMetricIds(
+        ["m_a", "m_b"],
+        ["m_b", "m_a?dim:x=y", "m_a"],
+      ),
+    ).toEqual(["m_b", "m_a"]);
   });
 });

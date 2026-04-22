@@ -675,6 +675,52 @@ export function parseSliceMetricId(
   };
 }
 
+export function dedupeMetricIdsPreserveOrder(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * Ordered base (non-slice) metric ids that lie in both the subset and the superset.
+ * Walks `supersetMetricIds` in order, skips slice rows (`base?dim:...`), and keeps
+ * each non-slice id whose base appears in `subsetMetricIds` (slice entries in the
+ * subset only affect which parent base is in-category). If `supersetMetricIds` is
+ * empty, returns subset ids with slice entries removed (deduped, order preserved).
+ */
+export function getIntersectionBaseMetricIds(
+  subsetMetricIds: string[],
+  supersetMetricIds: string[],
+): string[] {
+  if (!supersetMetricIds.length) {
+    return dedupeMetricIdsPreserveOrder(
+      subsetMetricIds.filter((id) => !parseSliceMetricId(id).isSliceMetric),
+    );
+  }
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const subsetBases = new Set(
+    subsetMetricIds.map((id) => parseSliceMetricId(id).baseMetricId),
+  );
+  for (const id of supersetMetricIds) {
+    if (parseSliceMetricId(id).isSliceMetric) {
+      continue;
+    }
+    if (!subsetBases.has(id)) {
+      continue;
+    }
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 export function getMetricLink(id: string): string {
   if (isFactMetricId(id)) return `/fact-metrics/${id}`;
   return `/metric/${id}`;
