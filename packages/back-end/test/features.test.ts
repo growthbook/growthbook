@@ -1900,4 +1900,3 @@ describe("generateRuleId invariant", () => {
     }
   });
 });
-

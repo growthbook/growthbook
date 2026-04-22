@@ -192,7 +192,9 @@ export const postRampSchedule = createApiRequestHandler(
       return body.steps.map((s) => ({
         trigger: normalizeApiTrigger(s.trigger),
         actions: s.actions.map((a) =>
-          hasTarget ? injectTarget(a, targetId!, body.ruleId!) : normalizeAction(a),
+          hasTarget
+            ? injectTarget(a, targetId!, body.ruleId!)
+            : normalizeAction(a),
         ),
         approvalNotes: s.approvalNotes ?? undefined,
       }));
@@ -215,7 +217,9 @@ export const postRampSchedule = createApiRequestHandler(
   const resolvedEndActions: RampStepAction[] | undefined = (() => {
     if (body.endActions !== undefined) {
       return body.endActions.map((a) =>
-        hasTarget ? injectTarget(a, targetId!, body.ruleId!) : normalizeAction(a),
+        hasTarget
+          ? injectTarget(a, targetId!, body.ruleId!)
+          : normalizeAction(a),
       );
     }
     if (
