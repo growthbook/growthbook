@@ -122,9 +122,7 @@ export const getFeatureRevisionsV2 = createApiRequestHandler(
     req.params.id,
     req.query,
   );
-  const revisions = r.pagedRevisions.map((rev) =>
-    toApiRevisionV2(rev, req.context, r.feature),
-  );
+  const revisions = r.pagedRevisions.map((rev) => toApiRevisionV2(rev));
   return {
     revisions,
     limit: r.outLimit,

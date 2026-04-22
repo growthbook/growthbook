@@ -322,7 +322,7 @@ export const deleteFeatureRevisionRuleV2 = createApiRequestHandler(
       },
     );
 
-    return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
+    return { revision: toApiRevisionV2(finalRevision) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

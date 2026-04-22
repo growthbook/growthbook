@@ -26,6 +26,12 @@ import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fie
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
+import {
+  assertValidHoldout,
+  assertValidProjectId,
+  extractRevisionMetadata,
+  mapV2ApiRuleToFeatureRule,
+} from "./v2Shared";
 
 export const updateFeatureV2 = createApiRequestHandler(
   updateFeatureV2Validator,
@@ -76,12 +82,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
-  if (project) {
-    const projects = await req.context.getProjects();
-    if (!projects.some((p) => p.id === req.body.project)) {
-      throw new Error(`Project id ${req.body.project} is not a valid project.`);
-    }
-  }
+  await assertValidProjectId(project, req.context);
 
   const projectChanged = project !== undefined && project !== feature.project;
   const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
@@ -115,14 +116,7 @@ export const updateFeatureV2 = createApiRequestHandler(
         }))
       : null;
 
-  if (req.body.holdout !== undefined && req.body.holdout !== null) {
-    const holdoutObj = await req.context.models.holdout.getById(
-      req.body.holdout.id,
-    );
-    if (!holdoutObj) {
-      throw new Error(`Holdout id '${req.body.holdout.id}' not found.`);
-    }
-  }
+  await assertValidHoldout(req.body.holdout, req.context);
 
   const jsonSchema =
     feature.valueType === "json" && req.body.jsonSchema != null
@@ -133,48 +127,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   // If provided, convert to internal FeatureRule[] with proper scope.
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
-    inboundFlatRules = req.body.rules.map((r): FeatureRule => {
-      const { allEnvironments, environments, ...ruleInput } = r;
-      const baseRule = {
-        id: ruleInput.id ?? "",
-        description: ruleInput.description ?? "",
-        enabled: ruleInput.enabled ?? true,
-        condition: ruleInput.condition ?? "",
-        savedGroups: ruleInput.savedGroupTargeting?.map((s) => ({
-          match: s.matchType,
-          ids: s.savedGroups,
-        })),
-        scheduleRules: ruleInput.scheduleRules,
-        allEnvironments: allEnvironments ?? true,
-        environments: allEnvironments ? undefined : (environments ?? []),
-      };
-
-      if (ruleInput.type === "experiment-ref") {
-        return {
-          ...baseRule,
-          type: "experiment-ref" as const,
-          experimentId: ruleInput.experimentId,
-          variations: ruleInput.variations.map((v) => ({
-            variationId: v.variationId,
-            value: v.value,
-          })),
-        };
-      }
-      if (ruleInput.type === "rollout") {
-        return {
-          ...baseRule,
-          type: "rollout" as const,
-          value: ruleInput.value,
-          coverage: ruleInput.coverage ?? 1,
-          hashAttribute: ruleInput.hashAttribute ?? "",
-        };
-      }
-      return {
-        ...baseRule,
-        type: "force" as const,
-        value: ruleInput.value,
-      };
-    });
+    inboundFlatRules = req.body.rules.map(mapV2ApiRuleToFeatureRule);
     addIdsToFlatRules(inboundFlatRules, feature.id);
   }
 
@@ -222,7 +175,6 @@ export const updateFeatureV2 = createApiRequestHandler(
   if (inboundFlatRules != null || updates.defaultValue !== undefined) {
     updates.nextScheduledUpdate = getNextScheduledUpdate(
       inboundFlatRules ?? feature.rules,
-      orgEnvs,
     );
   }
 
@@ -232,22 +184,7 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   const newTagsForDiff = updates.tags;
 
-  // metadata changes
-  const metadataChanges: Record<string, unknown> = {};
-  const metadataFields = [
-    "owner",
-    "description",
-    "project",
-    "tags",
-    "customFields",
-    "jsonSchema",
-  ] as const;
-  for (const key of metadataFields) {
-    if (key in updates && updates[key] !== undefined) {
-      metadataChanges[key] = updates[key];
-      delete (updates as Record<string, unknown>)[key];
-    }
-  }
+  const metadataChanges = extractRevisionMetadata(updates);
 
   const newPrerequisites = updates.prerequisites ?? null;
   if (newPrerequisites !== null) {

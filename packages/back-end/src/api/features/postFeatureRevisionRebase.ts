@@ -208,12 +208,12 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
 export const postFeatureRevisionRebaseV2 = createApiRequestHandler(
   postFeatureRevisionRebaseV2Validator,
 )(async (req) => {
-  const { feature, revision } = await rebaseFeatureRevision(
+  const { revision } = await rebaseFeatureRevision(
     req.context,
     req.organization,
     req.params,
     req.body,
     req.audit,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

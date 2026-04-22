@@ -17,10 +17,7 @@ import type {
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { getLatestPhaseVariations } from "shared/experiments";
-import {
-  toApiRevision,
-  toApiRevisionV2,
-} from "back-end/src/services/features";
+import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -435,7 +432,9 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   let linkedHoldoutId: string | undefined;
   try {
     if (!isDraftStatus(revision.status)) {
-      throw new BadRequestError(`Cannot edit a revision with status "${revision.status}"`);
+      throw new BadRequestError(
+        `Cannot edit a revision with status "${revision.status}"`,
+      );
     }
 
     if (ruleInput.type === "experiment-ref") {
@@ -448,13 +447,21 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       }
       const needsHoldoutCheck = Boolean(feature.holdout?.id);
       if (anyMissing || needsHoldoutCheck) {
-        const experiment = await getExperimentById(req.context, ruleInput.experimentId);
-        if (!experiment) throw new NotFoundError(`Could not find experiment "${ruleInput.experimentId}"`);
+        const experiment = await getExperimentById(
+          req.context,
+          ruleInput.experimentId,
+        );
+        if (!experiment)
+          throw new NotFoundError(
+            `Could not find experiment "${ruleInput.experimentId}"`,
+          );
 
         if (anyMissing) {
           const phaseVariations = getLatestPhaseVariations(experiment);
           if (phaseVariations.length < ruleInput.variations.length) {
-            throw new BadRequestError(`Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`);
+            throw new BadRequestError(
+              `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
+            );
           }
           ruleInput.variations = ruleInput.variations.map((v, i) => ({
             variationId: phaseVariations[i].id,
@@ -463,16 +470,35 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         }
 
         if (needsHoldoutCheck && feature.holdout?.id) {
-          const expHasLinkedChanges = (experiment.linkedFeatures?.length ?? 0) > 0 || experiment.hasURLRedirects || experiment.hasVisualChangesets;
-          if (experiment.status !== "draft" || (experiment.holdoutId && experiment.holdoutId !== feature.holdout.id) || expHasLinkedChanges) {
-            throw new BadRequestError("Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.");
+          const expHasLinkedChanges =
+            (experiment.linkedFeatures?.length ?? 0) > 0 ||
+            experiment.hasURLRedirects ||
+            experiment.hasVisualChangesets;
+          if (
+            experiment.status !== "draft" ||
+            (experiment.holdoutId &&
+              experiment.holdoutId !== feature.holdout.id) ||
+            expHasLinkedChanges
+          ) {
+            throw new BadRequestError(
+              "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.",
+            );
           }
           if (!experiment.holdoutId) {
-            await updateExperiment({ context: req.context, experiment, changes: { holdoutId: feature.holdout.id } });
+            await updateExperiment({
+              context: req.context,
+              experiment,
+              changes: { holdoutId: feature.holdout.id },
+            });
             linkedExperimentId = experiment.id;
-            const holdout = await req.context.models.holdout.getById(feature.holdout.id);
+            const holdout = await req.context.models.holdout.getById(
+              feature.holdout.id,
+            );
             await req.context.models.holdout.updateById(feature.holdout.id, {
-              linkedExperiments: { ...holdout?.linkedExperiments, [experiment.id]: { id: experiment.id, dateAdded: new Date() } },
+              linkedExperiments: {
+                ...holdout?.linkedExperiments,
+                [experiment.id]: { id: experiment.id, dateAdded: new Date() },
+              },
             });
             linkedHoldoutId = feature.holdout.id;
           }
@@ -481,7 +507,11 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     }
 
     // V2: derive scope from the rule itself, not from a body `environment` field.
-    const { allEnvironments, environments, ...baseRuleInput } = ruleInput as RuleCreateInputV2 & { allEnvironments?: boolean; environments?: string[] };
+    const { allEnvironments, environments, ...baseRuleInput } =
+      ruleInput as RuleCreateInputV2 & {
+        allEnvironments?: boolean;
+        environments?: string[];
+      };
     const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
 
     validateRuleConditions(rule);
@@ -489,18 +519,36 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
 
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
       if (!req.context.hasPremiumFeature("safe-rollout")) {
-        req.context.throwPlanDoesNotAllowError("Safe Rollout rules require an Enterprise plan.");
+        req.context.throwPlanDoesNotAllowError(
+          "Safe Rollout rules require an Enterprise plan.",
+        );
       }
 
-      const { rampUpSchedule, ...validatableFields } = (ruleInput as typeof ruleInput & { type: "safe-rollout"; safeRolloutFields: Record<string, unknown> }).safeRolloutFields;
-      const validatedFields = await validateCreateSafeRolloutFields(validatableFields, req.context);
+      const { rampUpSchedule, ...validatableFields } = (
+        ruleInput as typeof ruleInput & {
+          type: "safe-rollout";
+          safeRolloutFields: Record<string, unknown>;
+        }
+      ).safeRolloutFields;
+      const validatedFields = await validateCreateSafeRolloutFields(
+        validatableFields,
+        req.context,
+      );
 
-      const defaultRampSteps = [{ percent: 0.1 }, { percent: 0.25 }, { percent: 0.5 }, { percent: 0.75 }, { percent: 1 }];
+      const defaultRampSteps = [
+        { percent: 0.1 },
+        { percent: 0.25 },
+        { percent: 0.5 },
+        { percent: 0.75 },
+        { percent: 1 },
+      ];
       // V2: safe-rollout requires a single-env scope (allEnvironments must be false).
       // Use environments[0] for the SafeRollout entity's `environment` field.
       const targetEnvs = allEnvironments ? undefined : (environments ?? []);
       if (!targetEnvs || targetEnvs.length !== 1) {
-        throw new BadRequestError("Safe Rollout rules must target exactly one environment (allEnvironments: false, environments: [\"<env>\"]).");
+        throw new BadRequestError(
+          'Safe Rollout rules must target exactly one environment (allEnvironments: false, environments: ["<env>"]).',
+        );
       }
       const safeRollout = await req.context.models.safeRollout.create({
         ...validatedFields,
@@ -517,7 +565,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         },
       });
 
-      if (!safeRollout) throw new InternalServerError("Failed to create safe rollout");
+      if (!safeRollout)
+        throw new InternalServerError("Failed to create safe rollout");
       createdSafeRolloutId = safeRollout.id;
       (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
     }
@@ -527,7 +576,11 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       if (schedule.startDate) rule.enabled = false;
-      resolvedRampAction = buildScheduleRampAction(rule.id, schedule.startDate, schedule.endDate);
+      resolvedRampAction = buildScheduleRampAction(
+        rule.id,
+        schedule.startDate,
+        schedule.endDate,
+      );
     }
 
     // V2: stamp scope from the rule's own allEnvironments/environments fields.
@@ -543,7 +596,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
 
     if (resolvedRampAction) {
       const existing = revision.rampActions ?? [];
-      const filtered = existing.filter((a) => a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId);
+      const filtered = existing.filter(
+        (a) =>
+          a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
+      );
       changes.rampActions = [...filtered, resolvedRampAction];
     }
 
@@ -560,7 +616,9 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       {
         user: req.context.auditUser,
         action: "add rule",
-        subject: allEnvironments ? "all environments" : `to ${(environments ?? []).join(", ")}`,
+        subject: allEnvironments
+          ? "all environments"
+          : `to ${(environments ?? []).join(", ")}`,
         value: JSON.stringify(rule),
       },
       resetReviewOnChange({
@@ -579,30 +637,53 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     });
     const finalRevision = updated ?? revision;
 
-    await recordRevisionUpdate(req.context, feature, finalRevision, "rule.add", {
-      environments: affectedEnvs,
-      auditDetails: { ruleId: rule.id, ruleType: rule.type },
-    });
+    await recordRevisionUpdate(
+      req.context,
+      feature,
+      finalRevision,
+      "rule.add",
+      {
+        environments: affectedEnvs,
+        auditDetails: { ruleId: rule.id, ruleType: rule.type },
+      },
+    );
 
-    return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
+    return { revision: toApiRevisionV2(finalRevision) };
   } catch (err) {
     if (createdSafeRolloutId) {
-      try { await req.context.models.safeRollout.deleteById(createdSafeRolloutId); } catch { /* best effort */ }
+      try {
+        await req.context.models.safeRollout.deleteById(createdSafeRolloutId);
+      } catch {
+        /* best effort */
+      }
     }
     if (linkedExperimentId) {
       try {
         const exp = await getExperimentById(req.context, linkedExperimentId);
-        if (exp) await updateExperiment({ context: req.context, experiment: exp, changes: { holdoutId: "" } });
-      } catch { /* best effort */ }
+        if (exp)
+          await updateExperiment({
+            context: req.context,
+            experiment: exp,
+            changes: { holdoutId: "" },
+          });
+      } catch {
+        /* best effort */
+      }
     }
     if (linkedHoldoutId && linkedExperimentId) {
       try {
-        const holdout = await req.context.models.holdout.getById(linkedHoldoutId);
+        const holdout =
+          await req.context.models.holdout.getById(linkedHoldoutId);
         if (holdout?.linkedExperiments?.[linkedExperimentId]) {
-          const { [linkedExperimentId]: _omit, ...rest } = holdout.linkedExperiments;
-          await req.context.models.holdout.updateById(linkedHoldoutId, { linkedExperiments: rest });
+          const { [linkedExperimentId]: _omit, ...rest } =
+            holdout.linkedExperiments;
+          await req.context.models.holdout.updateById(linkedHoldoutId, {
+            linkedExperiments: rest,
+          });
         }
-      } catch { /* best effort */ }
+      } catch {
+        /* best effort */
+      }
     }
     await discardIfJustCreated(req.context, revision, created);
     throw err;

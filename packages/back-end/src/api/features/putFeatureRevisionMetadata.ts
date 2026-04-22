@@ -177,11 +177,11 @@ export const putFeatureRevisionMetadata = createApiRequestHandler(
 export const putFeatureRevisionMetadataV2 = createApiRequestHandler(
   putFeatureRevisionMetadataV2Validator,
 )(async (req) => {
-  const { feature, revision } = await setRevisionMetadata(
+  const { revision } = await setRevisionMetadata(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

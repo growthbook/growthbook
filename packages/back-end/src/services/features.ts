@@ -1830,8 +1830,6 @@ export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
  */
 export function revisionToApiInterfaceV2(
   rev: FeatureRevisionInterface,
-  _orgEnvs: Environment[],
-  _featureProject?: string,
 ): z.infer<typeof apiFeatureRevisionV2Validator> {
   const rules: ApiFeatureRuleV2[] = Array.isArray(rev.rules)
     ? rev.rules.map(normalizeRuleForApiV2)
@@ -1875,18 +1873,14 @@ export function revisionToApiInterfaceV2(
 }
 
 /**
- * Convenience wrapper around `revisionToApiInterfaceV2`.
+ * Convenience wrapper around `revisionToApiInterfaceV2`. Kept as a thin alias
+ * to mirror the `toApiRevision` v1 helper at call sites; v2 serialization is
+ * context-free (rules carry their own env scope).
  */
 export function toApiRevisionV2(
   rev: FeatureRevisionInterface,
-  ctx: ReqContext | ApiReqContext,
-  feature?: FeatureInterface | null,
 ): z.infer<typeof apiFeatureRevisionV2Validator> {
-  return revisionToApiInterfaceV2(
-    rev,
-    ctx.org.settings?.environments ?? [],
-    feature?.project,
-  );
+  return revisionToApiInterfaceV2(rev);
 }
 
 /**
@@ -1917,7 +1911,6 @@ export function getApiFeatureObjV2({
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironmentV2> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
-  const orgEnvs = organization.settings?.environments ?? [];
 
   // Build environments map WITHOUT rules (just enabled, defaultValue, definition).
   environments.forEach((env) => {
@@ -1942,9 +1935,7 @@ export function getApiFeatureObjV2({
   );
 
   // Build v2 revision summaries.
-  const revisionDefs = revisions?.map((rev) =>
-    revisionToApiInterfaceV2(rev, orgEnvs, feature.project),
-  );
+  const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
 
   const createdBy =
     revision?.createdBy?.type === "api_key"
@@ -2178,15 +2169,12 @@ export function getApiFeatureObj({
 
 /**
  * Returns the earliest future schedule-rule timestamp across all rules on the
- * feature, or null if none are scheduled. Post-unification (Phase 3) this
- * operates on the v2 top-level `rules` array. The `environments` argument is
- * no longer consumed (schedule rules are not env-scoped at the write-layer
- * level — a single rule either has scheduleRules or doesn't) but is kept for
- * callsite stability until Phase 5a removes it from callers.
+ * feature, or null if none are scheduled. Post-unification this operates on
+ * the v2 top-level `rules` array; schedule rules live on the rule itself and
+ * aren't env-scoped at the write-layer level.
  */
 export function getNextScheduledUpdate(
   rules: FeatureRule[] | undefined,
-  _environments?: string[],
 ): Date | null {
   if (!rules || rules.length === 0) {
     return null;

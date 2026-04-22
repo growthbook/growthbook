@@ -133,6 +133,6 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
 export const postFeatureRevisionSubmitReviewV2 = createApiRequestHandler(
   postFeatureRevisionSubmitReviewV2Validator,
 )(async (req) => {
-  const { feature, revision } = await submitRevisionReview(req);
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  const { revision } = await submitRevisionReview(req);
+  return { revision: toApiRevisionV2(revision) };
 });

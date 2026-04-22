@@ -373,7 +373,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
 export const postFeatureRevisionRevertV2 = createApiRequestHandler(
   postFeatureRevisionRevertV2Validator,
 )(async (req) => {
-  const { feature, revision } = await revertFeatureRevision(
+  const { revision } = await revertFeatureRevision(
     req.context,
     req.organization,
     req.eventAudit,
@@ -381,5 +381,5 @@ export const postFeatureRevisionRevertV2 = createApiRequestHandler(
     req.body,
     req.audit,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

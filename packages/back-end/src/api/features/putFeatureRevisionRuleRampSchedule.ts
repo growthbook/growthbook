@@ -191,12 +191,12 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
 export const putFeatureRevisionRuleRampScheduleV2 = createApiRequestHandler(
   putFeatureRevisionRuleRampScheduleV2Validator,
 )(async (req) => {
-  const { feature, revision } = await setRuleRampSchedule(
+  const { revision } = await setRuleRampSchedule(
     req.context,
     req.organization,
     req.params,
     req.body,
     "v2",
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

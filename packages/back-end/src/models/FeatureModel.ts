@@ -571,10 +571,7 @@ export async function createFeature(
 ) {
   const { org } = context;
 
-  const linkedExperiments = getLinkedExperiments(
-    data,
-    getEnvironmentIdsFromOrg(org),
-  );
+  const linkedExperiments = getLinkedExperiments(data);
 
   // Route through the v2 write chokepoint so brand-new features land on
   // disk with the correct v2 shape (no stray `rules` keys on env objects).
@@ -941,10 +938,7 @@ export async function updateFeature(
   };
 
   // Refresh linkedExperiments if needed
-  const linkedExperiments = getLinkedExperiments(
-    projected,
-    getEnvironmentIdsFromOrg(context.org),
-  );
+  const linkedExperiments = getLinkedExperiments(projected);
   const experimentsAdded = new Set<string>();
   if (!isEqual(linkedExperiments, feature.linkedExperiments)) {
     allUpdates.linkedExperiments = linkedExperiments;
@@ -2117,18 +2111,14 @@ export async function createAndPublishRevision({
   return { revision, updatedFeature };
 }
 
-function getLinkedExperiments(
-  feature: FeatureInterface,
-  _environments: string[],
-) {
+function getLinkedExperiments(feature: FeatureInterface) {
   // Always start from the list of existing linked experiments.
   // Even if an experiment is removed from a feature, there should still be a
   // link — otherwise, viewing a past revision of a feature would break.
   const expIds: Set<string> = new Set(feature.linkedExperiments || []);
 
   // Add any experiment referenced by a rule on the v2 unified `feature.rules`.
-  // The second arg (environments) is unused post-unification (rules declare
-  // their own env scope) but kept for callsite stability until Phase 5a.
+  // Rules carry their own environment scope, so no environment list is needed.
   (feature.rules ?? []).forEach((rule) => {
     if (rule?.type === "experiment-ref") {
       expIds.add(rule.experimentId);

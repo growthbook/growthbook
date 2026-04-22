@@ -117,11 +117,11 @@ export const putFeatureRevisionHoldout = createApiRequestHandler(
 export const putFeatureRevisionHoldoutV2 = createApiRequestHandler(
   putFeatureRevisionHoldoutV2Validator,
 )(async (req) => {
-  const { feature, revision } = await setRevisionHoldout(
+  const { revision } = await setRevisionHoldout(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

@@ -58,11 +58,11 @@ export const getFeatureRevisionLatest = createApiRequestHandler(
 export const getFeatureRevisionLatestV2 = createApiRequestHandler(
   getFeatureRevisionLatestV2Validator,
 )(async (req) => {
-  const { feature, revision } = await loadLatestDraft(
+  const { revision } = await loadLatestDraft(
     req.context,
     req.organization.id,
     req.params.id,
     req.query.mine,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

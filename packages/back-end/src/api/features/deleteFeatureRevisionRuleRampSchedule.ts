@@ -189,11 +189,11 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler(
 export const deleteFeatureRevisionRuleRampScheduleV2 = createApiRequestHandler(
   deleteFeatureRevisionRuleRampScheduleV2Validator,
 )(async (req) => {
-  const { feature, revision } = await clearRuleRampSchedule(
+  const { revision } = await clearRuleRampSchedule(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

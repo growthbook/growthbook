@@ -110,11 +110,11 @@ export const putFeatureRevisionArchive = createApiRequestHandler(
 export const putFeatureRevisionArchiveV2 = createApiRequestHandler(
   putFeatureRevisionArchiveV2Validator,
 )(async (req) => {
-  const { feature, revision } = await archiveRevision(
+  const { revision } = await archiveRevision(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

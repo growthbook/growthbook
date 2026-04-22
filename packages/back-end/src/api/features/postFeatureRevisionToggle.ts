@@ -128,11 +128,11 @@ export const postFeatureRevisionToggle = createApiRequestHandler(
 export const postFeatureRevisionToggleV2 = createApiRequestHandler(
   postFeatureRevisionToggleV2Validator,
 )(async (req) => {
-  const { feature, revision } = await toggleRevisionEnvironment(
+  const { revision } = await toggleRevisionEnvironment(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

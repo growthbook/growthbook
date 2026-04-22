@@ -1,6 +1,6 @@
 import { validateFeatureValue } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
@@ -21,6 +21,7 @@ import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import { validateCustomFields } from "./validations";
 import { validateEnvKeys } from "./postFeature";
+import { assertValidProjectId, mapV2ApiRuleToFeatureRule } from "./v2Shared";
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
   async (req) => {
@@ -53,14 +54,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       throw new Error("Must specify a project for new features");
     }
 
-    if (req.body.project) {
-      const projects = await req.context.getProjects();
-      if (!projects.some((p) => p.id === req.body.project)) {
-        throw new Error(
-          `Project id ${req.body.project} is not a valid project.`,
-        );
-      }
-    }
+    await assertValidProjectId(req.body.project, req.context);
 
     await validateCustomFields(
       req.body.customFields,
@@ -111,49 +105,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
 
     // V2: rules come from the top-level `rules` array with scope fields.
-    const inboundRules = req.body.rules ?? [];
-    feature.rules = inboundRules.map((r): FeatureRule => {
-      const { allEnvironments, environments, ...ruleInput } = r;
-      const baseRule = {
-        id: "",
-        description: ruleInput.description ?? "",
-        enabled: ruleInput.enabled ?? true,
-        condition: ruleInput.condition ?? "",
-        savedGroups: ruleInput.savedGroupTargeting?.map((s) => ({
-          match: s.matchType,
-          ids: s.savedGroups,
-        })),
-        scheduleRules: ruleInput.scheduleRules,
-        allEnvironments: allEnvironments ?? true,
-        environments: allEnvironments ? undefined : (environments ?? []),
-      };
-
-      if (ruleInput.type === "experiment-ref") {
-        return {
-          ...baseRule,
-          type: "experiment-ref" as const,
-          experimentId: ruleInput.experimentId,
-          variations: ruleInput.variations.map((v) => ({
-            variationId: v.variationId,
-            value: v.value,
-          })),
-        };
-      }
-      if (ruleInput.type === "rollout") {
-        return {
-          ...baseRule,
-          type: "rollout" as const,
-          value: ruleInput.value,
-          coverage: ruleInput.coverage ?? 1,
-          hashAttribute: ruleInput.hashAttribute ?? "",
-        };
-      }
-      return {
-        ...baseRule,
-        type: "force" as const,
-        value: ruleInput.value,
-      };
-    });
+    feature.rules = (req.body.rules ?? []).map(mapV2ApiRuleToFeatureRule);
 
     const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
     feature.jsonSchema = jsonSchema;

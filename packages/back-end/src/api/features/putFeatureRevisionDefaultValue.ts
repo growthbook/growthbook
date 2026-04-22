@@ -113,11 +113,11 @@ export const putFeatureRevisionDefaultValue = createApiRequestHandler(
 export const putFeatureRevisionDefaultValueV2 = createApiRequestHandler(
   putFeatureRevisionDefaultValueV2Validator,
 )(async (req) => {
-  const { feature, revision } = await setRevisionDefaultValue(
+  const { revision } = await setRevisionDefaultValue(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

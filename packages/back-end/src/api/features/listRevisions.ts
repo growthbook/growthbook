@@ -176,9 +176,7 @@ export const listRevisionsV2 = createApiRequestHandler(
     req.query,
   );
   if (r.empty) return r.response;
-  const mapped = r.revisions.map((rev) =>
-    toApiRevisionV2(rev, req.context, r.singleFeature),
-  );
+  const mapped = r.revisions.map((rev) => toApiRevisionV2(rev));
   return {
     revisions: mapped,
     limit: r.outLimit,

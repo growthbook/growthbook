@@ -76,6 +76,6 @@ export const postFeatureRevision = createApiRequestHandler(
 export const postFeatureRevisionV2 = createApiRequestHandler(
   postFeatureRevisionV2Validator,
 )(async (req) => {
-  const { feature, revision } = await createFeatureDraft(req);
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  const { revision } = await createFeatureDraft(req);
+  return { revision: toApiRevisionV2(revision) };
 });

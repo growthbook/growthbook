@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { validateFeatureValue, validateScheduleRules } from "shared/util";
+import { validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -21,6 +21,10 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateCustomFields } from "./validations";
+import {
+  assertValidProjectId,
+  validateEnvRulesScheduleRules,
+} from "./v2Shared";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -70,32 +74,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     Object.keys(req.body.environments ?? {}),
   );
 
-  // Validate scheduleRules before processing environment settings
-  if (req.body.environments) {
-    Object.entries(req.body.environments).forEach(([envName, envSettings]) => {
-      if (envSettings.rules) {
-        envSettings.rules.forEach((rule, ruleIndex) => {
-          if (rule.scheduleRules) {
-            // Validate that the org has access to schedule rules
-            if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
-              throw new Error(
-                "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
-              );
-            }
-            try {
-              validateScheduleRules(rule.scheduleRules);
-            } catch (error) {
-              throw new Error(
-                `Invalid scheduleRules in environment "${envName}", rule ${
-                  ruleIndex + 1
-                }: ${error.message}`,
-              );
-            }
-          }
-        });
-      }
-    });
-  }
+  validateEnvRulesScheduleRules(req.body.environments, req.context);
 
   if (
     req.context.org.settings?.requireProjectForFeatures &&
@@ -104,13 +83,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     throw new Error("Must specify a project for new features");
   }
 
-  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
-  if (req.body.project) {
-    const projects = await req.context.getProjects();
-    if (!projects.some((p) => p.id === req.body.project)) {
-      throw new Error(`Project id ${req.body.project} is not a valid project.`);
-    }
-  }
+  await assertValidProjectId(req.body.project, req.context);
 
   await validateCustomFields(
     req.body.customFields,

@@ -118,11 +118,11 @@ export const putFeatureRevisionPrerequisites = createApiRequestHandler(
 export const putFeatureRevisionPrerequisitesV2 = createApiRequestHandler(
   putFeatureRevisionPrerequisitesV2Validator,
 )(async (req) => {
-  const { feature, revision } = await setRevisionPrerequisites(
+  const { revision } = await setRevisionPrerequisites(
     req.context,
     req.organization,
     req.params,
     req.body,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

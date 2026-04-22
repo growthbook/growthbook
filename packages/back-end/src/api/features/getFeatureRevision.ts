@@ -44,11 +44,11 @@ export const getFeatureRevision = createApiRequestHandler(
 export const getFeatureRevisionV2 = createApiRequestHandler(
   getFeatureRevisionV2Validator,
 )(async (req) => {
-  const { feature, revision } = await loadRevision(
+  const { revision } = await loadRevision(
     req.context,
     req.organization.id,
     req.params.id,
     req.params.version,
   );
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  return { revision: toApiRevisionV2(revision) };
 });

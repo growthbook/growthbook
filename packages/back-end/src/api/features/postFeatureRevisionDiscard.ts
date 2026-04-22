@@ -82,6 +82,6 @@ export const postFeatureRevisionDiscard = createApiRequestHandler(
 export const postFeatureRevisionDiscardV2 = createApiRequestHandler(
   postFeatureRevisionDiscardV2Validator,
 )(async (req) => {
-  const { feature, revision } = await discardFeatureRevision(req);
-  return { revision: toApiRevisionV2(revision, req.context, feature) };
+  const { revision } = await discardFeatureRevision(req);
+  return { revision: toApiRevisionV2(revision) };
 });

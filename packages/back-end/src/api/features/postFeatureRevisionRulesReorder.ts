@@ -219,7 +219,7 @@ export const postFeatureRevisionRulesReorderV2 = createApiRequestHandler(
     const isNoop = flatRules.every((r, i) => r.id === reordered[i].id);
     if (isNoop) {
       await discardIfJustCreated(req.context, revision, created);
-      return { revision: toApiRevisionV2(revision, req.context, feature) };
+      return { revision: toApiRevisionV2(revision) };
     }
 
     // Collect affected envs for review reset.
@@ -263,7 +263,7 @@ export const postFeatureRevisionRulesReorderV2 = createApiRequestHandler(
       },
     );
 
-    return { revision: toApiRevisionV2(finalRevision, req.context, feature) };
+    return { revision: toApiRevisionV2(finalRevision) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;
