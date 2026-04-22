@@ -29,7 +29,7 @@ export type Props = TrackingEventModalProps & {
   open: boolean;
   header: string;
   headerAction?: ReactNode;
-  subheader?: string | ReactNode;
+  subheader?: string;
   cta?: string;
   ctaColor?: "red" | "violet";
   ctaEnabled?: boolean;

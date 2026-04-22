@@ -1,5 +1,6 @@
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useState } from "react";
+import { PiArrowLeft } from "react-icons/pi";
 import DialogForm, { useDialogForm } from "@/components/Dialog/DialogForm";
 import Stepper from "@/components/Stepper/Stepper";
 import Dialog, { Size } from "./Dialog";
@@ -59,7 +60,11 @@ export default function DialogStories() {
           </Flex>
         </Dialog.Body>
         <Dialog.Footer justify="between">
-          <Button variant="outline" onClick={() => setWizardOpen(false)}>
+          <Button
+            icon={<PiArrowLeft />}
+            variant="ghost"
+            onClick={() => setWizardOpen(false)}
+          >
             Back
           </Button>
           <Flex gap="3">
