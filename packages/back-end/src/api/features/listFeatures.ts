@@ -16,6 +16,7 @@ import {
   getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import {
   applyPagination,
@@ -227,20 +228,24 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     );
     if (r.empty) return r.response;
     return {
-      features: r.filtered.map((feature) => {
-        const revision =
-          r.revisions?.find(
-            (x) => x.featureId === feature.id && x.version === feature.version,
-          ) || null;
-        return getApiFeatureObj({
-          feature,
-          organization: req.organization,
-          groupMap: r.groupMap,
-          experimentMap: r.experimentMap,
-          revision,
-          safeRolloutMap: r.safeRolloutMap,
-        });
-      }),
+      features: await resolveOwnerEmails(
+        r.filtered.map((feature) => {
+          const revision =
+            r.revisions?.find(
+              (x) =>
+                x.featureId === feature.id && x.version === feature.version,
+            ) || null;
+          return getApiFeatureObj({
+            feature,
+            organization: req.organization,
+            groupMap: r.groupMap,
+            experimentMap: r.experimentMap,
+            revision,
+            safeRolloutMap: r.safeRolloutMap,
+          });
+        }),
+        req.context,
+      ),
       limit: r.outLimit,
       offset: r.outOffset,
       count: r.filtered.length,
@@ -260,20 +265,24 @@ export const listFeaturesV2 = createApiRequestHandler(listFeaturesV2Validator)(
     );
     if (r.empty) return r.response;
     return {
-      features: r.filtered.map((feature) => {
-        const revision =
-          r.revisions?.find(
-            (x) => x.featureId === feature.id && x.version === feature.version,
-          ) || null;
-        return getApiFeatureObjV2({
-          feature,
-          organization: req.organization,
-          groupMap: r.groupMap,
-          experimentMap: r.experimentMap,
-          revision,
-          safeRolloutMap: r.safeRolloutMap,
-        });
-      }),
+      features: await resolveOwnerEmails(
+        r.filtered.map((feature) => {
+          const revision =
+            r.revisions?.find(
+              (x) =>
+                x.featureId === feature.id && x.version === feature.version,
+            ) || null;
+          return getApiFeatureObjV2({
+            feature,
+            organization: req.organization,
+            groupMap: r.groupMap,
+            experimentMap: r.experimentMap,
+            revision,
+            safeRolloutMap: r.safeRolloutMap,
+          });
+        }),
+        req.context,
+      ),
       limit: r.outLimit,
       offset: r.outOffset,
       count: r.filtered.length,

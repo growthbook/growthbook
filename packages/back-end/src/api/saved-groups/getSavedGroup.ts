@@ -1,4 +1,5 @@
 import { getSavedGroupValidator } from "shared/validators";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
@@ -11,7 +12,10 @@ export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
     }
 
     return {
-      savedGroup: req.context.models.savedGroups.toApiInterface(savedGroup),
+      savedGroup: await resolveOwnerEmail(
+        req.context.models.savedGroups.toApiInterface(savedGroup),
+        req.context,
+      ),
     };
   },
 );

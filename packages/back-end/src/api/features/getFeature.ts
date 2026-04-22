@@ -11,6 +11,7 @@ import {
   getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 // Shared core. Returns everything both v1 and v2 serializers need; callers only
@@ -71,10 +72,13 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
     req.query.withRevisions,
   );
   return {
-    feature: getApiFeatureObj({
-      ...data,
-      organization: req.organization,
-    }),
+    feature: await resolveOwnerEmail(
+      getApiFeatureObj({
+        ...data,
+        organization: req.organization,
+      }),
+      req.context,
+    ),
   };
 });
 
@@ -86,10 +90,13 @@ export const getFeatureV2 = createApiRequestHandler(getFeatureV2Validator)(
       req.query.withRevisions,
     );
     return {
-      feature: getApiFeatureObjV2({
-        ...data,
-        organization: req.organization,
-      }),
+      feature: await resolveOwnerEmail(
+        getApiFeatureObjV2({
+          ...data,
+          organization: req.organization,
+        }),
+        req.context,
+      ),
     };
   },
 );

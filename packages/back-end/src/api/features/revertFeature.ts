@@ -26,6 +26,7 @@ import {
   getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -275,7 +276,9 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       req.body,
       req.audit,
     );
-    return { feature: getApiFeatureObj(data) };
+    return {
+      feature: await resolveOwnerEmail(getApiFeatureObj(data), req.context),
+    };
   },
 );
 
@@ -290,5 +293,7 @@ export const revertFeatureV2 = createApiRequestHandler(
     req.body,
     req.audit,
   );
-  return { feature: getApiFeatureObjV2(data) };
+  return {
+    feature: await resolveOwnerEmail(getApiFeatureObjV2(data), req.context),
+  };
 });

@@ -2,7 +2,10 @@ import { validateFeatureValue } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmail,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -149,14 +152,17 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     });
 
     return {
-      feature: getApiFeatureObjV2({
-        feature,
-        organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision,
-        safeRolloutMap,
-      }),
+      feature: await resolveOwnerEmail(
+        getApiFeatureObjV2({
+          feature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision,
+          safeRolloutMap,
+        }),
+        req.context,
+      ),
     };
   },
 );
