@@ -5718,6 +5718,7 @@ export default abstract class SqlIntegration
     columns,
     limit = 50,
     lookbackDays = 14,
+    maxValueLength,
   }: ColumnTopValuesParams) {
     if (columns.length === 0) {
       throw new Error("At least one column is required");
@@ -5745,7 +5746,7 @@ WITH
     })}
   ),
   __topValues AS (
-    ${this.getTopValuesCTEBody({ columns, start, limit })}
+    ${this.getTopValuesCTEBody({ columns, start, limit, maxValueLength })}
   )
 SELECT * FROM __topValues
 ORDER BY column_name, count DESC
@@ -5754,9 +5755,20 @@ ORDER BY column_name, count DESC
     );
   }
 
+  // SQL function that returns the length of a string. Overridden by dialects
+  // that prefer a different function (e.g. ClickHouse uses lowercase
+  // `length`, which measures bytes — stricter and adequate for the
+  // document-size guard).
+  protected stringLengthFn(col: string): string {
+    return `LENGTH(${col})`;
+  }
+
   // Naive approach: one subquery per column UNION ALL'd together. Each
   // subquery re-scans __factTable, so this is only suitable for dialects
-  // where we haven't implemented a single-scan unpivot.
+  // where we haven't implemented a single-scan unpivot. The maxValueLength
+  // filter is not applied here — non-efficient datasources currently only
+  // fetch explicitly-opted-in columns, and the caller filters over-length
+  // values in TS as a safety net.
   protected getTopValuesCTEBody({
     columns,
     start,
@@ -5765,6 +5777,7 @@ ORDER BY column_name, count DESC
     columns: ColumnInterface[];
     start: Date;
     limit: number;
+    maxValueLength?: number;
   }): string {
     const columnQueries = columns.map((column, i) => {
       return `

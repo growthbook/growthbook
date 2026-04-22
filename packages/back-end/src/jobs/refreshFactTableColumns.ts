@@ -152,12 +152,14 @@ export async function runColumnsTopValuesQuery(
       context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS,
     ),
+    maxValueLength: MAX_TOP_VALUE_LENGTH,
   });
   const result = await integration.runColumnsTopValuesQuery(sql);
 
-  // Group results by column name, dropping values over the max length to keep
-  // the stored fact-table document well under Mongo's 16MB per-doc limit.
-  // TODO: push this length filter into SQL in the future.
+  // Group results by column name. Integrations that support efficient
+  // top-values queries drop over-length values in SQL; for the others we
+  // filter here as a safety net to keep the stored fact-table document well
+  // under Mongo's 16MB per-doc limit.
   const columnValues: Record<string, string[]> = {};
   for (const row of result.rows) {
     if (row.value.length > MAX_TOP_VALUE_LENGTH) continue;

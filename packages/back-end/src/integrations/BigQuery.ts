@@ -181,10 +181,12 @@ export default class BigQuery extends SqlIntegration {
     columns,
     start,
     limit,
+    maxValueLength,
   }: {
     columns: ColumnInterface[];
     start: Date;
     limit: number;
+    maxValueLength?: number;
   }): string {
     // Unpivot via UNNEST over an array of STRUCTs, so the fact table is
     // scanned once regardless of how many columns we're sampling.
@@ -196,6 +198,10 @@ export default class BigQuery extends SqlIntegration {
           )} AS value)`,
       )
       .join(",\n        ");
+    const lengthFilter =
+      maxValueLength !== undefined
+        ? `AND ${this.stringLengthFn("col.value")} <= ${maxValueLength}`
+        : "";
     const aggQuery = `
       SELECT col.column_name, col.value, COUNT(*) AS count
       FROM __factTable
@@ -204,6 +210,7 @@ export default class BigQuery extends SqlIntegration {
       ]) AS col
       WHERE timestamp >= ${this.toTimestamp(start)}
         AND col.value IS NOT NULL
+        ${lengthFilter}
       GROUP BY col.column_name, col.value`;
     return this.wrapWithTopNPerColumn(aggQuery, limit);
   }

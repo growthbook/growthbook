@@ -59,10 +59,12 @@ export default class Snowflake extends SqlIntegration {
     columns,
     start,
     limit,
+    maxValueLength,
   }: {
     columns: ColumnInterface[];
     start: Date;
     limit: number;
+    maxValueLength?: number;
   }): string {
     // Unpivot via LATERAL FLATTEN over an array of OBJECTs so the fact table
     // is scanned once regardless of how many columns we're sampling.
@@ -74,6 +76,10 @@ export default class Snowflake extends SqlIntegration {
           )})`,
       )
       .join(",\n        ");
+    const lengthFilter =
+      maxValueLength !== undefined
+        ? `AND ${this.stringLengthFn("__col.value:value::VARCHAR")} <= ${maxValueLength}`
+        : "";
     const aggQuery = `
       SELECT
         __col.value:column_name::VARCHAR AS column_name,
@@ -85,6 +91,7 @@ export default class Snowflake extends SqlIntegration {
       )) __col
       WHERE timestamp >= ${this.toTimestamp(start)}
         AND __col.value:value::VARCHAR IS NOT NULL
+        ${lengthFilter}
       GROUP BY column_name, value`;
     return this.wrapWithTopNPerColumn(aggQuery, limit);
   }

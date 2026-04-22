@@ -239,16 +239,22 @@ export default class Presto extends SqlIntegration {
     columns,
     start,
     limit,
+    maxValueLength,
   }: {
     columns: ColumnInterface[];
     start: Date;
     limit: number;
+    maxValueLength?: number;
   }): string {
     // Unpivot via CROSS JOIN UNNEST over an array of ROWs, so the fact
     // table is scanned once regardless of how many columns we're sampling.
     const rows = columns
       .map((c) => `ROW('${c.column}', ${this.castToString(c.column)})`)
       .join(",\n        ");
+    const lengthFilter =
+      maxValueLength !== undefined
+        ? `AND ${this.stringLengthFn("__col.value")} <= ${maxValueLength}`
+        : "";
     const aggQuery = `
       SELECT __col.column_name, __col.value, COUNT(*) AS count
       FROM __factTable
@@ -257,6 +263,7 @@ export default class Presto extends SqlIntegration {
       ]) AS __col(column_name, value)
       WHERE timestamp >= ${this.toTimestamp(start)}
         AND __col.value IS NOT NULL
+        ${lengthFilter}
       GROUP BY __col.column_name, __col.value`;
     return this.wrapWithTopNPerColumn(aggQuery, limit);
   }

@@ -66,10 +66,12 @@ export default class Databricks extends SqlIntegration {
     columns,
     start,
     limit,
+    maxValueLength,
   }: {
     columns: ColumnInterface[];
     start: Date;
     limit: number;
+    maxValueLength?: number;
   }): string {
     // Unpivot via LATERAL VIEW STACK so the fact table is scanned once
     // regardless of how many columns we're sampling. STACK(N, ...) splits
@@ -77,6 +79,10 @@ export default class Databricks extends SqlIntegration {
     const pairs = columns
       .map((c) => `'${c.column}', ${this.castToString(c.column)}`)
       .join(",\n        ");
+    const lengthFilter =
+      maxValueLength !== undefined
+        ? `AND ${this.stringLengthFn("value")} <= ${maxValueLength}`
+        : "";
     const aggQuery = `
       SELECT column_name, value, COUNT(*) AS count
       FROM __factTable
@@ -85,6 +91,7 @@ export default class Databricks extends SqlIntegration {
       ) __col AS column_name, value
       WHERE timestamp >= ${this.toTimestamp(start)}
         AND value IS NOT NULL
+        ${lengthFilter}
       GROUP BY column_name, value`;
     return this.wrapWithTopNPerColumn(aggQuery, limit);
   }

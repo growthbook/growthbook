@@ -107,20 +107,31 @@ export default class ClickHouse extends SqlIntegration {
   public supportsEfficientTopValues(): boolean {
     return true;
   }
+  // ClickHouse's LENGTH returns bytes (not characters); that's stricter
+  // than JS .length but fine for the document-size guard.
+  protected stringLengthFn(col: string): string {
+    return `length(${col})`;
+  }
   protected getTopValuesCTEBody({
     columns,
     start,
     limit,
+    maxValueLength,
   }: {
     columns: ColumnInterface[];
     start: Date;
     limit: number;
+    maxValueLength?: number;
   }): string {
     // ARRAY JOIN with two parallel arrays zips them element-wise, so the
     // fact table is scanned once and we get one output row per (input row,
     // column) pair.
     const namesArr = columns.map((c) => `'${c.column}'`).join(", ");
     const valsArr = columns.map((c) => this.castToString(c.column)).join(", ");
+    const lengthFilter =
+      maxValueLength !== undefined
+        ? `AND ${this.stringLengthFn("value")} <= ${maxValueLength}`
+        : "";
     const aggQuery = `
       SELECT column_name, value, COUNT(*) AS count
       FROM __factTable
@@ -129,6 +140,7 @@ export default class ClickHouse extends SqlIntegration {
         [${valsArr}] AS value
       WHERE timestamp >= ${this.toTimestamp(start)}
         AND value IS NOT NULL
+        ${lengthFilter}
       GROUP BY column_name, value`;
     return this.wrapWithTopNPerColumn(aggQuery, limit);
   }
