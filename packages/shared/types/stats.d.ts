@@ -175,7 +175,9 @@ export interface AnalysisSettingsForStatsEngine {
   max_dimensions: number;
   traffic_percentage: number;
   num_goal_metrics: number;
+  num_guardrail_metrics: number;
   one_sided_intervals?: boolean;
+  use_covariate_as_response?: boolean;
   post_stratification_enabled?: boolean;
 }
 

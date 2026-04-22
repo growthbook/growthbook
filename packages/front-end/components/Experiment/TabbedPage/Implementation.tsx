@@ -8,9 +8,11 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
@@ -24,6 +26,7 @@ import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Checkbox from "@/ui/Checkbox";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -66,6 +69,7 @@ export default function Implementation({
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
   const phases = experiment.phases || [];
+  const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -99,6 +103,23 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const canEditHoldoutDefaultState =
+    isHoldout &&
+    !!holdout &&
+    !experiment.archived &&
+    experiment.status !== "stopped" &&
+    permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
+
+  async function setHoldoutDefaultState(isDefault: boolean) {
+    if (!holdout) return;
+    await apiCall(`/holdout/${holdout.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        skipAsDefaultHoldout: !isDefault,
+      }),
+    });
+    await mutate();
+  }
 
   return (
     <>
@@ -233,6 +254,17 @@ export default function Implementation({
                 )}
               </>
             )}
+            <Flex align="center" justify="between" mt="3">
+              <Checkbox
+                value={!holdout.skipAsDefaultHoldout}
+                disabled={!canEditHoldoutDefaultState}
+                setValue={(isDefault) => {
+                  void setHoldoutDefaultState(isDefault);
+                }}
+                label="Use this holdout as a default for new experiments or features."
+                weight="regular"
+              />
+            </Flex>
           </div>
         ) : null}
         {experiment.status !== "draft" && !hasLinkedChanges && !isHoldout ? (

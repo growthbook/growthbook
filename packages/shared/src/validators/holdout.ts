@@ -29,6 +29,7 @@ export const holdoutValidator = z
     dateUpdated: z.date(),
     projects: z.array(z.string()),
     name: z.string(),
+    skipAsDefaultHoldout: z.boolean().optional(),
     experimentId: z.string(),
     linkedExperiments: z.record(z.string(), holdoutLinkedItemValidator),
     linkedFeatures: z.record(z.string(), holdoutLinkedItemValidator),
