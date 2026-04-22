@@ -10,6 +10,7 @@ import {
 } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 
@@ -49,9 +50,12 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
     );
     const enhancedStatus = { status, detailedStatus };
 
-    const apiExperiment = await toExperimentApiInterface(
+    const apiExperiment = await resolveOwnerEmail(
+      await toExperimentApiInterface(
+        req.context,
+        experiment as ExperimentInterfaceExcludingHoldouts,
+      ),
       req.context,
-      experiment as ExperimentInterfaceExcludingHoldouts,
     );
     return {
       experiment: { ...apiExperiment, enhancedStatus },
