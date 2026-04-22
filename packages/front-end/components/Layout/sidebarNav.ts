@@ -1,4 +1,5 @@
 import { BsFlag, BsCodeSlash, BsHouse } from "react-icons/bs";
+import { FaEye } from "react-icons/fa";
 import {
   GBDatabase,
   GBExperiment,
@@ -16,6 +17,12 @@ export const navlinks: SidebarLinkProps[] = [
     Icon: BsHouse,
     path: /^$/,
     className: styles.first,
+  },
+  {
+    name: "Watching",
+    href: "/watching",
+    Icon: FaEye,
+    path: /^watching$/,
   },
   {
     name: "Features",
