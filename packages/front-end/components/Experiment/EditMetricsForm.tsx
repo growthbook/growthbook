@@ -24,7 +24,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import Dialog from "@/ui/Dialog";
+import FormDialog from "@/components/Dialog/FormDialog";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -186,7 +186,7 @@ const EditMetricsForm: FC<{
   }
 
   return (
-    <Dialog
+    <FormDialog
       trackingEventModalType="edit-metrics-form"
       trackingEventModalSource={source}
       header="Edit Metrics"
@@ -325,7 +325,7 @@ const EditMetricsForm: FC<{
           </Collapsible>
         </>
       ) : null}
-    </Dialog>
+    </FormDialog>
   );
 };
 

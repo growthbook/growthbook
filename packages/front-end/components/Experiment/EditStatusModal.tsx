@@ -12,7 +12,7 @@ import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import Dialog from "@/ui/Dialog";
+import FormDialog from "@/components/Dialog/FormDialog";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -73,7 +73,7 @@ export default function EditStatusModal({
     },
   ];
   return (
-    <Dialog
+    <FormDialog
       trackingEventModalType="edit-status-modal"
       trackingEventModalSource={source}
       header={
@@ -166,6 +166,6 @@ export default function EditStatusModal({
             />
           </>
         )}
-    </Dialog>
+    </FormDialog>
   );
 }

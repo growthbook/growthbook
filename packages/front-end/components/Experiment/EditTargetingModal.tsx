@@ -38,7 +38,7 @@ import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
-import Dialog from "@/ui/Dialog";
+import FormDialog from "@/components/Dialog/FormDialog";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -196,7 +196,7 @@ export default function EditTargetingModal({
 
   if (safeToEdit) {
     return (
-      <Dialog
+      <FormDialog
         trackingEventModalType=""
         open={true}
         close={close}
@@ -212,7 +212,7 @@ export default function EditTargetingModal({
           conditionKey={conditionKey}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
-      </Dialog>
+      </FormDialog>
     );
   }
 

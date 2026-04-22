@@ -3,7 +3,7 @@ import { ExposureQuery } from "shared/types/datasource";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
-import Dialog from "@/ui/Dialog";
+import FormDialog from "@/components/Dialog/FormDialog";
 import Text from "@/ui/Text";
 import {
   CustomDimensionMetadata,
@@ -63,7 +63,7 @@ export const UpdateDimensionMetadataModal: FC<
 
   return (
     <>
-      <Dialog
+      <FormDialog
         trackingEventModalType=""
         open={true}
         close={close}
@@ -95,7 +95,7 @@ export const UpdateDimensionMetadataModal: FC<
             setDimensionSlicesId={setDimensionSlicesId}
           />
         </Flex>
-      </Dialog>
+      </FormDialog>
     </>
   );
 };

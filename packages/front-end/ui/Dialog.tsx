@@ -6,35 +6,21 @@ import {
   Separator,
 } from "@radix-ui/themes";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
-import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  CSSProperties,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { v4 as uuidv4 } from "uuid";
-import { truncateString } from "shared/util";
 import track, { TrackEventProps } from "@/services/track";
-import Button, { Color } from "./Button";
 import ErrorDisplay from "./ErrorDisplay";
 import Text from "./Text";
-
-export type Props = {
-  open: boolean;
-  header: string;
-  headerAction?: ReactNode;
-  subheader?: string | ReactNode;
-  cta?: string;
-  ctaColor?: Color;
-  ctaEnabled?: boolean;
-  size?: Size;
-  submit?: () => void | Promise<void>;
-  close: () => void;
-  children: ReactNode;
-  // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
-  trackingEventModalType: string;
-  // The source (likely page or component) causing the modal to be shown
-  trackingEventModalSource?: string;
-  // Currently the allowlist for what event props are valid is controlled outside of the codebase.
-  // Make sure you've checked that any props you pass here are in the list!
-  allowlistedTrackingEventProps?: TrackEventProps;
-  trackOnSubmit?: boolean;
-};
 
 export type Size = "md" | "lg";
 
@@ -56,26 +42,78 @@ function getMaxWidth(size: Size) {
   }
 }
 
-export default function Dialog({
+// ---------------------------------------------------------------------------
+// Context shared between primitives.
+//
+// Dialog.Root owns error + tracking state and exposes it here so that
+// Dialog.Body can render an error automatically, and the DialogForm wrapper
+// (in components/Dialog) can report submit outcomes without the consumer
+// wiring anything up.
+// ---------------------------------------------------------------------------
+
+type DialogContextValue = {
+  size: Size;
+  error: string | null;
+  setError: (error: string | null) => void;
+  scrollBodyToTop: () => void;
+  bodyRef: React.RefObject<HTMLDivElement>;
+  sendTrackingEvent: (
+    eventName: string,
+    additionalProps?: Record<string, unknown>,
+  ) => void;
+};
+
+const DialogContext = createContext<DialogContextValue | null>(null);
+
+export function useDialogContext(): DialogContextValue {
+  const ctx = useContext(DialogContext);
+  if (!ctx) {
+    throw new Error("Dialog primitives must be rendered inside <Dialog.Root>.");
+  }
+  return ctx;
+}
+
+// ---------------------------------------------------------------------------
+// Root
+// ---------------------------------------------------------------------------
+
+export type TrackingEventModalProps = {
+  // An empty string disables tracking, but the prop is still required to
+  // encourage developers to add it.
+  trackingEventModalType: string;
+  // The source (likely page or component) causing the modal to be shown
+  trackingEventModalSource?: string;
+  // The allowlist for valid tracking props is managed outside of this repo.
+  // Make sure anything passed here is on that list.
+  allowlistedTrackingEventProps?: TrackEventProps;
+};
+type RootProps = TrackingEventModalProps & {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  size?: Size;
+  children: ReactNode;
+};
+
+function Root({
   open,
-  header,
-  headerAction,
-  subheader,
-  cta = "Save",
-  ctaColor = "violet",
-  ctaEnabled = true,
+  onOpenChange,
   size = "md",
-  submit,
-  close,
-  children,
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
-  trackOnSubmit = true,
-}: Props) {
+  children,
+}: RootProps) {
   const [modalUuid] = useState(uuidv4());
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const scrollBodyToTop = useCallback(() => {
+    setTimeout(() => {
+      if (bodyRef.current) {
+        bodyRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 50);
+  }, []);
 
   const sendTrackingEvent = useCallback(
     (eventName: string, additionalProps?: Record<string, unknown>) => {
@@ -98,15 +136,6 @@ export default function Dialog({
     ],
   );
 
-  const bodyRef = useRef<HTMLDivElement>(null);
-
-  const scrollToTop = () => {
-    setTimeout(() => {
-      if (bodyRef.current) {
-        bodyRef.current.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    }, 50);
-  };
   useEffect(() => {
     if (open) {
       sendTrackingEvent("modal-open");
@@ -114,98 +143,27 @@ export default function Dialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    if (!submit) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (loading) return;
-    setError(null);
-    setLoading(true);
-    try {
-      await submit();
-
-      setLoading(false);
-      close();
-
-      if (trackOnSubmit) {
-        sendTrackingEvent("modal-submit-success");
-      }
-    } catch (e) {
-      setError(e.message);
-      scrollToTop();
-      setLoading(false);
-      if (trackOnSubmit) {
-        sendTrackingEvent("modal-submit-error", {
-          error: truncateString(e.message, 32),
-        });
-      }
-    }
-  };
-
-  const handleClose = () => {
-    setError(null);
-    close();
-  };
-
-  const innerContent = (
-    <>
-      <Box py="2" flexShrink="0">
-        <Flex justify="between" align="center" mb="1">
-          <RadixDialog.Title size="5" mb="0">
-            {header}
-          </RadixDialog.Title>
-          {headerAction && <Box>{headerAction}</Box>}
-        </Flex>
-        {subheader && (
-          <RadixDialog.Description size="2" mb="0">
-            <Text color="text-mid" size="large">
-              {subheader}
-            </Text>
-          </RadixDialog.Description>
-        )}
-      </Box>
-      <Box
-        ref={bodyRef}
-        mt="4"
-        mb="3"
-        mx="-7"
-        pl="7"
-        pr="5"
-        flexGrow="1"
-        overflowY="auto"
-        overflowX="hidden"
-        style={{ scrollbarGutter: "stable" }}
-      >
-        {error && <ErrorDisplay error={error} mb="5" />}
-        {children}
-      </Box>
-      <Box flexShrink="0">
-        <Inset side="x">
-          <Separator size="4" my="5" />
-        </Inset>
-        <Flex gap="3" justify="end">
-          <RadixDialog.Close>
-            <Button variant="ghost" onClick={handleClose}>
-              Cancel
-            </Button>
-          </RadixDialog.Close>
-          {submit && (
-            <Button
-              type="submit"
-              disabled={!ctaEnabled}
-              color={ctaColor}
-              loading={loading}
-            >
-              {cta}
-            </Button>
-          )}
-        </Flex>
-      </Box>
-    </>
+  const ctx = useMemo<DialogContextValue>(
+    () => ({
+      size,
+      error,
+      setError,
+      scrollBodyToTop,
+      bodyRef,
+      sendTrackingEvent,
+    }),
+    [size, error, scrollBodyToTop, sendTrackingEvent],
   );
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setError(null);
+    }
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <RadixDialog.Root open={open} onOpenChange={handleClose}>
+    <RadixDialog.Root open={open} onOpenChange={handleOpenChange}>
       <RadixDialog.Content
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
@@ -221,23 +179,124 @@ export default function Dialog({
             paddingBottom: "24px",
             "--inset-padding-left": "40px",
             "--inset-padding-right": "40px",
-          } as React.CSSProperties
+          } as CSSProperties
         }
       >
-        <Flex
-          direction="column"
-          flexGrow="1"
-          minHeight="0"
-          minWidth="0"
-          {...(submit ? { asChild: true } : {})}
-        >
-          {submit ? (
-            <form onSubmit={handleSubmit}>{innerContent}</form>
-          ) : (
-            innerContent
-          )}
-        </Flex>
+        <DialogContext.Provider value={ctx}>{children}</DialogContext.Provider>
       </RadixDialog.Content>
     </RadixDialog.Root>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Header layout primitive.
+//
+// Renders a fixed-height row at the top of the dialog. Children are laid out
+// in a space-between flex row so the common pattern of
+// <Title /> <SomeAction /> just works — no HeaderAction prop required.
+// ---------------------------------------------------------------------------
+
+function Header({ children }: { children: ReactNode }) {
+  return (
+    <Flex py="2" flexShrink="0" justify="between" align="center" gap="3" mb="1">
+      {children}
+    </Flex>
+  );
+}
+
+function Title({ children }: { children: ReactNode }) {
+  return (
+    <RadixDialog.Title size="5" mb="0">
+      {children}
+    </RadixDialog.Title>
+  );
+}
+
+function Description({ children }: { children: ReactNode | string }) {
+  return (
+    <Box flexShrink="0">
+      <RadixDialog.Description size="2" mb="0">
+        <Text color="text-mid" size="large">
+          {children}
+        </Text>
+      </RadixDialog.Description>
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Body — the scrollable content area.
+//
+// Auto-renders an ErrorDisplay when setError has been called on the context,
+// so DialogForm consumers get error handling for free.
+// ---------------------------------------------------------------------------
+
+function Body({ children }: { children: ReactNode }) {
+  const { bodyRef, error } = useDialogContext();
+  return (
+    <Box
+      ref={bodyRef}
+      mt="4"
+      mb="3"
+      mx="-7"
+      px="7"
+      flexGrow="1"
+      overflowY="auto"
+      overflowX="hidden"
+    >
+      {error && <ErrorDisplay error={error} mb="5" />}
+      {children}
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Footer — fixed area at the bottom of the dialog, preceded by a separator.
+//
+// Consumers render whatever buttons they need as children.
+// ---------------------------------------------------------------------------
+
+function Footer({
+  children,
+  justify = "end",
+}: {
+  children: ReactNode;
+  justify?: "start" | "center" | "end" | "between";
+}) {
+  return (
+    <Box flexShrink="0">
+      <Inset side="x">
+        <Separator size="4" my="5" />
+      </Inset>
+      <Flex gap="3" justify={justify}>
+        {children}
+      </Flex>
+    </Box>
+  );
+}
+
+// Re-export the Radix Close so consumers can do
+// <Dialog.Close asChild><Button .../></Dialog.Close>, or bind to their own
+// close handler.
+const Close = RadixDialog.Close;
+
+// ---------------------------------------------------------------------------
+// Namespace export.
+//
+// Consumers use <Dialog.Root>, <Dialog.Header>, <Dialog.Title>, etc. — see
+// components/Dialog/FormDialog for a reference composition, and the Base UI /
+// Radix Themes Dialog docs for the design intent. Form semantics live in
+// components/Dialog/DialogForm; import <DialogForm> from there directly.
+// ---------------------------------------------------------------------------
+
+const Dialog = {
+  Root,
+  Header,
+  Title,
+  Description,
+  Body,
+  Footer,
+  Close,
+};
+
+export default Dialog;

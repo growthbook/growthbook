@@ -1,0 +1,98 @@
+import { ReactNode } from "react";
+import Button from "@/ui/Button";
+import Dialog, { Size, TrackingEventModalProps } from "@/ui/Dialog";
+import DialogForm, { useDialogForm } from "./DialogForm";
+
+export type Props = TrackingEventModalProps & {
+  open: boolean;
+  header: string;
+  headerAction?: ReactNode;
+  subheader?: string | ReactNode;
+  cta?: string;
+  ctaColor?: "red" | "violet";
+  ctaEnabled?: boolean;
+  size?: Size;
+  submit?: () => void | Promise<void>;
+  trackOnSubmit?: boolean;
+  close: () => void;
+  children: ReactNode;
+};
+
+// FormDialog is the opinionated wrapper around the composable Dialog
+// primitives: header + scrollable body + Cancel / Save footer, optionally
+// wired to a form submit. New dialogs with one-off layouts should compose
+// <Dialog.Root> primitives directly instead of reaching for more props here.
+export default function FormDialog({
+  open,
+  header,
+  headerAction,
+  subheader,
+  cta = "Save",
+  ctaColor = "violet",
+  ctaEnabled = true,
+  size = "md",
+  submit,
+  close,
+  children,
+  trackingEventModalType,
+  trackingEventModalSource,
+  allowlistedTrackingEventProps = {},
+  trackOnSubmit = true,
+}: Props) {
+  const { loading } = useDialogForm();
+
+  const content = (
+    <>
+      <Dialog.Header>
+        <Dialog.Title>{header}</Dialog.Title>
+        {headerAction ? <div>{headerAction}</div> : null}
+      </Dialog.Header>
+      {subheader && <Dialog.Description>{subheader}</Dialog.Description>}
+      <Dialog.Body>{children}</Dialog.Body>
+      <Dialog.Footer>
+        <Dialog.Close>
+          <Button variant="ghost" onClick={close}>
+            Cancel
+          </Button>
+        </Dialog.Close>
+        {submit && (
+          <Button
+            type="submit"
+            disabled={!ctaEnabled}
+            color={ctaColor}
+            loading={loading}
+          >
+            {cta}
+          </Button>
+        )}
+      </Dialog.Footer>
+    </>
+  );
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) close();
+      }}
+      size={size}
+      trackingEventModalType={trackingEventModalType}
+      trackingEventModalSource={trackingEventModalSource}
+      allowlistedTrackingEventProps={allowlistedTrackingEventProps}
+    >
+      {submit ? (
+        <DialogForm
+          onSubmit={async () => {
+            await submit();
+            close();
+          }}
+          trackOnSubmit={trackOnSubmit}
+        >
+          {content}
+        </DialogForm>
+      ) : (
+        content
+      )}
+    </Dialog.Root>
+  );
+}

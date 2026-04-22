@@ -3,7 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
-import Dialog from "@/ui/Dialog";
+import FormDialog from "@/components/Dialog/FormDialog";
 import Text from "@/ui/Text";
 
 const AddToHoldoutModal = ({
@@ -31,7 +31,7 @@ const AddToHoldoutModal = ({
     !experimentIsNotCompatibleWithHoldouts && !experimentHasLinkedFeatures;
 
   return (
-    <Dialog
+    <FormDialog
       header="Add to holdout"
       close={close}
       open={true}
@@ -80,7 +80,7 @@ const AddToHoldoutModal = ({
           formType="experiment"
         />
       )}
-    </Dialog>
+    </FormDialog>
   );
 };
 

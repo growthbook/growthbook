@@ -10,7 +10,7 @@ import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
-import Dialog from "@/ui/Dialog";
+import FormDialog from "@/components/Dialog/FormDialog";
 
 export interface Props {
   close: () => void;
@@ -48,7 +48,7 @@ export default function EditPhaseModal({
   const isHoldout = experiment.type === "holdout";
 
   return (
-    <Dialog
+    <FormDialog
       trackingEventModalType="edit-phase-modal"
       trackingEventModalSource={source}
       open={true}
@@ -157,6 +157,6 @@ export default function EditPhaseModal({
           </span>
         </>
       ) : null}
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -38,7 +38,7 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import Dialog from "@/ui/Dialog";
+import FormDialog from "@/components/Dialog/FormDialog";
 import Text from "@/ui/Text";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
@@ -293,7 +293,7 @@ const AnalysisForm: FC<{
       hasMetrics);
 
   return (
-    <Dialog
+    <FormDialog
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
       header={isHoldout ? "Analysis Settings" : "Experiment Settings"}
@@ -1074,7 +1074,7 @@ const AnalysisForm: FC<{
           </>
         )}
       </Box>
-    </Dialog>
+    </FormDialog>
   );
 };
 
