@@ -2166,19 +2166,32 @@ export default abstract class SqlIntegration
       undefined,
     );
 
-    // Get any required identity join queries
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: [
-        [exposureQuery.userIdType],
-        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-        segment ? [segment.userIdType || "user_id"] : [],
-      ],
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId,
-    });
+    // Get any required identity join queries. When the caller provides
+    // inherited values (e.g. the outer metric query), use them so the activation
+    // metric JOIN below references a CTE the caller will actually emit.
+    let baseIdType: string;
+    let idJoinMap: Record<string, string>;
+    let idJoinSQL: string;
+    if (params.forcedBaseIdType && params.forcedIdJoinMap) {
+      baseIdType = params.forcedBaseIdType;
+      idJoinMap = params.forcedIdJoinMap;
+      idJoinSQL = "";
+    } else {
+      ({ baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+        objects: [
+          [exposureQuery.userIdType],
+          activationMetric
+            ? getUserIdTypes(activationMetric, factTableMap)
+            : [],
+          ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+          segment ? [segment.userIdType || "user_id"] : [],
+        ],
+        from: settings.startDate,
+        to: settings.endDate,
+        forcedBaseIdType: exposureQuery.userIdType,
+        experimentId: settings.experimentId,
+      }));
+    }
 
     // Get date range for experiment
     const startDate: Date = settings.startDate;
@@ -2399,7 +2412,7 @@ export default abstract class SqlIntegration
     const computeBanditSrm = !!banditDates && !!variationPeriodWeights;
 
     // Get any required identity join queries
-    const { baseIdType, idJoinSQL } = this.getIdentitiesCTE({
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
       // add idTypes usually handled in units query here in the case where
       // we don't have a separate table for the units query
       // then for this query we just need the activation metric for activation
@@ -2426,6 +2439,8 @@ export default abstract class SqlIntegration
           ? `${this.getExperimentUnitsQuery({
               ...params,
               includeIdJoins: false,
+              forcedBaseIdType: baseIdType,
+              forcedIdJoinMap: idJoinMap,
             })},`
           : ""
       }
@@ -3385,6 +3400,8 @@ export default abstract class SqlIntegration
           ? `${this.getExperimentUnitsQuery({
               ...params,
               includeIdJoins: false,
+              forcedBaseIdType: baseIdType,
+              forcedIdJoinMap: idJoinMap,
             })},`
           : params.unitsSource === "otherQuery"
             ? params.unitsSql
@@ -4125,6 +4142,8 @@ export default abstract class SqlIntegration
           ? `${this.getExperimentUnitsQuery({
               ...params,
               includeIdJoins: false,
+              forcedBaseIdType: baseIdType,
+              forcedIdJoinMap: idJoinMap,
             })},`
           : params.unitsSource === "otherQuery"
             ? params.unitsSql
