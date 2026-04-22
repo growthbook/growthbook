@@ -12,7 +12,10 @@ import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
 } from "shared/experiments";
+import { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -55,6 +58,17 @@ export default function ExperimentMetricBlock({
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
   const sequentialTestingEnabled = analysis?.settings?.sequentialTesting;
+
+  const _confidenceLevels = useConfidenceLevels(experiment.project);
+  const _pValueThreshold = usePValueThreshold(experiment.project);
+  const { ciUpper } =
+    ssrPolyfills?.useConfidenceLevels?.(undefined) || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
+  const significanceThresholds: SignificanceThresholds = {
+    confidenceLevel: ciUpper,
+    pValueThreshold,
+  };
 
   const queryStatusData = getQueryStatus(
     snapshot.queries || [],
@@ -128,7 +142,7 @@ export default function ExperimentMetricBlock({
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds
         : undefined,
-    projectId: experiment.project,
+    pValueThreshold,
   });
 
   // Filter rows based on expansion state when there's no slice filter
@@ -156,7 +170,7 @@ export default function ExperimentMetricBlock({
   return (
     <MetricDrilldownProvider
       experimentId={experiment.id}
-      projectId={experiment.project}
+      significanceThresholds={significanceThresholds}
       phase={lastPhaseIndex}
       experimentStatus={experiment.status}
       analysis={analysis}
@@ -190,7 +204,7 @@ export default function ExperimentMetricBlock({
               key={resultGroup}
               id={blockId}
               experimentId={experiment.id}
-              projectId={experiment.project}
+              significanceThresholds={significanceThresholds}
               phase={experiment.phases.length - 1}
               variations={variations}
               variationFilter={variationFilter}

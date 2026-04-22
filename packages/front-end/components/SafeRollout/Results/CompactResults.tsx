@@ -9,7 +9,11 @@ import {
   ExperimentType,
   MetricOverride,
 } from "shared/types/experiment";
-import { PValueCorrection, StatsEngine } from "shared/types/stats";
+import {
+  PValueCorrection,
+  SignificanceThresholds,
+  StatsEngine,
+} from "shared/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
 import {
@@ -28,7 +32,6 @@ import {
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
@@ -37,7 +40,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ResultsTable from "./ResultsTable";
 
 const CompactResults: FC<{
-  projectId: string | undefined;
+  significanceThresholds: SignificanceThresholds;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
@@ -61,7 +64,7 @@ const CompactResults: FC<{
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
 }> = ({
-  projectId,
+  significanceThresholds,
   editMetrics,
   variations,
   variationFilter,
@@ -87,9 +90,7 @@ const CompactResults: FC<{
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
-  const _pValueThreshold = usePValueThreshold(projectId);
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold(undefined) || _pValueThreshold;
+  const { pValueThreshold } = significanceThresholds;
 
   const { expandedGoals, expandedGuardrails } = useMemo(() => {
     const expandedGoals = expandMetricGroups(
@@ -175,7 +176,7 @@ const CompactResults: FC<{
       {expandedGuardrails.length ? (
         <div className="mt-4" style={{ overflowX: "auto" }}>
           <ResultsTable
-            projectId={projectId}
+            significanceThresholds={significanceThresholds}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             startDate={startDate}

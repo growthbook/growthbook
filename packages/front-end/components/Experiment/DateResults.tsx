@@ -12,7 +12,11 @@ import {
   quantileMetricType,
   shouldHighlight,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
+import {
+  DifferenceType,
+  SignificanceThresholds,
+  StatsEngine,
+} from "shared/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -21,8 +25,6 @@ import {
 } from "@/services/metrics";
 import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Switch from "@/ui/Switch";
 import { getMetricResultGroup } from "@/hooks/useExperimentDimensionRows";
 import Tooltip from "@/ui/Tooltip";
@@ -43,7 +45,7 @@ type Metric = {
 
 const DateResults: FC<{
   variations: ExperimentReportVariation[];
-  projectId: string | undefined;
+  significanceThresholds: SignificanceThresholds;
   results: ExperimentReportResultDimension[];
   seriestype: string;
   goalMetrics: string[];
@@ -55,7 +57,7 @@ const DateResults: FC<{
 }> = ({
   results,
   variations,
-  projectId,
+  significanceThresholds,
   seriestype,
   goalMetrics,
   secondaryMetrics,
@@ -67,14 +69,10 @@ const DateResults: FC<{
   const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
     useDefinitions();
 
-  const _confidenceLevels = useConfidenceLevels(projectId);
-  const _pValueThreshold = usePValueThreshold(projectId);
   const _displayCurrency = useCurrency();
 
-  const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.(undefined) || _confidenceLevels;
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
+  const { confidenceLevel: ciUpper, pValueThreshold } = significanceThresholds;
+  const ciLower = 1 - ciUpper;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
   const [cumulativeState, setCumulative] = useState(false);

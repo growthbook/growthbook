@@ -16,6 +16,18 @@ export type IndexedPValue = {
 
 export type DifferenceType = "relative" | "absolute" | "scaled";
 
+// Project-aware significance thresholds used by experiment result UIs. Keep
+// these resolved (via useConfidenceLevels / usePValueThreshold) at the top of
+// the results tree and thread them through to all sub-components so they all
+// render against the same project-scoped settings.
+export interface SignificanceThresholds {
+  // Upper confidence level (e.g. 0.95). ciLower = 1 - confidenceLevel.
+  // Used for Bayesian analysis
+  confidenceLevel: number;
+  // Used for frequentist analysis
+  pValueThreshold: number;
+}
+
 export type RiskType = "relative" | "absolute";
 
 export type PValueErrorMessage =

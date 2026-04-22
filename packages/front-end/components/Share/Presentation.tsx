@@ -15,9 +15,12 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { SignificanceThresholds } from "shared/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Markdown from "@/components/Markdown/Markdown";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import CompactResults from "@/components/Experiment/CompactResults";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import { presentationThemes, defaultTheme } from "./ShareModal";
@@ -67,6 +70,16 @@ const Presentation = ({
     customTheme?.logoUrl ?? (presentation as { logoUrl?: string })?.logoUrl;
   const { getExperimentMetricById, metricGroups } = useDefinitions();
   const orgSettings = useOrgSettings();
+
+  // Note: presentations render slides for many experiments (potentially across
+  // projects), so we resolve significance thresholds once at org-level rather
+  // than per-experiment to avoid calling hooks in a loop.
+  const { ciUpper } = useConfidenceLevels(undefined);
+  const pValueThreshold = usePValueThreshold(undefined);
+  const significanceThresholds: SignificanceThresholds = {
+    confidenceLevel: ciUpper,
+    pValueThreshold,
+  };
 
   const [imageCache] = React.useState<
     Record<string, { url: string; expiresAt: string }>
@@ -456,7 +469,7 @@ const Presentation = ({
             >
               <CompactResults
                 experimentId={experiment.id}
-                projectId={experiment.project}
+                significanceThresholds={significanceThresholds}
                 variations={getLatestPhaseVariations(experiment).map(
                   (v, i) => ({
                     id: v.key || v.index + "",

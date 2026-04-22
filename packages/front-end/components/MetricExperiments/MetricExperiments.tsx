@@ -95,6 +95,9 @@ function MetricExperimentResultTab({
   const end = start + numPerPage;
 
   const { metricDefaults } = useOrganizationMetricDefaults();
+  // Note: these render a mixed-project table, so we fall back to org-level
+  // settings for all rows. If we ever want per-row project-scoped thresholds
+  // here, this needs a refactor away from hooks-at-the-top.
   const { ciUpper, ciLower } = useConfidenceLevels(undefined);
   const pValueThreshold = usePValueThreshold(undefined);
 
@@ -232,6 +235,7 @@ function MetricExperimentResultTab({
           e.variationResults ? (
             <ChangeColumn
               metric={metric}
+              pValueThreshold={pValueThreshold}
               stats={e.variationResults}
               rowResults={{
                 enoughData: true,

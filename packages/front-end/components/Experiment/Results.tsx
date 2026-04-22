@@ -1,7 +1,11 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { FC, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
+import {
+  DifferenceType,
+  SignificanceThresholds,
+  StatsEngine,
+} from "shared/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -15,6 +19,8 @@ import {
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -88,6 +94,13 @@ const Results: FC<{
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
+
+  const { ciUpper } = useConfidenceLevels(experiment.project);
+  const pValueThreshold = usePValueThreshold(experiment.project);
+  const significanceThresholds: SignificanceThresholds = {
+    confidenceLevel: ciUpper,
+    pValueThreshold,
+  };
 
   const {
     error,
@@ -337,7 +350,7 @@ const Results: FC<{
       {analysis && (
         <MetricDrilldownProvider
           experimentId={experiment.id}
-          projectId={experiment.project}
+          significanceThresholds={significanceThresholds}
           phase={phase}
           experimentStatus={experiment.status}
           analysis={analysis}
@@ -367,7 +380,7 @@ const Results: FC<{
         >
           {showDateResults ? (
             <DateResults
-              projectId={experiment.project}
+              significanceThresholds={significanceThresholds}
               goalMetrics={experiment.goalMetrics}
               secondaryMetrics={experiment.secondaryMetrics}
               guardrailMetrics={experiment.guardrailMetrics}
@@ -382,7 +395,7 @@ const Results: FC<{
           ) : showBreakDownResults && snapshot ? (
             <BreakDownResults
               experimentId={experiment.id}
-              projectId={experiment.project}
+              significanceThresholds={significanceThresholds}
               key={analysis?.settings?.dimensions?.[0] ?? snapshot.dimension}
               results={analysis?.results ?? []}
               queryStatusData={queryStatusData}
@@ -445,7 +458,7 @@ const Results: FC<{
           ) : showCompactResults ? (
             <CompactResults
               experimentId={experiment.id}
-              projectId={experiment.project}
+              significanceThresholds={significanceThresholds}
               editMetrics={editMetrics}
               variations={variations}
               variationFilter={analysisBarSettings.variationFilter}

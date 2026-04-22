@@ -4,6 +4,7 @@ import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
@@ -21,7 +22,7 @@ import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;
   experimentId: string;
-  projectId: string | undefined;
+  significanceThresholds: SignificanceThresholds;
   reportDate: Date;
   isLatestPhase: boolean;
   phase: number;
@@ -47,7 +48,7 @@ interface MetricDrilldownOverviewProps {
 function MetricDrilldownOverview({
   row,
   experimentId,
-  projectId,
+  significanceThresholds,
   reportDate,
   isLatestPhase,
   phase,
@@ -104,7 +105,7 @@ function MetricDrilldownOverview({
     <Flex direction="column" gap="6">
       <ResultsTable
         experimentId={experimentId}
-        projectId={projectId}
+        significanceThresholds={significanceThresholds}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}

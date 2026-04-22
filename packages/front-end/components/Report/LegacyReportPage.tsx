@@ -14,6 +14,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { SignificanceThresholds } from "shared/types/stats";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
@@ -39,6 +40,8 @@ import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { trackReport } from "@/services/track";
 import CompactResults from "@/components/Experiment/CompactResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
@@ -93,6 +96,15 @@ export default function LegacyReportPage({
   // todo: move to report args
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
+
+  const { ciUpper } = useConfidenceLevels(experimentData?.experiment?.project);
+  const pValueThreshold = usePValueThreshold(
+    experimentData?.experiment?.project,
+  );
+  const significanceThresholds: SignificanceThresholds = {
+    confidenceLevel: ciUpper,
+    pValueThreshold,
+  };
 
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
@@ -468,7 +480,7 @@ export default function LegacyReportPage({
                 report.args.dimension &&
                 (report.args.dimension.substring(0, 8) === "pre:date" ? (
                   <DateResults
-                    projectId={experimentData?.experiment?.project}
+                    significanceThresholds={significanceThresholds}
                     goalMetrics={report.args.goalMetrics}
                     secondaryMetrics={report.args.secondaryMetrics}
                     guardrailMetrics={report.args.guardrailMetrics}
@@ -481,7 +493,7 @@ export default function LegacyReportPage({
                 ) : (
                   <BreakDownResults
                     experimentId={report.experimentId ?? ""}
-                    projectId={experimentData?.experiment?.project}
+                    significanceThresholds={significanceThresholds}
                     isLatestPhase={true}
                     phase={
                       (experimentData?.experiment?.phases?.length ?? 1) - 1
@@ -556,7 +568,7 @@ export default function LegacyReportPage({
                   <div className="mt-0 mb-3">
                     <CompactResults
                       experimentId={report.experimentId ?? ""}
-                      projectId={experimentData?.experiment?.project}
+                      significanceThresholds={significanceThresholds}
                       variations={variations}
                       multipleExposures={report.results?.multipleExposures || 0}
                       results={report.results?.dimensions?.[0]}

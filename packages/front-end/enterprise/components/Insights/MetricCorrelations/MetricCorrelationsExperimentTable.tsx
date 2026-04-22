@@ -104,6 +104,9 @@ const ExperimentWithMetricsTable: FC<Props> = ({
   const end = start + numPerPage;
 
   const { metricDefaults } = useOrganizationMetricDefaults();
+  // Note: the following can be project specific, and could be fetched for each
+  // experiment below, but that would be unnecessary overhead for most users and
+  // not critical for this use case even if the thresholds did vary.
   const { ciUpper, ciLower } = useConfidenceLevels(undefined);
   const pValueThreshold = usePValueThreshold(undefined);
 
@@ -317,6 +320,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
               return (
                 <ChangeColumn
                   metric={m}
+                  pValueThreshold={pValueThreshold}
                   stats={mr.results}
                   rowResults={{
                     enoughData: true,

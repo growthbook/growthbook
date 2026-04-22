@@ -9,6 +9,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
@@ -79,7 +80,7 @@ interface MetricDrilldownModalProps {
 
   // Experiment context props
   experimentId: string;
-  projectId: string | undefined;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
@@ -134,7 +135,7 @@ interface MetricDrilldownContentProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   experimentId: string;
-  projectId: string | undefined;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
@@ -172,7 +173,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   localDifferenceType,
   setLocalDifferenceType,
   experimentId,
-  projectId,
+  significanceThresholds,
   phase,
   experimentStatus,
   variations,
@@ -223,7 +224,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    projectId,
+    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const mainMetricRow = useMemo(() => {
@@ -302,7 +303,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
         <MetricDrilldownOverview
           row={mainMetricRow}
           experimentId={experimentId}
-          projectId={projectId}
+          significanceThresholds={significanceThresholds}
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           phase={phase}
@@ -344,7 +345,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           variationFilter={localVariationFilter}
           setVariationFilter={setLocalVariationFilter}
           experimentId={experimentId}
-          projectId={projectId}
+          significanceThresholds={significanceThresholds}
           phase={phase}
           variations={variations}
           startDate={startDate}
@@ -368,7 +369,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
         <MetricDrilldownDebug
           row={mainMetricRow}
           metric={metric}
-          projectId={projectId}
+          significanceThresholds={significanceThresholds}
           statsEngine={statsEngine}
           differenceType={localDifferenceType}
           setDifferenceType={setLocalDifferenceType}
@@ -414,7 +415,7 @@ const MetricDrilldownModal = ({
   variationFilter,
   // Experiment context
   experimentId,
-  projectId,
+  significanceThresholds,
   phase,
   experimentStatus,
   variations,
@@ -485,7 +486,7 @@ const MetricDrilldownModal = ({
     localDifferenceType,
     setLocalDifferenceType,
     experimentId,
-    projectId,
+    significanceThresholds,
     phase,
     experimentStatus,
     variations,

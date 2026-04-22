@@ -17,6 +17,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
@@ -55,7 +56,7 @@ export const includeVariation = (
 
 const BreakDownResults: FC<{
   experimentId: string;
-  projectId: string | undefined;
+  significanceThresholds: SignificanceThresholds;
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
@@ -109,7 +110,7 @@ const BreakDownResults: FC<{
   setDifferenceType?: (differenceType: DifferenceType) => void;
 }> = ({
   experimentId,
-  projectId,
+  significanceThresholds,
   dimensionId,
   dimensionValuesFilter,
   results,
@@ -188,7 +189,7 @@ const BreakDownResults: FC<{
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
-    projectId,
+    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const activationMetricObj = activationMetric
@@ -264,7 +265,7 @@ const BreakDownResults: FC<{
             <ResultsTable
               key={i}
               experimentId={experimentId}
-              projectId={projectId}
+              significanceThresholds={significanceThresholds}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               phase={phase}

@@ -15,7 +15,10 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { isString } from "shared/util";
+import { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -52,6 +55,17 @@ export default function ExperimentDimensionBlock({
 
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
+
+  const _confidenceLevels = useConfidenceLevels(experiment.project);
+  const _pValueThreshold = usePValueThreshold(experiment.project);
+  const { ciUpper } =
+    ssrPolyfills?.useConfidenceLevels?.(undefined) || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
+  const significanceThresholds: SignificanceThresholds = {
+    confidenceLevel: ciUpper,
+    pValueThreshold,
+  };
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => ({
     id: v.key || v.index + "",
@@ -108,7 +122,7 @@ export default function ExperimentDimensionBlock({
   return (
     <MetricDrilldownProvider
       experimentId={experiment.id}
-      projectId={experiment.project}
+      significanceThresholds={significanceThresholds}
       phase={experiment.phases.length - 1}
       experimentStatus={experiment.status}
       analysis={analysis}
@@ -135,7 +149,7 @@ export default function ExperimentDimensionBlock({
     >
       <BreakDownResults
         experimentId={experiment.id}
-        projectId={experiment.project}
+        significanceThresholds={significanceThresholds}
         noStickyHeader
         idPrefix={blockId}
         key={snapshot.dimension}

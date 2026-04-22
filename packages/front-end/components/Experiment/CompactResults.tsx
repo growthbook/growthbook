@@ -18,6 +18,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import { FactTableInterface } from "shared/types/fact-table";
@@ -49,7 +50,7 @@ import DataQualityWarning from "./DataQualityWarning";
 
 const CompactResults: FC<{
   experimentId: string;
-  projectId: string | undefined;
+  significanceThresholds: SignificanceThresholds;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
@@ -111,7 +112,7 @@ const CompactResults: FC<{
   ) => void;
 }> = ({
   experimentId,
-  projectId,
+  significanceThresholds,
   editMetrics,
   variations,
   variationFilter,
@@ -213,7 +214,7 @@ const CompactResults: FC<{
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    projectId,
+    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const expandedGoals = useMemo(
@@ -361,7 +362,7 @@ const CompactResults: FC<{
       {expandedGoals.length ? (
         <ResultsTable
           experimentId={experimentId}
-          projectId={projectId}
+          significanceThresholds={significanceThresholds}
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
           phase={phase}
@@ -424,7 +425,7 @@ const CompactResults: FC<{
         <div className="mt-4">
           <ResultsTable
             experimentId={experimentId}
-            projectId={projectId}
+            significanceThresholds={significanceThresholds}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             phase={phase}
@@ -481,7 +482,7 @@ const CompactResults: FC<{
         <div className="mt-4">
           <ResultsTable
             experimentId={experimentId}
-            projectId={projectId}
+            significanceThresholds={significanceThresholds}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             phase={phase}

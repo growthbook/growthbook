@@ -12,9 +12,12 @@ import {
 import { getValidDate } from "shared/dates";
 import React, { RefObject } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Callout from "@/ui/Callout";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
@@ -101,6 +104,17 @@ export default function ReportResults({
     ssrPolyfills?.useOrgSettings?.()?.pValueCorrection ||
     _orgSettings?.pValueCorrection;
 
+  const _confidenceLevels = useConfidenceLevels(experiment?.project);
+  const _pValueThreshold = usePValueThreshold(experiment?.project);
+  const { ciUpper } =
+    ssrPolyfills?.useConfidenceLevels?.(undefined) || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.(undefined) || _pValueThreshold;
+  const significanceThresholds: SignificanceThresholds = {
+    confidenceLevel: ciUpper,
+    pValueThreshold,
+  };
+
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   const showBreakDownResults =
@@ -166,7 +180,7 @@ export default function ReportResults({
         ) : (
           <MetricDrilldownProvider
             experimentId={report.experimentId ?? ""}
-            projectId={experiment?.project}
+            significanceThresholds={significanceThresholds}
             phase={phase}
             analysis={analysis ?? null}
             variations={variations}
@@ -216,14 +230,14 @@ export default function ReportResults({
                 statsEngine={
                   analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
                 }
-                projectId={experiment?.project}
+                significanceThresholds={significanceThresholds}
                 differenceType={analysis.settings.differenceType}
                 ssrPolyfills={ssrPolyfills}
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
                 experimentId={snapshot.experiment}
-                projectId={experiment?.project}
+                significanceThresholds={significanceThresholds}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -262,7 +276,7 @@ export default function ReportResults({
             ) : showCompactResults ? (
               <CompactResults
                 experimentId={snapshot.experiment}
-                projectId={experiment?.project}
+                significanceThresholds={significanceThresholds}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}

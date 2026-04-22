@@ -39,7 +39,6 @@ import {
   applyMetricOverrides,
   ExperimentTableRow,
 } from "@/services/experiments";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useTableSorting } from "@/hooks/useTableSorting";
 
@@ -71,7 +70,7 @@ export interface UseExperimentTableRowsParams {
   shouldShowMetricSlices?: boolean;
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
-  projectId: string | undefined;
+  pValueThreshold: number;
 }
 
 export interface UseExperimentTableRowsReturn {
@@ -100,7 +99,7 @@ export function useExperimentTableRows({
   shouldShowMetricSlices = true,
   enableExpansion: _enableExpansion = true,
   expandedMetrics,
-  projectId,
+  pValueThreshold,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -113,10 +112,6 @@ export function useExperimentTableRows({
     ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
-
-  const _pValueThreshold = usePValueThreshold(projectId);
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold(undefined) || _pValueThreshold;
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {

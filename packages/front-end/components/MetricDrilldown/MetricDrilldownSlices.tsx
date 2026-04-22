@@ -8,6 +8,7 @@ import {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
+  SignificanceThresholds,
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -38,7 +39,7 @@ interface MetricDrilldownSlicesProps {
   setVariationFilter: (filter: number[] | undefined) => void;
   // Props for ResultsTable
   experimentId: string;
-  projectId: string | undefined;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   variations: ExperimentReportVariation[];
   startDate: string;
@@ -73,7 +74,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   variationFilter,
   setVariationFilter,
   experimentId,
-  projectId,
+  significanceThresholds,
   phase,
   variations,
   startDate,
@@ -194,7 +195,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
 
       <ResultsTable
         experimentId={experimentId}
-        projectId={projectId}
+        significanceThresholds={significanceThresholds}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}
