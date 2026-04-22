@@ -583,7 +583,7 @@ export async function postCancelSubscriptionToLicenseServer(licenseId: string) {
 }
 
 export async function notifyLicenseServerExperimentStarted(
-  organizationId: string,
+  licenseKey: string,
   experimentId: string,
   timestamp: string,
 ) {
@@ -591,10 +591,9 @@ export async function notifyLicenseServerExperimentStarted(
   await callLicenseServer({
     url,
     body: JSON.stringify({
-      organizationId,
+      licenseKey,
       experimentId,
       timestamp,
-      cloudSecret: process.env.CLOUD_SECRET,
     }),
   });
 }
