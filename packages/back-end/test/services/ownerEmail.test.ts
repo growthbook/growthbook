@@ -1,7 +1,6 @@
 import type { UserInterface } from "shared/types/user";
 import type { ReqContext } from "back-end/types/request";
 import {
-  buildOwnerEmailMap,
   clearOwnerEmailCache,
   resolveOwnerEmail,
   resolveOwnerEmails,
@@ -16,113 +15,6 @@ function makeContext(users: Partial<UserInterface>[]): ReqContext {
 
 beforeEach(() => {
   clearOwnerEmailCache();
-});
-
-describe("buildOwnerEmailMap", () => {
-  it("returns an empty map for an empty array", async () => {
-    const context = makeContext([]);
-    const result = await buildOwnerEmailMap([], context);
-    expect(result.size).toBe(0);
-    expect(context.getUsersByIds).not.toHaveBeenCalled();
-  });
-
-  it("returns an empty map for an array of undefineds", async () => {
-    const context = makeContext([]);
-    const result = await buildOwnerEmailMap([undefined, undefined], context);
-    expect(result.size).toBe(0);
-    expect(context.getUsersByIds).not.toHaveBeenCalled();
-  });
-
-  it("maps u_ prefixed owners to their emails via DB lookup", async () => {
-    const context = makeContext([
-      { id: "u_1", email: "alice@example.com" },
-      { id: "u_2", email: "bob@example.com" },
-    ]);
-    const result = await buildOwnerEmailMap(["u_1", "u_2"], context);
-    expect(result.get("u_1")).toBe("alice@example.com");
-    expect(result.get("u_2")).toBe("bob@example.com");
-    expect(context.getUsersByIds).toHaveBeenCalledTimes(1);
-    expect(context.getUsersByIds).toHaveBeenCalledWith(["u_1", "u_2"]);
-  });
-
-  it("deduplicates u_ owners before DB lookup", async () => {
-    const context = makeContext([{ id: "u_1", email: "alice@example.com" }]);
-    const result = await buildOwnerEmailMap(["u_1", "u_1", "u_1"], context);
-    expect(result.get("u_1")).toBe("alice@example.com");
-    expect(context.getUsersByIds).toHaveBeenCalledTimes(1);
-    expect(context.getUsersByIds).toHaveBeenCalledWith(["u_1"]);
-  });
-
-  it("maps email owners to themselves without a DB call", async () => {
-    const context = makeContext([]);
-    const result = await buildOwnerEmailMap(["alice@example.com"], context);
-    expect(result.get("alice@example.com")).toBe("alice@example.com");
-    expect(context.getUsersByIds).not.toHaveBeenCalled();
-  });
-
-  it("maps unknown owner values to undefined", async () => {
-    const context = makeContext([]);
-    const result = await buildOwnerEmailMap(["legacyname"], context);
-    expect(result.get("legacyname")).toBeUndefined();
-    expect(context.getUsersByIds).not.toHaveBeenCalled();
-  });
-
-  it("handles a mix of u_ owners, email owners, unknown owners, and undefineds", async () => {
-    const context = makeContext([{ id: "u_1", email: "alice@example.com" }]);
-    const result = await buildOwnerEmailMap(
-      ["u_1", "bob@example.com", "legacyname", undefined],
-      context,
-    );
-
-    expect(result.get("u_1")).toBe("alice@example.com");
-    expect(result.get("bob@example.com")).toBe("bob@example.com");
-    expect(result.get("legacyname")).toBeUndefined();
-    expect(result.has("legacyname")).toBe(true);
-    expect(result.size).toBe(3);
-    expect(context.getUsersByIds).toHaveBeenCalledWith(["u_1"]);
-  });
-
-  it("maps u_ owner to undefined when not found in DB", async () => {
-    const context = makeContext([]);
-    const result = await buildOwnerEmailMap(["u_notfound"], context);
-    expect(result.get("u_notfound")).toBeUndefined();
-  });
-
-  it("serves cached emails on subsequent calls without hitting the DB", async () => {
-    const context = makeContext([{ id: "u_1", email: "alice@example.com" }]);
-
-    const first = await buildOwnerEmailMap(["u_1"], context);
-    expect(first.get("u_1")).toBe("alice@example.com");
-    expect(context.getUsersByIds).toHaveBeenCalledTimes(1);
-
-    const second = await buildOwnerEmailMap(["u_1"], context);
-    expect(second.get("u_1")).toBe("alice@example.com");
-    expect(context.getUsersByIds).toHaveBeenCalledTimes(1);
-  });
-
-  it("only fetches cache misses when some entries are already cached", async () => {
-    const context = makeContext([
-      { id: "u_1", email: "alice@example.com" },
-      { id: "u_2", email: "bob@example.com" },
-    ]);
-
-    await buildOwnerEmailMap(["u_1"], context);
-    expect(context.getUsersByIds).toHaveBeenLastCalledWith(["u_1"]);
-
-    const result = await buildOwnerEmailMap(["u_1", "u_2"], context);
-    expect(result.get("u_1")).toBe("alice@example.com");
-    expect(result.get("u_2")).toBe("bob@example.com");
-    expect(context.getUsersByIds).toHaveBeenLastCalledWith(["u_2"]);
-    expect(context.getUsersByIds).toHaveBeenCalledTimes(2);
-  });
-
-  it("does not negatively cache unknown userIds", async () => {
-    const context = makeContext([]);
-
-    await buildOwnerEmailMap(["u_missing"], context);
-    await buildOwnerEmailMap(["u_missing"], context);
-    expect(context.getUsersByIds).toHaveBeenCalledTimes(2);
-  });
 });
 
 describe("resolveOwnerEmail", () => {
@@ -142,7 +34,7 @@ describe("resolveOwnerEmail", () => {
     expect(context.getUsersByIds).not.toHaveBeenCalled();
   });
 
-  it("attaches ownerEmail when owner is a userId resolvable via DB", async () => {
+  it("resolves a u_ prefixed owner to an email via DB lookup", async () => {
     const context = makeContext([{ id: "u_1", email: "alice@example.com" }]);
     const result = await resolveOwnerEmail(
       { id: "x_1", owner: "u_1" },
@@ -153,9 +45,10 @@ describe("resolveOwnerEmail", () => {
       owner: "u_1",
       ownerEmail: "alice@example.com",
     });
+    expect(context.getUsersByIds).toHaveBeenCalledWith(["u_1"]);
   });
 
-  it("attaches ownerEmail equal to the owner value when owner is an email", async () => {
+  it("uses an email owner value as the resolved ownerEmail without a DB call", async () => {
     const context = makeContext([]);
     const result = await resolveOwnerEmail(
       { id: "x_1", owner: "alice@example.com" },
@@ -177,6 +70,7 @@ describe("resolveOwnerEmail", () => {
     );
     expect(result).toEqual({ id: "x_1", owner: "legacyname" });
     expect("ownerEmail" in result).toBe(false);
+    expect(context.getUsersByIds).not.toHaveBeenCalled();
   });
 
   it("leaves ownerEmail absent when owner is a userId not found in DB", async () => {
@@ -188,6 +82,26 @@ describe("resolveOwnerEmail", () => {
     expect(result).toEqual({ id: "x_1", owner: "u_missing" });
     expect("ownerEmail" in result).toBe(false);
   });
+
+  it("serves cached emails on subsequent calls without hitting the DB", async () => {
+    const context = makeContext([{ id: "u_1", email: "alice@example.com" }]);
+
+    const first = await resolveOwnerEmail({ owner: "u_1" }, context);
+    expect(first).toEqual({ owner: "u_1", ownerEmail: "alice@example.com" });
+
+    const second = await resolveOwnerEmail({ owner: "u_1" }, context);
+    expect(second).toEqual({ owner: "u_1", ownerEmail: "alice@example.com" });
+
+    expect(context.getUsersByIds).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not negatively cache unknown userIds", async () => {
+    const context = makeContext([]);
+
+    await resolveOwnerEmail({ owner: "u_missing" }, context);
+    await resolveOwnerEmail({ owner: "u_missing" }, context);
+    expect(context.getUsersByIds).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("resolveOwnerEmails", () => {
@@ -197,6 +111,31 @@ describe("resolveOwnerEmails", () => {
     const result = await resolveOwnerEmails(input, context);
     expect(result).toBe(input);
     expect(context.getUsersByIds).not.toHaveBeenCalled();
+  });
+
+  it("skips the DB when no doc has a string owner", async () => {
+    const context = makeContext([]);
+    const docs = [{ id: "x_1" }, { id: "x_2", owner: null }];
+    const result = await resolveOwnerEmails(docs, context);
+    expect(result).toEqual(docs);
+    expect(context.getUsersByIds).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates u_ owners before the DB lookup", async () => {
+    const context = makeContext([{ id: "u_1", email: "alice@example.com" }]);
+    const result = await resolveOwnerEmails(
+      [
+        { id: "x_1", owner: "u_1" },
+        { id: "x_2", owner: "u_1" },
+        { id: "x_3", owner: "u_1" },
+      ],
+      context,
+    );
+    expect(result.every((d) => d.ownerEmail === "alice@example.com")).toBe(
+      true,
+    );
+    expect(context.getUsersByIds).toHaveBeenCalledTimes(1);
+    expect(context.getUsersByIds).toHaveBeenCalledWith(["u_1"]);
   });
 
   it("resolves owner emails for a mix of owner shapes in a single DB call", async () => {
@@ -229,6 +168,27 @@ describe("resolveOwnerEmails", () => {
     ]);
     expect(context.getUsersByIds).toHaveBeenCalledTimes(1);
     expect(context.getUsersByIds).toHaveBeenCalledWith(["u_1", "u_2"]);
+  });
+
+  it("only fetches cache misses when some entries are already cached", async () => {
+    const context = makeContext([
+      { id: "u_1", email: "alice@example.com" },
+      { id: "u_2", email: "bob@example.com" },
+    ]);
+
+    await resolveOwnerEmails([{ owner: "u_1" }], context);
+    expect(context.getUsersByIds).toHaveBeenLastCalledWith(["u_1"]);
+
+    const result = await resolveOwnerEmails(
+      [{ owner: "u_1" }, { owner: "u_2" }],
+      context,
+    );
+    expect(result).toEqual([
+      { owner: "u_1", ownerEmail: "alice@example.com" },
+      { owner: "u_2", ownerEmail: "bob@example.com" },
+    ]);
+    expect(context.getUsersByIds).toHaveBeenLastCalledWith(["u_2"]);
+    expect(context.getUsersByIds).toHaveBeenCalledTimes(2);
   });
 
   it("does not mutate input docs", async () => {

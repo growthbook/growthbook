@@ -74,7 +74,7 @@ export function clearOwnerEmailCache(): void {
  * Deduplicates userIds, checks the in-memory cache, and only hits the DB
  * for the remaining cache misses.
  */
-export async function buildOwnerEmailMap(
+async function buildOwnerEmailMap(
   ownerValues: (string | undefined)[],
   context: ReqContext,
 ): Promise<Map<string, string | undefined>> {
@@ -153,10 +153,10 @@ export async function resolveOwnerEmail<T extends object>(
 /**
  * Attaches a resolved `ownerEmail` to each API doc in a list.
  *
- * All owners are resolved in a single batched DB lookup (deduplicated and
- * cached via `buildOwnerEmailMap`). Docs without an `owner`, or whose owner
- * cannot be resolved, are returned unchanged. Other docs are shallow-copied
- * with `ownerEmail` set.
+ * All owners are resolved in a single batched, deduplicated DB lookup with
+ * an in-memory cache. Docs without an `owner`, or whose owner cannot be
+ * resolved, are returned unchanged. Other docs are shallow-copied with
+ * `ownerEmail` set.
  */
 export async function resolveOwnerEmails<T extends object>(
   apiDocs: T[],
