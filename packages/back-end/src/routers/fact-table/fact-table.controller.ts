@@ -459,8 +459,7 @@ export const postColumnTopValues = async (
 
   if (
     forceAutoSlice ||
-    ((column.alwaysInlineFilter || column.isAutoSliceColumn) &&
-      canInlineFilterColumn(factTable, column.column) &&
+    (canInlineFilterColumn(factTable, column.column) &&
       column.datatype === "string")
   ) {
     try {
@@ -503,7 +502,7 @@ export const postColumnTopValues = async (
     }
   } else {
     throw new Error(
-      "Column does not meet requirements for top values refresh (must be string type and have alwaysInlineFilter or isAutoSliceColumn enabled)",
+      "Column does not meet requirements for top values refresh (must be a string column and not a user-id type)",
     );
   }
 

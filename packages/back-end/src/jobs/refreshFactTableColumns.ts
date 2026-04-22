@@ -22,6 +22,42 @@ import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
+
+export const MAX_NEW_STRING_COLUMNS_WITH_TOP_VALUES = 50;
+export const MAX_TOP_VALUE_LENGTH = 100;
+
+// Selects the string columns on a fact table that should have topValues populated.
+// Columns explicitly opted-in via alwaysInlineFilter or isAutoSliceColumn are always
+// included. Any additional eligible string columns are capped at maxNewColumns to
+// keep the stored document well under Mongo's 16MB per-document limit.
+export function selectColumnsForTopValues({
+  columns,
+  userIdTypes,
+  maxNewColumns = MAX_NEW_STRING_COLUMNS_WITH_TOP_VALUES,
+}: {
+  columns: ColumnInterface[];
+  userIdTypes: string[];
+  maxNewColumns?: number;
+}): ColumnInterface[] {
+  const factTableLike = { columns, userIdTypes };
+
+  const eligible = columns.filter(
+    (col) =>
+      col.datatype === "string" &&
+      !col.deleted &&
+      canInlineFilterColumn(factTableLike, col.column),
+  );
+
+  const alwaysCaptured = eligible.filter(
+    (c) => c.alwaysInlineFilter || c.isAutoSliceColumn,
+  );
+  const newlyCaptured = eligible
+    .filter((c) => !c.alwaysInlineFilter && !c.isAutoSliceColumn)
+    .slice(0, maxNewColumns);
+
+  return [...alwaysCaptured, ...newlyCaptured];
+}
+
 type RefreshFactTableColumnsJob = Job<{
   organization: string;
   factTableId: string;
@@ -100,9 +136,12 @@ export async function runColumnsTopValuesQuery(
   });
   const result = await integration.runColumnsTopValuesQuery(sql);
 
-  // Group results by column name
+  // Group results by column name, dropping values over the max length to keep
+  // the stored fact-table document well under Mongo's 16MB per-doc limit.
+  // TODO: push this length filter into SQL in the future.
   const columnValues: Record<string, string[]> = {};
   for (const row of result.rows) {
+    if (row.value.length > MAX_TOP_VALUE_LENGTH) continue;
     if (!columnValues[row.column]) {
       columnValues[row.column] = [];
     }
@@ -270,8 +309,6 @@ export async function runRefreshColumnsQuery(
     }
   });
 
-  // Collect columns that need top values
-  const columnsNeedingTopValues: ColumnInterface[] = [];
   for (const col of columns) {
     if (col.numberFormat === undefined) {
       col.numberFormat = "";
@@ -279,14 +316,13 @@ export async function runRefreshColumnsQuery(
 
     if (col.datatype === "boolean" && col.isAutoSliceColumn) {
       col.autoSlices = ["true", "false"];
-    } else if (
-      (col.alwaysInlineFilter || col.isAutoSliceColumn) &&
-      canInlineFilterColumn(factTable, col.column) &&
-      col.datatype === "string"
-    ) {
-      columnsNeedingTopValues.push(col);
     }
   }
+
+  const columnsNeedingTopValues = selectColumnsForTopValues({
+    columns,
+    userIdTypes: factTable.userIdTypes,
+  });
 
   // Batch query for all columns that need top values, chunked into groups of 10
   // to prevent returning more than 1k rows per update (10 columns * 100 values = 1000 rows max per chunk)
