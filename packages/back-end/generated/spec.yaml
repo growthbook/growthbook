@@ -19655,6 +19655,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         project:
           type: string
         valueType:
@@ -20531,6 +20536,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         isPublic:
           type: boolean
         attributes:
@@ -20584,6 +20594,11 @@ components:
             type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         archived:
           type: boolean
@@ -21106,6 +21121,11 @@ components:
                 The userId of the owner (or raw owner name/email for legacy
                 records)
               type: string
+            ownerEmail:
+              description: >-
+                The email address of the owner, when the owner can be resolved
+                to a known user.
+              type: string
             archived:
               type: boolean
             status:
@@ -21602,6 +21622,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         datasourceId:
           type: string
         name:
@@ -21930,6 +21955,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         datasourceId:
           type: string
         identifierType:
@@ -21988,6 +22018,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         datasourceId:
           type: string
@@ -22450,6 +22485,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         condition:
           description: >-
             When type = 'condition', this is the JSON-encoded condition for the
@@ -22509,6 +22549,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         projects:
           type: array
@@ -22705,6 +22750,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         projects:
           type: array
@@ -25484,6 +25534,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         name:
           type: string
         description:
@@ -25625,6 +25680,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         templateMetadata:
           type: object
