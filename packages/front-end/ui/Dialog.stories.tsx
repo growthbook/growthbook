@@ -8,11 +8,19 @@ import { Select, SelectItem } from "./Select";
 import Text from "./Text";
 import Checkbox from "./Checkbox";
 
+function SubmitButton() {
+  const { loading } = useDialogForm();
+  return (
+    <Button type="submit" loading={loading}>
+      Save
+    </Button>
+  );
+}
+
 export default function DialogStories() {
   const [size, setSize] = useState<Size | null>(null);
   const [environment, setEnvironment] = useState("production");
   const [disableStickyBucketing, setDisableStickyBucketing] = useState(false);
-  const { loading } = useDialogForm();
   const [wizardOpen, setWizardOpen] = useState(false);
   return (
     <>
@@ -114,9 +122,7 @@ export default function DialogStories() {
                 Cancel
               </Button>
             </Dialog.Close>
-            <Button type="submit" loading={loading}>
-              Save
-            </Button>
+            <SubmitButton />
           </Dialog.Footer>
         </DialogForm>
       </Dialog.Root>

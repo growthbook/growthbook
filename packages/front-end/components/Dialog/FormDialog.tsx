@@ -3,6 +3,28 @@ import Button from "@/ui/Button";
 import Dialog, { Size, TrackingEventModalProps } from "@/ui/Dialog";
 import DialogForm, { useDialogForm } from "./DialogForm";
 
+function SubmitButton({
+  cta,
+  ctaColor,
+  ctaEnabled,
+}: {
+  cta: string;
+  ctaColor: "red" | "violet";
+  ctaEnabled: boolean;
+}) {
+  const { loading } = useDialogForm();
+  return (
+    <Button
+      type="submit"
+      disabled={!ctaEnabled}
+      color={ctaColor}
+      loading={loading}
+    >
+      {cta}
+    </Button>
+  );
+}
+
 export type Props = TrackingEventModalProps & {
   open: boolean;
   header: string;
@@ -39,8 +61,6 @@ export default function FormDialog({
   allowlistedTrackingEventProps = {},
   trackOnSubmit = true,
 }: Props) {
-  const { loading } = useDialogForm();
-
   const content = (
     <>
       <Dialog.Header>
@@ -56,14 +76,7 @@ export default function FormDialog({
           </Button>
         </Dialog.Close>
         {submit && (
-          <Button
-            type="submit"
-            disabled={!ctaEnabled}
-            color={ctaColor}
-            loading={loading}
-          >
-            {cta}
-          </Button>
+          <SubmitButton cta={cta} ctaColor={ctaColor} ctaEnabled={ctaEnabled} />
         )}
       </Dialog.Footer>
     </>
