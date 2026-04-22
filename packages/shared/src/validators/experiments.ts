@@ -1078,7 +1078,20 @@ const postExperimentBody = z
     customMetricSlices: apiCustomMetricSlices.optional(),
     maxExperimentDuration: maxExperimentDurationValidator.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (
+      data.type === "multi-armed-bandit" &&
+      data.maxExperimentDuration !== undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "maxExperimentDuration is not supported for multi-armed-bandit experiments",
+        path: ["maxExperimentDuration"],
+      });
+    }
+  });
 
 // UpdateExperimentPayload.yaml
 const updateExperimentBody = z
@@ -1263,7 +1276,20 @@ const updateExperimentBody = z
     customMetricSlices: apiCustomMetricSlices.optional(),
     maxExperimentDuration: maxExperimentDurationValidator.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (
+      data.type === "multi-armed-bandit" &&
+      data.maxExperimentDuration !== undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "maxExperimentDuration is not supported for multi-armed-bandit experiments",
+        path: ["maxExperimentDuration"],
+      });
+    }
+  });
 
 // Common params
 const idParams = z

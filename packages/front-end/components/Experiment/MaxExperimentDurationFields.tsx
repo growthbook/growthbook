@@ -38,13 +38,10 @@ function normalizeDuration(
 export function MaxExperimentDurationFields({
   form: formProp,
   disabled,
-  isBandit = false,
 }: {
   /** `react-hook-form` instance that includes `maxExperimentDuration` (e.g. AnalysisForm). */
   form: unknown;
   disabled?: boolean;
-  /** Bandits anchor this window from explore start (see shared `getMaxExperimentDurationAnchor`). */
-  isBandit?: boolean;
 }) {
   const form = formProp as UseFormReturn<MaxDurationForm>;
 
@@ -110,20 +107,8 @@ export function MaxExperimentDurationFields({
         }}
       />
       <small className="form-text text-muted d-block">
-        {isBandit ? (
-          <>
-            Calendar limit from the start of the bandit&apos;s explore phase
-            (first bandit event when present, otherwise phase start). After this
-            window, the experiment may be treated as complete for scheduling and
-            analysis.
-          </>
-        ) : (
-          <>
-            Calendar limit from the start of the current phase. After this
-            window, the experiment may be treated as complete for scheduling and
-            analysis.
-          </>
-        )}
+        Calendar limit from the start of the current phase. After this window,
+        the experiment may be treated as complete for scheduling and analysis.
       </small>
     </div>
   );

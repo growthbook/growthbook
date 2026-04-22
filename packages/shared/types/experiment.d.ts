@@ -270,6 +270,9 @@ export type ExperimentDataForStatusStringDates = Pick<
   | "guardrailMetrics"
   | "datasource"
   | "decisionFrameworkSettings"
+  | "maxExperimentDuration"
+  | "banditStage"
+  | "banditStageDateStarted"
 >;
 
 export type ExperimentDataForStatus = Pick<
@@ -287,4 +290,7 @@ export type ExperimentDataForStatus = Pick<
   | "guardrailMetrics"
   | "datasource"
   | "decisionFrameworkSettings"
+  | "maxExperimentDuration"
+  | "banditStage"
+  | "banditStageDateStarted"
 >;

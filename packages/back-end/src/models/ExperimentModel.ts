@@ -1,5 +1,5 @@
 import { each, isEqual, pick, uniqWith } from "lodash";
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { FilterQuery, UpdateQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
@@ -585,7 +585,9 @@ export async function createExperiment({
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
     maxExperimentDuration:
-      data.maxExperimentDuration ?? DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
+      data.type === "multi-armed-bandit"
+        ? undefined
+        : (data.maxExperimentDuration ?? DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
     //set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
@@ -650,17 +652,33 @@ export async function updateExperiment({
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
+  const effectiveType =
+    allChanges.type !== undefined ? allChanges.type : experiment.type;
+
+  const setChanges = { ...allChanges };
+  if (effectiveType === "multi-armed-bandit") {
+    delete setChanges.maxExperimentDuration;
+  }
+
+  const updateDoc: UpdateQuery<ExperimentDocument> = {
+    $set: setChanges,
+  };
+  if (effectiveType === "multi-armed-bandit") {
+    updateDoc.$unset = { maxExperimentDuration: "" };
+  }
+
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
       organization: context.org.id,
     },
-    {
-      $set: allChanges,
-    },
+    updateDoc,
   );
 
-  const updated = { ...experiment, ...allChanges };
+  const updated = { ...experiment, ...setChanges };
+  if (effectiveType === "multi-armed-bandit") {
+    delete updated.maxExperimentDuration;
+  }
 
   await onExperimentUpdate({
     context,

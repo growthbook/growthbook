@@ -4,7 +4,6 @@ import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
   DecisionCriteriaRule,
-  DecisionFrameworkExperimentRecommendationStatus,
   DecisionFrameworkVariation,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
@@ -29,6 +28,7 @@ import {
   DEFAULT_SRM_THRESHOLD,
 } from "../../constants";
 import { daysBetween } from "../../dates";
+import { getCalendarDaysRemainingUntilMaxExperimentEnd } from "../../experiments/maxExperimentDuration";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
   PRESET_DECISION_CRITERIA,
@@ -398,17 +398,118 @@ export function getDecisionFrameworkStatus({
 
 function getDaysLeftStatus({
   daysNeeded,
+  tooltip,
 }: {
   daysNeeded: number;
-}): DecisionFrameworkExperimentRecommendationStatus | undefined {
+  tooltip?: string;
+}): ExperimentResultStatusData | undefined {
   // TODO: Right now midExperimentPowerEnable is controlling the whole "Days Left" status
   // but we should probably split it when considering Experiment Runtime length without power
   if (daysNeeded > 0) {
     return {
       status: "days-left",
       daysLeft: daysNeeded,
+      tooltip,
     };
   }
+}
+
+type DaysLeftDriver = "power" | "maxDuration";
+
+type MinDaysFromMaxDurationAndPowerResult = {
+  minWholeDays: number | null;
+  driver: DaysLeftDriver | null;
+  /**
+   * Max-duration tooltip copy when the calendar cap applies; derived in one place
+   * alongside `driver` (tie → max duration wins for `driver`, but no tooltip).
+   */
+  maxDurationTooltipHint: "strict-cap" | "duration-only" | "tie" | null;
+};
+
+function daysLeftFromMaxDurationAndPower(
+  powerAdditionalDaysInput: number | undefined,
+  durationAdditionalDays: number | null,
+): MinDaysFromMaxDurationAndPowerResult {
+  /** Fractional days; compare to calendar as-is; round up only when power drives `minWholeDays`. */
+  const powerAdditionalDays =
+    powerAdditionalDaysInput != null &&
+    Number.isFinite(powerAdditionalDaysInput) &&
+    powerAdditionalDaysInput >= 0
+      ? powerAdditionalDaysInput
+      : null;
+
+  const duration =
+    durationAdditionalDays != null && Number.isFinite(durationAdditionalDays)
+      ? durationAdditionalDays
+      : null;
+
+  if (powerAdditionalDays == null && duration == null) {
+    return {
+      minWholeDays: null,
+      driver: null,
+      maxDurationTooltipHint: null,
+    };
+  }
+
+  if (powerAdditionalDays == null) {
+    return {
+      minWholeDays: duration,
+      driver: "maxDuration",
+      maxDurationTooltipHint: "duration-only",
+    };
+  }
+
+  if (duration == null) {
+    return {
+      minWholeDays: Math.ceil(powerAdditionalDays),
+      driver: "power",
+      maxDurationTooltipHint: null,
+    };
+  }
+
+  if (powerAdditionalDays < duration) {
+    return {
+      minWholeDays: Math.ceil(powerAdditionalDays),
+      driver: "power",
+      maxDurationTooltipHint: null,
+    };
+  }
+
+  if (duration < powerAdditionalDays) {
+    return {
+      minWholeDays: duration,
+      driver: "maxDuration",
+      maxDurationTooltipHint: "strict-cap",
+    };
+  }
+
+  // Tie on fractional comparison; max duration wins for `driver` (no strict-cap tooltip).
+  return {
+    minWholeDays: duration,
+    driver: "maxDuration",
+    maxDurationTooltipHint: "tie",
+  };
+}
+
+function buildDaysLeftTooltipFromMaxDuration({
+  displayDays,
+  durationAdditionalDays,
+  maxDurationTooltipHint,
+}: {
+  displayDays: number;
+  durationAdditionalDays: number | null;
+  maxDurationTooltipHint: MinDaysFromMaxDurationAndPowerResult["maxDurationTooltipHint"];
+}): string | undefined {
+  if (durationAdditionalDays == null) {
+    return undefined;
+  }
+  if (maxDurationTooltipHint === "strict-cap") {
+    return `At most ${displayDays} calendar day(s) remain before the configured maximum experiment duration ends. Target power may require additional runtime beyond that window.`;
+  }
+  if (maxDurationTooltipHint === "duration-only") {
+    return `The experiment has at most ${displayDays} calendar day(s) before the configured maximum experiment duration ends.`;
+  }
+  return undefined;
 }
 
 export function getExperimentResultStatus({
@@ -438,10 +539,32 @@ export function getExperimentResultStatus({
     healthSummary?.power?.type === "success"
       ? healthSummary.power.isLowPowered
       : undefined;
-  const daysNeeded =
+  const powerAdditionalDays =
     healthSummary?.power?.type === "success"
       ? healthSummary.power.additionalDaysNeeded
       : undefined;
+
+  const maxDurationAdditionalDays =
+    getCalendarDaysRemainingUntilMaxExperimentEnd(experimentData);
+
+  const { minWholeDays: combinedWholeDays, maxDurationTooltipHint } =
+    daysLeftFromMaxDurationAndPower(
+      powerAdditionalDays,
+      maxDurationAdditionalDays,
+    );
+
+  const displayDaysNeeded =
+    combinedWholeDays != null && combinedWholeDays > 0
+      ? combinedWholeDays
+      : undefined;
+
+  const daysLeftTooltip = displayDaysNeeded
+    ? buildDaysLeftTooltipFromMaxDuration({
+        displayDays: displayDaysNeeded,
+        durationAdditionalDays: maxDurationAdditionalDays,
+        maxDurationTooltipHint,
+      })
+    : undefined;
 
   // Fully skip decision framework if there are no goal metrics
   // TODO @dmf-experiment: Add front-end information about this
@@ -452,12 +575,15 @@ export function getExperimentResultStatus({
       decisionCriteria,
       goalMetrics: experimentData.goalMetrics,
       guardrailMetrics: experimentData.guardrailMetrics,
-      daysNeeded,
+      daysNeeded: powerAdditionalDays,
     });
   }
 
-  const daysLeftStatus = daysNeeded
-    ? getDaysLeftStatus({ daysNeeded })
+  const daysLeftStatus = displayDaysNeeded
+    ? getDaysLeftStatus({
+        daysNeeded: displayDaysNeeded,
+        tooltip: daysLeftTooltip,
+      })
     : undefined;
 
   if (healthSummary?.totalUsers) {

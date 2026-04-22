@@ -207,7 +207,10 @@ const AnalysisForm: FC<{
         "hours") as "hours" | "days",
       disableStickyBucketing: experiment.disableStickyBucketing ?? false,
       maxExperimentDuration:
-        experiment.maxExperimentDuration ?? DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
+        experiment.type === "multi-armed-bandit"
+          ? undefined
+          : (experiment.maxExperimentDuration ??
+            DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
     },
   });
 
@@ -325,7 +328,7 @@ const AnalysisForm: FC<{
           skipPartialData: skipPartialData === "strict",
         };
 
-        if (maxExperimentDuration) {
+        if (!isBandit && maxExperimentDuration) {
           body.maxExperimentDuration = maxExperimentDuration;
         }
 
@@ -600,16 +603,15 @@ const AnalysisForm: FC<{
             )}
           </div>
         )}
-        <>
-          <hr />
-          <MaxExperimentDurationFields
-            form={form}
-            isBandit={isBandit}
-            disabled={
-              !canRunExperiment || (isBandit && experiment.status !== "draft")
-            }
-          />
-        </>
+        {!isBandit ? (
+          <>
+            <hr />
+            <MaxExperimentDurationFields
+              form={form}
+              disabled={!canRunExperiment}
+            />
+          </>
+        ) : null}
         {!!datasource && !isBandit && !isHoldout && (
           <>
             <Tooltip

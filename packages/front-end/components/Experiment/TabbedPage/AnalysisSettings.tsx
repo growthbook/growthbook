@@ -410,7 +410,6 @@ export default function AnalysisSettings({
                   : "hours"}
               </div>
             </div>
-            {maxExperimentDurationColumn}
           </div>
         )}
         {!isPublic && !isBandit && (isHoldout || !hasDecisionFramework) && (

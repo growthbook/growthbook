@@ -691,7 +691,8 @@ export function upgradeExperimentDoc(
   // Running experiments created before max duration: treat as uncapped (100y) until edited
   if (
     experiment.maxExperimentDuration === undefined &&
-    experiment.status === "running"
+    experiment.status === "running" &&
+    experiment.type !== "multi-armed-bandit"
   ) {
     experiment.maxExperimentDuration = MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION;
   }

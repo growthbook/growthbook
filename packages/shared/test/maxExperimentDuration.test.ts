@@ -1,6 +1,7 @@
 import type { ExperimentInterface } from "shared/types/experiment";
 import {
   formatMaxExperimentDuration,
+  getCalendarDaysRemainingUntilMaxExperimentEnd,
   getMaxExperimentDurationAnchor,
 } from "../src/experiments/maxExperimentDuration";
 
@@ -48,15 +49,36 @@ function baseBandit(
 }
 
 describe("formatMaxExperimentDuration", () => {
-  it("uses singular unit when value is 1", () => {
+  it("shows days for durations of at least 24 hours (calendar months → day count)", () => {
     expect(formatMaxExperimentDuration({ value: 1, unit: "months" })).toBe(
-      "1 month",
+      "31 days",
+    );
+    expect(formatMaxExperimentDuration({ value: 3, unit: "months" })).toBe(
+      "91 days",
     );
   });
 
-  it("uses plural unit when value is not 1", () => {
-    expect(formatMaxExperimentDuration({ value: 3, unit: "months" })).toBe(
-      "3 months",
+  it("shows hours when the window is under 24 hours", () => {
+    expect(formatMaxExperimentDuration({ value: 1, unit: "hours" })).toBe(
+      "1 hour",
+    );
+    expect(formatMaxExperimentDuration({ value: 12, unit: "hours" })).toBe(
+      "12 hours",
+    );
+    expect(formatMaxExperimentDuration({ value: 23, unit: "hours" })).toBe(
+      "23 hours",
+    );
+  });
+
+  it("shows days at exactly 24 hours or more", () => {
+    expect(formatMaxExperimentDuration({ value: 24, unit: "hours" })).toBe(
+      "1 day",
+    );
+    expect(formatMaxExperimentDuration({ value: 1, unit: "days" })).toBe(
+      "1 day",
+    );
+    expect(formatMaxExperimentDuration({ value: 36, unit: "hours" })).toBe(
+      "2 days",
     );
   });
 
@@ -67,35 +89,8 @@ describe("formatMaxExperimentDuration", () => {
 });
 
 describe("getMaxExperimentDurationAnchor", () => {
-  it("uses first bandit event date for MAB in exploit (not banditStageDateStarted)", () => {
-    const exploreStart = new Date("2025-01-01T12:00:00.000Z");
-    const anchor = getMaxExperimentDurationAnchor(baseBandit());
-    expect(anchor?.toISOString()).toBe(exploreStart.toISOString());
-  });
-
-  it("uses banditStageDateStarted for MAB in explore when there are no events yet", () => {
-    const exploreStart = new Date("2025-03-10T00:00:00.000Z");
-    const anchor = getMaxExperimentDurationAnchor(
-      baseBandit({
-        banditStage: "explore",
-        banditStageDateStarted: exploreStart,
-        phases: [
-          {
-            dateStarted: new Date("2025-03-01"),
-            name: "Main",
-            reason: "",
-            coverage: 1,
-            condition: "",
-            variationWeights: [0.5, 0.5],
-            variations: [
-              { id: "0", status: "active" },
-              { id: "1", status: "active" },
-            ],
-          },
-        ],
-      }),
-    );
-    expect(anchor?.toISOString()).toBe(exploreStart.toISOString());
+  it("returns null for multi-armed-bandit experiments", () => {
+    expect(getMaxExperimentDurationAnchor(baseBandit())).toBeNull();
   });
 
   it("uses latest phase dateStarted for standard experiments", () => {
@@ -118,5 +113,101 @@ describe("getMaxExperimentDurationAnchor", () => {
       ],
     });
     expect(anchor?.toISOString()).toBe(phaseStart.toISOString());
+  });
+});
+
+describe("getCalendarDaysRemainingUntilMaxExperimentEnd", () => {
+  it("returns whole days remaining (exact day boundaries)", () => {
+    const phaseStart = new Date("2025-01-01T00:00:00.000Z");
+    const now = new Date("2025-01-08T00:00:00.000Z");
+    const d = getCalendarDaysRemainingUntilMaxExperimentEnd(
+      {
+        type: "standard",
+        phases: [
+          {
+            dateStarted: phaseStart,
+            name: "Main",
+            reason: "",
+            coverage: 1,
+            condition: "",
+            variationWeights: [0.5, 0.5],
+            variations: [
+              { id: "0", status: "active" },
+              { id: "1", status: "active" },
+            ],
+          },
+        ],
+        maxExperimentDuration: { value: 14, unit: "days" },
+      },
+      now,
+    );
+    expect(d).toBe(7);
+  });
+
+  it("rounds up when less than a full day remains", () => {
+    const phaseStart = new Date("2025-01-01T00:00:00.000Z");
+    const end = new Date("2025-01-15T00:00:00.000Z");
+    const now = new Date("2025-01-14T12:00:00.000Z");
+    const msLeft = end.getTime() - now.getTime();
+    expect(msLeft).toBeLessThan(86_400_000);
+    const d = getCalendarDaysRemainingUntilMaxExperimentEnd(
+      {
+        type: "standard",
+        phases: [
+          {
+            dateStarted: phaseStart,
+            name: "Main",
+            reason: "",
+            coverage: 1,
+            condition: "",
+            variationWeights: [0.5, 0.5],
+            variations: [
+              { id: "0", status: "active" },
+              { id: "1", status: "active" },
+            ],
+          },
+        ],
+        maxExperimentDuration: { value: 14, unit: "days" },
+      },
+      now,
+    );
+    expect(d).toBe(1);
+  });
+
+  it("returns null when max duration is omitted", () => {
+    expect(
+      getCalendarDaysRemainingUntilMaxExperimentEnd(
+        {
+          type: "standard",
+          phases: [
+            {
+              dateStarted: new Date("2025-01-01"),
+              name: "Main",
+              reason: "",
+              coverage: 1,
+              condition: "",
+              variationWeights: [0.5, 0.5],
+              variations: [
+                { id: "0", status: "active" },
+                { id: "1", status: "active" },
+              ],
+            },
+          ],
+        },
+        new Date("2025-01-05"),
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null for multi-armed-bandit even if max duration is set", () => {
+    expect(
+      getCalendarDaysRemainingUntilMaxExperimentEnd(
+        {
+          ...baseBandit(),
+          maxExperimentDuration: { value: 14, unit: "days" },
+        },
+        new Date("2025-01-05"),
+      ),
+    ).toBeNull();
   });
 });

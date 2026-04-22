@@ -372,8 +372,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
       maxExperimentDuration:
-        initialValue?.maxExperimentDuration ??
-        DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
+        initialValue?.type === "multi-armed-bandit"
+          ? undefined
+          : (initialValue?.maxExperimentDuration ??
+            DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
     },
   });
 
@@ -544,6 +546,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             "Enter a conversion window override or disable the conversion window override",
           );
         }
+        delete data.maxExperimentDuration;
       }
     }
 
@@ -949,12 +952,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setLinkNameWithTrackingKey(false);
               }}
             />
-            <Separator size="4" my="4" />
-            <MaxExperimentDurationFields
-              form={form}
-              isBandit={isBandit}
-              disabled={false}
-            />
+            {!isBandit ? (
+              <>
+                <Separator size="4" my="4" />
+                <MaxExperimentDurationFields form={form} disabled={false} />
+              </>
+            ) : null}
             {!isBandit && (
               <Field
                 label="Hypothesis"

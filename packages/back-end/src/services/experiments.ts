@@ -3413,7 +3413,8 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.defaultDashboardId !== undefined
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
-    ...(payload.maxExperimentDuration !== undefined
+    ...(payload.maxExperimentDuration !== undefined &&
+    (payload.type ?? "standard") !== "multi-armed-bandit"
       ? { maxExperimentDuration: payload.maxExperimentDuration }
       : {}),
   };
@@ -3765,6 +3766,13 @@ export function updateExperimentApiPayloadToInterface(
         ...changes,
       } as ExperimentInterface);
     }
+  }
+
+  const effectiveTypeForMaxDuration =
+    changes.type !== undefined ? changes.type : experiment.type;
+  if (effectiveTypeForMaxDuration === "multi-armed-bandit") {
+    delete (changes as { maxExperimentDuration?: unknown })
+      .maxExperimentDuration;
   }
 
   return changes;
