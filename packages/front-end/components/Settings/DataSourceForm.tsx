@@ -231,6 +231,7 @@ const DataSourceForm: FC<{
             ...datasource,
             type: option.type,
             params: option.default,
+            eventForwarderConfig: null,
           } as Partial<DataSourceInterfaceWithParams>);
           setDirty(true);
         }}

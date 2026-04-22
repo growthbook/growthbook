@@ -13,6 +13,7 @@ import { TemplateVariables } from "shared/types/sql";
 import { factTableColumnTypes } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
+import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import {
   DataSourceParams,
   DataSourceType,
@@ -27,6 +28,7 @@ import {
   GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -42,6 +44,11 @@ import {
   runFreeFormQuery,
   runUserExposureQuery,
 } from "back-end/src/services/datasource";
+import {
+  getEventForwarderConfigDraftForDatasource,
+  syncEventForwarderConfigFromDatasource,
+} from "back-end/src/services/eventForwarderConfig";
+import { maybeProvisionEventForwarderConfig } from "back-end/src/services/eventForwarderProvisioning";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
@@ -164,18 +171,12 @@ export async function getDataSources(req: AuthRequest, res: Response) {
 
   res.status(200).json({
     status: 200,
-    datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(context, d);
-      return {
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        type: d.type,
-        settings: d.settings,
-        projects: d.projects ?? [],
-        params: getNonSensitiveParams(integration),
-      };
-    }),
+    datasources: await Promise.all(
+      datasources.map(async (d) => {
+        const integration = getSourceIntegrationObject(context, d);
+        return await getDataSourceWithParams(context, integration);
+      }),
+    ),
   });
 }
 
@@ -188,12 +189,13 @@ export async function getDataSource(
 
   const integration = await getIntegrationFromDatasourceId(context, id);
 
-  res.status(200).json(getDataSourceWithParams(integration));
+  res.status(200).json(await getDataSourceWithParams(context, integration));
 }
 
-function getDataSourceWithParams(
+async function getDataSourceWithParams(
+  context: ReturnType<typeof getContextFromReq>,
   integration: SourceIntegrationInterface,
-): DataSourceInterfaceWithParams {
+): Promise<DataSourceInterfaceWithParams> {
   const datasource = integration.datasource;
 
   // eslint-disable-next-line
@@ -203,6 +205,10 @@ function getDataSourceWithParams(
     ...otherFields,
     params: getNonSensitiveParams(integration),
     decryptionError: integration.decryptionError,
+    eventForwarderConfig: await getEventForwarderConfigDraftForDatasource(
+      context,
+      datasource,
+    ),
   };
 }
 
@@ -214,12 +220,14 @@ export async function postDataSources(
     params: DataSourceParams;
     settings: DataSourceSettings;
     projects?: string[];
+    eventForwarderConfig?: EventForwarderConfigDraft | null;
   }>,
   res: Response<
     | {
         status: 200;
         id: string;
         datasource: DataSourceInterfaceWithParams;
+        eventForwarderProvisioningError?: string;
       }
     | {
         status: 400;
@@ -228,7 +236,8 @@ export async function postDataSources(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { name, description, type, params, projects } = req.body;
+  const { name, description, type, params, projects, eventForwarderConfig } =
+    req.body;
   const settings = req.body.settings || {};
 
   if (!context.permissions.canCreateDataSource({ projects, type })) {
@@ -255,12 +264,31 @@ export async function postDataSources(
       projects,
     );
 
+    const syncedEventForwarderConfig =
+      await syncEventForwarderConfigFromDatasource({
+        context,
+        datasource,
+        draft: eventForwarderConfig,
+        datasourceParams:
+          datasource.type === "bigquery"
+            ? (params as BigQueryConnectionParams)
+            : undefined,
+      });
+    const provisioningResult = await maybeProvisionEventForwarderConfig(
+      context,
+      syncedEventForwarderConfig,
+    );
     const integration = getSourceIntegrationObject(context, datasource);
 
     res.status(200).json({
       status: 200,
       id: datasource.id,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
+      ...(provisioningResult.error
+        ? {
+            eventForwarderProvisioningError: provisioningResult.error,
+          }
+        : {}),
     });
   } catch (e) {
     req.log.error(e, "Failed to create data source");
@@ -360,7 +388,7 @@ export async function postManagedWarehouse(
   res.status(200).json({
     status: 200,
     id: "managed_warehouse",
-    datasource: getDataSourceWithParams(integration),
+    datasource: await getDataSourceWithParams(context, integration),
   });
 }
 
@@ -374,6 +402,7 @@ export async function putDataSource(
       settings?: DataSourceSettings;
       projects?: string[];
       metricsToCreate?: AutoMetricToCreate[];
+      eventForwarderConfig?: EventForwarderConfigDraft | null;
     },
     { id: string }
   >,
@@ -381,6 +410,7 @@ export async function putDataSource(
     | {
         status: 200;
         datasource: DataSourceInterfaceWithParams;
+        eventForwarderProvisioningError?: string;
       }
     | {
         status: 400 | 403 | 404;
@@ -424,6 +454,7 @@ export async function putDataSource(
     settings,
     projects,
     metricsToCreate,
+    eventForwarderConfig,
   } = req.body;
 
   const datasource = await getDataSourceById(context, id);
@@ -514,14 +545,34 @@ export async function putDataSource(
 
     await updateDataSource(context, datasource, updates);
 
-    const integration = getSourceIntegrationObject(context, {
+    const updatedDatasource = {
       ...datasource,
       ...updates,
-    });
+    };
+    const integration = getSourceIntegrationObject(context, updatedDatasource);
+    const syncedEventForwarderConfig =
+      await syncEventForwarderConfigFromDatasource({
+        context,
+        datasource: updatedDatasource,
+        draft: eventForwarderConfig,
+        datasourceParams:
+          updatedDatasource.type === "bigquery"
+            ? (integration.params as BigQueryConnectionParams)
+            : undefined,
+      });
+    const provisioningResult = await maybeProvisionEventForwarderConfig(
+      context,
+      syncedEventForwarderConfig,
+    );
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
+      ...(provisioningResult.error
+        ? {
+            eventForwarderProvisioningError: provisioningResult.error,
+          }
+        : {}),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -1270,7 +1321,7 @@ export async function postMaterializedColumn(
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -1397,7 +1448,7 @@ export async function updateMaterializedColumn(
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -1466,7 +1517,7 @@ export async function deleteMaterializedColumn(
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");

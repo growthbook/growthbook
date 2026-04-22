@@ -1,18 +1,31 @@
 import { ChangeEventHandler, FC, useState } from "react";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
+import Checkbox from "@/ui/Checkbox";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
+  eventForwarderConfig: EventForwarderConfigDraft | null;
   existing: boolean;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | boolean }) => void;
+  setEventForwarderConfig: (
+    eventForwarderConfig: EventForwarderConfigDraft | null,
+  ) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, setParams, existing, onParamChange }) => {
+}> = ({
+  params,
+  eventForwarderConfig,
+  setParams,
+  setEventForwarderConfig,
+  existing,
+  onParamChange,
+}) => {
   const [testConnectionResults, setTestConnectionResults] = useState<{
     status: "success" | "danger" | "warning";
     message: string;
@@ -128,6 +141,18 @@ const BigQueryForm: FC<{
                           clientEmail: json.client_email,
                           defaultProject: json.project_id,
                         });
+                        if (eventForwarderConfig?.sinkType === "bigquery") {
+                          setEventForwarderConfig({
+                            sinkType: "bigquery",
+                            config: {
+                              ...eventForwarderConfig.config,
+                              projectId:
+                                eventForwarderConfig.config.projectId ||
+                                json.project_id,
+                              serviceAccountKey: str,
+                            },
+                          });
+                        }
                       }
                     } catch (e) {
                       console.error(e);
@@ -182,6 +207,104 @@ const BigQueryForm: FC<{
             >
               Test Connection
             </Button>
+            {/* TODO: Wrap under enterprise plan */}
+            <div className="mt-3">
+              <Checkbox
+                id="enableEventForwarder"
+                label="Enable Event Forwarder"
+                value={!!eventForwarderConfig}
+                setValue={(value) => {
+                  if (!value) {
+                    setEventForwarderConfig(null);
+                    return;
+                  }
+
+                  setEventForwarderConfig({
+                    sinkType: "bigquery",
+                    config: {
+                      projectId:
+                        params.defaultProject || params.projectId || "",
+                      dataset: params.defaultDataset || "",
+                      tableName: "gb_events",
+                      serviceAccountKey: "",
+                    },
+                  });
+                }}
+              />
+              <div>
+                <span className="text-muted small">
+                  Enriched events will be forwarded to your data warehouse.
+                </span>
+              </div>
+            </div>
+            {eventForwarderConfig?.sinkType === "bigquery" && (
+              <div className="form-group col-md-12 mt-3 px-0">
+                <label>
+                  Event Forwarder Project ID{" "}
+                  <Tooltip body="Defaults to the datasource project, but you can override it for the BigQuery sink target." />
+                </label>
+                <Field
+                  type="text"
+                  className="form-control"
+                  name="eventForwarderProjectId"
+                  value={eventForwarderConfig.config.projectId}
+                  onChange={(e) =>
+                    setEventForwarderConfig({
+                      sinkType: "bigquery",
+                      config: {
+                        ...eventForwarderConfig.config,
+                        projectId: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="my_project"
+                  required
+                />
+                <label className="mt-3">
+                  Event Forwarder Dataset{" "}
+                  <Tooltip body="Defaults to the datasource dataset, but you can override it for the BigQuery sink target." />
+                </label>
+                <Field
+                  type="text"
+                  className="form-control"
+                  name="eventForwarderDataset"
+                  value={eventForwarderConfig.config.dataset}
+                  onChange={(e) =>
+                    setEventForwarderConfig({
+                      sinkType: "bigquery",
+                      config: {
+                        ...eventForwarderConfig.config,
+                        dataset: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="analytics_events"
+                  required
+                />
+                <label>
+                  Event Forwarder Table Name{" "}
+                  <Tooltip body="Defaults to gb_events. If that table already exists, GrowthBook will provision a connector using a suffixed fallback table name instead." />
+                </label>
+                <Field
+                  type="text"
+                  className="form-control"
+                  name="eventForwarderTableName"
+                  value={eventForwarderConfig.config.tableName}
+                  onChange={(e) =>
+                    setEventForwarderConfig({
+                      sinkType: "bigquery",
+                      config: {
+                        ...eventForwarderConfig.config,
+                        tableName: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="gb_events"
+                  helpText="Must be a valid BigQuery table name."
+                  required
+                />
+              </div>
+            )}
           </div>
         </>
       )}

@@ -9,6 +9,12 @@ const BaseClass = MakeModelClass({
   schema: eventForwarderConfigValidator,
   collectionName: "eventForwarderConfigs",
   idPrefix: "efc_",
+  additionalIndexes: [
+    {
+      fields: { organization: 1, sinkType: 1 },
+      unique: true,
+    },
+  ],
   auditLog: {
     entity: "eventForwarderConfig",
     createEvent: "eventForwarderConfig.create",
