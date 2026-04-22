@@ -131,8 +131,8 @@ export default function ExperimentSettings({
                     </label>
                   </Text>
                   <Text>
-                    Prevent users from setting an experiment&apos;s tracking key
-                    to one in use by an existing experiment.
+                    Prevent experimenters from setting an experiment tracking
+                    key to one already in use.
                   </Text>
                 </Flex>
               </Flex>
