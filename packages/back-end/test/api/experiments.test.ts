@@ -653,7 +653,9 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
-      expect(getExperimentByTrackingKey).toHaveBeenCalled();
+      // When bypassDuplicateKeyCheck is true and the org doesn't require unique
+      // tracking keys, the duplicate-key lookup is skipped entirely.
+      expect(getExperimentByTrackingKey).not.toHaveBeenCalled();
     });
 
     it("rejects duplicate trackingKey when requireUniqueExperimentTrackingKeys is enabled, even with bypassDuplicateKeyCheck", async () => {
