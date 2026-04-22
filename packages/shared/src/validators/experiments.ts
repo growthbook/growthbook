@@ -8,7 +8,7 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -698,6 +698,7 @@ const apiExperimentShape = z.object({
   description: z.string(),
   tags: z.array(z.string()),
   owner: ownerField,
+  ownerEmail: ownerEmailField,
   archived: z.boolean(),
   status: z.string(),
   autoRefresh: z.boolean(),

@@ -4,6 +4,7 @@ import {
   ExperimentTemplateInterface,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   experimentTemplateApiSpec,
@@ -114,6 +115,9 @@ export class ExperimentTemplatesModel extends BaseClass {
     const docs = await (projectId
       ? this._find({ project: projectId })
       : this.getAll());
-    return docs.map(this.toApiInterface.bind(this));
+    return resolveOwnerEmails(
+      docs.map((doc) => this.toApiInterface(doc)),
+      this.context,
+    );
   }
 }

@@ -1,5 +1,6 @@
 import { getSegmentValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getSegment = createApiRequestHandler(getSegmentValidator)(async (
@@ -11,6 +12,9 @@ export const getSegment = createApiRequestHandler(getSegmentValidator)(async (
   }
 
   return {
-    segment: toSegmentApiInterface(segment),
+    segment: await resolveOwnerEmail(
+      toSegmentApiInterface(segment),
+      req.context,
+    ),
   };
 });
