@@ -85,7 +85,9 @@ const NamespacesPage: FC = () => {
             <TableRow>
               <TableColumnHeader>Namespace</TableColumnHeader>
               <TableColumnHeader>Description</TableColumnHeader>
-              <TableColumnHeader justify="end">Active Experiments</TableColumnHeader>
+              <TableColumnHeader justify="end">
+                Active Experiments
+              </TableColumnHeader>
               <TableColumnHeader justify="end">Available</TableColumnHeader>
               <TableColumnHeader style={{ width: 30 }} />
             </TableRow>

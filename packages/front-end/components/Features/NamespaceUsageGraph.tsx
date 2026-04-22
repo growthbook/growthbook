@@ -101,7 +101,10 @@ export default function NamespaceUsageGraph({
             {inUseIntervals.map(([s, e], i) => (
               <div
                 key={`inuse-${i}`}
-                className={clsx(styles.inUse, isActive(s, e) && styles.inUseActive)}
+                className={clsx(
+                  styles.inUse,
+                  isActive(s, e) && styles.inUseActive,
+                )}
                 style={{ left: toPercent(s), width: toPercent(e - s) }}
               />
             ))}
@@ -110,7 +113,10 @@ export default function NamespaceUsageGraph({
                 <div
                   key={`gap${i}`}
                   className={styles.gapClickTarget}
-                  style={{ left: toPercent(g.start), width: toPercent(g.end - g.start) }}
+                  style={{
+                    left: toPercent(g.start),
+                    width: toPercent(g.end - g.start),
+                  }}
                   onClick={(e) => {
                     e.preventDefault();
                     setRange([g.start, g.end]);
@@ -122,7 +128,10 @@ export default function NamespaceUsageGraph({
                 <div
                   key={`range-${i}`}
                   className={styles.rangeSelected}
-                  style={{ left: toPercent(r[0]), width: toPercent(r[1] - r[0]) }}
+                  style={{
+                    left: toPercent(r[0]),
+                    width: toPercent(r[1] - r[0]),
+                  }}
                 />
               ))}
           </div>

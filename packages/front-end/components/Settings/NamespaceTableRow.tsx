@@ -1,8 +1,7 @@
 import { Namespaces, NamespaceUsage } from "shared/types/organization";
-import { Box } from "@radix-ui/themes";
+import { Box, IconButton } from "@radix-ui/themes";
 import { MouseEventHandler, useMemo, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { IconButton } from "@radix-ui/themes";
 import { findGaps } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import NamespaceUsageGraph from "@/components/Features/NamespaceUsageGraph";
@@ -245,7 +244,9 @@ export default function NamespaceTableRow({
                         >
                           <TableCell>
                             {isFirstInGroup ? (
-                              <Link href={e.link} target="_blank">{e.name}</Link>
+                              <Link href={e.link} target="_blank">
+                                {e.name}
+                              </Link>
                             ) : null}
                           </TableCell>
                           <TableCell>{e.environment}</TableCell>
