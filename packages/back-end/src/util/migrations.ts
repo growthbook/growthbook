@@ -809,6 +809,7 @@ export function migrateSnapshot(
               sequentialTestingTuningParameter ||
               DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
             numGoalMetrics: goalMetrics.length,
+            numGuardrailMetrics: 0,
           },
           results,
         },

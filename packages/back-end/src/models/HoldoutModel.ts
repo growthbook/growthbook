@@ -18,6 +18,9 @@ const BaseClass = MakeModelClass({
     deleteEvent: "holdout.delete",
   },
   globallyUniquePrimaryKeys: false,
+  defaultValues: {
+    skipAsDefaultHoldout: false,
+  } as Partial<HoldoutInterface>,
   additionalIndexes: [
     {
       fields: { "nextScheduledStatusUpdate.date": 1 },
