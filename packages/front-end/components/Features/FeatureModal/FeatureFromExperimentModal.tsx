@@ -8,10 +8,11 @@ import {
 } from "shared/types/feature";
 import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import Link from "next/link";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { filterEnvironmentsByExperiment } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
+import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,12 +29,14 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
 } from "@/hooks/useCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -184,6 +187,17 @@ export default function FeatureFromExperimentModal({
     experiment.description && experiment.description.length > 0,
   );
 
+  // Rule-level environment scope. Independent of the per-environment kill
+  // switches below: scope controls where the experiment rule evaluates; the
+  // kill switches control whether the feature itself is on in an environment.
+  const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
+  const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
+    string[]
+  >([]);
+  // For the new-feature path we keep the scope editor hidden behind a summary
+  // line; the default ("All Environments") is almost always what users want.
+  const [showRuleScopeEditor, setShowRuleScopeEditor] = useState(false);
+
   const { apiCall } = useAuth();
 
   const valueType = form.watch("valueType") as FeatureValueType;
@@ -286,7 +300,10 @@ export default function FeatureFromExperimentModal({
           type: "experiment-ref",
           description: "",
           id: "",
-          allEnvironments: false,
+          allEnvironments: ruleAllEnvironments,
+          ...(ruleAllEnvironments
+            ? {}
+            : { environments: ruleSelectedEnvironments }),
           condition: "",
           enabled: true,
           scheduleRules: [],
@@ -337,10 +354,7 @@ export default function FeatureFromExperimentModal({
             },
           );
         } else {
-          featureToCreate.rules = [
-            ...(featureToCreate.rules ?? []),
-            { ...rule, allEnvironments: true },
-          ];
+          featureToCreate.rules = [...(featureToCreate.rules ?? []), rule];
 
           await apiCall<{ feature: FeatureInterface }>(`/feature`, {
             method: "POST",
@@ -433,6 +447,7 @@ export default function FeatureFromExperimentModal({
           />
 
           <EnvironmentSelect
+            label="Enable Feature in Environments"
             environmentSettings={environmentSettings}
             environments={environments}
             project={experiment.project}
@@ -441,6 +456,25 @@ export default function FeatureFromExperimentModal({
               form.setValue("environmentSettings", environmentSettings);
             }}
           />
+
+          {showRuleScopeEditor ? (
+            <RuleEnvironmentScopeField
+              environments={environments}
+              allEnvironments={ruleAllEnvironments}
+              setAllEnvironments={setRuleAllEnvironments}
+              selectedEnvironments={ruleSelectedEnvironments}
+              setSelectedEnvironments={setRuleSelectedEnvironments}
+              my="5"
+            />
+          ) : (
+            <HelperText status="info" my="5">
+              <span>
+                An experiment rule will be added to this feature, scoped to{" "}
+                <strong>All Environments</strong>.{" "}
+                <Link onClick={() => setShowRuleScopeEditor(true)}>Change</Link>
+              </span>
+            </HelperText>
+          )}
 
           {hasCommercialFeature("custom-metadata") &&
             customFields &&
@@ -461,16 +495,27 @@ export default function FeatureFromExperimentModal({
       )}
 
       {existing && (
-        <div className="alert alert-info">
-          A rule will be added to the bottom of every environment in a new draft
-          revision. For more control over placement, you can add Experiment
-          rules directly from the{" "}
-          <Link href={`/features/${existing}`}>
-            Feature page
-            <FaExternalLinkAlt />
-          </Link>{" "}
-          instead.
-        </div>
+        <>
+          <Callout status="info" mt="5">
+            A rule will be added to the bottom of the rule list in a new draft
+            revision. For more control over placement, add Experiment rules
+            directly from the{" "}
+            <Link href={`/features/${existing}`}>
+              Feature page
+              <PiArrowSquareOut className="ml-1" />
+            </Link>{" "}
+            instead.
+          </Callout>
+
+          <RuleEnvironmentScopeField
+            environments={environments}
+            allEnvironments={ruleAllEnvironments}
+            setAllEnvironments={setRuleAllEnvironments}
+            selectedEnvironments={ruleSelectedEnvironments}
+            setSelectedEnvironments={setRuleSelectedEnvironments}
+            my="5"
+          />
+        </>
       )}
 
       <div className="form-group">

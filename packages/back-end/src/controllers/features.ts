@@ -94,6 +94,7 @@ import {
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import {
+  addIdsToFlatRules,
   addIdsToRules,
   evaluateAllFeatures,
   evaluateFeature,
@@ -761,6 +762,12 @@ export async function postFeatures(
   if (flattenedInbound.length > 0) {
     feature.rules = [...(feature.rules ?? []), ...flattenedInbound];
   }
+
+  // Stamp missing ids/trackingKeys on top-level rules. postFeatures accepts
+  // inbound v2 `feature.rules` directly (e.g. from FeatureFromExperimentModal);
+  // without this, newly-created rules would persist with `id: ""` and become
+  // unaddressable by later updates/deletes that target by ruleId.
+  addIdsToFlatRules(feature.rules, feature.id);
 
   await createFeature(context, feature);
   await context.models.watch.upsertWatch({
@@ -2325,13 +2332,20 @@ export async function postFeatureExperimentRefRule(
     environmentSettings: feature.environmentSettings,
   };
 
-  // v2: append a single experiment-ref rule scoped to all requested envs,
-  // preserving the existing flat feature.rules array.
-  const stampedRule = stampRuleForEnvs(
-    { ...rule, id: generateRuleId() } as FeatureRule,
-    environments,
-  );
-  const nextRules: FeatureRule[] = [...(feature.rules ?? []), stampedRule];
+  // v2: append a single experiment-ref rule to the flat feature.rules array.
+  // If the client supplied explicit scope (allEnvironments=true, or
+  // allEnvironments=false with an environments list), respect it as-is.
+  // Otherwise fall back to stamping with every org env for legacy callers.
+  const clientProvidedScope =
+    rule.allEnvironments === true ||
+    (rule.allEnvironments === false && Array.isArray(rule.environments));
+  const scopedRule: FeatureRule = clientProvidedScope
+    ? ({ ...rule, id: generateRuleId() } as FeatureRule)
+    : stampRuleForEnvs(
+        { ...rule, id: generateRuleId() } as FeatureRule,
+        environments,
+      );
+  const nextRules: FeatureRule[] = [...(feature.rules ?? []), scopedRule];
   const changes: Pick<FeatureRevisionInterface, "rules"> = {
     rules: nextRules,
   };
