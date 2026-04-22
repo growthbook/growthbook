@@ -18,6 +18,7 @@ export interface Props {
   trackingKey?: string;
   range?: [number, number];
   ranges?: [number, number][];
+  focusedRangeIndex?: number | null;
   setRange?: (range: [number, number]) => void;
   title?: string;
 }
@@ -39,27 +40,6 @@ function computeInUseIntervals(
   return result;
 }
 
-// Intervals within `parents` that are NOT covered by any of `subtract`.
-function subtractIntervals(
-  parents: Interval[],
-  subtract: Interval[],
-): Interval[] {
-  const result: Interval[] = [];
-  for (const [pStart, pEnd] of parents) {
-    const overlaps = subtract
-      .filter(([s, e]) => e > pStart && s < pEnd)
-      .map<Interval>(([s, e]) => [Math.max(s, pStart), Math.min(e, pEnd)])
-      .sort((a, b) => a[0] - b[0]);
-    let cursor = pStart;
-    for (const [s, e] of overlaps) {
-      if (cursor < s) result.push([cursor, s]);
-      cursor = Math.max(cursor, e);
-    }
-    if (cursor < pEnd) result.push([cursor, pEnd]);
-  }
-  return result;
-}
-
 const toPercent = (n: number) => `${+(n * 100).toFixed(4)}%`;
 
 export default function NamespaceUsageGraph({
@@ -69,6 +49,7 @@ export default function NamespaceUsageGraph({
   trackingKey = "",
   range,
   ranges,
+  focusedRangeIndex = null,
   setRange,
   title = "Allocation",
 }: Props) {
@@ -79,20 +60,20 @@ export default function NamespaceUsageGraph({
   const gaps = findGaps(usage, namespace, featureId, trackingKey);
   const selectedRanges: Interval[] = ranges ?? (range ? [range] : []);
   const inUseIntervals = computeInUseIntervals(gaps);
-  const otherInUse = subtractIntervals(inUseIntervals, selectedRanges);
   const totalUsed = inUseIntervals.reduce((sum, [s, e]) => sum + (e - s), 0);
-  // In edit mode (`ranges` prop passed) the header shows the caller's selected
-  // sum — mirrors NamespaceSelector's existing "Total:" badge computation so
-  // the two numbers stay in sync. Otherwise show the namespace's total in-use.
+  // Edit mode: show caller's selected sum; otherwise show namespace total.
   const headerTotal = ranges
     ? ranges.reduce((sum, [s, e]) => sum + (e - s), 0)
     : totalUsed;
 
-  const labeledSegments: Interval[] = [...selectedRanges, ...otherInUse];
+  const isActive = (s: number, e: number) =>
+    selectedRanges.some(([rs, re]) => s < re && rs < e);
+
+  const labeledSegments: Interval[] = ranges ? selectedRanges : inUseIntervals;
 
   return (
     <Box className={styles.card}>
-      <Flex align="center" gap="3" mb="1">
+      <Flex align="center" gap="4" mb="1">
         <Box flexGrow="1">
           <Text as="label" size="medium" weight="medium">
             {title}
@@ -101,66 +82,62 @@ export default function NamespaceUsageGraph({
             ({percentFormatter.format(headerTotal)} total)
           </Text>
         </Box>
-        <Flex align="center" gap="1">
-          <Box className={clsx(styles.legend_box, styles.used)} />
-          <Text size="small" color="text-low">
-            In use
-          </Text>
-        </Flex>
-        <Flex align="center" gap="1">
-          <Box className={clsx(styles.legend_box, styles.unused)} />
-          <Text size="small" color="text-low">
+        <Flex align="center" gap="2">
+          <Box className={clsx(styles.legend_box, styles.legend_available)} />
+          <Text size="small" color="text-mid">
             Available
           </Text>
         </Flex>
-        {(ranges?.length || range) && (
-          <Flex align="center" gap="1">
-            <Box className={clsx(styles.legend_box, styles.selected)} />
-            <Text size="small" color="text-low">
-              Selected
-            </Text>
-          </Flex>
-        )}
+        <Flex align="center" gap="2">
+          <Box className={clsx(styles.legend_box, styles.legend_inUse)} />
+          <Text size="small" color="text-mid">
+            In use
+          </Text>
+        </Flex>
       </Flex>
       <Box className={styles.bar_wrapper}>
-        <div className={styles.bar_holder}>
-          {otherInUse.map(([s, e], i) => (
+        <div className={styles.bar_inner}>
+          <div className={styles.bar_holder}>
+            {inUseIntervals.map(([s, e], i) => (
+              <div
+                key={`inuse-${i}`}
+                className={clsx(styles.inUse, isActive(s, e) && styles.inUseActive)}
+                style={{ left: toPercent(s), width: toPercent(e - s) }}
+              />
+            ))}
+            {setRange &&
+              gaps.map((g, i) => (
+                <div
+                  key={`gap${i}`}
+                  className={styles.gapClickTarget}
+                  style={{ left: toPercent(g.start), width: toPercent(g.end - g.start) }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setRange([g.start, g.end]);
+                  }}
+                />
+              ))}
+            {ranges &&
+              selectedRanges.map((r, i) => (
+                <div
+                  key={`range-${i}`}
+                  className={styles.rangeSelected}
+                  style={{ left: toPercent(r[0]), width: toPercent(r[1] - r[0]) }}
+                />
+              ))}
+          </div>
+          {focusedRangeIndex !== null && selectedRanges[focusedRangeIndex] && (
             <div
-              key={`other-${i}`}
-              className={styles.otherInUse}
+              className={styles.rangeFocusedOverlay}
               style={{
-                left: toPercent(s),
-                width: toPercent(e - s),
+                left: toPercent(selectedRanges[focusedRangeIndex][0]),
+                width: toPercent(
+                  selectedRanges[focusedRangeIndex][1] -
+                    selectedRanges[focusedRangeIndex][0],
+                ),
               }}
             />
-          ))}
-          {gaps.map((g, i) => (
-            <div
-              key={`gap${i}`}
-              className={clsx(styles.bar, styles.barUnused)}
-              style={{
-                left: toPercent(g.start),
-                width: toPercent(g.end - g.start),
-                cursor: setRange ? "pointer" : "default",
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                if (setRange) {
-                  setRange([g.start, g.end]);
-                }
-              }}
-            />
-          ))}
-          {selectedRanges.map((r, i) => (
-            <div
-              key={`range-${i}`}
-              className={styles.rangeSelected}
-              style={{
-                left: toPercent(r[0]),
-                width: toPercent(r[1] - r[0]),
-              }}
-            />
-          ))}
+          )}
         </div>
         <div className={styles.labels_row}>
           {labeledSegments.map(([s, e], i) => (

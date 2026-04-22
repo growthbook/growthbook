@@ -7,6 +7,8 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 
 type NamespaceFormValue = {
   label: string;
@@ -28,6 +30,7 @@ function MultiRangeNamespaceModal({
   } | null;
 }) {
   const existingNamespace = existing?.namespace;
+  const hasExperiments = (existing?.experiments ?? 0) > 0;
   const settings = useOrgSettings();
   const attributes = useMemo(
     () => settings?.attributeSchema || [],
@@ -81,6 +84,7 @@ function MultiRangeNamespaceModal({
       open={true}
       close={close}
       size="md"
+      useRadixButton={true}
       cta={existing ? "Update" : "Create"}
       header={existing ? "Edit Namespace" : "Create Namespace"}
       submit={form.handleSubmit(async (value) => {
@@ -114,18 +118,34 @@ function MultiRangeNamespaceModal({
       })}
     >
       <Field label="Name" maxLength={60} required {...form.register("label")} />
+      {existingNamespace && (
+        <Text color="text-mid" size="small" as="p" mb="5" mt="-1">
+          ID: <strong>{existingNamespace.name}</strong>
+          <br />
+          Used as the namespace hash seed and cannot be changed.
+        </Text>
+      )}
       <Field label="Description" textarea {...form.register("description")} />
 
       <SelectField
         label="Hash Attribute"
-        helpText="The user attribute to hash for namespace allocation. Uses v2 hashing algorithm."
         required
+        disabled={hasExperiments}
         options={hashAttributeOptions}
         value={selectedHashAttribute}
         onChange={(value) => {
           form.setValue("hashAttribute", value);
         }}
       />
+      {hasExperiments ? (
+        <HelperText status="info" mt="1">
+          Cannot be changed while experiments are using this namespace.
+        </HelperText>
+      ) : (
+        <HelperText status="info" mt="1">
+          The user attribute used for namespace allocation.
+        </HelperText>
+      )}
     </Modal>
   );
 }
@@ -159,6 +179,7 @@ function LegacyNamespaceModal({
       open={true}
       close={close}
       size="md"
+      useRadixButton={true}
       cta="Update"
       header="Edit Legacy Namespace"
       submit={form.handleSubmit(async (value) => {
@@ -184,6 +205,11 @@ function LegacyNamespaceModal({
         a new namespace.
       </Callout>
       <Field label="Name" maxLength={60} required {...form.register("label")} />
+      <Text color="text-mid" size="small" as="p" mb="5" mt="-1">
+        ID: <strong>{existingNamespace.name}</strong>
+        <br />
+        Used as the namespace hash seed and cannot be changed.
+      </Text>
       <Field label="Description" textarea {...form.register("description")} />
     </Modal>
   );

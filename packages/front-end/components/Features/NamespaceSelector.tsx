@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { UseFormReturn, useWatch } from "react-hook-form";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { FaPlusCircle, FaTimes } from "react-icons/fa";
+import { FaPlusCircle } from "react-icons/fa";
+import { PiWarningCircle, PiXBold } from "react-icons/pi";
 import omit from "lodash/omit";
 import { Namespaces } from "shared/types/organization";
 import useApi from "@/hooks/useApi";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import { NamespaceApiResponse } from "@/pages/namespaces";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
@@ -14,6 +16,7 @@ import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 import {
   normalizeRangeAfterLowerChange,
@@ -48,9 +51,7 @@ type NamespaceFormState = {
   hashAttribute?: string;
 };
 
-// Canonical shape we write into the form. Keeping this shape stable (no stray
-// keys, no `range` tuple) is what lets `isEqual(watched, defaults)` reliably
-// report real user changes instead of shape drift.
+// Stable shape written to the form — no stray keys, no legacy `range` tuple.
 type CanonicalNamespace =
   | {
       enabled: true;
@@ -92,9 +93,11 @@ export default function NamespaceSelector({
   );
   const { namespaces } = useOrgSettings();
   const [rangeDrafts, setRangeDrafts] = useState<Record<string, string>>({});
-  // Remembers the user's ranges per-namespace for the lifetime of this modal
-  // session so switching the namespace dropdown away and back restores their
-  // picks instead of resetting to the largest-available gap.
+  const [focusedRangeIndex, setFocusedRangeIndex] = useState<number | null>(
+    null,
+  );
+  const [selectKey, forceSelectRemount] = useIncrementer();
+  // Per-namespace range cache: restores user picks when switching the dropdown away and back.
   const namespaceRangesCache = useRef<Record<string, RangeTuple[]>>({});
   const namespacePath = `${formPrefix}namespace`;
   const namespaceRangesPath = `${namespacePath}.ranges`;
@@ -151,48 +154,43 @@ export default function NamespaceSelector({
       (n) => n?.status !== "inactive",
     );
 
-    // Keep a namespace in the dropdown only if it still has room for this
-    // experiment. `findGaps` already excludes the current featureId/trackingKey,
-    // so a namespace the current experiment is allocated in keeps showing the
-    // experiment's own range as a usable gap. We always keep the currently
-    // selected namespace so the user can edit their existing range even if
-    // others have since filled the namespace up.
-    const hasAvailableRoom = (n: Namespaces) => {
-      if (n.name === namespace) return true;
-      const gaps = findGaps(namespaceUsage, n.name, featureId, trackingKey);
-      return gaps.some((g) => g.end - g.start > 0);
-    };
-    const allocatable = activeNamespaces.filter(hasAvailableRoom);
+    // Always keep the selected namespace regardless of room so edits still work.
+    // findGaps excludes featureId/trackingKey so the current experiment's own
+    // range doesn't count against available capacity.
+    const roomSet = new Set(
+      activeNamespaces
+        .filter((n) => {
+          if (n.name === namespace) return true;
+          const gaps = findGaps(namespaceUsage, n.name, featureId, trackingKey);
+          return gaps.some((g) => g.end - g.start > 0);
+        })
+        .map((n) => n.name),
+    );
+    const allocatable = activeNamespaces.filter((n) => roomSet.has(n.name));
 
     const filtered = isFallbackMode
       ? allocatable.filter((n) => isLegacyNamespace(n))
       : allocatable;
-    const matchingNamespaces = allocatable.filter((n) => {
-      if (isLegacyNamespace(n)) return true;
-      return n.hashAttribute === effectiveHashAttribute;
-    });
-    const differentHashNamespaces = allocatable.filter((n) => {
-      if (isLegacyNamespace(n)) return false;
-      return n.hashAttribute !== effectiveHashAttribute;
-    });
+
+    const optionSource = isFallbackMode ? filtered : activeNamespaces;
 
     return {
       filteredNamespaces: filtered,
-      namespaceOptions: (isFallbackMode
-        ? filtered.map((n) => ({ value: n.name, label: n.label }))
-        : [
-            ...matchingNamespaces.map((n) => ({
-              value: n.name,
-              label: n.label,
-            })),
-            ...differentHashNamespaces.map((n) => ({
-              value: n.name,
-              label: n.label,
-            })),
-          ]) as SingleValue[],
-      // selectedNamespace lookup uses the unfiltered active set so a namespace
-      // that just filled up is still resolved (e.g. for the hash-attribute
-      // callout) when this experiment is the one tied to it.
+      namespaceOptions: optionSource.map((n) => {
+        const isFull = !roomSet.has(n.name);
+        const isHashMismatch =
+          !isFallbackMode &&
+          !isLegacyNamespace(n) &&
+          n.hashAttribute !== effectiveHashAttribute;
+        return {
+          value: n.name,
+          label: n.label,
+          isDisabled: isFull || isHashMismatch,
+          ...(isFull ? { tooltip: "full" } : {}),
+        };
+      }) as SingleValue[],
+      // Use the unfiltered active set so a full namespace still resolves when
+      // the current experiment is the one occupying all its space.
       selectedNamespace: activeNamespaces.find((n) => n.name === namespace),
       selectedIsDifferentHash:
         !isFallbackMode &&
@@ -230,9 +228,6 @@ export default function NamespaceSelector({
       (n) => n.name === namespace,
     );
     if (existsInFiltered) return;
-    // Reset to a canonical "enabled but unassigned" state so stale
-    // hashAttribute/format values from a previously-selected namespace
-    // can't leak into the persisted phase.
     form.setValue(
       namespacePath,
       {
@@ -248,8 +243,7 @@ export default function NamespaceSelector({
 
   useEffect(() => {
     if (storedRanges.length > 0 || !legacyRange) return;
-    // Fold the legacy single-range tuple into the canonical `ranges` array
-    // and drop the legacy key so downstream diffs see a stable shape.
+    // Migrate legacy single-range tuple → canonical `ranges` array.
     const current =
       (form.getValues(namespacePath) as NamespaceFormState | undefined) ?? {};
     form.setValue(
@@ -275,13 +269,40 @@ export default function NamespaceSelector({
     });
   }, [ranges.length]);
 
-  // Persist the current namespace's ranges into the cache so switching the
-  // dropdown away and back restores the latest user edits (not a fresh gap).
   useEffect(() => {
     if (namespace && ranges.length > 0) {
       namespaceRangesCache.current[namespace] = ranges;
     }
   }, [namespace, ranges]);
+
+  // Clear namespace when the experiment's hash attribute changes and no longer matches.
+  useEffect(() => {
+    if (!experimentHashAttribute) return;
+    const ns = form.getValues(namespacePath) as NamespaceFormState | undefined;
+    const nsName = ns?.name;
+    if (!nsName) return;
+    const selected = allNamespaces.find((n) => n.name === nsName);
+    if (!selected || selected.format !== "multiRange") return;
+    if (selected.hashAttribute === experimentHashAttribute) return;
+    form.setValue(
+      namespacePath,
+      {
+        enabled: !!ns?.enabled,
+        name: "",
+        format: "legacy",
+        ranges: [],
+      } satisfies NamespaceFormState,
+      { shouldDirty: true, shouldTouch: true },
+    );
+    setRangeDrafts({});
+    forceSelectRemount();
+  }, [
+    experimentHashAttribute,
+    allNamespaces,
+    form,
+    namespacePath,
+    forceSelectRemount,
+  ]);
 
   const getAvailableGapsForRange = (index: number) => {
     return subtractSelectedRangesFromGaps(
@@ -342,8 +363,6 @@ export default function NamespaceSelector({
         mb="2"
         setValue={(v) => {
           if (v) {
-            // Enable with a canonical blank shape. Avoid mutating existing
-            // fields so we don't accidentally resurrect stale keys.
             form.setValue(
               namespacePath,
               {
@@ -373,9 +392,6 @@ export default function NamespaceSelector({
               const selected = filteredNamespaces.find((n) => n.name === v);
               setRangeDrafts({});
 
-              // Restore the user's previously-picked ranges for this namespace
-              // if they've been here before in this session. Otherwise fall
-              // back to the largest available gap.
               const cachedRanges = namespaceRangesCache.current[v];
               const initialRanges: RangeTuple[] =
                 cachedRanges && cachedRanges.length > 0
@@ -392,9 +408,6 @@ export default function NamespaceSelector({
                       ];
                     })();
 
-              // Build the next form state as one canonical object so no stale
-              // keys (e.g. hashAttribute from a previously-selected
-              // multiRange namespace) can survive the switch.
               const nextNs: NamespaceFormState =
                 selected?.format === "multiRange"
                   ? {
@@ -416,19 +429,51 @@ export default function NamespaceSelector({
                 shouldTouch: true,
               });
             }}
+            key={selectKey}
             placeholder="Choose a namespace..."
             options={namespaceOptions}
             sort={false}
+            formatOptionLabel={(option) => {
+              const ns = allNamespaces.find((n) => n.name === option.value);
+              const hashAttr =
+                ns?.format === "multiRange" ? ns.hashAttribute : null;
+              const isFull = option.tooltip === "full";
+              const isDisabled = option.isDisabled;
+              const tooltipContent = isFull
+                ? "This namespace is full"
+                : "Namespace and experiment hash attributes must match";
+              const row = (
+                <Flex as="div" align="baseline">
+                  <span>{option.label}</span>
+                  {(hashAttr || isFull) && (
+                    <Text size="small" color="text-mid" ml="auto">
+                      {isDisabled && (
+                        <PiWarningCircle
+                          size={15}
+                          style={{
+                            color: "var(--amber-9)",
+                            verticalAlign: "-3px",
+                            marginRight: 4,
+                          }}
+                        />
+                      )}
+                      {isFull ? (
+                        "full"
+                      ) : (
+                        <>
+                          hash attribute: <strong>{hashAttr}</strong>
+                        </>
+                      )}
+                    </Text>
+                  )}
+                </Flex>
+              );
+              if (!isDisabled) return row;
+              return <Tooltip content={tooltipContent}>{row}</Tooltip>;
+            }}
           />
           {namespace && selectedNamespace && (
             <div className="mt-3">
-              {selectedNamespace &&
-                "hashAttribute" in selectedNamespace &&
-                selectedNamespace.hashAttribute && (
-                  <HelperText status="info" mb="3" size="sm">
-                    Hash attribute:{`${selectedNamespace.hashAttribute}`}
-                  </HelperText>
-                )}
               {selectedIsDifferentHash && (
                 <HelperText status="warning" mb="3" size="sm">
                   This namespace hash attribute differs from the experiment hash
@@ -441,6 +486,7 @@ export default function NamespaceSelector({
                 usage={data?.namespaces || {}}
                 featureId={featureId}
                 ranges={ranges.length > 0 ? ranges : undefined}
+                focusedRangeIndex={focusedRangeIndex}
                 title="Allocation"
                 trackingKey={trackingKey}
               />
@@ -470,6 +516,7 @@ export default function NamespaceSelector({
                         min={0}
                         max={1}
                         step=".01"
+                        style={{ width: 90 }}
                         value={
                           rangeDrafts[getDraftKey(index, 0)] ?? `${range[0]}`
                         }
@@ -479,9 +526,18 @@ export default function NamespaceSelector({
                             ...current,
                             [getDraftKey(index, 0)]: rawValue,
                           }));
+                          const parsed = Number.parseFloat(rawValue);
+                          if (!Number.isNaN(parsed)) {
+                            setRangeAtIndex(index, [parsed, range[1]]);
+                          }
+                        }}
+                        onFocus={(e) => {
+                          e.target.select();
+                          setFocusedRangeIndex(index);
                         }}
                         onBlur={(e) => {
                           commitDraftValue(index, 0, e.target.value);
+                          setFocusedRangeIndex(null);
                         }}
                       />
                       <Text>to</Text>
@@ -490,6 +546,7 @@ export default function NamespaceSelector({
                         min={0}
                         max={1}
                         step=".01"
+                        style={{ width: 90 }}
                         value={
                           rangeDrafts[getDraftKey(index, 1)] ?? `${range[1]}`
                         }
@@ -499,9 +556,18 @@ export default function NamespaceSelector({
                             ...current,
                             [getDraftKey(index, 1)]: rawValue,
                           }));
+                          const parsed = Number.parseFloat(rawValue);
+                          if (!Number.isNaN(parsed)) {
+                            setRangeAtIndex(index, [range[0], parsed]);
+                          }
+                        }}
+                        onFocus={(e) => {
+                          e.target.select();
+                          setFocusedRangeIndex(index);
                         }}
                         onBlur={(e) => {
                           commitDraftValue(index, 1, e.target.value);
+                          setFocusedRangeIndex(null);
                         }}
                       />
                       <Text color="text-low">
@@ -510,20 +576,22 @@ export default function NamespaceSelector({
                       <Box flexGrow="1" />
                       {ranges.length > 1 && (
                         <IconButton
+                          type="button"
                           variant="ghost"
-                          color="gray"
-                          size="1"
+                          color="red"
+                          radius="full"
+                          size="2"
                           onClick={() => removeRange(index)}
                           aria-label="Remove range"
                         >
-                          <FaTimes />
+                          <PiXBold size={14} />
                         </IconButton>
                       )}
                     </Flex>
                   );
                 })}
 
-                <Link onClick={addRange} mt="3">
+                <Link onClick={addRange} mt="1">
                   <FaPlusCircle
                     style={{ verticalAlign: "-2px", marginRight: 6 }}
                   />
