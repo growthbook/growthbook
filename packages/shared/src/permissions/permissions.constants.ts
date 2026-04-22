@@ -223,6 +223,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "BillingFullAccess",
       "AuditLogsFullAccess",
       "DecisionCriteriaFullAccess",
+      "CustomHooksFullAccess",
     ],
   },
 ];
