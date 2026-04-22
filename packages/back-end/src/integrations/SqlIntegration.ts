@@ -181,6 +181,7 @@ import {
   MAX_METRICS_PER_QUERY,
   N_STAR_VALUES,
 } from "back-end/src/services/experimentQueries/constants";
+import { getSampleUnitsCTE } from "./sql/sample-units-cte";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -8221,14 +8222,7 @@ ORDER BY column_name, count DESC
   }
 
   getSampleUnitsCTE(): string {
-    return format(
-      `__experimentUnits AS (
-        SELECT 'user_1' AS user_id, 'A' AS variation, cast(${this.getCurrentTimestamp()} as timestamp) AS first_exposure_timestamp
-        UNION ALL
-        SELECT 'user_2' AS user_id, 'B' AS variation, cast(${this.getCurrentTimestamp()} as timestamp) AS first_exposure_timestamp
-      )`,
-      this.getFormatDialect(),
-    );
+    return getSampleUnitsCTE(this.getSqlHelpers());
   }
 
   encodeMetricIdForColumnName(metricId: string): string {
@@ -8241,6 +8235,20 @@ ORDER BY column_name, count DESC
       return `${parts[0]}_${encoded}`;
     }
     return parts[0];
+  }
+
+  getSqlHelpers(): SqlHelpers {
+    return {
+      dateTrunc: this.dateTrunc.bind(this),
+      escapeStringLiteral: this.escapeStringLiteral.bind(this),
+      jsonExtract: this.extractJSONField.bind(this),
+      evalBoolean: this.evalBoolean.bind(this),
+      percentileApprox: this.approxQuantile.bind(this),
+      toTimestamp: this.toTimestamp.bind(this),
+      formatDialect: this.getFormatDialect(),
+      castToFloat: this.ensureFloat.bind(this),
+      getCurrentTimestamp: this.getCurrentTimestamp.bind(this),
+    };
   }
 
   getProductAnalyticsQuery(
@@ -8258,16 +8266,7 @@ ORDER BY column_name, count DESC
     startDate: Date;
     endDate: Date;
   } {
-    const sqlHelpers: SqlHelpers = {
-      dateTrunc: this.dateTrunc.bind(this),
-      escapeStringLiteral: this.escapeStringLiteral.bind(this),
-      jsonExtract: this.extractJSONField.bind(this),
-      evalBoolean: this.evalBoolean.bind(this),
-      percentileApprox: this.approxQuantile.bind(this),
-      toTimestamp: this.toTimestamp.bind(this),
-      formatDialect: this.getFormatDialect(),
-      castToFloat: this.ensureFloat.bind(this),
-    };
+    const sqlHelpers = this.getSqlHelpers();
 
     const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 

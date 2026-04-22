@@ -34,5 +34,6 @@ export interface SqlHelpers {
   percentileApprox: (column: string, percentile: number) => string;
   toTimestamp: (date: Date) => string;
   castToFloat: (column: string) => string;
+  getCurrentTimestamp: () => string;
   formatDialect: FormatDialect;
 }
