@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import omit from "lodash/omit";
 import { v4 as uuidv4 } from "uuid";
 import {
   RevisionRampCreateAction,
@@ -387,10 +388,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         const holdout =
           await req.context.models.holdout.getById(linkedHoldoutId);
         if (holdout?.linkedExperiments?.[linkedExperimentId]) {
-          const { [linkedExperimentId]: _omit, ...rest } =
-            holdout.linkedExperiments;
           await req.context.models.holdout.updateById(linkedHoldoutId, {
-            linkedExperiments: rest,
+            linkedExperiments: omit(holdout.linkedExperiments, [
+              linkedExperimentId,
+            ]),
           });
         }
       } catch {
@@ -675,10 +676,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         const holdout =
           await req.context.models.holdout.getById(linkedHoldoutId);
         if (holdout?.linkedExperiments?.[linkedExperimentId]) {
-          const { [linkedExperimentId]: _omit, ...rest } =
-            holdout.linkedExperiments;
           await req.context.models.holdout.updateById(linkedHoldoutId, {
-            linkedExperiments: rest,
+            linkedExperiments: omit(holdout.linkedExperiments, [
+              linkedExperimentId,
+            ]),
           });
         }
       } catch {

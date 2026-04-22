@@ -182,8 +182,7 @@ export function buildFeatureInterface(
   } else {
     // Strip v0 `environments` crust; a v2 doc's top-level `rules` is kept.
     // Must NOT call upgradeV0Feature — it would clobber v2's top-level rules.
-    const { environments: _v0Envs, ...rest } = raw;
-    v1OrV2 = rest as V1FeatureInterface;
+    v1OrV2 = omit(raw, ["environments"]) as V1FeatureInterface;
     applyNonRuleFeatureUpgrades(v1OrV2);
   }
 
@@ -231,8 +230,7 @@ function scrubEnvRules<T>(envSettings: Record<string, T>): Record<string, T> {
   const out: Record<string, T> = {};
   for (const [envId, envObj] of Object.entries(envSettings)) {
     if (envObj && typeof envObj === "object" && "rules" in envObj) {
-      const { rules: _drop, ...rest } = envObj as Record<string, unknown>;
-      out[envId] = rest as T;
+      out[envId] = omit(envObj as Record<string, unknown>, ["rules"]) as T;
     } else {
       out[envId] = envObj;
     }
@@ -271,8 +269,7 @@ export function buildFeatureUpdate<
     const scrubbed: Record<string, { [k: string]: unknown }> = {};
     for (const [envId, envObj] of Object.entries(update.environmentSettings)) {
       if (envObj && typeof envObj === "object" && "rules" in envObj) {
-        const { rules: _drop, ...rest } = envObj;
-        scrubbed[envId] = rest;
+        scrubbed[envId] = omit(envObj, ["rules"]);
       } else {
         scrubbed[envId] = envObj;
       }
@@ -285,8 +282,10 @@ export function buildFeatureUpdate<
   if (Array.isArray(next.rules)) {
     const normalized = (next.rules as FeatureRule[]).map((r) => {
       if (r?.allEnvironments && Array.isArray(r.environments)) {
-        const { environments: _drop, ...rest } = r;
-        return { ...rest, allEnvironments: true } as FeatureRule;
+        return {
+          ...omit(r, ["environments"]),
+          allEnvironments: true,
+        } as FeatureRule;
       }
       return r;
     });

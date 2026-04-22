@@ -2907,10 +2907,10 @@ export async function putFeatureRule(
         ...(rule as Partial<FeatureRule>),
       } as FeatureRule;
       if (merged.allEnvironments === true) {
-        const { environments: _drop, ...rest } = merged as FeatureRule & {
-          environments?: string[];
-        };
-        return { ...rest, allEnvironments: true } as FeatureRule;
+        return {
+          ...omit(merged, ["environments"]),
+          allEnvironments: true,
+        } as FeatureRule;
       }
       return merged;
     },

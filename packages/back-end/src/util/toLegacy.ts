@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import {
   FeatureInterface,
   FeatureRule,
@@ -21,15 +22,10 @@ import {
 
 // Strip v2-only scope fields. Preserves id verbatim (see file header).
 export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
-  const {
-    allEnvironments: _a,
-    environments: _e,
-    ...rest
-  } = rule as FeatureRule & {
-    allEnvironments?: boolean;
-    environments?: string[];
-  };
-  return rest as unknown as V1FeatureRule;
+  return omit(rule, [
+    "allEnvironments",
+    "environments",
+  ]) as unknown as V1FeatureRule;
 }
 
 // v2 → v1 feature projection: top-level rules move back into
@@ -72,13 +68,8 @@ export function toLegacyFeature(
     };
   }
 
-  const {
-    rules: _v2Rules,
-    environmentSettings: _oldEnvSettings,
-    ...rest
-  } = feature;
   return {
-    ...rest,
+    ...omit(feature, ["rules", "environmentSettings"]),
     environmentSettings: envSettings,
   } as V1FeatureInterface;
 }
@@ -113,9 +104,8 @@ export function toLegacyRevision(
     }
   }
 
-  const { rules: _v2Rules, ...rest } = revision;
   return {
-    ...rest,
+    ...omit(revision, ["rules"]),
     rules: rulesByEnv,
   } as V1FeatureRevisionInterface;
 }
