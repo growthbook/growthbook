@@ -5,11 +5,9 @@ import { deriveRevisionEventEnvironments } from "back-end/src/services/featureRe
 
 // Dispatch of `feature.revision.*` events fans out to webhook/Slack filters
 // keyed by (project, tag, environment). The derivation here feeds that
-// `environments` filter. Prior to Phase 5a Step 3, env derivation did
-// `Object.keys(revision.rules)` which returned numeric indices ("0", "1",
-// ...) once `revision.rules` became a v2 `FeatureRule[]` — every project-
-// scoped filter silently missed its subscribers. These tests pin the v2
-// read path.
+// `environments` filter. Regression: `Object.keys(revision.rules)` returns
+// numeric indices on the v2 `FeatureRule[]` array, silently dropping every
+// project-scoped filter's subscribers. These tests pin the flat read path.
 
 const mkFeature = (
   overrides: Partial<FeatureInterface> = {},
@@ -156,11 +154,9 @@ describe("deriveRevisionEventEnvironments", () => {
   });
 
   it("falls back to feature.environmentSettings keys when revision.rules is a legacy v1 Record", () => {
-    // Regression: prior to Step 3 this path did `Object.keys(revision.rules)`
-    // which for a v1 Record would have returned the env keys directly. For
-    // a v2 array it would have returned numeric indices. Now we detect the
-    // non-array shape and fall through to envSettings so the caller still
-    // gets a sensible env list during the migration window.
+    // For a v1 `Record<env, rules>` we can't trust `Object.keys` (env keys)
+    // vs the v2 array case (numeric indices). Detect the non-array shape and
+    // fall through to envSettings for a sensible env list.
     const feature = mkFeature();
     const v1LikeRevision = {
       organization: "org-1",

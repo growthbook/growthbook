@@ -329,21 +329,11 @@ export function getMatchingRules(
   return matches;
 }
 
-/**
- * Does this v2 rule apply to the given environment? Tri-state:
- *
- *   - `rule.allEnvironments: true`         → always yes
- *   - `rule.environments: [list]`          → yes iff `environment` ∈ list
- *   - `rule.environments: []`              → no (intentional "pending" /
- *                                             ramp-not-yet-scoped state)
- *   - neither field declared (malformed)   → yes (permissive fallback for
- *                                             legacy data; matches
- *                                             `getMatchingRules`'s malformed
- *                                             safety net)
- *
- * Keep this aligned with `ruleFootprint` — they are different projections of
- * the same scope predicate and must agree on the four cases above.
- */
+// Rule scope predicate. Keep aligned with `ruleFootprint`.
+//   allEnvironments:true           → true
+//   environments:[list]            → list.includes(environment)
+//   environments:[]                → false (pending)
+//   neither (malformed/legacy)     → true (permissive fallback)
 export function ruleAppliesToEnv(
   rule: FeatureRule,
   environment: string,
@@ -355,42 +345,24 @@ export function ruleAppliesToEnv(
   return true;
 }
 
-/**
- * Filter a v2 `FeatureRule[]` down to rules that apply to the given env.
- * Preserves input order so downstream callers (SDK payload generator, API
- * projection layer) see a stable per-env sub-ordering of the unified array.
- *
- * Accepts `undefined`/`null` for convenience so callers can pipe in
- * `revision?.rules ?? feature.rules` directly.
- */
+// Filter to rules applying to `environment`, preserving input order. Accepts
+// nullish for convenience. Non-array input (e.g. a not-yet-JIT-upgraded v1
+// revision) returns [] rather than throwing, so the caller's envSettings
+// fallback can take over.
 export function getRulesForEnvironment(
   rules: FeatureRule[] | undefined | null,
   environment: string,
 ): FeatureRule[] {
-  // Be defensive: a not-yet-JIT-upgraded v1 revision has `rules` typed as
-  // `Record<env, FeatureRule[]>` at runtime. Treat non-arrays as empty
-  // rather than throwing, so callers with undecided provenance (e.g. the
-  // SDK payload path) degrade cleanly and let the v1 envSettings fallback
-  // on the consumer side take over.
   if (!Array.isArray(rules)) return [];
   return rules.filter((r) => ruleAppliesToEnv(r, environment));
 }
 
-/**
- * Project a v2 `FeatureRule` onto the set of environments it affects,
- * intersected with the caller-supplied applicable env set. Mirrors the
- * back-end `ruleFootprint` helper so shared/front-end code can derive the
- * same per-env fanout used by the API projection + audit/diff helpers.
- *
- * Semantics (tri-state, MUST match `ruleAppliesToEnv`):
- *   - `allEnvironments: true`               → every applicable env
- *   - `environments: [list]`                → intersection with applicable envs
- *   - `environments: []`                    → [] (intentional "pending" /
- *                                             ramp-not-yet-scoped state)
- *   - neither field declared (malformed)    → every applicable env (permissive
- *                                             fallback; parallels the malformed
- *                                             safety net elsewhere)
- */
+// Footprint of a rule, intersected with `applicableEnvs`. Must match
+// `ruleAppliesToEnv`.
+//   allEnvironments:true           → every applicable env
+//   environments:[list]            → list ∩ applicable
+//   environments:[]                → [] (pending)
+//   neither (malformed/legacy)     → every applicable env (permissive fallback)
 export function ruleFootprint(
   rule: FeatureRule,
   applicableEnvs: string[],
@@ -401,19 +373,12 @@ export function ruleFootprint(
   return rule.environments.filter((e) => applicableSet.has(e));
 }
 
-/**
- * Input shim for shared diff/merge helpers that may be fed a rules blob of
- * ambiguous provenance during the v1→v2 migration window:
- *   - v2 (canonical):      `FeatureRule[]` — returned as-is
- *   - v1 (legacy):         `Record<env, FeatureRule[]>` — flattened to v2 by
- *                          stamping each rule with `allEnvironments: false`
- *                          + `environments: [env]`
- *   - null/undefined/other: `[]`
- *
- * Not intended for persistence — callers that persist must go through the
- * stronger `normalizeRulesInputToV2` on the back-end, which also handles
- * `upgradeFeatureRule` defensive cleanup and id-collision suffixing.
- */
+// Input shim for shared diff/merge helpers fed a rules blob of ambiguous shape:
+//   FeatureRule[]                → pass-through
+//   Record<env, FeatureRule[]>   → flatten, stamping `environments: [env]`
+//   nullish / other              → []
+// NOT for persistence — that path must use `normalizeRulesInputToV2` on the
+// back-end, which also does upgrade cleanup and id-collision suffixing.
 export function normalizeRulesInput(input: unknown): FeatureRule[] {
   if (input == null) return [];
   if (Array.isArray(input)) return input as FeatureRule[];

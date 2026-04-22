@@ -5,17 +5,9 @@ import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 
+// Inactive envs beyond this threshold are collapsed into a "..." tooltip.
 const INACTIVE_COLLAPSE_THRESHOLD = 2;
 
-/**
- * Read-only environment scope display for a rule card.
- *
- * - Shows a single "All Environments" pill when the rule covers every env.
- * - Otherwise: active envs always shown in full, inactive envs collapsed to
- *   "+ N more" after INACTIVE_COLLAPSE_THRESHOLD.
- * - Within each group, `currentEnvironment` is promoted to the front; the
- *   rest follow the tab order of `environments`.
- */
 export default function RuleEnvScopeBadges({
   rule,
   environments,

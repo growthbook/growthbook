@@ -642,9 +642,8 @@ describe("mergeResultHasChanges with new envelopes", () => {
     ).toBe(false);
   });
 
-  // rules is a flat FeatureRule[] post-unification. autoMerge only sets this
-  // field when revision rules diverged from base, so presence — even an
-  // explicit [] meaning "all rules deleted" — is a real change.
+  // `autoMerge` only sets `rules` when revision rules diverged from base, so
+  // presence — even an explicit [] meaning "all rules deleted" — is a real change.
   it("returns true when rules is an explicit empty array (all rules deleted)", () => {
     expect(
       mergeResultHasChanges({

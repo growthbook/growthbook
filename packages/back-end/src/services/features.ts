@@ -1529,9 +1529,8 @@ export function addIdsToRules(
   environmentSettings: Record<string, FeatureEnvironment> = {},
   featureId: string,
 ) {
-  // Defensive: rules no longer live under environmentSettings, but stamp
-  // any stray env.rules during the migration window. Paired with
-  // `addIdsToFlatRules` (authoritative v2 path).
+  // Defensive: rules don't live under environmentSettings in v2, but stamp any
+  // stray env.rules from legacy callers. `addIdsToFlatRules` is authoritative.
   Object.values(environmentSettings).forEach((env) => {
     const rules = (env as unknown as { rules?: FeatureRule[] }).rules;
     if (rules && rules.length) {
@@ -1723,13 +1722,9 @@ export function toApiRevision(
   );
 }
 
-/**
- * v1 REST response shape: per-env `rules: Record<env, ApiFeatureRule[]>`.
- * Internally rules are a flat `FeatureRule[]`, so each rule is bucketed
- * into the envs it applies to (`ruleFootprint`). `featureProject`, when
- * provided, restricts the bucket set to envs applicable to that project;
- * otherwise every org env is included.
- */
+// v1 REST response shape: per-env `rules: Record<env, ApiFeatureRule[]>`.
+// Each internal flat rule is bucketed into the envs it applies to via
+// `ruleFootprint`. Pass `featureProject` to restrict the bucket set.
 export function revisionToApiInterface(
   rev: FeatureRevisionInterface,
   orgEnvs: Environment[],
@@ -2129,12 +2124,8 @@ export function getApiFeatureObj({
   return featureRecord;
 }
 
-/**
- * Returns the earliest future schedule-rule timestamp across all rules on the
- * feature, or null if none are scheduled. Post-unification this operates on
- * the v2 top-level `rules` array; schedule rules live on the rule itself and
- * aren't env-scoped at the write-layer level.
- */
+// Earliest future schedule-rule timestamp across `rules`, or null if none.
+// Schedule rules live on the rule itself and aren't env-scoped.
 export function getNextScheduledUpdate(
   rules: FeatureRule[] | undefined,
 ): Date | null {
@@ -2462,12 +2453,9 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
   }, existing);
 };
 
-/**
- * Build the v2 flat `feature.rules` array from the API's per-env payload.
- * Each env's rule list is stamped with `allEnvironments: false` and
- * `environments: [env]` so the rules retain their original env scope after
- * being unified into a single top-level array.
- */
+// Build the v2 flat `feature.rules` from the API's per-env payload. Stamps
+// each rule with `allEnvironments: false` + `environments: [env]` to retain
+// its original scope after unification.
 export const buildFeatureRulesFromApiEnvSettings = (
   feature: FeatureInterface,
   baseEnvs: Environment[],

@@ -158,25 +158,14 @@ export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
 );
 
 /**
- * Single JIT-migration chokepoint for features on read. Pure over
- * `(raw, context)` so it can be unit-tested without a live database.
+ * JIT-migration chokepoint for features on read. Discriminates v0 / v1 / v2
+ * (see `shared/types/feature.d.ts`) and normalizes to v2. Any residual
+ * `env.rules` is scrubbed in-memory so the return value matches `featureEnvironment`.
  *
- * Discrimination:
- *   - v0: no `environmentSettings`. Top-level `rules` + `environments` are
- *     the source of truth; upgraded to v1 via `upgradeV0Feature`.
- *   - v1: `environmentSettings` with at least one env carrying `rules`.
- *     Flattened to the v2 top-level array via `flattenV1ToV2Rules`.
- *   - v2: `environmentSettings` with no `rules` keys. `feature.rules` is
- *     already canonical; only defensive `upgradeFeatureRule` / non-rule
- *     upgrades run.
+ * v2 docs MUST NOT flow through `upgradeV0Feature` — it redistributes top-level
+ * rules back into per-env arrays and corrupts v2 data.
  *
- * v2 docs MUST NOT flow through `upgradeV0Feature` — it redistributes
- * top-level rules back into per-env arrays and corrupts v2 data.
- *
- * Any residual `environmentSettings[env].rules` is scrubbed from the
- * returned object to match the v2 `featureEnvironment` shape. The on-disk
- * scrub runs in `buildFeatureUpdate`; every rules-touching write must route
- * through it.
+ * Pure over `(raw, context)` so it's unit-testable without a live DB.
  */
 export function buildFeatureInterface(
   raw: LegacyFeatureInterface,
@@ -263,14 +252,10 @@ export const toInterface = (
 // ---------------------------------------------------------------------------
 // Write chokepoint
 // ---------------------------------------------------------------------------
-/**
- * Normalize a feature-write payload to the v2 on-disk shape. Strips any
- * `rules` key from each env object in `environmentSettings`; leaves the rest
- * of the update alone. Use for $set payloads on FeatureModel writes.
- *
- * Without this scrub, a write could leave stale `rules` on env objects and
- * cause the next read to mis-classify the doc as v1 and re-flatten.
- */
+// Normalize a feature-write payload to the v2 on-disk shape: strip `rules`
+// from each env object, leave everything else alone. Without this scrub, stale
+// `env.rules` would cause the next read to mis-classify the doc as v1 and
+// re-flatten. Use for all $set payloads on FeatureModel writes.
 export function buildFeatureUpdate<
   T extends {
     environmentSettings?: Record<
@@ -1298,12 +1283,7 @@ const updateSafeRolloutStatuses = async (
   });
 };
 
-/**
- * Apply a revision merge result to the feature document. Rules live on
- * `feature.rules`; `environmentSettings[env]` only carries `enabled` and
- * `prerequisites`. Env inheritance is not applied to rules — each rule's
- * `allEnvironments`/`environments` is authoritative.
- */
+// Apply a revision merge result to the feature document.
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1412,14 +1392,11 @@ export async function applyRevisionChanges(
   return await updateFeature(context, feature, changes);
 }
 
-/**
- * Run HoldoutModel / Experiment side-effects when a feature's holdout membership
- * changes at publish time. Called automatically by publishRevision when result.holdout
- * is defined, so all publish paths (direct, approval flow, revert, etc.) are covered.
- *
- * @param feature     The feature's state *before* the publish (used for prevHoldout).
- * @param newHoldout  The incoming holdout value, or null to remove from holdout.
- */
+// Run HoldoutModel / Experiment side-effects when a feature's holdout
+// membership changes at publish. Called from `publishRevision` when
+// `result.holdout` is defined, so all publish paths (direct, approval,
+// revert, etc.) are covered. `feature` is pre-publish (used for prevHoldout);
+// `newHoldout: null` means "remove from holdout".
 export async function applyHoldoutSideEffects(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1506,11 +1483,9 @@ export async function applyHoldoutSideEffects(
   }
 }
 
-/**
- * Create ramp schedules for all `mode === "create"` actions in a revision.
- * Called BEFORE the feature write so that a schedule creation failure prevents publish.
- * Returns the IDs of created schedules for rollback on subsequent failure.
- */
+// Create ramp schedules for `mode === "create"` actions. Called BEFORE the
+// feature write so a schedule failure aborts publish. Returns the created IDs
+// for rollback on a subsequent failure.
 async function createRampSchedulesForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

@@ -713,11 +713,8 @@ export function logBadgeColor(
   return "gray";
 }
 
-// Environment-agnostic summary badges for rule changes. Post-unification the
-// rule list is a single flat array; badges no longer carry an env suffix.
-// Each rule's env scope is rendered inline via `RuleEnvScope` in the diff
-// card heading itself, so env context is preserved without bucketing the
-// section by environment.
+// Env-agnostic summary badges for rule changes — each rule's scope is rendered
+// inline via `RuleEnvScope` in the diff card heading.
 export function featureRuleChangeBadges(
   preRules: FeatureRule[],
   postRules: FeatureRule[],
@@ -905,13 +902,10 @@ const FEATURE_JSON_KEYS = new Set([
   "variationValue",
 ]);
 
-// Recursively parses embedded JSON strings in a FeatureInterface snapshot.
-// Used as `normalizeSnapshot` in the audit diff config.
-//
-// Also JIT-migrates pre-v2 snapshots (rules under `environmentSettings[env].rules`)
-// to the canonical v2 shape (top-level `rules: FeatureRule[]`). Historical audit
-// log entries captured before the v2 migration still carry the v1 shape; without
-// this the Rules section would show no diff (post-v2 envSettings has no rules field).
+// `normalizeSnapshot` for the audit diff config: recursively parses embedded
+// JSON strings and JIT-migrates pre-v2 snapshots (rules under
+// `environmentSettings[env].rules`) into the flat `feature.rules` shape so
+// historical audit logs still diff against current renderers.
 export function normalizeFeatureSnapshot(
   snapshot: FeatureInterface,
 ): FeatureInterface {
@@ -962,14 +956,10 @@ export function renderFeatureDefaultValueSection(
   );
 }
 
-// Post-unification the Rules section is NOT bucketed by env. It shows:
-//   (1) per-env enabled-toggle changes (each as its own labeled row), and
-//   (2) a SINGLE rules diff rendered from the flat `feature.rules` array —
-//       each rule card carries its own env scope chip inline (`RuleEnvScope`)
-//       so env context is preserved without a structural split.
-//
-// Set `suppressCardLabel: true` on the parent section config to avoid a
-// redundant outer heading.
+// The Rules section shows (1) per-env enabled-toggle rows and (2) a single
+// rules diff off the flat `feature.rules` array — each rule card carries its
+// env scope inline via `RuleEnvScope`. Set `suppressCardLabel: true` on the
+// parent section config to avoid a redundant outer heading.
 export function renderFeatureRulesSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,

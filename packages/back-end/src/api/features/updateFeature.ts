@@ -175,10 +175,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 
-    // Recompute next-scheduled-update from the v2 unified rule array whenever
-    // either the top-level `rules` change OR `environmentSettings` change
-    // (latter kept for bwd-compat with external REST callers that still post
-    // v1-shape env rules — Phase 6a adapters normalize those upstream).
+    // Recompute next-scheduled-update whenever top-level `rules` OR
+    // `environmentSettings` change (the latter for REST callers still posting
+    // v1-shape env rules, which adapters normalize upstream).
     if (updates.rules !== undefined || updates.environmentSettings) {
       updates.nextScheduledUpdate = getNextScheduledUpdate(
         updates.rules ?? feature.rules,

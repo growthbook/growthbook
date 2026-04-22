@@ -5,18 +5,9 @@ import RadioGroup from "@/ui/RadioGroup";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Text from "@/ui/Text";
 
-/**
- * Rule-level environment scope editor. Sits right under the Description field
- * in every rule-type modal.
- *
- * Tri-state semantics:
- *   - allEnvironments: true               -> rule applies to every env,
- *                                            including any added later.
- *   - allEnvironments: false, envs: [...] -> rule applies to the listed envs
- *                                            only. Empty list = pending / no
- *                                            targets yet (valid, e.g. ramp
- *                                            seed state).
- */
+// Rule-level environment scope editor. Sits under the Description field in
+// every rule-type modal. `selectedEnvironments: []` with `allEnvironments: false`
+// is a valid "pending" state (e.g. ramp seed).
 export type EnvScopeProps = {
   environments: Environment[];
   allEnvironments: boolean;

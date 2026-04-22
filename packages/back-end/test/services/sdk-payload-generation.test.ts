@@ -1594,12 +1594,9 @@ describe("SDK payload generation (scenario-specific)", () => {
     expect(outIncluded.experiments?.length).toBe(1);
   });
 
-  // Regression: Phase 5a Step 2. Prior to the v2 rule-shape migration, the
-  // SDK payload path read `revision.rules?.[environment]` and
-  // `environmentSettings[env].rules`. When a v2 feature/revision (with the
-  // unified top-level `rules: FeatureRule[]` array and an empty env-settings
-  // rules bucket) came through, the old path returned [] and the payload
-  // emitted no rules at all. These cases pin down the v2 read path.
+  // Regression: the legacy SDK payload path read per-env rule arrays, so a
+  // feature with the unified top-level `rules: FeatureRule[]` and empty
+  // env-rules bucket emitted no rules at all. These cases pin the flat read path.
   describe("v2 feature/revision rule read path", () => {
     const v2BaseFeature = (): FeatureInterface =>
       ({

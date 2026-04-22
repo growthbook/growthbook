@@ -32,13 +32,10 @@ export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
   return rest as unknown as V1FeatureRule;
 }
 
-/**
- * v2 → v1 feature projection: top-level rules move back into
- * `environmentSettings[env].rules`. Per-env rule order preserves v2's global
- * order (stable partial-order projection). Entries are emitted for the union
- * of (applicableEnvs ∪ existing envSettings keys) so disabled/archived envs
- * round-trip cleanly.
- */
+// v2 → v1 feature projection: top-level rules move back into
+// `environmentSettings[env].rules`. Per-env order preserves v2's global order.
+// Entries emit for (applicableEnvs ∪ existing envSettings keys) so
+// disabled/archived envs round-trip cleanly.
 export function toLegacyFeature(
   feature: FeatureInterface,
   orgEnvs: Environment[],
@@ -86,11 +83,8 @@ export function toLegacyFeature(
   } as V1FeatureInterface;
 }
 
-/**
- * v2 → v1 revision projection: rules become `Record<env, V1FeatureRule[]>`.
- * `featureProject` scopes the env set; omit it for a safe superset (every
- * org env).
- */
+// v2 → v1 revision projection: rules become `Record<env, V1FeatureRule[]>`.
+// Omit `featureProject` for a safe superset (every org env).
 export function toLegacyRevision(
   revision: FeatureRevisionInterface,
   orgEnvs: Environment[],

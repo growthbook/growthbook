@@ -318,11 +318,9 @@ function draftHasChanges(
   return false;
 }
 
-/**
- * Heal a single ancient rule on read. Pure — returns a new rule object so
- * callers can safely share references (e.g. the same rule on a feature and
- * its revision). Add new rule-level backfills here.
- */
+// Heal a single ancient rule on read. Returns a new rule object (pure), so
+// callers can share references (e.g. the same rule on a feature + revision).
+// Add new rule-level backfills here.
 export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
@@ -353,11 +351,8 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   return rule;
 }
 
-/**
- * Non-rule, non-shape backfills shared by v1 and v2 docs: `version` and
- * `jsonSchema.schemaType` / `jsonSchema.simple`. Mutates and returns.
- * Rules must be upgraded separately via `upgradeFeatureRule`.
- */
+// Non-rule backfills shared by v1 and v2 docs (`version`, `jsonSchema.*`).
+// Mutates and returns. Rules go through `upgradeFeatureRule` separately.
 export function applyNonRuleFeatureUpgrades<
   T extends {
     version?: number;
@@ -378,15 +373,14 @@ export function applyNonRuleFeatureUpgrades<
 }
 
 /**
- * v0 → v1 upgrade. v0 is the pre-`environmentSettings` on-disk shape: rules
- * and an `environments: string[]` list live at the top level of the feature.
- * Redistributes rules into `environmentSettings.{dev,production}.rules`,
- * seeds `enabled` from the legacy env list, promotes `draft` → `legacyDraft`,
- * and applies `upgradeFeatureRule` / `applyNonRuleFeatureUpgrades`.
+ * v0 → v1 upgrade. Redistributes top-level rules into
+ * `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
+ * legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
+ * non-rule backfills.
  *
- * CRITICAL: callers MUST structurally discriminate v0 first (no
- * `environmentSettings` on the doc). Running this on a v1/v2 doc would
- * re-distribute legitimate v2 top-level rules into v1-only storage.
+ * CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
+ * Running this on a v1/v2 doc would redistribute legitimate v2 top-level
+ * rules into v1-only storage.
  */
 export function upgradeV0Feature(
   feature: LegacyFeatureInterface,

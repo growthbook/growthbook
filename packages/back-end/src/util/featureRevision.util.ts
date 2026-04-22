@@ -2,17 +2,9 @@ import { FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 
 /**
- * Applies the same rule overlay as `editFeatureRules` / `updateRevision` would,
- * without persisting. Used to preflight merges and keep logic aligned with
- * `editFeatureRules` in FeatureModel.
- *
- * Post-Phase-3 contract: rules are matched by `rule.id` on the v2 unified
- * `revision.rules` array. Passing the same `ruleId` multiple times is
- * idempotent (the first match wins; subsequent duplicates are no-ops). Rules
- * present in `ruleIds` but absent from the revision are ignored silently —
- * the old v1 "throw on unknown rule" behavior (which keyed on [env, index])
- * is dropped because there is no stable invariant to enforce under a
- * possibly-sparse concurrent edit.
+ * In-memory version of the rule overlay applied by `editFeatureRules` /
+ * `updateRevision`. Used to preflight merges. Rules are matched by `rule.id`;
+ * unknown ids are ignored and duplicates in `ruleIds` are idempotent.
  */
 export function applyPartialFeatureRuleUpdatesToRevision(
   revision: FeatureRevisionInterface,

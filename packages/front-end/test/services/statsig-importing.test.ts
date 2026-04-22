@@ -143,8 +143,8 @@ describe("transformStatsigFeatureGateToGB — v2 invariants", () => {
 
   it("treats empty environments array as 'no-env' (pending), not 'all-envs'", async () => {
     // Statsig's rule.environments === [] is distinct from null (= all envs).
-    // Post-Phase-3 v2 semantics: environments: [] means "applies nowhere"
-    // (pending state). The importer should carry that through literally.
+    // `environments: []` means "applies nowhere" (pending); carry it through
+    // literally.
     const gate = mkGate({
       rules: [
         {

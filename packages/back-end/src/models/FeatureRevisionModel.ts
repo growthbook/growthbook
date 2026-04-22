@@ -86,15 +86,12 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
 );
 
 /**
- * Pure JIT migration from a raw revision doc to a v2 FeatureRevisionInterface.
- * Backfills legacy fields, then flattens v1 `Record<env, FeatureRule[]>` to
- * the v2 unified array via `flattenV1ToV2Rules`. Already-v2 arrays pass
- * through (with a defensive `upgradeFeatureRule` pass).
+ * Pure JIT migration from a raw revision doc to a v2 `FeatureRevisionInterface`.
+ * v1 `Record<env, FeatureRule[]>` is flattened via `flattenV1ToV2Rules`;
+ * already-v2 arrays pass through with a defensive `upgradeFeatureRule`.
  *
- * `opts.featureProject`: lets merged rules whose footprint covers every
- * applicable env collapse to `allEnvironments: true`. Without it the JIT
- * conservatively emits explicit env lists (still correct). Prefer
- * `revisionToInterfaceWithFeature` when the parent feature is in scope.
+ * Pass `opts.featureProject` (or prefer `revisionToInterfaceWithFeature`) to
+ * enable `allEnvironments: true` collapse when the parent feature is in scope.
  */
 export function buildFeatureRevisionInterface(
   raw: FeatureRevisionInterface,
@@ -466,23 +463,12 @@ export async function getRevisionsByStatus(
 }
 
 /**
- * Normalize a `rules` input (from `RevisionChanges.rules` or a legacy v1
- * per-env record) to the canonical v2 `FeatureRule[]` shape that revisions
- * persist to disk post-Phase 3.
+ * Normalize a `rules` input to the canonical v2 `FeatureRule[]` shape.
+ * v2 arrays pass through with `upgradeFeatureRule`; v1 records are flattened,
+ * seeding `applicableEnvs` from org envs + feature project so fully-covering
+ * rules collapse to `allEnvironments: true`.
  *
- * Accepts either shape during the migration window:
- *   - v2 `FeatureRule[]` → pass through with a defensive `upgradeFeatureRule`.
- *   - v1 `Record<env, FeatureRule[]>` → flatten via `flattenV1ToV2Rules`,
- *     seeding `applicableEnvs` from the org env list + feature project so
- *     rules whose footprint covers every applicable env collapse to
- *     `allEnvironments: true`.
- *
- * Callers that already operate on v2 arrays (ramp writer, future controller
- * rewrites) take the pass-through branch. Callers still emitting v1 records
- * (legacy controller handlers, to be rewritten in Step 7 of Phase 5a) take
- * the flatten branch — they produce correct v2 on disk regardless.
- *
- * Exported for unit testing; callers inside this module use it directly.
+ * Exported for unit testing.
  */
 export function normalizeRulesInputToV2(
   rulesInput: unknown,

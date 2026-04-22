@@ -91,18 +91,12 @@ export type NewExperimentRefRule = {
   name: string;
 } & Omit<ExperimentRule, "type">;
 
-/**
- * Sentinel value stored in localStorage when the user has selected the
- * "All environments" tab on the feature rules page. Using a non-empty string
- * keeps Radix Tabs in controlled mode (empty string is falsy).
- */
+// Sentinel for the "All environments" tab; a non-empty string keeps Radix
+// Tabs in controlled mode.
 export const FEATURE_RULES_ALL_ENVS = "__all__";
 
-/**
- * Persists the selected environment tab for the feature rules view across
- * page loads and applies any org-level `preferredEnvironment` setting on
- * first visit. Returns `null` when "All environments" is active.
- */
+// Persists the selected env tab across page loads; applies any org-level
+// `preferredEnvironment` on first visit. Returns `null` for "All environments".
 export function useFeatureRulesEnv(): [
   string | null,
   (v: string | null) => void,

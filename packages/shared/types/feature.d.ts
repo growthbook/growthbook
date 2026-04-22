@@ -51,50 +51,33 @@ export interface JSONSchemaDef {
 // ---------------------------------------------------------------------------
 // Feature document schema generations
 // ---------------------------------------------------------------------------
-// A feature document on disk can be in one of three shapes, which we label v0,
-// v1, and v2. The JIT migration layer in FeatureModel.toInterface normalizes
-// all three to the canonical v2 FeatureInterface on read. Writes always emit
-// v2.
+// A feature document on disk can be in one of three shapes: v0, v1, or v2.
+// The JIT migration layer in `FeatureModel.toInterface` normalizes all three
+// to the canonical v2 `FeatureInterface` on read; writes always emit v2.
 //
-// v0 — Very old, pre-environmentSettings. No `environmentSettings` field at
-//      all. Top-level `rules: FeatureRule[]` + `environments: string[]` arrays.
-//      Rare on disk (~137 of 162,795 features at time of cutover). Upgraded by
-//      `upgradeV0Feature` (was `upgradeFeatureInterface`) into a v1 shape.
-//
-// v1 — Pre-unification. Has `environmentSettings[env].rules` with per-env rule
-//      arrays. May also carry leftover top-level `rules` from a partial v0->v1
-//      migration that never scrubbed the old field; that top-level crust is
-//      ignored in the v1 path. Rules have no `allEnvironments`, no
-//      `environments` fields. Flattened into v2 by `flattenV1ToV2Rules`.
-//
-// v2 — Unified (canonical; post-cutover). `FeatureInterface` itself. Top-level
-//      `rules: FeatureRule[]` where every rule has a boolean `allEnvironments`
-//      and an optional `environments` list. Each env in `environmentSettings`
-//      is `{ enabled, prerequisites }` — NO `rules` key.
-//      The absence of a `rules` key on every env object is the structural
-//      signal that a document is already v2 (see `isV2FeatureEnvSettings`).
-//      New writes go through `buildFeatureUpdate` which replaces each env
-//      wholesale to scrub the legacy `rules` key from disk.
+// v0 — No `environmentSettings`. Top-level `rules: FeatureRule[]` +
+//      `environments: string[]`. Upgraded by `upgradeV0Feature`.
+// v1 — `environmentSettings[env].rules` with per-env rule arrays. Rules have
+//      no `allEnvironments` / `environments` fields. May also carry stale
+//      top-level `rules` left behind by an unscrubbed v0->v1 migration;
+//      that crust is ignored. Flattened into v2 by `flattenV1ToV2Rules`.
+// v2 — Top-level `rules: FeatureRule[]` where every rule has `allEnvironments`
+//      (boolean) and an optional `environments` list. Each env in
+//      `environmentSettings` is `{ enabled, prerequisites }` with NO `rules`
+//      key — the absence of that key is the structural signal a document is
+//      already v2 (see `isV2FeatureEnvSettings`). New writes go through
+//      `buildFeatureUpdate`, which replaces each env wholesale to scrub the
+//      legacy `rules` key off disk.
 // ---------------------------------------------------------------------------
 
-// v1 per-env environment settings and v1 rule types are zod-backed in
-// shared/validators/features.ts and re-exported here. They are permissive
-// (`.passthrough()`) by design so (a) downconverted v2 rules can pass their
-// (possibly-suffixed) `id` through unchanged, and (b) future v2-only fields
-// added to `FeatureRule` do NOT implicitly widen `V1FeatureRule`. See the
-// doc block next to the zod definitions for rationale.
-
-// v1 feature document on disk. Has `environmentSettings[env].rules`. May or
-// may not have stale top-level `rules` left over from a v0->v1 migration that
-// didn't scrub the old field. Discriminate v1 vs v2 with
+// v1 feature document on disk. Discriminate v1 vs v2 with
 // `isV2FeatureEnvSettings` on the envSettings map.
 export type V1FeatureInterface = Omit<
   FeatureInterface,
   "rules" | "environmentSettings"
 > & {
   environmentSettings?: Record<string, V1FeatureEnvironment>;
-  // Stale v0 crust — ignored in the v1 path. Present only when a v0->v1
-  // migration left the top-level `rules` field behind.
+  // Stale v0 crust left behind by an unscrubbed v0->v1 migration; ignored.
   rules?: V1FeatureRule[];
   revision?: {
     version: number;
@@ -108,15 +91,9 @@ export type V1FeatureInterface = Omit<
     Partial<Pick<JSONSchemaDef, "schemaType" | "simple">>;
 };
 
-// Vocabulary-only alias. Use `V2FeatureInterface` at conversion boundaries
-// (e.g. `flattenV1ToV2Rules` output, legacy<->v2 REST adapters) to make it
-// explicit that the value has been normalized to v2. `FeatureInterface` is
-// the canonical v2 type; they are identical.
-export type V2FeatureInterface = FeatureInterface;
-
 // v1 feature revision shape. Rules are the v1 `Record<env, V1FeatureRule[]>`
 // instead of the v2 `FeatureRule[]` array. Used by `FeatureRevisionModel`
-// JIT migration and will be used by `toLegacyRevision` in Phase 2b.3.
+// JIT migration and `toLegacyRevision`.
 export type V1FeatureRevisionInterface = Omit<
   FeatureRevisionInterface,
   "rules"
@@ -124,15 +101,10 @@ export type V1FeatureRevisionInterface = Omit<
   rules: Record<string, V1FeatureRule[]>;
 };
 
-// Constructive union for "any non-v2 on-disk shape". Covers both v0 and v1
-// documents. The JIT upgrader in FeatureModel.toInterface accepts this as
-// input. Structurally:
-//   - v0: no `environmentSettings`; has top-level `rules` and `environments`.
-//   - v1: has `environmentSettings`, at least one env has a `rules` key.
-//   - v1 with v0 crust: both shapes' fields present; we treat as v1 and
-//     ignore the stale top-level `rules`.
-// v1 is a proper subset of `LegacyFeatureInterface`; v0 adds only the
-// top-level `environments: string[]` field.
+// Any non-v2 on-disk shape. v1 is a proper subset; v0 additionally carries a
+// top-level `environments: string[]`. A v1 doc with leftover v0 crust is
+// treated as v1 and the stale top-level `rules` is ignored. Accepted as input
+// by the JIT upgrader in `FeatureModel.toInterface`.
 export type LegacyFeatureInterface = V1FeatureInterface & {
   environments?: string[];
 };
@@ -142,9 +114,9 @@ export interface FeatureDraftChanges {
   dateCreated?: Date;
   dateUpdated?: Date;
   defaultValue?: string;
-  // v0-legacy per-env draft rules. Only populated on v0 docs during v0->v1
-  // upgrade, then rolled into `legacyDraft` (a revision) by `upgradeV0Feature`.
-  // Typed as `V1FeatureRule[]` because these pre-date v2 unification entirely.
+  // v0-only per-env draft rules. Populated during v0->v1 upgrade and then
+  // rolled into `legacyDraft` by `upgradeV0Feature`. `V1FeatureRule[]` is the
+  // right element type — these entries pre-date the v2 rule shape.
   rules?: Record<string, V1FeatureRule[]>;
   comment?: string;
 }

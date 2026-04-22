@@ -623,9 +623,9 @@ type FeatureRevisionRule = NonNullable<
   FeatureRevisionInterface["rules"]
 >[number];
 
-// Project a flat v2 rules array into per-env buckets for log replay. Logs
-// index rules by env+position (legacy format — see `envsFromSubject`), so
-// replay needs the per-env view that was canonical pre-unification.
+// Project a flat v2 rules array into per-env buckets for log replay. Revision
+// logs index rules by env+position (legacy format — see `envsFromSubject`),
+// so replay needs a per-env projection of the flat array.
 //
 // Bucketing rules:
 //   - allEnvironments:true      → appears in every env bucket (org envs derived

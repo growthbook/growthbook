@@ -94,14 +94,9 @@ describe("feature utils", () => {
       expect(result).toEqual({});
     });
 
-    // ---------------------------------------------------------------------
-    // Post-Phase-3 regression tests
-    //
-    // With rule unification, `applyEnvironmentInheritance` is now called only
-    // on `FeatureEnvironment` records containing non-rule fields (enabled,
-    // prerequisites). These tests pin the two fields that matter in live
-    // back-end code so a future refactor can't quietly regress them.
-    // ---------------------------------------------------------------------
+    // `applyEnvironmentInheritance` is now called only on `FeatureEnvironment`
+    // records containing non-rule fields (enabled, prerequisites). These tests
+    // pin the two live call sites so a future refactor can't quietly regress.
     describe("FeatureEnvironment shape (enabled + prerequisites)", () => {
       it("inherits enabled flag from parent env", () => {
         const envRecord = {
@@ -179,7 +174,7 @@ describe("feature utils", () => {
         expect(result.dev).toEqual(envRecord.production);
       });
 
-      it("never synthesizes a 'rules' key on inherited envs (post-Phase-3 invariant)", () => {
+      it("never synthesizes a 'rules' key on inherited envs", () => {
         // `applyEnvironmentInheritance` operates on already-scrubbed v2
         // env records. Even if a pathological parent carried a `rules`
         // key, the child should only inherit what the parent has (deep

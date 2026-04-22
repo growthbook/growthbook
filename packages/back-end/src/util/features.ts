@@ -897,22 +897,10 @@ export function getFeatureDefinition({
 }
 
 /**
- * Populate values in `environmentRecord` for env keys that are undefined but
- * have a configured parent (`Environment.parent`) whose value IS defined —
- * child envs inherit from the nearest ancestor. Ancestor chains are walked
- * recursively; missing ancestors short-circuit (no synthesis).
- *
- * Post-Phase-3 scope: this helper is now used ONLY for non-rule env fields
- * (`enabled`, `prerequisites`). Rule inheritance was subsumed by the unified
- * `feature.rules` array — a rule declares its own env scope via
- * `allEnvironments` / `environments`, and per-env rule arrays no longer
- * exist as a read-side concept (`buildFeatureInterface` scrubs them via
- * `scrubEnvRules`). The generic `<T>` signature is preserved because the
- * few remaining call sites operate on `FeatureEnvironment` records where
- * `T` is the whole env object (enabled, prerequisites, archived, ...) —
- * clone semantics are the same regardless of `T`'s exact shape.
- *
- * Pure: never mutates the input.
+ * Populate `environmentRecord` values for env keys whose `Environment.parent`
+ * chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
+ * `prerequisites`); rules declare their own scope on the unified array.
+ * Pure.
  */
 export function applyEnvironmentInheritance<T>(
   environments: Environment[],

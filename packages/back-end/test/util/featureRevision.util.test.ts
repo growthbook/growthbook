@@ -2,13 +2,11 @@ import { FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 
-// Post-Phase-3 semantics: `applyPartialFeatureRuleUpdatesToRevision` matches
-// by `rule.id` against the v2 unified `revision.rules: FeatureRule[]`. Legacy
-// `[env, index]` matching is gone. These tests lock in the idempotent-match,
+// `applyPartialFeatureRuleUpdatesToRevision` matches by `rule.id` against the
+// unified `revision.rules: FeatureRule[]`. These tests pin the idempotent-match,
 // immutability, and missing-rule-tolerance contracts.
 
-// Minimal v2 revision factory. All fields that feed the BaseModel envelope are
-// filled with smoke values; only `rules` and `status` matter to the helper.
+// Minimal revision factory; only `rules` and `status` matter to the helper.
 const makeRevision = (
   rules: FeatureRule[],
   overrides: Partial<FeatureRevisionInterface> = {},

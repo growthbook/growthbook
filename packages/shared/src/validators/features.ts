@@ -211,7 +211,7 @@ export const featureEnvironment = z
 export type FeatureEnvironment = z.infer<typeof featureEnvironment>;
 
 // ---------------------------------------------------------------------------
-// v1 (legacy, pre-unification) validators
+// v1 (legacy) validators
 // ---------------------------------------------------------------------------
 // Deliberately permissive `.passthrough()` schemas for on-disk legacy data.
 // Constructed field-by-field so evolving v2 `FeatureRule` doesn't implicitly

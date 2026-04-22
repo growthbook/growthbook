@@ -290,12 +290,10 @@ describe("buildFeatureInterface", () => {
 
   // ================= 4b. env.rules scrub on output =================
   //
-  // buildFeatureInterface must not expose the legacy `environmentSettings[env].rules`
-  // key on its output, on either the v1 or v2 path. Downstream consumers
-  // (SDK payload, diff projection, REST api adapters, FE revision views) all
-  // read exclusively from the top-level `feature.rules` array post-Phase-3;
-  // leaving the legacy key populated is a shape-drift footgun where a stale
-  // env.rules would silently disagree with the canonical flat array.
+  // `buildFeatureInterface` must never expose the legacy
+  // `environmentSettings[env].rules` key on its output (v1 or v2 path).
+  // Downstream consumers read exclusively from the top-level `feature.rules`
+  // array; leaving the legacy key populated would silently disagree with it.
 
   describe("environmentSettings[env].rules scrub", () => {
     it("strips the legacy rules key from env objects on the v1 flatten path", () => {
@@ -433,9 +431,9 @@ describe("buildFeatureInterface", () => {
   // ================= Env inheritance =================
 
   describe("env inheritance", () => {
-    // Phase 3 removed env inheritance from the rule flattening pipeline.
-    // Env-level inheritance for non-rule fields (enabled, prerequisites)
-    // still runs — those continue to expand across the parent chain.
+    // Env inheritance does NOT apply to rules — unified rules declare their own
+    // scope. Inheritance for non-rule env fields (enabled, prerequisites) still
+    // runs through the parent chain.
     it("v1 path: does NOT propagate rules across inherited envs", () => {
       const envsWithParent: Environment[] = [
         { id: "dev", description: "" },

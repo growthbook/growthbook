@@ -4,14 +4,13 @@ import { ruleAppliesToEnv } from "shared/util";
 /**
  * Env-scoped CRUD helpers for the v2 flat `FeatureRule[]` array.
  *
- * Rules carry their own scope (`allEnvironments: true` or `environments: [...]`).
- * The legacy UI addresses them per-environment ("rule 2 in production"), so
+ * The legacy UI addresses rules per-environment ("rule 2 in production"), so
  * these helpers project the flat array down to one env, mutate by position,
  * then fold the edit back preserving order of other-env rules.
  *
- * Delete narrowing: an `allEnvironments` rule is narrowed to
- * `applicableEnvs \ {env}` (or deleted when empty); a multi-env rule drops
- * `env` from its list; a single-env rule is deleted globally.
+ * Delete narrowing: `allEnvironments: true` → narrow to `applicableEnvs \ {env}`
+ * (or delete globally when empty); multi-env rule → drop `env` from the list;
+ * single-env rule → delete globally.
  */
 
 export interface EnvProjection {
@@ -83,18 +82,9 @@ export function updateRuleAtFlatIndex(
   return { rules: next, updated, existing };
 }
 
-/**
- * Remove the rule at env-position `i` from the flat array.
- *
- * Narrowing (see also `narrowRuleForEnvRemoval`):
- *   - `allEnvironments: true` → narrow to `applicableEnvs \ {env}`, or
- *     delete globally if that set is empty.
- *   - `environments: [a, b, …]` (>1) → drop `env`.
- *   - single-env or pending → delete globally.
- *
- * Callers on the v2 contract should always supply `applicableEnvs`;
- * omitting it triggers legacy behavior (all-env rules delete globally).
- */
+// Remove the rule at env-position `i` (see `narrowRuleForEnvRemoval` for
+// narrowing rules). v2 callers should always pass `applicableEnvs`; omitting
+// it triggers legacy behavior (all-env rules delete globally).
 export function removeRuleAtEnvIndex(
   rules: FeatureRule[],
   environment: string,

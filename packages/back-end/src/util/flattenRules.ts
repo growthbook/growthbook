@@ -11,51 +11,21 @@ import {
 // Re-exported for back-end callers; new code should import from shared/validators.
 export type { V1FeatureRule };
 
-// ---------------------------------------------------------------------------
-// Feature document generations
-// ---------------------------------------------------------------------------
-// v0 — top-level rules + environments arrays. Upgraded to v1 by `upgradeV0Feature`.
-// v1 — `environmentSettings[env].rules`. Rules addressed by legacy `id`,
-//      which can collide across envs.
-// v2 — canonical. Top-level `rules: FeatureRule[]` with `allEnvironments` and
-//      an optional `environments` list per rule. `environmentSettings[env]`
-//      has NO `rules` key.
-//
-// Identifier contract:
-//   - `rule.id` is the only rule identifier and is PUBLIC (SDK, REST, ramp).
-//   - When v1 data collides across envs the flattener appends `__<env>` to
-//     each occurrence's id:
-//       * REST (v1 + v2) emits the full qualified id; clients must echo it
-//         back on PUT/DELETE.
-//       * SDK payload stem-strips so telemetry ids stay stable across the
-//         unification boundary.
-//     Split/join lives in `shared/src/util/ruleId.ts`.
-//   - New rules use `generateRuleId()` (`fr_<uniqid>`), which never contains
-//     `__` — so "any id with `__` is a migration artifact" holds.
-//
-// Structural discriminators:
-//   - `isV2FeatureEnvSettings(envSettings)`: no env carries `rules`.
-//   - `isV2RevisionRules(rules)`: `rules` is an array.
-// ---------------------------------------------------------------------------
+// Schema generations (v0 / v1 / v2) are documented in `shared/types/feature.d.ts`.
+// Rule-id `__<env>` suffix convention lives in `shared/src/util/ruleId.ts`.
 
 export type V1RulesByEnv = Record<string, V1FeatureRule[]>;
 
-// v2 stores rules as FeatureRule[]; v1 stores them as Record<env, FeatureRule[]>.
 export function isV2RevisionRules(rules: unknown): rules is FeatureRule[] {
   return Array.isArray(rules);
 }
 
-/**
- * True if `environmentSettings` is v2-shaped. Relies on the invariant that
- * every rules-touching write goes through `buildFeatureUpdate`, which scrubs
- * `env.rules` from the $set payload — so no on-disk doc has BOTH
- * `feature.rules` and `envSettings[env].rules` populated. Any new write path
- * that touches `environmentSettings` MUST route through `buildFeatureUpdate`.
- */
+// v2 has no populated `env.rules`. Relies on `buildFeatureUpdate` scrubbing
+// `env.rules` from every $set payload — any new write path that touches
+// `environmentSettings` MUST route through it.
 export function isV2FeatureEnvSettings(
   envSettings: Record<string, { rules?: unknown } | undefined>,
 ): boolean {
-  // A populated rules array is the only v1 signal; undefined/[] means v2.
   for (const env of Object.values(envSettings)) {
     if (!env || typeof env !== "object") continue;
     if (!("rules" in env)) continue;
@@ -67,8 +37,7 @@ export function isV2FeatureEnvSettings(
   return true;
 }
 
-// Called at persist chokepoints (updateFeature, updateRevision, createFeature)
-// to turn silent rule-id collisions into loud failures.
+// Called at persist chokepoints to turn silent id collisions into loud failures.
 export function assertUniqueRuleIds(rules: FeatureRule[], ctx: string): void {
   const seen = new Set<string>();
   const dupes = new Set<string>();
@@ -85,8 +54,6 @@ export function assertUniqueRuleIds(rules: FeatureRule[], ctx: string): void {
   }
 }
 
-// An env applies when it has no `projects` list, or its list includes the
-// feature's project. If the feature has no project, all envs apply.
 export function getApplicableEnvIds(
   orgEnvs: Environment[],
   featureProject?: string,
@@ -100,14 +67,12 @@ export function getApplicableEnvIds(
     .map((env) => env.id);
 }
 
-/**
- * Per-env footprint of a v2 rule, filtered to `applicableEnvs`. Must stay in
- * sync with shared `ruleAppliesToEnv` / `ruleFootprint`:
- *   - `allEnvironments: true`     → every applicable env
- *   - `environments: [list]`      → intersection with applicable set
- *   - `environments: []`          → [] (explicit "pending" state)
- *   - neither field declared      → every applicable env (legacy fallback)
- */
+// Footprint of a v2 rule, intersected with `applicableEnvs`. Must stay in sync
+// with shared `ruleAppliesToEnv`.
+//   allEnvironments:true            → every applicable env
+//   environments:[list]             → list ∩ applicable
+//   environments:[]                 → [] (pending)
+//   neither field declared (legacy) → every applicable env
 export function ruleFootprint(
   rule: FeatureRule,
   applicableEnvs: string[],
@@ -118,13 +83,9 @@ export function ruleFootprint(
   return rule.environments.filter((e) => applicableSet.has(e));
 }
 
-/**
- * Remove a single env from a rule's footprint (the v1 REST DELETE contract).
- * If the rule's footprint becomes empty, returns `{action: "delete"}` —
- * callers must handle side-effect cleanup (ramp actions, SafeRollout).
- * Otherwise narrows to the remaining applicable envs (expanding
- * `allEnvironments: true` first). Pure; does not mutate `rule`.
- */
+// Remove `environment` from a rule's footprint (the v1 REST DELETE contract).
+// Returns `{action: "delete"}` when the footprint becomes empty — callers are
+// responsible for side-effect cleanup (ramp actions, SafeRollout). Pure.
 export type NarrowRuleDecision =
   | { action: "delete" }
   | { action: "narrow"; rule: FeatureRule };
@@ -152,17 +113,13 @@ export interface RampTargetQuery {
   environment?: string | null;
 }
 
-/**
- * Resolve a ramp target to every matching unified FeatureRule. Semantics by
- * `(ruleId form, environment set?)`:
- *   1. (bare id, env)      → match on `stem` or `stem__env`, filtered by rule scope
- *   2. (suffixed id, env)  → stem-stripped; falls through to (1)
- *   3. (bare id, no env)   → stem fan-out across all env siblings
- *   4. (suffixed id, no env) → exact id match
- *
- * `target.environment` is retained for pre-migration stored ramps; v2 ids
- * are globally unique so env is redundant in the common case.
- */
+// Resolve a ramp target to every matching unified rule. Semantics by
+// (ruleId shape, environment?):
+//   (bare, env)      → match stem or stem__env, filtered by rule scope
+//   (suffixed, env)  → stemmed; falls through to (bare, env)
+//   (bare, no env)   → stem fan-out across all env siblings
+//   (suffixed, no env) → exact id match
+// `target.environment` is retained for pre-migration stored ramps.
 export function resolveRampTargets(
   target: RampTargetQuery,
   unifiedRules: FeatureRule[],
@@ -190,8 +147,8 @@ export function resolveRampTargets(
   return unifiedRules.filter((r) => stemRuleId(r.id) === stem);
 }
 
-// First (or only) match. Execution paths (e.g. the ramp poller that applies
-// patches) MUST use `resolveRampTargets` and iterate over every match.
+// First (or only) match. Execution paths (e.g. the ramp poller applying
+// patches) MUST use `resolveRampTargets` and iterate every match.
 export function resolveRampTarget(
   target: RampTargetQuery,
   unifiedRules: FeatureRule[],
@@ -199,12 +156,8 @@ export function resolveRampTarget(
   return resolveRampTargets(target, unifiedRules)[0];
 }
 
-/**
- * True iff two ramp targets resolve to the same logical rule. Equivalence:
- *   1. Same stem (via `stemRuleId`).
- *   2. Same effective env — explicit `environment`, else suffix-derived env,
- *      else wildcard. Wildcard matches any env.
- */
+// Same stem AND same effective env (explicit `environment` → suffix-derived env
+// → wildcard). A wildcard on either side matches any env.
 export function rampTargetsEquivalent(
   a: RampTargetQuery,
   b: RampTargetQuery,
@@ -221,8 +174,8 @@ export function rampTargetsEquivalent(
 
 // ---- internal helpers ----
 
-// Fields ignored when checking whether two rules can merge: scoping fields
-// plus `id` (grouped by stem upstream; a sibling may carry a migration suffix).
+// Ignored when testing merge-eligibility: scoping fields + `id` (stem-grouped
+// upstream; a sibling may carry a migration suffix).
 const UNIFICATION_SCOPE_FIELDS = new Set([
   "allEnvironments",
   "environments",
@@ -245,8 +198,8 @@ function contentEquivalent(a: V1FeatureRule, b: V1FeatureRule): boolean {
   return isEqual(aCore, bCore);
 }
 
-// Deterministic env ordering — alphabetical, with optional caller-supplied
-// canonical order (e.g. the org's configured env order).
+// Deterministic ordering: caller-supplied order first (e.g. org env order),
+// then alphabetical for anything unknown.
 function canonicalEnvOrder(envs: string[], envOrder?: string[]): string[] {
   const envSet = new Set(envs);
   if (envOrder && envOrder.length) {
@@ -274,19 +227,17 @@ type Occurrence = {
 /**
  * Flatten v1 `Record<env, FeatureRule[]>` into v2 `FeatureRule[]`.
  *
- * Merging: rules are grouped by legacy `id` across envs. A group merges into
- * one unified rule iff every occurrence is content-identical, no relative
- * ordering conflict exists with another mergeable group, and no env contains
- * the id twice. Non-mergeable groups emit one env-specific rule per
- * occurrence with id `"<legacyId>__<env>"` (`__<env>__<n>` for in-env dupes).
+ * Rules are grouped by legacy `id` across envs. A group merges into one unified
+ * rule iff every occurrence is content-identical, no relative ordering conflict
+ * exists with another mergeable group, and no env contains the id twice.
+ * Non-mergeable groups emit one env-specific rule per occurrence, id suffixed
+ * via `suffixRuleId`.
  *
- * `allEnvironments` collapse (requires `opts.applicableEnvs`):
- *   - A rule covering every applicable env emits `allEnvironments: true` and
- *     omits `environments`.
- *   - Occurrences in non-applicable envs are dropped.
- *   - If `applicableEnvs` is omitted, `allEnvironments: true` is never emitted.
+ * Pass `opts.applicableEnvs` to enable `allEnvironments: true` collapse for
+ * rules that cover every applicable env (occurrences in non-applicable envs
+ * are dropped). Without it, `allEnvironments: true` is never emitted.
  *
- * Output is deterministic — same input yields byte-identical output.
+ * Deterministic: same input → byte-identical output.
  */
 export function flattenV1ToV2Rules(
   rulesByEnv: V1RulesByEnv,
@@ -295,8 +246,8 @@ export function flattenV1ToV2Rules(
   const envs = canonicalEnvOrder(Object.keys(rulesByEnv), opts?.envOrder);
   if (envs.length === 0) return [];
 
-  // 1. Collect occurrences by legacy id. Ids duplicated within a single env
-  //    are considered irrecoverably ambiguous and are never merged.
+  // 1. Collect occurrences by legacy id. Within-env duplicates are ambiguous
+  //    and are never merged.
   const groups = new Map<string, Occurrence[]>();
   const dupInEnvIds = new Set<string>();
   for (const env of envs) {
@@ -304,7 +255,7 @@ export function flattenV1ToV2Rules(
     const seenInEnv = new Set<string>();
     list.forEach((rule, position) => {
       if (!rule || typeof rule !== "object" || !rule.id) return;
-      // Stem first so v2→v1→v2 round-tripped ids group with bare siblings.
+      // Stem so round-tripped ids group with bare siblings.
       const legacyId = stemRuleId(rule.id);
       if (seenInEnv.has(legacyId)) dupInEnvIds.add(legacyId);
       seenInEnv.add(legacyId);
@@ -314,7 +265,7 @@ export function flattenV1ToV2Rules(
     });
   }
 
-  // 2. Merge-eligibility: appears in >=2 envs AND content-identical everywhere.
+  // 2. Merge-eligibility: >=2 envs AND content-identical everywhere.
   const contentMergeable = new Set<string>();
   for (const [legacyId, occs] of groups) {
     if (occs.length < 2) continue;
@@ -323,8 +274,8 @@ export function flattenV1ToV2Rules(
     if (allSame) contentMergeable.add(legacyId);
   }
 
-  // 3. Order conflicts: if two mergeable ids X,Y appear together in two or
-  //    more envs with disagreeing relative order, split both.
+  // 3. Order conflicts: if mergeable ids X,Y coexist in >=2 envs with
+  //    disagreeing relative order, split both.
   const splitFromOrderConflict = new Set<string>();
   const mergeableIds = [...contentMergeable];
   for (let i = 0; i < mergeableIds.length; i++) {
@@ -356,16 +307,15 @@ export function flattenV1ToV2Rules(
     ),
   );
 
-  // 4. Emit output. Walk envs in canonical order; for each rule, emit merged
-  //    rules once with the full footprint, non-merged rules once per env with
-  //    a suffixed id. shapeRule returns null for zero-footprint rules.
+  // 4. Emit. Merged rules emit once with the full footprint; non-merged emit
+  //    once per env with a suffixed id. `shapeRule` returns null when filtered
+  //    to an empty footprint.
   const applicable = opts?.applicableEnvs;
   const applicableSet = applicable ? new Set(applicable) : null;
 
   const emittedMergedIds = new Set<string>();
   const output: FeatureRule[] = [];
 
-  // Counter used to disambiguate the same legacy id repeated in one env.
   const envOccCounter = new Map<string, number>();
   function nextEnvSpecificId(legacyId: string, env: string): string {
     const key = `${legacyId}::${env}`;
@@ -374,8 +324,6 @@ export function flattenV1ToV2Rules(
     return suffixRuleId(legacyId, env, n + 1);
   }
 
-  // Collapses to `allEnvironments: true` if the footprint covers every
-  // applicable env. Returns null when nothing is applicable.
   function shapeRule(
     rule: V1FeatureRule,
     id: string,
@@ -421,8 +369,7 @@ export function flattenV1ToV2Rules(
         const shaped = shapeRule(rule, legacyId, envList);
         if (shaped) output.push(shaped);
       } else {
-        // Only suffix when there's a real collision; lone occurrences keep
-        // their bare legacy id.
+        // Lone occurrences keep their bare legacy id; suffix only on collision.
         const occs = groups.get(legacyId) ?? [];
         const needsSuffix = occs.length > 1 || dupInEnvIds.has(legacyId);
         const id = needsSuffix ? nextEnvSpecificId(legacyId, env) : legacyId;

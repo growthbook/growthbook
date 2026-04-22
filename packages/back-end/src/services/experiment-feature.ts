@@ -144,9 +144,8 @@ export async function updateExperimentRefVariations({
     settings: orgSettings,
   });
 
-  // Post-Phase-3: match rules by id on the v2 unified rule array.
-  // MatchingRule entries duplicate across envs under the new getMatchingRules;
-  // editFeatureRules dedupes by ruleId so the overlay is applied once per rule.
+  // `matchingRules` can duplicate a rule across envs; `editFeatureRules`
+  // dedupes by ruleId so the overlay runs once per rule.
   const updatedRevision = await editFeatureRules(
     context,
     feature,

@@ -147,8 +147,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       if (!feature) {
         throw new Error("Feature not found");
       }
-      // Post-Phase-3: rules live on the v2 unified `feature.rules`. Locate
-      // the safe-rollout rule by safeRolloutId rather than by per-env index.
+      // Locate the safe-rollout rule by safeRolloutId on the flat rules array.
       const matchingRule = (feature.rules ?? []).find(
         (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
       );
