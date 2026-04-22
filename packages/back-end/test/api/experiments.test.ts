@@ -720,7 +720,9 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("message");
-      expect(res.body.message).toContain("requires unique experiment tracking keys");
+      expect(res.body.message).toContain(
+        "requires unique experiment tracking keys",
+      );
     });
 
     it("validates datasource exists", async () => {
@@ -1282,7 +1284,9 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("message");
-      expect(res.body.message).toContain("requires unique experiment tracking keys");
+      expect(res.body.message).toContain(
+        "requires unique experiment tracking keys",
+      );
     });
 
     it("updates experiment variations with signed URLs", async () => {
