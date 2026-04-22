@@ -256,8 +256,9 @@ export default function RuleModal({
     isSafeRolloutAutoRollbackEnabled: true,
   });
 
-  const convertRuleToFormValues = (rule: FeatureRule) => {
-    if (rule?.type === "safe-rollout") {
+  const convertRuleToFormValues = (rule: FeatureRule | undefined) => {
+    if (!rule) return undefined;
+    if (rule.type === "safe-rollout") {
       return {
         ...rule,
         safeRolloutFields: safeRollout,
