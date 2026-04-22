@@ -30,22 +30,22 @@ export default function DialogStories() {
         trackingEventModalType="test-wizard-dialog"
       >
         <Dialog.Header>
-          <Dialog.Title>Configure experiment</Dialog.Title>
+          <Flex direction="column" gap="3" width="100%">
+            <Dialog.Title>Configure experiment</Dialog.Title>
+            <Box ml="-5">
+              <Stepper
+                steps={[
+                  { label: "Step 1", enabled: true },
+                  { label: "Step 2", enabled: true },
+                  { label: "Step 3", enabled: true },
+                ]}
+                step={2}
+                setStep={() => {}}
+                setError={() => {}}
+              />
+            </Box>
+          </Flex>
         </Dialog.Header>
-        <Dialog.Description>
-          <Box mb="4" mt="2" ml="-5">
-            <Stepper
-              steps={[
-                { label: "Step 1", enabled: true },
-                { label: "Step 2", enabled: true },
-                { label: "Step 3", enabled: true },
-              ]}
-              step={2}
-              setStep={() => {}}
-              setError={() => {}}
-            />
-          </Box>
-        </Dialog.Description>
         <Dialog.Body>
           <Flex direction="column" gap="5">
             <Flex direction="column" gap="1">

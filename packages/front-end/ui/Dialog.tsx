@@ -25,7 +25,7 @@ import Text from "./Text";
 
 export type Size = "md" | "lg";
 
-export function getRadixSize(size: Size): Responsive<"3" | "4"> {
+function getRadixSize(size: Size): Responsive<"3" | "4"> {
   switch (size) {
     case "md":
       return "3";
@@ -53,7 +53,6 @@ function getMaxWidth(size: Size) {
 // ---------------------------------------------------------------------------
 
 type DialogContextValue = {
-  size: Size;
   error: string | null;
   setError: (error: string | null) => void;
   scrollBodyToTop: () => void;
@@ -137,25 +136,27 @@ function Root({
     ],
   );
 
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    const prevOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+
+    if (open && !prevOpen) {
       sendTrackingEvent("modal-open");
-    } else {
+    } else if (!open && prevOpen) {
       setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, sendTrackingEvent]);
 
   const ctx = useMemo<DialogContextValue>(
     () => ({
-      size,
       error,
       setError,
       scrollBodyToTop,
       bodyRef,
       sendTrackingEvent,
     }),
-    [size, error, scrollBodyToTop, sendTrackingEvent],
+    [error, scrollBodyToTop, sendTrackingEvent],
   );
 
   return (
@@ -189,7 +190,7 @@ function Root({
 //
 // Renders a fixed-height row at the top of the dialog. Children are laid out
 // in a space-between flex row so the common pattern of
-// <Title /> <SomeAction /> just works — no HeaderAction prop required.
+// <Title /> <SomeAction /> just works
 // ---------------------------------------------------------------------------
 
 function Header({ children }: { children: ReactNode }) {
@@ -216,7 +217,7 @@ function Title({ children }: { children: ReactNode }) {
   );
 }
 
-function Description({ children }: { children: ReactNode | string }) {
+function Description({ children }: { children: string }) {
   return (
     <Box flexShrink="0" pr="7">
       <RadixDialog.Description size="2" mb="0">
