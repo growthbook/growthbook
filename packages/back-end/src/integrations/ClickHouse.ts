@@ -5,6 +5,7 @@ import {
   QueryResponse,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import { ColumnInterface } from "shared/types/fact-table";
 import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
@@ -102,6 +103,34 @@ export default class ClickHouse extends SqlIntegration {
   }
   castToString(col: string): string {
     return `toString(${col})`;
+  }
+  public supportsEfficientTopValues(): boolean {
+    return true;
+  }
+  protected getTopValuesCTEBody({
+    columns,
+    start,
+    limit,
+  }: {
+    columns: ColumnInterface[];
+    start: Date;
+    limit: number;
+  }): string {
+    // ARRAY JOIN with two parallel arrays zips them element-wise, so the
+    // fact table is scanned once and we get one output row per (input row,
+    // column) pair.
+    const namesArr = columns.map((c) => `'${c.column}'`).join(", ");
+    const valsArr = columns.map((c) => this.castToString(c.column)).join(", ");
+    const aggQuery = `
+      SELECT column_name, value, COUNT(*) AS count
+      FROM __factTable
+      ARRAY JOIN
+        [${namesArr}] AS column_name,
+        [${valsArr}] AS value
+      WHERE timestamp >= ${this.toTimestamp(start)}
+        AND value IS NOT NULL
+      GROUP BY column_name, value`;
+    return this.wrapWithTopNPerColumn(aggQuery, limit);
   }
   ensureFloat(col: string): string {
     return `toFloat64(${col})`;

@@ -146,6 +146,7 @@ import {
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import {
+  ColumnInterface,
   ColumnRef,
   FactMetricInterface,
   FactTableInterface,
@@ -5708,6 +5709,10 @@ export default abstract class SqlIntegration
     }).join("\n")}`;
   }
 
+  public supportsEfficientTopValues(): boolean {
+    return false;
+  }
+
   public getColumnsTopValuesQuery({
     factTable,
     columns,
@@ -5728,7 +5733,39 @@ export default abstract class SqlIntegration
     const start = new Date();
     start.setDate(start.getDate() - lookbackDays);
 
-    // Generate a UNION ALL query for each column
+    return format(
+      `
+WITH
+  __factTable AS (
+    ${compileSqlTemplate(factTable.sql, {
+      startDate: start,
+      templateVariables: {
+        eventName: factTable.eventName,
+      },
+    })}
+  ),
+  __topValues AS (
+    ${this.getTopValuesCTEBody({ columns, start, limit })}
+  )
+SELECT * FROM __topValues
+ORDER BY column_name, count DESC
+    `,
+      this.getFormatDialect(),
+    );
+  }
+
+  // Naive approach: one subquery per column UNION ALL'd together. Each
+  // subquery re-scans __factTable, so this is only suitable for dialects
+  // where we haven't implemented a single-scan unpivot.
+  protected getTopValuesCTEBody({
+    columns,
+    start,
+    limit,
+  }: {
+    columns: ColumnInterface[];
+    start: Date;
+    limit: number;
+  }): string {
     const columnQueries = columns.map((column, i) => {
       return `
     (${this.selectStarLimit(
@@ -5746,26 +5783,23 @@ export default abstract class SqlIntegration
       limit,
     )})`;
     });
+    return columnQueries.join("\n    UNION ALL\n");
+  }
 
-    return format(
-      `
-WITH
-  __factTable AS (
-    ${compileSqlTemplate(factTable.sql, {
-      startDate: start,
-      templateVariables: {
-        eventName: factTable.eventName,
-      },
-    })}
-  ),
-  __topValues AS (
-    ${columnQueries.join("\n    UNION ALL\n")}
-  )
-SELECT * FROM __topValues
-ORDER BY column_name, count DESC
-    `,
-      this.getFormatDialect(),
-    );
+  // Wraps an aggregation query shaped like (column_name, value, count) and
+  // returns the top `limit` values per column. Shared across all efficient
+  // unpivot implementations so each dialect only has to produce the unpivot+
+  // aggregation, not the ranking.
+  protected wrapWithTopNPerColumn(aggQuery: string, limit: number): string {
+    return `
+    SELECT column_name, value, count FROM (
+      SELECT column_name, value, count,
+        ROW_NUMBER() OVER (PARTITION BY column_name ORDER BY count DESC) AS row_num
+      FROM (
+        ${aggQuery}
+      ) __topValuesAgg
+    ) __topValuesRanked
+    WHERE row_num <= ${limit}`;
   }
 
   public async runColumnsTopValuesQuery(

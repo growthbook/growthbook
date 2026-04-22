@@ -2,6 +2,7 @@ import { databricksCreateTableOptions } from "shared/enterprise";
 import { FormatDialect } from "shared/types/sql";
 import { QueryResponse, DataType } from "shared/types/integrations";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
+import { ColumnInterface } from "shared/types/fact-table";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import SqlIntegration from "./SqlIntegration";
@@ -57,6 +58,35 @@ export default class Databricks extends SqlIntegration {
   }
   castToString(col: string): string {
     return `cast(${col} as string)`;
+  }
+  public supportsEfficientTopValues(): boolean {
+    return true;
+  }
+  protected getTopValuesCTEBody({
+    columns,
+    start,
+    limit,
+  }: {
+    columns: ColumnInterface[];
+    start: Date;
+    limit: number;
+  }): string {
+    // Unpivot via LATERAL VIEW STACK so the fact table is scanned once
+    // regardless of how many columns we're sampling. STACK(N, ...) splits
+    // N pairs of (name, value) into N rows.
+    const pairs = columns
+      .map((c) => `'${c.column}', ${this.castToString(c.column)}`)
+      .join(",\n        ");
+    const aggQuery = `
+      SELECT column_name, value, COUNT(*) AS count
+      FROM __factTable
+      LATERAL VIEW STACK(${columns.length},
+        ${pairs}
+      ) __col AS column_name, value
+      WHERE timestamp >= ${this.toTimestamp(start)}
+        AND value IS NOT NULL
+      GROUP BY column_name, value`;
+    return this.wrapWithTopNPerColumn(aggQuery, limit);
   }
   ensureFloat(col: string): string {
     return `cast(${col} as double)`;

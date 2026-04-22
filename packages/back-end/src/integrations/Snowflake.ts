@@ -7,6 +7,7 @@ import {
 } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { QueryMetadata } from "shared/types/query";
+import { ColumnInterface } from "shared/types/fact-table";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";
 import SqlIntegration from "./SqlIntegration";
@@ -50,6 +51,42 @@ export default class Snowflake extends SqlIntegration {
   }
   castToString(col: string): string {
     return `TO_VARCHAR(${col})`;
+  }
+  public supportsEfficientTopValues(): boolean {
+    return true;
+  }
+  protected getTopValuesCTEBody({
+    columns,
+    start,
+    limit,
+  }: {
+    columns: ColumnInterface[];
+    start: Date;
+    limit: number;
+  }): string {
+    // Unpivot via LATERAL FLATTEN over an array of OBJECTs so the fact table
+    // is scanned once regardless of how many columns we're sampling.
+    const objects = columns
+      .map(
+        (c) =>
+          `OBJECT_CONSTRUCT('column_name', '${c.column}', 'value', ${this.castToString(
+            c.column,
+          )})`,
+      )
+      .join(",\n        ");
+    const aggQuery = `
+      SELECT
+        __col.value:column_name::VARCHAR AS column_name,
+        __col.value:value::VARCHAR AS value,
+        COUNT(*) AS count
+      FROM __factTable,
+      LATERAL FLATTEN(input => ARRAY_CONSTRUCT(
+        ${objects}
+      )) __col
+      WHERE timestamp >= ${this.toTimestamp(start)}
+        AND __col.value:value::VARCHAR IS NOT NULL
+      GROUP BY column_name, value`;
+    return this.wrapWithTopNPerColumn(aggQuery, limit);
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;

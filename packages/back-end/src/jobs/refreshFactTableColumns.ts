@@ -23,21 +23,34 @@ import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
 
-export const MAX_NEW_STRING_COLUMNS_WITH_TOP_VALUES = 50;
+export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
 export const MAX_TOP_VALUE_LENGTH = 100;
+export const TOP_VALUES_CHUNK_SIZE = 25;
 
-// Selects the string columns on a fact table that should have topValues populated.
-// Columns explicitly opted-in via alwaysInlineFilter or isAutoSliceColumn are always
-// included. Any additional eligible string columns are capped at maxNewColumns to
-// keep the stored document well under Mongo's 16MB per-document limit.
+// Selects the string columns on a fact table that should have topValues
+// populated. Columns explicitly opted-in via alwaysInlineFilter or
+// isAutoSliceColumn are always included.
+//
+// - When the datasource supports the efficient single-scan top-values query
+//   (supportsEfficient=true), we fill up to maxColumns total with additional
+//   eligible string columns to give users dropdown filter pickers by default.
+// - When it doesn't, running top-values for every string column would
+//   re-scan the fact table once per column, so we fall back to the legacy
+//   behavior of only populating the explicitly-opted-in columns.
+//
+// The total cap keeps the stored fact-table document well under Mongo's
+// 16MB per-doc limit, and matching it to a multiple of TOP_VALUES_CHUNK_SIZE
+// avoids small trailing chunks in the batch query.
 export function selectColumnsForTopValues({
   columns,
   userIdTypes,
-  maxNewColumns = MAX_NEW_STRING_COLUMNS_WITH_TOP_VALUES,
+  supportsEfficient,
+  maxColumns = MAX_COLUMNS_WITH_TOP_VALUES,
 }: {
   columns: ColumnInterface[];
   userIdTypes: string[];
-  maxNewColumns?: number;
+  supportsEfficient: boolean;
+  maxColumns?: number;
 }): ColumnInterface[] {
   const factTableLike = { columns, userIdTypes };
 
@@ -51,9 +64,15 @@ export function selectColumnsForTopValues({
   const alwaysCaptured = eligible.filter(
     (c) => c.alwaysInlineFilter || c.isAutoSliceColumn,
   );
+
+  if (!supportsEfficient) {
+    return alwaysCaptured;
+  }
+
+  const remainingSlots = Math.max(0, maxColumns - alwaysCaptured.length);
   const newlyCaptured = eligible
     .filter((c) => !c.alwaysInlineFilter && !c.isAutoSliceColumn)
-    .slice(0, maxNewColumns);
+    .slice(0, remainingSlots);
 
   return [...alwaysCaptured, ...newlyCaptured];
 }
@@ -319,15 +338,21 @@ export async function runRefreshColumnsQuery(
     }
   }
 
+  const supportsEfficient = integration.supportsEfficientTopValues?.() ?? false;
+
   const columnsNeedingTopValues = selectColumnsForTopValues({
     columns,
     userIdTypes: factTable.userIdTypes,
+    supportsEfficient,
   });
 
-  // Batch query for all columns that need top values, chunked into groups of 10
-  // to prevent returning more than 1k rows per update (10 columns * 100 values = 1000 rows max per chunk)
+  // Batch query for all columns that need top values. Efficient datasources
+  // can scan the fact table once per chunk, so we batch aggressively (25
+  // columns * ~100 values = ~2500 rows per chunk). Non-efficient datasources
+  // only ever have a small handful of always-captured columns, so chunk size
+  // isn't a concern there.
   if (columnsNeedingTopValues.length > 0) {
-    const columnChunks = chunk(columnsNeedingTopValues, 10);
+    const columnChunks = chunk(columnsNeedingTopValues, TOP_VALUES_CHUNK_SIZE);
 
     for (const columnChunk of columnChunks) {
       try {

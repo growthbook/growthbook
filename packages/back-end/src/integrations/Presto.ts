@@ -11,6 +11,7 @@ import {
 } from "shared/types/integrations";
 import { QueryMetadata, QueryStatistics } from "shared/types/query";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
+import { ColumnInterface } from "shared/types/fact-table";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import { getQueryTagString } from "back-end/src/util/integration";
@@ -229,6 +230,35 @@ export default class Presto extends SqlIntegration {
   }
   getDefaultDatabase() {
     return this.params.catalog || "";
+  }
+
+  public supportsEfficientTopValues(): boolean {
+    return true;
+  }
+  protected getTopValuesCTEBody({
+    columns,
+    start,
+    limit,
+  }: {
+    columns: ColumnInterface[];
+    start: Date;
+    limit: number;
+  }): string {
+    // Unpivot via CROSS JOIN UNNEST over an array of ROWs, so the fact
+    // table is scanned once regardless of how many columns we're sampling.
+    const rows = columns
+      .map((c) => `ROW('${c.column}', ${this.castToString(c.column)})`)
+      .join(",\n        ");
+    const aggQuery = `
+      SELECT __col.column_name, __col.value, COUNT(*) AS count
+      FROM __factTable
+      CROSS JOIN UNNEST(ARRAY[
+        ${rows}
+      ]) AS __col(column_name, value)
+      WHERE timestamp >= ${this.toTimestamp(start)}
+        AND __col.value IS NOT NULL
+      GROUP BY __col.column_name, __col.value`;
+    return this.wrapWithTopNPerColumn(aggQuery, limit);
   }
 
   createTablePartitions(columns: string[]) {

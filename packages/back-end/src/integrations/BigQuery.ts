@@ -17,6 +17,7 @@ import {
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { ColumnInterface } from "shared/types/fact-table";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -172,6 +173,39 @@ export default class BigQuery extends SqlIntegration {
   }
   castToString(col: string): string {
     return `cast(${col} as string)`;
+  }
+  public supportsEfficientTopValues(): boolean {
+    return true;
+  }
+  protected getTopValuesCTEBody({
+    columns,
+    start,
+    limit,
+  }: {
+    columns: ColumnInterface[];
+    start: Date;
+    limit: number;
+  }): string {
+    // Unpivot via UNNEST over an array of STRUCTs, so the fact table is
+    // scanned once regardless of how many columns we're sampling.
+    const structs = columns
+      .map(
+        (c) =>
+          `STRUCT('${c.column}' AS column_name, ${this.castToString(
+            c.column,
+          )} AS value)`,
+      )
+      .join(",\n        ");
+    const aggQuery = `
+      SELECT col.column_name, col.value, COUNT(*) AS count
+      FROM __factTable
+      CROSS JOIN UNNEST([
+        ${structs}
+      ]) AS col
+      WHERE timestamp >= ${this.toTimestamp(start)}
+        AND col.value IS NOT NULL
+      GROUP BY col.column_name, col.value`;
+    return this.wrapWithTopNPerColumn(aggQuery, limit);
   }
   escapeStringLiteral(value: string): string {
     return value.replace(/(['\\])/g, "\\$1");
