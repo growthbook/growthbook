@@ -61,13 +61,13 @@ export default function ExperimentMetricBlock({
 
   const _confidenceLevels = useConfidenceLevels(experiment.project);
   const _pValueThreshold = usePValueThreshold(experiment.project);
-  const { ciUpper } =
+  const bayesianConfidenceLevels =
     ssrPolyfills?.useConfidenceLevels?.(experiment.project) ||
     _confidenceLevels;
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
   const significanceThresholds: SignificanceThresholds = {
-    confidenceLevel: ciUpper,
+    bayesianConfidenceLevels,
     pValueThreshold,
   };
 

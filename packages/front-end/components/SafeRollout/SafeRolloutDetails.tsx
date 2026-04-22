@@ -11,10 +11,10 @@ interface Props {
 }
 
 export default function SafeRolloutDetails({ safeRollout, projectId }: Props) {
-  const { ciUpper } = useConfidenceLevels(projectId);
+  const bayesianConfidenceLevels = useConfidenceLevels(projectId);
   const pValueThreshold = usePValueThreshold(projectId);
   const significanceThresholds: SignificanceThresholds = {
-    confidenceLevel: ciUpper,
+    bayesianConfidenceLevels,
     pValueThreshold,
   };
 

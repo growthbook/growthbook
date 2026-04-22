@@ -95,10 +95,10 @@ const Results: FC<{
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
-  const { ciUpper } = useConfidenceLevels(experiment.project);
+  const bayesianConfidenceLevels = useConfidenceLevels(experiment.project);
   const pValueThreshold = usePValueThreshold(experiment.project);
   const significanceThresholds: SignificanceThresholds = {
-    confidenceLevel: ciUpper,
+    bayesianConfidenceLevels,
     pValueThreshold,
   };
 

@@ -71,8 +71,8 @@ const DateResults: FC<{
 
   const _displayCurrency = useCurrency();
 
-  const { confidenceLevel: ciUpper, pValueThreshold } = significanceThresholds;
-  const ciLower = 1 - ciUpper;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
   const [cumulativeState, setCumulative] = useState(false);

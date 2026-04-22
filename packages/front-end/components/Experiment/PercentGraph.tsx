@@ -87,8 +87,8 @@ export default function PercentGraph({
   const metricDefaults =
     ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||
     _metricDefaults;
-  const { confidenceLevel: ciUpper, pValueThreshold } = significanceThresholds;
-  const ciLower = 1 - ciUpper;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
 

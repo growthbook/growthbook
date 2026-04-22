@@ -303,8 +303,8 @@ export default function ResultsTable({
   const _displayCurrency = useCurrency();
   const _orgSettings = useOrgSettings();
 
-  const { confidenceLevel: ciUpper, pValueThreshold } = significanceThresholds;
-  const ciLower = 1 - ciUpper;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
   const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
 

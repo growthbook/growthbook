@@ -97,12 +97,14 @@ export default function LegacyReportPage({
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
-  const { ciUpper } = useConfidenceLevels(experimentData?.experiment?.project);
+  const bayesianConfidenceLevels = useConfidenceLevels(
+    experimentData?.experiment?.project,
+  );
   const pValueThreshold = usePValueThreshold(
     experimentData?.experiment?.project,
   );
   const significanceThresholds: SignificanceThresholds = {
-    confidenceLevel: ciUpper,
+    bayesianConfidenceLevels,
     pValueThreshold,
   };
 

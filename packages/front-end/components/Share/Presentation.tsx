@@ -74,10 +74,10 @@ const Presentation = ({
   // Note: presentations render slides for many experiments (potentially across
   // projects), so we resolve significance thresholds once at org-level rather
   // than per-experiment to avoid calling hooks in a loop.
-  const { ciUpper } = useConfidenceLevels(undefined);
+  const bayesianConfidenceLevels = useConfidenceLevels(undefined);
   const pValueThreshold = usePValueThreshold(undefined);
   const significanceThresholds: SignificanceThresholds = {
-    confidenceLevel: ciUpper,
+    bayesianConfidenceLevels,
     pValueThreshold,
   };
 
