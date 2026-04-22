@@ -5,7 +5,7 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { Flex, Text } from "@radix-ui/themes";
-import { getSnapshotAnalysis } from "shared/src/util";
+import { getSnapshotAnalysis } from "shared/util";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { IncrementalRefreshInterface } from "shared/validators";

@@ -3,6 +3,7 @@ import {
   getAllFactTablesForOrganization,
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -21,8 +22,9 @@ export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
     const { filtered, returnFields } = applyPagination(factTables, req.query);
 
     return {
-      factTables: filtered.map((factTable) =>
-        toFactTableApiInterface(factTable),
+      factTables: await resolveOwnerEmails(
+        filtered.map((factTable) => toFactTableApiInterface(factTable)),
+        req.context,
       ),
       ...returnFields,
     };

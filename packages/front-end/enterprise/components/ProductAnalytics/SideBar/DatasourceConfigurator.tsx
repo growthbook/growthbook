@@ -9,7 +9,7 @@ import {
   DataSourceValue,
   ExplorationDataset,
   ExplorationConfig,
-} from "shared/src/validators/product-analytics";
+} from "shared/validators";
 import { PiCheck } from "react-icons/pi";
 import SelectField from "@/components/Forms/SelectField";
 import {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
@@ -13,6 +13,7 @@ export const apiDimensionValidator = namedSchema(
       dateCreated: z.string(),
       dateUpdated: z.string(),
       owner: ownerField,
+      ownerEmail: ownerEmailField,
       datasourceId: z.string(),
       identifierType: z.string(),
       name: z.string(),

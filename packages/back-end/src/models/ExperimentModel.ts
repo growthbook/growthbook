@@ -310,6 +310,10 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      covariateImbalance: {
+        _id: false,
+        isImbalanced: Boolean,
+      },
       power: {
         _id: false,
         type: { type: String, enum: ["error", "success"] },
