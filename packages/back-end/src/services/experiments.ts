@@ -3282,7 +3282,7 @@ function toPhaseNamespaceValue(
     return { enabled: false, name: "", range: [0, 1] };
   }
   const name = apiNs.namespaceId;
-  const enabled = apiNs.enabled ?? true;
+  const enabled = apiNs.enabled ?? false;
   const orgNs = orgNamespaces?.find((n) => n.name === name);
 
   if (name && orgNamespaces?.length && !orgNs) {

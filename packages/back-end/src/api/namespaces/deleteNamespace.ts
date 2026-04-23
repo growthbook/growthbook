@@ -1,63 +1,39 @@
-import { experimentHasLinkedChanges } from "shared/util";
 import { deleteNamespaceValidator } from "shared/validators";
-import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ConflictError, NotFoundError } from "back-end/src/util/errors";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-
-async function hasActiveMembers(id: string, context: ApiReqContext) {
-  const experiments = await getAllExperiments(context);
-  for (const e of experiments) {
-    if (e.archived) continue;
-    if (!experimentHasLinkedChanges(e)) continue;
-    if (
-      e.status === "stopped" &&
-      (e.excludeFromPayload || !e.releasedVariationId)
-    )
-      continue;
-    if (!e.phases?.length) continue;
-    const phase = e.phases[e.phases.length - 1];
-    if (phase?.namespace?.enabled && phase.namespace.name === id) return true;
-  }
-  return false;
-}
+import { filterActiveNamespaceExperiments } from "./namespaceApiUtils";
 
 export const deleteNamespace = createApiRequestHandler(
   deleteNamespaceValidator,
 )(async (req) => {
+  const { id } = req.params;
+  const namespaces = req.context.org.settings?.namespaces ?? [];
+
+  if (!namespaces.some((n) => n.name === id)) {
+    throw new NotFoundError("Namespace not found.");
+  }
+
   if (!req.context.permissions.canDeleteNamespace()) {
     req.context.permissions.throwPermissionError();
   }
 
-  const { id } = req.params;
-  const { org } = req.context;
-  const existing = org.settings?.namespaces ?? [];
-
-  const updated = existing.filter((n) => n.name !== id);
-  if (updated.length === existing.length) {
-    throw new NotFoundError("Namespace not found.");
-  }
-
-  if (await hasActiveMembers(id, req.context)) {
+  const allExperiments = await getAllExperiments(req.context);
+  if (filterActiveNamespaceExperiments(allExperiments, id).length > 0) {
     throw new ConflictError(
-      "Cannot delete a namespace that is actively used by experiments. Disable or remove those references first.",
+      "Cannot delete a namespace that is actively used by experiments.",
     );
   }
 
-  await updateOrganization(org.id, {
-    settings: { ...org.settings, namespaces: updated },
+  await updateOrganization(req.context.org.id, {
+    "settings.namespaces": namespaces.filter((n) => n.name !== id),
   });
 
   await req.audit({
-    event: "organization.update",
-    entity: { object: "organization", id: org.id },
-    details: auditDetailsUpdate(
-      { settings: { namespaces: existing } },
-      { settings: { namespaces: updated } },
-    ),
+    event: "namespace.delete",
+    entity: { object: "namespace", id },
   });
 
-  return { deletedId: id };
+  return {};
 });

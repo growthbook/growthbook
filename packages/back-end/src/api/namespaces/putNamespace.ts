@@ -1,6 +1,10 @@
 import { putNamespaceValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { ConflictError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { buildNamespace } from "back-end/src/util/namespaces";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -29,6 +33,12 @@ export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
     ) {
       throw new ConflictError(
         "A namespace with that display name already exists.",
+      );
+    }
+
+    if (hashAttribute && target.format !== "multiRange") {
+      throw new BadRequestError(
+        "hashAttribute can only be set on multiRange namespaces.",
       );
     }
 
