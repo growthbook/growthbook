@@ -11,13 +11,7 @@ export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    const {
-      displayName,
-      description,
-      status,
-      hashAttribute,
-      id: newId,
-    } = req.body;
+    const { displayName, description, status, hashAttribute } = req.body;
     const { id } = req.params;
     const { org } = req.context;
     const existing = org.settings?.namespaces ?? [];
@@ -27,8 +21,12 @@ export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
       throw new Error("Namespace not found.");
     }
 
-    if (newId && newId !== id && existing.some((n) => n.name === newId)) {
-      throw new Error("A namespace with that ID already exists.");
+    if (
+      displayName &&
+      displayName !== target.label &&
+      existing.some((n) => n.name !== id && n.label === displayName)
+    ) {
+      throw new Error("A namespace with that display name already exists.");
     }
 
     const existingHashAttribute =
@@ -37,7 +35,7 @@ export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
       target.format === "multiRange" ? target.seed : undefined;
 
     const updated = buildNamespace({
-      name: newId ?? target.name,
+      name: target.name,
       label: displayName ?? target.label,
       description: description ?? target.description,
       status: status ?? target.status,

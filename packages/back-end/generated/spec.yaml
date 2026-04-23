@@ -361,9 +361,16 @@ tags:
   - name: Namespace_model
     x-displayName: Namespace
     description: <SchemaDefinition schemaRef="#/components/schemas/Namespace" />
-  - name: NamespaceMember_model
-    x-displayName: NamespaceMember
-    description: <SchemaDefinition schemaRef="#/components/schemas/NamespaceMember" />
+  - name: NamespaceExperimentMember_model
+    x-displayName: NamespaceExperimentMember
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/NamespaceExperimentMember" />
+  - name: NamespaceFeatureRuleMember_model
+    x-displayName: NamespaceFeatureRuleMember
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/NamespaceFeatureRuleMember" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -12658,13 +12665,6 @@ paths:
                     Only applies to multiRange namespaces. Changes which user
                     attribute is used for bucket hashing going forward.
                   type: string
-                id:
-                  description: >-
-                    ⚠️ Advanced / dangerous: rename the internal namespace ID.
-                    All experiments and feature rules that reference the old ID
-                    will break unless you also update them. Use with extreme
-                    caution.
-                  type: string
               additionalProperties: false
       responses:
         '200':
@@ -12689,6 +12689,10 @@ paths:
     delete:
       operationId: deleteNamespace
       summary: Delete a namespace
+      description: >-
+        Permanently removes a namespace from the organization. Returns a 400
+        error if any active experiments or feature flag rules currently
+        reference this namespace — remove or disable those references first.
       tags:
         - namespaces
       parameters:
@@ -12743,9 +12747,14 @@ paths:
                   experiments:
                     type: array
                     items:
-                      $ref: '#/components/schemas/NamespaceMember'
+                      $ref: '#/components/schemas/NamespaceExperimentMember'
+                  featureRules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NamespaceFeatureRuleMember'
                 required:
                   - experiments
+                  - featureRules
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -12761,9 +12770,10 @@ paths:
       description: >-
         ⚠️ Dangerous: sets a new seed for a multiRange namespace. Every user's
         bucket position within the namespace is re-computed immediately, which
-        re-randomizes traffic assignment across **all** experiments currently
+        re-randomizes traffic eligibility for **all** experiments currently
         using this namespace. Only do this if you intentionally want to
-        reshuffle all allocations.
+        reshuffle all allocations across experiments. This could be useful when
+        re-using a namespace for a new set of experiments.
       tags:
         - namespaces
       parameters:
@@ -24337,9 +24347,9 @@ components:
           type: string
         seed:
           description: >-
-            The seed used for bucket hashing. Changing this re-randomizes
-            traffic assignment for every experiment in this namespace. Use the
-            rotateSeed endpoint to change it.
+            The seed used for bucket hashing. Changing this re-randomizes which
+            traffic is eligible for which experiment. Use the rotateSeed
+            endpoint to change it.
           type: string
       required:
         - id
@@ -24348,36 +24358,63 @@ components:
         - status
         - format
       additionalProperties: false
-    NamespaceMember:
+    NamespaceExperimentMember:
       type: object
       properties:
-        experimentId:
-          description: The experiment tracking key.
+        id:
+          description: The internal experiment ID.
           type: string
-        experimentName:
+        name:
           description: Display name of the experiment.
           type: string
-        link:
-          description: Relative URL to the experiment.
+        trackingKey:
+          description: The experiment tracking key used by the SDK.
           type: string
-        start:
-          description: Range start value between 0 and 1 (inclusive).
-          type: number
-        end:
-          description: Range end value between 0 and 1 (inclusive).
-          type: number
-        environment:
+        ranges:
           description: >-
-            Environment name. Present for experiments configured via feature
-            flag rules; empty string for standalone experiment phases.
-          type: string
+            The ranges claimed within this namespace, as [start, end] pairs
+            between 0 and 1.
+          type: array
+          items:
+            type: array
+            prefixItems:
+              - type: number
+              - type: number
       required:
-        - experimentId
-        - experimentName
-        - link
-        - start
-        - end
+        - id
+        - name
+        - trackingKey
+        - ranges
+      additionalProperties: false
+    NamespaceFeatureRuleMember:
+      type: object
+      properties:
+        featureId:
+          description: The feature flag ID.
+          type: string
+        environment:
+          description: The environment this rule is active in.
+          type: string
+        trackingKey:
+          description: >-
+            The tracking key for the experiment rule. Falls back to the feature
+            ID if not set.
+          type: string
+        ranges:
+          description: >-
+            The ranges claimed within this namespace, as [start, end] pairs
+            between 0 and 1.
+          type: array
+          items:
+            type: array
+            prefixItems:
+              - type: number
+              - type: number
+      required:
+        - featureId
         - environment
+        - trackingKey
+        - ranges
       additionalProperties: false
     Dashboard:
       type: object
@@ -28442,7 +28479,8 @@ x-tagGroups:
       - MetricGroup_model
       - MetricUsage_model
       - Namespace_model
-      - NamespaceMember_model
+      - NamespaceExperimentMember_model
+      - NamespaceFeatureRuleMember_model
       - Organization_model
       - PaginationFields_model
       - Project_model

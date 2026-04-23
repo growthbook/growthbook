@@ -1,6 +1,7 @@
 import {
   getNamespaceMembershipsValidator,
-  type ApiNamespaceMember,
+  type ApiNamespaceExperimentMember,
+  type ApiNamespaceFeatureRuleMember,
 } from "shared/validators";
 import { experimentHasLinkedChanges, getNamespaceRanges } from "shared/util";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
@@ -13,7 +14,9 @@ export const getNamespaceMemberships = createApiRequestHandler(
 )(async (req) => {
   const { id } = req.params;
   const { environments } = req.context;
-  const experiments: ApiNamespaceMember[] = [];
+
+  const experiments: ApiNamespaceExperimentMember[] = [];
+  const featureRules: ApiNamespaceFeatureRuleMember[] = [];
 
   const allFeatures = await getAllFeatures(req.context);
   allFeatures.forEach((f) => {
@@ -32,15 +35,11 @@ export const getNamespaceMemberships = createApiRequestHandler(
         .forEach((r) => {
           const expRule = r as ExperimentRule;
           const ns = expRule.namespace as NamespaceValue;
-          getNamespaceRanges(ns).forEach((range) => {
-            experiments.push({
-              experimentId: expRule.trackingKey || f.id,
-              experimentName: f.id,
-              link: `/features/${f.id}`,
-              start: range[0],
-              end: range[1],
-              environment: env,
-            });
+          featureRules.push({
+            featureId: f.id,
+            environment: env,
+            trackingKey: expRule.trackingKey || f.id,
+            ranges: getNamespaceRanges(ns),
           });
         });
     });
@@ -61,17 +60,13 @@ export const getNamespaceMemberships = createApiRequestHandler(
     if (!phase?.namespace?.enabled || phase.namespace.name !== id) return;
 
     const ns = phase.namespace as NamespaceValue;
-    getNamespaceRanges(ns).forEach((range) => {
-      experiments.push({
-        experimentId: e.trackingKey,
-        experimentName: e.name,
-        link: `/experiment/${e.id}`,
-        start: range[0],
-        end: range[1],
-        environment: "",
-      });
+    experiments.push({
+      id: e.id,
+      name: e.name,
+      trackingKey: e.trackingKey,
+      ranges: getNamespaceRanges(ns),
     });
   });
 
-  return { experiments };
+  return { experiments, featureRules };
 });

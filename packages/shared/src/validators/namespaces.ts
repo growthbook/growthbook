@@ -27,7 +27,7 @@ export const apiNamespaceValidator = namedSchema(
     seed: z
       .string()
       .describe(
-        "The seed used for bucket hashing. Changing this re-randomizes traffic assignment for every experiment in this namespace. Use the rotateSeed endpoint to change it.",
+        "The seed used for bucket hashing. Changing this re-randomizes which traffic is eligible for which experiment. Use the rotateSeed endpoint to change it.",
       )
       .optional(),
   }),
@@ -35,25 +35,45 @@ export const apiNamespaceValidator = namedSchema(
 
 export type ApiNamespace = z.infer<typeof apiNamespaceValidator>;
 
-export const apiNamespaceMemberValidator = namedSchema(
-  "NamespaceMember",
+const rangesTuple = z
+  .array(z.tuple([z.number(), z.number()]))
+  .describe(
+    "The ranges claimed within this namespace, as [start, end] pairs between 0 and 1.",
+  );
+
+export const apiNamespaceExperimentMemberValidator = namedSchema(
+  "NamespaceExperimentMember",
   z.object({
-    experimentId: z.string().describe("The experiment tracking key."),
-    experimentName: z.string().describe("Display name of the experiment."),
-    link: z.string().describe("Relative URL to the experiment."),
-    start: z
-      .number()
-      .describe("Range start value between 0 and 1 (inclusive)."),
-    end: z.number().describe("Range end value between 0 and 1 (inclusive)."),
-    environment: z
+    id: z.string().describe("The internal experiment ID."),
+    name: z.string().describe("Display name of the experiment."),
+    trackingKey: z
       .string()
-      .describe(
-        "Environment name. Present for experiments configured via feature flag rules; empty string for standalone experiment phases.",
-      ),
+      .describe("The experiment tracking key used by the SDK."),
+    ranges: rangesTuple,
   }),
 );
 
-export type ApiNamespaceMember = z.infer<typeof apiNamespaceMemberValidator>;
+export type ApiNamespaceExperimentMember = z.infer<
+  typeof apiNamespaceExperimentMemberValidator
+>;
+
+export const apiNamespaceFeatureRuleMemberValidator = namedSchema(
+  "NamespaceFeatureRuleMember",
+  z.object({
+    featureId: z.string().describe("The feature flag ID."),
+    environment: z.string().describe("The environment this rule is active in."),
+    trackingKey: z
+      .string()
+      .describe(
+        "The tracking key for the experiment rule. Falls back to the feature ID if not set.",
+      ),
+    ranges: rangesTuple,
+  }),
+);
+
+export type ApiNamespaceFeatureRuleMember = z.infer<
+  typeof apiNamespaceFeatureRuleMemberValidator
+>;
 
 const nameParams = z
   .object({
@@ -162,12 +182,6 @@ const putNamespaceBody = z
         "Only applies to multiRange namespaces. Changes which user attribute is used for bucket hashing going forward.",
       )
       .optional(),
-    id: z
-      .string()
-      .describe(
-        "⚠️ Advanced / dangerous: rename the internal namespace ID. All experiments and feature rules that reference the old ID will break unless you also update them. Use with extreme caution.",
-      )
-      .optional(),
   })
   .strict();
 
@@ -200,6 +214,8 @@ export const deleteNamespaceValidator = {
     })
     .strict(),
   summary: "Delete a namespace",
+  description:
+    "Permanently removes a namespace from the organization. Returns a 400 error if any active experiments or feature flag rules currently reference this namespace — remove or disable those references first.",
   operationId: "deleteNamespace",
   tags: ["namespaces"],
   method: "delete" as const,
@@ -223,7 +239,7 @@ export const postNamespaceRotateSeedValidator = {
   responseSchema: z.object({ namespace: apiNamespaceValidator }).strict(),
   summary: "Rotate namespace seed",
   description:
-    "⚠️ Dangerous: sets a new seed for a multiRange namespace. Every user's bucket position within the namespace is re-computed immediately, which re-randomizes traffic assignment across **all** experiments currently using this namespace. Only do this if you intentionally want to reshuffle all allocations.",
+    "⚠️ Dangerous: sets a new seed for a multiRange namespace. Every user's bucket position within the namespace is re-computed immediately, which re-randomizes traffic eligibility for **all** experiments currently using this namespace. Only do this if you intentionally want to reshuffle all allocations across experiments. This could be useful when re-using a namespace for a new set of experiments.",
   operationId: "postNamespaceRotateSeed",
   tags: ["namespaces"],
   method: "post" as const,
@@ -236,7 +252,10 @@ export const getNamespaceMembershipsValidator = {
   querySchema: z.never(),
   paramsSchema: nameParams,
   responseSchema: z
-    .object({ experiments: z.array(apiNamespaceMemberValidator) })
+    .object({
+      experiments: z.array(apiNamespaceExperimentMemberValidator),
+      featureRules: z.array(apiNamespaceFeatureRuleMemberValidator),
+    })
     .strict(),
   summary: "Get namespace membership",
   operationId: "getNamespaceMemberships",
