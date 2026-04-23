@@ -6,7 +6,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import {
-  filterActiveNamespaceExperiments,
+  filterAllNamespaceExperiments,
   getLastPhaseNamespaceRanges,
 } from "./namespaceApiUtils";
 
@@ -22,10 +22,11 @@ export const getNamespaceMemberships = createApiRequestHandler(
 
   const allExperiments = await getAllExperiments(req.context);
   const experiments: ApiNamespaceExperimentMember[] =
-    filterActiveNamespaceExperiments(allExperiments, id).map((e) => ({
+    filterAllNamespaceExperiments(allExperiments, id).map((e) => ({
       id: e.id,
       name: e.name,
       trackingKey: e.trackingKey,
+      status: e.status,
       ranges: getLastPhaseNamespaceRanges(e),
     }));
 

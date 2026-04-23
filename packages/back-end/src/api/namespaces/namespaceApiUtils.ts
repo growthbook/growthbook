@@ -17,8 +17,21 @@ export function toApiNamespace(ns: Namespaces): ApiNamespace {
   };
 }
 
-// Returns experiments from the latest phase that are actively using the given namespace.
-// Used by both getNamespaceMemberships and the deleteNamespace active-member guard.
+// Returns all experiments whose latest phase references the given namespace (any status).
+// Used by getNamespaceMemberships to show full membership.
+export function filterAllNamespaceExperiments(
+  experiments: ExperimentInterface[],
+  namespaceId: string,
+) {
+  return experiments.filter((e) => {
+    if (!e.phases?.length) return false;
+    const phase = e.phases[e.phases.length - 1];
+    return phase?.namespace?.enabled && phase.namespace.name === namespaceId;
+  });
+}
+
+// Returns experiments that are actively sending namespace traffic to the SDK payload.
+// Used by the deleteNamespace guard to block deletion of in-use namespaces.
 export function filterActiveNamespaceExperiments(
   experiments: ExperimentInterface[],
   namespaceId: string,

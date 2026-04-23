@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
-import { paginationQueryFields } from "./shared";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 export const apiNamespaceValidator = namedSchema(
   "Namespace",
@@ -49,6 +49,9 @@ export const apiNamespaceExperimentMemberValidator = namedSchema(
     trackingKey: z
       .string()
       .describe("The experiment tracking key used by the SDK."),
+    status: z
+      .enum(["draft", "running", "stopped"])
+      .describe("The current status of the experiment."),
     ranges: rangesTuple,
   }),
 );
@@ -69,22 +72,13 @@ const listQuerySchema = z
   })
   .strict();
 
-const paginatedResponseFields = z.object({
-  limit: z.coerce.number().int(),
-  offset: z.coerce.number().int(),
-  count: z.coerce.number().int(),
-  total: z.coerce.number().int(),
-  hasMore: z.boolean(),
-  nextOffset: z.union([z.coerce.number().int(), z.null()]),
-});
-
 export const listNamespacesValidator = {
   bodySchema: z.never(),
   querySchema: listQuerySchema,
   paramsSchema: z.never(),
   responseSchema: z.intersection(
     z.object({ namespaces: z.array(apiNamespaceValidator) }),
-    paginatedResponseFields,
+    apiPaginationFieldsValidator,
   ),
   summary: "Get all namespaces",
   operationId: "listNamespaces",

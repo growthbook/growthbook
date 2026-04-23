@@ -12501,30 +12501,7 @@ paths:
                     required:
                       - namespaces
                     additionalProperties: false
-                  - type: object
-                    properties:
-                      limit:
-                        type: integer
-                      offset:
-                        type: integer
-                      count:
-                        type: integer
-                      total:
-                        type: integer
-                      hasMore:
-                        type: boolean
-                      nextOffset:
-                        anyOf:
-                          - type: integer
-                          - type: 'null'
-                    required:
-                      - limit
-                      - offset
-                      - count
-                      - total
-                      - hasMore
-                      - nextOffset
-                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -24360,6 +24337,13 @@ components:
         trackingKey:
           description: The experiment tracking key used by the SDK.
           type: string
+        status:
+          description: The current status of the experiment.
+          type: string
+          enum:
+            - draft
+            - running
+            - stopped
         ranges:
           description: >-
             The ranges claimed within this namespace, as [start, end] pairs
@@ -24374,6 +24358,7 @@ components:
         - id
         - name
         - trackingKey
+        - status
         - ranges
       additionalProperties: false
     Dashboard:
