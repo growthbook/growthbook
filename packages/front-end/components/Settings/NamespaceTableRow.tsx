@@ -46,8 +46,6 @@ export default function NamespaceTableRow({
     () => usage[namespace.name] ?? [],
     [usage, namespace.name],
   );
-  // Count each feature-rule / experiment once regardless of how many ranges
-  // it reserves inside the namespace.
   const uniqueExperimentCount = useMemo(() => {
     const seen = new Set<string>();
     for (const e of experiments) {
@@ -55,6 +53,41 @@ export default function NamespaceTableRow({
     }
     return seen.size;
   }, [experiments]);
+
+  const availablePercent = useMemo(
+    () =>
+      findGaps(usage, namespace.name).reduce(
+        (sum, r) => sum + (r.end - r.start),
+        0,
+      ),
+    [usage, namespace.name],
+  );
+  const sortedExperiments = useMemo(
+    () =>
+      [...experiments].sort((a, b) => {
+        const ka = `${a.link}|${a.trackingKey || a.id}`;
+        const kb = `${b.link}|${b.trackingKey || b.id}`;
+        return ka.localeCompare(kb);
+      }),
+    [experiments],
+  );
+  const overlappingIndices = useMemo(
+    () =>
+      new Set(
+        sortedExperiments.flatMap((e, i) =>
+          sortedExperiments.some(
+            (f, j) =>
+              j !== i &&
+              (f.trackingKey || f.id) !== (e.trackingKey || e.id) &&
+              e.start < f.end &&
+              f.start < e.end,
+          )
+            ? [i]
+            : [],
+        ),
+      ),
+    [sortedExperiments],
+  );
 
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canUpdateNamespace();
@@ -104,12 +137,7 @@ export default function NamespaceTableRow({
         <TableCell onClick={toggleExpand} justify="end">
           <Box pr="2">
             <Text color={isInactive ? "text-mid" : undefined}>
-              {percentFormatter.format(
-                findGaps(usage, namespace.name).reduce(
-                  (sum, r) => sum + (r.end - r.start),
-                  0,
-                ),
-              )}
+              {percentFormatter.format(availablePercent)}
             </Text>
           </Box>
         </TableCell>
@@ -219,80 +247,50 @@ export default function NamespaceTableRow({
                   </TableRow>
                 </TableHeader>
                 <TableBody onMouseLeave={() => setHoverRange(null)}>
-                  {(() => {
-                    const sorted = [...experiments].sort((a, b) => {
-                      const ka = `${a.link}|${a.trackingKey || a.id}`;
-                      const kb = `${b.link}|${b.trackingKey || b.id}`;
-                      return ka.localeCompare(kb);
-                    });
-                    // Mark which rows have ranges overlapping another experiment.
-                    const overlappingIndices = new Set(
-                      sorted.flatMap((e, i) =>
-                        sorted.some(
-                          (f, j) =>
-                            j !== i &&
-                            (f.trackingKey || f.id) !==
-                              (e.trackingKey || e.id) &&
-                            e.start < f.end &&
-                            f.start < e.end,
-                        )
-                          ? [i]
-                          : [],
-                      ),
-                    );
-                    return sorted.map((e, i) => {
-                      const key = `${e.link}|${e.trackingKey || e.id}`;
-                      const prevKey =
-                        i > 0
-                          ? `${sorted[i - 1].link}|${sorted[i - 1].trackingKey || sorted[i - 1].id}`
-                          : null;
-                      const nextKey =
-                        i < sorted.length - 1
-                          ? `${sorted[i + 1].link}|${sorted[i + 1].trackingKey || sorted[i + 1].id}`
-                          : null;
-                      const isFirstInGroup = key !== prevKey;
-                      const isLastInGroup = key !== nextKey;
+                  {sortedExperiments.map((e, i) => {
+                    const key = `${e.link}|${e.trackingKey || e.id}`;
+                    const prevKey =
+                      i > 0
+                        ? `${sortedExperiments[i - 1].link}|${sortedExperiments[i - 1].trackingKey || sortedExperiments[i - 1].id}`
+                        : null;
+                    const nextKey =
+                      i < sortedExperiments.length - 1
+                        ? `${sortedExperiments[i + 1].link}|${sortedExperiments[i + 1].trackingKey || sortedExperiments[i + 1].id}`
+                        : null;
+                    const isFirstInGroup = key !== prevKey;
+                    const isLastInGroup = key !== nextKey;
 
-                      return (
-                        <TableRow
-                          key={i}
-                          onMouseEnter={() => setHoverRange([e.start, e.end])}
-                          data-group-inner={!isLastInGroup ? "" : undefined}
-                        >
-                          <TableCell>
-                            {isFirstInGroup ? (
-                              <Link href={e.link} target="_blank">
-                                {e.name}
-                              </Link>
-                            ) : null}
-                          </TableCell>
-                          <TableCell>
-                            {isFirstInGroup ? e.trackingKey || e.id : null}
-                          </TableCell>
-                          <TableCell>
-                            <Flex align="center" justify="between" gap="2">
-                              <Text>
-                                {e.start} to {e.end}
-                                {hoverRange?.[0] === e.start &&
-                                  hoverRange?.[1] === e.end && (
-                                    <Text
-                                      as="span"
-                                      color="text-mid"
-                                      ml="2"
-                                    >{`(${Math.round((e.end - e.start) * 100)}%)`}</Text>
-                                  )}
-                              </Text>
-                              {overlappingIndices.has(i) && (
-                                <HelperText status="warning" size="sm">
-                                  Ranges overlap
-                                </HelperText>
-                              )}
-                            </Flex>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    });
-                  })()}
+                    return (
+                      <TableRow
+                        key={i}
+                        onMouseEnter={() => setHoverRange([e.start, e.end])}
+                        data-group-inner={!isLastInGroup ? "" : undefined}
+                      >
+                        <TableCell>
+                          {isFirstInGroup ? (
+                            <Link href={e.link} target="_blank">
+                              {e.name}
+                            </Link>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          {isFirstInGroup ? e.trackingKey || e.id : null}
+                        </TableCell>
+                        <TableCell>
+                          <Flex align="center" justify="between" gap="2">
+                            <Text>
+                              {e.start} to {e.end}
+                            </Text>
+                            {overlappingIndices.has(i) && (
+                              <HelperText status="warning" size="sm">
+                                Ranges overlap
+                              </HelperText>
+                            )}
+                          </Flex>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (

@@ -161,7 +161,7 @@ export default function NamespaceSelector({
 
     return {
       filteredNamespaces: filtered,
-      namespaceOptions: activeNamespaces.map((n) => {
+      namespaceOptions: filtered.map((n) => {
         const isHashMismatch =
           !isFallbackMode &&
           !isLegacyNamespace(n) &&
@@ -203,13 +203,14 @@ export default function NamespaceSelector({
     });
   }, [namespace, ranges, persistedGaps]);
 
-  // Fires only on namespace change; ref avoids stale closure without making
-  // isOverlapping a dep (which would fire on every range edit).
+  // Fires on namespace change or when API data first loads. The ref avoids
+  // making isOverlapping itself a dep (which would fire on every range edit).
   const isOverlappingRef = useRef(isOverlapping);
   isOverlappingRef.current = isOverlapping;
+  const isDataLoaded = !!data;
   useEffect(() => {
     setAllowOverlap(isOverlappingRef.current);
-  }, [namespace]);
+  }, [namespace, isDataLoaded]);
 
   const effectiveGaps = useMemo(
     () => (allowOverlap ? [{ start: 0, end: 1 }] : persistedGaps),
@@ -528,7 +529,8 @@ export default function NamespaceSelector({
                 </Flex>
 
                 {ranges.map((range, index) => {
-                  const showDivider = ranges.length > 1;
+                  const showDivider =
+                    ranges.length > 1 && index < ranges.length - 1;
                   return (
                     <Flex
                       key={index}
@@ -622,6 +624,8 @@ export default function NamespaceSelector({
                           color="red"
                           radius="full"
                           size="2"
+                          mr="2"
+                          mt="4"
                           onClick={() => removeRange(index)}
                           aria-label="Remove range"
                         >

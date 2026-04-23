@@ -6,7 +6,12 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-import { mergeContiguousRanges } from "./NamespaceSelectorUtils";
+import {
+  computeInUseIntervals,
+  computeOverlapIntervals,
+  mergeContiguousRanges,
+  type RangeTuple,
+} from "./NamespaceSelectorUtils";
 import styles from "./NamespaceUsageGraph.module.scss";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -32,37 +37,6 @@ export interface Props {
   title?: string;
 }
 
-type Interval = [number, number];
-
-function computeInUseIntervals(
-  gaps: { start: number; end: number }[],
-): Interval[] {
-  const sorted = [...gaps].sort((a, b) => a.start - b.start);
-  const result: Interval[] = [];
-  let cursor = 0;
-  for (const g of sorted) {
-    if (cursor < g.start) result.push([cursor, g.start]);
-    cursor = Math.max(cursor, g.end);
-  }
-  if (cursor < 1) result.push([cursor, 1]);
-  return result;
-}
-
-function computeOverlapIntervals(
-  selectedRanges: Interval[],
-  inUseIntervals: Interval[],
-): Interval[] {
-  const result: Interval[] = [];
-  for (const [rs, re] of selectedRanges) {
-    for (const [is, ie] of inUseIntervals) {
-      const start = Math.max(rs, is);
-      const end = Math.min(re, ie);
-      if (start < end) result.push([start, end]);
-    }
-  }
-  return result;
-}
-
 const toPercent = (n: number) => `${+(n * 100).toFixed(4)}%`;
 
 export default function NamespaceUsageGraph({
@@ -82,7 +56,7 @@ export default function NamespaceUsageGraph({
     () => findGaps(usage, namespace, featureId, trackingKey),
     [usage, namespace, featureId, trackingKey],
   );
-  const selectedRanges: Interval[] = useMemo(
+  const selectedRanges: RangeTuple[] = useMemo(
     () => ranges ?? (range ? [range] : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [JSON.stringify(ranges), JSON.stringify(range)],
@@ -119,7 +93,7 @@ export default function NamespaceUsageGraph({
     ? ranges.reduce((sum, [s, e]) => sum + (e - s), 0)
     : totalUsed;
 
-  const labeledSegments: Interval[] =
+  const labeledSegments: RangeTuple[] =
     selectedRanges.length > 0 ? selectedRanges : inUseIntervals;
 
   return (
