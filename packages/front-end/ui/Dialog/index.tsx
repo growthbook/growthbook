@@ -149,19 +149,6 @@ function Root({
     }
   }, [open, sendTrackingEvent]);
 
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      const target = e.target as Element;
-      if (!target.closest("[data-radix-scroll-area-viewport]")) {
-        e.preventDefault();
-      }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
   const ctx = useMemo<DialogContextValue>(
     () => ({
       error,
@@ -188,9 +175,8 @@ function Root({
             paddingTop: "32px",
             paddingLeft: "40px",
             paddingRight: "0",
-            paddingBottom: "24px",
+            paddingBottom: "20px",
             "--inset-padding-left": "40px",
-            "--inset-padding-right": "40px",
           } as CSSProperties
         }
       >
@@ -277,7 +263,7 @@ function Footer({
   return (
     <Box flexShrink="0">
       <Inset side="x">
-        <Separator size="4" my="5" />
+        <Separator size="4" mt="5" style={{ marginBottom: "20px" }} />
       </Inset>
       <Flex gap="3" justify={justify} pr="7">
         {children}

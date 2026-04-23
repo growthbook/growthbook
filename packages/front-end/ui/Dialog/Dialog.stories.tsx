@@ -1,7 +1,5 @@
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useState } from "react";
-import { PiArrowLeft } from "react-icons/pi";
-import Stepper from "@/components/Stepper/Stepper";
 import Dialog, { Size } from "@/ui/Dialog";
 import Button from "../Button";
 import { Select, SelectItem } from "../Select";
@@ -22,62 +20,8 @@ export default function DialogStories() {
   const [size, setSize] = useState<Size | null>(null);
   const [environment, setEnvironment] = useState("production");
   const [disableStickyBucketing, setDisableStickyBucketing] = useState(false);
-  const [wizardOpen, setWizardOpen] = useState(false);
   return (
     <>
-      <Dialog.Root
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        trackingEventModalType="test-wizard-dialog"
-      >
-        <Dialog.Header>
-          <Flex direction="column" gap="3" width="100%">
-            <Dialog.Title>Configure experiment</Dialog.Title>
-            <Box ml="-5">
-              <Stepper
-                steps={[
-                  { label: "Step 1", enabled: true },
-                  { label: "Step 2", enabled: true },
-                  { label: "Step 3", enabled: true },
-                ]}
-                step={2}
-                setStep={() => {}}
-                setError={() => {}}
-              />
-            </Box>
-          </Flex>
-        </Dialog.Header>
-        <Dialog.Body>
-          <Flex direction="column" gap="5">
-            <Flex direction="column" gap="1">
-              <Text weight="semibold">Target audience</Text>
-              <TextField.Root placeholder="e.g. US users on mobile" />
-            </Flex>
-            <Flex direction="column" gap="1">
-              <Text weight="semibold">Traffic allocation</Text>
-              <TextField.Root placeholder="e.g. 50%" />
-            </Flex>
-          </Flex>
-        </Dialog.Body>
-        <Dialog.Footer justify="between">
-          <Button
-            icon={<PiArrowLeft />}
-            variant="ghost"
-            onClick={() => setWizardOpen(false)}
-          >
-            Back
-          </Button>
-          <Flex gap="3">
-            <Dialog.Close>
-              <Button variant="ghost" onClick={() => setWizardOpen(false)}>
-                Cancel
-              </Button>
-            </Dialog.Close>
-            <Button onClick={() => setWizardOpen(false)}>Continue</Button>
-          </Flex>
-        </Dialog.Footer>
-      </Dialog.Root>
-
       <Dialog.Root
         open={!!size}
         onOpenChange={(open) => {
@@ -135,7 +79,6 @@ export default function DialogStories() {
       <Flex direction="row" gap="3">
         <Button onClick={() => setSize("md")}>Medium Dialog</Button>
         <Button onClick={() => setSize("lg")}>Large Dialog</Button>
-        <Button onClick={() => setWizardOpen(true)}>Wizard Dialog</Button>
       </Flex>
     </>
   );
