@@ -638,7 +638,9 @@ const apiExperimentPhase = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
+      /** @deprecated use `ranges` for multi-range namespaces; this field is populated with the first range */
       range: z.array(z.number()).min(2).max(2),
+      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
   targetingCondition: z.string(),

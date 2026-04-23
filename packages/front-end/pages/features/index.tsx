@@ -22,6 +22,7 @@ import {
   useEnvironments,
   useFeatureSearch,
 } from "@/services/features";
+import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
@@ -271,7 +272,15 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td>
-                      <SortedTags tags={feature?.tags || []} useFlex={true} />
+                      <SortedTags
+                        tags={feature?.tags || []}
+                        useFlex={true}
+                        {...tagLinkProps("features")}
+                        onTagClick={tagFilterOnClick(
+                          searchInputProps.value,
+                          setSearchValue,
+                        )}
+                      />
                     </td>
                     {toggleEnvs.map((en) => (
                       <td key={en.id}>
