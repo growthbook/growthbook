@@ -238,8 +238,8 @@ function Description({ children }: { children: ReactNode }) {
 function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error } = useDialogContext();
   return (
-    <ScrollArea type="auto" mt="4" mb="3" ref={bodyRef}>
-      <Box overflowX="hidden" pr="7" pl="1">
+    <ScrollArea type="auto" mt="4" mb="3" ml="-1" ref={bodyRef}>
+      <Box pr="7" pl="1">
         {error && <ErrorDisplay error={error} mb="5" />}
         {children}
       </Box>
