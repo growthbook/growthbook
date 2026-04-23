@@ -132,33 +132,36 @@ export default function ExperimentDecisionExplanation({
   const durationPhrase = maxDurationDetail(experiment);
   const samplePhrase = targetSampleSizeDetail(experiment);
 
-  const powerCapExplanation = (() => {
-    if (!status.powerReached) return null;
-    const viaDur = status.recommendationMetViaMaxDuration;
-    const viaSample = status.recommendationMetViaTargetSampleSize;
-    if (viaDur && viaSample) {
-      const dur =
+  const viaMaxDuration = !!status.recommendationMetViaMaxDuration;
+  const viaTargetSample = !!status.recommendationMetViaTargetSampleSize;
+  /**
+   * Target power is considered achieved only when the decision is not attributed
+   * to calendar or sample caps (`powerReached` is also true when caps force `daysNeeded === 0`).
+   */
+  const achievedTargetPower =
+    status.powerReached && !viaMaxDuration && !viaTargetSample;
+
+  const readinessReasonBullets: string[] = [];
+  if (achievedTargetPower) {
+    readinessReasonBullets.push(
+      "The experiment has reached the targeted statistical power.",
+    );
+  } else {
+    if (viaMaxDuration) {
+      readinessReasonBullets.push(
         durationPhrase != null
-          ? `maximum duration of ${durationPhrase}`
-          : "maximum duration";
-      const sam =
+          ? `The experiment reached its configured maximum duration of ${durationPhrase}.`
+          : "The experiment reached its configured maximum duration.",
+      );
+    }
+    if (viaTargetSample) {
+      readinessReasonBullets.push(
         samplePhrase != null
-          ? `target sample size of ${samplePhrase}`
-          : "target sample size";
-      return `The experiment reached its configured ${dur} and reached its configured ${sam}.`;
+          ? `The experiment reached its configured target sample size of ${samplePhrase}.`
+          : "The experiment reached its configured target sample size.",
+      );
     }
-    if (viaDur) {
-      return durationPhrase != null
-        ? `The experiment reached its configured maximum duration of ${durationPhrase}.`
-        : "The experiment reached its configured maximum duration.";
-    }
-    if (viaSample) {
-      return samplePhrase != null
-        ? `The experiment reached its configured target sample size of ${samplePhrase}.`
-        : "The experiment reached its configured target sample size.";
-    }
-    return "The experiment has reached the targeted statistical power.";
-  })();
+  }
 
   return (
     <Box mt="4" ml="3">
@@ -182,14 +185,15 @@ export default function ExperimentDecisionExplanation({
             </Flex>
           </Flex>
           <Flex direction="column" gap="2">
-            {status.powerReached && (
-              <Flex gap="2" align="center">
-                <Text size="2" className="text-muted">
-                  •
-                </Text>
-                <Text size="2">{powerCapExplanation}</Text>
-              </Flex>
-            )}
+            {readinessReasonBullets.length > 0 &&
+              readinessReasonBullets.map((line, i) => (
+                <Flex key={i} gap="2" align="center">
+                  <Text size="2" className="text-muted">
+                    •
+                  </Text>
+                  <Text size="2">{line}</Text>
+                </Flex>
+              ))}
             {!status.powerReached && status.sequentialUsed && (
               <Flex gap="2" align="center">
                 <Text size="2" className="text-muted">
