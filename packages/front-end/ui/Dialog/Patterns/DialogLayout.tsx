@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import Button from "@/ui/Button";
 import Dialog, { Size, TrackingEventModalProps } from "@/ui/Dialog";
 import DialogForm, { useDialogForm } from "../DialogForm";
+import { Box } from "@radix-ui/themes";
 
 function SubmitButton({
   cta,
@@ -29,7 +30,7 @@ export type Props = TrackingEventModalProps & {
   open: boolean;
   header: string;
   headerAction?: ReactNode;
-  subheader?: string;
+  subheader?: ReactNode;
   cta?: string;
   ctaColor?: "red" | "violet";
   ctaEnabled?: boolean;
@@ -65,7 +66,7 @@ export default function DialogLayout({
     <>
       <Dialog.Header>
         <Dialog.Title>{header}</Dialog.Title>
-        {headerAction ? <div>{headerAction}</div> : null}
+        {headerAction ? <Box>{headerAction}</Box> : null}
       </Dialog.Header>
       {subheader && <Dialog.Description>{subheader}</Dialog.Description>}
       <Dialog.Body>{children}</Dialog.Body>

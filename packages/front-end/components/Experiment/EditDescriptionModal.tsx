@@ -1,11 +1,11 @@
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOutFill } from "react-icons/pi";
-import { Box, Flex, Text } from "@radix-ui/themes";
 import { ExperimentType } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import Text from "@/ui/Text";
 
 interface Props {
   source: string;
@@ -55,22 +55,20 @@ export default function EditDescriptionModal({
       trackingEventModalType="edit-experiment-description-modal"
       header="Edit Description"
       subheader={
-        <Flex align="center" wrap="wrap" width="auto" mb="2">
-          <Box as="div">
-            <Text className="pr-1" as="span">
-              Use markdown to format your content.
-            </Text>
-            <Link
-              rel="noreferrer"
-              target="_blank"
-              weight="bold"
-              href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
-            >
-              Learn More
-              <PiArrowSquareOutFill className="ml-1" />
-            </Link>
-          </Box>
-        </Flex>
+        <>
+          <Text size="inherit" mr="1">
+            Use markdown to format your content.
+          </Text>
+          <Link
+            rel="noreferrer"
+            target="_blank"
+            weight="bold"
+            href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
+          >
+            Learn More
+            <PiArrowSquareOutFill className="ml-1" />
+          </Link>
+        </>
       }
       open={true}
       size="lg"

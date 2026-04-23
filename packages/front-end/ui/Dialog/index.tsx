@@ -232,14 +232,12 @@ function Title({ children }: { children: ReactNode }) {
   );
 }
 
-function Description({ children }: { children: string }) {
+function Description({ children }: { children: ReactNode }) {
   return (
     <Box flexShrink="0" pr="7">
-      <RadixDialog.Description size="2" mb="0">
-        <Text color="text-mid" size="large">
-          {children}
-        </Text>
-      </RadixDialog.Description>
+      <Text as="div" color="text-mid" size="large">
+        {children}
+      </Text>
     </Box>
   );
 }

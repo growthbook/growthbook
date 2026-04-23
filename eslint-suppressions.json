@@ -114,11 +114,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/EditDescriptionModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
     "no-restricted-imports": {
       "count": 2
