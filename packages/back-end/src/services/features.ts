@@ -15,6 +15,7 @@ import {
   filterProjectsByEnvironmentWithNull,
   isDefined,
   PrerequisiteStateResult,
+  toApiNamespace,
   validateCondition,
   validateFeatureValue,
   getSavedGroupsValuesFromGroupMap,
@@ -23,6 +24,7 @@ import {
   recursiveWalk,
   checkIfRevisionNeedsReview,
   ruleAppliesToEnv,
+  namespacesToMap,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -91,6 +93,7 @@ import {
   getAllVisualExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
+  applyNamespaceToPayload,
   buildPayloadMetadata,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
@@ -428,16 +431,6 @@ export function generateAutoExperimentsPayload({
             ? { key: v.key, name: v.name }
             : { key: v.key },
         ),
-        filters: phase?.namespace?.enabled
-          ? [
-              {
-                attribute: e.hashAttribute,
-                seed: phase.namespace.name,
-                hashVersion: 2,
-                ranges: [phase.namespace.range],
-              },
-            ]
-          : [],
         seed: phase.seed,
         ...(includeExperimentNames === true ? { name: e.name } : {}),
         phase: `${e.phases.length - 1}`,
@@ -447,6 +440,15 @@ export function generateAutoExperimentsPayload({
         condition,
         coverage: phase.coverage,
       };
+
+      // Handle namespace
+      if (phase?.namespace?.enabled && phase.namespace.name) {
+        applyNamespaceToPayload(
+          exp,
+          phase.namespace,
+          namespacesToMap(organization?.settings?.namespaces),
+        );
+      }
 
       if (prerequisites.length) {
         exp.parentConditions = prerequisites;
@@ -1285,6 +1287,7 @@ export function evaluateFeature({
   skipRulesWithPrerequisites = true,
   date = new Date(),
   safeRolloutMap,
+  namespaces,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -1296,6 +1299,10 @@ export function evaluateFeature({
   skipRulesWithPrerequisites?: boolean;
   date?: Date;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1329,6 +1336,7 @@ export function evaluateFeature({
         revision,
         date,
         safeRolloutMap,
+        namespaces: namespaces,
       });
 
       if (definition) {
@@ -1459,6 +1467,7 @@ export async function evaluateAllFeatures({
       prereqStateCache: {},
       safeRolloutMap,
       holdoutsMap,
+      organization: context.org,
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1683,7 +1692,7 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         disableStickyBucketing: rule.disableStickyBucketing,
         bucketVersion: rule.bucketVersion,
         minBucketVersion: rule.minBucketVersion,
-        namespace: rule.namespace,
+        namespace: toApiNamespace(rule.namespace),
         value: rule.values,
       };
     case "experiment-ref":
@@ -1982,12 +1991,13 @@ export function getApiFeatureObj({
       experimentMap,
       environment: env,
       safeRolloutMap,
+      namespaces: namespacesToMap(organization.settings?.namespaces),
     });
 
     featureEnvironments[env] = {
       enabled,
       defaultValue,
-      rules,
+      rules: rules as ApiFeatureRule[],
     };
     if (definition) {
       featureEnvironments[env].definition = JSON.stringify(definition);
@@ -2047,6 +2057,7 @@ export function getApiFeatureObj({
         experimentMap,
         environment: env,
         safeRolloutMap,
+        namespaces: namespacesToMap(organization.settings?.namespaces),
       });
 
       environmentRules[env] = revRulesByEnv[env] ?? [];

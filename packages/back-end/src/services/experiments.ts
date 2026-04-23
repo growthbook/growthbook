@@ -23,6 +23,7 @@ import {
   DRAFT_REVISION_STATUSES,
   generateVariationId,
   getMatchingRules,
+  getNamespaceRanges,
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
@@ -2244,10 +2245,14 @@ export async function toExperimentApiInterface(
         savedGroups: s.ids,
       })),
       namespace: p.namespace?.enabled
-        ? {
-            namespaceId: p.namespace.name,
-            range: p.namespace.range,
-          }
+        ? (() => {
+            const ranges = getNamespaceRanges(p.namespace);
+            return {
+              namespaceId: p.namespace.name,
+              range: ranges[0] ?? [0, 0],
+              ranges,
+            };
+          })()
         : undefined,
     })),
     settings: {

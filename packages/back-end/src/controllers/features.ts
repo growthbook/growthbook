@@ -26,6 +26,7 @@ import {
   fillRevisionFromFeature,
   getReviewSetting,
   normalizeRulesInput,
+  namespacesToMap,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -3769,6 +3770,7 @@ export async function postFeatureEvaluate(
     skipRulesWithPrerequisites,
     date,
     safeRolloutMap,
+    namespaces: namespacesToMap(org.settings?.namespaces),
   });
 
   res.status(200).json({
@@ -4127,7 +4129,7 @@ export async function getFeatureById(
       );
     } catch (e) {
       // This is not a fatal error, so don't block the request from happening
-      req.log.warn("Error creating initial feature revision", { feature: id });
+      req.log.warn(e, "Error creating initial feature revision");
     }
   }
 
