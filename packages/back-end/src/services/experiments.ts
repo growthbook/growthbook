@@ -3602,6 +3602,7 @@ function resolveExperimentUpdateVariationsAndPhases(
   phases: UpdateExperimentApiPayload["phases"],
   variations: UpdateExperimentApiPayload["variations"],
   experiment: ExperimentInterface,
+  orgNamespaces: Namespaces[] | undefined,
 ): Partial<ExperimentInterface> {
   const hasPhasePayload = phases !== undefined;
   const hasVariationPayload = variations !== undefined;
@@ -3655,10 +3656,7 @@ function resolveExperimentUpdateVariationsAndPhases(
           match: s.matchType,
           ids: s.savedGroups,
         })),
-        namespace: toPhaseNamespaceValue(
-          p.namespace,
-          organization.settings?.namespaces,
-        ),
+        namespace: toPhaseNamespaceValue(p.namespace, orgNamespaces),
         variationWeights,
         variations: phaseVariations,
       };
@@ -3799,6 +3797,7 @@ export function updateExperimentApiPayloadToInterface(
       phases,
       variations,
       experiment,
+      organization.settings?.namespaces,
     ),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),

@@ -142,7 +142,7 @@ export const postNamespaceValidator = {
     body: {
       displayName: "Checkout Flow",
       description: "Experiments on the checkout funnel",
-      format: "multiRange",
+      format: "multiRange" as const,
       hashAttribute: "id",
     },
   },
@@ -183,7 +183,7 @@ export const putNamespaceValidator = {
   path: "/namespaces/:id",
   exampleRequest: {
     params: { id: "ns-abc123" },
-    body: { displayName: "Checkout v2", status: "inactive" },
+    body: { displayName: "Checkout v2", status: "inactive" as const },
   },
 };
 
