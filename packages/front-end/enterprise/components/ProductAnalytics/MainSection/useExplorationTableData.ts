@@ -9,6 +9,7 @@ import {
   sortExplorationRows,
   getIsRatioByIndex,
   getEffectiveMetricValue,
+  getEffectiveShowAs,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -144,8 +145,11 @@ export default function useExplorationTableData(
 
   const renderOpts: RenderOpts = useMemo(
     () => ({
-      showAs: submittedExploreState?.showAs ?? "total",
-      isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
+      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
+      isRatioByIndex: getIsRatioByIndex(
+        submittedExploreState,
+        getFactMetricById,
+      ),
     }),
     [submittedExploreState, getFactMetricById],
   );

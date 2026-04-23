@@ -10,6 +10,9 @@ import {
   getEffectiveMetricValue,
   computeDimensionTotals,
   getIsRatioByIndex,
+  getEffectiveShowAs,
+  getSharedUnit,
+  showAsAppliesTo,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -76,11 +79,24 @@ export default function ExplorerChart({
 
   const renderOpts: RenderOpts = useMemo(
     () => ({
-      showAs: submittedExploreState?.showAs ?? "total",
-      isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
+      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
+      isRatioByIndex: getIsRatioByIndex(
+        submittedExploreState,
+        getFactMetricById,
+      ),
     }),
     [submittedExploreState, getFactMetricById],
   );
+
+  // Y-axis label: reflects whether we're rendering raw totals or per-unit
+  // averages. Only populated when showAs applies (otherwise the toggle is
+  // hidden and the number's meaning is carried by the metric/series name).
+  const valueAxisName = useMemo(() => {
+    if (!showAsAppliesTo(submittedExploreState, getFactMetricById)) return "";
+    if (renderOpts.showAs === "total") return "Total";
+    const sharedUnit = getSharedUnit(submittedExploreState);
+    return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+  }, [submittedExploreState, getFactMetricById, renderOpts.showAs]);
 
   // Transform ProductAnalyticsResult + exploreState to ECharts format
   const chartConfig = useMemo(() => {
@@ -272,7 +288,9 @@ export default function ExplorerChart({
     const valueAxis = {
       type: "value" as const,
       scale: false,
+      name: valueAxisName,
       nameLocation: "middle" as const,
+      nameGap: 50,
       nameTextStyle: {
         fontSize: 14,
         fontWeight: "bold",
@@ -324,6 +342,7 @@ export default function ExplorerChart({
     gridLineColor,
     tooltipBackgroundColor,
     animate,
+    valueAxisName,
   ]);
 
   const hasEmptyData = useMemo(() => {

@@ -524,11 +524,34 @@ export function getLockedMixClass(
 }
 
 /**
+ * True when the per-unit branch of `showAs` produces a meaningful value for
+ * this metric type (i.e. the emitted denominator isn't a trivial function of
+ * the numerator).
+ *
+ * - mean: yes. Numerator sums the column across units; denominator counts units
+ *   with activity; per_unit = real average per unit.
+ * - proportion / retention / dailyParticipation: no. These metrics emit one row
+ *   per qualifying unit, so denominator (COUNT of numerator rows) == numerator
+ *   and per_unit degenerates to ~1. Only totals make sense for these in PA.
+ * - ratio / quantile: N/A, handled separately (ratios self-contain N/D, quantiles
+ *   have no denominator emitted).
+ * - unknown: assume yes so we don't hide the control while a metric is loading.
+ */
+function metricHasMeaningfulPerUnit(
+  metricType: string | null | undefined,
+): boolean {
+  if (!metricType) return true;
+  if (metricType === "mean") return true;
+  return false;
+}
+
+/**
  * True when the chart-level `showAs` toggle is meaningful for this dataset.
  *
- * - Metric datasets: applies when at least one value is a "standard" metric
- *   (mean/proportion/retention/dailyParticipation). Ratio and quantile metrics
- *   ignore showAs, so a chart of only those types should hide the control.
+ * - Metric datasets: applies when at least one value is a standard metric for
+ *   which per-unit rendering is non-degenerate. Ratio/quantile metrics ignore
+ *   showAs, and proportion/retention/dailyParticipation collapse per_unit to ~1
+ *   in the product-analytics layer (no exposure set → denominator == numerator).
  * - fact_table / data_source datasets: never applies. Their value types are
  *   count, sum, and unit_count. count/sum don't expose a unit selector, so no
  *   denominator is emitted; unit_count's per-unit value is always 1.
@@ -541,11 +564,66 @@ export function showAsAppliesTo(
   if (config.dataset.type !== "metric") return false;
   if (config.dataset.values.length === 0) return false;
   return config.dataset.values.some((v) => {
-    const c = getMetricMixClass(
-      getFactMetricById(v.metricId ?? "")?.metricType,
-    );
-    return c === "standard" || c === "unknown";
+    const type = getFactMetricById(v.metricId ?? "")?.metricType;
+    const c = getMetricMixClass(type);
+    if (c !== "standard" && c !== "unknown") return false;
+    return metricHasMeaningfulPerUnit(type);
   });
+}
+
+/**
+ * Infer a smart default for `showAs` when the user hasn't explicitly chosen one.
+ *
+ * Rule: default to `per_unit` only when the `total` rendering would be
+ * mathematically incoherent — specifically, `mean` metrics whose numerator
+ * aggregation is `max` (sum-of-per-unit-maxes has no interpretation) or
+ * `count distinct` (sum-of-per-unit-distinct-counts double-counts values
+ * shared across units). Everything else defaults to `total`: it's always a
+ * coherent number, and for ambiguous cases (e.g. `mean` with `sum` aggregation,
+ * which can be named either "total revenue" or "avg user spend" with identical
+ * definitions) we don't try to guess intent.
+ */
+export function inferShowAs(
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): ShowAs {
+  if (!showAsAppliesTo(config, getFactMetricById)) return "total";
+  if (!config || config.dataset.type !== "metric") return "total";
+
+  const allTotalIncoherent = config.dataset.values.every((v) => {
+    const m = getFactMetricById(v.metricId ?? "");
+    if (m?.metricType !== "mean") return false;
+    const agg = m.numerator?.aggregation ?? "sum";
+    return agg === "max" || agg === "count distinct";
+  });
+  return allTotalIncoherent ? "per_unit" : "total";
+}
+
+/**
+ * Resolves the effective showAs for a config: the user's explicit choice when
+ * set, otherwise the inferred default. Use this at read sites (chart/table/
+ * sidebar) instead of `config.showAs ?? "total"` so the default matches the
+ * semantics of the selected metrics.
+ */
+export function getEffectiveShowAs(
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): ShowAs {
+  return config?.showAs ?? inferShowAs(config, getFactMetricById);
+}
+
+/**
+ * Returns the shared unit name when all values in a metric dataset agree on a
+ * single unit, otherwise null. Used to label "Per <unit>" in UI controls.
+ */
+export function getSharedUnit(config: ExplorationConfig | null): string | null {
+  if (!config?.dataset || config.dataset.type !== "metric") return null;
+  const units = config.dataset.values
+    .map((v) => v.unit)
+    .filter((u): u is string => !!u);
+  if (units.length === 0) return null;
+  const first = units[0];
+  return units.every((u) => u === first) ? first : null;
 }
 
 export interface RenderOpts {
