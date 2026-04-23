@@ -74,9 +74,9 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
           </Link>
         </Callout>
       )}
-      <Box className="appbox">
-        <Flex width="100%" gap="4" py="4" px="5" direction="column">
-          {info.state !== "discarded" && (
+      {info.state !== "discarded" && (
+        <Box className="appbox">
+          <Flex width="100%" gap="4" py="4" px="5" direction="column">
             <Box flexGrow="1">
               <LinkedChangeVariationRows
                 alignContent={
@@ -92,36 +92,36 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
                 )}
               />
             </Box>
-          )}
 
-          {(info.state === "live" || info.state === "draft") && (
+            {(info.state === "live" || info.state === "draft") && (
+              <>
+                {info.inconsistentValues && (
+                  <Callout status="warning">
+                    <strong>Warning:</strong> This experiment is included
+                    multiple times with different values. The values above are
+                    from the first matching experiment in{" "}
+                    <strong>{info.valuesFrom}</strong>.
+                  </Callout>
+                )}
+
+                {info.rulesAbove && (
+                  <Callout status="info">
+                    <strong>Notice:</strong> There are feature rules above this
+                    experiment so some users might not be included.
+                  </Callout>
+                )}
+              </>
+            )}
+          </Flex>
+
+          {info.state !== "locked" && (
             <>
-              {info.inconsistentValues && (
-                <Callout status="warning">
-                  <strong>Warning:</strong> This experiment is included multiple
-                  times with different values. The values above are from the
-                  first matching experiment in{" "}
-                  <strong>{info.valuesFrom}</strong>.
-                </Callout>
-              )}
-
-              {info.rulesAbove && (
-                <Callout status="info">
-                  <strong>Notice:</strong> There are feature rules above this
-                  experiment so some users might not be included.
-                </Callout>
-              )}
+              <Separator size="4" />
+              <EnvironmentStatesGrid environmentStates={environmentStates} />
             </>
           )}
-        </Flex>
-
-        {info.state !== "locked" && info.state !== "discarded" && (
-          <>
-            <Separator size="4" />
-            <EnvironmentStatesGrid environmentStates={environmentStates} />
-          </>
-        )}
-      </Box>
+        </Box>
+      )}
     </LinkedChange>
   );
 }
