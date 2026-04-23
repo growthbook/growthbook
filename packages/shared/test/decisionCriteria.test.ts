@@ -2,12 +2,17 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
+  ExperimentDataForStatusStringDates,
+  ExperimentResultStatusData,
 } from "shared/types/experiment";
+import type { OrganizationSettings } from "shared/types/organization";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
   getVariationDecisions,
   getEarlyStoppingVariationDecisions,
+  getExperimentResultStatus,
+  getHealthSettings,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
 
@@ -1186,5 +1191,245 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
     });
 
     expect(decision).toEqual(undefined);
+  });
+});
+
+describe("getExperimentResultStatus and maximum experiment duration", () => {
+  const healthSettings = getHealthSettings(
+    { decisionFrameworkEnabled: true } as OrganizationSettings,
+    true,
+  );
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2020-01-11T00:00:00.000Z"));
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function baseRunningExperiment(
+    overrides: Partial<ExperimentDataForStatusStringDates> = {},
+  ): ExperimentDataForStatusStringDates {
+    return {
+      type: "standard",
+      status: "running",
+      archived: false,
+      results: undefined,
+      variations: [
+        {
+          id: "v0",
+          name: "Control",
+          key: "0",
+          screenshots: [],
+        },
+        {
+          id: "v1",
+          name: "Test",
+          key: "1",
+          screenshots: [],
+        },
+      ],
+      phases: [
+        {
+          dateStarted: "2020-01-01T00:00:00.000Z",
+          name: "Main",
+          reason: "",
+          coverage: 1,
+          condition: "",
+          variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "v0", status: "active" },
+            { id: "v1", status: "active" },
+          ],
+        },
+      ],
+      goalMetrics: ["m1"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      datasource: "d1",
+      decisionFrameworkSettings: undefined,
+      dismissedWarnings: [],
+      maxExperimentDuration: { value: 20, unit: "days" },
+      banditStage: undefined,
+      banditStageDateStarted: undefined,
+      analysisSummary: {
+        snapshotId: "snap",
+        health: {
+          totalUsers: 5000,
+          srm: 0.5,
+          multipleExposures: 0,
+          power: {
+            type: "success",
+            isLowPowered: false,
+            additionalDaysNeeded: 50,
+          },
+        },
+        resultsStatus: {
+          variations: [
+            {
+              variationId: "v0",
+              goalMetrics: {
+                m1: { status: "neutral", superStatSigStatus: "neutral" },
+              },
+              guardrailMetrics: {},
+            },
+            {
+              variationId: "v1",
+              goalMetrics: {
+                m1: { status: "neutral", superStatSigStatus: "neutral" },
+              },
+              guardrailMetrics: {},
+            },
+          ],
+          settings: { sequentialTesting: false },
+        },
+      },
+      ...overrides,
+    };
+  }
+
+  it("caps days-left at the maximum-duration calendar window when sooner than power", () => {
+    const r = getExperimentResultStatus({
+      experimentData: baseRunningExperiment(),
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    expect(r).toEqual(
+      expect.objectContaining({
+        status: "days-left",
+        daysLeft: 10,
+        tooltip: expect.stringContaining("maximum experiment duration"),
+      }),
+    );
+  });
+
+  it("uses power-only days when no max duration is set", () => {
+    const r = getExperimentResultStatus({
+      experimentData: baseRunningExperiment({
+        maxExperimentDuration: undefined,
+      }),
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    expect(r).toMatchObject({ status: "days-left", daysLeft: 50 });
+    expect(r?.tooltip).toBeUndefined();
+  });
+
+  it("rounds up fractional power when power is the driver", () => {
+    const data = baseRunningExperiment({
+      maxExperimentDuration: undefined,
+    });
+    const r = getExperimentResultStatus({
+      experimentData: {
+        ...data,
+        analysisSummary: {
+          ...data.analysisSummary!,
+          health: {
+            ...data.analysisSummary!.health,
+            power: {
+              type: "success",
+              isLowPowered: false,
+              additionalDaysNeeded: 5.2,
+            },
+          },
+        },
+      },
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    expect(r).toMatchObject({ status: "days-left", daysLeft: 6 });
+  });
+
+  it("omits max-duration tooltip when fractional power need equals the calendar cap (tie)", () => {
+    const data = baseRunningExperiment();
+    const r = getExperimentResultStatus({
+      experimentData: {
+        ...data,
+        analysisSummary: {
+          ...data.analysisSummary!,
+          health: {
+            ...data.analysisSummary!.health,
+            power: {
+              type: "success",
+              isLowPowered: false,
+              additionalDaysNeeded: 10,
+            },
+          },
+        },
+      },
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    expect(r).toMatchObject({ status: "days-left", daysLeft: 10 });
+    expect(r?.tooltip).toBeUndefined();
+  });
+
+  it("runs the decision framework if max duration is reached", () => {
+    const r = getExperimentResultStatus({
+      experimentData: baseRunningExperiment({
+        phases: [
+          {
+            dateStarted: "2020-01-01T00:00:00.000Z",
+            name: "Main",
+            reason: "",
+            coverage: 1,
+            condition: "",
+            variationWeights: [0.5, 0.5],
+            variations: [
+              { id: "v0", status: "active" },
+              { id: "v1", status: "active" },
+            ],
+          },
+        ],
+        maxExperimentDuration: { value: 3, unit: "days" },
+      }),
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    const status = r as ExperimentResultStatusData | undefined;
+    expect(status).toMatchObject({
+      status: "ready-for-review",
+      powerReached: true,
+      recommendationMetViaMaxDuration: true,
+      tooltip: "A test variation is ready to be reviewed.",
+    });
+    if (status?.status === "ready-for-review") {
+      expect(status.variations.map((v) => v.variationId).sort()).toEqual(
+        ["v0", "v1"].sort(),
+      );
+    }
+  });
+
+  it("returns max-duration-reached when the cap is past but the decision framework is off (non-enterprise)", () => {
+    const healthNoDf = getHealthSettings(
+      { decisionFrameworkEnabled: false } as OrganizationSettings,
+      true,
+    );
+    const r = getExperimentResultStatus({
+      experimentData: baseRunningExperiment({
+        phases: [
+          {
+            dateStarted: "2020-01-01T00:00:00.000Z",
+            name: "Main",
+            reason: "",
+            coverage: 1,
+            condition: "",
+            variationWeights: [0.5, 0.5],
+            variations: [
+              { id: "v0", status: "active" },
+              { id: "v1", status: "active" },
+            ],
+          },
+        ],
+        maxExperimentDuration: { value: 3, unit: "days" },
+      }),
+      healthSettings: healthNoDf,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    expect(r).toMatchObject({
+      status: "max-duration-reached",
+      tooltip: expect.stringContaining("maximum experiment duration has ended"),
+    });
   });
 });

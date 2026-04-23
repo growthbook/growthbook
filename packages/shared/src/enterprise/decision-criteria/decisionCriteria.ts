@@ -4,7 +4,6 @@ import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
   DecisionCriteriaRule,
-  DecisionFrameworkExperimentRecommendationStatus,
   DecisionFrameworkVariation,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
@@ -13,6 +12,7 @@ import {
   ExperimentHealthSettings,
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
+  SafeRolloutResultStatusData,
 } from "shared/types/experiment";
 import {
   SafeRolloutInterface,
@@ -29,6 +29,7 @@ import {
   DEFAULT_SRM_THRESHOLD,
 } from "../../constants";
 import { daysBetween } from "../../dates";
+import { getCalendarDaysRemainingUntilMaxExperimentEnd } from "../../experiments/maxExperimentDuration";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
   PRESET_DECISION_CRITERIA,
@@ -396,19 +397,133 @@ export function getDecisionFrameworkStatus({
   }
 }
 
+function withRecommendationMetViaMaxDuration(
+  status: ExperimentResultStatusData,
+): ExperimentResultStatusData {
+  if (
+    status.status === "ship-now" ||
+    status.status === "rollback-now" ||
+    status.status === "ready-for-review"
+  ) {
+    return { ...status, recommendationMetViaMaxDuration: true };
+  }
+  return status;
+}
+
 function getDaysLeftStatus({
   daysNeeded,
+  tooltip,
 }: {
   daysNeeded: number;
-}): DecisionFrameworkExperimentRecommendationStatus | undefined {
+  tooltip?: string;
+}): ExperimentResultStatusData | undefined {
   // TODO: Right now midExperimentPowerEnable is controlling the whole "Days Left" status
   // but we should probably split it when considering Experiment Runtime length without power
   if (daysNeeded > 0) {
     return {
       status: "days-left",
       daysLeft: daysNeeded,
+      tooltip,
     };
   }
+}
+
+type DaysLeftDriver = "power" | "maxDuration";
+
+type MinDaysFromMaxDurationAndPowerResult = {
+  minWholeDays: number | null;
+  driver: DaysLeftDriver | null;
+  /**
+   * Max-duration tooltip copy when the calendar cap applies; derived in one place
+   * alongside `driver` (tie → max duration wins for `driver`, but no tooltip).
+   */
+  maxDurationTooltipHint: "strict-cap" | "duration-only" | "tie" | null;
+};
+
+function daysLeftFromMaxDurationAndPower(
+  powerAdditionalDaysInput: number | undefined,
+  durationAdditionalDays: number | null,
+): MinDaysFromMaxDurationAndPowerResult {
+  /** Fractional days; compare to calendar as-is; round up only when power drives `minWholeDays`. */
+  const powerAdditionalDays =
+    powerAdditionalDaysInput != null &&
+    Number.isFinite(powerAdditionalDaysInput) &&
+    powerAdditionalDaysInput >= 0
+      ? powerAdditionalDaysInput
+      : null;
+
+  const duration =
+    durationAdditionalDays != null && Number.isFinite(durationAdditionalDays)
+      ? durationAdditionalDays
+      : null;
+
+  if (powerAdditionalDays == null && duration == null) {
+    return {
+      minWholeDays: null,
+      driver: null,
+      maxDurationTooltipHint: null,
+    };
+  }
+
+  if (powerAdditionalDays == null) {
+    return {
+      minWholeDays: duration,
+      driver: "maxDuration",
+      maxDurationTooltipHint: "duration-only",
+    };
+  }
+
+  if (duration == null) {
+    return {
+      minWholeDays: Math.ceil(powerAdditionalDays),
+      driver: "power",
+      maxDurationTooltipHint: null,
+    };
+  }
+
+  if (powerAdditionalDays < duration) {
+    return {
+      minWholeDays: Math.ceil(powerAdditionalDays),
+      driver: "power",
+      maxDurationTooltipHint: null,
+    };
+  }
+
+  if (duration < powerAdditionalDays) {
+    return {
+      minWholeDays: duration,
+      driver: "maxDuration",
+      maxDurationTooltipHint: "strict-cap",
+    };
+  }
+
+  // Tie on fractional comparison; max duration wins for `driver` (no strict-cap tooltip).
+  return {
+    minWholeDays: duration,
+    driver: "maxDuration",
+    maxDurationTooltipHint: "tie",
+  };
+}
+
+function buildDaysLeftTooltipFromMaxDuration({
+  displayDays,
+  durationAdditionalDays,
+  maxDurationTooltipHint,
+}: {
+  displayDays: number;
+  durationAdditionalDays: number | null;
+  maxDurationTooltipHint: MinDaysFromMaxDurationAndPowerResult["maxDurationTooltipHint"];
+}): string | undefined {
+  if (durationAdditionalDays == null) {
+    return undefined;
+  }
+  if (maxDurationTooltipHint === "strict-cap") {
+    return `At most ${displayDays} calendar day(s) remain before the configured maximum experiment duration ends. Target power may require additional runtime beyond that window.`;
+  }
+  if (maxDurationTooltipHint === "duration-only") {
+    return `The experiment has at most ${displayDays} calendar day(s) before the configured maximum experiment duration ends.`;
+  }
+  return undefined;
 }
 
 export function getExperimentResultStatus({
@@ -438,26 +553,68 @@ export function getExperimentResultStatus({
     healthSummary?.power?.type === "success"
       ? healthSummary.power.isLowPowered
       : undefined;
-  const daysNeeded =
+  const powerAdditionalDays =
     healthSummary?.power?.type === "success"
       ? healthSummary.power.additionalDaysNeeded
       : undefined;
 
+  const maxDurationAdditionalDays =
+    getCalendarDaysRemainingUntilMaxExperimentEnd(experimentData);
+
+  const { minWholeDays: combinedWholeDays, maxDurationTooltipHint } =
+    daysLeftFromMaxDurationAndPower(
+      powerAdditionalDays,
+      maxDurationAdditionalDays,
+    );
+
+  const displayDaysNeeded =
+    combinedWholeDays != null && combinedWholeDays > 0
+      ? combinedWholeDays
+      : undefined;
+
+  const daysLeftTooltip = displayDaysNeeded
+    ? buildDaysLeftTooltipFromMaxDuration({
+        displayDays: displayDaysNeeded,
+        durationAdditionalDays: maxDurationAdditionalDays,
+        maxDurationTooltipHint,
+      })
+    : undefined;
+
   // Fully skip decision framework if there are no goal metrics
   // TODO @dmf-experiment: Add front-end information about this
-  let decisionStatus: ExperimentResultStatusData | undefined = undefined;
-  if (experimentData.goalMetrics.length && resultsStatus) {
-    decisionStatus = getDecisionFrameworkStatus({
-      resultsStatus,
-      decisionCriteria,
-      goalMetrics: experimentData.goalMetrics,
-      guardrailMetrics: experimentData.guardrailMetrics,
-      daysNeeded,
-    });
-  }
+  const powerDecisionStatus =
+    experimentData.goalMetrics.length && resultsStatus
+      ? getDecisionFrameworkStatus({
+          resultsStatus,
+          decisionCriteria,
+          goalMetrics: experimentData.goalMetrics,
+          guardrailMetrics: experimentData.guardrailMetrics,
+          daysNeeded: powerAdditionalDays,
+        })
+      : undefined;
 
-  const daysLeftStatus = daysNeeded
-    ? getDaysLeftStatus({ daysNeeded })
+  const maxDurationAtCapDecisionStatus =
+    maxDurationAdditionalDays === 0 &&
+    healthSettings.decisionFrameworkEnabled &&
+    experimentData.goalMetrics.length > 0 &&
+    resultsStatus
+      ? getDecisionFrameworkStatus({
+          resultsStatus,
+          decisionCriteria,
+          goalMetrics: experimentData.goalMetrics,
+          guardrailMetrics: experimentData.guardrailMetrics,
+          daysNeeded: 0,
+        })
+      : undefined;
+
+  const decisionStatusForLowPower =
+    maxDurationAtCapDecisionStatus ?? powerDecisionStatus;
+
+  const daysLeftStatus = displayDaysNeeded
+    ? getDaysLeftStatus({
+        daysNeeded: displayDaysNeeded,
+        tooltip: daysLeftTooltip,
+      })
     : undefined;
 
   if (healthSummary?.totalUsers) {
@@ -499,7 +656,7 @@ export function getExperimentResultStatus({
       healthSettings.decisionFrameworkEnabled &&
       // override low powered status if shipping criteria are ready
       // or before min duration
-      !decisionStatus &&
+      !decisionStatusForLowPower &&
       !beforeMinDuration &&
       // ignore if user has dismissed the warning
       !experimentData.dismissedWarnings?.includes("low-power")
@@ -559,15 +716,37 @@ export function getExperimentResultStatus({
   }
 
   if (healthSettings.decisionFrameworkEnabled) {
-    // 4. if clear shipping status, show it
-    if (decisionStatus) {
-      return decisionStatus;
+    // 4. Calendar max ended: same recommendations as when target precision is reached
+    if (maxDurationAdditionalDays === 0) {
+      if (maxDurationAtCapDecisionStatus) {
+        return withRecommendationMetViaMaxDuration(
+          maxDurationAtCapDecisionStatus,
+        );
+      }
+      return {
+        status: "max-duration-reached",
+        tooltip:
+          "The configured maximum experiment duration has ended. Review results and stop or extend the experiment when appropriate.",
+      };
     }
 
-    // 5. If no unhealthy status or clear shipping criteria, show days left data
+    // 5. if clear shipping status from power / sequential path, show it
+    if (powerDecisionStatus) {
+      return powerDecisionStatus;
+    }
+
+    // 6. If no unhealthy status or clear shipping criteria, show days left data
     if (daysLeftStatus) {
       return daysLeftStatus;
     }
+  }
+
+  if (maxDurationAdditionalDays === 0) {
+    return {
+      status: "max-duration-reached",
+      tooltip:
+        "The configured maximum experiment duration has ended. Review results and stop or extend the experiment when appropriate.",
+    };
   }
 }
 
@@ -602,7 +781,7 @@ export function getSafeRolloutResultStatus({
   safeRollout: SafeRolloutInterface;
   healthSettings: ExperimentHealthSettings;
   daysLeft: number;
-}): ExperimentResultStatusData | undefined {
+}): SafeRolloutResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = safeRollout.analysisSummary?.health;
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;

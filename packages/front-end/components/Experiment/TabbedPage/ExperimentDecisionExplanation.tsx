@@ -135,7 +135,9 @@ export default function ExperimentDecisionExplanation({
                   •
                 </Text>
                 <Text size="2">
-                  The experiment has reached the targeted statistical power.
+                  {status.recommendationMetViaMaxDuration
+                    ? "The experiment has reached maximum duration."
+                    : "The experiment has reached the targeted statistical power."}
                 </Text>
               </Flex>
             )}

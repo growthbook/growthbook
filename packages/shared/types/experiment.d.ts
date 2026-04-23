@@ -63,18 +63,21 @@ export type DecisionFrameworkExperimentRecommendationStatus =
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      recommendationMetViaMaxDuration?: boolean;
     }
   | {
       status: "rollback-now";
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      recommendationMetViaMaxDuration?: boolean;
     }
   | {
       status: "ready-for-review";
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      recommendationMetViaMaxDuration?: boolean;
     };
 
 export type ExperimentUnhealthyData = {
@@ -92,9 +95,19 @@ export type ExperimentResultStatus =
   | DecisionFrameworkExperimentRecommendationStatus
   | { status: "no-data" }
   | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
-  | { status: "before-min-duration" };
+  | { status: "before-min-duration" }
+  | { status: "max-duration-reached" };
+
+export type SafeRolloutResultStatus = Exclude<
+  ExperimentResultStatus,
+  { status: "max-duration-reached" }
+>;
 
 export type ExperimentResultStatusData = ExperimentResultStatus & {
+  tooltip?: string;
+};
+
+export type SafeRolloutResultStatusData = SafeRolloutResultStatus & {
   tooltip?: string;
 };
 
@@ -275,6 +288,9 @@ export type ExperimentDataForStatusStringDates = Pick<
   | "guardrailMetrics"
   | "datasource"
   | "decisionFrameworkSettings"
+  | "maxExperimentDuration"
+  | "banditStage"
+  | "banditStageDateStarted"
 >;
 
 export type ExperimentDataForStatus = Pick<
@@ -292,4 +308,7 @@ export type ExperimentDataForStatus = Pick<
   | "guardrailMetrics"
   | "datasource"
   | "decisionFrameworkSettings"
+  | "maxExperimentDuration"
+  | "banditStage"
+  | "banditStageDateStarted"
 >;

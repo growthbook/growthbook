@@ -2344,6 +2344,7 @@ export async function toExperimentApiInterface(
     customMetricSlices: experiment.customMetricSlices ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
+    maxExperimentDuration: experiment.maxExperimentDuration,
   };
   return apiExperiment;
 }
@@ -3453,6 +3454,10 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.defaultDashboardId !== undefined
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
+    ...(payload.maxExperimentDuration !== undefined &&
+    (payload.type ?? "standard") !== "multi-armed-bandit"
+      ? { maxExperimentDuration: payload.maxExperimentDuration }
+      : {}),
   };
 
   const { settings } = getScopedSettings({
@@ -3689,6 +3694,7 @@ export function updateExperimentApiPayloadToInterface(
     decisionFrameworkSettings,
     postStratificationEnabled,
     defaultDashboardId,
+    maxExperimentDuration,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -3764,6 +3770,7 @@ export function updateExperimentApiPayloadToInterface(
       ? { postStratificationEnabled }
       : {}),
     ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
+    ...(maxExperimentDuration !== undefined ? { maxExperimentDuration } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -3800,6 +3807,13 @@ export function updateExperimentApiPayloadToInterface(
         ...changes,
       } as ExperimentInterface);
     }
+  }
+
+  const effectiveTypeForMaxDuration =
+    changes.type !== undefined ? changes.type : experiment.type;
+  if (effectiveTypeForMaxDuration === "multi-armed-bandit") {
+    delete (changes as { maxExperimentDuration?: unknown })
+      .maxExperimentDuration;
   }
 
   return changes;

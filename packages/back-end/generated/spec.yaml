@@ -5353,6 +5353,30 @@ paths:
                     required:
                       - slices
                     additionalProperties: false
+                maxExperimentDuration:
+                  description: >-
+                    Maximum calendar duration for the experiment from the phase
+                    (or bandit) start. Used for shipping deadlines, EDF, and
+                    scheduled result updates.
+                  type: object
+                  properties:
+                    value:
+                      description: >-
+                        Length of the maximum experiment window (combined with
+                        `unit`).
+                      type: integer
+                      exclusiveMinimum: 0
+                    unit:
+                      description: Unit for `value` (hours, days, or weeks).
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                        - weeks
+                  required:
+                    - value
+                    - unit
+                  additionalProperties: false
               required:
                 - trackingKey
                 - name
@@ -5881,6 +5905,30 @@ paths:
                     required:
                       - slices
                     additionalProperties: false
+                maxExperimentDuration:
+                  description: >-
+                    Maximum calendar duration for the experiment from the phase
+                    (or bandit) start. Used for shipping deadlines, EDF, and
+                    scheduled result updates.
+                  type: object
+                  properties:
+                    value:
+                      description: >-
+                        Length of the maximum experiment window (combined with
+                        `unit`).
+                      type: integer
+                      exclusiveMinimum: 0
+                    unit:
+                      description: Unit for `value` (hours, days, or weeks).
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                        - weeks
+                  required:
+                    - value
+                    - unit
+                  additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -20814,6 +20862,28 @@ components:
           type: string
         templateId:
           type: string
+        maxExperimentDuration:
+          description: >-
+            Maximum calendar duration for the experiment from the phase (or
+            bandit) start. Used for shipping deadlines, EDF, and scheduled
+            result updates.
+          type: object
+          properties:
+            value:
+              description: Length of the maximum experiment window (combined with `unit`).
+              type: integer
+              exclusiveMinimum: 0
+            unit:
+              description: Unit for `value` (hours, days, or weeks).
+              type: string
+              enum:
+                - hours
+                - days
+                - weeks
+          required:
+            - value
+            - unit
+          additionalProperties: false
       required:
         - id
         - trackingKey
@@ -21349,6 +21419,30 @@ components:
               type: string
             templateId:
               type: string
+            maxExperimentDuration:
+              description: >-
+                Maximum calendar duration for the experiment from the phase (or
+                bandit) start. Used for shipping deadlines, EDF, and scheduled
+                result updates.
+              type: object
+              properties:
+                value:
+                  description: >-
+                    Length of the maximum experiment window (combined with
+                    `unit`).
+                  type: integer
+                  exclusiveMinimum: 0
+                unit:
+                  description: Unit for `value` (hours, days, or weeks).
+                  type: string
+                  enum:
+                    - hours
+                    - days
+                    - weeks
+              required:
+                - value
+                - unit
+              additionalProperties: false
           required:
             - id
             - trackingKey

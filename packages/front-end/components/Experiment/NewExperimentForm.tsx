@@ -15,7 +15,11 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { generateTrackingKey, getEqualWeights } from "shared/experiments";
+import {
+  DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
+  generateTrackingKey,
+  getEqualWeights,
+} from "shared/experiments";
 import { kebabCase, debounce } from "lodash";
 import { Box, Flex, Text, Heading, Separator } from "@radix-ui/themes";
 import {
@@ -86,6 +90,7 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
+import { MaxExperimentDurationFields } from "./MaxExperimentDurationFields";
 
 export type FormVariation = {
   id: string;
@@ -366,6 +371,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
+      maxExperimentDuration:
+        initialValue?.type === "multi-armed-bandit"
+          ? undefined
+          : (initialValue?.maxExperimentDuration ??
+            DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
     },
   });
 
@@ -536,6 +546,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             "Enter a conversion window override or disable the conversion window override",
           );
         }
+        delete data.maxExperimentDuration;
       }
     }
 
@@ -941,6 +952,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setLinkNameWithTrackingKey(false);
               }}
             />
+            {!isBandit ? (
+              <>
+                <Separator size="4" my="4" />
+                <MaxExperimentDurationFields form={form} disabled={false} />
+              </>
+            ) : null}
             {!isBandit && (
               <Field
                 label="Hypothesis"

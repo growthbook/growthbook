@@ -195,6 +195,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   banditScheduleUnit: "analysis",
   banditScheduleValue: "analysis",
   lookbackOverride: "analysis",
+  maxExperimentDuration: "analysis",
   banditConversionWindowUnit: "analysis",
   banditConversionWindowValue: "analysis",
 

@@ -15,7 +15,10 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
+} from "shared/experiments";
 import { Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -51,6 +54,7 @@ import {
 import MetricSelector from "./MetricSelector";
 import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
+import { MaxExperimentDurationFields } from "./MaxExperimentDurationFields";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -202,6 +206,11 @@ const AnalysisForm: FC<{
       banditConversionWindowUnit: (experiment.banditConversionWindowUnit ??
         "hours") as "hours" | "days",
       disableStickyBucketing: experiment.disableStickyBucketing ?? false,
+      maxExperimentDuration:
+        experiment.type === "multi-armed-bandit"
+          ? undefined
+          : (experiment.maxExperimentDuration ??
+            DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
     },
   });
 
@@ -300,7 +309,13 @@ const AnalysisForm: FC<{
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
+        const {
+          dateStarted,
+          dateEnded,
+          skipPartialData,
+          maxExperimentDuration,
+          ...values
+        } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
@@ -312,6 +327,10 @@ const AnalysisForm: FC<{
           phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
         };
+
+        if (!isBandit && maxExperimentDuration) {
+          body.maxExperimentDuration = maxExperimentDuration;
+        }
 
         fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
@@ -584,6 +603,15 @@ const AnalysisForm: FC<{
             )}
           </div>
         )}
+        {!isBandit ? (
+          <>
+            <hr />
+            <MaxExperimentDurationFields
+              form={form}
+              disabled={!canRunExperiment}
+            />
+          </>
+        ) : null}
         {!!datasource && !isBandit && !isHoldout && (
           <>
             <Tooltip

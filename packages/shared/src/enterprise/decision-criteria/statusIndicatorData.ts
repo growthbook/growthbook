@@ -129,6 +129,7 @@ function getDetailedRunningStatusIndicatorData(
         sortOrder: 12,
       };
     case "ready-for-review":
+    case "max-duration-reached":
       return {
         color: "amber",
         status: "Running",
