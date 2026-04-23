@@ -145,7 +145,7 @@ function MultiRangeNamespaceModal({
       {isNewNamespace && (
         <>
           <Checkbox
-            label="Use legacy format (v1)"
+            label="Use legacy format"
             description="For SDKs that don't support multi-range namespaces"
             value={useLegacyFormat}
             setValue={setUseLegacyFormat}
