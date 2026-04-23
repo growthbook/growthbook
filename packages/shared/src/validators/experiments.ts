@@ -237,7 +237,15 @@ export const maxExperimentDurationValidator = z
   })
   .strict()
   .describe(
-    "Maximum calendar duration for the experiment from the phase (or bandit) start. Used for shipping deadlines, EDF, and scheduled result updates.",
+    "Maximum calendar duration for the experiment from the phase start. Used for shipping deadlines and Experiment Decision Framework recommendations.",
+  );
+
+export const targetSampleSizeValidator = z
+  .number()
+  .int()
+  .positive()
+  .describe(
+    "Threshold for stopping the experiment based upon sample size.  Used for shipping deadlines and Experiment Decision Framework recommendations.",
   );
 
 export const experimentAnalysisSettings = z
@@ -408,6 +416,7 @@ export const experimentInterface = z
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
     maxExperimentDuration: maxExperimentDurationValidator.optional(),
+    targetSampleSize: targetSampleSizeValidator.optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -745,6 +754,7 @@ const apiExperimentShape = z.object({
     .optional(),
   templateId: z.string().optional(),
   maxExperimentDuration: maxExperimentDurationValidator.optional(),
+  targetSampleSize: targetSampleSizeValidator.optional(),
 });
 export const apiExperimentValidator = namedSchema(
   "Experiment",
@@ -1077,19 +1087,27 @@ const postExperimentBody = z
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
     maxExperimentDuration: maxExperimentDurationValidator.optional(),
+    targetSampleSize: targetSampleSizeValidator.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (
-      data.type === "multi-armed-bandit" &&
-      data.maxExperimentDuration !== undefined
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "maxExperimentDuration is not supported for multi-armed-bandit experiments",
-        path: ["maxExperimentDuration"],
-      });
+    if (data.type === "multi-armed-bandit") {
+      if (data.maxExperimentDuration !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "maxExperimentDuration is not supported for multi-armed-bandit experiments",
+          path: ["maxExperimentDuration"],
+        });
+      }
+      if (data.targetSampleSize !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "targetSampleSize is not supported for multi-armed-bandit experiments",
+          path: ["targetSampleSize"],
+        });
+      }
     }
   });
 
@@ -1275,19 +1293,27 @@ const updateExperimentBody = z
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
     maxExperimentDuration: maxExperimentDurationValidator.optional(),
+    targetSampleSize: targetSampleSizeValidator.optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (
-      data.type === "multi-armed-bandit" &&
-      data.maxExperimentDuration !== undefined
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "maxExperimentDuration is not supported for multi-armed-bandit experiments",
-        path: ["maxExperimentDuration"],
-      });
+    if (data.type === "multi-armed-bandit") {
+      if (data.maxExperimentDuration !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "maxExperimentDuration is not supported for multi-armed-bandit experiments",
+          path: ["maxExperimentDuration"],
+        });
+      }
+      if (data.targetSampleSize !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "targetSampleSize is not supported for multi-armed-bandit experiments",
+          path: ["targetSampleSize"],
+        });
+      }
     }
   });
 

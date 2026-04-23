@@ -1598,6 +1598,7 @@ export async function postExperiment(
     "defaultDashboardId",
     "customMetricSlices",
     "maxExperimentDuration",
+    "targetSampleSize",
   ];
   let changes: Changeset = {};
 
@@ -1617,7 +1618,8 @@ export async function postExperiment(
       key === "variations" ||
       key === "customFields" ||
       key === "customMetricSlices" ||
-      key === "maxExperimentDuration"
+      key === "maxExperimentDuration" ||
+      key === "targetSampleSize"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);

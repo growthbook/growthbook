@@ -470,7 +470,8 @@ export const notifyDecision = async ({
     currentStatus.status === "ship-now" ||
     currentStatus.status === "rollback-now" ||
     currentStatus.status === "ready-for-review" ||
-    currentStatus.status === "max-duration-reached"
+    currentStatus.status === "max-duration-reached" ||
+    currentStatus.status === "target-sample-size-reached"
   ) {
     const eventType: "ship" | "rollback" | "review" = (() => {
       switch (currentStatus.status) {
@@ -478,6 +479,7 @@ export const notifyDecision = async ({
           return "ship";
         case "ready-for-review":
         case "max-duration-reached":
+        case "target-sample-size-reached":
           return "review";
         case "rollback-now":
           return "rollback";

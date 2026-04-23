@@ -64,6 +64,7 @@ export type DecisionFrameworkExperimentRecommendationStatus =
       powerReached: boolean;
       sequentialUsed: boolean;
       recommendationMetViaMaxDuration?: boolean;
+      recommendationMetViaTargetSampleSize?: boolean;
     }
   | {
       status: "rollback-now";
@@ -71,6 +72,7 @@ export type DecisionFrameworkExperimentRecommendationStatus =
       powerReached: boolean;
       sequentialUsed: boolean;
       recommendationMetViaMaxDuration?: boolean;
+      recommendationMetViaTargetSampleSize?: boolean;
     }
   | {
       status: "ready-for-review";
@@ -78,6 +80,7 @@ export type DecisionFrameworkExperimentRecommendationStatus =
       powerReached: boolean;
       sequentialUsed: boolean;
       recommendationMetViaMaxDuration?: boolean;
+      recommendationMetViaTargetSampleSize?: boolean;
     };
 
 export type ExperimentUnhealthyData = {
@@ -95,11 +98,12 @@ export type ExperimentResultStatus =
   | { status: "no-data" }
   | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
   | { status: "before-min-duration" }
-  | { status: "max-duration-reached" };
+  | { status: "max-duration-reached" }
+  | { status: "target-sample-size-reached" };
 
 export type SafeRolloutResultStatus = Exclude<
   ExperimentResultStatus,
-  { status: "max-duration-reached" }
+  { status: "max-duration-reached" } | { status: "target-sample-size-reached" }
 >;
 
 export type ExperimentResultStatusData = ExperimentResultStatus & {
@@ -284,6 +288,7 @@ export type ExperimentDataForStatusStringDates = Pick<
   | "datasource"
   | "decisionFrameworkSettings"
   | "maxExperimentDuration"
+  | "targetSampleSize"
   | "banditStage"
   | "banditStageDateStarted"
 >;
@@ -304,6 +309,7 @@ export type ExperimentDataForStatus = Pick<
   | "datasource"
   | "decisionFrameworkSettings"
   | "maxExperimentDuration"
+  | "targetSampleSize"
   | "banditStage"
   | "banditStageDateStarted"
 >;

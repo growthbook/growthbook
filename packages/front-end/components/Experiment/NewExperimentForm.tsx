@@ -90,7 +90,6 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
-import { MaxExperimentDurationFields } from "./MaxExperimentDurationFields";
 
 export type FormVariation = {
   id: string;
@@ -376,6 +375,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           ? undefined
           : (initialValue?.maxExperimentDuration ??
             DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
+      targetSampleSize:
+        initialValue?.type === "multi-armed-bandit"
+          ? undefined
+          : initialValue?.targetSampleSize,
     },
   });
 
@@ -547,6 +550,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           );
         }
         delete data.maxExperimentDuration;
+        delete data.targetSampleSize;
       }
     }
 
@@ -952,12 +956,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setLinkNameWithTrackingKey(false);
               }}
             />
-            {!isBandit ? (
-              <>
-                <Separator size="4" my="4" />
-                <MaxExperimentDurationFields form={form} disabled={false} />
-              </>
-            ) : null}
             {!isBandit && (
               <Field
                 label="Hypothesis"

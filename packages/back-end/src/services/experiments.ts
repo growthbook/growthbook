@@ -2305,6 +2305,7 @@ export async function toExperimentApiInterface(
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
     maxExperimentDuration: experiment.maxExperimentDuration,
+    targetSampleSize: experiment.targetSampleSize,
   };
 }
 
@@ -3417,6 +3418,10 @@ export function postExperimentApiPayloadToInterface(
     (payload.type ?? "standard") !== "multi-armed-bandit"
       ? { maxExperimentDuration: payload.maxExperimentDuration }
       : {}),
+    ...(payload.targetSampleSize !== undefined &&
+    (payload.type ?? "standard") !== "multi-armed-bandit"
+      ? { targetSampleSize: payload.targetSampleSize }
+      : {}),
   };
 
   const { settings } = getScopedSettings({
@@ -3654,6 +3659,7 @@ export function updateExperimentApiPayloadToInterface(
     postStratificationEnabled,
     defaultDashboardId,
     maxExperimentDuration,
+    targetSampleSize,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -3730,6 +3736,7 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
     ...(maxExperimentDuration !== undefined ? { maxExperimentDuration } : {}),
+    ...(targetSampleSize !== undefined ? { targetSampleSize } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -3773,6 +3780,7 @@ export function updateExperimentApiPayloadToInterface(
   if (effectiveTypeForMaxDuration === "multi-armed-bandit") {
     delete (changes as { maxExperimentDuration?: unknown })
       .maxExperimentDuration;
+    delete (changes as { targetSampleSize?: unknown }).targetSampleSize;
   }
 
   return changes;

@@ -29,7 +29,10 @@ import {
   DEFAULT_SRM_THRESHOLD,
 } from "../../constants";
 import { daysBetween } from "../../dates";
-import { getCalendarDaysRemainingUntilMaxExperimentEnd } from "../../experiments/maxExperimentDuration";
+import {
+  getCalendarDaysRemainingUntilMaxExperimentEnd,
+  isTargetSampleSizeReached,
+} from "../../experiments/maxExperimentDuration";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
   PRESET_DECISION_CRITERIA,
@@ -410,6 +413,19 @@ function withRecommendationMetViaMaxDuration(
   return status;
 }
 
+function withRecommendationMetViaTargetSampleSize(
+  status: ExperimentResultStatusData,
+): ExperimentResultStatusData {
+  if (
+    status.status === "ship-now" ||
+    status.status === "rollback-now" ||
+    status.status === "ready-for-review"
+  ) {
+    return { ...status, recommendationMetViaTargetSampleSize: true };
+  }
+  return status;
+}
+
 function getDaysLeftStatus({
   daysNeeded,
   tooltip,
@@ -561,6 +577,13 @@ export function getExperimentResultStatus({
   const maxDurationAdditionalDays =
     getCalendarDaysRemainingUntilMaxExperimentEnd(experimentData);
 
+  const calendarCapReached = maxDurationAdditionalDays === 0;
+  const targetSampleSizeReached = isTargetSampleSizeReached(
+    experimentData,
+    healthSummary?.totalUsers,
+  );
+  const anyExperimentCapReached = calendarCapReached || targetSampleSizeReached;
+
   const { minWholeDays: combinedWholeDays, maxDurationTooltipHint } =
     daysLeftFromMaxDurationAndPower(
       powerAdditionalDays,
@@ -593,8 +616,8 @@ export function getExperimentResultStatus({
         })
       : undefined;
 
-  const maxDurationAtCapDecisionStatus =
-    maxDurationAdditionalDays === 0 &&
+  const atExperimentCapDecisionStatus =
+    anyExperimentCapReached &&
     healthSettings.decisionFrameworkEnabled &&
     experimentData.goalMetrics.length > 0 &&
     resultsStatus
@@ -608,7 +631,7 @@ export function getExperimentResultStatus({
       : undefined;
 
   const decisionStatusForLowPower =
-    maxDurationAtCapDecisionStatus ?? powerDecisionStatus;
+    atExperimentCapDecisionStatus ?? powerDecisionStatus;
 
   const daysLeftStatus = displayDaysNeeded
     ? getDaysLeftStatus({
@@ -711,18 +734,32 @@ export function getExperimentResultStatus({
   }
 
   if (healthSettings.decisionFrameworkEnabled) {
-    // 4. Calendar max ended: same recommendations as when target precision is reached
-    if (maxDurationAdditionalDays === 0) {
-      if (maxDurationAtCapDecisionStatus) {
-        return withRecommendationMetViaMaxDuration(
-          maxDurationAtCapDecisionStatus,
-        );
+    // 4. Calendar max and/or user sample cap: same recommendations as target precision reached
+    if (anyExperimentCapReached) {
+      if (atExperimentCapDecisionStatus) {
+        let out = atExperimentCapDecisionStatus;
+        if (calendarCapReached) {
+          out = withRecommendationMetViaMaxDuration(out);
+        }
+        if (targetSampleSizeReached) {
+          out = withRecommendationMetViaTargetSampleSize(out);
+        }
+        return out;
       }
-      return {
-        status: "max-duration-reached",
-        tooltip:
-          "The configured maximum experiment duration has ended. Review results and stop or extend the experiment when appropriate.",
-      };
+      if (calendarCapReached) {
+        return {
+          status: "max-duration-reached",
+          tooltip:
+            "The experiment has reached the configured maximum duration. Review results.",
+        };
+      }
+      if (targetSampleSizeReached) {
+        return {
+          status: "target-sample-size-reached",
+          tooltip:
+            "The configured maximum sample size has been reached. Review results.",
+        };
+      }
     }
 
     // 5. if clear shipping status from power / sequential path, show it
@@ -741,6 +778,14 @@ export function getExperimentResultStatus({
       status: "max-duration-reached",
       tooltip:
         "The configured maximum experiment duration has ended. Review results and stop or extend the experiment when appropriate.",
+    };
+  }
+
+  if (targetSampleSizeReached) {
+    return {
+      status: "target-sample-size-reached",
+      tooltip:
+        "The configured maximum sample size has been reached. Review results and stop or adjust the limit when appropriate.",
     };
   }
 }

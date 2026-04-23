@@ -2847,8 +2847,8 @@ paths:
                 maxExperimentDuration:
                   description: >-
                     Maximum calendar duration for the experiment from the phase
-                    (or bandit) start. Used for shipping deadlines, EDF, and
-                    scheduled result updates.
+                    start. Used for shipping deadlines and Experiment Decision
+                    Framework recommendations.
                   type: object
                   properties:
                     value:
@@ -2868,6 +2868,13 @@ paths:
                     - value
                     - unit
                   additionalProperties: false
+                targetSampleSize:
+                  description: >-
+                    Threshold for stopping the experiment based upon sample
+                    size.  Used for shipping deadlines and Experiment Decision
+                    Framework recommendations.
+                  type: integer
+                  exclusiveMinimum: 0
               required:
                 - trackingKey
                 - name
@@ -3399,8 +3406,8 @@ paths:
                 maxExperimentDuration:
                   description: >-
                     Maximum calendar duration for the experiment from the phase
-                    (or bandit) start. Used for shipping deadlines, EDF, and
-                    scheduled result updates.
+                    start. Used for shipping deadlines and Experiment Decision
+                    Framework recommendations.
                   type: object
                   properties:
                     value:
@@ -3420,6 +3427,13 @@ paths:
                     - value
                     - unit
                   additionalProperties: false
+                targetSampleSize:
+                  description: >-
+                    Threshold for stopping the experiment based upon sample
+                    size.  Used for shipping deadlines and Experiment Decision
+                    Framework recommendations.
+                  type: integer
+                  exclusiveMinimum: 0
               additionalProperties: false
       responses:
         '200':
@@ -18277,9 +18291,9 @@ components:
           type: string
         maxExperimentDuration:
           description: >-
-            Maximum calendar duration for the experiment from the phase (or
-            bandit) start. Used for shipping deadlines, EDF, and scheduled
-            result updates.
+            Maximum calendar duration for the experiment from the phase start.
+            Used for shipping deadlines and Experiment Decision Framework
+            recommendations.
           type: object
           properties:
             value:
@@ -18297,6 +18311,13 @@ components:
             - value
             - unit
           additionalProperties: false
+        targetSampleSize:
+          description: >-
+            Threshold for stopping the experiment based upon sample size.  Used
+            for shipping deadlines and Experiment Decision Framework
+            recommendations.
+          type: integer
+          exclusiveMinimum: 0
       required:
         - id
         - trackingKey
@@ -18822,9 +18843,9 @@ components:
               type: string
             maxExperimentDuration:
               description: >-
-                Maximum calendar duration for the experiment from the phase (or
-                bandit) start. Used for shipping deadlines, EDF, and scheduled
-                result updates.
+                Maximum calendar duration for the experiment from the phase
+                start. Used for shipping deadlines and Experiment Decision
+                Framework recommendations.
               type: object
               properties:
                 value:
@@ -18844,6 +18865,13 @@ components:
                 - value
                 - unit
               additionalProperties: false
+            targetSampleSize:
+              description: >-
+                Threshold for stopping the experiment based upon sample size. 
+                Used for shipping deadlines and Experiment Decision Framework
+                recommendations.
+              type: integer
+              exclusiveMinimum: 0
           required:
             - id
             - trackingKey

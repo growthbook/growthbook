@@ -359,6 +359,7 @@ const experimentSchema = new mongoose.Schema({
       enum: ["hours", "days", "weeks"],
     },
   },
+  targetSampleSize: Number,
 });
 
 // Compound indexes for API list filtering
@@ -588,6 +589,8 @@ export async function createExperiment({
       data.type === "multi-armed-bandit"
         ? undefined
         : (data.maxExperimentDuration ?? DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
+    targetSampleSize:
+      data.type === "multi-armed-bandit" ? undefined : data.targetSampleSize,
     //set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
@@ -656,15 +659,23 @@ export async function updateExperiment({
     allChanges.type !== undefined ? allChanges.type : experiment.type;
 
   const setChanges = { ...allChanges };
+  const unsetFields: Record<string, ""> = {};
+
   if (effectiveType === "multi-armed-bandit") {
     delete setChanges.maxExperimentDuration;
+    delete setChanges.targetSampleSize;
+    unsetFields.maxExperimentDuration = "";
+    unsetFields.targetSampleSize = "";
+  } else if (setChanges.targetSampleSize === null) {
+    delete setChanges.targetSampleSize;
+    unsetFields.targetSampleSize = "";
   }
 
   const updateDoc: UpdateQuery<ExperimentDocument> = {
     $set: setChanges,
   };
-  if (effectiveType === "multi-armed-bandit") {
-    updateDoc.$unset = { maxExperimentDuration: "" };
+  if (Object.keys(unsetFields).length > 0) {
+    updateDoc.$unset = unsetFields;
   }
 
   await ExperimentModel.updateOne(
@@ -676,8 +687,11 @@ export async function updateExperiment({
   );
 
   const updated = { ...experiment, ...setChanges };
-  if (effectiveType === "multi-armed-bandit") {
+  if (unsetFields.maxExperimentDuration) {
     delete updated.maxExperimentDuration;
+  }
+  if (unsetFields.targetSampleSize) {
+    delete updated.targetSampleSize;
   }
 
   await onExperimentUpdate({

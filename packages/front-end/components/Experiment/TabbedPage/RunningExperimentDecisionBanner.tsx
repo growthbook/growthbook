@@ -124,6 +124,7 @@ export default function RunningExperimentDecisionBanner({
           <>
             <hr className="mt-3" />
             <ExperimentDecisionExplanation
+              experiment={experiment}
               status={runningExperimentStatus}
               variations={runningExperimentStatus.variations}
               variationNames={variationNames}

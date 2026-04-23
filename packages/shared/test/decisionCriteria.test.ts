@@ -1432,4 +1432,96 @@ describe("getExperimentResultStatus and maximum experiment duration", () => {
       tooltip: expect.stringContaining("maximum experiment duration has ended"),
     });
   });
+
+  it("runs the decision framework when target sample size is reached (enterprise)", () => {
+    const base = baseRunningExperiment();
+    const r = getExperimentResultStatus({
+      experimentData: {
+        ...base,
+        targetSampleSize: 100,
+        analysisSummary: {
+          ...base.analysisSummary!,
+          health: {
+            ...base.analysisSummary!.health,
+            totalUsers: 100,
+          },
+        },
+      },
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    const status = r as ExperimentResultStatusData | undefined;
+    expect(status).toMatchObject({
+      status: "ready-for-review",
+      recommendationMetViaTargetSampleSize: true,
+      powerReached: true,
+    });
+  });
+
+  it("returns target-sample-size-reached when target sample size is reached but DF is off", () => {
+    const healthNoDf = getHealthSettings(
+      { decisionFrameworkEnabled: false } as OrganizationSettings,
+      true,
+    );
+    const base = baseRunningExperiment();
+    const r = getExperimentResultStatus({
+      experimentData: {
+        ...base,
+        targetSampleSize: 50,
+        analysisSummary: {
+          ...base.analysisSummary!,
+          health: {
+            ...base.analysisSummary!.health,
+            totalUsers: 50,
+          },
+        },
+      },
+      healthSettings: healthNoDf,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    expect(r).toMatchObject({
+      status: "target-sample-size-reached",
+      tooltip: expect.stringContaining("maximum sample size"),
+    });
+  });
+
+  it("tags both caps when calendar max and user sample are reached together", () => {
+    const base = baseRunningExperiment();
+    const r = getExperimentResultStatus({
+      experimentData: {
+        ...base,
+        maxExperimentDuration: { value: 3, unit: "days" },
+        targetSampleSize: 100,
+        phases: [
+          {
+            dateStarted: "2020-01-01T00:00:00.000Z",
+            name: "Main",
+            reason: "",
+            coverage: 1,
+            condition: "",
+            variationWeights: [0.5, 0.5],
+            variations: [
+              { id: "v0", status: "active" },
+              { id: "v1", status: "active" },
+            ],
+          },
+        ],
+        analysisSummary: {
+          ...base.analysisSummary!,
+          health: {
+            ...base.analysisSummary!.health,
+            totalUsers: 100,
+          },
+        },
+      },
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    const status = r as ExperimentResultStatusData | undefined;
+    expect(status?.status).toBe("ready-for-review");
+    if (status?.status === "ready-for-review") {
+      expect(status.recommendationMetViaMaxDuration).toBe(true);
+      expect(status.recommendationMetViaTargetSampleSize).toBe(true);
+    }
+  });
 });

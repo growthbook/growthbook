@@ -1,12 +1,33 @@
 import { Box, Text, Flex } from "@radix-ui/themes";
-import { DecisionFrameworkExperimentRecommendationStatus } from "shared/types/experiment";
+import { formatMaxExperimentDuration } from "shared/experiments";
+import {
+  DecisionFrameworkExperimentRecommendationStatus,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import {
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
 } from "shared/enterprise";
 import Link from "@/ui/Link";
 
+function maxDurationDetail(
+  experiment: ExperimentInterfaceStringDates,
+): string | null {
+  const d = experiment.maxExperimentDuration;
+  if (!d) return null;
+  return formatMaxExperimentDuration(d);
+}
+
+function targetSampleSizeDetail(
+  experiment: ExperimentInterfaceStringDates,
+): string | null {
+  const cap = experiment.targetSampleSize;
+  if (cap == null || !Number.isFinite(cap) || cap < 1) return null;
+  return `${Math.round(cap).toLocaleString()} users`;
+}
+
 interface Props {
+  experiment: ExperimentInterfaceStringDates;
   status: DecisionFrameworkExperimentRecommendationStatus;
   variations: {
     variationId: string;
@@ -37,6 +58,7 @@ const getRecommendationText = (
 };
 
 export default function ExperimentDecisionExplanation({
+  experiment,
   status,
   variations,
   variationNames,
@@ -107,6 +129,37 @@ export default function ExperimentDecisionExplanation({
     }
   });
 
+  const durationPhrase = maxDurationDetail(experiment);
+  const samplePhrase = targetSampleSizeDetail(experiment);
+
+  const powerCapExplanation = (() => {
+    if (!status.powerReached) return null;
+    const viaDur = status.recommendationMetViaMaxDuration;
+    const viaSample = status.recommendationMetViaTargetSampleSize;
+    if (viaDur && viaSample) {
+      const dur =
+        durationPhrase != null
+          ? `maximum duration of ${durationPhrase}`
+          : "maximum duration";
+      const sam =
+        samplePhrase != null
+          ? `target sample size of ${samplePhrase}`
+          : "target sample size";
+      return `The experiment reached its configured ${dur} and reached its configured ${sam}.`;
+    }
+    if (viaDur) {
+      return durationPhrase != null
+        ? `The experiment reached its configured maximum duration of ${durationPhrase}.`
+        : "The experiment reached its configured maximum duration.";
+    }
+    if (viaSample) {
+      return samplePhrase != null
+        ? `The experiment reached its configured target sample size of ${samplePhrase}.`
+        : "The experiment reached its configured target sample size.";
+    }
+    return "The experiment has reached the targeted statistical power.";
+  })();
+
   return (
     <Box mt="4" ml="3">
       <Text size="2">
@@ -134,11 +187,7 @@ export default function ExperimentDecisionExplanation({
                 <Text size="2" className="text-muted">
                   •
                 </Text>
-                <Text size="2">
-                  {status.recommendationMetViaMaxDuration
-                    ? "The experiment has reached maximum duration."
-                    : "The experiment has reached the targeted statistical power."}
-                </Text>
+                <Text size="2">{powerCapExplanation}</Text>
               </Flex>
             )}
             {!status.powerReached && status.sequentialUsed && (

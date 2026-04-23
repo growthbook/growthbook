@@ -7,6 +7,7 @@ import {
   getMetricLink,
   isFactMetric,
   formatMaxExperimentDuration,
+  formatTargetSampleSize,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -152,7 +153,7 @@ export default function AnalysisSettings({
   const isHoldout = experiment.type === "holdout";
 
   const maxExperimentDurationColumn = !isPublic ? (
-    <div className="col-4">
+    <div className="col-4 mb-4">
       <div className="h5">Maximum experiment duration</div>
       <div>
         {experiment.maxExperimentDuration ? (
@@ -161,6 +162,13 @@ export default function AnalysisSettings({
           <em>Not specified</em>
         )}
       </div>
+    </div>
+  ) : null;
+
+  const targetSampleSizeColumn = !isPublic ? (
+    <div className="col-4 mb-4">
+      <div className="h5">Target sample size</div>
+      <div>{formatTargetSampleSize(experiment.targetSampleSize)}</div>
     </div>
   ) : null;
 
@@ -385,7 +393,12 @@ export default function AnalysisSettings({
                 </Link>
               </div>
             </div>
+          </div>
+        )}
+        {!isPublic && !isBandit && (
+          <div className="row mt-4">
             {maxExperimentDurationColumn}
+            {targetSampleSizeColumn}
           </div>
         )}
         {isBandit && (
@@ -411,9 +424,6 @@ export default function AnalysisSettings({
               </div>
             </div>
           </div>
-        )}
-        {!isPublic && !isBandit && (isHoldout || !hasDecisionFramework) && (
-          <div className="row mt-4">{maxExperimentDurationColumn}</div>
         )}
       </div>
     </>

@@ -1,8 +1,10 @@
 import type { ExperimentInterface } from "shared/types/experiment";
 import {
   formatMaxExperimentDuration,
+  formatTargetSampleSize,
   getCalendarDaysRemainingUntilMaxExperimentEnd,
   getMaxExperimentDurationAnchor,
+  isTargetSampleSizeReached,
   MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION,
 } from "../src/experiments/maxExperimentDuration";
 
@@ -86,6 +88,12 @@ describe("formatMaxExperimentDuration", () => {
   it("returns em dash when duration is missing", () => {
     expect(formatMaxExperimentDuration(undefined)).toBe("—");
     expect(formatMaxExperimentDuration(null)).toBe("—");
+  });
+
+  it("formats target sample size", () => {
+    expect(formatTargetSampleSize(undefined)).toBe("—");
+    const s = formatTargetSampleSize(5000);
+    expect(s.replace(/\D/g, "")).toContain("5000");
   });
 
   it("formats migrated running default in whole days", () => {
@@ -216,5 +224,53 @@ describe("getCalendarDaysRemainingUntilMaxExperimentEnd", () => {
         new Date("2025-01-05"),
       ),
     ).toBeNull();
+  });
+});
+
+describe("isTargetSampleSizeReached", () => {
+  const base = {
+    type: "standard" as const,
+    phases: [
+      {
+        dateStarted: new Date("2025-01-01"),
+        name: "Main",
+        reason: "",
+        coverage: 1,
+        condition: "",
+        variationWeights: [0.5, 0.5],
+        variations: [
+          { id: "0", status: "active" as const },
+          { id: "1", status: "active" as const },
+        ],
+      },
+    ],
+    targetSampleSize: 100,
+  };
+
+  it("is false when below cap or no cap", () => {
+    expect(isTargetSampleSizeReached(base, 99)).toBe(false);
+    expect(
+      isTargetSampleSizeReached(
+        { ...base, targetSampleSize: undefined },
+        1_000_000,
+      ),
+    ).toBe(false);
+  });
+
+  it("is true at or above cap", () => {
+    expect(isTargetSampleSizeReached(base, 100)).toBe(true);
+    expect(isTargetSampleSizeReached(base, 101)).toBe(true);
+  });
+
+  it("is false for bandit", () => {
+    expect(
+      isTargetSampleSizeReached(
+        {
+          ...baseBandit(),
+          targetSampleSize: 10,
+        },
+        1000,
+      ),
+    ).toBe(false);
   });
 });

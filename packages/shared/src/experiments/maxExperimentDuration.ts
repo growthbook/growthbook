@@ -49,6 +49,8 @@ export type ExperimentMaxDurationFields = {
   banditStage?: ExperimentInterface["banditStage"];
   banditStageDateStarted?: ExperimentInterface["banditStageDateStarted"];
   maxExperimentDuration?: MaxExperimentDuration;
+  /** Optional target sample size (latest snapshot `health.totalUsers`). Independent of calendar max duration. */
+  targetSampleSize?: number;
 };
 
 /**
@@ -151,4 +153,31 @@ export function getCalendarDaysRemainingUntilMaxExperimentEnd(
   }
   const rawDays = (end.getTime() - now.getTime()) / MS_PER_DAY;
   return Math.max(0, Math.ceil(rawDays));
+}
+
+/** True when `targetSampleSize` is set and latest total users meets or exceeds it. */
+export function isTargetSampleSizeReached(
+  experiment: ExperimentMaxDurationFields,
+  totalUsers: number | null | undefined,
+): boolean {
+  const cap = experiment.targetSampleSize;
+  if (cap == null || !Number.isFinite(cap) || cap < 1) {
+    return false;
+  }
+  if (experiment.type === "multi-armed-bandit") {
+    return false;
+  }
+  if (totalUsers == null || !Number.isFinite(totalUsers)) {
+    return false;
+  }
+  return totalUsers >= cap;
+}
+
+export function formatTargetSampleSize(
+  value: number | null | undefined,
+): string {
+  if (value == null || !Number.isFinite(value) || value < 1) {
+    return "—";
+  }
+  return `${Math.round(value).toLocaleString()}`;
 }

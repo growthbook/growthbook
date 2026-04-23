@@ -130,6 +130,7 @@ function getDetailedRunningStatusIndicatorData(
       };
     case "ready-for-review":
     case "max-duration-reached":
+    case "target-sample-size-reached":
       return {
         color: "amber",
         status: "Running",
