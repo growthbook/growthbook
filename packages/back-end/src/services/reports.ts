@@ -578,7 +578,7 @@ export async function createReportSnapshot({
     unknownVariations: [],
     multipleExposures: 0,
     hasChunkedAnalyses: false,
-    chunkedAnalysesMeta: [],
+    chunkedAnalysesMeta: {},
     analyses: snapshotData.analyses.map((analysis) => ({
       ...analysis,
       dateCreated: new Date(),

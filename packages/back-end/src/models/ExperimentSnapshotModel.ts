@@ -14,7 +14,11 @@ import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
-import { AnalysisMetaEntry } from "shared/snapshot-analysis-chunks";
+import {
+  AnalysisKeyType,
+  AnalysisMetaEntry,
+  buildAnalysisKey,
+} from "shared/snapshot-analysis-chunks";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
@@ -81,8 +85,9 @@ const experimentSnapshotSchema = new mongoose.Schema({
   settings: {},
   analyses: {},
   hasChunkedAnalyses: Boolean,
-  chunkedAnalysesMeta: [
-    {
+  chunkedAnalysesMeta: {
+    type: Map,
+    of: {
       _id: false,
       dimensions: [
         {
@@ -93,7 +98,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
         },
       ],
     },
-  ],
+  },
   results: [
     {
       _id: false,
@@ -286,18 +291,19 @@ async function chunkAndStripAnalyses({
 }): Promise<{
   strippedAnalyses: ExperimentSnapshotAnalysis[];
   hasChunkedAnalyses: true;
-  chunkedAnalysesMeta: AnalysisMetaEntry[];
+  chunkedAnalysesMeta: Record<AnalysisKeyType, AnalysisMetaEntry>;
   metricIds: string[];
 } | null> {
   const hasResults = analyses.some((a) => a.results?.length > 0);
   if (!hasResults) return null;
 
   const chunkWrite =
-    await context.models.experimentSnapshotAnalysisChunks.createFromAnalyses({
+    await context.models.experimentSnapshotAnalysisChunks.writeAnalyses({
       snapshotId,
       experimentId,
       analyses,
       settings,
+      scope: "all",
     });
 
   return {
@@ -315,12 +321,15 @@ export async function updateSnapshotsOnPhaseDelete(
 ) {
   const organization = context.org.id;
 
-  // Delete associated chunks for snapshots being deleted
+  // Delete associated chunks for snapshots being deleted. We avoid filtering
+  // by `hasChunkedAnalyses` because single-analysis writers can race and leave
+  // the on-disk flag stale-false while chunks still exist (see
+  // `buildMetaOpsForAnalysisWrite`). `deleteBySnapshotIds` is a no-op for
+  // snapshots without chunks, so enumerating all phase snapshots is safe.
   const snapshotsToDelete = await ExperimentSnapshotModel.find({
     organization,
     experiment,
     phase,
-    hasChunkedAnalyses: true,
   }).select({ id: 1 });
   if (snapshotsToDelete.length) {
     await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotIds(
@@ -371,29 +380,45 @@ export async function updateSnapshot({
     throw "Cannot update snapshot that does not exist.";
   }
 
-  const updatesForDb = { ...updates };
+  const existingInterface = toInterface(existingSnapshotModel);
+  const updatesForDb: Partial<ExperimentSnapshotInterface> = { ...updates };
   let deleteExistingChunksAfterUpdate = false;
   let chunkResult: Awaited<ReturnType<typeof chunkAndStripAnalyses>> = null;
   let experimentSnapshot: ExperimentSnapshotInterface = {
-    ...toInterface(existingSnapshotModel),
+    ...existingInterface,
     ...updates,
   };
 
   const analysisUpdates = updates.analyses;
   const hasAnalysisUpdates = analysisUpdates !== undefined;
 
+  // Normalize analysis keys up front: preserve keys by settings-match against
+  // the existing on-disk analyses so in-place updates stay on the same
+  // sub-path, mint fresh ones for analyses that don't match.
+  const normalizedAnalyses = hasAnalysisUpdates
+    ? analysisUpdates.map((analysis) => {
+        const resolvedKey = resolveAnalysisKey(
+          existingInterface.analyses,
+          analysis,
+        );
+        return analysis.analysisKey === resolvedKey
+          ? analysis
+          : { ...analysis, analysisKey: resolvedKey };
+      })
+    : undefined;
+
   // If analyses have results, chunk them into separate documents
-  if (hasAnalysisUpdates) {
+  if (normalizedAnalyses) {
     chunkResult = await chunkAndStripAnalyses({
       context,
       snapshotId: id,
       experimentId: experimentSnapshot.experiment,
-      analyses: analysisUpdates,
+      analyses: normalizedAnalyses,
       settings: experimentSnapshot.settings,
     });
   }
 
-  if (chunkResult) {
+  if (chunkResult && normalizedAnalyses) {
     deleteExistingChunksAfterUpdate = chunkResult.metricIds.length === 0;
     // Clear results from the main document while keeping the logical snapshot
     // populated for post-success side effects below.
@@ -402,18 +427,20 @@ export async function updateSnapshot({
     updatesForDb.chunkedAnalysesMeta = chunkResult.chunkedAnalysesMeta;
     experimentSnapshot = {
       ...experimentSnapshot,
-      analyses: analysisUpdates ?? experimentSnapshot.analyses,
+      analyses: normalizedAnalyses,
       hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
       chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
     };
-  } else if (hasAnalysisUpdates) {
+  } else if (normalizedAnalyses) {
     deleteExistingChunksAfterUpdate = true;
+    updatesForDb.analyses = normalizedAnalyses;
     updatesForDb.hasChunkedAnalyses = false;
-    updatesForDb.chunkedAnalysesMeta = [];
+    updatesForDb.chunkedAnalysesMeta = {};
     experimentSnapshot = {
       ...experimentSnapshot,
+      analyses: normalizedAnalyses,
       hasChunkedAnalyses: false,
-      chunkedAnalysesMeta: [],
+      chunkedAnalysesMeta: {},
     };
   }
 
@@ -536,78 +563,113 @@ export async function addOrUpdateSnapshotAnalysis(
   const { context, id, analysis } = params;
   const organization = context.org.id;
 
-  // For chunked snapshots, handle results separately
-  const snapshot = await ExperimentSnapshotModel.findOne({
-    organization,
-    id,
-  });
+  // Read the existing snapshot so we can resolve analysisKey deterministically:
+  // match by settings to keep in-place updates on the same sub-path, otherwise
+  // use the caller's key (or mint one if missing) for the push.
+  const existing = await ExperimentSnapshotModel.findOne({ organization, id });
+  if (!existing) {
+    throw "Cannot update snapshot analysis that does not exist.";
+  }
+  const existingInterface = toInterface(existing);
 
-  if (snapshot?.hasChunkedAnalyses) {
-    const snapshotInterface = toInterface(snapshot);
-    await populateSnapshotAnalyses(context, snapshotInterface);
+  const existingIndex = getAnalysisIndexBySettings(
+    existingInterface.analyses,
+    analysis.settings,
+  );
+  const analysisKey =
+    existingIndex !== -1
+      ? existingInterface.analyses[existingIndex].analysisKey
+      : analysis.analysisKey || buildAnalysisKey();
+  const keyedAnalysis: ExperimentSnapshotAnalysis = {
+    ...analysis,
+    analysisKey,
+  };
 
-    const existingAnalysisIndex = getAnalysisIndexBySettings(
-      snapshotInterface.analyses,
-      analysis.settings,
-    );
-    const analyses =
-      existingAnalysisIndex === -1
-        ? [...snapshotInterface.analyses, analysis]
-        : snapshotInterface.analyses.map((existingAnalysis, i) =>
-            i === existingAnalysisIndex ? analysis : existingAnalysis,
-          );
-
-    const chunkResult = await chunkAndStripAnalyses({
-      context,
+  // Write the analysis's chunk sub-path atomically. Scoped to
+  // `data.<analysisKey>` so concurrent writers for other analyses never
+  // contend on the same MongoDB field.
+  const hasResults = keyedAnalysis.results.length > 0;
+  const { metaEntry } =
+    await context.models.experimentSnapshotAnalysisChunks.upsertAnalysis({
       snapshotId: id,
-      experimentId: snapshotInterface.experiment,
-      analyses,
-      settings: snapshotInterface.settings,
+      experimentId: existingInterface.experiment,
+      analysis: keyedAnalysis,
+      settings: existingInterface.settings,
     });
-    const updatesForDb: Partial<ExperimentSnapshotInterface> = chunkResult
-      ? {
-          analyses: chunkResult.strippedAnalyses,
-          hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
-          chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
-        }
-      : {
-          analyses,
-          hasChunkedAnalyses: false,
-          chunkedAnalysesMeta: [],
-        };
 
-    await ExperimentSnapshotModel.updateOne(
-      { organization, id },
+  // Stripped copy of the analysis (results live in chunk docs once written).
+  const strippedAnalysis: ExperimentSnapshotAnalysis = hasResults
+    ? { ...keyedAnalysis, results: [] }
+    : keyedAnalysis;
+
+  // Decide whether resetting this analysis to empty should also flip the
+  // top-level `hasChunkedAnalyses` flag off. Safe when no other analysis has
+  // chunks on disk (per `existingInterface`). Benign race: a concurrent
+  // populating writer re-sets the flag to true on their write. The meta wipe
+  // is always scoped to `analysisKey` so concurrent writers for other keys
+  // never lose their meta entry.
+  const clearAllMeta =
+    !hasResults && isLastPopulatedAnalysis(existingInterface, analysisKey);
+
+  if (existingIndex === -1) {
+    // New analysis: atomic $push guarded by $ne on settings (existing idiom)
+    // to prevent double-inserts when two writers race on the same settings.
+    const { setOps, unsetOps } = buildMetaOpsForAnalysisWrite({
+      analysisKey,
+      metaEntry,
+      hasResults,
+      clearAllMeta,
+    });
+    const updateDoc: Record<string, unknown> = {
+      $push: { analyses: strippedAnalysis },
+      $set: setOps,
+    };
+    if (Object.keys(unsetOps).length) updateDoc.$unset = unsetOps;
+    const pushRes = await ExperimentSnapshotModel.updateOne(
       {
-        $set: updatesForDb,
-      },
-    );
-
-    if (!chunkResult || chunkResult.metricIds.length === 0) {
-      await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(
+        organization,
         id,
+        "analyses.settings": { $ne: keyedAnalysis.settings },
+      },
+      updateDoc,
+    );
+    if (pushRes.matchedCount === 0) {
+      // A concurrent writer inserted the same-settings analysis first and
+      // won the $push. `upsertAnalysis` already wrote our minted
+      // `data.<analysisKey>` sub-path into every metric chunk, and those
+      // would orphan forever (the winning writer owns a different key that
+      // no one ever migrates to ours). Clean them up before delegating.
+      await context.models.experimentSnapshotAnalysisChunks.removeAnalysisChunks(
+        id,
+        analysisKey,
       );
+      // Delegate to the update path — it re-reads the snapshot and resolves
+      // the winning key by settings match.
+      await updateSnapshotAnalysis({ context, id, analysis });
     }
     return;
   }
 
-  // Non-chunked path (legacy or first-time)
-  // looks for snapshots with this ID but WITHOUT these analysis settings
-  const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
+  // Existing analysis: positional $set on the matched settings (existing
+  // idiom) keeps the analysis doc aligned with its pre-existing position.
+  const { setOps, unsetOps } = buildMetaOpsForAnalysisWrite({
+    analysisKey,
+    metaEntry,
+    hasResults,
+    clearAllMeta,
+  });
+  const updateDoc: Record<string, unknown> = {
+    $set: { "analyses.$": strippedAnalysis, ...setOps },
+  };
+  if (Object.keys(unsetOps).length) updateDoc.$unset = unsetOps;
+  await ExperimentSnapshotModel.updateOne(
     {
       organization,
       id,
-      "analyses.settings": { $ne: analysis.settings },
+      "analyses.settings": keyedAnalysis.settings,
     },
-    {
-      $push: { analyses: analysis },
-    },
+    updateDoc,
   );
-  // if analysis already exist, no documents will be returned by above query
-  // so instead find and update existing analysis in DB
-  if (experimentSnapshotModel.matchedCount === 0) {
-    await updateSnapshotAnalysis({ context, id, analysis });
-  }
 }
 
 export async function updateSnapshotAnalysis({
@@ -621,70 +683,55 @@ export async function updateSnapshotAnalysis({
 }) {
   const organization = context.org.id;
 
-  // For chunked snapshots, update the analysis doc and rebuild chunks
-  const snapshot = await ExperimentSnapshotModel.findOne({
-    organization,
-    id,
-  });
+  const existing = await ExperimentSnapshotModel.findOne({ organization, id });
+  if (!existing) return;
+  const existingInterface = toInterface(existing);
 
-  if (snapshot?.hasChunkedAnalyses) {
-    const snapshotInterface = toInterface(snapshot);
-    const existingAnalysisIndex = getAnalysisIndexBySettings(
-      snapshotInterface.analyses,
-      analysis.settings,
-    );
-    if (existingAnalysisIndex === -1) {
-      return;
-    }
+  const existingIndex = getAnalysisIndexBySettings(
+    existingInterface.analyses,
+    analysis.settings,
+  );
+  if (existingIndex === -1) return;
 
-    await populateSnapshotAnalyses(context, snapshotInterface);
-    const analyses = snapshotInterface.analyses.map((existingAnalysis, i) =>
-      i === existingAnalysisIndex ? analysis : existingAnalysis,
-    );
-    const chunkResult = await chunkAndStripAnalyses({
-      context,
+  const analysisKey = existingInterface.analyses[existingIndex].analysisKey;
+  const keyedAnalysis: ExperimentSnapshotAnalysis = {
+    ...analysis,
+    analysisKey,
+  };
+
+  const hasResults = keyedAnalysis.results.length > 0;
+  const { metaEntry } =
+    await context.models.experimentSnapshotAnalysisChunks.upsertAnalysis({
       snapshotId: id,
-      experimentId: snapshotInterface.experiment,
-      analyses,
-      settings: snapshotInterface.settings,
+      experimentId: existingInterface.experiment,
+      analysis: keyedAnalysis,
+      settings: existingInterface.settings,
     });
-    const updatesForDb: Partial<ExperimentSnapshotInterface> = chunkResult
-      ? {
-          analyses: chunkResult.strippedAnalyses,
-          hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
-          chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
-        }
-      : {
-          analyses,
-          hasChunkedAnalyses: false,
-          chunkedAnalysesMeta: [],
-        };
 
-    await ExperimentSnapshotModel.updateOne(
-      { organization, id },
-      {
-        $set: updatesForDb,
-      },
-    );
+  const strippedAnalysis: ExperimentSnapshotAnalysis = hasResults
+    ? { ...keyedAnalysis, results: [] }
+    : keyedAnalysis;
 
-    if (!chunkResult || chunkResult.metricIds.length === 0) {
-      await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(
-        id,
-      );
-    }
-    return;
-  }
+  const clearAllMeta =
+    !hasResults && isLastPopulatedAnalysis(existingInterface, analysisKey);
+  const { setOps, unsetOps } = buildMetaOpsForAnalysisWrite({
+    analysisKey,
+    metaEntry,
+    hasResults,
+    clearAllMeta,
+  });
+  const updateDoc: Record<string, unknown> = {
+    $set: { "analyses.$": strippedAnalysis, ...setOps },
+  };
+  if (Object.keys(unsetOps).length) updateDoc.$unset = unsetOps;
 
-  // Non-chunked path
   await ExperimentSnapshotModel.updateOne(
     {
       organization,
       id,
-      "analyses.settings": analysis.settings,
+      "analyses.settings": keyedAnalysis.settings,
     },
-    {
-      $set: { "analyses.$": analysis },
-    },
+    updateDoc,
   );
 
   // Not notifying on new analysis because new analyses in an existing snapshot
@@ -1008,3 +1055,68 @@ export async function createExperimentSnapshotModel({
 export const getDefaultAnalysisResults = (
   snapshot: ExperimentSnapshotDocument,
 ) => snapshot.analyses?.[0]?.results?.[0];
+
+// Resolve the analysisKey to use when writing `analysis` into `existing`.
+// A match by settings reuses the existing key so in-place updates stay on the
+// same sub-path; otherwise we mint a fresh key (or reuse the caller-supplied
+// one if present).
+function resolveAnalysisKey(
+  existing: ExperimentSnapshotAnalysis[],
+  analysis: ExperimentSnapshotAnalysis,
+): string {
+  const existingIndex = getAnalysisIndexBySettings(existing, analysis.settings);
+  if (existingIndex !== -1) return existing[existingIndex].analysisKey;
+  return analysis.analysisKey || buildAnalysisKey();
+}
+
+// Returns true if every analysis key other than `ignoreKey` has no dimensions
+// in meta. Used to decide whether clearing a single analysis leaves nothing
+// chunked (so we can clear `hasChunkedAnalyses`/meta). Benign race: if a
+// concurrent writer is populating another key, they set the flag back to true
+// on their write, so the worst case is a transient stale `hasChunkedAnalyses`.
+function isLastPopulatedAnalysis(
+  snapshot: ExperimentSnapshotInterface,
+  ignoreKey: string,
+): boolean {
+  const meta = snapshot.chunkedAnalysesMeta ?? {};
+  for (const [key, entry] of Object.entries(meta)) {
+    if (key === ignoreKey) continue;
+    if (entry?.dimensions?.length) return false;
+  }
+  return true;
+}
+
+// Build the meta mutation operators for a single-analysis write. The meta
+// sub-path (`chunkedAnalysesMeta.<analysisKey>`) is always keyed off
+// `analysisKey` — writers for other keys never contend on the same field, so
+// a concurrent writer's meta survives our clear. The `hasChunkedAnalyses`
+// flag is still written best-effort (benign race; see `migrateSnapshot` for
+// read-time derivation safety).
+function buildMetaOpsForAnalysisWrite({
+  analysisKey,
+  metaEntry,
+  hasResults,
+  clearAllMeta,
+}: {
+  analysisKey: string;
+  metaEntry: AnalysisMetaEntry;
+  hasResults: boolean;
+  clearAllMeta: boolean;
+}): {
+  setOps: Record<string, unknown>;
+  unsetOps: Record<string, unknown>;
+} {
+  if (clearAllMeta) {
+    return {
+      setOps: { hasChunkedAnalyses: false },
+      unsetOps: { [`chunkedAnalysesMeta.${analysisKey}`]: "" },
+    };
+  }
+  return {
+    setOps: {
+      [`chunkedAnalysesMeta.${analysisKey}`]: metaEntry,
+      ...(hasResults ? { hasChunkedAnalyses: true } : {}),
+    },
+    unsetOps: {},
+  };
+}
