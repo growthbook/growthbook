@@ -42,6 +42,7 @@ export * from "./experiment-warnings";
 export * from "./features";
 export * from "./feature-revisions";
 export * from "./holdout";
+export * from "./namespaces";
 export * from "./projects";
 export * from "./safe-rollout-notifications";
 export * from "./safe-rollout-snapshot";
