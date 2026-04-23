@@ -11,9 +11,13 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import React, { RefObject } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Callout from "@/ui/Callout";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
@@ -24,6 +28,7 @@ import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDril
 
 export default function ReportResults({
   report,
+  experiment,
   snapshot,
   snapshotError,
   mutateReport,
@@ -35,6 +40,7 @@ export default function ReportResults({
   showDetails,
 }: {
   report: ExperimentSnapshotReportInterface;
+  experiment: Partial<ExperimentInterfaceStringDates> | undefined;
   snapshot?: ExperimentSnapshotInterface;
   snapshotError?: Error;
   mutateReport?: () => Promise<unknown> | unknown;
@@ -97,6 +103,18 @@ export default function ReportResults({
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings?.()?.pValueCorrection ||
     _orgSettings?.pValueCorrection;
+
+  const _confidenceLevels = useConfidenceLevels(experiment?.project);
+  const _pValueThreshold = usePValueThreshold(experiment?.project);
+  const bayesianConfidenceLevels =
+    ssrPolyfills?.useConfidenceLevels?.(experiment?.project) ||
+    _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.(experiment?.project) || _pValueThreshold;
+  const significanceThresholds: SignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
@@ -163,6 +181,7 @@ export default function ReportResults({
         ) : (
           <MetricDrilldownProvider
             experimentId={report.experimentId ?? ""}
+            significanceThresholds={significanceThresholds}
             phase={phase}
             analysis={analysis ?? null}
             variations={variations}
@@ -212,12 +231,14 @@ export default function ReportResults({
                 statsEngine={
                   analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
                 }
+                significanceThresholds={significanceThresholds}
                 differenceType={analysis.settings.differenceType}
                 ssrPolyfills={ssrPolyfills}
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
                 experimentId={snapshot.experiment}
+                significanceThresholds={significanceThresholds}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -256,6 +277,7 @@ export default function ReportResults({
             ) : showCompactResults ? (
               <CompactResults
                 experimentId={snapshot.experiment}
+                significanceThresholds={significanceThresholds}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}

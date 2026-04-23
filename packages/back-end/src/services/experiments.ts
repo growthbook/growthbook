@@ -184,11 +184,9 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import {
-  getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
-  getPValueCorrectionForOrg,
-  getPValueThresholdForOrg,
+  getSignificanceSettingsForProject,
 } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
@@ -304,6 +302,7 @@ export function getDefaultExperimentAnalysisSettings({
   regressionAdjustmentEnabled,
   postStratificationEnabled,
   dimension,
+  pValueThreshold,
   metricGroups = [],
 }: {
   statsEngine: StatsEngine;
@@ -312,6 +311,7 @@ export function getDefaultExperimentAnalysisSettings({
   regressionAdjustmentEnabled?: boolean;
   postStratificationEnabled?: boolean;
   dimension?: string;
+  pValueThreshold?: number;
   metricGroups?: MetricGroupInterface[];
 }): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
@@ -346,7 +346,9 @@ export function getDefaultExperimentAnalysisSettings({
     baselineVariationIndex: 0,
     differenceType: "relative",
     pValueThreshold:
-      organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+      pValueThreshold ??
+      organization.settings?.pValueThreshold ??
+      DEFAULT_P_VALUE_THRESHOLD,
     numGoalMetrics: expandMetricGroups(
       experiment.goalMetrics ?? [],
       metricGroups,
@@ -1876,6 +1878,7 @@ export async function planExperimentSnapshot({
     regressionAdjustmentEnabled,
     postStratificationEnabled,
     dimension,
+    pValueThreshold: settings.pValueThreshold.value,
     metricGroups,
   });
 
@@ -4297,10 +4300,13 @@ export async function computeResultsStatus({
   experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
-  const pValueCorrection = getPValueCorrectionForOrg(context);
-  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const projectId =
+    "project" in experiment && typeof experiment.project === "string"
+      ? experiment.project
+      : undefined;
+  const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
+    await getSignificanceSettingsForProject(context, projectId);
   const metricDefaults = getMetricDefaultsForOrg(context);
-  const pValueThreshold = getPValueThresholdForOrg(context);
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 

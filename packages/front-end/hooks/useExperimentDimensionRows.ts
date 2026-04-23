@@ -21,7 +21,6 @@ import {
   compareRows,
 } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
@@ -50,6 +49,7 @@ export interface UseExperimentDimensionRowsParams {
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
+  pValueThreshold: number;
 }
 
 export interface UseExperimentDimensionRowsReturn {
@@ -78,13 +78,10 @@ export function useExperimentDimensionRows({
   settingsForSnapshotMetrics,
   dimensionValuesFilter,
   showErrorsOnQuantileMetrics = false,
+  pValueThreshold,
 }: UseExperimentDimensionRowsParams): UseExperimentDimensionRowsReturn {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
-
-  const _pValueThreshold = usePValueThreshold();
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {
