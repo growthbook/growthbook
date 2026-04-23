@@ -184,3 +184,32 @@ export function trimDraftKeysToRangeLength(
     }),
   );
 }
+
+export function computeInUseIntervals(
+  gaps: { start: number; end: number }[],
+): RangeTuple[] {
+  const sorted = [...gaps].sort((a, b) => a.start - b.start);
+  const result: RangeTuple[] = [];
+  let cursor = 0;
+  for (const g of sorted) {
+    if (cursor < g.start) result.push([cursor, g.start]);
+    cursor = Math.max(cursor, g.end);
+  }
+  if (cursor < 1) result.push([cursor, 1]);
+  return result;
+}
+
+export function computeOverlapIntervals(
+  selectedRanges: RangeTuple[],
+  inUseIntervals: RangeTuple[],
+): RangeTuple[] {
+  const result: RangeTuple[] = [];
+  for (const [rs, re] of selectedRanges) {
+    for (const [is, ie] of inUseIntervals) {
+      const start = Math.max(rs, is);
+      const end = Math.min(re, ie);
+      if (start < end) result.push([start, end]);
+    }
+  }
+  return result;
+}

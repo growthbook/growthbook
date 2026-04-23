@@ -27,10 +27,18 @@
 }
 
 .card {
+  position: relative;
   border: 1px solid var(--gray-a5);
   border-radius: 8px;
   padding: var(--space-4) var(--space-5);
   background-color: var(--color-panel-solid);
+}
+
+.overlapWarning {
+  position: absolute;
+  bottom: var(--space-2);
+  left: var(--space-5);
+  right: var(--space-5);
 }
 
 .legend_box {
@@ -40,6 +48,11 @@
   display: inline-block;
   vertical-align: middle;
   flex-shrink: 0;
+  box-shadow: 0 0 0 1.5px var(--ns-legend-outline);
+}
+
+.legend_active {
+  background-color: var(--violet-9);
   box-shadow: 0 0 0 1.5px var(--ns-legend-outline);
 }
 
@@ -98,24 +111,6 @@
       var(--ns-stripe-mid) 4px 8px
     );
   box-shadow: 0px 0px 2px 1px var(--slate-a3);
-
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-color: var(--violet-9);
-    background-image: linear-gradient(
-      to bottom,
-      var(--ns-active-shadow-top) 0px,
-      transparent 8px
-    );
-    opacity: 0;
-    transition: opacity 150ms ease;
-  }
-}
-
-.inUseActive::after {
-  opacity: 1;
 }
 
 .rangeSelected {
@@ -130,6 +125,38 @@
   );
 }
 
+.overlapZone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 4px,
+    var(--white-a4) 4px 8px
+  );
+}
+
+.goalpostTickOverlap {
+  position: absolute;
+  top: 0;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--amber-9);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.goalpostValueOverlap {
+  position: absolute;
+  top: 10px;
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--amber-11);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .rangeFocusedOverlay {
   position: absolute;
   top: 0;
@@ -141,14 +168,40 @@
 
 .labels_row {
   position: relative;
-  height: 18px;
+  height: 36px;
   margin-top: 4px;
 }
 
 .segmentLabel {
   position: absolute;
-  top: 0;
+  top: -1px;
   font-size: var(--font-size-1);
   line-height: var(--line-height-1);
   color: var(--color-text-low);
+  transform: translateX(-50%);
+}
+
+.segmentLabelActive {
+  color: var(--violet-11);
+  font-weight: var(--font-weight-medium);
+}
+
+.goalpostTick {
+  position: absolute;
+  top: 0;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--violet-9);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.goalpostValue {
+  position: absolute;
+  top: 10px;
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  color: var(--violet-11);
+  transform: translateX(-50%);
+  pointer-events: none;
 }

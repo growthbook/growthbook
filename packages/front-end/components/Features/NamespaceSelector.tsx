@@ -21,6 +21,7 @@ import NamespaceUsageGraph from "./NamespaceUsageGraph";
 import {
   normalizeRangeAfterLowerChange,
   normalizeRangeAfterUpperChange,
+  findContainingGap,
   getLargestGap,
   RangeTuple,
   shiftDraftKeysAfterRangeRemoval,
@@ -96,8 +97,8 @@ export default function NamespaceSelector({
   const [focusedRangeIndex, setFocusedRangeIndex] = useState<number | null>(
     null,
   );
+  const [allowOverlap, setAllowOverlap] = useState(false);
   const [selectKey, forceSelectRemount] = useIncrementer();
-  // Per-namespace range cache: restores user picks when switching the dropdown away and back.
   const namespaceRangesCache = useRef<Record<string, RangeTuple[]>>({});
   const namespacePath = `${formPrefix}namespace`;
   const namespaceRangesPath = `${namespacePath}.ranges`;
@@ -154,30 +155,13 @@ export default function NamespaceSelector({
       (n) => n?.status !== "inactive",
     );
 
-    // Always keep the selected namespace regardless of room so edits still work.
-    // findGaps excludes featureId/trackingKey so the current experiment's own
-    // range doesn't count against available capacity.
-    const roomSet = new Set(
-      activeNamespaces
-        .filter((n) => {
-          if (n.name === namespace) return true;
-          const gaps = findGaps(namespaceUsage, n.name, featureId, trackingKey);
-          return gaps.some((g) => g.end - g.start > 0);
-        })
-        .map((n) => n.name),
-    );
-    const allocatable = activeNamespaces.filter((n) => roomSet.has(n.name));
-
     const filtered = isFallbackMode
-      ? allocatable.filter((n) => isLegacyNamespace(n))
-      : allocatable;
-
-    const optionSource = isFallbackMode ? filtered : activeNamespaces;
+      ? activeNamespaces.filter((n) => isLegacyNamespace(n))
+      : activeNamespaces;
 
     return {
       filteredNamespaces: filtered,
-      namespaceOptions: optionSource.map((n) => {
-        const isFull = !roomSet.has(n.name);
+      namespaceOptions: filtered.map((n) => {
         const isHashMismatch =
           !isFallbackMode &&
           !isLegacyNamespace(n) &&
@@ -185,12 +169,9 @@ export default function NamespaceSelector({
         return {
           value: n.name,
           label: n.label,
-          isDisabled: isFull || isHashMismatch,
-          ...(isFull ? { tooltip: "full" } : {}),
+          isDisabled: isHashMismatch,
         };
       }) as SingleValue[],
-      // Use the unfiltered active set so a full namespace still resolves when
-      // the current experiment is the one occupying all its space.
       selectedNamespace: activeNamespaces.find((n) => n.name === namespace),
       selectedIsDifferentHash:
         !isFallbackMode &&
@@ -201,23 +182,44 @@ export default function NamespaceSelector({
             n.hashAttribute !== effectiveHashAttribute,
         ),
     };
-  }, [
-    allNamespaces,
-    effectiveHashAttribute,
-    isFallbackMode,
-    namespace,
-    namespaceUsage,
-    featureId,
-    trackingKey,
-  ]);
+  }, [allNamespaces, effectiveHashAttribute, isFallbackMode, namespace]);
 
   const persistedGaps = useMemo(
     () => findGaps(namespaceUsage, namespace, featureId, trackingKey),
     [namespaceUsage, namespace, featureId, trackingKey],
   );
+
+  const isOverlapping = useMemo(() => {
+    if (!namespace || ranges.length === 0) return false;
+    return ranges.some(([start, end]) => {
+      let remaining = start;
+      const sorted = [...persistedGaps].sort((a, b) => a.start - b.start);
+      for (const gap of sorted) {
+        if (gap.start > remaining) return true;
+        if (gap.end >= end) return false;
+        remaining = gap.end;
+      }
+      return remaining < end;
+    });
+  }, [namespace, ranges, persistedGaps]);
+
+  // Fires on namespace change or when API data first loads. The ref avoids
+  // making isOverlapping itself a dep (which would fire on every range edit).
+  const isOverlappingRef = useRef(isOverlapping);
+  isOverlappingRef.current = isOverlapping;
+  const isDataLoaded = !!data;
+  useEffect(() => {
+    setAllowOverlap(isOverlappingRef.current);
+  }, [namespace, isDataLoaded]);
+
+  const effectiveGaps = useMemo(
+    () => (allowOverlap ? [{ start: 0, end: 1 }] : persistedGaps),
+    [allowOverlap, persistedGaps],
+  );
+
   const largestAvailableGap = useMemo(
-    () => getLargestGap(subtractSelectedRangesFromGaps(persistedGaps, ranges)),
-    [persistedGaps, ranges],
+    () => getLargestGap(subtractSelectedRangesFromGaps(effectiveGaps, ranges)),
+    [effectiveGaps, ranges],
   );
 
   const getDraftKey = (index: number, field: 0 | 1) => `${index}:${field}`;
@@ -243,7 +245,6 @@ export default function NamespaceSelector({
 
   useEffect(() => {
     if (storedRanges.length > 0 || !legacyRange) return;
-    // Migrate legacy single-range tuple → canonical `ranges` array.
     const current =
       (form.getValues(namespacePath) as NamespaceFormState | undefined) ?? {};
     form.setValue(
@@ -275,7 +276,6 @@ export default function NamespaceSelector({
     }
   }, [namespace, ranges]);
 
-  // Clear namespace when the experiment's hash attribute changes and no longer matches.
   useEffect(() => {
     if (!experimentHashAttribute) return;
     const ns = form.getValues(namespacePath) as NamespaceFormState | undefined;
@@ -306,7 +306,7 @@ export default function NamespaceSelector({
 
   const getAvailableGapsForRange = (index: number) => {
     return subtractSelectedRangesFromGaps(
-      persistedGaps,
+      effectiveGaps,
       ranges.filter((_, rangeIndex) => rangeIndex !== index),
     );
   };
@@ -437,17 +437,12 @@ export default function NamespaceSelector({
               const ns = allNamespaces.find((n) => n.name === option.value);
               const hashAttr =
                 ns?.format === "multiRange" ? ns.hashAttribute : null;
-              const isFull = option.tooltip === "full";
-              const isDisabled = option.isDisabled;
-              const tooltipContent = isFull
-                ? "This namespace is full"
-                : "Namespace and experiment hash attributes must match";
               const row = (
                 <Flex as="div" align="baseline">
                   <span>{option.label}</span>
-                  {(hashAttr || isFull) && (
+                  {hashAttr && (
                     <Text size="small" color="text-mid" ml="auto">
-                      {isDisabled && (
+                      {option.isDisabled && (
                         <PiWarningCircle
                           size={15}
                           style={{
@@ -457,19 +452,17 @@ export default function NamespaceSelector({
                           }}
                         />
                       )}
-                      {isFull ? (
-                        "full"
-                      ) : (
-                        <>
-                          hash attribute: <strong>{hashAttr}</strong>
-                        </>
-                      )}
+                      hash attribute: <strong>{hashAttr}</strong>
                     </Text>
                   )}
                 </Flex>
               );
-              if (!isDisabled) return row;
-              return <Tooltip content={tooltipContent}>{row}</Tooltip>;
+              if (!option.isDisabled) return row;
+              return (
+                <Tooltip content="Namespace and experiment hash attributes must match">
+                  {row}
+                </Tooltip>
+              );
             }}
           />
           {namespace && selectedNamespace && (
@@ -492,12 +485,52 @@ export default function NamespaceSelector({
               />
 
               <Box mt="4">
-                <Flex justify="between" align="center" mb="3">
+                <Flex justify="between" align="center" mb="1">
                   <label>Selected range{ranges.length > 1 ? "s" : ""}</label>
+                  <Checkbox
+                    size="sm"
+                    label="Allow overlap"
+                    value={allowOverlap}
+                    setValue={(v) => {
+                      setAllowOverlap(v);
+                      if (!v && ranges.length > 0) {
+                        const snapped: RangeTuple[] = [];
+                        for (let index = 0; index < ranges.length; index++) {
+                          const range = ranges[index];
+                          const otherRanges = [
+                            ...snapped,
+                            ...ranges.filter((_, i) => i > index),
+                          ];
+                          const available = subtractSelectedRangesFromGaps(
+                            persistedGaps,
+                            otherRanges,
+                          );
+                          if (findContainingGap(available, range[0])) {
+                            snapped[index] = normalizeRangeAfterUpperChange(
+                              range,
+                              range[1],
+                              available,
+                            );
+                          } else {
+                            const largest = getLargestGap(available);
+                            snapped[index] = largest
+                              ? ([largest.start, largest.end] as RangeTuple)
+                              : range;
+                          }
+                        }
+                        form.setValue(namespaceRangesPath, snapped, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        });
+                        setRangeDrafts({});
+                      }
+                    }}
+                  />
                 </Flex>
 
                 {ranges.map((range, index) => {
-                  const showDivider = ranges.length > 1;
+                  const showDivider =
+                    ranges.length > 1 && index < ranges.length - 1;
                   return (
                     <Flex
                       key={index}
@@ -528,7 +561,12 @@ export default function NamespaceSelector({
                           }));
                           const parsed = Number.parseFloat(rawValue);
                           if (!Number.isNaN(parsed)) {
-                            setRangeAtIndex(index, [parsed, range[1]]);
+                            const normalized = normalizeRangeAfterLowerChange(
+                              range,
+                              parsed,
+                              getAvailableGapsForRange(index),
+                            );
+                            setRangeAtIndex(index, normalized);
                           }
                         }}
                         onFocus={(e) => {
@@ -558,7 +596,12 @@ export default function NamespaceSelector({
                           }));
                           const parsed = Number.parseFloat(rawValue);
                           if (!Number.isNaN(parsed)) {
-                            setRangeAtIndex(index, [range[0], parsed]);
+                            const normalized = normalizeRangeAfterUpperChange(
+                              range,
+                              parsed,
+                              getAvailableGapsForRange(index),
+                            );
+                            setRangeAtIndex(index, normalized);
                           }
                         }}
                         onFocus={(e) => {
@@ -581,6 +624,8 @@ export default function NamespaceSelector({
                           color="red"
                           radius="full"
                           size="2"
+                          mr="2"
+                          mt="4"
                           onClick={() => removeRange(index)}
                           aria-label="Remove range"
                         >
