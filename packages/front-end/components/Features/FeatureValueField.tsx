@@ -23,6 +23,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import Text from "@/ui/Text";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -116,7 +117,9 @@ export default function FeatureValueField({
     return (
       <div className={clsx("form-group", { "mb-0": label === undefined })}>
         {label !== undefined && (
-          <label style={{ display: "block" }}>{label}</label>
+          <Text as="label" weight="semibold">
+            {label}
+          </Text>
         )}
         <div>
           <RadioGroup

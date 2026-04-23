@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import Collapsible from "react-collapsible";
-import { PiCaretRightBold } from "react-icons/pi";
+import { PiCaretDown } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { dateNoYear } from "shared/dates";
 import {
   getDraftAffectedEnvironments,
   liveRevisionFromFeature,
@@ -15,13 +15,19 @@ import {
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
 } from "shared/util";
-import Button from "@/ui/Button";
-import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-import { revisionLabelText } from "@/components/Features/RevisionLabel";
-import { isRampGenerated } from "@/components/Features/RevisionStatusBadge";
-import RadioGroup from "@/ui/RadioGroup";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Features/RevisionLabel";
+import RevisionStatusBadge, {
+  isRampGenerated,
+} from "@/components/Features/RevisionStatusBadge";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownSubMenu,
+} from "@/ui/DropdownMenu";
+import EventUser from "@/components/Avatar/EventUser";
 import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
@@ -29,6 +35,8 @@ import { useEnvironments } from "@/services/features";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 export type DraftMode = "existing" | "new" | "publish";
+
+type CurrentOption = "new" | "existing" | "this" | "publish";
 
 export default function DraftSelectorForChanges({
   feature,
@@ -40,9 +48,7 @@ export default function DraftSelectorForChanges({
   setSelectedDraft,
   canAutoPublish,
   gatedEnvSet,
-  defaultExpanded = false,
   hideExisting = false,
-  triggerPrefix = "Changes will be",
 }: {
   feature: FeatureInterface;
   // Un-merged live feature doc; fallback for env state on old sparse live revisions.
@@ -54,24 +60,32 @@ export default function DraftSelectorForChanges({
   setSelectedDraft: (v: number | null) => void;
   canAutoPublish: boolean;
   gatedEnvSet: Set<string> | "all" | "none";
-  defaultExpanded?: boolean;
   hideExisting?: boolean;
+  /** @deprecated no-op; retained for backward compatibility. */
+  defaultExpanded?: boolean;
+  /** @deprecated no-op; retained for backward compatibility. */
   triggerPrefix?: string;
 }) {
-  const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
+  const ctx = useFeatureRevisionsContext();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const activeDrafts = useMemo(
     () =>
-      revisionList.filter(
-        (r) =>
-          !isRampGenerated(r) &&
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-      ),
+      revisionList
+        .filter(
+          (r) =>
+            !isRampGenerated(r) &&
+            (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version),
     [revisionList],
   );
 
+  const currentVersionIsActiveDraft =
+    ctx?.currentVersion != null &&
+    activeDrafts.some((r) => r.version === ctx.currentVersion);
+
   // Use context revisions if available; fetch only when rendered outside FeaturesOverview.
-  const ctx = useFeatureRevisionsContext();
   const draftVersionForFetch =
     mode === "existing" && !ctx
       ? (selectedDraft ?? activeDrafts[0]?.version ?? null)
@@ -135,164 +149,255 @@ export default function DraftSelectorForChanges({
     allEnvironments,
   ]);
 
-  const existingDraftDisclosure = (
-    <Flex
-      direction="column"
-      gap="2"
-      pl="5"
-      pb="1"
-      mb="2"
-      style={{ width: "100%" }}
-    >
-      <RevisionDropdown
-        feature={feature}
-        revisions={revisionList}
-        version={selectedDraft ?? activeDrafts[0]?.version ?? null}
-        setVersion={setSelectedDraft}
-        draftsOnly
-      />
-      {affectedEnvs != null && (
-        <AffectedEnvironmentsBadges
-          label="Affected in this draft:"
-          affectedEnvs={affectedEnvs}
-          allEnvironments={filterEnvironmentsByFeature(
-            allEnvironments,
-            feature,
-          )}
-          gatedEnvSet={approvalScopedEnvSet}
-        />
-      )}
-    </Flex>
+  // Visibility:
+  //  - "Apply now" is shown when canAutoPublish is true. Label gets "(bypass
+  //    approval)" in red when gatedEnvSet !== "none"; otherwise plain "Apply now".
+  //  - "Save to this revision" is shown instead when !canAutoPublish AND the
+  //    currently-viewed revision (from context) is an active draft. It binds
+  //    to mode="existing" + selectedDraft=ctx.currentVersion.
+  const showApplyNow = canAutoPublish;
+  const showThisRevision = !canAutoPublish && currentVersionIsActiveDraft;
+  const showExistingOption = !hideExisting && activeDrafts.length > 0;
+  const isBypass = gatedEnvSet !== "none";
+
+  const selectedExistingRevision = useMemo(
+    () =>
+      mode === "existing"
+        ? revisionList.find(
+            (r) => r.version === (selectedDraft ?? activeDrafts[0]?.version),
+          )
+        : null,
+    [mode, revisionList, selectedDraft, activeDrafts],
   );
 
-  const options = [
-    ...(!hideExisting && activeDrafts.length > 0
-      ? [
-          {
-            value: "existing",
-            label: "Add to existing draft",
-            renderOnSelect: existingDraftDisclosure,
-            renderOutsideItem: true,
-          },
-        ]
-      : []),
-    { value: "new", label: "Create a new draft" },
-    ...(canAutoPublish
-      ? [
-          {
-            value: "publish",
-            label:
-              gatedEnvSet !== "none" ? (
-                <span style={{ color: "var(--red-11)" }}>
-                  Bypass approvals and publish now
-                </span>
-              ) : (
-                "Publish now"
-              ),
-          },
-        ]
-      : []),
-  ];
+  const currentOption: CurrentOption = (() => {
+    if (mode === "new") return "new";
+    if (mode === "publish") return "publish";
+    if (
+      showThisRevision &&
+      selectedDraft != null &&
+      ctx?.currentVersion != null &&
+      selectedDraft === ctx.currentVersion
+    ) {
+      return "this";
+    }
+    return "existing";
+  })();
 
-  const selectedRevision =
-    mode === "existing"
-      ? revisionList.find(
-          (r) => r.version === (selectedDraft ?? activeDrafts[0]?.version),
-        )
-      : null;
+  // Trigger label text shows the current selection
+  const triggerLabel: React.ReactNode = (() => {
+    if (currentOption === "publish") {
+      return isBypass ? (
+        <Text color="text-high">
+          <span style={{ color: "var(--red-11)" }}>
+            Apply now (bypass approval)
+          </span>
+        </Text>
+      ) : (
+        "Apply now"
+      );
+    }
+    if (currentOption === "this") {
+      return "Save to this revision";
+    }
+    if (currentOption === "existing") {
+      const revLabel = selectedExistingRevision
+        ? revisionLabelText(
+            selectedExistingRevision.version,
+            selectedExistingRevision.title,
+            !!selectedExistingRevision.title,
+          )
+        : null;
+      return revLabel
+        ? `Save to existing draft: ${revLabel}`
+        : "Save to existing draft";
+    }
+    return "Save to new draft";
+  })();
 
-  const triggerLabel =
-    mode === "publish" ? (
-      <>
-        {" "}
-        <Text weight="semibold" as="span">
-          published immediately
-        </Text>
-      </>
-    ) : mode === "existing" && selectedRevision != null ? (
-      <>
-        {" added to draft: "}
-        <Text weight="semibold" as="span">
-          {revisionLabelText(
-            selectedRevision.version,
-            selectedRevision.title,
-            !!selectedRevision.title,
-          )}
-        </Text>
-      </>
-    ) : (
-      <>
-        {" added to "}
-        <Text weight="semibold" as="span">
-          a new draft
-        </Text>
-      </>
-    );
+  const handlePickNew = () => {
+    setMode("new");
+    setMenuOpen(false);
+  };
+  const handlePickExisting = (version: number) => {
+    setMode("existing");
+    setSelectedDraft(version);
+    setMenuOpen(false);
+  };
+  const handlePickPublish = () => {
+    setMode("publish");
+    setMenuOpen(false);
+  };
+  const handlePickThisRevision = () => {
+    if (ctx?.currentVersion == null) return;
+    setMode("existing");
+    setSelectedDraft(ctx.currentVersion);
+    setMenuOpen(false);
+  };
 
   const trigger = (
     <Flex
       align="center"
       justify="between"
       gap="3"
-      px="3"
-      py="4"
-      style={{ cursor: "pointer", userSelect: "none" }}
-      className="draft-selector-collapsible-trigger"
+      style={{ overflow: "hidden" }}
+      width="195px"
+      height="24px"
     >
-      <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-        <HelperText status="info">
-          <div
-            className="ml-1"
+      <Box style={{ flex: 1, minWidth: 0 }}>
+        <Text size="small" color="text-high">
+          <span
             style={{
+              display: "block",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
             }}
           >
-            {triggerPrefix}
             {triggerLabel}
-          </div>
-        </HelperText>
+          </span>
+        </Text>
       </Box>
-      <Button
-        variant="ghost"
-        size="xs"
-        onClick={async (e) => {
-          e?.stopPropagation();
-          setIsOpen((v) => !v);
-        }}
-        style={{ marginLeft: -5 }}
-      >
-        <Flex align="center" gap="1">
-          {!isOpen && <span style={{ marginRight: 4 }}>edit</span>}
-          <PiCaretRightBold
-            className="chevron-right"
-            size={14}
-            style={{ margin: "0 -4px" }}
-          />
-        </Flex>
-      </Button>
+      <PiCaretDown style={{ flexShrink: 0 }} />
     </Flex>
   );
 
   return (
-    <Box mb="5" style={{ overflow: "hidden", borderRadius: "var(--radius-4)" }}>
-      <Collapsible
+    <Box width="195px">
+      <DropdownMenu
+        variant="soft"
         trigger={trigger}
-        transitionTime={75}
-        contentInnerClassName="draft-selector-collapsible-content"
-        open={isOpen}
-        handleTriggerClick={() => setIsOpen((v) => !v)}
+        triggerClassName="dropdown-trigger-select-style"
+        menuWidth="full"
+        menuPlacement="start"
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
       >
-        <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
-          <RadioGroup
-            options={options}
-            value={mode}
-            setValue={(v) => setMode(v as DraftMode)}
-            width="100%"
+        <DropdownMenuItem
+          className={currentOption === "new" ? "selected-item" : undefined}
+          onClick={handlePickNew}
+        >
+          Save to new draft
+        </DropdownMenuItem>
+
+        {showExistingOption && (
+          <DropdownSubMenu
+            trigger={
+              <Flex
+                align="center"
+                justify="between"
+                gap="2"
+                style={{ width: "100%" }}
+                className={
+                  currentOption === "existing" ? "selected-item" : undefined
+                }
+              >
+                <span>Save to existing draft</span>
+              </Flex>
+            }
+          >
+            {activeDrafts.map((r) => {
+              const isSelected =
+                mode === "existing" &&
+                (selectedDraft ?? activeDrafts[0]?.version) === r.version;
+              return (
+                <DropdownMenuItem
+                  key={r.version}
+                  className={`multiline-item${isSelected ? " selected-item" : ""}`}
+                  onClick={() => handlePickExisting(r.version)}
+                >
+                  <DraftRow r={r} liveVersion={feature.version} />
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownSubMenu>
+        )}
+
+        {showApplyNow && (
+          <DropdownMenuItem
+            className={
+              currentOption === "publish" ? "selected-item" : undefined
+            }
+            color={isBypass ? "red" : undefined}
+            onClick={handlePickPublish}
+          >
+            {isBypass ? "Apply now (bypass approval)" : "Apply now"}
+          </DropdownMenuItem>
+        )}
+
+        {showThisRevision && (
+          <DropdownMenuItem
+            className={currentOption === "this" ? "selected-item" : undefined}
+            onClick={handlePickThisRevision}
+          >
+            Save to this revision
+          </DropdownMenuItem>
+        )}
+      </DropdownMenu>
+
+      {/* {mode === "existing" && affectedEnvs != null && (
+        <Box mt="2">
+          <AffectedEnvironmentsBadges
+            label="Affected in this draft:"
+            affectedEnvs={affectedEnvs}
+            allEnvironments={filterEnvironmentsByFeature(
+              allEnvironments,
+              feature,
+            )}
+            gatedEnvSet={approvalScopedEnvSet}
           />
         </Box>
-      </Collapsible>
+      )} */}
     </Box>
+  );
+}
+
+function DraftRow({
+  r,
+  liveVersion,
+}: {
+  r: MinimalFeatureRevisionInterface;
+  liveVersion: number;
+}) {
+  const revDate = r.status === "published" ? r.datePublished : r.dateUpdated;
+  return (
+    <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
+      <Box style={{ flex: 1, minWidth: 0 }}>
+        <Text weight="semibold">
+          <span
+            style={{
+              display: "block",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: 400,
+            }}
+            title={revisionLabelText(r.version, r.title)}
+          >
+            <RevisionLabel version={r.version} title={r.title} />
+          </span>
+        </Text>
+      </Box>
+      <Box
+        flexShrink="1"
+        overflow="hidden"
+        style={{ textOverflow: "ellipsis" }}
+      >
+        {(r.createdBy || revDate) && (
+          <Text size="small" color="text-low" whiteSpace="nowrap">
+            {r.createdBy?.type === "system" ? (
+              <em>generated</em>
+            ) : r.createdBy ? (
+              <EventUser user={r.createdBy} display="name" />
+            ) : null}
+            {r.createdBy && revDate && <> &middot; </>}
+            {revDate && dateNoYear(revDate)}
+          </Text>
+        )}
+      </Box>
+      <Box flexShrink="0">
+        <RevisionStatusBadge revision={r} liveVersion={liveVersion} />
+      </Box>
+    </Flex>
   );
 }
