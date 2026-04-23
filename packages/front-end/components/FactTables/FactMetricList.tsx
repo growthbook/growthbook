@@ -7,7 +7,7 @@ import Link from "next/link";
 import { date } from "shared/dates";
 import { Text } from "@radix-ui/themes";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useSearch } from "@/services/search";
+import { tagLinkProps, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
@@ -314,7 +314,11 @@ export default function FactMetricList({
                     </td>
                   )}
                   <td>
-                    <SortedTags tags={metric.tags} useFlex={true} />
+                    <SortedTags
+                      tags={metric.tags}
+                      useFlex={true}
+                      {...tagLinkProps("metrics")}
+                    />
                   </td>
                   <td>
                     {metric.dateUpdated ? date(metric.dateUpdated) : null}

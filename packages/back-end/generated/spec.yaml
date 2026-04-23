@@ -20687,6 +20687,13 @@ components:
                     type: array
                     items:
                       type: number
+                  ranges:
+                    type: array
+                    items:
+                      type: array
+                      prefixItems:
+                        - type: number
+                        - type: number
                 required:
                   - namespaceId
                   - range
@@ -21213,6 +21220,13 @@ components:
                         type: array
                         items:
                           type: number
+                      ranges:
+                        type: array
+                        items:
+                          type: array
+                          prefixItems:
+                            - type: number
+                            - type: number
                     required:
                       - namespaceId
                       - range
@@ -27471,22 +27485,52 @@ components:
                     minBucketVersion:
                       type: number
                     namespace:
-                      type: object
-                      properties:
-                        enabled:
-                          type: boolean
-                        name:
-                          type: string
-                        range:
-                          type: array
-                          prefixItems:
-                            - type: number
-                            - type: number
-                      required:
-                        - enabled
-                        - name
-                        - range
-                      additionalProperties: false
+                      anyOf:
+                        - type: object
+                          properties:
+                            enabled:
+                              type: boolean
+                            name:
+                              type: string
+                            range:
+                              type: array
+                              prefixItems:
+                                - type: number
+                                - type: number
+                            format:
+                              type: string
+                              const: legacy
+                          required:
+                            - enabled
+                            - name
+                            - range
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            enabled:
+                              type: boolean
+                            name:
+                              type: string
+                            ranges:
+                              type: array
+                              items:
+                                type: array
+                                prefixItems:
+                                  - type: number
+                                  - type: number
+                            hashAttribute:
+                              type: string
+                            hashVersion:
+                              type: number
+                            format:
+                              type: string
+                              const: multiRange
+                          required:
+                            - enabled
+                            - name
+                            - ranges
+                            - format
+                          additionalProperties: false
                     coverage:
                       type: number
                     datasource:

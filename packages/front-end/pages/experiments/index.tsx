@@ -302,6 +302,8 @@ const ExperimentsPage = (): React.ReactElement => {
                       filtered={filtered}
                       isFiltered={isFiltered}
                       project={project}
+                      searchValue={searchInputProps.value}
+                      setSearchValue={setSearchValue}
                     />
                   </TabsContent>
                   {["running", "drafts", "stopped", "archived"].map(
@@ -317,6 +319,8 @@ const ExperimentsPage = (): React.ReactElement => {
                             )}
                             isFiltered={isFiltered}
                             project={project}
+                            searchValue={searchInputProps.value}
+                            setSearchValue={setSearchValue}
                           />
                         </TabsContent>
                       );
