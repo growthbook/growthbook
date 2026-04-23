@@ -23,7 +23,7 @@ export type TagProps = {
   variant?: "badge" | "dot";
   maxWidth?: number;
   // Overrides the default text label; LinkedTag uses this to inject a link.
-  label?: React.ReactNode;
+  label?: React.ReactElement | string;
 } & MarginProps;
 
 export default function Tag({
