@@ -1,5 +1,6 @@
 import { getNamespaceValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 import { toApiNamespace } from "./namespaceApiUtils";
 
 export const getNamespace = createApiRequestHandler(getNamespaceValidator)(
@@ -7,7 +8,7 @@ export const getNamespace = createApiRequestHandler(getNamespaceValidator)(
     const namespaces = req.context.org.settings?.namespaces ?? [];
     const ns = namespaces.find((n) => n.name === req.params.id);
     if (!ns) {
-      throw new Error("Namespace not found");
+      throw new NotFoundError("Namespace not found");
     }
     return { namespace: toApiNamespace(ns) };
   },

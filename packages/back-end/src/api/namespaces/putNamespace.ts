@@ -1,5 +1,6 @@
 import { putNamespaceValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { ConflictError, NotFoundError } from "back-end/src/util/errors";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { buildNamespace } from "back-end/src/util/namespaces";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -18,7 +19,7 @@ export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
 
     const target = existing.find((n) => n.name === id);
     if (!target) {
-      throw new Error("Namespace not found.");
+      throw new NotFoundError("Namespace not found.");
     }
 
     if (
@@ -26,7 +27,9 @@ export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
       displayName !== target.label &&
       existing.some((n) => n.name !== id && n.label === displayName)
     ) {
-      throw new Error("A namespace with that display name already exists.");
+      throw new ConflictError(
+        "A namespace with that display name already exists.",
+      );
     }
 
     const existingHashAttribute =

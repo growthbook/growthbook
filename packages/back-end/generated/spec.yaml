@@ -366,11 +366,6 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/NamespaceExperimentMember" />
-  - name: NamespaceFeatureRuleMember_model
-    x-displayName: NamespaceFeatureRuleMember
-    description: >-
-      <SchemaDefinition
-      schemaRef="#/components/schemas/NamespaceFeatureRuleMember" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -12690,7 +12685,7 @@ paths:
       operationId: deleteNamespace
       summary: Delete a namespace
       description: >-
-        Permanently removes a namespace from the organization. Returns a 400
+        Permanently removes a namespace from the organization. Returns a 409
         error if any active experiments or feature flag rules currently
         reference this namespace — remove or disable those references first.
       tags:
@@ -12748,13 +12743,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/NamespaceExperimentMember'
-                  featureRules:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/NamespaceFeatureRuleMember'
                 required:
                   - experiments
-                  - featureRules
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -24386,36 +24376,6 @@ components:
         - trackingKey
         - ranges
       additionalProperties: false
-    NamespaceFeatureRuleMember:
-      type: object
-      properties:
-        featureId:
-          description: The feature flag ID.
-          type: string
-        environment:
-          description: The environment this rule is active in.
-          type: string
-        trackingKey:
-          description: >-
-            The tracking key for the experiment rule. Falls back to the feature
-            ID if not set.
-          type: string
-        ranges:
-          description: >-
-            The ranges claimed within this namespace, as [start, end] pairs
-            between 0 and 1.
-          type: array
-          items:
-            type: array
-            prefixItems:
-              - type: number
-              - type: number
-      required:
-        - featureId
-        - environment
-        - trackingKey
-        - ranges
-      additionalProperties: false
     Dashboard:
       type: object
       properties:
@@ -28480,7 +28440,6 @@ x-tagGroups:
       - MetricUsage_model
       - Namespace_model
       - NamespaceExperimentMember_model
-      - NamespaceFeatureRuleMember_model
       - Organization_model
       - PaginationFields_model
       - Project_model

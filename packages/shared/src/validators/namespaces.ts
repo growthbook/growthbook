@@ -57,23 +57,6 @@ export type ApiNamespaceExperimentMember = z.infer<
   typeof apiNamespaceExperimentMemberValidator
 >;
 
-export const apiNamespaceFeatureRuleMemberValidator = namedSchema(
-  "NamespaceFeatureRuleMember",
-  z.object({
-    featureId: z.string().describe("The feature flag ID."),
-    environment: z.string().describe("The environment this rule is active in."),
-    trackingKey: z
-      .string()
-      .describe(
-        "The tracking key for the experiment rule. Falls back to the feature ID if not set.",
-      ),
-    ranges: rangesTuple,
-  }),
-);
-
-export type ApiNamespaceFeatureRuleMember = z.infer<
-  typeof apiNamespaceFeatureRuleMemberValidator
->;
 
 const nameParams = z
   .object({
@@ -215,7 +198,7 @@ export const deleteNamespaceValidator = {
     .strict(),
   summary: "Delete a namespace",
   description:
-    "Permanently removes a namespace from the organization. Returns a 400 error if any active experiments or feature flag rules currently reference this namespace — remove or disable those references first.",
+    "Permanently removes a namespace from the organization. Returns a 409 error if any active experiments or feature flag rules currently reference this namespace — remove or disable those references first.",
   operationId: "deleteNamespace",
   tags: ["namespaces"],
   method: "delete" as const,
@@ -254,7 +237,6 @@ export const getNamespaceMembershipsValidator = {
   responseSchema: z
     .object({
       experiments: z.array(apiNamespaceExperimentMemberValidator),
-      featureRules: z.array(apiNamespaceFeatureRuleMemberValidator),
     })
     .strict(),
   summary: "Get namespace membership",

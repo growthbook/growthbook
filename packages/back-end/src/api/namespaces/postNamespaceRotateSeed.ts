@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { postNamespaceRotateSeedValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { toApiNamespace } from "./namespaceApiUtils";
@@ -18,11 +19,11 @@ export const postNamespaceRotateSeed = createApiRequestHandler(
 
   const target = existing.find((n) => n.name === id);
   if (!target) {
-    throw new Error("Namespace not found.");
+    throw new NotFoundError("Namespace not found.");
   }
 
   if (target.format !== "multiRange") {
-    throw new Error(
+    throw new BadRequestError(
       "Seed rotation only applies to multiRange namespaces. Legacy namespaces do not use a seed.",
     );
   }
