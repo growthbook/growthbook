@@ -194,6 +194,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
             CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
@@ -203,6 +204,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m0_denominator,
             CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
@@ -216,6 +218,7 @@ describe("productAnalytics", () => {
       SELECT
         dimension0,
         MAX(m0_numerator) AS m0_numerator,
+        MAX(m0_denominator) AS m0_denominator,
         MAX(m1_numerator) AS m1_numerator
       FROM _combined_rollup
       GROUP BY
@@ -322,6 +325,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
             CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
@@ -331,6 +335,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m0_denominator,
             CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
@@ -344,6 +349,7 @@ describe("productAnalytics", () => {
       SELECT
         dimension0,
         MAX(m0_numerator) AS m0_numerator,
+        MAX(m0_denominator) AS m0_denominator,
         MAX(m1_numerator) AS m1_numerator
       FROM _combined_rollup
       GROUP BY
@@ -457,6 +463,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
             CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
@@ -466,6 +473,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m0_denominator,
             CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
@@ -479,6 +487,7 @@ describe("productAnalytics", () => {
       SELECT
         dimension0,
         MAX(m0_numerator) AS m0_numerator,
+        MAX(m0_denominator) AS m0_denominator,
         MAX(m1_numerator) AS m1_numerator
       FROM _combined_rollup
       GROUP BY
@@ -592,6 +601,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
             CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
@@ -601,6 +611,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m0_denominator,
             CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
@@ -614,6 +625,7 @@ describe("productAnalytics", () => {
       SELECT
         dimension0,
         MAX(m0_numerator) AS m0_numerator,
+        MAX(m0_denominator) AS m0_denominator,
         MAX(m1_numerator) AS m1_numerator
       FROM _combined_rollup
       GROUP BY
