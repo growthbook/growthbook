@@ -1,8 +1,6 @@
-import bs58 from "bs58";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { parseIntWithDefault } from "shared/util";
-import normal from "@stdlib/stats/base/dists/normal";
 import { format as formatDate, subDays } from "date-fns";
 import {
   getMetricWindowHours,
@@ -18,21 +16,15 @@ import {
   getAggregateFilters,
   isBinomialMetric,
   getDelayWindowHours,
-  getColumnExpression,
-  isCappableMetricType,
-  getFactTableTemplateVariables,
   isPercentileCappedMetric,
   parseSliceMetricId,
   eligibleForUncappedMetric,
 } from "shared/experiments";
 import {
-  AUTOMATIC_DIMENSION_OTHER_NAME,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
-  NULL_DIMENSION_VALUE,
-  NULL_VARIATION_VALUE,
 } from "shared/constants";
 import {
   generateProductAnalyticsSQL,
@@ -44,11 +36,9 @@ import {
   format,
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
-  buildMinimalOrCondition,
 } from "shared/sql";
 import {
   PhaseSQLVar,
-  SQLVars,
   TemplateVariables,
   FormatDialect,
   DateTruncGranularity,
@@ -73,10 +63,8 @@ import {
   QueryResponse,
   TrackedEventResponseRow,
   ExperimentUnitsQueryResponse,
-  ProcessedDimensions,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentAggregateUnitsQueryParams,
-  UserDimension,
   ExperimentDimension,
   ExternalIdCallback,
   DimensionSlicesQueryResponse,
@@ -131,7 +119,6 @@ import {
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import {
-  DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
   SchemaFormatConfig,
@@ -139,14 +126,12 @@ import {
   AutoFactTableSchemas,
   SchemaFormat,
 } from "shared/types/datasource";
-import { DimensionInterface } from "shared/types/dimension";
 import {
   ExperimentSnapshotSettings,
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import {
-  ColumnRef,
   FactMetricInterface,
   FactTableInterface,
   MetricQuantileSettings,
@@ -159,13 +144,11 @@ import {
   QueryType,
 } from "shared/types/query";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
-import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
-  replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -173,15 +156,56 @@ import { logger } from "back-end/src/util/logger";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
 import {
-  INCREMENTAL_METRICS_TABLE_PREFIX,
-  INCREMENTAL_UNITS_TABLE_PREFIX,
-} from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import {
   ALL_NON_QUANTILE_METRIC_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,
   N_STAR_VALUES,
 } from "back-end/src/services/experimentQueries/constants";
+import { addCaseWhenTimeFilter } from "./sql/add-case-when-time-filter";
+import { addHours } from "./sql/add-hours";
+import { getAggregateMetricColumnLegacyMetrics } from "./sql/aggregate-metric-column-legacy-metrics";
+import { getAlterNewIncrementalUnitsQuery } from "./sql/alter-new-incremental-units-query";
+import { getBanditCaseWhen } from "./sql/bandit-case-when";
+import { getBanditStatisticsCTE } from "./sql/bandit-statistics-cte";
+import { getBanditStatisticsFactMetricCTE } from "./sql/bandit-statistics-fact-metric-cte";
+import { capCoalesceValue } from "./sql/cap-coalesce-value";
+import { getColumnsTopValuesQuery as getColumnsTopValuesQueryStandalone } from "./sql/columns-top-values-query";
+import { castToHllDataType } from "./sql/cast-to-hll-data-type";
+import { castToTimestamp } from "./sql/cast-to-timestamp";
+import { getConversionWindowClause } from "./sql/conversion-window-clause";
+import { getDimensionCTE } from "./sql/dimension-cte";
+import { getDimensionInStatement } from "./sql/dimension-in-statement";
+import { getDimensionValuePerUnit } from "./sql/dimension-value-per-unit";
+import { getDropMetricSourceCovariateTableQuery } from "./sql/drop-metric-source-covariate-table-query";
+import { getDropOldIncrementalUnitsQuery } from "./sql/drop-old-incremental-units-query";
+import { getDropUnitsTableQuery } from "./sql/drop-units-table-query";
+import { encodeMetricIdForColumnName } from "./sql/encode-metric-id-for-column-name";
+import { getExperimentEndDate } from "./sql/experiment-end-date";
+import { getExperimentResultsQuery } from "./sql/experiment-results-query";
+import { getFactMetricCTE } from "./sql/fact-metric-cte";
+import { getFilterColumnsClause } from "./sql/filter-columns-clause";
+import { getFirstVariationValuePerUnit } from "./sql/first-variation-value-per-unit";
+import { getFreeFormQuery } from "./sql/free-form-query";
+import { getIdentitiesCTE } from "./sql/identities-cte";
+import { getMaxHoursToConvert } from "./sql/max-hours-to-convert";
+import { getMetricAnalysisStatisticClauses } from "./sql/metric-analysis-statistic-clauses";
+import { getMetricColumns } from "./sql/metric-columns";
+import { getMetricEnd } from "./sql/metric-end";
+import { getMetricMinDelay } from "./sql/metric-min-delay";
+import { getMetricQueryFormat } from "./sql/metric-query-format";
+import { getMetricStart } from "./sql/metric-start";
+import { percentileCapSelectClause as percentileCapSelectClauseStandalone } from "./sql/percentile-cap-select-clause";
+import { getPipelineValidationInsertQuery } from "./sql/pipeline-validation-insert-query";
+import { getPowerPopulationCTEs } from "./sql/power-population-ctes";
+import { getPowerPopulationSourceCTE } from "./sql/power-population-source-cte";
+import { processActivationMetric } from "./sql/process-activation-metric";
+import { processDimensions } from "./sql/process-dimensions";
+import { getQuantileBoundValues } from "./sql/quantile-bound-values";
+import { getQuantileBoundsFromQueryResponse as quantileBoundsFromQueryResponseSql } from "./sql/quantile-bounds-from-query-response";
+import { quantileColumn } from "./sql/quantile-column";
 import { getSampleUnitsCTE } from "./sql/sample-units-cte";
+import { getSegmentCTE } from "./sql/segment-cte";
+import { toTimestampWithMs } from "./sql/to-timestamp-with-ms";
+import { getUnitCountCTE } from "./sql/unit-count-cte";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -336,30 +360,10 @@ export default abstract class SqlIntegration
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
   }
   toTimestampWithMs(date: Date) {
-    return `'${date.toISOString().substring(0, 23).replace("T", " ")}'`;
+    return toTimestampWithMs(date);
   }
   addHours(col: string, hours: number) {
-    if (!hours) return col;
-    let unit: "hour" | "minute" = "hour";
-    const sign = hours > 0 ? "+" : "-";
-    hours = Math.abs(hours);
-
-    const roundedHours = Math.round(hours);
-    const roundedMinutes = Math.round(hours * 60);
-
-    let amount = roundedHours;
-
-    // If minutes are needed, use them
-    if (roundedMinutes % 60 > 0) {
-      unit = "minute";
-      amount = roundedMinutes;
-    }
-
-    if (amount === 0) {
-      return col;
-    }
-
-    return this.addTime(col, unit, sign, amount);
+    return addHours(this.getSqlHelpers(), col, hours);
   }
   addTime(
     col: string,
@@ -388,10 +392,10 @@ export default abstract class SqlIntegration
     return `CAST(${col} AS DATE)`;
   }
   castToTimestamp(col: string): string {
-    return `CAST(${col} AS TIMESTAMP)`;
+    return castToTimestamp(col);
   }
   castToHllDataType(col: string): string {
-    return `CAST(${col} AS ${this.getDataType("hll")})`;
+    return castToHllDataType(this.getSqlHelpers(), col);
   }
   ensureFloat(col: string): string {
     return col;
@@ -667,26 +671,33 @@ export default abstract class SqlIntegration
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: [
-        params.metric.userIdTypes || [],
-        params.segment ? [params.segment.userIdType || "user_id"] : [],
-      ],
-      from: params.from,
-      to: params.to,
-    });
+    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        objects: [
+          params.metric.userIdTypes || [],
+          params.segment ? [params.segment.userIdType || "user_id"] : [],
+        ],
+        from: params.from,
+        to: params.to,
+      },
+    );
 
     // Get rough date filter for metrics to improve performance
-    const metricStart = this.getMetricStart(
+    const metricStart = getMetricStart(
       params.from,
-      this.getMetricMinDelay([params.metric]),
+      getMetricMinDelay([params.metric]),
       0,
     );
-    const metricEnd = this.getMetricEnd([params.metric], params.to);
+    const metricEnd = getMetricEnd([params.metric], params.to);
 
-    const aggregate = this.getAggregateMetricColumnLegacyMetrics({
-      metric: params.metric,
-    });
+    const aggregate = getAggregateMetricColumnLegacyMetrics(
+      this.getSqlHelpers(),
+      {
+        metric: params.metric,
+      },
+    );
 
     // TODO query is broken if segment has template variables
     return format(
@@ -695,7 +706,8 @@ export default abstract class SqlIntegration
         ${idJoinSQL}
         ${
           params.segment
-            ? `segment as (${this.getSegmentCTE(
+            ? `segment as (${getSegmentCTE(
+                this.getSqlHelpers(),
                 params.segment,
                 baseIdType,
                 idJoinMap,
@@ -810,89 +822,11 @@ export default abstract class SqlIntegration
     factTableMap: FactTableMap;
     segment: SegmentInterface | null;
   }) {
-    switch (settings.sourceType) {
-      case "segment": {
-        if (segment) {
-          const factTable = segment.factTableId
-            ? factTableMap.get(segment.factTableId)
-            : undefined;
-          return `
-          __source AS (${this.getSegmentCTE(
-            segment,
-            settings.userIdType,
-            {}, // no id join map needed as id type is segment id type
-            factTableMap,
-            {
-              startDate: settings.startDate,
-              endDate: settings.endDate ?? undefined,
-              templateVariables: { eventName: factTable?.eventName },
-            },
-          )})`;
-        } else {
-          throw new Error("Segment not found");
-        }
-      }
-      case "factTable": {
-        const factTable = factTableMap.get(settings.sourceId);
-        if (factTable) {
-          const sql = factTable.sql;
-          return compileSqlTemplate(
-            `
-          __source AS (
-            SELECT
-              ${settings.userIdType}
-              , timestamp
-            FROM (
-              ${sql}
-            ) ft
-          )`,
-            {
-              startDate: settings.startDate,
-              endDate: settings.endDate ?? undefined,
-              templateVariables: { eventName: factTable.eventName },
-            },
-          );
-        } else {
-          throw new Error("Fact Table not found");
-        }
-      }
-    }
-  }
-
-  getPowerPopulationCTEs({
-    settings,
-    factTableMap,
-    segment,
-  }: {
-    settings: PopulationDataQuerySettings;
-    factTableMap: FactTableMap;
-    segment: SegmentInterface | null;
-  }): string {
-    const timestampColumn =
-      settings.sourceType === "segment" ? "date" : "timestamp";
-    // BQ datetime cast for SELECT statements (do not use for where)
-    const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
-
-    const firstQuery = this.getPowerPopulationSourceCTE({
+    return getPowerPopulationSourceCTE(this.getSqlHelpers(), {
       settings,
       factTableMap,
       segment,
     });
-
-    return `
-      ${firstQuery}
-      , __experimentUnits AS (
-        SELECT
-          ${settings.userIdType}
-          , MIN(${timestampDateTimeColumn}) AS first_exposure_timestamp
-          , ${this.castToString("''")} as variation
-        FROM
-          __source
-        WHERE
-            ${timestampColumn} >= ${this.toTimestamp(settings.startDate)}
-            AND ${timestampColumn} <= ${this.toTimestamp(settings.endDate)}
-        GROUP BY ${settings.userIdType}
-      ),`;
   }
 
   getMetricAnalysisPopulationCTEs({
@@ -936,7 +870,8 @@ export default abstract class SqlIntegration
     if (settings.populationType === "segment" && segment) {
       // TODO segment missing
       return `
-      __segment as (${this.getSegmentCTE(
+      __segment as (${getSegmentCTE(
+        this.getSqlHelpers(),
         segment,
         settings.userIdType,
         idJoinMap,
@@ -969,18 +904,11 @@ export default abstract class SqlIntegration
     finalDenominatorColumn: string,
     ratioMetric: boolean,
   ): string {
-    return `, COUNT(*) as units
-            , SUM(${finalValueColumn}) as main_sum
-            , SUM(POWER(${finalValueColumn}, 2)) as main_sum_squares
-            ${
-              ratioMetric
-                ? `
-            , SUM(${finalDenominatorColumn}) as denominator_sum
-            , SUM(POWER(${finalDenominatorColumn}, 2)) as denominator_sum_squares
-            , SUM(${finalDenominatorColumn} * ${finalValueColumn}) as main_denominator_sum_product
-            `
-                : ""
-            }`;
+    return getMetricAnalysisStatisticClauses(
+      finalValueColumn,
+      finalDenominatorColumn,
+      ratioMetric,
+    );
   }
 
   getMetricAnalysisQuery(
@@ -996,12 +924,16 @@ export default abstract class SqlIntegration
       //...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
       //settings.segment ? [settings.segment.userIdType || "user_id"] : [],
     ];
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: idTypeObjects,
-      from: settings.startDate,
-      to: settings.endDate ?? undefined,
-      forcedBaseIdType: settings.userIdType,
-    });
+    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        objects: idTypeObjects,
+        from: settings.startDate,
+        to: settings.endDate ?? undefined,
+        forcedBaseIdType: settings.userIdType,
+      },
+    );
 
     const factTable = params.factTableMap.get(
       metric.numerator?.factTableId || "",
@@ -1044,14 +976,14 @@ export default abstract class SqlIntegration
 
     const createHistogram = metric.metricType === "mean";
 
-    const finalValueColumn = this.capCoalesceValue({
+    const finalValueColumn = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: "value",
       metric,
       capTablePrefix: "cap",
       capValueCol: "value_capped",
       columnRef: metric.numerator,
     });
-    const finalDenominatorColumn = this.capCoalesceValue({
+    const finalDenominatorColumn = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: "denominator",
       metric,
       capTablePrefix: "cap",
@@ -1073,7 +1005,7 @@ export default abstract class SqlIntegration
       WITH
         ${idJoinSQL}
         ${populationSQL}
-      __factTable AS (${this.getFactMetricCTE({
+      __factTable AS (${getFactMetricCTE(this.getSqlHelpers(), {
         baseIdType,
         idJoinMap,
         metricsWithIndices: [{ metric: metric, index: 0 }],
@@ -1345,42 +1277,7 @@ export default abstract class SqlIntegration
     row: Record<string, any>,
     prefix: string,
   ) {
-    // Finds the lower and upper bounds that correspond to the largest
-    // nstar that is smaller than the actual quantile n
-    const quantileData: {
-      [key: string]: number;
-    } = {};
-    if (row[`${prefix}quantile`] !== undefined) {
-      quantileData[`${prefix}quantile`] =
-        parseFloat(row[`${prefix}quantile`]) || 0;
-      quantileData[`${prefix}quantile_n`] =
-        parseFloat(row[`${prefix}quantile_n`]) || 0;
-
-      const smallestNStar = Math.min(...N_STAR_VALUES);
-
-      // process grid for quantile data
-      N_STAR_VALUES.forEach((n) => {
-        const lowerColumn = `${prefix}quantile_lower_${n}`;
-        const upperColumn = `${prefix}quantile_upper_${n}`;
-        if (row[lowerColumn] === undefined || row[upperColumn] === undefined)
-          return;
-
-        if (
-          // if nstar is smaller, or if it's the smallest nstar, proceed
-          (n < quantileData[`${prefix}quantile_n`] || n == smallestNStar) &&
-          // if N_STAR_VALUES isn't ascending need to make sure
-          // this n is the largest n we've seen so far
-          n > (Number(quantileData[`${prefix}quantile_nstar`]) || 0)
-        ) {
-          quantileData[`${prefix}quantile_lower`] =
-            parseFloat(row[lowerColumn]) || 0;
-          quantileData[`${prefix}quantile_upper`] =
-            parseFloat(row[upperColumn]) || 0;
-          quantileData[`${prefix}quantile_nstar`] = n;
-        }
-      });
-    }
-    return quantileData;
+    return quantileBoundsFromQueryResponseSql(row, prefix);
   }
 
   async runPopulationFactMetricsQuery(
@@ -1652,8 +1549,7 @@ export default abstract class SqlIntegration
   }
 
   getFreeFormQuery(sql: string, limit?: number): string {
-    const limitedQuery = this.ensureMaxLimit(sql, limit ?? SQL_ROW_LIMIT);
-    return format(limitedQuery, this.getFormatDialect());
+    return getFreeFormQuery(this.getSqlHelpers(), sql, limit);
   }
 
   getTestQuery(params: TestQueryParams): string {
@@ -1703,14 +1599,7 @@ export default abstract class SqlIntegration
   }
 
   getDropUnitsTableQuery(params: DropTableQueryParams): string {
-    // valdidate units table query follows expected name to help
-    // prevent dropping other tables
-    if (!params.fullTablePath.includes(UNITS_TABLE_PREFIX)) {
-      throw new Error(
-        "Unable to drop table that is not temporary units table.",
-      );
-    }
-    return `DROP TABLE IF EXISTS ${params.fullTablePath}`;
+    return getDropUnitsTableQuery(params);
   }
 
   async runDropTableQuery(
@@ -1720,53 +1609,6 @@ export default abstract class SqlIntegration
   ): Promise<DropTableQueryResponse> {
     const results = await this.runQuery(sql, setExternalId, queryMetadata);
     return results;
-  }
-
-  private getIdentitiesCTE({
-    objects,
-    from,
-    to,
-    forcedBaseIdType,
-    experimentId,
-  }: {
-    objects: string[][];
-    from: Date;
-    to?: Date;
-    forcedBaseIdType?: string;
-    experimentId?: string;
-  }) {
-    const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(
-      objects,
-      forcedBaseIdType,
-    );
-
-    // Joins for when an object doesn't support the baseIdType
-    const joins: string[] = [];
-    const idJoinMap: Record<string, string> = {};
-
-    // Generate table names and SQL for each of the required joins
-    joinsRequired.forEach((idType) => {
-      const table = `__identities_${idType.replace(/[^a-zA-Z0-9_]/g, "")}`;
-      idJoinMap[idType] = table;
-      joins.push(
-        `${table} as (
-        ${this.getIdentitiesQuery(
-          this.datasource.settings,
-          baseIdType,
-          idType,
-          from,
-          to,
-          experimentId,
-        )}
-      ),`,
-      );
-    });
-
-    return {
-      baseIdType,
-      idJoinSQL: joins.join("\n"),
-      idJoinMap,
-    };
   }
 
   private getFunnelUsersCTE(
@@ -1819,7 +1661,8 @@ export default abstract class SqlIntegration
           .map((m, i) => {
             const prevAlias = i ? `t${i - 1}` : "initial";
             const alias = `t${i}`;
-            return this.getConversionWindowClause(
+            return getConversionWindowClause(
+              this.getSqlHelpers(),
               `${prevAlias}.timestamp`,
               `${alias}.timestamp`,
               m,
@@ -1830,220 +1673,6 @@ export default abstract class SqlIntegration
           .join("\n AND ")}
       GROUP BY
         initial.${baseIdType}`;
-  }
-
-  private getDimensionValuePerUnit(
-    dimension: UserDimension | ExperimentDimension | null,
-    experimentDimensionPrefix?: string,
-  ) {
-    if (!dimension) {
-      return this.castToString("''");
-    } else if (dimension.type === "user") {
-      return `COALESCE(MAX(${this.castToString(
-        `__dim_unit_${dimension.dimension.id}.value`,
-      )}),'${NULL_DIMENSION_VALUE}')`;
-    } else if (dimension.type === "experiment") {
-      return `SUBSTRING(
-        MIN(
-          CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
-            coalesce(${this.castToString(
-              `e.${experimentDimensionPrefix ?? "dim_"}${dimension.id}`,
-            )}, ${this.castToString(`'${NULL_DIMENSION_VALUE}'`)})
-          )
-        ),
-        20, 
-        99999
-      )`;
-    }
-
-    throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
-  }
-
-  private getFirstVariationValuePerUnit() {
-    return `SUBSTRING(
-        MIN(
-          CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
-            coalesce(${this.castToString(
-              `e.variation`,
-            )}, ${this.castToString(`'${NULL_VARIATION_VALUE}'`)})
-          )
-        ),
-        20, 
-        99999
-      )`;
-  }
-
-  private getConversionWindowClause(
-    baseCol: string,
-    metricCol: string,
-    metric: ExperimentMetricInterface,
-    endDate: Date,
-    overrideConversionWindows: boolean,
-  ): string {
-    let windowHours = getMetricWindowHours(metric.windowSettings);
-    const delayHours = getDelayWindowHours(metric.windowSettings);
-
-    // all metrics have to be after the base timestamp +- delay hours
-    let metricWindow = `${metricCol} >= ${this.addHours(baseCol, delayHours)}`;
-
-    if (
-      metric.windowSettings.type === "conversion" &&
-      !overrideConversionWindows
-    ) {
-      // if conversion window, then count metrics before window ends
-      // which can extend beyond experiment end date
-      metricWindow = `${metricWindow}
-        AND ${metricCol} <= ${this.addHours(
-          baseCol,
-          delayHours + windowHours,
-        )}`;
-    } else {
-      // otherwise, it must be before the experiment end date
-      metricWindow = `${metricWindow}
-      AND ${metricCol} <= ${this.toTimestamp(endDate)}`;
-    }
-
-    if (metric.windowSettings.type === "lookback") {
-      // ensure windowHours is positive
-      windowHours = windowHours < 0 ? windowHours * -1 : windowHours;
-      // also ensure for lookback windows that metric happened in last
-      // X hours of the experiment
-      metricWindow = `${metricWindow}
-      AND ${this.addHours(metricCol, windowHours)} >= ${this.toTimestamp(
-        endDate,
-      )}`;
-    }
-
-    return metricWindow;
-  }
-
-  private getMetricMinDelay(metrics: ExperimentMetricInterface[]) {
-    let runningDelay = 0;
-    let minDelay = 0;
-    metrics.forEach((m) => {
-      if (getDelayWindowHours(m.windowSettings)) {
-        const delay = runningDelay + getDelayWindowHours(m.windowSettings);
-        if (delay < minDelay) minDelay = delay;
-        runningDelay = delay;
-      }
-    });
-    return minDelay;
-  }
-
-  private getMetricStart(
-    initial: Date,
-    minDelay: number,
-    regressionAdjustmentHours: number,
-  ) {
-    const metricStart = new Date(initial);
-    if (minDelay < 0) {
-      metricStart.setHours(metricStart.getHours() + minDelay);
-    }
-    if (regressionAdjustmentHours > 0) {
-      metricStart.setHours(metricStart.getHours() - regressionAdjustmentHours);
-    }
-    return metricStart;
-  }
-
-  private getMetricEnd(
-    metrics: ExperimentMetricInterface[],
-    initial?: Date,
-    overrideConversionWindows?: boolean,
-  ): Date | null {
-    if (!initial) return null;
-    if (overrideConversionWindows) return initial;
-
-    const metricEnd = new Date(initial);
-    let runningHours = 0;
-    let maxHours = 0;
-    metrics.forEach((m) => {
-      if (m.windowSettings.type === "conversion") {
-        const hours =
-          runningHours +
-          getMetricWindowHours(m.windowSettings) +
-          getDelayWindowHours(m.windowSettings);
-        if (hours > maxHours) maxHours = hours;
-        runningHours = hours;
-      }
-    });
-
-    if (maxHours > 0) {
-      metricEnd.setHours(metricEnd.getHours() + maxHours);
-    }
-
-    return metricEnd;
-  }
-
-  private getMaxHoursToConvert(
-    funnelMetric: boolean,
-    metricAndDenominatorMetrics: ExperimentMetricInterface[],
-    activationMetric: ExperimentMetricInterface | null,
-  ): number {
-    // Used to set an experiment end date to filter out users
-    // who have not had enough time to convert (if experimenter
-    // has selected `skipPartialData`)
-    let neededHoursForConversion = 0;
-    metricAndDenominatorMetrics.forEach((m) => {
-      if (m.windowSettings.type === "conversion") {
-        const metricHours =
-          getDelayWindowHours(m.windowSettings) +
-          getMetricWindowHours(m.windowSettings);
-        if (funnelMetric) {
-          // funnel metric windows can cascade, so sum each metric hours to get max
-          neededHoursForConversion += metricHours;
-        } else if (metricHours > neededHoursForConversion) {
-          neededHoursForConversion = metricHours;
-        }
-      }
-    });
-    // activation metrics windows always cascade
-    if (
-      activationMetric &&
-      activationMetric.windowSettings.type == "conversion"
-    ) {
-      neededHoursForConversion +=
-        getDelayWindowHours(activationMetric.windowSettings) +
-        getMetricWindowHours(activationMetric.windowSettings);
-    }
-    return neededHoursForConversion;
-  }
-
-  processDimensions(
-    dimensions: Dimension[],
-    settings: ExperimentSnapshotSettings,
-    activationMetric: ExperimentMetricInterface | null,
-  ): ProcessedDimensions {
-    const processedDimensions: ProcessedDimensions = {
-      unitDimensions: [],
-      experimentDimensions: [],
-      activationDimension: null,
-      dateDimension: null,
-    };
-
-    dimensions.forEach((dimension) => {
-      if (dimension?.type === "activation") {
-        if (activationMetric) {
-          processedDimensions.activationDimension = { type: "activation" };
-        }
-      } else if (dimension?.type === "user") {
-        // Replace any placeholders in the user defined dimension SQL
-        const clonedDimension = cloneDeep<UserDimension>(dimension);
-        clonedDimension.dimension.sql = compileSqlTemplate(
-          dimension.dimension.sql,
-          {
-            startDate: settings.startDate,
-            endDate: settings.endDate,
-            experimentId: settings.experimentId,
-          },
-        );
-        processedDimensions.unitDimensions.push(clonedDimension);
-      } else if (dimension?.type === "experiment") {
-        processedDimensions.experimentDimensions.push(dimension);
-      } else if (dimension?.type === "date") {
-        processedDimensions.dateDimension = dimension;
-      }
-    });
-    return processedDimensions;
   }
 
   createUnitsTableOptions() {
@@ -2085,33 +1714,14 @@ export default abstract class SqlIntegration
     );
   }
 
-  processActivationMetric(
-    activationMetricDoc: null | ExperimentMetricInterface,
-    settings: ExperimentSnapshotSettings,
-  ): null | ExperimentMetricInterface {
-    let activationMetric: null | ExperimentMetricInterface = null;
-    if (activationMetricDoc) {
-      activationMetric =
-        cloneDeep<ExperimentMetricInterface>(activationMetricDoc);
-      applyMetricOverrides(activationMetric, settings);
-    }
-    return activationMetric;
-  }
-
   getDimensionInStatement(dimension: string, values: string[]): string {
-    return this.ifElse(
-      `${this.castToString(dimension)} IN (${values
-        .map((v) => `'` + this.escapeStringLiteral(v) + `'`)
-        .join(",")})`,
-      this.castToString(dimension),
-      this.castToString(`'${AUTOMATIC_DIMENSION_OTHER_NAME}'`),
-    );
+    return getDimensionInStatement(this.getSqlHelpers(), dimension, values);
   }
 
   getPopulationMetricQuery(params: PopulationMetricQueryParams): string {
     const { factTableMap, segment, populationSettings } = params;
     // dimension date?
-    const populationSQL = this.getPowerPopulationCTEs({
+    const populationSQL = getPowerPopulationCTEs(this.getSqlHelpers(), {
       settings: populationSettings,
       factTableMap,
       segment,
@@ -2130,7 +1740,7 @@ export default abstract class SqlIntegration
   ): string {
     const { factTableMap, segment, populationSettings } = params;
 
-    const populationSQL = this.getPowerPopulationCTEs({
+    const populationSQL = getPowerPopulationCTEs(this.getSqlHelpers(), {
       settings: populationSettings,
       factTableMap,
       segment,
@@ -2151,12 +1761,12 @@ export default abstract class SqlIntegration
       factTableMap,
     } = params;
 
-    const activationMetric = this.processActivationMetric(
+    const activationMetric = processActivationMetric(
       activationMetricDoc,
       settings,
     );
 
-    const { experimentDimensions, unitDimensions } = this.processDimensions(
+    const { experimentDimensions, unitDimensions } = processDimensions(
       params.dimensions,
       settings,
       activationMetric,
@@ -2168,22 +1778,28 @@ export default abstract class SqlIntegration
     );
 
     // Get any required identity join queries
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: [
-        [exposureQuery.userIdType],
-        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-        segment ? [segment.userIdType || "user_id"] : [],
-      ],
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId,
-    });
+    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        objects: [
+          [exposureQuery.userIdType],
+          activationMetric
+            ? getUserIdTypes(activationMetric, factTableMap)
+            : [],
+          ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+          segment ? [segment.userIdType || "user_id"] : [],
+        ],
+        from: settings.startDate,
+        to: settings.endDate,
+        forcedBaseIdType: exposureQuery.userIdType,
+        experimentId: settings.experimentId,
+      },
+    );
 
     // Get date range for experiment
     const startDate: Date = settings.startDate;
-    const endDate: Date = this.getExperimentEndDate(settings, 0);
+    const endDate: Date = getExperimentEndDate(settings, 0);
 
     const timestampColumn = "e.timestamp";
     // BQ datetime cast for SELECT statements (do not use for where)
@@ -2238,12 +1854,12 @@ export default abstract class SqlIntegration
             metric: activationMetric,
             baseIdType,
             idJoinMap,
-            startDate: this.getMetricStart(
+            startDate: getMetricStart(
               settings.startDate,
               getDelayWindowHours(activationMetric.windowSettings),
               0,
             ),
-            endDate: this.getMetricEnd(
+            endDate: getMetricEnd(
               [activationMetric],
               settings.endDate,
               overrideConversionWindows,
@@ -2258,7 +1874,8 @@ export default abstract class SqlIntegration
     }
     ${
       segment
-        ? `, __segment as (${this.getSegmentCTE(
+        ? `, __segment as (${getSegmentCTE(
+            this.getSqlHelpers(),
             segment,
             baseIdType,
             idJoinMap,
@@ -2276,7 +1893,7 @@ export default abstract class SqlIntegration
     ${unitDimensions
       .map(
         (d) =>
-          `, __dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
+          `, __dim_unit_${d.dimension.id} as (${getDimensionCTE(
             d.dimension,
             baseIdType,
             idJoinMap,
@@ -2289,7 +1906,7 @@ export default abstract class SqlIntegration
         e.${baseIdType} AS ${baseIdType}
         , ${
           !!settings.banditSettings?.useFirstExposure && settings.banditSettings
-            ? this.getFirstVariationValuePerUnit()
+            ? getFirstVariationValuePerUnit(this.getSqlHelpers())
             : this.ifElse(
                 "count(distinct e.variation) > 1",
                 "'__multiple__'",
@@ -2300,19 +1917,20 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-          , ${this.getDimensionValuePerUnit(d)} AS dim_unit_${d.dimension.id}`,
+          , ${getDimensionValuePerUnit(this.getSqlHelpers(), d)} AS dim_unit_${d.dimension.id}`,
           )
           .join("\n")}
         ${experimentDimensions
           .map(
             (d) => `
-          , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
+          , ${getDimensionValuePerUnit(this.getSqlHelpers(), d)} AS dim_exp_${d.id}`,
           )
           .join("\n")}
         ${
           activationMetric
             ? `, MIN(${this.ifElse(
-                this.getConversionWindowClause(
+                getConversionWindowClause(
+                  this.getSqlHelpers(),
                   "e.timestamp",
                   "a.timestamp",
                   activationMetric,
@@ -2400,23 +2018,27 @@ export default abstract class SqlIntegration
     const computeBanditSrm = !!banditDates && !!variationPeriodWeights;
 
     // Get any required identity join queries
-    const { baseIdType, idJoinSQL } = this.getIdentitiesCTE({
-      // add idTypes usually handled in units query here in the case where
-      // we don't have a separate table for the units query
-      // then for this query we just need the activation metric for activation
-      // dimensions
-      objects: [
-        [exposureQuery.userIdType],
-        !useUnitsTable && activationMetric
-          ? getUserIdTypes(activationMetric, factTableMap)
-          : [],
-        !useUnitsTable && segment ? [segment.userIdType || "user_id"] : [],
-      ],
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId,
-    });
+    const { baseIdType, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        // add idTypes usually handled in units query here in the case where
+        // we don't have a separate table for the units query
+        // then for this query we just need the activation metric for activation
+        // dimensions
+        objects: [
+          [exposureQuery.userIdType],
+          !useUnitsTable && activationMetric
+            ? getUserIdTypes(activationMetric, factTableMap)
+            : [],
+          !useUnitsTable && segment ? [segment.userIdType || "user_id"] : [],
+        ],
+        from: settings.startDate,
+        to: settings.endDate,
+        forcedBaseIdType: exposureQuery.userIdType,
+        experimentId: settings.experimentId,
+      },
+    );
 
     return format(
       `-- Traffic Query for Health Tab
@@ -2571,18 +2193,12 @@ export default abstract class SqlIntegration
     whereClause?: string,
     ensureFloat?: boolean,
   ): string {
-    return ` -- ${dimensionColumn}
-    SELECT
-      variation AS variation
-      , ${dimensionColumn} AS dimension_value
-      , MAX(${this.castToString(`'${dimensionColumn}'`)}) AS dimension_name
-      , ${ensureFloat ? this.ensureFloat("COUNT(*)") : "COUNT(*)"} AS units
-    FROM
-      __distinctUnits
-    ${whereClause ?? ""}
-    GROUP BY
-      variation
-      , ${dimensionColumn}`;
+    return getUnitCountCTE(
+      this.getSqlHelpers(),
+      dimensionColumn,
+      whereClause,
+      ensureFloat,
+    );
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
@@ -2619,7 +2235,7 @@ export default abstract class SqlIntegration
           ${params.dimensions
             .map(
               (d) => `
-            , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
+            , ${getDimensionValuePerUnit(this.getSqlHelpers(), d)} AS dim_exp_${d.id}`,
             )
             .join("\n")}
           , 1 AS variation
@@ -2904,34 +2520,37 @@ export default abstract class SqlIntegration
       )?.index ?? 0;
     const numeratorAlias = `${numeratorSourceIndex === 0 ? "" : numeratorSourceIndex}`;
     const denominatorAlias = `${denominatorSourceIndex === 0 ? "" : denominatorSourceIndex}`;
-    const capCoalesceMetric = this.capCoalesceValue({
+    const capCoalesceMetric = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: `m${numeratorAlias}.${alias}_value`,
       metric,
       capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
-    const capCoalesceDenominator = this.capCoalesceValue({
+    const capCoalesceDenominator = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: `m${denominatorAlias}.${alias}_denominator`,
       metric,
       capTablePrefix: `cap${denominatorAlias}`,
       capValueCol: `${alias}_denominator_cap`,
       columnRef: metric.denominator,
     });
-    const capCoalesceCovariate = this.capCoalesceValue({
+    const capCoalesceCovariate = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: `${covariateTableAlias}${numeratorAlias}.${alias}_covariate_value`,
       metric,
       capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
-    const capCoalesceDenominatorCovariate = this.capCoalesceValue({
-      valueCol: `${covariateTableAlias}${denominatorAlias}.${alias}_covariate_denominator`,
-      metric,
-      capTablePrefix: `cap${denominatorAlias}`,
-      capValueCol: `${alias}_denominator_cap`,
-      columnRef: metric.denominator,
-    });
+    const capCoalesceDenominatorCovariate = capCoalesceValue(
+      this.getSqlHelpers(),
+      {
+        valueCol: `${covariateTableAlias}${denominatorAlias}.${alias}_covariate_denominator`,
+        metric,
+        capTablePrefix: `cap${denominatorAlias}`,
+        capValueCol: `${alias}_denominator_cap`,
+        columnRef: metric.denominator,
+      },
+    );
     const uncappedMetric = {
       ...metric,
       cappingSettings: {
@@ -2939,45 +2558,48 @@ export default abstract class SqlIntegration
         value: 0,
       },
     };
-    const uncappedCoalesceMetric = this.capCoalesceValue({
+    const uncappedCoalesceMetric = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: `m${numeratorAlias}.${alias}_value`,
       metric: uncappedMetric,
       capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
-    const uncappedCoalesceDenominator = this.capCoalesceValue({
+    const uncappedCoalesceDenominator = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: `m${denominatorAlias}.${alias}_denominator`,
       metric: uncappedMetric,
       capTablePrefix: `cap${denominatorAlias}`,
       capValueCol: `${alias}_denominator_cap`,
       columnRef: metric.denominator,
     });
-    const uncappedCoalesceCovariate = this.capCoalesceValue({
+    const uncappedCoalesceCovariate = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: `${covariateTableAlias}${numeratorAlias}.${alias}_covariate_value`,
       metric: uncappedMetric,
       capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
-    const uncappedCoalesceDenominatorCovariate = this.capCoalesceValue({
-      valueCol: `${covariateTableAlias}${denominatorAlias}.${alias}_covariate_denominator`,
-      metric: uncappedMetric,
-      capTablePrefix: `cap${denominatorAlias}`,
-      capValueCol: `${alias}_denominator_cap`,
-      columnRef: metric.denominator,
-    });
+    const uncappedCoalesceDenominatorCovariate = capCoalesceValue(
+      this.getSqlHelpers(),
+      {
+        valueCol: `${covariateTableAlias}${denominatorAlias}.${alias}_covariate_denominator`,
+        metric: uncappedMetric,
+        capTablePrefix: `cap${denominatorAlias}`,
+        capValueCol: `${alias}_denominator_cap`,
+        columnRef: metric.denominator,
+      },
+    );
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
       metric,
     ]);
-    const minMetricDelay = this.getMetricMinDelay(orderedMetrics);
-    const metricStart = this.getMetricStart(
+    const minMetricDelay = getMetricMinDelay(orderedMetrics);
+    const metricStart = getMetricStart(
       settings.startDate,
       minMetricDelay,
       regressionAdjustmentHours,
     );
-    const metricEnd = this.getMetricEnd(
+    const metricEnd = getMetricEnd(
       orderedMetrics,
       settings.endDate,
       overrideConversionWindows,
@@ -2994,7 +2616,7 @@ export default abstract class SqlIntegration
       alias,
     };
 
-    const maxHoursToConvert = this.getMaxHoursToConvert(
+    const maxHoursToConvert = getMaxHoursToConvert(
       funnelMetric,
       [metric],
       activationMetric,
@@ -3098,17 +2720,7 @@ export default abstract class SqlIntegration
   }
 
   getBanditCaseWhen(periods: Date[]) {
-    return `
-        , CASE
-          ${periods
-            .sort((a, b) => b.getTime() - a.getTime())
-            .map((p) => {
-              return `WHEN first_exposure_timestamp >= ${this.toTimestamp(
-                p,
-              )} THEN ${this.toTimestamp(p)}`;
-            })
-            .join("\n")}
-        END AS bandit_period`;
+    return getBanditCaseWhen(this.getSqlHelpers(), periods);
   }
 
   getFactTablesForMetrics(
@@ -3198,7 +2810,7 @@ export default abstract class SqlIntegration
       metric: m,
       index: i,
     }));
-    const activationMetric = this.processActivationMetric(
+    const activationMetric = processActivationMetric(
       params.activationMetric,
       settings,
     );
@@ -3207,7 +2819,7 @@ export default abstract class SqlIntegration
       applyMetricOverrides(m.metric, settings);
     });
     // Replace any placeholders in the user defined dimension SQL
-    const { unitDimensions } = this.processDimensions(
+    const { unitDimensions } = processDimensions(
       params.dimensions,
       settings,
       activationMetric,
@@ -3270,19 +2882,20 @@ export default abstract class SqlIntegration
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
       );
     }
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: idTypeObjects,
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: userIdType,
-      experimentId: settings.experimentId,
-    });
+    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        objects: idTypeObjects,
+        from: settings.startDate,
+        to: settings.endDate,
+        forcedBaseIdType: userIdType,
+        experimentId: settings.experimentId,
+      },
+    );
 
     // Get date range for experiment and analysis
-    const endDate: Date = this.getExperimentEndDate(
-      settings,
-      maxHoursToConvert,
-    );
+    const endDate: Date = getExperimentEndDate(settings, maxHoursToConvert);
 
     const banditDates = settings.banditSettings?.historicalWeights.map(
       (w) => w.date,
@@ -3427,7 +3040,7 @@ export default abstract class SqlIntegration
         .map(
           (f) =>
             `, __factTable${f.index === 0 ? "" : f.index} as (
-          ${this.getFactMetricCTE({
+          ${getFactMetricCTE(this.getSqlHelpers(), {
             baseIdType,
             idJoinMap,
             factTable: f.factTable,
@@ -3452,7 +3065,7 @@ export default abstract class SqlIntegration
                 (data) =>
                   `${
                     data.numeratorSourceIndex === f.index
-                      ? `, ${this.addCaseWhenTimeFilter({
+                      ? `, ${addCaseWhenTimeFilter(this.getSqlHelpers(), {
                           col: `m.${data.alias}_value`,
                           metric: data.metric,
                           overrideConversionWindows:
@@ -3468,7 +3081,7 @@ export default abstract class SqlIntegration
                   }
                   ${
                     data.ratioMetric && data.denominatorSourceIndex === f.index
-                      ? `, ${this.addCaseWhenTimeFilter({
+                      ? `, ${addCaseWhenTimeFilter(this.getSqlHelpers(), {
                           col: `m.${data.alias}_denominator`,
                           metric: data.metric,
                           overrideConversionWindows:
@@ -3914,7 +3527,7 @@ export default abstract class SqlIntegration
     const denominatorMetrics = cloneDeep<MetricInterface[]>(
       denominatorMetricsDocs,
     );
-    const activationMetric = this.processActivationMetric(
+    const activationMetric = processActivationMetric(
       activationMetricDoc,
       settings,
     );
@@ -3923,7 +3536,7 @@ export default abstract class SqlIntegration
     denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
 
     // Replace any placeholders in the user defined dimension SQL
-    const { unitDimensions } = this.processDimensions(
+    const { unitDimensions } = processDimensions(
       params.dimensions,
       settings,
       activationMetric,
@@ -3976,21 +3589,21 @@ export default abstract class SqlIntegration
       ? eligibleForUncappedMetric(denominator)
       : false;
 
-    const capCoalesceMetric = this.capCoalesceValue({
+    const capCoalesceMetric = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: "m.value",
       metric,
       capTablePrefix: "cap",
       columnRef: null,
     });
     const capCoalesceDenominator = denominator
-      ? this.capCoalesceValue({
+      ? capCoalesceValue(this.getSqlHelpers(), {
           valueCol: "d.value",
           metric: denominator,
           capTablePrefix: "capd",
           columnRef: null,
         })
       : "";
-    const capCoalesceCovariate = this.capCoalesceValue({
+    const capCoalesceCovariate = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: "c.value",
       metric: metric,
       capTablePrefix: "cap",
@@ -4019,21 +3632,21 @@ export default abstract class SqlIntegration
         value: 0,
       },
     };
-    const uncappedCoalesceMetric = this.capCoalesceValue({
+    const uncappedCoalesceMetric = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: "m.value",
       metric: uncappedMetric,
       capTablePrefix: "cap",
       columnRef: null,
     });
     const uncappedCoalesceDenominator = uncappedDenominator
-      ? this.capCoalesceValue({
+      ? capCoalesceValue(this.getSqlHelpers(), {
           valueCol: "d.value",
           metric: uncappedDenominator,
           capTablePrefix: "capd",
           columnRef: null,
         })
       : "";
-    const uncappedCoalesceCovariate = this.capCoalesceValue({
+    const uncappedCoalesceCovariate = capCoalesceValue(this.getSqlHelpers(), {
       valueCol: "c.value",
       metric: uncappedCovariate,
       capTablePrefix: "cap",
@@ -4043,13 +3656,13 @@ export default abstract class SqlIntegration
     const orderedMetrics = (activationMetric ? [activationMetric] : [])
       .concat(denominatorMetrics)
       .concat([metric]);
-    const minMetricDelay = this.getMetricMinDelay(orderedMetrics);
-    const metricStart = this.getMetricStart(
+    const minMetricDelay = getMetricMinDelay(orderedMetrics);
+    const metricStart = getMetricStart(
       settings.startDate,
       minMetricDelay,
       regressionAdjustmentHours,
     );
-    const metricEnd = this.getMetricEnd(
+    const metricEnd = getMetricEnd(
       orderedMetrics,
       settings.endDate,
       overrideConversionWindows,
@@ -4070,18 +3683,22 @@ export default abstract class SqlIntegration
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
       );
     }
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: idTypeObjects,
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: userIdType,
-      experimentId: settings.experimentId,
-    });
+    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        objects: idTypeObjects,
+        from: settings.startDate,
+        to: settings.endDate,
+        forcedBaseIdType: userIdType,
+        experimentId: settings.experimentId,
+      },
+    );
 
     // Get date range for experiment and analysis
-    const endDate: Date = this.getExperimentEndDate(
+    const endDate: Date = getExperimentEndDate(
       settings,
-      this.getMaxHoursToConvert(
+      getMaxHoursToConvert(
         funnelMetric,
         [metric].concat(denominatorMetrics),
         activationMetric,
@@ -4210,7 +3827,7 @@ export default abstract class SqlIntegration
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
           , d.${baseIdType} AS ${baseIdType}
-          , ${this.addCaseWhenTimeFilter({
+          , ${addCaseWhenTimeFilter(this.getSqlHelpers(), {
             col: "m.value",
             metric,
             overrideConversionWindows,
@@ -4231,7 +3848,7 @@ export default abstract class SqlIntegration
           ${dimensionCols.map((c) => `, umj.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, umj.bandit_period AS bandit_period` : ""}
           , umj.${baseIdType}
-          , ${this.getAggregateMetricColumnLegacyMetrics({
+          , ${getAggregateMetricColumnLegacyMetrics(this.getSqlHelpers(), {
             metric,
           })} as value
         FROM
@@ -4279,16 +3896,20 @@ export default abstract class SqlIntegration
                     : ""
                 }
                 , d.${baseIdType} AS ${baseIdType}
-                , ${this.getAggregateMetricColumnLegacyMetrics({
-                  metric: denominator,
-                })} as value
+                , ${getAggregateMetricColumnLegacyMetrics(
+                  this.getSqlHelpers(),
+                  {
+                    metric: denominator,
+                  },
+                )} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
                   m.${baseIdType} = d.${baseIdType}
                 )
               WHERE
-                ${this.getConversionWindowClause(
+                ${getConversionWindowClause(
+                  this.getSqlHelpers(),
                   "d.timestamp",
                   "m.timestamp",
                   denominator,
@@ -4337,12 +3958,14 @@ export default abstract class SqlIntegration
             d.variation AS variation
             ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
             , d.${baseIdType} AS ${baseIdType}
-            , ${this.getAggregateMetricColumnLegacyMetrics({ metric })} as value
+            , ${getAggregateMetricColumnLegacyMetrics(this.getSqlHelpers(), {
+              metric,
+            })} as value
           FROM
             __distinctUsers d
-          JOIN __metric m ON (
-            m.${baseIdType} = d.${baseIdType}
-          )
+            JOIN __metric m ON (
+              m.${baseIdType} = d.${baseIdType}
+            )
           WHERE 
             m.timestamp >= d.preexposure_start
             AND m.timestamp < d.preexposure_end
@@ -4356,7 +3979,7 @@ export default abstract class SqlIntegration
       }
   ${
     banditDates?.length
-      ? this.getBanditStatisticsCTE({
+      ? getBanditStatisticsCTE(this.getSqlHelpers(), {
           baseIdType,
           metricData: [
             {
@@ -4487,289 +4110,15 @@ export default abstract class SqlIntegration
     ignoreNulls?: boolean;
     denominatorIsPercentileCapped?: boolean;
   }): string {
-    return `-- One row per variation/dimension with aggregations
-  , __banditPeriodStatistics AS (
-    SELECT
-      m.variation AS variation
-      ${dimensionCols.map((d) => `, m.${d.alias} AS ${d.alias}`).join("")}
-      , m.bandit_period AS bandit_period
-      , ${this.ensureFloat(`COUNT(*)`)} AS users
-      ${metricData
-        .map((data) => {
-          const alias = data.alias;
-          return `
-        ${
-          data.isPercentileCapped
-            ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
-            : ""
-        }
-        , ${this.ensureFloat(
-          `SUM(${data.capCoalesceMetric})`,
-        )} AS ${alias}main_sum
-        , ${this.ensureFloat(
-          `SUM(POWER(${data.capCoalesceMetric}, 2))`,
-        )} AS ${alias}main_sum_squares
-        ${
-          data.ratioMetric
-            ? `
-          ${
-            denominatorIsPercentileCapped
-              ? `, MAX(COALESCE(capd.${alias}value_cap, 0)) as ${alias}denominator_cap_value`
-              : ""
-          }
-          , ${this.ensureFloat(
-            `SUM(${data.capCoalesceDenominator})`,
-          )} AS ${alias}denominator_sum
-          , ${this.ensureFloat(
-            `SUM(POWER(${data.capCoalesceDenominator}, 2))`,
-          )} AS ${alias}denominator_sum_squares
-          , ${this.ensureFloat(
-            `SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric})`,
-          )} AS ${alias}main_denominator_sum_product
-        `
-            : ""
-        }
-        ${
-          data.regressionAdjusted
-            ? `
-          , ${this.ensureFloat(
-            `SUM(${data.capCoalesceCovariate})`,
-          )} AS ${alias}covariate_sum
-          , ${this.ensureFloat(
-            `SUM(POWER(${data.capCoalesceCovariate}, 2))`,
-          )} AS ${alias}covariate_sum_squares
-          , ${this.ensureFloat(
-            `SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate})`,
-          )} AS ${alias}main_covariate_sum_product
-          `
-            : ""
-        }`;
-        })
-        .join("\n")}
-    FROM
-      __userMetricAgg m
-    ${
-      metricData[0]?.ratioMetric
-        ? `LEFT JOIN __userDenominatorAgg d ON (
-            d.${baseIdType} = m.${baseIdType}
-          )
-          ${
-            denominatorIsPercentileCapped
-              ? "CROSS JOIN __capValueDenominator capd"
-              : ""
-          }`
-        : ""
-    }
-    ${
-      hasRegressionAdjustment
-        ? `
-        LEFT JOIN __userCovariateMetric c
-        ON (c.${baseIdType} = m.${baseIdType})
-        `
-        : ""
-    }
-    ${hasCapping ? `CROSS JOIN __capValue cap` : ""}
-    ${ignoreNulls ? `WHERE m.value != 0` : ""}
-    GROUP BY
-      m.variation
-      , m.bandit_period
-      ${dimensionCols.map((d) => `, m.${d.alias}`).join("")}
-  ),
-  __dimensionTotals AS (
-    SELECT
-      ${this.ensureFloat(`SUM(users)`)} AS total_users
-      ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
-    FROM 
-      __banditPeriodStatistics
-    GROUP BY
-      ${dimensionCols.map((d) => `${d.alias}`).join(", ")}
-  ),
-  __banditPeriodWeights AS (
-    SELECT
-      bps.bandit_period AS bandit_period
-      ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
-      , SUM(bps.users) / MAX(dt.total_users) AS weight
-      ${metricData
-        .map((data) => {
-          const alias = data.alias;
-          return `
-      ${
-        data.regressionAdjusted
-          ? `
-          , ${this.ifElse(
-            `(SUM(bps.users) - 1) <= 0`,
-            "0",
-            `(
-              SUM(bps.${alias}covariate_sum_squares) - 
-              POWER(SUM(bps.${alias}covariate_sum), 2) / SUM(bps.users)
-            ) / (SUM(bps.users) - 1)`,
-          )} AS ${alias}period_pre_variance
-          , ${this.ifElse(
-            `(SUM(bps.users) - 1) <= 0`,
-            "0",
-            `(
-              SUM(bps.${alias}main_covariate_sum_product) - 
-              SUM(bps.${alias}covariate_sum) * SUM(bps.${alias}main_sum) / SUM(bps.users)
-            ) / (SUM(bps.users) - 1)`,
-          )} AS ${alias}period_covariance
-        `
-          : ""
-      }`;
-        })
-        .join("\n")}
-    FROM 
-      __banditPeriodStatistics bps
-    LEFT JOIN __dimensionTotals dt ON
-      (${dimensionCols
-        .map((d) => `bps.${d.alias} = dt.${d.alias}`)
-        .join(" AND ")})
-    GROUP BY
-      bps.bandit_period
-      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
-  )
-  ${
-    hasRegressionAdjustment
-      ? `
-      , __theta AS (
-      SELECT
-        ${dimensionCols.map((d) => `${d.alias} AS ${d.alias}`).join(", ")}
-      ${metricData
-        .map((data) => {
-          const alias = data.alias;
-          return `
-      ${
-        data.regressionAdjusted
-          ? `
-
-          , ${this.ifElse(
-            `SUM(POWER(weight, 2) * ${alias}period_pre_variance) <= 0`,
-            "0",
-            `SUM(POWER(weight, 2) * ${alias}period_covariance) / 
-          SUM(POWER(weight, 2) * ${alias}period_pre_variance)`,
-          )} AS ${alias}theta
-        `
-          : ""
-      }`;
-        })
-        .join("\n")}
-      FROM
-        __banditPeriodWeights
-      GROUP BY
-        ${dimensionCols.map((d) => `${d.alias}`).join(", ")}  
-      )
-    `
-      : ""
-  }
-  SELECT
-    bps.variation
-    ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
-    , SUM(bps.users) AS users
-    ${metricData
-      .map((data) => {
-        const alias = data.alias;
-        return `
-    , ${this.castToString(`'${data.id}'`)} as ${alias}id
-    , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
-    , SUM(bps.users) * (SUM(
-      ${this.ifElse(
-        "bps.users <= 1",
-        "0",
-        `POWER(bpw.weight, 2) * ((
-        bps.${alias}main_sum_squares - POWER(bps.${alias}main_sum, 2) / bps.users
-      ) / (bps.users - 1)) / bps.users
-    `,
-      )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}main_sum / bps.users), 2)) as ${alias}main_sum_squares
-    ${
-      data.ratioMetric
-        ? `
-      , SUM(bpw.weight * bps.${alias}denominator_sum / bps.users) * SUM(bps.users) AS ${alias}denominator_sum
-      , SUM(bps.users) * (SUM(
-      ${this.ifElse(
-        "bps.users <= 1",
-        "0",
-        `POWER(bpw.weight, 2) * ((
-          (bps.${alias}denominator_sum_squares - POWER(bps.${alias}denominator_sum, 2) / bps.users) / (bps.users - 1))
-        ) / bps.users
-      `,
-      )}) * (SUM(bps.users) - 1) + POWER(
-        SUM(bpw.weight * bps.${alias}denominator_sum / bps.users), 2)
-      ) AS ${alias}denominator_sum_squares
-      , SUM(bps.users) * (
-          (SUM(bps.users) - 1) * SUM(
-            ${this.ifElse(
-              "bps.users <= 1",
-              "0",
-              `
-            POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
-              bps.${alias}main_denominator_sum_product - bps.${alias}main_sum * bps.${alias}denominator_sum / bps.users
-            )
-          `,
-            )}) +
-          (
-            SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}denominator_sum / bps.users)
-          )
-        ) AS ${alias}main_denominator_sum_product`
-        : ""
-    }
-    ${
-      data.regressionAdjusted
-        ? `
-      , SUM(bpw.weight * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS ${alias}covariate_sum
-      , SUM(bps.users) * (SUM(
-      ${this.ifElse(
-        "bps.users <= 1",
-        "0",
-        `POWER(bpw.weight, 2) * ((
-          (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1))
-        ) / bps.users
-      `,
-      )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
-      , SUM(bps.users) * (
-          (SUM(bps.users) - 1) * SUM(
-            ${this.ifElse(
-              "bps.users <= 1",
-              "0",
-              `
-            POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
-              bps.${alias}main_covariate_sum_product - bps.${alias}main_sum * bps.${alias}covariate_sum / bps.users
-            )
-          `,
-            )}) +
-          (
-            SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
-          )
-        ) AS ${alias}main_covariate_sum_product
-      , MAX(t.${alias}theta) AS ${alias}theta
-        `
-        : ""
-    }`;
-      })
-      .join("\n")}
-  FROM 
-    __banditPeriodStatistics bps
-  LEFT JOIN
-    __banditPeriodWeights bpw
-    ON (
-      bps.bandit_period = bpw.bandit_period 
-      ${dimensionCols
-        .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
-        .join("\n")}
-    )
-  ${
-    hasRegressionAdjustment
-      ? `
-    LEFT JOIN
-      __theta t
-      ON (${dimensionCols
-        .map((d) => `bps.${d.alias} = t.${d.alias}`)
-        .join(" AND ")})
-    `
-      : ""
-  }
-  GROUP BY
-    bps.variation
-    ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
-  `;
+    return getBanditStatisticsCTE(this.getSqlHelpers(), {
+      baseIdType,
+      metricData,
+      dimensionCols,
+      hasRegressionAdjustment,
+      hasCapping,
+      ignoreNulls,
+      denominatorIsPercentileCapped,
+    });
   }
 
   getBanditStatisticsFactMetricCTE({
@@ -4787,322 +4136,18 @@ export default abstract class SqlIntegration
     regressionAdjustedTableIndices: Set<number>;
     percentileTableIndices: Set<number>;
   }): string {
-    return `
-    -- One row per variation/dimension with aggregations
-    , __banditPeriodStatistics AS (
-      SELECT
-        m.variation AS variation
-        ${dimensionCols.map((d) => `, m.${d.alias} AS ${d.alias}`).join("")}
-        , m.bandit_period AS bandit_period
-        , ${this.ensureFloat(`COUNT(*)`)} AS users
-        ${metricData
-          .map((data) => {
-            const alias = data.alias + "_";
-            const numeratorSourceSuffix =
-              data.numeratorSourceIndex === 0 ? "" : data.numeratorSourceIndex;
-            const denominatorSourceSuffix =
-              data.denominatorSourceIndex === 0
-                ? ""
-                : data.denominatorSourceIndex;
-            return `
-          ${
-            data.isPercentileCapped
-              ? `, MAX(COALESCE(cap${numeratorSourceSuffix}.${alias}value_cap, 0)) AS ${alias}main_cap_value`
-              : ""
-          }
-          , ${this.ensureFloat(
-            `SUM(${data.capCoalesceMetric})`,
-          )} AS ${alias}main_sum
-          , ${this.ensureFloat(
-            `SUM(POWER(${data.capCoalesceMetric}, 2))`,
-          )} AS ${alias}main_sum_squares
-          ${
-            data.ratioMetric
-              ? `
-            ${
-              data.isPercentileCapped
-                ? `, MAX(COALESCE(cap${denominatorSourceSuffix}.${alias}denominator_cap, 0)) as ${alias}denominator_cap_value`
-                : ""
-            }
-            , ${this.ensureFloat(
-              `SUM(${data.capCoalesceDenominator})`,
-            )} AS ${alias}denominator_sum
-            , ${this.ensureFloat(
-              `SUM(POWER(${data.capCoalesceDenominator}, 2))`,
-            )} AS ${alias}denominator_sum_squares
-            , ${this.ensureFloat(
-              `SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric})`,
-            )} AS ${alias}main_denominator_sum_product
-          `
-              : ""
-          }
-          ${
-            data.regressionAdjusted
-              ? `
-            , ${this.ensureFloat(
-              `SUM(${data.capCoalesceCovariate})`,
-            )} AS ${alias}covariate_sum
-            , ${this.ensureFloat(
-              `SUM(POWER(${data.capCoalesceCovariate}, 2))`,
-            )} AS ${alias}covariate_sum_squares
-            , ${this.ensureFloat(
-              `SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate})`,
-            )} AS ${alias}main_covariate_sum_product
-            `
-              : ""
-          }`;
-          })
-          .join("\n")}
-      FROM
-        __userMetricAgg m
-      ${factTablesWithIndices
-        .map(({ factTable: _, index }) => {
-          const suffix = `${index === 0 ? "" : index}`;
-          return `
-        ${
-          index === 0
-            ? ""
-            : `LEFT JOIN __userMetricAgg${suffix} m${suffix} ON (
-          m${suffix}.${baseIdType} = m.${baseIdType}
-        )`
-        }
-        ${
-          percentileTableIndices.has(index)
-            ? `
-          CROSS JOIN __capValue${suffix} cap${suffix}
-        `
-            : ""
-        }
-      `;
-        })
-        .join("\n")}
-      GROUP BY
-        m.variation
-        , m.bandit_period
-        ${dimensionCols.map((d) => `, m.${d.alias}`).join("")}
-    ),
-    __dimensionTotals AS (
-      SELECT
-        ${this.ensureFloat(`SUM(users)`)} AS total_users
-        ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
-      FROM 
-        __banditPeriodStatistics
-      GROUP BY
-        ${dimensionCols.map((d) => `${d.alias}`).join(" AND ")}
-    ),
-    __banditPeriodWeights AS (
-      SELECT
-        bps.bandit_period AS bandit_period
-        ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
-        , SUM(bps.users) / MAX(dt.total_users) AS weight
-        ${metricData
-          .map((data) => {
-            const alias = data.alias + "_";
-            return `
-        ${
-          data.regressionAdjusted
-            ? `
-            , ${this.ifElse(
-              `(SUM(bps.users) - 1) <= 0`,
-              "0",
-              `(
-                SUM(bps.${alias}covariate_sum_squares) - 
-                POWER(SUM(bps.${alias}covariate_sum), 2) / SUM(bps.users)
-              ) / (SUM(bps.users) - 1)`,
-            )} AS ${alias}period_pre_variance
-            , ${this.ifElse(
-              `(SUM(bps.users) - 1) <= 0`,
-              "0",
-              `(
-                SUM(bps.${alias}main_covariate_sum_product) - 
-                SUM(bps.${alias}covariate_sum) * SUM(bps.${alias}main_sum) / SUM(bps.users)
-              ) / (SUM(bps.users) - 1)`,
-            )} AS ${alias}period_covariance
-          `
-            : ""
-        }`;
-          })
-          .join("\n")}
-      FROM 
-        __banditPeriodStatistics bps
-      LEFT JOIN __dimensionTotals dt ON
-        (${dimensionCols
-          .map((d) => `bps.${d.alias} = dt.${d.alias}`)
-          .join(" AND ")})
-      GROUP BY
-        bps.bandit_period
-        ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
-    )
-    ${
-      regressionAdjustedTableIndices.size > 0
-        ? `
-        , __theta AS (
-        SELECT
-          ${dimensionCols.map((d) => `${d.alias} AS ${d.alias}`).join(", ")}
-        ${metricData
-          .map((data) => {
-            const alias = data.alias + "_";
-            return `
-        ${
-          data.regressionAdjusted
-            ? `
-
-            , ${this.ifElse(
-              `SUM(POWER(weight, 2) * ${alias}period_pre_variance) <= 0`,
-              "0",
-              `SUM(POWER(weight, 2) * ${alias}period_covariance) / 
-            SUM(POWER(weight, 2) * ${alias}period_pre_variance)`,
-            )} AS ${alias}theta
-          `
-            : ""
-        }`;
-          })
-          .join("\n")}
-        FROM
-          __banditPeriodWeights
-        GROUP BY
-          ${dimensionCols.map((d) => `${d.alias}`).join(", ")}  
-        )
-      `
-        : ""
-    }
-    SELECT
-      bps.variation
-      ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
-      , SUM(bps.users) AS users
-      ${metricData
-        .map((data) => {
-          const alias = data.alias + "_";
-          return `
-      , ${this.castToString(`'${data.id}'`)} as ${alias}id
-      , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
-      , SUM(bps.users) * (SUM(
-        ${this.ifElse(
-          "bps.users <= 1",
-          "0",
-          `POWER(bpw.weight, 2) * ((
-          bps.${alias}main_sum_squares - POWER(bps.${alias}main_sum, 2) / bps.users
-        ) / (bps.users - 1)) / bps.users
-      `,
-        )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}main_sum / bps.users), 2)) as ${alias}main_sum_squares
-      ${
-        data.ratioMetric
-          ? `
-        , SUM(bpw.weight * bps.${alias}denominator_sum / bps.users) * SUM(bps.users) AS ${alias}denominator_sum
-        , SUM(bps.users) * (SUM(
-        ${this.ifElse(
-          "bps.users <= 1",
-          "0",
-          `POWER(bpw.weight, 2) * ((
-            (bps.${alias}denominator_sum_squares - POWER(bps.${alias}denominator_sum, 2) / bps.users) / (bps.users - 1))
-          ) / bps.users
-        `,
-        )}) * (SUM(bps.users) - 1) + POWER(
-          SUM(bpw.weight * bps.${alias}denominator_sum / bps.users), 2)
-        ) AS ${alias}denominator_sum_squares
-        , SUM(bps.users) * (
-            (SUM(bps.users) - 1) * SUM(
-              ${this.ifElse(
-                "bps.users <= 1",
-                "0",
-                `
-              POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
-                bps.${alias}main_denominator_sum_product - bps.${alias}main_sum * bps.${alias}denominator_sum / bps.users
-              )
-            `,
-              )}) +
-            (
-              SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}denominator_sum / bps.users)
-            )
-          ) AS ${alias}main_denominator_sum_product`
-          : ""
-      }
-      ${
-        data.regressionAdjusted
-          ? `
-        , SUM(bpw.weight * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS ${alias}covariate_sum
-        , SUM(bps.users) * (SUM(
-        ${this.ifElse(
-          "bps.users <= 1",
-          "0",
-          `POWER(bpw.weight, 2) * ((
-            (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1))
-          ) / bps.users
-        `,
-        )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
-        , SUM(bps.users) * (
-            (SUM(bps.users) - 1) * SUM(
-              ${this.ifElse(
-                "bps.users <= 1",
-                "0",
-                `
-              POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
-                bps.${alias}main_covariate_sum_product - bps.${alias}main_sum * bps.${alias}covariate_sum / bps.users
-              )
-            `,
-              )}) +
-            (
-              SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
-            )
-          ) AS ${alias}main_covariate_sum_product
-        , MAX(t.${alias}theta) AS ${alias}theta
-          `
-          : ""
-      }`;
-        })
-        .join("\n")}
-    FROM 
-      __banditPeriodStatistics bps
-    LEFT JOIN
-      __banditPeriodWeights bpw
-      ON (
-        bps.bandit_period = bpw.bandit_period 
-        ${dimensionCols
-          .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
-          .join("\n")}
-      )
-    ${
-      regressionAdjustedTableIndices.size > 0
-        ? `
-      LEFT JOIN
-        __theta t
-        ON (${dimensionCols
-          .map((d) => `bps.${d.alias} = t.${d.alias}`)
-          .join(" AND ")})
-      `
-        : ""
-    }
-    GROUP BY
-      bps.variation
-      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
-    `;
-  }
-
-  getQuantileBoundValues(
-    quantile: number,
-    alpha: number,
-    nstar: number,
-  ): { lower: number; upper: number } {
-    const multiplier = normal.quantile(1 - alpha / 2, 0, 1);
-    const binomialSE = Math.sqrt((quantile * (1 - quantile)) / nstar);
-    return {
-      lower: Math.max(quantile - multiplier * binomialSE, 0.00000001),
-      upper: Math.min(quantile + multiplier * binomialSE, 0.99999999),
-    };
+    return getBanditStatisticsFactMetricCTE(this.getSqlHelpers(), {
+      baseIdType,
+      metricData,
+      dimensionCols,
+      factTablesWithIndices,
+      regressionAdjustedTableIndices,
+      percentileTableIndices,
+    });
   }
 
   approxQuantile(value: string, quantile: string | number): string {
     return `APPROX_PERCENTILE(${value}, ${quantile})`;
-  }
-
-  quantileColumn(
-    valueCol: string,
-    outputCol: string,
-    quantile: string | number,
-  ): string {
-    // note: no need to ignore zeros in the next two methods
-    // since we remove them for quantile metrics in userMetricJoin
-    return `${this.approxQuantile(valueCol, quantile)} AS ${outputCol}`;
   }
 
   percentileCapSelectClause(
@@ -5116,71 +4161,16 @@ export default abstract class SqlIntegration
     metricTable: string,
     where: string = "",
   ) {
-    return `
-      SELECT
-        ${values
-          .map(({ valueCol, outputCol, percentile, ignoreZeros }) => {
-            const value = ignoreZeros
-              ? this.ifElse(`${valueCol} = 0`, "NULL", valueCol)
-              : valueCol;
-            return this.quantileColumn(value, outputCol, percentile);
-          })
-          .join(",\n")}
-      FROM ${metricTable}
-      ${where}
-      `;
+    return percentileCapSelectClauseStandalone(
+      this.getSqlHelpers(),
+      values,
+      metricTable,
+      where,
+    );
   }
 
-  private capCoalesceValue({
-    valueCol,
-    metric,
-    capTablePrefix = "c",
-    capValueCol = "value_cap",
-    columnRef,
-  }: {
-    valueCol: string;
-    metric: ExperimentMetricInterface;
-    capTablePrefix?: string;
-    capValueCol?: string;
-    columnRef?: ColumnRef | null;
-  }): string {
-    // Assumes cappable metrics do not have aggregate filters
-    // which is true for now
-    if (
-      metric?.cappingSettings.type === "absolute" &&
-      metric.cappingSettings.value &&
-      isCappableMetricType(metric)
-    ) {
-      return `LEAST(
-        ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
-        ${metric.cappingSettings.value}
-      )`;
-    }
-    if (
-      metric?.cappingSettings.type === "percentile" &&
-      metric.cappingSettings.value &&
-      metric.cappingSettings.value < 1 &&
-      isCappableMetricType(metric)
-    ) {
-      return `LEAST(
-        ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
-        ${capTablePrefix}.${capValueCol}
-      )`;
-    }
-
-    const filters = getAggregateFilters({
-      columnRef: columnRef || null,
-      column: valueCol,
-      ignoreInvalid: true,
-    });
-    if (filters.length) {
-      valueCol = `(CASE WHEN ${filters.join(" AND ")} THEN 1 ELSE NULL END)`;
-    }
-
-    return `COALESCE(${valueCol}, 0)`;
-  }
   getExperimentResultsQuery(): string {
-    throw new Error("Not implemented");
+    return getExperimentResultsQuery();
   }
   async getExperimentResults(): Promise<ExperimentQueryResponses> {
     throw new Error("Not implemented");
@@ -5403,12 +4393,7 @@ export default abstract class SqlIntegration
   }
 
   getFilterColumnsClause(filterColumns: string[]): string {
-    let filterClause = "";
-    if (!filterColumns.length) return filterClause;
-
-    filterColumns.forEach((column) => (filterClause += `, ${column}`));
-
-    return filterClause;
+    return getFilterColumnsClause(filterColumns);
   }
   getAutoGeneratedFactTableSqlQuery(
     eventName: string,
@@ -5654,31 +4639,30 @@ export default abstract class SqlIntegration
     });
   }
 
-  private getMetricQueryFormat(metric: MetricInterface) {
-    return metric.queryFormat || (metric.sql ? "sql" : "builder");
-  }
-
   getQuantileGridColumns(
     metricQuantileSettings: MetricQuantileSettings,
     prefix: string,
   ) {
-    return `, ${this.quantileColumn(
+    return `, ${quantileColumn(
+      this.getSqlHelpers(),
       `m.${prefix}value`,
       `${prefix}quantile`,
       metricQuantileSettings.quantile,
     )}
     ${N_STAR_VALUES.map((nstar) => {
-      const { lower, upper } = this.getQuantileBoundValues(
+      const { lower, upper } = getQuantileBoundValues(
         metricQuantileSettings.quantile,
         0.05,
         nstar,
       );
-      return `, ${this.quantileColumn(
+      return `, ${quantileColumn(
+        this.getSqlHelpers(),
         `m.${prefix}value`,
         `${prefix}quantile_lower_${nstar}`,
         lower,
       )}
-          , ${this.quantileColumn(
+          , ${quantileColumn(
+            this.getSqlHelpers(),
             `m.${prefix}value`,
             `${prefix}quantile_upper_${nstar}`,
             upper,
@@ -5699,7 +4683,7 @@ export default abstract class SqlIntegration
   ) {
     return `, ${this.kllExtractPoint(sketchCol, metricQuantileSettings.quantile)} AS ${prefix}quantile
     ${N_STAR_VALUES.map((nstar) => {
-      const { lower, upper } = this.getQuantileBoundValues(
+      const { lower, upper } = getQuantileBoundValues(
         metricQuantileSettings.quantile,
         0.05,
         nstar,
@@ -5709,64 +4693,8 @@ export default abstract class SqlIntegration
     }).join("\n")}`;
   }
 
-  public getColumnsTopValuesQuery({
-    factTable,
-    columns,
-    limit = 50,
-    lookbackDays = 14,
-  }: ColumnTopValuesParams) {
-    if (columns.length === 0) {
-      throw new Error("At least one column is required");
-    }
-
-    // Validate all columns are string type
-    for (const column of columns) {
-      if (column.datatype !== "string") {
-        throw new Error(`Column ${column.column} is not a string column`);
-      }
-    }
-
-    const start = new Date();
-    start.setDate(start.getDate() - lookbackDays);
-
-    // Generate a UNION ALL query for each column
-    const columnQueries = columns.map((column, i) => {
-      return `
-    (${this.selectStarLimit(
-      `(
-        SELECT
-          ${this.castToString(`'${column.column}'`)} AS column_name,
-          ${this.castToString(column.column)} AS value,
-          COUNT(*) AS count
-        FROM __factTable
-        WHERE timestamp >= ${this.toTimestamp(start)}
-          AND ${column.column} IS NOT NULL
-        GROUP BY ${column.column}
-        ORDER BY count DESC
-      ) c${i}`,
-      limit,
-    )})`;
-    });
-
-    return format(
-      `
-WITH
-  __factTable AS (
-    ${compileSqlTemplate(factTable.sql, {
-      startDate: start,
-      templateVariables: {
-        eventName: factTable.eventName,
-      },
-    })}
-  ),
-  __topValues AS (
-    ${columnQueries.join("\n    UNION ALL\n")}
-  )
-SELECT * FROM __topValues
-ORDER BY column_name, count DESC
-    `,
-      this.getFormatDialect(),
-    );
+  public getColumnsTopValuesQuery(params: ColumnTopValuesParams) {
+    return getColumnsTopValuesQueryStandalone(this.getSqlHelpers(), params);
   }
 
   public async runColumnsTopValuesQuery(
@@ -5782,252 +4710,6 @@ ORDER BY column_name, count DESC
         count: parseFloat(r.count),
       })),
     };
-  }
-
-  // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
-  private getFactMetricCTE({
-    metricsWithIndices,
-    factTable,
-    baseIdType,
-    castIdToString,
-    idJoinMap,
-    startDate,
-    endDate,
-    experimentId,
-    addFiltersToWhere,
-    exclusiveStartDateFilter,
-    exclusiveEndDateFilter,
-    phase,
-    customFields,
-  }: {
-    metricsWithIndices: { metric: FactMetricInterface; index: number }[];
-    factTable: FactTableInterface;
-    baseIdType: string;
-    idJoinMap: Record<string, string>;
-    startDate: Date;
-    endDate: Date | null;
-    experimentId?: string;
-    addFiltersToWhere?: boolean;
-    phase?: PhaseSQLVar;
-    customFields?: Record<string, unknown>;
-    // Additional filter to ensure we only get
-    // new data from AFTER the last seen max timestamp
-    exclusiveStartDateFilter?: boolean;
-    exclusiveEndDateFilter?: boolean;
-    castIdToString?: boolean;
-  }) {
-    // Determine if a join is required to match up id types
-    let join = "";
-    let userIdCol = "";
-    const userIdTypes = factTable.userIdTypes;
-    if (userIdTypes.includes(baseIdType)) {
-      userIdCol = baseIdType;
-    } else if (userIdTypes.length > 0) {
-      for (let i = 0; i < userIdTypes.length; i++) {
-        const userIdType: string = userIdTypes[i];
-        if (userIdType in idJoinMap) {
-          const metricUserIdCol = `m.${userIdType}`;
-          join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
-          userIdCol = `i.${baseIdType}`;
-          break;
-        }
-      }
-    }
-
-    // BQ datetime cast for SELECT statements (do not use for where)
-    const timestampDateTimeColumn = this.castUserDateCol("m.timestamp");
-
-    const sql = factTable.sql;
-    const where: string[] = [];
-
-    // Add a rough date filter to improve query performance
-    if (startDate) {
-      // If exclusive, we need to be more precise with the timestamp
-      const operator = exclusiveStartDateFilter ? ">" : ">=";
-      const timestampFn = exclusiveStartDateFilter
-        ? this.toTimestampWithMs
-        : this.toTimestamp;
-      where.push(`m.timestamp ${operator} ${timestampFn(startDate)}`);
-    }
-    if (endDate) {
-      // If exclusive, we need to be more precise with the timestamp
-      const operator = exclusiveEndDateFilter ? "<" : "<=";
-      const timestampFn = exclusiveEndDateFilter
-        ? this.toTimestampWithMs
-        : this.toTimestamp;
-      where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
-    }
-
-    const metricCols: string[] = [];
-    // optionally, you can add metric filters to the WHERE clause
-    // to filter to rows that match a metric to improve query performance.
-    // We AND together each metric filters, before OR together all of
-    // the different metrics filters
-    const allMetricFilters: string[][] = [];
-
-    metricsWithIndices.forEach((metricWithIndex) => {
-      const m = metricWithIndex.metric;
-      const index = metricWithIndex.index;
-      // get numerator if it matches the fact table
-      if (m.numerator?.factTableId === factTable.id) {
-        const value = this.getFactMetricColumn(
-          m,
-          m.numerator,
-          factTable,
-          "m",
-        ).value;
-
-        const sliceInfo = parseSliceMetricId(m.id, {
-          [factTable.id]: factTable,
-        });
-        const filters = getColumnRefWhereClause({
-          factTable,
-          columnRef: m.numerator,
-          escapeStringLiteral: this.escapeStringLiteral.bind(this),
-          jsonExtract: this.extractJSONField.bind(this),
-          evalBoolean: this.evalBoolean.bind(this),
-          sliceInfo,
-        });
-
-        const column =
-          filters.length > 0
-            ? `CASE WHEN (${filters.join("\n AND ")}) THEN ${value} ELSE NULL END`
-            : value;
-
-        metricCols.push(`-- ${m.name}
-        ${column} as m${index}_value`);
-
-        allMetricFilters.push(filters);
-      }
-
-      // Add denominator column if there is one
-      if (isRatioMetric(m) && m.denominator) {
-        // only add denominators that match the fact table
-        if (m.denominator.factTableId !== factTable.id) {
-          return;
-        }
-
-        const value = this.getFactMetricColumn(
-          m,
-          m.denominator,
-          factTable,
-          "m",
-        ).value;
-
-        const sliceInfo = parseSliceMetricId(m.id, {
-          [factTable.id]: factTable,
-        });
-        const filters = getColumnRefWhereClause({
-          factTable,
-          columnRef: m.denominator,
-          escapeStringLiteral: this.escapeStringLiteral.bind(this),
-          jsonExtract: this.extractJSONField.bind(this),
-          evalBoolean: this.evalBoolean.bind(this),
-          sliceInfo,
-        });
-        const column =
-          filters.length > 0
-            ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
-            : value;
-        metricCols.push(`-- ${m.name} (denominator)
-        ${column} as m${index}_denominator`);
-
-        allMetricFilters.push(filters);
-      }
-    });
-
-    if (addFiltersToWhere) {
-      const filters = buildMinimalOrCondition(allMetricFilters);
-      if (filters) {
-        where.push(filters);
-      }
-    }
-
-    return compileSqlTemplate(
-      `-- Fact Table (${factTable.name})
-      SELECT
-        ${castIdToString ? this.castToString(userIdCol) : userIdCol} as ${baseIdType},
-        ${timestampDateTimeColumn} as timestamp,
-        ${metricCols.join(",\n")}
-      FROM(
-          ${sql}
-        ) m
-        ${join}
-        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-    `,
-      {
-        startDate,
-        endDate: endDate || undefined,
-        experimentId,
-        templateVariables: getFactTableTemplateVariables(factTable),
-        phase,
-        customFields,
-      },
-    );
-  }
-
-  // Get a Fact Table CTE for segments based on fact tables
-  private getFactSegmentCTE({
-    factTable,
-    baseIdType,
-    idJoinMap,
-    filters,
-    sqlVars,
-  }: {
-    factTable: FactTableInterface;
-    baseIdType: string;
-    idJoinMap: Record<string, string>;
-    filters?: string[];
-    sqlVars?: SQLVars;
-  }) {
-    // Determine if a join is required to match up id types
-    let join = "";
-    let userIdCol = "";
-    const userIdTypes = factTable.userIdTypes;
-    if (userIdTypes.includes(baseIdType)) {
-      userIdCol = baseIdType;
-    } else if (userIdTypes.length > 0) {
-      for (let i = 0; i < userIdTypes.length; i++) {
-        const userIdType: string = userIdTypes[i];
-        if (userIdType in idJoinMap) {
-          const metricUserIdCol = `m.${userIdType}`;
-          join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
-          userIdCol = `i.${baseIdType}`;
-          break;
-        }
-      }
-    }
-
-    // BQ datetime cast for SELECT statements (do not use for where)
-    const timestampDateTimeColumn = this.castUserDateCol("m.timestamp");
-
-    const sql = factTable.sql;
-
-    const where: string[] = [];
-
-    if (filters?.length) {
-      filters.forEach((filter) => {
-        const filterObj = factTable.filters.find(
-          (factFilter) => factFilter.id === filter,
-        );
-
-        if (filterObj) {
-          where.push(filterObj.value);
-        }
-      });
-    }
-
-    const baseSql = `-- Fact Table (${factTable.name})
-    SELECT
-      ${userIdCol} as ${baseIdType},
-      ${timestampDateTimeColumn} as date
-    FROM(
-        ${sql}
-      ) m
-      ${join}
-      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-  `;
-    return sqlVars ? compileSqlTemplate(baseSql, sqlVars) : baseSql;
   }
 
   private getMetricCTE({
@@ -6053,7 +4735,8 @@ ORDER BY column_name, count DESC
     phase?: PhaseSQLVar;
     customFields?: Record<string, unknown>;
   }) {
-    const cols = this.getMetricColumns(
+    const cols = getMetricColumns(
+      this.getSqlHelpers(),
       metric,
       factTableMap,
       "m",
@@ -6067,7 +4750,7 @@ ORDER BY column_name, count DESC
     const userIdTypes = getUserIdTypes(metric, factTableMap, useDenominator);
 
     const isFact = isFactMetric(metric);
-    const queryFormat = isFact ? "fact" : this.getMetricQueryFormat(metric);
+    const queryFormat = isFact ? "fact" : getMetricQueryFormat(metric);
     const columnRef = isFact
       ? useDenominator
         ? metric.denominator
@@ -6182,418 +4865,15 @@ ORDER BY column_name, count DESC
     );
   }
 
-  // Only include users who entered the experiment before this timestamp
-  private getExperimentEndDate(
-    settings: ExperimentSnapshotSettings,
-    conversionWindowHours: number,
-  ): Date {
-    // If we need to wait until users have had a chance to fully convert
-    if (settings.skipPartialData) {
-      // The last date allowed to give enough time for users to convert
-      const conversionWindowEndDate = new Date();
-      conversionWindowEndDate.setHours(
-        conversionWindowEndDate.getHours() - conversionWindowHours,
-      );
-
-      // Use the earliest of either the conversion end date or the phase end date
-      return new Date(
-        Math.min(settings.endDate.getTime(), conversionWindowEndDate.getTime()),
-      );
-    }
-
-    // Otherwise, use the actual end date
-    return settings.endDate;
-  }
-
-  private getSegmentCTE(
-    segment: SegmentInterface,
-    baseIdType: string,
-    idJoinMap: Record<string, string>,
-    factTableMap: FactTableMap,
-    sqlVars?: SQLVars,
-  ) {
-    // replace template variables
-    let segmentSql = "";
-
-    if (segment.type === "SQL") {
-      if (!segment.sql) {
-        throw new Error(
-          `Segment ${segment.name} is a SQL Segment but has no SQL value`,
-        );
-      }
-      segmentSql = sqlVars
-        ? compileSqlTemplate(segment.sql, sqlVars)
-        : segment.sql;
-    } else {
-      if (!segment.factTableId) {
-        throw new Error(
-          `Segment ${segment.name} is a FACT Segment, but has no factTableId set`,
-        );
-      }
-      const factTable = factTableMap.get(segment.factTableId);
-
-      if (!factTable) {
-        throw new Error(`Unknown fact table: ${segment.factTableId}`);
-      }
-
-      segmentSql = this.getFactSegmentCTE({
-        baseIdType,
-        idJoinMap,
-        factTable,
-        filters: segment.filters,
-        sqlVars,
-      });
-
-      return `-- Segment (${segment.name})
-        SELECT * FROM (\n${segmentSql}\n) s `;
-    }
-
-    const dateCol = this.castUserDateCol("s.date");
-
-    const userIdType = segment.userIdType || "user_id";
-
-    // Need to use an identity join table
-    if (userIdType !== baseIdType) {
-      return `-- Segment (${segment.name})
-      SELECT
-        i.${baseIdType},
-        ${dateCol} as date
-      FROM
-        (
-          ${segmentSql}
-        ) s
-        JOIN ${idJoinMap[userIdType]} i ON ( i.${userIdType} = s.${userIdType} )
-      `;
-    }
-
-    if (dateCol !== "s.date") {
-      return `-- Segment (${segment.name})
-      SELECT
-        s.${userIdType},
-        ${dateCol} as date
-      FROM
-        (
-          ${segmentSql}
-        ) s`;
-    }
-    return `-- Segment (${segment.name})
-    ${segmentSql}
-    `;
-  }
-
-  private getDimensionCTE(
-    dimension: DimensionInterface,
-    baseIdType: string,
-    idJoinMap: Record<string, string>,
-  ) {
-    const userIdType = dimension.userIdType || "user_id";
-
-    // Need to use an identity join table
-    if (userIdType !== baseIdType) {
-      return `-- Dimension (${dimension.name})
-      SELECT
-        i.${baseIdType},
-        d.value
-      FROM
-        (
-          ${dimension.sql}
-        ) d
-        JOIN ${idJoinMap[userIdType]} i ON ( i.${userIdType} = d.${userIdType} )
-      `;
-    }
-
-    return `-- Dimension (${dimension.name})
-    ${dimension.sql}
-    `;
-  }
-
-  private addCaseWhenTimeFilter({
-    col,
-    metric,
-    overrideConversionWindows,
-    endDate,
-    metricQuantileSettings,
-    metricTimestampColExpr,
-    exposureTimestampColExpr,
-  }: {
-    col: string;
-    metric: ExperimentMetricInterface;
-    overrideConversionWindows: boolean;
-    endDate: Date;
-    metricQuantileSettings?: MetricQuantileSettings;
-    metricTimestampColExpr: string;
-    exposureTimestampColExpr: string;
-  }): string {
-    return `${this.ifElse(
-      `${this.getConversionWindowClause(
-        exposureTimestampColExpr,
-        metricTimestampColExpr,
-        metric,
-        endDate,
-        overrideConversionWindows,
-      )}
-        ${metricQuantileSettings?.ignoreZeros && metricQuantileSettings?.type === "event" ? `AND ${col} != 0` : ""}
-      `,
-      `${col}`,
-      `NULL`,
-    )}`;
-  }
-
-  private getAggregateMetricColumnLegacyMetrics({
-    metric,
-  }: {
-    metric: MetricInterface;
-  }) {
-    // Binomial metrics don't have a value, so use hard-coded "1" as the value
-    if (metric.type === "binomial") {
-      return `MAX(COALESCE(value, 0))`;
-    }
-
-    // SQL editor
-    if (this.getMetricQueryFormat(metric) === "sql") {
-      // Custom aggregation that's a hardcoded number (e.g. "1")
-      if (metric.aggregation && Number(metric.aggregation)) {
-        // Note that if user has conversion row but value IS NULL, this will
-        // return 0 for that user rather than `metric.aggregation`
-        return this.ifElse("value IS NOT NULL", metric.aggregation, "0");
-      }
-      // Other custom aggregation
-      else if (metric.aggregation) {
-        return replaceCountStar(metric.aggregation, `value`);
-      }
-      // Standard aggregation (SUM)
-      else {
-        return `SUM(COALESCE(value, 0))`;
-      }
-    }
-    // Query builder
-    else {
-      // Count metrics that specify a distinct column to count
-      if (metric.type === "count" && metric.column) {
-        return `COUNT(DISTINCT (value))`;
-      }
-      // Count metrics just do a simple count of rows by default
-      else if (metric.type === "count") {
-        return `COUNT(value)`;
-      }
-      // Revenue and duration metrics use MAX by default
-      else {
-        return `MAX(COALESCE(value, 0))`;
-      }
-    }
-  }
-
-  private getFactMetricColumn(
-    metric: FactMetricInterface,
-    columnRef: ColumnRef,
-    factTable: FactTableInterface,
-    alias = "m",
-  ): { timestamp: string; value: string } {
-    const hasAggregateFilter =
-      getAggregateFilters({
-        columnRef: columnRef,
-        column: columnRef?.column || "",
-        ignoreInvalid: true,
-      }).length > 0;
-
-    const column = hasAggregateFilter
-      ? columnRef?.aggregateFilterColumn
-      : columnRef?.column;
-
-    const timestampColumn = `${alias}.timestamp`;
-
-    const value =
-      (!hasAggregateFilter && isBinomialMetric(metric)) ||
-      !columnRef ||
-      column === "$$distinctUsers" ||
-      column === "$$count"
-        ? "1"
-        : column === "$$distinctDates"
-          ? this.dateTrunc(timestampColumn)
-          : factTable && column
-            ? getColumnExpression(
-                column,
-                factTable,
-                this.extractJSONField.bind(this),
-                alias,
-              )
-            : `${alias}.${column}`;
-
-    return {
-      timestamp: timestampColumn,
-      value,
-    };
-  }
-
-  // TODO(sql): refactor to change metric type to legacy only
-  // currently this is used for activation metrics even if they are
-  // fact metrics
-  private getMetricColumns(
-    metric: ExperimentMetricInterface,
-    factTableMap: FactTableMap,
-    alias = "m",
-    useDenominator?: boolean,
-  ): { userIds: Record<string, string>; timestamp: string; value: string } {
-    if (isFactMetric(metric)) {
-      const userIds: Record<string, string> = {};
-      getUserIdTypes(metric, factTableMap, useDenominator).forEach(
-        (userIdType) => {
-          userIds[userIdType] = `${alias}.${userIdType}`;
-        },
-      );
-
-      const columnRef = useDenominator ? metric.denominator : metric.numerator;
-
-      const factTable = factTableMap.get(columnRef?.factTableId || "");
-
-      const hasAggregateFilter =
-        getAggregateFilters({
-          columnRef: columnRef,
-          column: columnRef?.column || "",
-          ignoreInvalid: true,
-        }).length > 0;
-
-      const column = hasAggregateFilter
-        ? columnRef?.aggregateFilterColumn
-        : columnRef?.column;
-
-      const value =
-        (!hasAggregateFilter && isBinomialMetric(metric)) ||
-        // TODO(sql): remove when switching this method to only be used by legacy metrics
-        !columnRef ||
-        column === "$$distinctUsers" ||
-        column === "$$count" ||
-        column === "$$distinctDates"
-          ? "1"
-          : factTable && column
-            ? getColumnExpression(
-                column,
-                factTable,
-                this.extractJSONField.bind(this),
-                alias,
-              )
-            : `${alias}.${column}`;
-
-      return {
-        userIds,
-        timestamp: `${alias}.timestamp`,
-        value,
-      };
-    }
-
-    const queryFormat = this.getMetricQueryFormat(metric);
-
-    // Directly inputting SQL (preferred)
-    if (queryFormat === "sql") {
-      const userIds: Record<string, string> = {};
-      metric.userIdTypes?.forEach((userIdType) => {
-        userIds[userIdType] = `${alias}.${userIdType}`;
-      });
-      return {
-        userIds: userIds,
-        timestamp: `${alias}.timestamp`,
-        value: metric.type === "binomial" ? "1" : `${alias}.value`,
-      };
-    }
-
-    // Using the query builder (legacy)
-    let valueCol = metric.column || "value";
-    if (metric.type === "duration" && valueCol.match(/\{alias\}/)) {
-      valueCol = valueCol.replace(/\{alias\}/g, alias);
-    } else {
-      valueCol = alias + "." + valueCol;
-    }
-    const value = metric.type !== "binomial" && metric.column ? valueCol : "1";
-
-    const userIds: Record<string, string> = {};
-    metric.userIdTypes?.forEach((userIdType) => {
-      userIds[userIdType] = `${alias}.${
-        metric.userIdColumns?.[userIdType] || userIdType
-      }`;
-    });
-
-    return {
-      userIds,
-      timestamp: `${alias}.${metric.timestampColumn || "received_at"}`,
-      value,
-    };
-  }
-
-  private getIdentitiesQuery(
-    settings: DataSourceSettings,
-    id1: string,
-    id2: string,
-    from: Date,
-    to: Date | undefined,
-    experimentId?: string,
-  ) {
-    if (settings?.queries?.identityJoins) {
-      for (let i = 0; i < settings.queries.identityJoins.length; i++) {
-        const join = settings?.queries?.identityJoins[i];
-        if (
-          join.query.length > 6 &&
-          join.ids.includes(id1) &&
-          join.ids.includes(id2)
-        ) {
-          return `
-          SELECT
-            ${id1},
-            ${id2}
-          FROM
-            (
-              ${compileSqlTemplate(join.query, {
-                startDate: from,
-                endDate: to,
-                experimentId,
-              })}
-            ) i
-          GROUP BY
-            ${id1}, ${id2}
-          `;
-        }
-      }
-    }
-    if (settings?.queries?.pageviewsQuery) {
-      const timestampColumn = "i.timestamp";
-
-      if (
-        ["user_id", "anonymous_id"].includes(id1) &&
-        ["user_id", "anonymous_id"].includes(id2)
-      ) {
-        return `
-        SELECT
-          user_id,
-          anonymous_id
-        FROM
-          (${compileSqlTemplate(settings.queries.pageviewsQuery, {
-            startDate: from,
-            endDate: to,
-            experimentId,
-          })}) i
-        WHERE
-          ${timestampColumn} >= ${this.toTimestamp(from)}
-          ${to ? `AND ${timestampColumn} <= ${this.toTimestamp(to)}` : ""}
-        GROUP BY
-          user_id, anonymous_id
-        `;
-      }
-    }
-
-    throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
-  }
-
   // Pipeline validation queries (engine-aware)
   getPipelineValidationInsertQuery({
     tableFullName,
   }: {
     tableFullName: string;
   }): string {
-    return `INSERT INTO
-      ${tableFullName}
-      (user_id, variation, first_exposure_timestamp)
-      VALUES
-      ('user_3', 'A', ${this.getCurrentTimestamp()})
-    `;
+    return getPipelineValidationInsertQuery(this.getSqlHelpers(), {
+      tableFullName,
+    });
   }
 
   computeParticipationDenominator({
@@ -6864,12 +5144,12 @@ ORDER BY column_name, count DESC
       undefined,
     );
 
-    const activationMetric = this.processActivationMetric(
+    const activationMetric = processActivationMetric(
       activationMetricDoc,
       settings,
     );
 
-    const { experimentDimensions } = this.processDimensions(
+    const { experimentDimensions } = processDimensions(
       params.dimensions,
       settings,
       activationMetric,
@@ -6905,7 +5185,7 @@ ORDER BY column_name, count DESC
       applyMetricOverrides(m.metric, settings);
     });
 
-    const activationMetric = this.processActivationMetric(
+    const activationMetric = processActivationMetric(
       params.activationMetric,
       settings,
     );
@@ -7053,17 +5333,21 @@ ORDER BY column_name, count DESC
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: [
-        [exposureQuery.userIdType],
-        // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        segment ? [segment.userIdType || "user_id"] : [],
-      ],
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId,
-    });
+    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        objects: [
+          [exposureQuery.userIdType],
+          // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
+          segment ? [segment.userIdType || "user_id"] : [],
+        ],
+        from: settings.startDate,
+        to: settings.endDate,
+        forcedBaseIdType: exposureQuery.userIdType,
+        experimentId: settings.experimentId,
+      },
+    );
 
     // TODO(incremental-refresh): activation metric
     if (activationMetric) {
@@ -7077,7 +5361,7 @@ ORDER BY column_name, count DESC
 
     // TODO(incremental-refresh): What if "skip partial data" is true?
     // Does the conversionWindowsHour need to be set different?
-    const endDate = this.getExperimentEndDate(settings, 0);
+    const endDate = getExperimentEndDate(settings, 0);
 
     // Segment and SQL filter only check against new exposures
     return format(
@@ -7102,7 +5386,8 @@ ORDER BY column_name, count DESC
         )
         ${
           segment
-            ? `, __segment as (${this.getSegmentCTE(
+            ? `, __segment as (${getSegmentCTE(
+                this.getSqlHelpers(),
                 segment,
                 baseIdType,
                 idJoinMap,
@@ -7170,7 +5455,7 @@ ORDER BY column_name, count DESC
             ${experimentDimensions
               .map(
                 (d) => `
-              , ${this.getDimensionValuePerUnit(d, "dim_exp_")} AS dim_exp_${d.id}`,
+              , ${getDimensionValuePerUnit(this.getSqlHelpers(), d, "dim_exp_")} AS dim_exp_${d.id}`,
               )
               .join("\n")}
           FROM __jointExposures e
@@ -7194,28 +5479,13 @@ ORDER BY column_name, count DESC
   getDropOldIncrementalUnitsQuery(
     params: DropOldIncrementalUnitsQueryParams,
   ): string {
-    if (!params.unitsTableFullName.includes(INCREMENTAL_UNITS_TABLE_PREFIX)) {
-      throw new Error(
-        "Unable to drop table that is not an incremental refresh units table.",
-      );
-    }
-    return format(
-      `
-      DROP TABLE IF EXISTS ${params.unitsTableFullName}
-      `,
-      this.getFormatDialect(),
-    );
+    return getDropOldIncrementalUnitsQuery(this.getSqlHelpers(), params);
   }
 
   getAlterNewIncrementalUnitsQuery(
     params: AlterNewIncrementalUnitsQueryParams,
   ): string {
-    return format(
-      `
-      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${params.unitsTableName}
-      `,
-      this.getFormatDialect(),
-    );
+    return getAlterNewIncrementalUnitsQuery(this.getSqlHelpers(), params);
   }
 
   getMaxTimestampIncrementalUnitsQuery(
@@ -7303,22 +5573,7 @@ ORDER BY column_name, count DESC
   getDropMetricSourceCovariateTableQuery(
     params: DropMetricSourceCovariateTableQueryParams,
   ): string {
-    if (
-      !params.metricSourceCovariateTableFullName.includes(`_covariate`) ||
-      !params.metricSourceCovariateTableFullName.includes(
-        INCREMENTAL_METRICS_TABLE_PREFIX,
-      )
-    ) {
-      throw new Error(
-        "Unable to drop table that is not an incremental refresh covariate table.",
-      );
-    }
-    return format(
-      `
-      DROP TABLE IF EXISTS ${params.metricSourceCovariateTableFullName}
-      `,
-      this.getFormatDialect(),
-    );
+    return getDropMetricSourceCovariateTableQuery(this.getSqlHelpers(), params);
   }
 
   getCreateMetricSourceCovariateTableQuery(
@@ -7396,18 +5651,22 @@ ORDER BY column_name, count DESC
     const factTableWithMetricData = factTablesWithMetricData[0];
     const metricData = factTableWithMetricData.metricData;
 
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: [
-        [exposureQuery.userIdType],
-        factTableWithMetricData.factTable?.userIdTypes || [],
-      ],
-      // TODO(incremental-refresh): this gets all identities from history
-      // of experiment, which we think is right, but could be improved
-      from: params.settings.startDate,
-      to: params.settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: params.settings.experimentId,
-    });
+    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        objects: [
+          [exposureQuery.userIdType],
+          factTableWithMetricData.factTable?.userIdTypes || [],
+        ],
+        // TODO(incremental-refresh): this gets all identities from history
+        // of experiment, which we think is right, but could be improved
+        from: params.settings.startDate,
+        to: params.settings.endDate,
+        forcedBaseIdType: exposureQuery.userIdType,
+        experimentId: params.settings.experimentId,
+      },
+    );
 
     const columnNames = this.getMetricSourceCovariateTableColumns(
       baseIdType,
@@ -7421,7 +5680,7 @@ ORDER BY column_name, count DESC
     SELECT * FROM (
       WITH 
         ${idJoinSQL}
-        __factTable AS (${this.getFactMetricCTE({
+        __factTable AS (${getFactMetricCTE(this.getSqlHelpers(), {
           baseIdType,
           idJoinMap,
           factTable: factTableWithMetricData.factTable,
@@ -7499,8 +5758,8 @@ ORDER BY column_name, count DESC
             (
               m, // test this is only RA metrics
             ) =>
-              `, ${m.capCoalesceCovariate} AS ${this.encodeMetricIdForColumnName(m.id)}_value
-              ${m.ratioMetric ? `, ${m.capCoalesceDenominatorCovariate} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value` : ""}
+              `, ${m.capCoalesceCovariate} AS ${encodeMetricIdForColumnName(m.id)}_value
+              ${m.ratioMetric ? `, ${m.capCoalesceDenominatorCovariate} AS ${encodeMetricIdForColumnName(m.id)}_denominator_value` : ""}
         `,
           )
           .join("\n")}
@@ -7571,7 +5830,7 @@ ORDER BY column_name, count DESC
         useDenominator: false,
       });
       schema.set(
-        `${this.encodeMetricIdForColumnName(metric.id)}_value`,
+        `${encodeMetricIdForColumnName(metric.id)}_value`,
         this.getDataType(numeratorMetadata.intermediateDataType),
       );
 
@@ -7581,7 +5840,7 @@ ORDER BY column_name, count DESC
           useDenominator: true,
         });
         schema.set(
-          `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
+          `${encodeMetricIdForColumnName(metric.id)}_denominator_value`,
           this.getDataType(denominatorMetadata.intermediateDataType),
         );
       }
@@ -7592,7 +5851,7 @@ ORDER BY column_name, count DESC
       // rank queries).
       if (quantileMetricType(metric) === "event") {
         schema.set(
-          `${this.encodeMetricIdForColumnName(metric.id)}_n_events`,
+          `${encodeMetricIdForColumnName(metric.id)}_n_events`,
           this.getDataType("integer"),
         );
       }
@@ -7637,7 +5896,7 @@ ORDER BY column_name, count DESC
         useDenominator: false,
       });
       schema.set(
-        `${this.encodeMetricIdForColumnName(metric.id)}_value`,
+        `${encodeMetricIdForColumnName(metric.id)}_value`,
         this.getDataType(numeratorMetadata.finalDataType),
       );
 
@@ -7647,7 +5906,7 @@ ORDER BY column_name, count DESC
           useDenominator: true,
         });
         schema.set(
-          `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
+          `${encodeMetricIdForColumnName(metric.id)}_denominator_value`,
           this.getDataType(denominatorMetadata.finalDataType),
         );
       }
@@ -7696,15 +5955,19 @@ ORDER BY column_name, count DESC
       throw new Error("Could not find fact table");
     }
 
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: [[exposureQuery.userIdType], factTable?.userIdTypes || []],
-      // TODO(incremental-refresh): this gets all identities from history
-      // of experiment, which we think is right, but could be improved
-      from: params.settings.startDate,
-      to: params.settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: params.settings.experimentId,
-    });
+    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        objects: [[exposureQuery.userIdType], factTable?.userIdTypes || []],
+        // TODO(incremental-refresh): this gets all identities from history
+        // of experiment, which we think is right, but could be improved
+        from: params.settings.startDate,
+        to: params.settings.endDate,
+        forcedBaseIdType: exposureQuery.userIdType,
+        experimentId: params.settings.experimentId,
+      },
+    );
 
     const sortedMetrics = params.metrics.sort((a, b) =>
       a.id.localeCompare(b.id),
@@ -7743,7 +6006,7 @@ ORDER BY column_name, count DESC
     SELECT * FROM (
       WITH 
         ${idJoinSQL}
-        __factTable AS (${this.getFactMetricCTE({
+        __factTable AS (${getFactMetricCTE(this.getSqlHelpers(), {
           baseIdType,
           idJoinMap,
           metricsWithIndices: factTableWithMetricData.metricData.map((m) => ({
@@ -7771,7 +6034,7 @@ ORDER BY column_name, count DESC
             ${metricData
               .map(
                 (data) =>
-                  `, ${this.addCaseWhenTimeFilter({
+                  `, ${addCaseWhenTimeFilter(this.getSqlHelpers(), {
                     col: `m.${data.alias}_value`,
                     metric: data.metric,
                     overrideConversionWindows: data.overrideConversionWindows,
@@ -7787,7 +6050,7 @@ ORDER BY column_name, count DESC
                   })} AS ${data.alias}_value
                 ${
                   data.ratioMetric
-                    ? `, ${this.addCaseWhenTimeFilter({
+                    ? `, ${addCaseWhenTimeFilter(this.getSqlHelpers(), {
                         col: `m.${data.alias}_denominator`,
                         metric: data.metric,
                         overrideConversionWindows:
@@ -7819,15 +6082,15 @@ ORDER BY column_name, count DESC
                 const denomAggFunction =
                   m.denominatorAggFns.partialAggregationFunction;
                 return `
-                , ${aggfunction(`${m.alias}_value`)} AS ${this.encodeMetricIdForColumnName(m.id)}_value
+                , ${aggfunction(`${m.alias}_value`)} AS ${encodeMetricIdForColumnName(m.id)}_value
                 ${
                   !!denomAggFunction && isRatioMetric(m.metric)
-                    ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
+                    ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${encodeMetricIdForColumnName(m.id)}_denominator_value`
                     : ""
                 }
                 ${
                   m.quantileMetric === "event"
-                    ? `, COUNT(${m.alias}_value) AS ${this.encodeMetricIdForColumnName(m.id)}_n_events`
+                    ? `, COUNT(${m.alias}_value) AS ${encodeMetricIdForColumnName(m.id)}_n_events`
                     : ""
                 }
               `;
@@ -7843,13 +6106,13 @@ ORDER BY column_name, count DESC
           ${metricData
             .map(
               (m) =>
-                `, ${this.encodeMetricIdForColumnName(m.id)}_value AS ${this.encodeMetricIdForColumnName(m.id)}_value${
+                `, ${encodeMetricIdForColumnName(m.id)}_value AS ${encodeMetricIdForColumnName(m.id)}_value${
                   m.ratioMetric
-                    ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_denominator_value AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
+                    ? `\n, ${encodeMetricIdForColumnName(m.id)}_denominator_value AS ${encodeMetricIdForColumnName(m.id)}_denominator_value`
                     : ""
                 }${
                   m.quantileMetric === "event"
-                    ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_n_events AS ${this.encodeMetricIdForColumnName(m.id)}_n_events`
+                    ? `\n, ${encodeMetricIdForColumnName(m.id)}_n_events AS ${encodeMetricIdForColumnName(m.id)}_n_events`
                     : ""
                 }`,
             )
@@ -7904,7 +6167,7 @@ ORDER BY column_name, count DESC
 
     // exploratory dimensions
     const { experimentDimensions, unitDimensions, dateDimension } =
-      this.processDimensions(
+      processDimensions(
         params.dimensionsForAnalysis,
         params.settings,
         params.activationMetric,
@@ -7915,18 +6178,22 @@ ORDER BY column_name, count DESC
       ...unitDimensions.map((d) => [d.dimension.userIdType]),
     ];
 
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: idTypeObjects,
-      from: params.settings.startDate,
-      to: params.settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: params.settings.experimentId,
-    });
+    const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
+      this.getSqlHelpers(),
+      this.datasource.settings,
+      {
+        objects: idTypeObjects,
+        from: params.settings.startDate,
+        to: params.settings.endDate,
+        forcedBaseIdType: exposureQuery.userIdType,
+        experimentId: params.settings.experimentId,
+      },
+    );
 
     const unitDimensionCols = unitDimensions.map((d) => ({
       // override value with the a MAX statement that will get one
       // value per unit
-      value: this.getDimensionValuePerUnit(d),
+      value: getDimensionValuePerUnit(this.getSqlHelpers(), d),
       alias: this.getDimensionCol(d).alias,
     }));
 
@@ -7969,7 +6236,7 @@ ORDER BY column_name, count DESC
       ${unitDimensions
         .map(
           (d) =>
-            `, __dim_unit_${d.dimension.id} AS (${this.getDimensionCTE(
+            `, __dim_unit_${d.dimension.id} AS (${getDimensionCTE(
               d.dimension,
               baseIdType,
               idJoinMap,
@@ -8012,15 +6279,15 @@ ORDER BY column_name, count DESC
               const reAggFunction = data.numeratorAggFns.reAggregationFunction;
               const denomReAggFunction =
                 data.denominatorAggFns.reAggregationFunction;
-              return `, ${reAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_value
+              return `, ${reAggFunction(`umj.${encodeMetricIdForColumnName(data.metric.id)}_value`)} AS ${encodeMetricIdForColumnName(data.metric.id)}_value
                 ${
                   data.ratioMetric && denomReAggFunction
-                    ? `, ${denomReAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`
+                    ? `, ${denomReAggFunction(`umj.${encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${encodeMetricIdForColumnName(data.metric.id)}_denominator_value`
                     : ""
                 }
                 ${
                   data.quantileMetric === "event"
-                    ? `, SUM(COALESCE(umj.${this.encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)) AS ${this.encodeMetricIdForColumnName(data.metric.id)}_n_events`
+                    ? `, SUM(COALESCE(umj.${encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)) AS ${encodeMetricIdForColumnName(data.metric.id)}_n_events`
                     : ""
                 }`;
             })
@@ -8044,7 +6311,7 @@ ORDER BY column_name, count DESC
             .filter((d) => d.quantileMetric === "event")
             .map(
               (d) =>
-                `, ${this.kllMergePartial(`m.${this.encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
+                `, ${this.kllMergePartial(`m.${encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
             )
             .join("\n")}
         FROM __experimentUnits u
@@ -8091,8 +6358,8 @@ ORDER BY column_name, count DESC
                   // Note: ignoreZeros for event quantiles is handled upstream in
                   // addCaseWhenTimeFilter (zeros are filtered out of __newMetricRows
                   // before sketching, so they never enter the KLL sketch or n_events).
-                  const nEventsCol = `COALESCE(m.${this.encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
-                  const sketchCol = `m.${this.encodeMetricIdForColumnName(data.metric.id)}_value`;
+                  const nEventsCol = `COALESCE(m.${encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
+                  const sketchCol = `m.${encodeMetricIdForColumnName(data.metric.id)}_value`;
                   const thresholdCol = `qm.${data.alias}_quantile`;
                   return `, ${this.kllRankApprox(sketchCol, thresholdCol, nEventsCol, 100)} AS ${data.alias}_value
                   , ${nEventsCol} AS ${data.alias}_n_events`;
@@ -8106,8 +6373,8 @@ ORDER BY column_name, count DESC
                   data.quantileMetric === "unit" &&
                   data.metricQuantileSettings.ignoreZeros;
                 const valueCol = nullIfZero
-                  ? `m.${this.encodeMetricIdForColumnName(data.metric.id)}_value`
-                  : `COALESCE(m.${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`;
+                  ? `m.${encodeMetricIdForColumnName(data.metric.id)}_value`
+                  : `COALESCE(m.${encodeMetricIdForColumnName(data.metric.id)}_value, 0)`;
                 return `, ${data.aggregatedValueTransformation({
                   column: valueCol,
                   initialTimestampColumn: "u.first_exposure_timestamp",
@@ -8115,7 +6382,7 @@ ORDER BY column_name, count DESC
                 })} AS ${data.alias}_value ${
                   data.ratioMetric
                     ? `, ${data.aggregatedValueTransformation({
-                        column: `COALESCE(m.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
+                        column: `COALESCE(m.${encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
                         initialTimestampColumn: "u.first_exposure_timestamp",
                         analysisEndDate: params.settings.endDate,
                       })} AS ${data.alias}_denominator`
@@ -8150,10 +6417,10 @@ ORDER BY column_name, count DESC
                   ${regressionAdjustedMetrics
                     .map(
                       (data) =>
-                        `, MAX(${this.encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_covariate_value
+                        `, MAX(${encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_covariate_value
                         ${
                           data.ratioMetric
-                            ? `, MAX(${this.encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_covariate_denominator`
+                            ? `, MAX(${encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_covariate_denominator`
                             : ""
                         }`,
                     )
@@ -8225,18 +6492,6 @@ ORDER BY column_name, count DESC
     return getSampleUnitsCTE(this.getSqlHelpers());
   }
 
-  encodeMetricIdForColumnName(metricId: string): string {
-    // We are using ? for slices and that is an invalid character for column names
-    // so we encode it.
-    // We use base58 because base64 includes charactes that are invalid too
-    const parts = metricId.split("?");
-    if (parts.length === 2) {
-      const encoded = bs58.encode(Buffer.from(parts[1]));
-      return `${parts[0]}_${encoded}`;
-    }
-    return parts[0];
-  }
-
   getSqlHelpers(): SqlHelpers {
     return {
       dateTrunc: this.dateTrunc.bind(this),
@@ -8246,8 +6501,16 @@ ORDER BY column_name, count DESC
       percentileApprox: this.approxQuantile.bind(this),
       toTimestamp: this.toTimestamp.bind(this),
       formatDialect: this.getFormatDialect(),
+      formatDateTimeString: this.formatDateTimeString.bind(this),
       castToFloat: this.ensureFloat.bind(this),
+      castToString: this.castToString.bind(this),
+      castToTimestamp: this.castToTimestamp.bind(this),
+      castUserDateCol: this.castUserDateCol.bind(this),
       getCurrentTimestamp: this.getCurrentTimestamp.bind(this),
+      ifElse: this.ifElse.bind(this),
+      getDataType: this.getDataType.bind(this),
+      addTime: this.addTime.bind(this),
+      selectStarLimit: this.selectStarLimit.bind(this),
     };
   }
 

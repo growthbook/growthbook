@@ -1,4 +1,5 @@
 import type { SqlLanguage } from "sql-formatter";
+import { DataType } from "./integrations";
 
 export type TemplateVariables = {
   eventName?: string;
@@ -31,9 +32,22 @@ export interface SqlHelpers {
     column: string,
     granularity: "hour" | "day" | "week" | "month" | "year",
   ) => string;
-  percentileApprox: (column: string, percentile: number) => string;
+  percentileApprox: (column: string, percentile: number | string) => string;
   toTimestamp: (date: Date) => string;
   castToFloat: (column: string) => string;
+  castToString: (column: string) => string;
+  castToTimestamp: (column: string) => string;
+  castUserDateCol: (column: string) => string;
   getCurrentTimestamp: () => string;
+  ifElse: (condition: string, ifTrue: string, ifFalse: string) => string;
+  getDataType: (dataType: DataType) => string;
+  addTime: (
+    col: string,
+    unit: "hour" | "minute",
+    sign: "+" | "-",
+    amount: number,
+  ) => string;
+  formatDateTimeString: (column: string) => string;
+  selectStarLimit: (table: string, limit: number) => string;
   formatDialect: FormatDialect;
 }

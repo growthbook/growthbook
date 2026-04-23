@@ -9,6 +9,8 @@ import {
 } from "shared/types/fact-table";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/add-case-when-time-filter";
+import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/aggregate-metric-column-legacy-metrics";
 import { factTableFactory } from "./factories/FactTable.factory";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 
@@ -84,7 +86,7 @@ describe("bigquery integration", () => {
     // builder metrics not tested
 
     expect(
-      bqIntegration["addCaseWhenTimeFilter"]({
+      addCaseWhenTimeFilter(bqIntegration.getSqlHelpers(), {
         col: "val",
         metric: normalSqlMetric,
         overrideConversionWindows: false,
@@ -101,7 +103,7 @@ describe("bigquery integration", () => {
       date,
     )}`;
     expect(
-      bqIntegration["addCaseWhenTimeFilter"]({
+      addCaseWhenTimeFilter(bqIntegration.getSqlHelpers(), {
         col: "val",
         metric: normalSqlMetric,
         overrideConversionWindows: true,
@@ -114,17 +116,17 @@ describe("bigquery integration", () => {
     );
 
     expect(
-      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlHelpers(), {
         metric: customNumberAggMetric,
       }),
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
     expect(
-      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlHelpers(), {
         metric: customCountAgg,
       }),
     ).toEqual("COUNT(value) / (5 + COUNT(value))");
     expect(
-      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlHelpers(), {
         metric: normalSqlMetric,
       }),
     ).toEqual("SUM(COALESCE(value, 0))");
