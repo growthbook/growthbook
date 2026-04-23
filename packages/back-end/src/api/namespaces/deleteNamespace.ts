@@ -12,7 +12,11 @@ async function hasActiveMembers(id: string, context: ApiReqContext) {
   for (const e of experiments) {
     if (e.archived) continue;
     if (!experimentHasLinkedChanges(e)) continue;
-    if (e.status === "stopped" && (e.excludeFromPayload || !e.releasedVariationId)) continue;
+    if (
+      e.status === "stopped" &&
+      (e.excludeFromPayload || !e.releasedVariationId)
+    )
+      continue;
     if (!e.phases?.length) continue;
     const phase = e.phases[e.phases.length - 1];
     if (phase?.namespace?.enabled && phase.namespace.name === id) return true;
@@ -38,7 +42,7 @@ export const deleteNamespace = createApiRequestHandler(
 
   if (await hasActiveMembers(id, req.context)) {
     throw new ConflictError(
-      "Cannot delete a namespace that is actively used by experiments or feature rules. Disable or remove those references first.",
+      "Cannot delete a namespace that is actively used by experiments. Disable or remove those references first.",
     );
   }
 

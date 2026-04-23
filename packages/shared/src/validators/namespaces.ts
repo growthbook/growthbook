@@ -57,7 +57,6 @@ export type ApiNamespaceExperimentMember = z.infer<
   typeof apiNamespaceExperimentMemberValidator
 >;
 
-
 const nameParams = z
   .object({
     id: z.string().describe("The unique id of the namespace"),
@@ -198,7 +197,7 @@ export const deleteNamespaceValidator = {
     .strict(),
   summary: "Delete a namespace",
   description:
-    "Permanently removes a namespace from the organization. Returns a 409 error if any active experiments or feature flag rules currently reference this namespace — remove or disable those references first.",
+    "Permanently removes a namespace from the organization. Returns a 409 error if any active experiments currently reference this namespace — disable or remove those references first.",
   operationId: "deleteNamespace",
   tags: ["namespaces"],
   method: "delete" as const,

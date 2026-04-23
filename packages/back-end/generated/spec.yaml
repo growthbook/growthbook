@@ -12686,8 +12686,8 @@ paths:
       summary: Delete a namespace
       description: >-
         Permanently removes a namespace from the organization. Returns a 409
-        error if any active experiments or feature flag rules currently
-        reference this namespace — remove or disable those references first.
+        error if any active experiments currently reference this namespace —
+        disable or remove those references first.
       tags:
         - namespaces
       parameters:

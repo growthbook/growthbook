@@ -20,7 +20,9 @@ export const postNamespace = createApiRequestHandler(postNamespaceValidator)(
     const existing = org.settings?.namespaces ?? [];
 
     if (existing.some((n) => n.label === displayName)) {
-      throw new ConflictError("A namespace with that display name already exists.");
+      throw new ConflictError(
+        "A namespace with that display name already exists.",
+      );
     }
 
     const effectiveFormat = format ?? "multiRange";
