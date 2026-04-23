@@ -1,5 +1,6 @@
 import { ChangeEventHandler, FC, useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { isCloud } from "@/services/env";
@@ -125,11 +126,12 @@ const BigQueryForm: FC<{
                       if (typeof str !== "string") {
                         return;
                       }
+                      const raw = stripLeadingUtf8ByteOrderMark(str);
                       const json: {
                         project_id: string;
                         private_key: string;
                         client_email: string;
-                      } = JSON.parse(str);
+                      } = JSON.parse(raw);
 
                       if (
                         json.project_id &&
@@ -141,13 +143,14 @@ const BigQueryForm: FC<{
                           projectId: json.project_id,
                           clientEmail: json.client_email,
                           defaultProject: json.project_id,
+                          serviceAccountJson: raw,
                         });
                         if (eventForwarderConfig?.sinkType === "bigquery") {
                           setEventForwarderConfig({
                             sinkType: "bigquery",
                             config: {
                               ...eventForwarderConfig.config,
-                              serviceAccountKey: str,
+                              serviceAccountKey: raw,
                             },
                           });
                         }
@@ -221,7 +224,10 @@ const BigQueryForm: FC<{
                     sinkType: "bigquery",
                     config: {
                       tableName: "gb_events",
-                      serviceAccountKey: "",
+                      serviceAccountKey:
+                        stripLeadingUtf8ByteOrderMark(
+                          params.serviceAccountJson ?? "",
+                        ).trim() || "",
                     },
                   });
                 }}

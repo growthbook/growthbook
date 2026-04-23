@@ -25,6 +25,7 @@ import {
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
+export * from "./strings";
 export * from "./features";
 export * from "./saved-groups";
 export * from "./metric-time-series";

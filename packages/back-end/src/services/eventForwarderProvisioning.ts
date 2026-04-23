@@ -1,4 +1,5 @@
 import * as bq from "@google-cloud/bigquery";
+import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { buildEventForwarderAvroSchema } from "shared/event-forwarder-avro";
 import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
@@ -157,6 +158,29 @@ function getConnectorConfigUrl(connectorName: string): string {
   return `${getCloudConnectorsBaseUrl()}/${encodeURIComponent(connectorName)}/config`;
 }
 
+/**
+ * Confluent validates the BigQuery Storage Write API using Google's credential parser.
+ * Strip BOM and canonicalize JSON so the connector receives parseable credentials (see
+ * Confluent docs: "Format service account keyfile credentials").
+ */
+function normalizeKeyfileJsonString(keyfile: string): string {
+  const trimmed = stripLeadingUtf8ByteOrderMark(keyfile).trim();
+  if (!trimmed) return "";
+  try {
+    return JSON.stringify(JSON.parse(trimmed));
+  } catch {
+    throw new Error(
+      "Event forwarder service account key is not valid JSON. Re-upload the GCP service account key file from the BigQuery datasource settings.",
+    );
+  }
+}
+
+/**
+ * BigQuery side: Confluent’s “Google Cloud service account” option — credentials
+ * are the JSON key in `keyfile` (see Confluent Cloud BigQuery Storage Sink docs).
+ * OAuth-based BigQuery auth is only offered when creating the connector in the
+ * Confluent UI; Connect API configs use `keyfile` like this.
+ */
 function buildBigQueryConnectorConfig({
   connectorName,
   topic,
@@ -170,6 +194,7 @@ function buildBigQueryConnectorConfig({
   config: BigQueryEventForwarderStoredConfig;
   projectId: string;
 }): ConnectorConfig {
+  const rawKey = config.serviceAccountKey || "";
   return {
     name: connectorName,
     "connector.class": BIGQUERY_STORAGE_SINK_CLASS,
@@ -178,7 +203,7 @@ function buildBigQueryConnectorConfig({
     "kafka.api.secret": CONFLUENT_KAFKA_API_SECRET,
     topics: topic,
     "topic2table.map": `${topic}:${tableName}`,
-    keyfile: config.serviceAccountKey || "",
+    keyfile: rawKey ? normalizeKeyfileJsonString(rawKey) : "",
     project: projectId,
     datasets: config.dataset,
     "tasks.max": "1",
@@ -347,7 +372,10 @@ async function getTargetTableName(
 
   validateBigQueryTableName(baseTableName);
 
-  const keyfile = JSON.parse(config.serviceAccountKey || "{}") as {
+  const rawKey = config.serviceAccountKey?.trim() || "";
+  const keyfile = JSON.parse(
+    rawKey ? normalizeKeyfileJsonString(rawKey) : "{}",
+  ) as {
     client_email?: string;
     private_key?: string;
   };

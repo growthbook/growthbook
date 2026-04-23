@@ -71,6 +71,14 @@ function getMergedProjects(
   ).sort();
 }
 
+/**
+ * Builds the same JSON shape as a GCP-downloaded service account key (see
+ * `keyfile` in Confluent’s BigQuery Storage Sink docs). This is not Confluent’s
+ * optional “OAuth 2.0” **connector** auth mode (that UI-only flow uses
+ * `oauth.client.id` / refresh tokens). Service account keys always include
+ * `auth_uri` / `token_uri`; Google’s client libraries use them for the service
+ * account JWT flow, not for interactive OAuth.
+ */
 function buildBigQueryServiceAccountKey(
   params: BigQueryConnectionParams,
 ): string | null {
@@ -78,11 +86,20 @@ function buildBigQueryServiceAccountKey(
     return null;
   }
 
+  const clientEmail = params.clientEmail;
   return JSON.stringify({
     type: "service_account",
     project_id: params.projectId,
-    client_email: params.clientEmail,
+    private_key_id: "",
     private_key: params.privateKey,
+    client_email: clientEmail,
+    client_id: "",
+    auth_uri: "https://accounts.google.com/o/oauth2/auth",
+    token_uri: "https://oauth2.googleapis.com/token",
+    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(
+      clientEmail,
+    )}`,
   });
 }
 
@@ -108,6 +125,7 @@ function buildBigQueryStoredConfigFromDraft(
   const serviceAccountKey =
     draft.serviceAccountKey?.trim() ||
     existingStored?.serviceAccountKey ||
+    datasourceParams?.serviceAccountJson?.trim() ||
     buildBigQueryServiceAccountKey(
       datasourceParams || ({} as BigQueryConnectionParams),
     ) ||
