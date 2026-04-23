@@ -27,27 +27,8 @@ export default function LinkedTag({
       href={href}
       target={onTagClick ? undefined : "_blank"}
       className="hover-underline"
-      onClick={(e) => {
-        e.stopPropagation();
-        // Let modifier/middle clicks fall through to the anchor so they open in a new tab.
-        if (
-          !onTagClick ||
-          e.metaKey ||
-          e.ctrlKey ||
-          e.shiftKey ||
-          e.altKey ||
-          e.button !== 0
-        ) {
-          return;
-        }
-        onTagClick(tag, e);
-      }}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        overflow: "hidden",
-        color: "inherit",
-      }}
+      onClick={onTagClick ? (e) => onTagClick(tag, e) : undefined}
+      style={{ color: "inherit" }}
     >
       {tag}
     </Link>

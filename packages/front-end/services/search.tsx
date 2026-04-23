@@ -61,11 +61,14 @@ const tagFilterClauseRegex =
 
 // Click handler for list pages: filter the current list in place instead of navigating.
 // Replaces only the tag clause in the current search value so other filters are preserved.
+// Modifier clicks (cmd/ctrl/shift/alt) fall through to the anchor's href so the browser
+// can open the filter page in a new tab/window as the user expects.
 export function tagFilterOnClick(
   currentValue: string,
   setSearchValue: (value: string) => void,
 ): (tag: string, e: MouseEvent) => void {
   return (tag, e) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
     const safe = tag.replace(/"/g, "");
     const stripped = currentValue

@@ -267,8 +267,17 @@ describe("useSearch", () => {
   });
 
   describe("tagFilterOnClick", () => {
-    const makeEvent = () =>
-      ({ preventDefault: vi.fn() }) as unknown as React.MouseEvent;
+    const makeEvent = (
+      overrides: Partial<React.MouseEvent> = {},
+    ): React.MouseEvent =>
+      ({
+        preventDefault: vi.fn(),
+        metaKey: false,
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        ...overrides,
+      }) as unknown as React.MouseEvent;
 
     const apply = (
       currentValue: string,
@@ -281,10 +290,26 @@ describe("useSearch", () => {
       return { next: setSearchValue.mock.calls[0][0], event };
     };
 
-    it("calls preventDefault on the event", () => {
+    it("calls preventDefault on a plain left click", () => {
       const { event } = apply("", "foo");
       expect(event.preventDefault).toHaveBeenCalledTimes(1);
     });
+
+    it.each([
+      ["metaKey", { metaKey: true }],
+      ["ctrlKey", { ctrlKey: true }],
+      ["shiftKey", { shiftKey: true }],
+      ["altKey", { altKey: true }],
+    ])(
+      "falls through (no preventDefault, no setSearchValue) for %s click",
+      (_label, overrides) => {
+        const setSearchValue = vi.fn<(value: string) => void>();
+        const event = makeEvent(overrides);
+        tagFilterOnClick("owner:alice", setSearchValue)("team-platform", event);
+        expect(event.preventDefault).not.toHaveBeenCalled();
+        expect(setSearchValue).not.toHaveBeenCalled();
+      },
+    );
 
     it("adds a tag clause when the search is empty", () => {
       expect(apply("", "team-platform").next).toBe(`tag:"team-platform"`);
