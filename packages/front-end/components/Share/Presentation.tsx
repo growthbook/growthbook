@@ -72,8 +72,8 @@ const Presentation = ({
   const orgSettings = useOrgSettings();
 
   // Note: presentations render slides for many experiments (potentially across
-  // projects), so we resolve significance thresholds once at org-level rather
-  // than per-experiment to avoid calling hooks in a loop.
+  // projects), so we resolve significance thresholds once at org-level as a
+  // fallback.
   const bayesianConfidenceLevels = useConfidenceLevels(undefined);
   const pValueThreshold = usePValueThreshold(undefined);
   const defaultSignificanceThresholds = {
