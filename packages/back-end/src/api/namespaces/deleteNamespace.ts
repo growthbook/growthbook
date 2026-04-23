@@ -3,13 +3,15 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ConflictError, NotFoundError } from "back-end/src/util/errors";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { filterActiveNamespaceExperiments } from "./namespaceApiUtils";
 
 export const deleteNamespace = createApiRequestHandler(
   deleteNamespaceValidator,
 )(async (req) => {
   const { id } = req.params;
-  const namespaces = req.context.org.settings?.namespaces ?? [];
+  const { org } = req.context;
+  const namespaces = org.settings?.namespaces ?? [];
 
   if (!namespaces.some((n) => n.name === id)) {
     throw new NotFoundError("Namespace not found.");
@@ -26,14 +28,20 @@ export const deleteNamespace = createApiRequestHandler(
     );
   }
 
-  await updateOrganization(req.context.org.id, {
-    "settings.namespaces": namespaces.filter((n) => n.name !== id),
+  const updatedList = namespaces.filter((n) => n.name !== id);
+
+  await updateOrganization(org.id, {
+    settings: { ...org.settings, namespaces: updatedList },
   });
 
   await req.audit({
-    event: "namespace.delete",
-    entity: { object: "namespace", id },
+    event: "organization.update",
+    entity: { object: "organization", id: org.id },
+    details: auditDetailsUpdate(
+      { settings: { namespaces } },
+      { settings: { namespaces: updatedList } },
+    ),
   });
 
-  return {};
+  return { deletedId: id };
 });
