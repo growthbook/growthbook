@@ -2043,11 +2043,10 @@ export function getApiFeatureObj({
     const environmentRules: Record<string, ApiFeatureRule[]> = {};
     const environmentDefinitions: Record<string, string> = {};
     environments.forEach((env) => {
-      // Hand the SDK compiler a v2 feature synthesized from the revision's
-      // per-env rule slice. Every rule in this slice already applies to
-      // `env`, so we tag them `allEnvironments: true` for the scoped view
-      // — this keeps `getFeatureDefinition`'s v2 reader happy and avoids
-      // re-projecting inside the loop.
+      // Hand `getFeatureDefinition` a v2 feature synthesized from the
+      // revision's per-env rule slice. Every rule in this slice already
+      // applies to `env`, so we tag them `allEnvironments: true` for the
+      // scoped view to avoid re-projecting inside the loop.
       const slicedRules: FeatureRule[] = (revRawRulesByEnv[env] ?? []).map(
         (r) => ({ ...r, allEnvironments: true, environments: undefined }),
       );
