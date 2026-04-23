@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   Revision,
@@ -11,7 +11,7 @@ interface SavedGroupConflictModalProps {
   savedGroup: SavedGroupInterface;
   selectedRevision: Revision;
   close: () => void;
-  mutate: () => void;
+  mutate: () => void | Promise<void>;
 }
 
 export function SavedGroupConflictModal({
@@ -20,6 +20,18 @@ export function SavedGroupConflictModal({
   close,
   mutate,
 }: SavedGroupConflictModalProps) {
+  // Refresh saved-group + revisions on open so the client computes its
+  // conflict preview against the latest live state. Without this, if another
+  // change was auto-published while the user was looking at a stale draft,
+  // the client's merge result would drift from the server's and the rebase
+  // optimistic-lock would reject the submission.
+  useEffect(() => {
+    void mutate();
+    // Intentionally run once on mount; `mutate` identity changes are not
+    // meaningful here and would cause redundant refetches mid-resolution.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <FixRevisionConflictsModal
       revision={selectedRevision}

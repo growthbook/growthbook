@@ -112,8 +112,14 @@ export default function SavedGroupArchiveModal({
         const params = new URLSearchParams();
 
         if (mode === "publish") {
-          // Direct update without revision workflow
-          // Don't set revisionId or forceCreateRevision
+          // Archive/unarchive still flows through the revision system so it
+          // shows up in history. When approval is required but the caller has
+          // bypass permission, record it as a bypass; otherwise auto-merge.
+          if (archiveGated && canBypass) {
+            params.set("bypassApproval", "1");
+          } else {
+            params.set("autoPublish", "1");
+          }
         } else if (mode === "existing" && selectedDraftId) {
           params.set("revisionId", selectedDraftId);
         } else {

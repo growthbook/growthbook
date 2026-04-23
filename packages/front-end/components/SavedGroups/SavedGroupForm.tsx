@@ -50,14 +50,12 @@ const SavedGroupForm: FC<{
   type: SavedGroupType;
   approvalFlowRequired?: boolean;
   metadataReviewRequired?: boolean;
-  hasExistingRevision?: boolean;
   onRevisionCreated?: (revision: Revision) => void;
   openRevisions?: Revision[];
   allRevisions?: Revision[];
   selectedRevision?: Revision | null;
   onSelectRevision?: (revision: Revision | null) => void;
   liveVersion?: SavedGroupInterface;
-  isCreatingNewRevision?: boolean;
   editInfoOnly?: boolean;
   editConditionOnly?: boolean;
   autoBypassApproval?: boolean;
@@ -74,7 +72,6 @@ const SavedGroupForm: FC<{
   selectedRevision,
   onSelectRevision,
   liveVersion,
-  isCreatingNewRevision = false,
   editInfoOnly = false,
   editConditionOnly = false,
   autoBypassApproval = false,
@@ -115,18 +112,22 @@ const SavedGroupForm: FC<{
       r.status,
     );
 
-  const [draftMode, setDraftMode] = useState<DraftMode>(() => {
-    if (autoBypassApproval || !isApprovalFlowRequired) return "publish";
-    const hasSelectedDraft =
-      selectedRevision && isDraftRevision(selectedRevision);
-    return hasSelectedDraft ? "existing" : "new";
-  });
-
+  // Pick the initial draft to target: prefer the revision the caller already
+  // has selected, then the current user's own open draft. Anything else falls
+  // back to "Create a new draft" — we intentionally never auto-select
+  // "Publish now" and we don't silently target someone else's work-in-progress.
   const [draftSelectedId, setDraftSelectedId] = useState<string | null>(() => {
     if (selectedRevision && isDraftRevision(selectedRevision))
       return selectedRevision.id;
-    return openRevisions.find(isDraftRevision)?.id ?? null;
+    const myDraft = openRevisions.find(
+      (r) => isDraftRevision(r) && r.authorId === user?.id,
+    );
+    return myDraft?.id ?? null;
   });
+
+  const [draftMode, setDraftMode] = useState<DraftMode>(() =>
+    draftSelectedId ? "existing" : "new",
+  );
 
   const allRevisionsForLabel = allRevisions ?? openRevisions;
 
@@ -142,18 +143,16 @@ const SavedGroupForm: FC<{
       ? (selectedRevision ?? null)
       : internalSelectedRevision;
 
-  // Check if editing is blocked
-  // 1. Editing live version while there are open revisions (unless creating new or auto-publishing)
-  // 2. Viewing a discarded/merged revision (read-only) - only when metadata review is required
+  // Editing is only blocked when viewing a discarded/merged revision in
+  // read-only (and only when metadata review is enforced). The previous
+  // "live has open drafts" block is no longer needed — the draft selector
+  // inside this modal lets the user explicitly choose to target an existing
+  // draft, create a new one, or publish, so there's nothing to protect
+  // against.
   const isEditBlocked =
-    (!!current.id &&
-      openRevisions.length > 0 &&
-      !currentRevision &&
-      !isCreatingNewRevision &&
-      !autoBypassApproval) ||
-    (isMetadataReviewRequired &&
-      (currentRevision?.status === "discarded" ||
-        currentRevision?.status === "merged"));
+    isMetadataReviewRequired &&
+    (currentRevision?.status === "discarded" ||
+      currentRevision?.status === "merged");
 
   const { mutateDefinitions, savedGroups, project } = useDefinitions();
 
@@ -258,11 +257,7 @@ const SavedGroupForm: FC<{
           : !!form.watch("condition"));
 
   const ctaDisabledMessage = isEditBlocked
-    ? isMetadataReviewRequired &&
-      (currentRevision?.status === "discarded" ||
-        currentRevision?.status === "merged")
-      ? "This revision is discarded and cannot be edited."
-      : "Cannot edit while there are open draft revisions."
+    ? "This revision is discarded and cannot be edited."
     : !hasProjectPermission && !editConditionOnly
       ? !selectedProjects.length && projectsOptions.length > 0
         ? "Select a project to continue."
@@ -318,17 +313,18 @@ const SavedGroupForm: FC<{
       cta={
         !current.id
           ? "Submit"
-          : autoBypassApproval
-            ? "Save"
-            : draftMode === "publish"
+          : draftMode === "publish"
+            ? isApprovalFlowRequired && !autoBypassApproval
               ? "Publish"
-              : "Save to draft"
+              : "Save"
+            : "Save to draft"
       }
       submitColor={
-        current.id && !autoBypassApproval && draftMode === "publish"
-          ? isApprovalFlowRequired
-            ? "danger"
-            : "primary"
+        current.id &&
+        draftMode === "publish" &&
+        isApprovalFlowRequired &&
+        !autoBypassApproval
+          ? "danger"
           : "primary"
       }
       ctaEnabled={
@@ -373,13 +369,16 @@ const SavedGroupForm: FC<{
                   projects: value.projects,
                 };
 
-          // Build URL with query params
+          // Build URL with query params based on the user's selector choice.
+          // `autoBypassApproval` (the metadata-only shortcut) routes "publish"
+          // through `autoPublish` rather than `bypassApproval` so non-admins
+          // can still save metadata changes — matching the server-side rule
+          // that honours `autoPublish` even when approval is otherwise
+          // required.
           const params = new URLSearchParams();
 
-          if (autoBypassApproval) {
-            params.set("autoPublish", "1");
-          } else if (draftMode === "publish") {
-            if (isApprovalFlowRequired) {
+          if (draftMode === "publish") {
+            if (isApprovalFlowRequired && !autoBypassApproval) {
               params.set("bypassApproval", "1");
             } else {
               params.set("autoPublish", "1");
@@ -441,7 +440,7 @@ const SavedGroupForm: FC<{
       })}
       error={errorMessage}
     >
-      {current.id && !autoBypassApproval && (
+      {current.id && (
         <SavedGroupDraftSelectorForChanges
           savedGroup={current as SavedGroupInterface}
           openRevisions={openRevisions}
@@ -451,17 +450,13 @@ const SavedGroupForm: FC<{
           selectedDraftId={draftSelectedId}
           setSelectedDraftId={setDraftSelectedId}
           canAutoPublish={canAutoPublish}
-          approvalRequired={isApprovalFlowRequired}
+          approvalRequired={isApprovalFlowRequired && !autoBypassApproval}
         />
       )}
-      {isEditBlocked && (
+      {isEditBlocked && currentRevision && (
         <Callout status="warning" mb="4">
           <Text size="2">
-            {isMetadataReviewRequired &&
-            (currentRevision?.status === "discarded" ||
-              currentRevision?.status === "merged")
-              ? `This revision is ${currentRevision.status} and cannot be edited. You can view it here in read-only mode.`
-              : "You cannot edit this saved group directly because there are open draft revisions. Please select a draft revision from the main page to edit, or wait for all drafts to be published or discarded."}
+            {`This revision is ${currentRevision.status} and cannot be edited. You can view it here in read-only mode.`}
           </Text>
         </Callout>
       )}

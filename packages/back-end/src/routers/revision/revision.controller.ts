@@ -403,14 +403,9 @@ export const postSubmit = async (
     });
   }
 
-  // Only the author can submit their own draft
-  if (existingRevision.authorId !== userId) {
-    return res.status(403).json({
-      message: "Only the revision author can submit it for review",
-    });
-  }
-
-  // Must have permission to edit the underlying entity
+  // Anyone with permission to update the underlying entity can move a draft
+  // into review (not just the original author), so co-authors and teammates
+  // can flag someone else's draft as ready for review.
   if (
     !getAdapter(existingRevision.target.type).canUpdate(
       context,
@@ -694,13 +689,6 @@ export const postRebase = async (
       message: "Cannot rebase merged or discarded revisions",
     });
   }
-  if (revision.authorId !== userId) {
-    return res
-      .status(403)
-      .json({ message: "Only the author can rebase their revision" });
-  }
-
-  // Get the current live state
   const entityModel = getEntityModel(context, revision.target.type);
   if (!entityModel) {
     return res.status(400).json({ message: "Unsupported entity type" });
@@ -709,12 +697,25 @@ export const postRebase = async (
   if (!entity) {
     return res.status(404).json({ message: "Entity not found" });
   }
-  const liveState = entity as Record<string, unknown>;
 
-  // Recalculate merge result to ensure it's still valid
+  // Anyone with permission to update the underlying entity can rebase a
+  // draft onto the latest live state (not just the original author), so
+  // teammates can unblock each other's stuck drafts. Matches the
+  // submit-for-review permission model.
+  if (
+    !getAdapter(revision.target.type).canUpdate(
+      context,
+      entity as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Recalculate merge result against the current live state to ensure the
+  // resolution the client is submitting is still valid.
   const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
   const existingOps = normalizeProposedChanges(revision.target.proposedChanges);
-  const liveSnapshot = liveState as Record<string, unknown>;
+  const liveSnapshot = entity as Record<string, unknown>;
 
   const mergeResult = checkMergeConflicts(
     baseSnapshot,
@@ -722,9 +723,33 @@ export const postRebase = async (
     existingOps,
   );
 
-  // Optimistic-lock: reject if the conflict set changed since the client computed
-  // its merge preview. Forces the user to re-review with the latest live state.
-  if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
+  // Optimistic-lock: verify the client's view of the conflict set still
+  // matches the server's. We intentionally compare only the sorted set of
+  // conflicting field names (not the full JSON merge result) so the check
+  // is robust to benign serialization drift between the client's cached
+  // live state and the server's fresh copy — e.g. Date vs ISO string,
+  // missing-vs-undefined keys, or Mongoose-only fields. The thing that
+  // actually matters for correctness is that every conflict the user
+  // resolved is still a conflict, and no new conflicts have appeared.
+  const serverConflictFields = (mergeResult.conflicts || [])
+    .map((c) => c.field)
+    .sort();
+  let clientConflictFields: string[] = [];
+  try {
+    const parsed = JSON.parse(mergeResultSerialized) as {
+      conflicts?: { field?: string }[];
+    };
+    clientConflictFields = (parsed?.conflicts ?? [])
+      .map((c) => c?.field ?? "")
+      .filter(Boolean)
+      .sort();
+  } catch {
+    // Fall through to the mismatch branch below.
+  }
+  const conflictSetsMatch =
+    serverConflictFields.length === clientConflictFields.length &&
+    serverConflictFields.every((f, i) => f === clientConflictFields[i]);
+  if (!conflictSetsMatch) {
     return res.status(409).json({
       message:
         "Something changed while you were resolving conflicts. Please reload and try again.",

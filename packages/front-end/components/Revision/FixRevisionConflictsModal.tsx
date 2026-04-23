@@ -25,7 +25,7 @@ export interface Props {
   revision: Revision;
   currentState: Record<string, unknown>;
   close: () => void;
-  mutate: () => void;
+  mutate: () => void | Promise<void>;
 }
 
 type MergeStrategy = "discard" | "overwrite" | "";

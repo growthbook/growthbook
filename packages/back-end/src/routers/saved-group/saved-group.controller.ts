@@ -196,7 +196,7 @@ type PostSavedGroupAddItemsRequest = AuthRequest<
 >;
 
 type PostSavedGroupAddItemsResponse =
-  | { status: 200 }
+  | { status: 200; requiresApproval?: false; revision?: Revision }
   | { status: 202; requiresApproval: boolean; revision: Revision };
 
 /**
@@ -289,12 +289,28 @@ export const postSavedGroupAddItems = async (
     context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
   );
 
-  const revision = await createOrUpdateRevision(
+  let revision = await createOrUpdateRevision(
     context,
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
   );
+
+  // When approval isn't required, merge the revision immediately so the
+  // caller's change takes effect instead of leaving a stranded draft.
+  if (!approvalRequired) {
+    await context.models.savedGroups.update(savedGroup, { values: newValues });
+    revision = await context.models.revisions.merge(
+      revision.id,
+      context.userId,
+      { bypass: false },
+    );
+    return res.status(200).json({
+      status: 200,
+      requiresApproval: false,
+      revision,
+    });
+  }
 
   return res.status(202).json({
     status: 202,
@@ -313,7 +329,7 @@ type PostSavedGroupRemoveItemsRequest = AuthRequest<
 >;
 
 type PostSavedGroupRemoveItemsResponse =
-  | { status: 200 }
+  | { status: 200; requiresApproval?: false; revision?: Revision }
   | { status: 202; requiresApproval: boolean; revision: Revision };
 
 /**
@@ -407,12 +423,28 @@ export const postSavedGroupRemoveItems = async (
     context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
   );
 
-  const revision = await createOrUpdateRevision(
+  let revision = await createOrUpdateRevision(
     context,
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
   );
+
+  // When approval isn't required, merge the revision immediately so the
+  // caller's change takes effect instead of leaving a stranded draft.
+  if (!approvalRequired) {
+    await context.models.savedGroups.update(savedGroup, { values: newValues });
+    revision = await context.models.revisions.merge(
+      revision.id,
+      context.userId,
+      { bypass: false },
+    );
+    return res.status(200).json({
+      status: 200,
+      requiresApproval: false,
+      revision,
+    });
+  }
 
   return res.status(202).json({
     status: 202,
@@ -596,17 +628,25 @@ export const putSavedGroup = async (
     fieldsToUpdate.archived = archived;
   }
 
-  // Check if forcing creation of a new empty revision
   const forceCreateRevision = req.query.forceCreateRevision === "1";
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
   const revertedFrom = req.query.revertedFrom;
 
-  // If there are no changes and not creating a new empty revision, return early
+  // All edits flow through the revision system: if no draft-intent flag was
+  // provided (revisionId/forceCreateRevision) we treat the request as an
+  // implicit auto-publish so the change is still tracked as a revision and
+  // merged immediately when approval isn't required.
+  const wantsDraft = !!revisionId || forceCreateRevision;
+  const wantsMerge = bypassApproval || autoPublish || !wantsDraft;
+
+  // If there are no changes and the caller didn't ask for a new empty draft
+  // or an explicit publish action, short-circuit.
   if (
     Object.keys(fieldsToUpdate).length === 0 &&
     !forceCreateRevision &&
+    !bypassApproval &&
     !autoPublish
   ) {
     return res.status(200).json({
@@ -614,59 +654,60 @@ export const putSavedGroup = async (
     });
   }
 
-  // Always create/update revision when explicitly requested via revisionId, forceCreateRevision, bypassApproval, or autoPublish
-  // This allows revisions to be used independently of approval requirements
-  if (revisionId || forceCreateRevision || bypassApproval || autoPublish) {
-    await ensureLiveRevisionExists(
+  await ensureLiveRevisionExists(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
+  );
+
+  const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
+
+  // When updating a revision, merge changes (don't replace) to preserve other fields
+  let revision = await createOrUpdateRevision(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    false, // replaceChanges = false to merge with existing proposed changes
+    wantsMerge || forceCreateRevision, // forceCreate when publishing or creating a fresh draft
+    title,
+    revertedFrom,
+    // Only update a specific draft revision when we're staying in draft mode
+    wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+  );
+
+  if (wantsMerge) {
+    // Delegate to the adapter so the multi-project bypass rule has a single
+    // source of truth (also used by the generic revision controller).
+    const canBypass = getAdapter("saved-group").canBypassApproval(
       context,
-      "saved-group",
-      savedGroup as unknown as Record<string, unknown> & {
-        id: string;
-        owner?: string;
-        dateCreated?: Date;
-      },
+      savedGroup as unknown as Record<string, unknown>,
     );
 
-    // Convert fieldsToUpdate to JSON Patch operations
-    const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
+    // bypassApproval is an explicit admin override — enforce the permission server-side.
+    if (bypassApproval && approvalRequired && !canBypass) {
+      context.permissions.throwPermissionError();
+    }
 
-    // When updating a revision, merge changes (don't replace) to preserve other fields
-    let revision = await createOrUpdateRevision(
-      context,
-      "saved-group",
-      savedGroup as unknown as Record<string, unknown> & { id: string },
-      patchOps,
-      false, // replaceChanges = false to merge with existing proposed changes
-      forceCreateRevision || bypassApproval || autoPublish, // forceCreate = true when creating new revision
-      title, // optional title for the revision
-      revertedFrom, // optional ID of the revision this is reverting
-      revisionId && !bypassApproval && !autoPublish ? revisionId : undefined, // optional specific revision ID to update
-    );
+    // When approval is required, only merge if the caller can bypass. Otherwise
+    // fall back to returning the revision as a draft for review. autoPublish
+    // is caller-asserted (used when metadata review is disabled), so we honour
+    // it even when full content approval is required.
+    const canImmediatelyMerge =
+      !approvalRequired || bypassApproval || autoPublish;
 
-    // If bypassing approval or auto-publishing, immediately merge the revision
-    if (bypassApproval || autoPublish) {
-      // Delegate to the adapter so the multi-project bypass rule has a single
-      // source of truth (also used by the generic revision controller).
-      const canBypass = getAdapter("saved-group").canBypassApproval(
-        context,
-        savedGroup as unknown as Record<string, unknown>,
-      );
-
-      // bypassApproval is an explicit admin override — enforce the permission server-side.
-      // autoPublish is used when metadata review is disabled; no bypass permission needed.
-      if (bypassApproval && !canBypass) {
-        context.permissions.throwPermissionError();
-      }
-
-      // canBypass is guaranteed true here (the !canBypass branch above throws),
-      // so `isBypass` purely reflects whether the caller used bypassApproval
-      // when approval was required.
+    if (canImmediatelyMerge) {
+      // Only record a bypass when the caller used the explicit admin override.
+      // autoPublish / no-flag represent "approval wasn't required for this
+      // change", which is a normal merge, not a bypass.
       const isBypass = approvalRequired && bypassApproval;
 
-      // Apply entity update
       await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
 
-      // Mark revision as merged
       revision = await context.models.revisions.merge(
         revision.id,
         context.userId,
@@ -680,18 +721,12 @@ export const putSavedGroup = async (
         revision,
       });
     }
-
-    return res.status(202).json({
-      status: 202,
-      requiresApproval: approvalRequired,
-      revision,
-    });
   }
 
-  // Direct update (only used when no revision workflow is requested)
-  await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
-  return res.status(200).json({
-    status: 200,
+  return res.status(202).json({
+    status: 202,
+    requiresApproval: approvalRequired,
+    revision,
   });
 };
 

@@ -126,8 +126,6 @@ export default function EditSavedGroupPage() {
   const [deleteItemsDraftSelectedId, setDeleteItemsDraftSelectedId] = useState<
     string | null
   >(null);
-  const [isCreatingNewRevision, setIsCreatingNewRevision] =
-    useState<boolean>(false);
   const [confirmRevert, setConfirmRevert] = useState<boolean>(false);
   const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
     null,
@@ -603,23 +601,26 @@ export default function EditSavedGroupPage() {
         <SavedGroupForm
           close={() => {
             setSavedGroupForm(null);
-            setIsCreatingNewRevision(false);
             mutate();
           }}
           current={savedGroupForm}
           type={savedGroup.type}
           approvalFlowRequired={approvalRequired}
           metadataReviewRequired={metadataReviewRequired}
-          hasExistingRevision={!!userOpenRevision}
           onRevisionCreated={onRevisionCreated}
           openRevisions={openRevisions}
           allRevisions={allRevisions}
           selectedRevision={selectedRevision}
           onSelectRevision={selectFlow}
           liveVersion={savedGroup}
-          isCreatingNewRevision={isCreatingNewRevision}
           editInfoOnly={true}
-          autoBypassApproval={!metadataReviewRequired}
+          // Signal the metadata-only shortcut when the org has review enabled
+          // but metadata review disabled. The draft selector is still shown so
+          // users can opt into a draft; this flag just defaults the initial
+          // mode to "publish" and routes publish through autoPublish (no admin
+          // bypass required) since the caller asserts approval isn't needed
+          // for metadata changes.
+          autoBypassApproval={approvalRequired && !metadataReviewRequired}
           mutate={mutate}
         />
       )}
@@ -633,7 +634,6 @@ export default function EditSavedGroupPage() {
           type={savedGroup.type}
           approvalFlowRequired={approvalRequired}
           metadataReviewRequired={metadataReviewRequired}
-          hasExistingRevision={!!userOpenRevision}
           onRevisionCreated={onRevisionCreated}
           openRevisions={openRevisions}
           allRevisions={allRevisions}
@@ -694,9 +694,8 @@ export default function EditSavedGroupPage() {
                 diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
                 revision={selectedRevision}
                 currentState={savedGroup}
-                mutate={() => {
-                  mutateRevisions();
-                  mutate();
+                mutate={async () => {
+                  await Promise.all([mutateRevisions(), mutate()]);
                 }}
                 setCurrentRevision={(f) => selectFlow(f)}
                 onPublish={async (revisionId) => {
@@ -829,9 +828,8 @@ export default function EditSavedGroupPage() {
           savedGroup={savedGroup}
           selectedRevision={selectedRevision}
           close={() => setConflictModal(false)}
-          mutate={() => {
-            mutateRevisions();
-            mutate();
+          mutate={async () => {
+            await Promise.all([mutateRevisions(), mutate()]);
           }}
         />
       )}

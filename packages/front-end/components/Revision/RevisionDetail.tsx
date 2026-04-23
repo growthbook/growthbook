@@ -33,7 +33,7 @@ import { useRevisionReview, reviewMessages } from "./useRevisionReview";
 interface RevisionDetailProps<T> {
   revision: Revision;
   currentState: Revision["target"]["snapshot"];
-  mutate?: () => void;
+  mutate?: () => void | Promise<void>;
   setCurrentRevision: (revision: Revision | null) => void;
   onPublish: (revisionId: string) => Promise<void>;
   onReopen?: (revisionId: string) => Promise<void>;
@@ -368,9 +368,9 @@ function RevisionDetail<T>({
           revision={revision}
           currentState={currentState as Record<string, unknown>}
           close={() => setShowFixConflicts(false)}
-          mutate={() => {
+          mutate={async () => {
             setShowFixConflicts(false);
-            mutate?.();
+            await mutate?.();
           }}
         />
       )}
@@ -702,7 +702,9 @@ function RevisionDetail<T>({
                       bypassApproval && requiresApproval ? "red" : "violet"
                     }
                     onClick={() =>
-                      bypassApproval ? handleMerge() : setConfirmPublish(true)
+                      bypassApproval || revision.status === "approved"
+                        ? handleMerge()
+                        : setConfirmPublish(true)
                     }
                     disabled={isSubmitting || !canMerge()}
                     style={!canMerge() ? { pointerEvents: "none" } : undefined}

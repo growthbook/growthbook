@@ -1,18 +1,18 @@
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
-import { Flex, Box } from "@radix-ui/themes";
+import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
 import { Revision, RevisionStatus } from "shared/enterprise";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureMetaInfo } from "shared/types/feature";
 import Link from "next/link";
+import { FaSearch } from "react-icons/fa";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import Owner from "@/components/Avatar/Owner";
-import Field from "@/components/Forms/Field";
 import Pagination from "@/ui/Pagination";
 import { DocLink } from "@/components/DocLink";
 import {
@@ -426,7 +426,7 @@ const ApprovalRequests: FC = () => {
 
   if (!hasFeature) {
     return (
-      <Box p="4" pr="5" className="container-fluid pagecontents">
+      <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
         <Callout status="info">
           Approval flows require an Enterprise plan.
         </Callout>
@@ -439,7 +439,7 @@ const ApprovalRequests: FC = () => {
   }
 
   return (
-    <Box p="4" pr="5" className="container-fluid pagecontents">
+    <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
       <Box mb="5">
         <Heading as="h1" size="large" mb="2">
           Approval Requests
@@ -452,8 +452,17 @@ const ApprovalRequests: FC = () => {
 
       {/* Filters */}
       <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
-        <Box style={{ flexBasis: 300, flexShrink: 0 }}>
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+        <Box flexBasis="300px" flexShrink="0">
+          <TextField.Root
+            placeholder="Search..."
+            type="search"
+            size="2"
+            {...searchInputProps}
+          >
+            <TextField.Slot>
+              <FaSearch />
+            </TextField.Slot>
+          </TextField.Root>
         </Box>
         <Flex gap="5" align="center">
           <FilterDropdown
