@@ -16,7 +16,7 @@ import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { Separator } from "@radix-ui/themes";
+import { Box, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -27,7 +27,6 @@ import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
@@ -39,6 +38,8 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import Text from "@/ui/Text";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -292,7 +293,7 @@ const AnalysisForm: FC<{
       hasMetrics);
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
       header={isHoldout ? "Analysis Settings" : "Experiment Settings"}
@@ -381,7 +382,7 @@ const AnalysisForm: FC<{
       })}
       cta="Save"
     >
-      <div className="mx-2">
+      <Box>
         {isBandit && (
           <FormProvider {...form}>
             <BanditSettings
@@ -643,14 +644,15 @@ const AnalysisForm: FC<{
           label={
             isBandit ? (
               <>
-                <div>Statistics Engine</div>
-                <div className="small text-muted">
-                  Only <strong>Bayesian</strong> is available for Bandit
-                  Experiments.
-                </div>
+                <Text weight="semibold">Statistics Engine</Text>
+                <Text size="small" color="text-mid">
+                  Only <Text weight="semibold">Bayesian</Text> is available for
+                  Bandit Experiments.
+                </Text>
               </>
             ) : undefined
           }
+          labelClassName="font-weight-bold"
           value={form.watch("statsEngine")}
           onChange={(v) => {
             form.setValue("statsEngine", v);
@@ -1071,8 +1073,8 @@ const AnalysisForm: FC<{
             )}
           </>
         )}
-      </div>
-    </Modal>
+      </Box>
+    </DialogLayout>
   );
 };
 

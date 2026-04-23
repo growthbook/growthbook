@@ -15,14 +15,15 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
-import Modal from "@/components/Modal";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import { AppFeatures } from "@/types/app-features";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
@@ -205,7 +206,7 @@ const StopExperimentForm: FC<{
   });
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType="stop-experiment-form"
       trackingEventModalSource={source}
       header={
@@ -218,14 +219,15 @@ const StopExperimentForm: FC<{
       open={showModal}
       submit={submit}
       cta={isStopped ? "Save" : "Stop"}
-      submitColor={isStopped ? "primary" : "danger"}
-      closeCta="Cancel"
+      ctaColor={isStopped ? "violet" : "red"}
     >
       <Flex direction={"column"} gap={"1"}>
         {decisionBanner ? (
           <>
             <Flex direction={"column"} gap="0">
-              <label>Recommendation</label>
+              <Text as="label" weight="semibold">
+                Recommendation
+              </Text>
               {decisionBanner}
             </Flex>
             <hr className="m-1" />
@@ -235,6 +237,7 @@ const StopExperimentForm: FC<{
           <div className="row">
             <SelectField
               label="Conclusion"
+              labelClassName="font-weight-bold"
               containerClassName="col-lg"
               className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
               value={form.watch("results")}
@@ -274,6 +277,7 @@ const StopExperimentForm: FC<{
             {form.watch("results") === "won" && variations.length > 2 && (
               <SelectField
                 label="Winner"
+                labelClassName="font-weight-bold"
                 containerClassName="col-lg"
                 className={
                   decisionDoesNotMatchRecommendedResult ? "warning" : ""
@@ -348,6 +352,7 @@ const StopExperimentForm: FC<{
                 <div className="row">
                   <SelectField
                     label="Variation to Release"
+                    labelClassName="font-weight-bold"
                     containerClassName="col"
                     value={form.watch("releasedVariationId")}
                     onChange={(v) => {
@@ -379,7 +384,9 @@ const StopExperimentForm: FC<{
 
         <div className="row">
           <div className="form-group col-lg">
-            <label>Additional Analysis or Details</label>{" "}
+            <Text as="label" weight="semibold">
+              Additional Analysis or Details
+            </Text>
             <MarkdownInput
               value={form.watch("analysis")}
               setValue={(val) => form.setValue("analysis", val)}
@@ -400,7 +407,7 @@ const StopExperimentForm: FC<{
           </div>
         </div>
       </Flex>
-    </Modal>
+    </DialogLayout>
   );
 };
 
