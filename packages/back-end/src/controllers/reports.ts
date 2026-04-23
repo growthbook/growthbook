@@ -269,11 +269,18 @@ export async function getReportPublic(
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined
     : undefined;
-  const experiment = pick(_experiment, ["id", "name", "type", "uid"]);
+  const experiment = pick(_experiment, [
+    "id",
+    "name",
+    "type",
+    "uid",
+    "project",
+  ]);
 
   const ssrData = await generateExperimentReportSSRData({
     context,
     organization: report.organization,
+    project: _experiment?.project,
     snapshot,
   });
 

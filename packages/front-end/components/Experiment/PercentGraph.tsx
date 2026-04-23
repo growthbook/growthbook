@@ -5,10 +5,12 @@ import {
   hasEnoughData,
   isStatSig,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import {
+  DifferenceType,
+  SignificanceThresholds,
+  StatsEngine,
+} from "shared/types/stats";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { RowResults } from "@/services/experiments";
 import AlignedGraph from "./AlignedGraph";
@@ -17,6 +19,7 @@ import { useResultPopover } from "./useResultPopover";
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   metric: ExperimentMetricInterface;
+  significanceThresholds: SignificanceThresholds;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
@@ -49,6 +52,7 @@ interface Props
 
 export default function PercentGraph({
   metric,
+  significanceThresholds,
   baseline,
   stats,
   domain,
@@ -79,16 +83,12 @@ export default function PercentGraph({
   pValueAdjustmentEnabled,
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
 
   const metricDefaults =
     ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||
     _metricDefaults;
-  const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
 
@@ -122,6 +122,7 @@ export default function PercentGraph({
     data: {
       stats,
       metric,
+      pValueThreshold,
       significant: significant ?? false,
       resultsStatus,
       differenceType,
