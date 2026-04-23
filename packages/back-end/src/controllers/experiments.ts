@@ -1497,19 +1497,34 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
+  const experimentHasLinkedChanges =
+    experiment.hasURLRedirects ||
+    experiment.hasVisualChangesets ||
+    (experiment.linkedFeatures && experiment.linkedFeatures.length > 0);
   if (
+    // Holdout change
     data.holdoutId &&
     data.holdoutId !== experiment.holdoutId &&
     experiment.holdoutId
   ) {
-    if (
-      experiment.status !== "draft" ||
-      experiment.hasURLRedirects ||
-      experiment.hasVisualChangesets ||
-      (experiment.linkedFeatures && experiment.linkedFeatures.length > 0)
-    ) {
+    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
       throw new Error(
         "Cannot change holdout after experiment has been run or linked changes have been added",
+      );
+    }
+    await context.models.holdout.removeExperimentFromHoldout(
+      experiment.holdoutId,
+      experiment.id,
+    );
+  } else if (
+    // Holdout removal
+    data.holdoutId == "" &&
+    data.holdoutId !== experiment.holdoutId &&
+    experiment.holdoutId
+  ) {
+    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
+      throw new Error(
+        "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
       );
     }
     await context.models.holdout.removeExperimentFromHoldout(

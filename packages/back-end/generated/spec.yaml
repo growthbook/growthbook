@@ -19635,6 +19635,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         project:
           type: string
         valueType:
@@ -20511,6 +20516,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         isPublic:
           type: boolean
         attributes:
@@ -20564,6 +20574,11 @@ components:
             type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         archived:
           type: boolean
@@ -20652,6 +20667,13 @@ components:
                     type: array
                     items:
                       type: number
+                  ranges:
+                    type: array
+                    items:
+                      type: array
+                      prefixItems:
+                        - type: number
+                        - type: number
                 required:
                   - namespaceId
                   - range
@@ -21086,6 +21108,11 @@ components:
                 The userId of the owner (or raw owner name/email for legacy
                 records)
               type: string
+            ownerEmail:
+              description: >-
+                The email address of the owner, when the owner can be resolved
+                to a known user.
+              type: string
             archived:
               type: boolean
             status:
@@ -21173,6 +21200,13 @@ components:
                         type: array
                         items:
                           type: number
+                      ranges:
+                        type: array
+                        items:
+                          type: array
+                          prefixItems:
+                            - type: number
+                            - type: number
                     required:
                       - namespaceId
                       - range
@@ -21582,6 +21616,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         datasourceId:
           type: string
         name:
@@ -21910,6 +21949,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         datasourceId:
           type: string
         identifierType:
@@ -21968,6 +22012,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         datasourceId:
           type: string
@@ -22426,6 +22475,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         condition:
           description: >-
             When type = 'condition', this is the JSON-encoded condition for the
@@ -22485,6 +22539,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         projects:
           type: array
@@ -22681,6 +22740,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         projects:
           type: array
@@ -25460,6 +25524,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         name:
           type: string
         description:
@@ -25601,6 +25670,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         templateMetadata:
           type: object
@@ -27387,22 +27461,52 @@ components:
                     minBucketVersion:
                       type: number
                     namespace:
-                      type: object
-                      properties:
-                        enabled:
-                          type: boolean
-                        name:
-                          type: string
-                        range:
-                          type: array
-                          prefixItems:
-                            - type: number
-                            - type: number
-                      required:
-                        - enabled
-                        - name
-                        - range
-                      additionalProperties: false
+                      anyOf:
+                        - type: object
+                          properties:
+                            enabled:
+                              type: boolean
+                            name:
+                              type: string
+                            range:
+                              type: array
+                              prefixItems:
+                                - type: number
+                                - type: number
+                            format:
+                              type: string
+                              const: legacy
+                          required:
+                            - enabled
+                            - name
+                            - range
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            enabled:
+                              type: boolean
+                            name:
+                              type: string
+                            ranges:
+                              type: array
+                              items:
+                                type: array
+                                prefixItems:
+                                  - type: number
+                                  - type: number
+                            hashAttribute:
+                              type: string
+                            hashVersion:
+                              type: number
+                            format:
+                              type: string
+                              const: multiRange
+                          required:
+                            - enabled
+                            - name
+                            - ranges
+                            - format
+                          additionalProperties: false
                     coverage:
                       type: number
                     datasource:

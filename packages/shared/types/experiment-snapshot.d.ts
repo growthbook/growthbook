@@ -1,5 +1,6 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
 import { BanditResult } from "shared/validators";
+import { CovariateImbalanceResult } from "shared/health";
 import { AnalysisMetaEntry } from "shared/snapshot-analysis-chunks";
 import { PhaseSQLVar } from "shared/types/sql";
 import {
@@ -135,11 +136,13 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueThreshold?: number;
   baselineVariationIndex?: number;
   numGoalMetrics: number;
+  numGuardrailMetrics: number;
   oneSidedIntervals?: boolean;
   holdoutAnalysisWindow?: {
     start: Date;
     end: Date;
   };
+  useCovariateAsResponse?: boolean;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
@@ -247,6 +250,7 @@ export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
   power?: MidExperimentPowerCalculationResult;
+  covariateImbalance?: CovariateImbalanceResult;
 }
 
 export interface ExperimentSnapshotTraffic {

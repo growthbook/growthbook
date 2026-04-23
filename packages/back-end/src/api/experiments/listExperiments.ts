@@ -5,6 +5,7 @@ import {
 import { ProjectInterface } from "shared/types/project";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -47,7 +48,10 @@ export const listExperiments = createApiRequestHandler(
       projectMap,
     ),
   );
-  const apiExperiments = await Promise.all(promises);
+  const apiExperiments = await resolveOwnerEmails(
+    await Promise.all(promises),
+    req.context,
+  );
 
   return {
     experiments: apiExperiments,
