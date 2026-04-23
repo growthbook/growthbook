@@ -26,6 +26,7 @@ export default function ExplorerDataTable({
   const {
     rowData,
     orderedColumnKeys,
+    columnLabels,
     headerStructure,
     explorationReturnedNoData,
   } = useExplorationTableData(exploration, submittedExploreState);
@@ -42,6 +43,7 @@ export default function ExplorerDataTable({
       showDuration={!!query?.statistics}
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
+      columnLabels={columnLabels}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
     />
   );

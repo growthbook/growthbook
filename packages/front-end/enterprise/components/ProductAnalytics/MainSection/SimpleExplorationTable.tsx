@@ -16,6 +16,7 @@ export default function SimpleExplorationTable({
   const {
     rowData,
     orderedColumnKeys,
+    columnLabels,
     headerStructure,
     explorationReturnedNoData,
   } = useExplorationTableData(exploration, config);
@@ -85,8 +86,8 @@ export default function SimpleExplorationTable({
             </>
           ) : (
             <tr>
-              {orderedColumnKeys.map((col) => (
-                <th key={col}>{col}</th>
+              {orderedColumnKeys.map((key, i) => (
+                <th key={key}>{columnLabels[i] ?? key}</th>
               ))}
             </tr>
           )}

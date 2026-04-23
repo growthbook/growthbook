@@ -22,7 +22,22 @@ import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   mapDatabaseTypeToEnum,
+  getMetricMixClass,
+  getEffectiveMetricValue,
 } from "shared/enterprise";
+export {
+  getMetricMixClass,
+  inferShowAs,
+  getEffectiveShowAs,
+  clearInapplicableShowAs,
+  getEffectiveMetricValue,
+  getSharedUnit,
+  showAsAppliesTo,
+  getIsRatioByIndex,
+  buildExplorationColumns,
+  getExplorationCellValue,
+} from "shared/enterprise";
+export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
 import { dateGranularity, explorationConfigValidator } from "shared/validators";
 
 export { mapDatabaseTypeToEnum };
@@ -266,6 +281,47 @@ export function validateDimensions(
     : config;
 }
 
+/**
+ * Fills in a default `unit` for metric values that have a resolved metric but
+ * no unit selected. Defaults to the numerator fact table's first userIdType.
+ *
+ * Without a unit, the SQL layer doesn't emit a denominator column, which breaks
+ * the per_unit branch of the showAs toggle and silently degrades ratio-like
+ * metrics. Applied when loading a config from any source (URL, AI agent, saved
+ * exploration) so users don't end up in that state.
+ *
+ * Skips:
+ * - fact_table / data_source datasets (their unit semantics are user-driven).
+ * - Metric values whose unit is already set.
+ * - Metric values whose metricId is empty or can't be resolved.
+ * - Metrics whose fact table has no userIdTypes (nothing to default to).
+ */
+export function fillMissingUnits(
+  config: ExplorationConfig,
+  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): ExplorationConfig {
+  if (!config.dataset || config.dataset.type !== "metric") return config;
+
+  let changed = false;
+  const newValues = config.dataset.values.map((v) => {
+    if (v.unit || !v.metricId) return v;
+    const metric = getFactMetricById(v.metricId);
+    if (!metric) return v;
+    const factTable = getFactTableById(metric.numerator.factTableId);
+    const defaultUnit = factTable?.userIdTypes?.[0];
+    if (!defaultUnit) return v;
+    changed = true;
+    return { ...v, unit: defaultUnit };
+  });
+
+  if (!changed) return config;
+  return {
+    ...config,
+    dataset: { ...config.dataset, values: newValues },
+  } as ExplorationConfig;
+}
+
 function hasNonEmptyValues(values: string[] | undefined): boolean {
   return (values ?? []).some((v) => v !== "");
 }
@@ -465,47 +521,6 @@ export function shouldChartSectionShow(params: {
   return true;
 }
 
-// --- Shared sorting helpers for chart & table ---
-
-/**
- * Build an array of `isRatio` flags indexed by dataset value position.
- * Only metric datasets can contain ratio values; fact_table and data_source
- * datasets never do.
- */
-export function getIsRatioByIndex(
-  config: ExplorationConfig | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): boolean[] {
-  if (!config?.dataset || config.dataset.type !== "metric") return [];
-  return config.dataset.values.map((v) => {
-    const m = getFactMetricById(v.metricId ?? "");
-    return m?.metricType === "ratio";
-  });
-}
-
-// Classifies a metric for chart-mixing rules.
-// - "ratio"    -> always renders as N/D, can't be mixed with other classes
-// - "quantile" -> percentile value, can't be mixed with other classes
-// - "standard" -> mean/proportion/retention/dailyParticipation, mix freely
-// - "unknown"  -> unselected metric or metric id we couldn't resolve
-export type MetricMixClass = "ratio" | "quantile" | "standard" | "unknown";
-
-export function getMetricMixClass(
-  metricType: string | null | undefined,
-): MetricMixClass {
-  if (metricType === "ratio") return "ratio";
-  if (metricType === "quantile") return "quantile";
-  if (
-    metricType === "mean" ||
-    metricType === "proportion" ||
-    metricType === "retention" ||
-    metricType === "dailyParticipation"
-  ) {
-    return "standard";
-  }
-  return "unknown";
-}
-
 /**
  * Given the other already-selected metrics in the dataset (excluding the slot
  * being edited), return the class any newly selected metric must match — or
@@ -515,7 +530,7 @@ export function getMetricMixClass(
  */
 export function getLockedMixClass(
   otherMetricTypes: (string | null | undefined)[],
-): Exclude<MetricMixClass, "unknown"> | null {
+): "ratio" | "quantile" | "standard" | null {
   for (const t of otherMetricTypes) {
     const c = getMetricMixClass(t);
     if (c !== "unknown") return c;
@@ -523,128 +538,11 @@ export function getLockedMixClass(
   return null;
 }
 
-/**
- * True when the per-unit branch of `showAs` produces a meaningful value for
- * this metric type (i.e. the emitted denominator isn't a trivial function of
- * the numerator).
- *
- * - mean: yes. Numerator sums the column across units; denominator counts units
- *   with activity; per_unit = real average per unit.
- * - proportion / retention / dailyParticipation: no. These metrics emit one row
- *   per qualifying unit, so denominator (COUNT of numerator rows) == numerator
- *   and per_unit degenerates to ~1. Only totals make sense for these in PA.
- * - ratio / quantile: N/A, handled separately (ratios self-contain N/D, quantiles
- *   have no denominator emitted).
- * - unknown: assume yes so we don't hide the control while a metric is loading.
- */
-function metricHasMeaningfulPerUnit(
-  metricType: string | null | undefined,
-): boolean {
-  if (!metricType) return true;
-  if (metricType === "mean") return true;
-  return false;
-}
-
-/**
- * True when the chart-level `showAs` toggle is meaningful for this dataset.
- *
- * - Metric datasets: applies when at least one value is a standard metric for
- *   which per-unit rendering is non-degenerate. Ratio/quantile metrics ignore
- *   showAs, and proportion/retention/dailyParticipation collapse per_unit to ~1
- *   in the product-analytics layer (no exposure set → denominator == numerator).
- * - fact_table / data_source datasets: never applies. Their value types are
- *   count, sum, and unit_count. count/sum don't expose a unit selector, so no
- *   denominator is emitted; unit_count's per-unit value is always 1.
- */
-export function showAsAppliesTo(
-  config: ExplorationConfig | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): boolean {
-  if (!config?.dataset) return false;
-  if (config.dataset.type !== "metric") return false;
-  if (config.dataset.values.length === 0) return false;
-  return config.dataset.values.some((v) => {
-    const type = getFactMetricById(v.metricId ?? "")?.metricType;
-    const c = getMetricMixClass(type);
-    if (c !== "standard" && c !== "unknown") return false;
-    return metricHasMeaningfulPerUnit(type);
-  });
-}
-
-/**
- * Infer a smart default for `showAs` when the user hasn't explicitly chosen one.
- *
- * Rule: default to `per_unit` only when the `total` rendering would be
- * mathematically incoherent — specifically, `mean` metrics whose numerator
- * aggregation is `max` (sum-of-per-unit-maxes has no interpretation) or
- * `count distinct` (sum-of-per-unit-distinct-counts double-counts values
- * shared across units). Everything else defaults to `total`: it's always a
- * coherent number, and for ambiguous cases (e.g. `mean` with `sum` aggregation,
- * which can be named either "total revenue" or "avg user spend" with identical
- * definitions) we don't try to guess intent.
- */
-export function inferShowAs(
-  config: ExplorationConfig | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): ShowAs {
-  if (!showAsAppliesTo(config, getFactMetricById)) return "total";
-  if (!config || config.dataset.type !== "metric") return "total";
-
-  const allTotalIncoherent = config.dataset.values.every((v) => {
-    const m = getFactMetricById(v.metricId ?? "");
-    if (m?.metricType !== "mean") return false;
-    const agg = m.numerator?.aggregation ?? "sum";
-    return agg === "max" || agg === "count distinct";
-  });
-  return allTotalIncoherent ? "per_unit" : "total";
-}
-
-/**
- * Resolves the effective showAs for a config: the user's explicit choice when
- * set, otherwise the inferred default. Use this at read sites (chart/table/
- * sidebar) instead of `config.showAs ?? "total"` so the default matches the
- * semantics of the selected metrics.
- */
-export function getEffectiveShowAs(
-  config: ExplorationConfig | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): ShowAs {
-  return config?.showAs ?? inferShowAs(config, getFactMetricById);
-}
-
-/**
- * Returns the shared unit name when all values in a metric dataset agree on a
- * single unit, otherwise null. Used to label "Per <unit>" in UI controls.
- */
-export function getSharedUnit(config: ExplorationConfig | null): string | null {
-  if (!config?.dataset || config.dataset.type !== "metric") return null;
-  const units = config.dataset.values
-    .map((v) => v.unit)
-    .filter((u): u is string => !!u);
-  if (units.length === 0) return null;
-  const first = units[0];
-  return units.every((u) => u === first) ? first : null;
-}
-
 export interface RenderOpts {
   showAs: ShowAs;
   // Indexed by the metric value's position in the dataset.values array.
   // Ratio metrics always render as numerator/denominator regardless of showAs.
   isRatioByIndex: boolean[];
-}
-
-export function getEffectiveMetricValue(
-  v: { numerator: number | null; denominator: number | null },
-  opts: { showAs: ShowAs; isRatio: boolean },
-): number {
-  const num = v.numerator ?? 0;
-  if (opts.isRatio) {
-    return v.denominator ? num / v.denominator : num;
-  }
-  if (opts.showAs === "per_unit") {
-    return v.denominator ? num / v.denominator : num;
-  }
-  return num;
 }
 
 function getRowTotal(row: ProductAnalyticsResultRow, opts: RenderOpts): number {
