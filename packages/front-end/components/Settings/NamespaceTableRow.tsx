@@ -1,14 +1,27 @@
 import { Namespaces, NamespaceUsage } from "shared/types/organization";
-import Link from "next/link";
-import { MouseEventHandler, useState } from "react";
+import { Box, IconButton } from "@radix-ui/themes";
+import { MouseEventHandler, useMemo, useState } from "react";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { findGaps } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import NamespaceUsageGraph from "@/components/Features/NamespaceUsageGraph";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
+import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export interface Props {
-  i: number;
   usage: NamespaceUsage;
   namespace: Namespaces;
   onDelete: () => Promise<void>;
@@ -28,155 +41,234 @@ export default function NamespaceTableRow({
   onArchive,
   onEdit,
 }: Props) {
-  const experiments = usage[namespace.name] ?? [];
+  const experiments = useMemo(
+    () => usage[namespace.name] ?? [],
+    [usage, namespace.name],
+  );
+  // Count each feature-rule / experiment once regardless of how many ranges
+  // it reserves inside the namespace.
+  const uniqueExperimentCount = useMemo(() => {
+    const seen = new Set<string>();
+    for (const e of experiments) {
+      seen.add(`${e.link}|${e.trackingKey || e.id}`);
+    }
+    return seen.size;
+  }, [experiments]);
+
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canUpdateNamespace();
   const canDelete = permissionsUtil.canDeleteNamespace();
 
-  const [open, setOpen] = useState(false);
-  const [range, setRange] = useState<[number, number] | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [hoverRange, setHoverRange] = useState<[number, number] | null>(null);
 
-  const status = namespace?.status || "active";
+  const isInactive = (namespace?.status ?? "active") === "inactive";
 
-  const expandRow: MouseEventHandler = (e) => {
+  const toggleExpand: MouseEventHandler = (e) => {
     e.preventDefault();
-    setOpen(!open);
+    setExpanded((v) => !v);
   };
 
   return (
     <>
-      <tr
-        className={`${status === "inactive" ? "text-muted" : ""}`}
-        style={{ cursor: "pointer" }}
-      >
-        <td onClick={expandRow}>
-          {namespace.label}
-          {status === "inactive" && (
-            <div
-              className={`badge badge-secondary ml-2`}
-              style={{ fontSize: "0.9em" }}
+      <TableRow style={{ cursor: "pointer", opacity: isInactive ? 0.6 : 1 }}>
+        <TableCell onClick={toggleExpand}>
+          <Text color={isInactive ? "text-mid" : undefined}>
+            {namespace.label}
+          </Text>
+          {isInactive && (
+            <Badge
+              label="Disabled"
+              color="gray"
+              variant="soft"
+              size="sm"
+              ml="2"
               title="This namespace is hidden and cannot be used for new experiments"
-            >
-              Disabled
-            </div>
+            />
           )}
-        </td>
-        <td onClick={expandRow} className="text-muted small">
-          {namespace.name}
-        </td>
-        <td onClick={expandRow}>{namespace.description}</td>
-        <td onClick={expandRow}>{experiments.length}</td>
-        <td onClick={expandRow}>
-          {percentFormatter.format(
-            findGaps(usage, namespace.name).reduce(
-              (sum, range) => sum + (range.end - range.start),
-              0,
-            ),
-          )}
-        </td>
-        <td>
-          <MoreMenu>
-            {canEdit ? (
-              <>
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onEdit();
-                  }}
-                >
-                  Edit
-                </a>
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    await onArchive();
-                  }}
-                >
-                  {namespace?.status === "inactive" ? "Enable" : "Disable"}
-                </a>
-              </>
-            ) : null}
-            {experiments.length === 0 && canDelete ? (
-              <DeleteButton
-                displayName="Namespace"
-                className="dropdown-item text-danger"
-                useIcon={false}
-                text="Delete"
-                title="Delete Namespace"
-                onClick={onDelete}
-              />
-            ) : null}
-          </MoreMenu>
-        </td>
-      </tr>
-      <tr
-        className="appbox"
-        style={{
-          display: open ? "" : "none",
-        }}
-      >
-        <td
-          colSpan={6}
-          className="px-4"
-          style={{
-            boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset",
-          }}
-        >
-          <NamespaceUsageGraph
-            namespace={namespace.name}
-            usage={usage}
-            title={"Namespace Usage"}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '[number, number] | null' is not assignable t... Remove this comment to see the full error message
-            range={range}
-          />
-          {experiments.length > 0 ? (
-            <div>
-              <table
-                className="table gb-table table-hover"
-                onMouseOut={() => {
-                  setRange(null);
-                }}
+        </TableCell>
+        <TableCell onClick={toggleExpand}>
+          <Text color={isInactive ? "text-mid" : undefined}>
+            {namespace.description}
+          </Text>
+        </TableCell>
+        <TableCell onClick={toggleExpand} justify="end">
+          <Box pr="2">
+            <Text color={isInactive ? "text-mid" : undefined}>
+              {uniqueExperimentCount}
+            </Text>
+          </Box>
+        </TableCell>
+        <TableCell onClick={toggleExpand} justify="end">
+          <Box pr="2">
+            <Text color={isInactive ? "text-mid" : undefined}>
+              {percentFormatter.format(
+                findGaps(usage, namespace.name).reduce(
+                  (sum, r) => sum + (r.end - r.start),
+                  0,
+                ),
+              )}
+            </Text>
+          </Box>
+        </TableCell>
+        <TableCell>
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="2"
+                highContrast
               >
-                <thead>
-                  <tr>
-                    <th>Feature / Experiment</th>
-                    <th>Environment</th>
-                    <th>Tracking Key</th>
-                    <th>Range</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {experiments.map((e, i) => {
-                    return (
-                      <tr
-                        key={i}
-                        onMouseOver={() => {
-                          setRange([e.start, e.end]);
-                        }}
-                      >
-                        <td>
-                          <Link href={e.link}>{e.name}</Link>
-                        </td>
-                        <td>{e.environment}</td>
-                        <td>{e.trackingKey || e.id}</td>
-                        <td>
-                          {e.start} to {e.end}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <em>No active experiments are using this namespace</em>
-          )}
-        </td>
-      </tr>
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            menuPlacement="end"
+            variant="soft"
+          >
+            <DropdownMenuGroup>
+              {canEdit && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      onEdit();
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={
+                      isInactive || uniqueExperimentCount === 0
+                        ? async () => {
+                            await onArchive();
+                            setMenuOpen(false);
+                          }
+                        : undefined
+                    }
+                    confirmation={
+                      !isInactive && uniqueExperimentCount > 0
+                        ? {
+                            submit: async () => {
+                              await onArchive();
+                              setMenuOpen(false);
+                            },
+                            confirmationTitle: "Disable Namespace",
+                            cta: "Disable",
+                            submitColor: "danger",
+                            getConfirmationContent: async () =>
+                              `This namespace has ${uniqueExperimentCount} experiment${uniqueExperimentCount !== 1 ? "s" : ""} using it. Disabling hides it from the namespace picker but does not affect existing experiments or the SDK payload.`,
+                          }
+                        : undefined
+                    }
+                  >
+                    {isInactive ? "Enable" : "Disable"}
+                  </DropdownMenuItem>
+                </>
+              )}
+              {experiments.length === 0 && canDelete && (
+                <DropdownMenuItem
+                  color="red"
+                  confirmation={{
+                    submit: onDelete,
+                    confirmationTitle: "Delete Namespace",
+                    cta: "Delete",
+                    getConfirmationContent: async () =>
+                      "Are you sure? This action cannot be undone.",
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuGroup>
+          </DropdownMenu>
+        </TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow data-no-hover>
+          <TableCell
+            colSpan={5}
+            px="6"
+            py="5"
+            style={{
+              boxShadow: "rgba(0,0,0,0.06) 0px 2px 4px 0px inset",
+              borderBottom: "1px solid var(--slate-a5, rgba(0,9,50,0.12))",
+              backgroundColor: "var(--color-background)",
+            }}
+          >
+            <NamespaceUsageGraph
+              namespace={namespace.name}
+              usage={usage}
+              title="Namespace Usage"
+              range={hoverRange ?? undefined}
+            />
+            {experiments.length > 0 ? (
+              <Table variant="ghost" mt="4">
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Experiment</TableColumnHeader>
+                    <TableColumnHeader>Environment</TableColumnHeader>
+                    <TableColumnHeader>Tracking Key</TableColumnHeader>
+                    <TableColumnHeader>Range</TableColumnHeader>
+                  </TableRow>
+                </TableHeader>
+                <TableBody onMouseLeave={() => setHoverRange(null)}>
+                  {[...experiments]
+                    .sort((a, b) => {
+                      const ka = `${a.link}|${a.trackingKey || a.id}`;
+                      const kb = `${b.link}|${b.trackingKey || b.id}`;
+                      return ka.localeCompare(kb);
+                    })
+                    .map((e, i, sorted) => {
+                      const key = `${e.link}|${e.trackingKey || e.id}`;
+                      const prevKey =
+                        i > 0
+                          ? `${sorted[i - 1].link}|${sorted[i - 1].trackingKey || sorted[i - 1].id}`
+                          : null;
+                      const nextKey =
+                        i < sorted.length - 1
+                          ? `${sorted[i + 1].link}|${sorted[i + 1].trackingKey || sorted[i + 1].id}`
+                          : null;
+                      const isFirstInGroup = key !== prevKey;
+                      const isLastInGroup = key !== nextKey;
+
+                      return (
+                        <TableRow
+                          key={i}
+                          onMouseEnter={() => setHoverRange([e.start, e.end])}
+                          data-group-inner={!isLastInGroup ? "" : undefined}
+                        >
+                          <TableCell>
+                            {isFirstInGroup ? (
+                              <Link href={e.link} target="_blank">
+                                {e.name}
+                              </Link>
+                            ) : null}
+                          </TableCell>
+                          <TableCell>{e.environment}</TableCell>
+                          <TableCell>
+                            {isFirstInGroup ? e.trackingKey || e.id : null}
+                          </TableCell>
+                          <TableCell>
+                            {e.start} to {e.end}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
+            ) : (
+              <Text as="p" color="text-mid" fontStyle="italic">
+                No active experiments are using this namespace
+              </Text>
+            )}
+          </TableCell>
+        </TableRow>
+      )}
     </>
   );
 }
