@@ -359,7 +359,7 @@ export const CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX =
   process.env.CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX || "gb-events";
 // Prefix for generated connector names: internal naming choice in GrowthBook, not from Confluent.
 export const CONFLUENT_EVENT_FORWARDER_CONNECTOR_PREFIX =
-  process.env.CONFLUENT_EVENT_FORWARDER_CONNECTOR_PREFIX || "gb-bq";
+  process.env.CONFLUENT_EVENT_FORWARDER_CONNECTOR_PREFIX || "gb-ef";
 // Topic partition count to request when GrowthBook creates the shared org topic in Confluent.
 export const CONFLUENT_EVENT_FORWARDER_TOPIC_PARTITIONS = parseEnvInt(
   process.env.CONFLUENT_EVENT_FORWARDER_TOPIC_PARTITIONS,

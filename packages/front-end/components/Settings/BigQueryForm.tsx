@@ -267,7 +267,7 @@ const BigQueryForm: FC<{
                       })
                     }
                     placeholder="gb_events"
-                    helpText="Must be a valid BigQuery table name."
+                    helpText="Letters, numbers, and underscores (Unicode allowed). Hyphens and spaces are normalized to underscores when saving."
                     required
                   />
                 </Flex>

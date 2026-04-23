@@ -8,6 +8,10 @@ import {
   EventForwarderSinkType,
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
+import {
+  DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+  normalizeBigQueryTableNameForEventForwarder,
+} from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
   CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX,
@@ -15,8 +19,6 @@ import {
 } from "back-end/src/util/secrets";
 
 type SinkConfig = BigQueryEventForwarderStoredConfig | Record<string, string>;
-
-const DEFAULT_BIGQUERY_EVENTS_TABLE = "gb_events";
 
 function sanitizeKafkaName(value: string): string {
   return value
@@ -117,10 +119,12 @@ function buildBigQueryStoredConfigFromDraft(
 
   const dataset = datasourceParams?.defaultDataset?.trim() || "";
 
-  const tableName =
-    (draft.tableName && draft.tableName.trim()) ||
-    existingStored?.tableName ||
-    DEFAULT_BIGQUERY_EVENTS_TABLE;
+  const rawTableName =
+    draft.tableName?.trim() ||
+    existingStored?.tableName?.trim() ||
+    DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME;
+
+  const tableName = normalizeBigQueryTableNameForEventForwarder(rawTableName);
 
   const serviceAccountKey =
     draft.serviceAccountKey?.trim() ||
@@ -167,7 +171,8 @@ export function toEventForwarderConfigDraft(
     return {
       sinkType: "bigquery",
       config: {
-        tableName: rest.tableName || DEFAULT_BIGQUERY_EVENTS_TABLE,
+        tableName:
+          rest.tableName || DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
         serviceAccountKey: "",
       },
     };

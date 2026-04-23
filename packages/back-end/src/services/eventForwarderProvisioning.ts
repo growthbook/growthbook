@@ -1,5 +1,9 @@
 import * as bq from "@google-cloud/bigquery";
-import { stripLeadingUtf8ByteOrderMark } from "shared/util";
+import {
+  isValidBigQueryTableName,
+  normalizeBigQueryTableNameForEventForwarder,
+  stripLeadingUtf8ByteOrderMark,
+} from "shared/util";
 import { buildEventForwarderAvroSchema } from "shared/event-forwarder-avro";
 import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
@@ -33,7 +37,6 @@ type ConnectorConfig = Record<string, string>;
 
 const CONFLUENT_CLOUD_BASE_URL = "https://api.confluent.cloud";
 const BIGQUERY_STORAGE_SINK_CLASS = "BigQueryStorageSink";
-const BIGQUERY_TABLE_NAME_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 class ConfluentApiError extends Error {
   constructor(
@@ -84,9 +87,9 @@ function validateBigQueryTableName(tableName: string): void {
     throw new Error("Missing BigQuery event forwarder table name");
   }
 
-  if (!BIGQUERY_TABLE_NAME_REGEX.test(tableName)) {
+  if (!isValidBigQueryTableName(tableName)) {
     throw new Error(
-      "Event forwarder table name must be a valid BigQuery table name and contain only letters, numbers, and underscores",
+      "Event forwarder table name must be a valid BigQuery table name (letters, numbers, underscores; Unicode letters allowed).",
     );
   }
 }
@@ -362,7 +365,12 @@ async function getTargetTableName(
   connectorName: string,
   projectId: string,
 ): Promise<string> {
-  const baseTableName = config.tableName.trim();
+  const trimmed = config.tableName.trim();
+  if (!trimmed) {
+    throw new Error("Missing BigQuery event forwarder table name");
+  }
+
+  const baseTableName = normalizeBigQueryTableNameForEventForwarder(trimmed);
 
   if (!config.dataset || !projectId) {
     throw new Error(
