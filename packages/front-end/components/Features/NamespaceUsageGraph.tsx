@@ -17,7 +17,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 const decimalFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
-// Formats like 0.5 → ".5", 0.14 → ".14", 1 → "1"
 const formatDecimal = (n: number) =>
   decimalFormatter.format(n).replace(/^0\./, ".");
 
@@ -35,7 +34,6 @@ export interface Props {
 
 type Interval = [number, number];
 
-// Complement of `gaps` within [0, 1] — i.e. intervals that are in-use.
 function computeInUseIntervals(
   gaps: { start: number; end: number }[],
 ): Interval[] {
@@ -50,7 +48,6 @@ function computeInUseIntervals(
   return result;
 }
 
-// Portions of selectedRanges that overlap with inUseIntervals (other experiments).
 function computeOverlapIntervals(
   selectedRanges: Interval[],
   inUseIntervals: Interval[],
@@ -118,7 +115,6 @@ export default function NamespaceUsageGraph({
   if (!namespaces?.length) return null;
 
   const totalUsed = inUseIntervals.reduce((sum, [s, e]) => sum + (e - s), 0);
-  // Edit mode: show caller's selected sum; otherwise show namespace total.
   const headerTotal = ranges
     ? ranges.reduce((sum, [s, e]) => sum + (e - s), 0)
     : totalUsed;

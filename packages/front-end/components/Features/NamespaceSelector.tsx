@@ -99,7 +99,6 @@ export default function NamespaceSelector({
   );
   const [allowOverlap, setAllowOverlap] = useState(false);
   const [selectKey, forceSelectRemount] = useIncrementer();
-  // Per-namespace range cache: restores user picks when switching the dropdown away and back.
   const namespaceRangesCache = useRef<Record<string, RangeTuple[]>>({});
   const namespacePath = `${formPrefix}namespace`;
   const namespaceRangesPath = `${namespacePath}.ranges`;
@@ -204,10 +203,8 @@ export default function NamespaceSelector({
     });
   }, [namespace, ranges, persistedGaps]);
 
-  // Reset allowOverlap when the namespace changes, seeding it from the
-  // detected overlap state (so existing overlapping configs auto-enable it).
-  // isOverlapping intentionally excluded — we only want this to fire on
-  // namespace change, not every time range values shift.
+  // Fires only on namespace change; ref avoids stale closure without making
+  // isOverlapping a dep (which would fire on every range edit).
   const isOverlappingRef = useRef(isOverlapping);
   isOverlappingRef.current = isOverlapping;
   useEffect(() => {
@@ -247,7 +244,6 @@ export default function NamespaceSelector({
 
   useEffect(() => {
     if (storedRanges.length > 0 || !legacyRange) return;
-    // Migrate legacy single-range tuple → canonical `ranges` array.
     const current =
       (form.getValues(namespacePath) as NamespaceFormState | undefined) ?? {};
     form.setValue(
@@ -279,7 +275,6 @@ export default function NamespaceSelector({
     }
   }, [namespace, ranges]);
 
-  // Clear namespace when the experiment's hash attribute changes and no longer matches.
   useEffect(() => {
     if (!experimentHashAttribute) return;
     const ns = form.getValues(namespacePath) as NamespaceFormState | undefined;
@@ -498,26 +493,30 @@ export default function NamespaceSelector({
                     setValue={(v) => {
                       setAllowOverlap(v);
                       if (!v && ranges.length > 0) {
-                        const snapped = ranges.map((range, index) => {
-                          const otherRanges = ranges.filter(
-                            (_, i) => i !== index,
-                          );
+                        const snapped: RangeTuple[] = [];
+                        for (let index = 0; index < ranges.length; index++) {
+                          const range = ranges[index];
+                          const otherRanges = [
+                            ...snapped,
+                            ...ranges.filter((_, i) => i > index),
+                          ];
                           const available = subtractSelectedRangesFromGaps(
                             persistedGaps,
                             otherRanges,
                           );
                           if (findContainingGap(available, range[0])) {
-                            return normalizeRangeAfterUpperChange(
+                            snapped[index] = normalizeRangeAfterUpperChange(
                               range,
                               range[1],
                               available,
                             );
+                          } else {
+                            const largest = getLargestGap(available);
+                            snapped[index] = largest
+                              ? ([largest.start, largest.end] as RangeTuple)
+                              : range;
                           }
-                          const largest = getLargestGap(available);
-                          return largest
-                            ? ([largest.start, largest.end] as RangeTuple)
-                            : range;
-                        });
+                        }
                         form.setValue(namespaceRangesPath, snapped, {
                           shouldDirty: true,
                           shouldTouch: true,
