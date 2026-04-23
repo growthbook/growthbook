@@ -1,5 +1,5 @@
 import * as bq from "@google-cloud/bigquery";
-import { BigQueryEventForwarderConfigDraft } from "shared/types/event-forwarder";
+import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { EventForwarderConfigInterface } from "shared/validators";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
@@ -166,7 +166,7 @@ function buildBigQueryConnectorConfig({
   connectorName: string;
   topic: string;
   tableName: string;
-  config: BigQueryEventForwarderConfigDraft;
+  config: BigQueryEventForwarderStoredConfig;
   projectId: string;
 }): ConnectorConfig {
   return {
@@ -332,7 +332,7 @@ function shouldUpdateConnector(
 }
 
 async function getTargetTableName(
-  config: BigQueryEventForwarderConfigDraft,
+  config: BigQueryEventForwarderStoredConfig,
   connectorName: string,
   projectId: string,
 ): Promise<string> {
@@ -374,7 +374,7 @@ async function ensureBigQueryConnector(
   const connectorName = getConnectorName(eventForwarderConfig);
   const existing = await getConnectorConfig(connectorName);
   const config =
-    decryptEventForwarderConfigModel<BigQueryEventForwarderConfigDraft>(
+    decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
       eventForwarderConfig,
     );
   const tableName = await getTargetTableName(config, connectorName, projectId);

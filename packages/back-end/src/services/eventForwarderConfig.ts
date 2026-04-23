@@ -3,6 +3,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import {
   BigQueryEventForwarderConfigDraft,
+  BigQueryEventForwarderStoredConfig,
   EventForwarderConfigDraft,
   EventForwarderSinkType,
 } from "shared/types/event-forwarder";
@@ -13,7 +14,7 @@ import {
   ENCRYPTION_KEY,
 } from "back-end/src/util/secrets";
 
-type SinkConfig = BigQueryEventForwarderConfigDraft | Record<string, string>;
+type SinkConfig = BigQueryEventForwarderStoredConfig | Record<string, string>;
 
 const DEFAULT_BIGQUERY_EVENTS_TABLE = "gb_events";
 
@@ -85,41 +86,54 @@ function buildBigQueryServiceAccountKey(
   });
 }
 
-function normalizeBigQueryDraft(
+function buildBigQueryStoredConfigFromDraft(
   draft: BigQueryEventForwarderConfigDraft,
-  datasourceParams?: BigQueryConnectionParams,
-  existing?: BigQueryEventForwarderConfigDraft | null,
-): BigQueryEventForwarderConfigDraft {
+  datasourceParams: BigQueryConnectionParams | undefined,
+  existingModel: EventForwarderConfigInterface | null,
+): BigQueryEventForwarderStoredConfig {
+  const existingStored =
+    existingModel?.sinkType === "bigquery"
+      ? decryptSinkConfig<BigQueryEventForwarderStoredConfig>(
+          existingModel.config,
+        )
+      : null;
+
+  const dataset = datasourceParams?.defaultDataset?.trim() || "";
+
+  const tableName =
+    (draft.tableName && draft.tableName.trim()) ||
+    existingStored?.tableName ||
+    DEFAULT_BIGQUERY_EVENTS_TABLE;
+
+  const serviceAccountKey =
+    draft.serviceAccountKey?.trim() ||
+    existingStored?.serviceAccountKey ||
+    buildBigQueryServiceAccountKey(
+      datasourceParams || ({} as BigQueryConnectionParams),
+    ) ||
+    "";
+
   return {
-    dataset: draft.dataset || datasourceParams?.defaultDataset || "",
-    tableName: draft.tableName || DEFAULT_BIGQUERY_EVENTS_TABLE,
-    serviceAccountKey:
-      draft.serviceAccountKey ||
-      existing?.serviceAccountKey ||
-      buildBigQueryServiceAccountKey(
-        datasourceParams || ({} as BigQueryConnectionParams),
-      ) ||
-      "",
+    dataset,
+    tableName,
+    serviceAccountKey,
   };
 }
 
-function normalizeDraft(
+function buildNormalizedSinkPayload(
   draft: EventForwarderConfigDraft,
-  datasourceParams?: BigQueryConnectionParams,
-  existing?: EventForwarderConfigDraft | null,
-): EventForwarderConfigDraft {
+  datasourceParams: BigQueryConnectionParams | undefined,
+  existingModel: EventForwarderConfigInterface | null,
+): SinkConfig {
   if (draft.sinkType === "bigquery") {
-    return {
-      sinkType: "bigquery",
-      config: normalizeBigQueryDraft(
-        draft.config,
-        datasourceParams,
-        existing?.sinkType === "bigquery" ? existing.config : null,
-      ),
-    };
+    return buildBigQueryStoredConfigFromDraft(
+      draft.config,
+      datasourceParams,
+      existingModel,
+    );
   }
 
-  return draft;
+  return draft.config as Record<string, string>;
 }
 
 export function toEventForwarderConfigDraft(
@@ -129,13 +143,13 @@ export function toEventForwarderConfigDraft(
 
   if (config.sinkType === "bigquery") {
     const decrypted = decryptSinkConfig<
-      BigQueryEventForwarderConfigDraft & { projectId?: string }
+      BigQueryEventForwarderStoredConfig & { projectId?: string }
     >(config.config);
-    const { projectId: _removed, ...rest } = decrypted;
+    const { dataset: _dataset, projectId: _removed, ...rest } = decrypted;
     return {
       sinkType: "bigquery",
       config: {
-        ...rest,
+        tableName: rest.tableName || DEFAULT_BIGQUERY_EVENTS_TABLE,
         serviceAccountKey: "",
       },
     };
@@ -189,25 +203,27 @@ export async function syncEventForwarderConfigFromDatasource({
     return null;
   }
 
-  const normalizedDraft = normalizeDraft(
+  const normalizedPayload = buildNormalizedSinkPayload(
     draft,
     datasourceParams,
-    toEventForwarderConfigDraft(existing),
+    existing,
   );
 
-  if (normalizedDraft.sinkType === "bigquery") {
+  if (draft.sinkType === "bigquery") {
     const bqProject =
       datasourceParams?.defaultProject?.trim() ||
       datasourceParams?.projectId?.trim() ||
       "";
+    const defaultDataset = datasourceParams?.defaultDataset?.trim() || "";
+    const bq = normalizedPayload as BigQueryEventForwarderStoredConfig;
     if (
       !bqProject ||
-      !normalizedDraft.config.dataset ||
-      !normalizedDraft.config.tableName ||
-      !normalizedDraft.config.serviceAccountKey
+      !defaultDataset ||
+      !bq.tableName?.trim() ||
+      !bq.serviceAccountKey
     ) {
       throw new Error(
-        "BigQuery event forwarder requires connector project (BigQuery Project ID), dataset, table name, and service account credentials",
+        "BigQuery event forwarder requires connector project (BigQuery Project ID), default dataset, table name, and service account credentials",
       );
     }
   }
@@ -220,8 +236,8 @@ export async function syncEventForwarderConfigFromDatasource({
       topic: getTopicName(datasource.organization),
       // Provisioning resolves the current registry schema id after the topic exists.
       schemaId: 0,
-      sinkType: normalizedDraft.sinkType,
-      config: encryptSinkConfig(normalizedDraft.config),
+      sinkType: draft.sinkType,
+      config: encryptSinkConfig(normalizedPayload),
       status: "pending",
       connectorName: "",
       connectorId: "",
@@ -233,7 +249,7 @@ export async function syncEventForwarderConfigFromDatasource({
     projects,
     topic: existing.topic || getTopicName(datasource.organization),
     schemaId: existing.schemaId || 0,
-    config: encryptSinkConfig(normalizedDraft.config),
+    config: encryptSinkConfig(normalizedPayload),
     status: "pending",
     lastProvisioningError: "",
   });

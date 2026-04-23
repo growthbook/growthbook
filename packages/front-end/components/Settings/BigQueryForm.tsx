@@ -220,7 +220,6 @@ const BigQueryForm: FC<{
                   setEventForwarderConfig({
                     sinkType: "bigquery",
                     config: {
-                      dataset: params.defaultDataset || "",
                       tableName: "gb_events",
                       serviceAccountKey: "",
                     },
@@ -229,7 +228,8 @@ const BigQueryForm: FC<{
               />
               <div>
                 <span className="text-muted small">
-                  Enriched events will be forwarded to your data warehouse.
+                  Enriched events are written to the Default Dataset on this
+                  page (same as experiment assignment data).
                 </span>
               </div>
             </div>
@@ -239,31 +239,6 @@ const BigQueryForm: FC<{
                 gap="3"
                 className="form-group col-md-12 mt-3 px-0"
               >
-                <Flex direction="column" gap="1">
-                  <label className="mb-0">
-                    <Flex align="center" gap="1">
-                      <span>Event Forwarder Dataset</span>
-                      <Tooltip body="Defaults to the datasource dataset, but you can override it for the BigQuery sink target." />
-                    </Flex>
-                  </label>
-                  <Field
-                    type="text"
-                    className="form-control"
-                    name="eventForwarderDataset"
-                    value={eventForwarderConfig.config.dataset}
-                    onChange={(e) =>
-                      setEventForwarderConfig({
-                        sinkType: "bigquery",
-                        config: {
-                          ...eventForwarderConfig.config,
-                          dataset: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="analytics_events"
-                    required
-                  />
-                </Flex>
                 <Flex direction="column" gap="1">
                   <label className="mb-0">
                     <Flex align="center" gap="1">
