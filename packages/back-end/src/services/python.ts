@@ -50,11 +50,12 @@ const MIN_POOL_SIZE = parseEnvInt(
   { min: 0, max: MAX_POOL_SIZE, name: "GB_STATS_ENGINE_MIN_POOL_SIZE" },
 );
 
-// The stats engine usually finishes within 1 second
-// We use an overly conservative timeout to account for high load
+// The stats engine usually finishes within 1 second, but large experiments
+// with many metrics and dimension breakdowns can legitimately take several
+// minutes. We use a conservative timeout so those results aren't discarded.
 const STATS_ENGINE_TIMEOUT_MS = parseEnvInt(
   process.env.GB_STATS_ENGINE_TIMEOUT_MS,
-  300_000,
+  900_000,
   { min: 1, name: "GB_STATS_ENGINE_TIMEOUT_MS" },
 );
 
