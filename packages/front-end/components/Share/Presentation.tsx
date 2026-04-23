@@ -15,14 +15,14 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { SignificanceThresholds } from "shared/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Markdown from "@/components/Markdown/Markdown";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useSignificanceThresholdsByProject from "@/hooks/useSignificanceThresholdsByProject";
 import CompactResults from "@/components/Experiment/CompactResults";
 import AuthorizedImage from "@/components/AuthorizedImage";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 import {
   PresentationDeck,
@@ -76,10 +76,14 @@ const Presentation = ({
   // than per-experiment to avoid calling hooks in a loop.
   const bayesianConfidenceLevels = useConfidenceLevels(undefined);
   const pValueThreshold = usePValueThreshold(undefined);
-  const significanceThresholds: SignificanceThresholds = {
+  const defaultSignificanceThresholds = {
     bayesianConfidenceLevels,
     pValueThreshold,
   };
+  // Presentations render slides for many experiments across projects. Resolve
+  // project-scoped significance thresholds up front for every project in the
+  // org so we can look them up per-experiment without calling hooks in a loop.
+  const significanceThresholdsByProject = useSignificanceThresholdsByProject();
 
   const [imageCache] = React.useState<
     Record<string, { url: string; expiresAt: string }>
@@ -469,7 +473,11 @@ const Presentation = ({
             >
               <CompactResults
                 experimentId={experiment.id}
-                significanceThresholds={significanceThresholds}
+                significanceThresholds={
+                  significanceThresholdsByProject.get(
+                    experiment.project || "",
+                  ) ?? defaultSignificanceThresholds
+                }
                 variations={getLatestPhaseVariations(experiment).map(
                   (v, i) => ({
                     id: v.key || v.index + "",

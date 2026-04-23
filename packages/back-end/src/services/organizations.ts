@@ -223,9 +223,7 @@ export async function getConfidenceLevelsForProject(
 
 /**
  * Resolves all significance-related settings (confidence levels, p-value
- * threshold, p-value correction) with a single project lookup. Use this when
- * a caller needs more than one of these values for the same project to avoid
- * the N round trips that calling each individual helper would incur.
+ * threshold, p-value correction) with a single call.
  */
 export async function getSignificanceSettingsForProject(
   context: ReqContext,

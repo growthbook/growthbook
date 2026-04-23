@@ -12,6 +12,10 @@ export default function useConfidenceLevels(projectId: string | undefined) {
       : undefined;
   const { settings } = getScopedSettings({ organization, project });
   const ciUpper = settings.confidenceLevel.value || DEFAULT_CONFIDENCE_LEVEL;
+  return computeConfidenceLevelsFromCiUpper(ciUpper);
+}
+
+export function computeConfidenceLevelsFromCiUpper(ciUpper: number) {
   return {
     ciUpper,
     ciLower: 1 - ciUpper,

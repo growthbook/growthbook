@@ -30,6 +30,7 @@ import Pagination from "@/components/Pagination";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useSignificanceThresholdsByProject from "@/hooks/useSignificanceThresholdsByProject";
 import { experimentDate, RowResults } from "@/services/experiments";
 import { useSearch } from "@/services/search";
 import { formatNumber } from "@/services/metrics";
@@ -79,6 +80,7 @@ export interface MetricExperimentData {
   secondaryMetrics: string[];
   datasource: string;
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+  project?: string;
 }
 
 const NUM_PER_PAGE = 50;
@@ -95,14 +97,25 @@ function MetricExperimentResultTab({
   const end = start + numPerPage;
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-  // Note: these render a mixed-project table, so we fall back to org-level
-  // settings for all rows. If we ever want per-row project-scoped thresholds
-  // here, this needs a refactor away from hooks-at-the-top.
-  const { ciUpper, ciLower } = useConfidenceLevels(undefined);
+  const bayesianConfidenceLevels = useConfidenceLevels(undefined);
   const pValueThreshold = usePValueThreshold(undefined);
+  const defaultSignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
+  // Experiments in this table can span projects. Resolve project-scoped
+  // significance thresholds up front for every project in the org so we can
+  // look them up per-experiment without calling hooks in a loop.
+  const significanceThresholdsByProject = useSignificanceThresholdsByProject();
 
   const expData: MetricExperimentData[] = [];
   experimentsWithSnapshot.forEach((e) => {
+    const {
+      bayesianConfidenceLevels: { ciUpper, ciLower },
+      pValueThreshold,
+    } =
+      significanceThresholdsByProject.get(e.project || "") ??
+      defaultSignificanceThresholds;
     let variationResults: SnapshotMetric[] = [];
     let statsEngine: StatsEngine = "bayesian";
     let differenceType: DifferenceType = "relative";
@@ -136,6 +149,7 @@ function MetricExperimentResultTab({
         secondaryMetrics: e.secondaryMetrics,
         datasource: e.datasource,
         decisionFrameworkSettings: e.decisionFrameworkSettings,
+        project: e.project,
       };
       if (!bandits && baseline && variationResults[i]) {
         const { significant, resultsStatus, directionalStatus } =
@@ -235,7 +249,12 @@ function MetricExperimentResultTab({
           e.variationResults ? (
             <ChangeColumn
               metric={metric}
-              pValueThreshold={pValueThreshold}
+              pValueThreshold={
+                (
+                  significanceThresholdsByProject.get(e.project || "") ??
+                  defaultSignificanceThresholds
+                ).pValueThreshold
+              }
               stats={e.variationResults}
               rowResults={{
                 enoughData: true,
