@@ -147,9 +147,6 @@ const BigQueryForm: FC<{
                             sinkType: "bigquery",
                             config: {
                               ...eventForwarderConfig.config,
-                              projectId:
-                                eventForwarderConfig.config.projectId ||
-                                json.project_id,
                               serviceAccountKey: str,
                             },
                           });
@@ -223,8 +220,6 @@ const BigQueryForm: FC<{
                   setEventForwarderConfig({
                     sinkType: "bigquery",
                     config: {
-                      projectId:
-                        params.defaultProject || params.projectId || "",
                       dataset: params.defaultDataset || "",
                       tableName: "gb_events",
                       serviceAccountKey: "",
@@ -244,31 +239,6 @@ const BigQueryForm: FC<{
                 gap="3"
                 className="form-group col-md-12 mt-3 px-0"
               >
-                <Flex direction="column" gap="1">
-                  <label className="mb-0">
-                    <Flex align="center" gap="1">
-                      <span>Event Forwarder Project ID</span>
-                      <Tooltip body="Defaults to the datasource project, but you can override it for the BigQuery sink target." />
-                    </Flex>
-                  </label>
-                  <Field
-                    type="text"
-                    className="form-control"
-                    name="eventForwarderProjectId"
-                    value={eventForwarderConfig.config.projectId}
-                    onChange={(e) =>
-                      setEventForwarderConfig({
-                        sinkType: "bigquery",
-                        config: {
-                          ...eventForwarderConfig.config,
-                          projectId: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="my_project"
-                    required
-                  />
-                </Flex>
                 <Flex direction="column" gap="1">
                   <label className="mb-0">
                     <Flex align="center" gap="1">

@@ -277,6 +277,9 @@ export async function postDataSources(
     const provisioningResult = await maybeProvisionEventForwarderConfig(
       context,
       syncedEventForwarderConfig,
+      datasource.type === "bigquery"
+        ? (params as BigQueryConnectionParams)
+        : undefined,
     );
     const integration = getSourceIntegrationObject(context, datasource);
 
@@ -563,6 +566,9 @@ export async function putDataSource(
     const provisioningResult = await maybeProvisionEventForwarderConfig(
       context,
       syncedEventForwarderConfig,
+      updatedDatasource.type === "bigquery"
+        ? (integration.params as BigQueryConnectionParams)
+        : undefined,
     );
 
     res.status(200).json({

@@ -1,5 +1,6 @@
 import * as bq from "@google-cloud/bigquery";
 import { BigQueryEventForwarderConfigDraft } from "shared/types/event-forwarder";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { EventForwarderConfigInterface } from "shared/validators";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
 import { getLatestEventForwarderSchemaId } from "back-end/src/services/eventForwarderSchemaRegistry";
@@ -160,11 +161,13 @@ function buildBigQueryConnectorConfig({
   topic,
   tableName,
   config,
+  projectId,
 }: {
   connectorName: string;
   topic: string;
   tableName: string;
   config: BigQueryEventForwarderConfigDraft;
+  projectId: string;
 }): ConnectorConfig {
   return {
     name: connectorName,
@@ -175,7 +178,7 @@ function buildBigQueryConnectorConfig({
     topics: topic,
     "topic2table.map": `${topic}:${tableName}`,
     keyfile: config.serviceAccountKey || "",
-    project: config.projectId,
+    project: projectId,
     datasets: config.dataset,
     "tasks.max": "1",
     "input.data.format": "AVRO",
@@ -331,10 +334,11 @@ function shouldUpdateConnector(
 async function getTargetTableName(
   config: BigQueryEventForwarderConfigDraft,
   connectorName: string,
+  projectId: string,
 ): Promise<string> {
   const baseTableName = config.tableName.trim();
 
-  if (!config.dataset || !config.projectId) {
+  if (!config.dataset || !projectId) {
     throw new Error(
       "Missing BigQuery project or dataset needed for connector provisioning",
     );
@@ -347,14 +351,14 @@ async function getTargetTableName(
     private_key?: string;
   };
   const client = new bq.BigQuery({
-    projectId: config.projectId,
+    projectId,
     credentials: {
       client_email: keyfile.client_email || "",
       private_key: keyfile.private_key || "",
     },
   });
   const [tableExists] = await client
-    .dataset(config.dataset, { projectId: config.projectId })
+    .dataset(config.dataset, { projectId })
     .table(baseTableName)
     .exists();
 
@@ -365,6 +369,7 @@ async function getTargetTableName(
 
 async function ensureBigQueryConnector(
   eventForwarderConfig: EventForwarderConfigInterface,
+  projectId: string,
 ): Promise<string> {
   const connectorName = getConnectorName(eventForwarderConfig);
   const existing = await getConnectorConfig(connectorName);
@@ -372,12 +377,13 @@ async function ensureBigQueryConnector(
     decryptEventForwarderConfigModel<BigQueryEventForwarderConfigDraft>(
       eventForwarderConfig,
     );
-  const tableName = await getTargetTableName(config, connectorName);
+  const tableName = await getTargetTableName(config, connectorName, projectId);
   const desiredConfig = buildBigQueryConnectorConfig({
     connectorName,
     topic: eventForwarderConfig.topic,
     tableName,
     config,
+    projectId,
   });
 
   if (existing && shouldUpdateConnector(existing, desiredConfig)) {
@@ -401,6 +407,7 @@ async function ensureBigQueryConnector(
 export async function maybeProvisionEventForwarderConfig(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface | null,
+  bigqueryConnectionParams?: BigQueryConnectionParams,
 ): Promise<ProvisionResult> {
   if (!eventForwarderConfig) {
     return {};
@@ -410,6 +417,11 @@ export async function maybeProvisionEventForwarderConfig(
     return {};
   }
 
+  const projectId =
+    bigqueryConnectionParams?.defaultProject?.trim() ||
+    bigqueryConnectionParams?.projectId?.trim() ||
+    "";
+
   try {
     const missingConfig = getMissingProvisioningConfig();
     if (missingConfig.length > 0) {
@@ -418,11 +430,20 @@ export async function maybeProvisionEventForwarderConfig(
       );
     }
 
+    if (!projectId) {
+      throw new Error(
+        "Missing BigQuery connector project id for event forwarder provisioning",
+      );
+    }
+
     await ensureKafkaTopic(eventForwarderConfig.topic);
     const schemaId = await getLatestEventForwarderSchemaId(
       eventForwarderConfig.topic,
     );
-    const connectorName = await ensureBigQueryConnector(eventForwarderConfig);
+    const connectorName = await ensureBigQueryConnector(
+      eventForwarderConfig,
+      projectId,
+    );
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
       schemaId,
       status: "ready",

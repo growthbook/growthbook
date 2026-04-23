@@ -3,7 +3,6 @@ export type EventForwarderSinkType = "bigquery" | "snowflake" | "databricks";
 export type EventForwarderStatus = "pending" | "ready" | "error";
 
 export interface BigQueryEventForwarderConfigDraft {
-  projectId: string;
   dataset: string;
   tableName: string;
   serviceAccountKey?: string;

@@ -91,11 +91,6 @@ function normalizeBigQueryDraft(
   existing?: BigQueryEventForwarderConfigDraft | null,
 ): BigQueryEventForwarderConfigDraft {
   return {
-    projectId:
-      draft.projectId ||
-      datasourceParams?.defaultProject ||
-      datasourceParams?.projectId ||
-      "",
     dataset: draft.dataset || datasourceParams?.defaultDataset || "",
     tableName: draft.tableName || DEFAULT_BIGQUERY_EVENTS_TABLE,
     serviceAccountKey:
@@ -133,13 +128,14 @@ export function toEventForwarderConfigDraft(
   if (!config) return null;
 
   if (config.sinkType === "bigquery") {
-    const decrypted = decryptSinkConfig<BigQueryEventForwarderConfigDraft>(
-      config.config,
-    );
+    const decrypted = decryptSinkConfig<
+      BigQueryEventForwarderConfigDraft & { projectId?: string }
+    >(config.config);
+    const { projectId: _removed, ...rest } = decrypted;
     return {
       sinkType: "bigquery",
       config: {
-        ...decrypted,
+        ...rest,
         serviceAccountKey: "",
       },
     };
@@ -200,14 +196,18 @@ export async function syncEventForwarderConfigFromDatasource({
   );
 
   if (normalizedDraft.sinkType === "bigquery") {
+    const bqProject =
+      datasourceParams?.defaultProject?.trim() ||
+      datasourceParams?.projectId?.trim() ||
+      "";
     if (
-      !normalizedDraft.config.projectId ||
+      !bqProject ||
       !normalizedDraft.config.dataset ||
       !normalizedDraft.config.tableName ||
       !normalizedDraft.config.serviceAccountKey
     ) {
       throw new Error(
-        "BigQuery event forwarder requires project, dataset, table name, and service account credentials",
+        "BigQuery event forwarder requires connector project (BigQuery Project ID), dataset, table name, and service account credentials",
       );
     }
   }
