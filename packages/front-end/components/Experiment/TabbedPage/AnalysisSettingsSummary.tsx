@@ -31,6 +31,7 @@ import { trackSnapshot } from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useUser } from "@/services/UserContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
@@ -121,6 +122,7 @@ export default function AnalysisSettingsSummary({
   )?.userIdType;
 
   const orgSettings = useOrgSettings();
+  const pValueThreshold = usePValueThreshold(experiment.project);
   const permissionsUtil = usePermissionsUtil();
 
   const { hasCommercialFeature } = useUser();
@@ -286,6 +288,7 @@ export default function AnalysisSettingsSummary({
     snapshot,
     metricGroups,
     orgSettings,
+    pValueThreshold,
     statsEngine,
     hasRegressionAdjustmentFeature,
     hasPostStratificationFeature,
@@ -433,6 +436,7 @@ export default function AnalysisSettingsSummary({
     snapshot: snap,
     metricGroups: mg = [],
     orgSettings: org,
+    pValueThreshold: projectScopedPValueThreshold,
     statsEngine: engine,
     hasRegressionAdjustmentFeature,
     hasPostStratificationFeature,
@@ -445,6 +449,7 @@ export default function AnalysisSettingsSummary({
     snapshot?: ExperimentSnapshotInterface;
     metricGroups?: MetricGroupInterface[];
     orgSettings: OrganizationSettings;
+    pValueThreshold: number;
     statsEngine: StatsEngine;
     hasRegressionAdjustmentFeature: boolean;
     hasPostStratificationFeature: boolean;
@@ -538,7 +543,7 @@ export default function AnalysisSettingsSummary({
     if (
       isDifferent(
         analysisSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
-        org.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
+        projectScopedPValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
       )
     ) {
       reasons.push("P-value threshold changed");
