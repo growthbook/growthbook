@@ -5139,17 +5139,23 @@ paths:
                         properties:
                           namespaceId:
                             type: string
+                          enabled:
+                            type: boolean
                           range:
                             minItems: 2
                             maxItems: 2
                             type: array
                             items:
                               type: number
-                          enabled:
-                            type: boolean
+                          ranges:
+                            type: array
+                            items:
+                              type: array
+                              prefixItems:
+                                - type: number
+                                - type: number
                         required:
                           - namespaceId
-                          - range
                         additionalProperties: false
                       targetingCondition:
                         type: string
@@ -20661,6 +20667,8 @@ components:
                 properties:
                   namespaceId:
                     type: string
+                  enabled:
+                    type: boolean
                   range:
                     minItems: 2
                     maxItems: 2
@@ -20676,7 +20684,6 @@ components:
                         - type: number
                 required:
                   - namespaceId
-                  - range
                 additionalProperties: false
               targetingCondition:
                 type: string
@@ -21194,6 +21201,8 @@ components:
                     properties:
                       namespaceId:
                         type: string
+                      enabled:
+                        type: boolean
                       range:
                         minItems: 2
                         maxItems: 2
@@ -21209,7 +21218,6 @@ components:
                             - type: number
                     required:
                       - namespaceId
-                      - range
                     additionalProperties: false
                   targetingCondition:
                     type: string

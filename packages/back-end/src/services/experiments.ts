@@ -108,6 +108,7 @@ import {
 } from "shared/types/experiment";
 import {
   ExperimentUpdateSchedule,
+  Namespaces,
   OrganizationInterface,
   OrganizationSettings,
 } from "shared/types/organization";
@@ -3259,6 +3260,59 @@ export const toNamespaceRange = (
 ): [number, number] => [raw?.[0] ?? 0, raw?.[1] ?? 1];
 
 /**
+ * Converts an API namespace input to the internal NamespaceValue shape.
+ *
+ * Transparent to callers: if only the legacy `range` field is provided and the
+ * org namespace is multiRange, the single range is promoted automatically. If
+ * `ranges` is provided it is used as-is. Legacy namespaces always use `range`.
+ */
+function toPhaseNamespaceValue(
+  apiNs:
+    | {
+        namespaceId: string;
+        range?: number[];
+        ranges?: [number, number][];
+        enabled?: boolean;
+      }
+    | null
+    | undefined,
+  orgNamespaces: Namespaces[] | undefined,
+): ExperimentPhase["namespace"] {
+  if (!apiNs) {
+    return { enabled: false, name: "", range: [0, 1] };
+  }
+  const name = apiNs.namespaceId;
+  const enabled = apiNs.enabled ?? true;
+  const orgNs = orgNamespaces?.find((n) => n.name === name);
+
+  if (orgNs?.format === "multiRange") {
+    const ranges: [number, number][] =
+      apiNs.ranges ?? (apiNs.range ? [toNamespaceRange(apiNs.range)] : []);
+    return {
+      enabled,
+      name,
+      format: "multiRange",
+      hashAttribute: orgNs.hashAttribute,
+      ranges,
+    };
+  }
+
+  // Legacy namespace: multiple ranges are not supported.
+  if (apiNs.ranges && apiNs.ranges.length > 1) {
+    throw new Error(
+      `Namespace "${name}" uses the legacy single-range format and does not support multiple ranges. ` +
+        `Use a multiRange namespace or provide a single range via the "range" field.`,
+    );
+  }
+
+  return {
+    enabled,
+    name,
+    range: toNamespaceRange(apiNs.range ?? apiNs.ranges?.[0]),
+  };
+}
+
+/**
  * Converts an API lookbackOverride payload to the internal representation.
  * Validates that "date" values are strings (not raw numbers) and that
  * "window" values are non-negative numbers with a valid unit.
@@ -3342,11 +3396,10 @@ export function postExperimentApiPayloadToInterface(
         match: s.matchType,
         ids: s.savedGroups,
       })),
-      namespace: {
-        name: p.namespace?.namespaceId || "",
-        range: toNamespaceRange(p.namespace?.range),
-        enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
-      },
+      namespace: toPhaseNamespaceValue(
+        p.namespace,
+        organization.settings?.namespaces,
+      ),
       variationWeights:
         p.variationWeights ||
         payload.variations.map(() => 1 / payload.variations.length),
@@ -3596,11 +3649,10 @@ function resolveExperimentUpdateVariationsAndPhases(
           match: s.matchType,
           ids: s.savedGroups,
         })),
-        namespace: {
-          name: p.namespace?.namespaceId || "",
-          range: toNamespaceRange(p.namespace?.range),
-          enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
-        },
+        namespace: toPhaseNamespaceValue(
+          p.namespace,
+          organization.settings?.namespaces,
+        ),
         variationWeights,
         variations: phaseVariations,
       };
