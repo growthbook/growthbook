@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
+import { Box } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Dialog, { Size, TrackingEventModalProps } from "@/ui/Dialog";
 import DialogForm, { useDialogForm } from "../DialogForm";
-import { Box } from "@radix-ui/themes";
 
 function SubmitButton({
   cta,
