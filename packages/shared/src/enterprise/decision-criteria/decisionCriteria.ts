@@ -12,6 +12,7 @@ import {
   ExperimentHealthSettings,
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
+  SafeRolloutResultStatusData,
 } from "shared/types/experiment";
 import {
   SafeRolloutInterface,
@@ -396,6 +397,19 @@ export function getDecisionFrameworkStatus({
   }
 }
 
+function withRecommendationMetViaMaxDuration(
+  status: ExperimentResultStatusData,
+): ExperimentResultStatusData {
+  if (
+    status.status === "ship-now" ||
+    status.status === "rollback-now" ||
+    status.status === "ready-for-review"
+  ) {
+    return { ...status, recommendationMetViaMaxDuration: true };
+  }
+  return status;
+}
+
 function getDaysLeftStatus({
   daysNeeded,
   tooltip,
@@ -568,16 +582,33 @@ export function getExperimentResultStatus({
 
   // Fully skip decision framework if there are no goal metrics
   // TODO @dmf-experiment: Add front-end information about this
-  let decisionStatus: ExperimentResultStatusData | undefined = undefined;
-  if (experimentData.goalMetrics.length && resultsStatus) {
-    decisionStatus = getDecisionFrameworkStatus({
-      resultsStatus,
-      decisionCriteria,
-      goalMetrics: experimentData.goalMetrics,
-      guardrailMetrics: experimentData.guardrailMetrics,
-      daysNeeded: powerAdditionalDays,
-    });
-  }
+  const powerDecisionStatus =
+    experimentData.goalMetrics.length && resultsStatus
+      ? getDecisionFrameworkStatus({
+          resultsStatus,
+          decisionCriteria,
+          goalMetrics: experimentData.goalMetrics,
+          guardrailMetrics: experimentData.guardrailMetrics,
+          daysNeeded: powerAdditionalDays,
+        })
+      : undefined;
+
+  const maxDurationAtCapDecisionStatus =
+    maxDurationAdditionalDays === 0 &&
+    healthSettings.decisionFrameworkEnabled &&
+    experimentData.goalMetrics.length > 0 &&
+    resultsStatus
+      ? getDecisionFrameworkStatus({
+          resultsStatus,
+          decisionCriteria,
+          goalMetrics: experimentData.goalMetrics,
+          guardrailMetrics: experimentData.guardrailMetrics,
+          daysNeeded: 0,
+        })
+      : undefined;
+
+  const decisionStatusForLowPower =
+    maxDurationAtCapDecisionStatus ?? powerDecisionStatus;
 
   const daysLeftStatus = displayDaysNeeded
     ? getDaysLeftStatus({
@@ -621,7 +652,7 @@ export function getExperimentResultStatus({
       healthSettings.decisionFrameworkEnabled &&
       // override low powered status if shipping criteria are ready
       // or before min duration
-      !decisionStatus &&
+      !decisionStatusForLowPower &&
       !beforeMinDuration &&
       // ignore if user has dismissed the warning
       !experimentData.dismissedWarnings?.includes("low-power")
@@ -680,15 +711,37 @@ export function getExperimentResultStatus({
   }
 
   if (healthSettings.decisionFrameworkEnabled) {
-    // 4. if clear shipping status, show it
-    if (decisionStatus) {
-      return decisionStatus;
+    // 4. Calendar max ended: same recommendations as when target precision is reached
+    if (maxDurationAdditionalDays === 0) {
+      if (maxDurationAtCapDecisionStatus) {
+        return withRecommendationMetViaMaxDuration(
+          maxDurationAtCapDecisionStatus,
+        );
+      }
+      return {
+        status: "max-duration-reached",
+        tooltip:
+          "The configured maximum experiment duration has ended. Review results and stop or extend the experiment when appropriate.",
+      };
     }
 
-    // 5. If no unhealthy status or clear shipping criteria, show days left data
+    // 5. if clear shipping status from power / sequential path, show it
+    if (powerDecisionStatus) {
+      return powerDecisionStatus;
+    }
+
+    // 6. If no unhealthy status or clear shipping criteria, show days left data
     if (daysLeftStatus) {
       return daysLeftStatus;
     }
+  }
+
+  if (maxDurationAdditionalDays === 0) {
+    return {
+      status: "max-duration-reached",
+      tooltip:
+        "The configured maximum experiment duration has ended. Review results and stop or extend the experiment when appropriate.",
+    };
   }
 }
 
@@ -723,7 +776,7 @@ export function getSafeRolloutResultStatus({
   safeRollout: SafeRolloutInterface;
   healthSettings: ExperimentHealthSettings;
   daysLeft: number;
-}): ExperimentResultStatusData | undefined {
+}): SafeRolloutResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = safeRollout.analysisSummary?.health;
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;

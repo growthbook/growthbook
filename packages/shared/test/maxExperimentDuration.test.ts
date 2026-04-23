@@ -3,6 +3,7 @@ import {
   formatMaxExperimentDuration,
   getCalendarDaysRemainingUntilMaxExperimentEnd,
   getMaxExperimentDurationAnchor,
+  MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION,
 } from "../src/experiments/maxExperimentDuration";
 
 function baseBandit(
@@ -49,12 +50,12 @@ function baseBandit(
 }
 
 describe("formatMaxExperimentDuration", () => {
-  it("shows days for durations of at least 24 hours (calendar months → day count)", () => {
-    expect(formatMaxExperimentDuration({ value: 1, unit: "months" })).toBe(
-      "31 days",
-    );
-    expect(formatMaxExperimentDuration({ value: 3, unit: "months" })).toBe(
+  it("shows days for multi-day windows from days or weeks", () => {
+    expect(formatMaxExperimentDuration({ value: 91, unit: "days" })).toBe(
       "91 days",
+    );
+    expect(formatMaxExperimentDuration({ value: 2, unit: "weeks" })).toBe(
+      "14 days",
     );
   });
 
@@ -85,6 +86,12 @@ describe("formatMaxExperimentDuration", () => {
   it("returns em dash when duration is missing", () => {
     expect(formatMaxExperimentDuration(undefined)).toBe("—");
     expect(formatMaxExperimentDuration(null)).toBe("—");
+  });
+
+  it("formats migrated running default in whole days", () => {
+    expect(
+      formatMaxExperimentDuration(MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION),
+    ).toBe(`${MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION.value} days`);
   });
 });
 

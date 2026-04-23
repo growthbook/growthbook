@@ -3,6 +3,7 @@ import {
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
   ExperimentDataForStatusStringDates,
+  ExperimentResultStatusData,
 } from "shared/types/experiment";
 import type { OrganizationSettings } from "shared/types/organization";
 import {
@@ -1362,5 +1363,73 @@ describe("getExperimentResultStatus and maximum experiment duration", () => {
     });
     expect(r).toMatchObject({ status: "days-left", daysLeft: 10 });
     expect(r?.tooltip).toBeUndefined();
+  });
+
+  it("runs the decision framework if max duration is reached", () => {
+    const r = getExperimentResultStatus({
+      experimentData: baseRunningExperiment({
+        phases: [
+          {
+            dateStarted: "2020-01-01T00:00:00.000Z",
+            name: "Main",
+            reason: "",
+            coverage: 1,
+            condition: "",
+            variationWeights: [0.5, 0.5],
+            variations: [
+              { id: "v0", status: "active" },
+              { id: "v1", status: "active" },
+            ],
+          },
+        ],
+        maxExperimentDuration: { value: 3, unit: "days" },
+      }),
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    const status = r as ExperimentResultStatusData | undefined;
+    expect(status).toMatchObject({
+      status: "ready-for-review",
+      powerReached: true,
+      recommendationMetViaMaxDuration: true,
+      tooltip: "A test variation is ready to be reviewed.",
+    });
+    if (status?.status === "ready-for-review") {
+      expect(status.variations.map((v) => v.variationId).sort()).toEqual(
+        ["v0", "v1"].sort(),
+      );
+    }
+  });
+
+  it("returns max-duration-reached when the cap is past but the decision framework is off (non-enterprise)", () => {
+    const healthNoDf = getHealthSettings(
+      { decisionFrameworkEnabled: false } as OrganizationSettings,
+      true,
+    );
+    const r = getExperimentResultStatus({
+      experimentData: baseRunningExperiment({
+        phases: [
+          {
+            dateStarted: "2020-01-01T00:00:00.000Z",
+            name: "Main",
+            reason: "",
+            coverage: 1,
+            condition: "",
+            variationWeights: [0.5, 0.5],
+            variations: [
+              { id: "v0", status: "active" },
+              { id: "v1", status: "active" },
+            ],
+          },
+        ],
+        maxExperimentDuration: { value: 3, unit: "days" },
+      }),
+      healthSettings: healthNoDf,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+    expect(r).toMatchObject({
+      status: "max-duration-reached",
+      tooltip: expect.stringContaining("maximum experiment duration has ended"),
+    });
   });
 });

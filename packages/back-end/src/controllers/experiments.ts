@@ -1597,6 +1597,7 @@ export async function postExperiment(
     "holdoutId",
     "defaultDashboardId",
     "customMetricSlices",
+    "maxExperimentDuration",
   ];
   let changes: Changeset = {};
 
@@ -1615,7 +1616,8 @@ export async function postExperiment(
       key === "lookbackOverride" ||
       key === "variations" ||
       key === "customFields" ||
-      key === "customMetricSlices"
+      key === "customMetricSlices" ||
+      key === "maxExperimentDuration"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);

@@ -22,6 +22,7 @@ export default function ExperimentActionButtons({
   const readyForDecision =
     runningStatus === "ship-now" ||
     runningStatus === "ready-for-review" ||
+    runningStatus === "max-duration-reached" ||
     runningStatus === "rollback-now";
   const displayCTAText = () => {
     if (holdout) {

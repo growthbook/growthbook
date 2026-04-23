@@ -1,12 +1,11 @@
-import { addDays, addHours, addMonths, addWeeks } from "date-fns";
+import { addDays, addHours, addWeeks } from "date-fns";
 import type { ExperimentInterface } from "shared/types/experiment";
 
-/** Allowed units for `maxExperimentDuration` on experiments (not bandits). */
+/** Allowed units for `maxExperimentDuration` on experiments (not bandits). Order: hours → days → weeks. */
 export const MAX_EXPERIMENT_DURATION_UNITS = [
   "hours",
   "days",
   "weeks",
-  "months",
 ] as const;
 
 export type MaxExperimentDurationUnit =
@@ -22,17 +21,17 @@ const MS_PER_DAY = 86_400_000;
 
 /** Default for newly created experiments when the field is omitted. */
 export const DEFAULT_NEW_EXPERIMENT_MAX_DURATION: MaxExperimentDuration = {
-  value: 3,
-  unit: "months",
+  value: 365,
+  unit: "days",
 };
 
 /**
- * Legacy running experiments (pre–max-duration feature) get an effective cap of
- * 100 years so behavior is unchanged until edited.
+ * Running experiments that had no max duration when the feature shipped get this cap
+ * until an editor saves a different value.
  */
 export const MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION: MaxExperimentDuration = {
-  value: 1200,
-  unit: "months",
+  value: 365,
+  unit: "days",
 };
 
 /**
@@ -84,8 +83,6 @@ export function addMaxDurationToDate(
       return addDays(anchor, value);
     case "weeks":
       return addWeeks(anchor, value);
-    case "months":
-      return addMonths(anchor, value);
     default: {
       const _exhaustive: never = unit;
       return _exhaustive;

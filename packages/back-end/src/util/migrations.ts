@@ -688,7 +688,7 @@ export function upgradeExperimentDoc(
     experiment.uid = uuidv4().replace(/-/g, "");
   }
 
-  // Running experiments created before max duration: treat as uncapped (100y) until edited
+  // Running experiments created before max duration: default cap until edited
   if (
     experiment.maxExperimentDuration === undefined &&
     experiment.status === "running" &&

@@ -356,7 +356,7 @@ const experimentSchema = new mongoose.Schema({
     value: Number,
     unit: {
       type: String,
-      enum: ["hours", "days", "weeks", "months"],
+      enum: ["hours", "days", "weeks"],
     },
   },
 });

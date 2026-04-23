@@ -2858,13 +2858,12 @@ paths:
                       type: integer
                       exclusiveMinimum: 0
                     unit:
-                      description: Unit for `value` (hours, days, weeks, or months).
+                      description: Unit for `value` (hours, days, or weeks).
                       type: string
                       enum:
                         - hours
                         - days
                         - weeks
-                        - months
                   required:
                     - value
                     - unit
@@ -3411,13 +3410,12 @@ paths:
                       type: integer
                       exclusiveMinimum: 0
                     unit:
-                      description: Unit for `value` (hours, days, weeks, or months).
+                      description: Unit for `value` (hours, days, or weeks).
                       type: string
                       enum:
                         - hours
                         - days
                         - weeks
-                        - months
                   required:
                     - value
                     - unit
@@ -18289,13 +18287,12 @@ components:
               type: integer
               exclusiveMinimum: 0
             unit:
-              description: Unit for `value` (hours, days, weeks, or months).
+              description: Unit for `value` (hours, days, or weeks).
               type: string
               enum:
                 - hours
                 - days
                 - weeks
-                - months
           required:
             - value
             - unit
@@ -18837,13 +18834,12 @@ components:
                   type: integer
                   exclusiveMinimum: 0
                 unit:
-                  description: Unit for `value` (hours, days, weeks, or months).
+                  description: Unit for `value` (hours, days, or weeks).
                   type: string
                   enum:
                     - hours
                     - days
                     - weeks
-                    - months
               required:
                 - value
                 - unit

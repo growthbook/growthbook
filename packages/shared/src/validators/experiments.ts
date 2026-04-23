@@ -233,7 +233,7 @@ export const maxExperimentDurationValidator = z
       ),
     unit: z
       .enum(MAX_EXPERIMENT_DURATION_UNITS)
-      .describe("Unit for `value` (hours, days, weeks, or months)."),
+      .describe("Unit for `value` (hours, days, or weeks)."),
   })
   .strict()
   .describe(
