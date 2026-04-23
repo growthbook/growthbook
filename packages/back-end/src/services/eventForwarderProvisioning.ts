@@ -1,9 +1,10 @@
 import * as bq from "@google-cloud/bigquery";
+import { buildEventForwarderAvroSchema } from "shared/event-forwarder-avro";
 import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { EventForwarderConfigInterface } from "shared/validators";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
-import { getLatestEventForwarderSchemaId } from "back-end/src/services/eventForwarderSchemaRegistry";
+import { registerEventForwarderSchema } from "back-end/src/services/eventForwarderSchemaRegistry";
 import { fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -437,8 +438,13 @@ export async function maybeProvisionEventForwarderConfig(
     }
 
     await ensureKafkaTopic(eventForwarderConfig.topic);
-    const schemaId = await getLatestEventForwarderSchemaId(
+
+    const avroSchema = buildEventForwarderAvroSchema({
+      attributeSchema: context.org.settings?.attributeSchema ?? [],
+    });
+    const schemaId = await registerEventForwarderSchema(
       eventForwarderConfig.topic,
+      avroSchema,
     );
     const connectorName = await ensureBigQueryConnector(
       eventForwarderConfig,
