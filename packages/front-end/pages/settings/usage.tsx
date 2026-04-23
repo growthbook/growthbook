@@ -1,7 +1,6 @@
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CloudUsage from "@/components/Settings/Usage/CloudUsage";
 import { useUser } from "@/services/UserContext";
-import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 
 export default function UsagePage() {
   const permissionsUtil = usePermissionsUtil();
@@ -31,7 +30,7 @@ export default function UsagePage() {
 
   return (
     <div className="container-fluid pagecontents">
-      {subscription?.billingPlatform === "orb" ? <OrbPortal /> : <CloudUsage />}
+      <CloudUsage />
     </div>
   );
 }

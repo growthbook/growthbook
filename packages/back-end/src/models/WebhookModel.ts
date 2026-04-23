@@ -156,3 +156,29 @@ export class SdkWebhookModel extends BaseClass {
     };
   }
 }
+
+export async function removeSDKConnectionFromSdkWebhooks(
+  organizationId: string,
+  sdkConnectionId: string,
+) {
+  const collection = getCollection<WebhookInterface>(COLLECTION_NAME);
+
+  await collection.updateMany(
+    {
+      organization: organizationId,
+      useSdkMode: true,
+      sdks: sdkConnectionId,
+    },
+    {
+      $pull: {
+        sdks: sdkConnectionId,
+      },
+    },
+  );
+
+  await collection.deleteMany({
+    organization: organizationId,
+    useSdkMode: true,
+    sdks: { $size: 0 },
+  });
+}

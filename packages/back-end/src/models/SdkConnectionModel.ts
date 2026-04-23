@@ -33,6 +33,7 @@ import {
   generateEncryptionKey,
   generateSigningKey,
 } from "back-end/src/util/api-key.util";
+import { removeSDKConnectionFromSdkWebhooks } from "back-end/src/models/WebhookModel";
 
 const audit = createModelAuditLogger({
   entity: "sdk-connection",
@@ -443,6 +444,8 @@ export async function deleteSDKConnectionModel(
   context: ReqContext,
   sdkConnection: SDKConnectionInterface,
 ) {
+  await removeSDKConnectionFromSdkWebhooks(context.org.id, sdkConnection.id);
+
   await SDKConnectionModel.deleteOne({
     organization: context.org.id,
     id: sdkConnection.id,
