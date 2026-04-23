@@ -483,6 +483,71 @@ export function getIsRatioByIndex(
   });
 }
 
+// Classifies a metric for chart-mixing rules.
+// - "ratio"    -> always renders as N/D, can't be mixed with other classes
+// - "quantile" -> percentile value, can't be mixed with other classes
+// - "standard" -> mean/proportion/retention/dailyParticipation, mix freely
+// - "unknown"  -> unselected metric or metric id we couldn't resolve
+export type MetricMixClass = "ratio" | "quantile" | "standard" | "unknown";
+
+export function getMetricMixClass(
+  metricType: string | null | undefined,
+): MetricMixClass {
+  if (metricType === "ratio") return "ratio";
+  if (metricType === "quantile") return "quantile";
+  if (
+    metricType === "mean" ||
+    metricType === "proportion" ||
+    metricType === "retention" ||
+    metricType === "dailyParticipation"
+  ) {
+    return "standard";
+  }
+  return "unknown";
+}
+
+/**
+ * Given the other already-selected metrics in the dataset (excluding the slot
+ * being edited), return the class any newly selected metric must match — or
+ * null if any class is allowed.
+ *
+ * Unknown/unselected slots are ignored.
+ */
+export function getLockedMixClass(
+  otherMetricTypes: (string | null | undefined)[],
+): Exclude<MetricMixClass, "unknown"> | null {
+  for (const t of otherMetricTypes) {
+    const c = getMetricMixClass(t);
+    if (c !== "unknown") return c;
+  }
+  return null;
+}
+
+/**
+ * True when the chart-level `showAs` toggle is meaningful for this dataset.
+ *
+ * - Metric datasets: applies when at least one value is a "standard" metric
+ *   (mean/proportion/retention/dailyParticipation). Ratio and quantile metrics
+ *   ignore showAs, so a chart of only those types should hide the control.
+ * - fact_table / data_source datasets: never applies. Their value types are
+ *   count, sum, and unit_count. count/sum don't expose a unit selector, so no
+ *   denominator is emitted; unit_count's per-unit value is always 1.
+ */
+export function showAsAppliesTo(
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): boolean {
+  if (!config?.dataset) return false;
+  if (config.dataset.type !== "metric") return false;
+  if (config.dataset.values.length === 0) return false;
+  return config.dataset.values.some((v) => {
+    const c = getMetricMixClass(
+      getFactMetricById(v.metricId ?? "")?.metricType,
+    );
+    return c === "standard" || c === "unknown";
+  });
+}
+
 export interface RenderOpts {
   showAs: ShowAs;
   // Indexed by the metric value's position in the dataset.values array.
@@ -504,10 +569,7 @@ export function getEffectiveMetricValue(
   return num;
 }
 
-function getRowTotal(
-  row: ProductAnalyticsResultRow,
-  opts: RenderOpts,
-): number {
+function getRowTotal(row: ProductAnalyticsResultRow, opts: RenderOpts): number {
   return row.values.reduce(
     (sum, v, i) =>
       sum +
