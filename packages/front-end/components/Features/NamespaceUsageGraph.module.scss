@@ -111,24 +111,6 @@
       var(--ns-stripe-mid) 4px 8px
     );
   box-shadow: 0px 0px 2px 1px var(--slate-a3);
-
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-color: var(--violet-9);
-    background-image: linear-gradient(
-      to bottom,
-      var(--ns-active-shadow-top) 0px,
-      transparent 8px
-    );
-    opacity: 0;
-    transition: opacity 150ms ease;
-  }
-}
-
-.inUseActive::after {
-  opacity: 1;
 }
 
 .rangeSelected {

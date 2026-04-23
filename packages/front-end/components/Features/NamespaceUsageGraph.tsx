@@ -92,7 +92,10 @@ export default function NamespaceUsageGraph({
   );
   const inUseIntervals = useMemo(() => computeInUseIntervals(gaps), [gaps]);
   const overlapIntervals = useMemo(
-    () => mergeContiguousRanges(computeOverlapIntervals(selectedRanges, inUseIntervals)),
+    () =>
+      mergeContiguousRanges(
+        computeOverlapIntervals(selectedRanges, inUseIntervals),
+      ),
     [selectedRanges, inUseIntervals],
   );
   const overlappingCount = useMemo(
@@ -120,13 +123,8 @@ export default function NamespaceUsageGraph({
     ? ranges.reduce((sum, [s, e]) => sum + (e - s), 0)
     : totalUsed;
 
-  // Only used in overview mode (range prop, no featureId exclusion) where
-  // in-use intervals include the hovered experiment's own range.
-  // In edit mode (ranges prop) the selected ranges are rendered separately.
-  const isActive = (s: number, e: number) =>
-    !ranges && selectedRanges.some(([rs, re]) => s < re && rs < e);
-
-  const labeledSegments: Interval[] = ranges ? selectedRanges : inUseIntervals;
+  const labeledSegments: Interval[] =
+    selectedRanges.length > 0 ? selectedRanges : inUseIntervals;
 
   return (
     <Box className={styles.card}>
@@ -166,10 +164,7 @@ export default function NamespaceUsageGraph({
             {inUseIntervals.map(([s, e], i) => (
               <div
                 key={`inuse-${i}`}
-                className={clsx(
-                  styles.inUse,
-                  isActive(s, e) && styles.inUseActive,
-                )}
+                className={styles.inUse}
                 style={{ left: toPercent(s), width: toPercent(e - s) }}
               />
             ))}
@@ -188,17 +183,16 @@ export default function NamespaceUsageGraph({
                   }}
                 />
               ))}
-            {ranges &&
-              selectedRanges.map((r, i) => (
-                <div
-                  key={`range-${i}`}
-                  className={styles.rangeSelected}
-                  style={{
-                    left: toPercent(r[0]),
-                    width: toPercent(r[1] - r[0]),
-                  }}
-                />
-              ))}
+            {selectedRanges.map((r, i) => (
+              <div
+                key={`range-${i}`}
+                className={styles.rangeSelected}
+                style={{
+                  left: toPercent(r[0]),
+                  width: toPercent(r[1] - r[0]),
+                }}
+              />
+            ))}
             {ranges &&
               overlapIntervals.map(([s, e], i) => (
                 <div
@@ -272,10 +266,7 @@ export default function NamespaceUsageGraph({
                 ]),
               );
               return overlapIntervals.flatMap(([s, e], i) =>
-                [
-                  [s, `ol-s-${i}`] as const,
-                  [e, `ol-e-${i}`] as const,
-                ]
+                [[s, `ol-s-${i}`] as const, [e, `ol-e-${i}`] as const]
                   .filter(([v]) => !activeBoundaries.has(+v.toFixed(4)))
                   .map(([v, key]) => (
                     <Fragment key={key}>

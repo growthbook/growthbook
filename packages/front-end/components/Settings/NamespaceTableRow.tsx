@@ -1,5 +1,5 @@
 import { Namespaces, NamespaceUsage } from "shared/types/organization";
-import { Box, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MouseEventHandler, useMemo, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { findGaps } from "@/services/features";
@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 import Badge from "@/ui/Badge";
+import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Table, {
@@ -211,19 +212,35 @@ export default function NamespaceTableRow({
                 <TableHeader>
                   <TableRow>
                     <TableColumnHeader>Experiment</TableColumnHeader>
-                    <TableColumnHeader>Environment</TableColumnHeader>
                     <TableColumnHeader>Tracking Key</TableColumnHeader>
-                    <TableColumnHeader>Range</TableColumnHeader>
+                    <TableColumnHeader style={{ width: 300 }}>
+                      Range
+                    </TableColumnHeader>
                   </TableRow>
                 </TableHeader>
                 <TableBody onMouseLeave={() => setHoverRange(null)}>
-                  {[...experiments]
-                    .sort((a, b) => {
+                  {(() => {
+                    const sorted = [...experiments].sort((a, b) => {
                       const ka = `${a.link}|${a.trackingKey || a.id}`;
                       const kb = `${b.link}|${b.trackingKey || b.id}`;
                       return ka.localeCompare(kb);
-                    })
-                    .map((e, i, sorted) => {
+                    });
+                    // Mark which rows have ranges overlapping another experiment.
+                    const overlappingIndices = new Set(
+                      sorted.flatMap((e, i) =>
+                        sorted.some(
+                          (f, j) =>
+                            j !== i &&
+                            (f.trackingKey || f.id) !==
+                              (e.trackingKey || e.id) &&
+                            e.start < f.end &&
+                            f.start < e.end,
+                        )
+                          ? [i]
+                          : [],
+                      ),
+                    );
+                    return sorted.map((e, i) => {
                       const key = `${e.link}|${e.trackingKey || e.id}`;
                       const prevKey =
                         i > 0
@@ -249,16 +266,33 @@ export default function NamespaceTableRow({
                               </Link>
                             ) : null}
                           </TableCell>
-                          <TableCell>{e.environment}</TableCell>
                           <TableCell>
                             {isFirstInGroup ? e.trackingKey || e.id : null}
                           </TableCell>
                           <TableCell>
-                            {e.start} to {e.end}
+                            <Flex align="center" justify="between" gap="2">
+                              <Text>
+                                {e.start} to {e.end}
+                                {hoverRange?.[0] === e.start &&
+                                  hoverRange?.[1] === e.end && (
+                                    <Text
+                                      as="span"
+                                      color="text-mid"
+                                      ml="2"
+                                    >{`(${Math.round((e.end - e.start) * 100)}%)`}</Text>
+                                  )}
+                              </Text>
+                              {overlappingIndices.has(i) && (
+                                <HelperText status="warning" size="sm">
+                                  Ranges overlap
+                                </HelperText>
+                              )}
+                            </Flex>
                           </TableCell>
                         </TableRow>
                       );
-                    })}
+                    });
+                  })()}
                 </TableBody>
               </Table>
             ) : (
