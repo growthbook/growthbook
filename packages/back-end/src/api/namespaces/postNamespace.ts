@@ -22,12 +22,19 @@ export const postNamespace = createApiRequestHandler(postNamespaceValidator)(
       throw new Error("A namespace with that display name already exists.");
     }
 
+    const effectiveFormat = format ?? "multiRange";
+    if (effectiveFormat === "multiRange" && !hashAttribute) {
+      throw new Error(
+        "hashAttribute is required when format is 'multiRange'. Provide a user attribute (e.g. 'id') to use for namespace bucket assignment.",
+      );
+    }
+
     const newNamespace = buildNamespace({
       name: uniqid("ns-"),
       label: displayName,
       description: description ?? "",
       status: status ?? "active",
-      format: format ?? "multiRange",
+      format: effectiveFormat,
       hashAttribute,
     });
 

@@ -3285,6 +3285,12 @@ function toPhaseNamespaceValue(
   const enabled = apiNs.enabled ?? true;
   const orgNs = orgNamespaces?.find((n) => n.name === name);
 
+  if (name && orgNamespaces?.length && !orgNs) {
+    throw new Error(
+      `Namespace "${name}" not found. Verify the namespaceId matches an existing namespace in your organization settings.`,
+    );
+  }
+
   if (orgNs?.format === "multiRange") {
     const ranges: [number, number][] =
       apiNs.ranges ?? (apiNs.range ? [toNamespaceRange(apiNs.range)] : []);
