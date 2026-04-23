@@ -119,23 +119,25 @@ export default function useExplorationTableData(
         row1.push({ label: col.label, rowSpan: 2 });
         continue;
       }
+      // Non-ratio metrics in a mixed (ratio + non-ratio) table span both
+      // header rows so their column doesn't render a blank second-row cell
+      // next to the ratio metric's Numerator / Denominator / Value trio.
+      if (col.sub === "single") {
+        row1.push({ label: col.label, rowSpan: 2 });
+        continue;
+      }
       const metricName =
         submittedExploreState?.dataset?.values?.[col.metricIndex]?.name ??
         col.label;
-      if (col.sub === "numerator" || col.sub === "single") {
-        row1.push({
-          label: col.sub === "single" ? col.label : metricName,
-          colSpan: col.sub === "single" ? 1 : 3,
-        });
+      if (col.sub === "numerator") {
+        row1.push({ label: metricName, colSpan: 3 });
       }
       row2Labels.push(
         col.sub === "numerator"
           ? "Numerator"
           : col.sub === "denominator"
             ? "Denominator"
-            : col.sub === "value"
-              ? "Value"
-              : "",
+            : "Value",
       );
     }
     return { row1, row2Labels };

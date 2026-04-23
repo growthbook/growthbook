@@ -615,6 +615,14 @@ function getMetricData(
   // non-quantile metrics so the frontend can render either the raw numerator
   // (totals) or numerator/denominator (per-unit averages) based on the
   // chart-level `showAs` setting.
+  //
+  // Intentionally symmetric across dataset types: fact_table/data_source
+  // datasets (where `showAsAppliesTo` returns false and the denominator is
+  // never surfaced) still emit this column. The extra `COUNT(...)` is cheap
+  // relative to the rest of the rollup and keeps the SQL shape / result
+  // column set identical regardless of dataset type, which simplifies the
+  // downstream parser and test fixtures. If this ever becomes a measurable
+  // cost, narrow the guard to metric datasets where per-unit is meaningful.
   let rollupCountExpr: string | null = null;
   if (
     selectedUnit &&

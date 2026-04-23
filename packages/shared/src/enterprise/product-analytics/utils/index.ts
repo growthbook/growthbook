@@ -195,11 +195,14 @@ export function showAsAppliesTo(
 /**
  * Infer a smart default for `showAs` when the user hasn't explicitly chosen one.
  *
- * Rule: default to `per_unit` only when the `total` rendering would be
- * mathematically incoherent — specifically, `mean` metrics whose numerator
- * aggregation is `max` (sum-of-per-unit-maxes has no interpretation) or
- * `count distinct` (sum-of-per-unit-distinct-counts double-counts values
- * shared across units). Everything else defaults to `total`.
+ * Rule: default to `per_unit` when any `mean` metric in the dataset would
+ * render an incoherent total — specifically, numerator aggregation `max`
+ * (sum-of-per-unit-maxes has no interpretation) or `count distinct`
+ * (sum-of-per-unit-distinct-counts double-counts values shared across
+ * units). In a mixed dataset (e.g. mean+max alongside a proportion), the
+ * mean portion would otherwise silently show a mathematically wrong total
+ * until the user toggles. Non-mean metrics do not block the default, and
+ * everything else falls through to `total`.
  */
 export function inferShowAs(
   config: ExplorationConfig | null,
@@ -208,18 +211,15 @@ export function inferShowAs(
   if (!showAsAppliesTo(config, getFactMetricById)) return "total";
   if (!config || config.dataset.type !== "metric") return "total";
 
-  // Only consider values that refer to a selected metric — empty/unresolved
-  // slots would otherwise short-circuit .every() to false and force "total".
-  // This matches the filter `showAsAppliesTo` uses to decide applicability.
   const selectedValues = config.dataset.values.filter((v) => !!v.metricId);
   if (selectedValues.length === 0) return "total";
-  const allTotalIncoherent = selectedValues.every((v) => {
+  const anyMeanIsIncoherentAsTotal = selectedValues.some((v) => {
     const m = getFactMetricById(v.metricId ?? "");
     if (m?.metricType !== "mean") return false;
     const agg = m.numerator?.aggregation ?? "sum";
     return agg === "max" || agg === "count distinct";
   });
-  return allTotalIncoherent ? "per_unit" : "total";
+  return anyMeanIsIncoherentAsTotal ? "per_unit" : "total";
 }
 
 /**
@@ -254,7 +254,8 @@ export function clearInapplicableShowAs<T extends ExplorationConfig>(
 ): T {
   if (config.showAs === undefined) return config;
   if (showAsAppliesTo(config, getFactMetricById)) return config;
-  const { showAs: _showAs, ...rest } = config;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { showAs, ...rest } = config;
   return rest as T;
 }
 
