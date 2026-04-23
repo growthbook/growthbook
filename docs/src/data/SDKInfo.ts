@@ -70,6 +70,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   react: {
@@ -149,6 +152,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   nextjs: {
@@ -199,6 +205,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.1.0",
       },
+      {
+        namespacesV2: "≥ v0.1.0",
+      },
     ],
   },
   php: {
@@ -239,6 +248,9 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v1.0.0",
+      },
+      {
+        namespacesV2: "≥ v1.0.0",
       },
     ],
   },
@@ -299,6 +311,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   ruby: {
@@ -342,6 +357,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   python: {
@@ -373,6 +391,9 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v1.1.0",
+      },
+      {
+        namespacesV2: "≥ v1.1.0",
       },
       {
         prerequisites: "≥ v1.1.0",
@@ -438,6 +459,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   rust: {
@@ -477,6 +501,9 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.0.1",
+      },
+      {
+        namespacesV2: "≥ v0.0.1",
       },
       {
         prerequisites: "≥ v0.0.1",
@@ -551,6 +578,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   csharp: {
@@ -603,6 +633,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   elixir: {
@@ -637,6 +670,9 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.2.0",
+      },
+      {
+        namespacesV2: "≥ v0.2.0",
       },
     ],
   },
@@ -681,6 +717,9 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.0.0",
+      },
+      {
+        namespacesV2: "≥ v0.0.0",
       },
     ],
   },
@@ -797,6 +836,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   edgeCloudflare: {
@@ -834,6 +876,9 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.1.11",
+      },
+      {
+        namespacesV2: "≥ v0.1.11",
       },
       {
         encryption: "≥ v0.1.11",
@@ -904,6 +949,9 @@ export default {
         looseUnmarshalling: "≥ v0.1.5",
       },
       {
+        namespacesV2: "≥ v0.1.5",
+      },
+      {
         encryption: "≥ v0.1.5",
       },
       {
@@ -967,6 +1015,9 @@ export default {
         looseUnmarshalling: "≥ v0.0.6",
       },
       {
+        namespacesV2: "≥ v0.0.6",
+      },
+      {
         encryption: "≥ v0.0.6",
       },
       {
@@ -1028,6 +1079,9 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.1.4",
+      },
+      {
+        namespacesV2: "≥ v0.1.4",
       },
       {
         encryption: "≥ v0.1.4",
@@ -1103,6 +1157,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        namespacesV2: "≥ v0.0.0",
+      },
     ],
   },
   roku: {
@@ -1132,6 +1189,9 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v1.3.0",
+      },
+      {
+        namespacesV2: "≥ v1.3.0",
       },
       {
         semverTargeting: "≥ v1.3.0",

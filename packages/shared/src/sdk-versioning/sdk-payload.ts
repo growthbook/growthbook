@@ -29,11 +29,12 @@ export const BUCKETING_V2_RULE_KEYS = [
   "range",
   "ranges",
   "meta",
-  "filters",
   "seed",
   "name",
   "phase",
 ] as const;
+
+export const NAMESPACES_V2_RULE_KEYS = ["filters"] as const;
 
 export const STICKY_BUCKETING_RULE_KEYS = [
   "fallbackAttribute",
@@ -52,6 +53,7 @@ export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {
   const featureRuleKeys = [
     ...STRICT_FEATURE_RULE_KEYS,
     ...(capabilities.includes("bucketingV2") ? BUCKETING_V2_RULE_KEYS : []),
+    ...(capabilities.includes("namespacesV2") ? NAMESPACES_V2_RULE_KEYS : []),
     ...(capabilities.includes("stickyBucketing")
       ? STICKY_BUCKETING_RULE_KEYS
       : []),
