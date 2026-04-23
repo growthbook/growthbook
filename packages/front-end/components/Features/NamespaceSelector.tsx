@@ -393,20 +393,17 @@ export default function NamespaceSelector({
               setRangeDrafts({});
 
               const cachedRanges = namespaceRangesCache.current[v];
+              const gaps = findGaps(namespaceUsage, v, featureId, trackingKey);
+              const initialGap = getLargestGap(gaps);
+              const namespaceFull = !cachedRanges?.length && !initialGap;
+              // Namespace is 100% allocated — auto-enable overlap and default to full range.
+              if (namespaceFull) setAllowOverlap(true);
               const initialRanges: RangeTuple[] =
                 cachedRanges && cachedRanges.length > 0
                   ? cachedRanges
-                  : (() => {
-                      const initialGap = getLargestGap(
-                        findGaps(namespaceUsage, v, featureId, trackingKey),
-                      );
-                      return [
-                        [
-                          initialGap?.start || 0,
-                          initialGap?.end || 0,
-                        ] as RangeTuple,
-                      ];
-                    })();
+                  : namespaceFull
+                    ? [[0, 1]]
+                    : [[initialGap!.start, initialGap!.end]];
 
               const nextNs: NamespaceFormState =
                 selected?.format === "multiRange"
@@ -636,12 +633,20 @@ export default function NamespaceSelector({
                   );
                 })}
 
-                <Link onClick={addRange} mt="1">
-                  <FaPlusCircle
-                    style={{ verticalAlign: "-2px", marginRight: 6 }}
-                  />
-                  Add Range
-                </Link>
+                {largestAvailableGap ? (
+                  <Link onClick={addRange} mt="1">
+                    <FaPlusCircle
+                      style={{ verticalAlign: "-2px", marginRight: 6 }}
+                    />
+                    Add Range
+                  </Link>
+                ) : (
+                  <HelperText status="info" mt="2" size="sm">
+                    No space available in this namespace. Enable{" "}
+                    <strong>Allow overlap</strong> above to assign a range
+                    regardless.
+                  </HelperText>
+                )}
               </Box>
             </div>
           )}
