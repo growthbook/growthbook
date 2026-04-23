@@ -1,5 +1,7 @@
 import { postFeatureRevisionRequestReviewValidator } from "shared/validators";
 import { revisionToApiInterface } from "back-end/src/services/features";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -47,6 +49,25 @@ export const postFeatureRevisionRequestReview = createApiRequestHandler(
     featureId: feature.id,
     version: req.params.version,
   });
+  const finalRevision = updated ?? revision;
 
-  return { revision: revisionToApiInterface(updated ?? revision) };
+  await req.audit({
+    event: "feature.revision.requestReview",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsUpdate(
+      { status: revision.status },
+      { status: finalRevision.status },
+      { version: revision.version, comment: req.body.comment ?? "" },
+    ),
+  });
+
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    feature,
+    finalRevision,
+    "revision.reviewRequested",
+    { reviewComment: req.body.comment ?? null },
+  );
+
+  return { revision: revisionToApiInterface(finalRevision) };
 });

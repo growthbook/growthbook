@@ -1097,7 +1097,7 @@ export async function setDefaultValue(
   user: EventUser,
   requireReview: boolean,
 ) {
-  await updateRevision(
+  return updateRevision(
     context,
     feature,
     revision,
@@ -1191,6 +1191,9 @@ export async function applyRevisionChanges(
 ) {
   let hasChanges = false;
   const changes: Partial<FeatureInterface> = {};
+  // Track whether to remove holdout field entirely (vs setting it to a value)
+  let removeHoldout = false;
+
   if (result.defaultValue !== undefined) {
     changes.defaultValue = result.defaultValue;
     hasChanges = true;
@@ -1232,7 +1235,11 @@ export async function applyRevisionChanges(
 
   if (result.holdout !== undefined) {
     // null means remove from holdout; object means set/change holdout
-    changes.holdout = result.holdout ?? undefined;
+    if (result.holdout === null) {
+      removeHoldout = true;
+    } else {
+      changes.holdout = result.holdout;
+    }
     hasChanges = true;
   }
 
@@ -1273,6 +1280,19 @@ export async function applyRevisionChanges(
   changes.version = revision.version;
 
   await updateSafeRolloutStatuses(context, feature, revision);
+
+  // Handle holdout removal separately since updateFeature only does $set
+  if (removeHoldout) {
+    await removeHoldoutFromFeature(context, feature);
+    // Remove holdout from the feature object so the returned feature is correct
+    const { holdout: _, ...featureWithoutHoldout } = feature;
+    return await updateFeature(
+      context,
+      featureWithoutHoldout as FeatureInterface,
+      changes,
+    );
+  }
+
   return await updateFeature(context, feature, changes);
 }
 
@@ -1451,9 +1471,12 @@ async function createRampSchedulesForRevision(
             }))
           : [];
 
+    // null = explicitly cleared (skip template); undefined = not set (fall back to template).
     const endActions: RampStepAction[] =
       action.endActions !== undefined
-        ? action.endActions.map(normalizeAction)
+        ? Array.isArray(action.endActions)
+          ? action.endActions.map(normalizeAction)
+          : []
         : template?.endPatch && Object.keys(template.endPatch).length > 0
           ? [
               {

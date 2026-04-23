@@ -3,6 +3,7 @@ import {
   findDimensionById,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getDimension = createApiRequestHandler(getDimensionValidator)(
@@ -16,7 +17,10 @@ export const getDimension = createApiRequestHandler(getDimensionValidator)(
     }
 
     return {
-      dimension: toDimensionApiInterface(dimension),
+      dimension: await resolveOwnerEmail(
+        toDimensionApiInterface(dimension),
+        req.context,
+      ),
     };
   },
 );

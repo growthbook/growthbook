@@ -11,6 +11,7 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import {
   applyPagination,
@@ -167,26 +168,29 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     );
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-
     const hasMore = skipPagination ? false : offset + limit < total;
     const nextOffset = hasMore ? offset + limit : null;
     const outLimit = skipPagination ? total : limit;
     const outOffset = skipPagination ? 0 : offset;
     return {
-      features: filtered.map((feature) => {
-        const revision =
-          revisions?.find(
-            (r) => r.featureId === feature.id && r.version === feature.version,
-          ) || null;
-        return getApiFeatureObj({
-          feature,
-          organization: req.organization,
-          groupMap,
-          experimentMap,
-          revision,
-          safeRolloutMap,
-        });
-      }),
+      features: await resolveOwnerEmails(
+        filtered.map((feature) => {
+          const revision =
+            revisions?.find(
+              (r) =>
+                r.featureId === feature.id && r.version === feature.version,
+            ) || null;
+          return getApiFeatureObj({
+            feature,
+            organization: req.organization,
+            groupMap,
+            experimentMap,
+            revision,
+            safeRolloutMap,
+          });
+        }),
+        req.context,
+      ),
       limit: outLimit,
       offset: outOffset,
       count: filtered.length,

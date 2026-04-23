@@ -15,6 +15,9 @@ export const namedSchemaRegistry: Map<string, z.ZodType> = new Map();
  * `components/schemas/` and generates `_model` doc tags.
  */
 export function namedSchema<T extends z.ZodType>(name: string, schema: T): T {
+  if (!process.env.ENABLE_ZOD_SCHEMA_REGISTRATION) {
+    return schema;
+  }
   const tagged = schema.meta({ id: name }) as T;
   namedSchemaRegistry.set(name, tagged);
   return tagged;

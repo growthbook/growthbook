@@ -41,6 +41,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment(),
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental");
   });
@@ -54,11 +55,12 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment(),
         snapshotType: "exploratory",
         hasSnapshotDimensions: true,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental-exploratory");
   });
 
-  it("returns 'incremental' for exploratory snapshots without dimensions", () => {
+  it("returns 'incremental' for exploratory snapshots without dimensions when the units table has been materialized", () => {
     expect(
       getSnapshotQueryRunnerKind({
         allowIncrementalRefresh: true,
@@ -67,6 +69,35 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment(),
         snapshotType: "exploratory",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toBe("incremental");
+  });
+
+  it("returns 'results' for exploratory snapshots without dimensions when the units table has not been materialized", () => {
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource: makeDatasource(),
+        experiment: makeExperiment(),
+        snapshotType: "exploratory",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: false,
+      }),
+    ).toBe("results");
+  });
+
+  it("returns 'incremental' for standard snapshots even when the units table has not been materialized (full refresh will create it)", () => {
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource: makeDatasource(),
+        experiment: makeExperiment(),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: false,
       }),
     ).toBe("incremental");
   });
@@ -80,6 +111,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment(),
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });
@@ -93,6 +125,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment(),
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });
@@ -107,6 +140,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment(),
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });
@@ -123,6 +157,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment(),
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });
@@ -139,6 +174,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment(),
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });
@@ -155,6 +191,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment(),
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental");
   });
@@ -168,6 +205,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment({ type: "multi-armed-bandit" }),
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });
@@ -181,6 +219,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         experiment: makeExperiment({ type: undefined }),
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental");
   });

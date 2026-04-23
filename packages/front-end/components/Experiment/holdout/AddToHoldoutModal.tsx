@@ -1,10 +1,10 @@
 import { useForm } from "react-hook-form";
-import { Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
-import Modal from "@/components/Modal";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import Text from "@/ui/Text";
 
 const AddToHoldoutModal = ({
   experiment,
@@ -31,7 +31,7 @@ const AddToHoldoutModal = ({
     !experimentIsNotCompatibleWithHoldouts && !experimentHasLinkedFeatures;
 
   return (
-    <Modal
+    <DialogLayout
       header="Add to holdout"
       close={close}
       open={true}
@@ -80,7 +80,7 @@ const AddToHoldoutModal = ({
           formType="experiment"
         />
       )}
-    </Modal>
+    </DialogLayout>
   );
 };
 

@@ -13,7 +13,8 @@ export type SDKCapability =
   | "prerequisites"
   | "savedGroupReferences"
   | "caseInsensitiveRegex"
-  | "caseInsensitiveMembership";
+  | "caseInsensitiveMembership"
+  | "namespacesV2";
 
 export type CapabilityStrategy =
   | "min-ver-intersection" // intersection of capabilities using default SDK versions
