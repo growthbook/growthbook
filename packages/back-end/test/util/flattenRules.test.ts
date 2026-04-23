@@ -2,7 +2,7 @@ import { FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
 import { stemRuleId, suffixRuleId } from "shared/util";
 import {
-  assertUniqueRuleIds,
+  ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
   isV2FeatureEnvSettings,
@@ -848,40 +848,117 @@ describe("isV2FeatureEnvSettings", () => {
   });
 });
 
-// ================= assertUniqueRuleIds =================
+// ================= ensureUniqueRuleIds =================
 
-describe("assertUniqueRuleIds", () => {
-  const rule = (id: string): FeatureRule =>
+describe("ensureUniqueRuleIds", () => {
+  const rule = (
+    id: string,
+    scope: { allEnvironments?: boolean; environments?: string[] } = {
+      allEnvironments: true,
+    },
+  ): FeatureRule =>
     ({
       id,
-      allEnvironments: true,
+      allEnvironments: scope.allEnvironments ?? false,
+      environments: scope.environments,
       description: "",
       type: "force",
     }) as unknown as FeatureRule;
 
-  it("passes on empty list", () => {
-    expect(() => assertUniqueRuleIds([], "ctx")).not.toThrow();
+  it("returns empty list unchanged", () => {
+    const result = ensureUniqueRuleIds([]);
+    expect(result.rules).toEqual([]);
+    expect(result.collisions).toEqual([]);
   });
 
-  it("passes on unique ids", () => {
-    expect(() =>
-      assertUniqueRuleIds([rule("a"), rule("b"), rule("c")], "ctx"),
-    ).not.toThrow();
+  it("is a no-op on unique ids", () => {
+    const input = [rule("a"), rule("b"), rule("c")];
+    const result = ensureUniqueRuleIds(input);
+    expect(result.rules).toEqual(input);
+    expect(result.collisions).toEqual([]);
   });
 
-  it("throws listing duplicates", () => {
-    expect(() =>
-      assertUniqueRuleIds(
-        [rule("a"), rule("b"), rule("a"), rule("c"), rule("b")],
-        "ctx",
-      ),
-    ).toThrow(/Duplicate rule id\(s\).*a.*b/);
+  it("suffixes later duplicates and reports collisions", () => {
+    const result = ensureUniqueRuleIds([
+      rule("a", { allEnvironments: true }),
+      rule("b", { environments: ["dev"] }),
+      rule("a", { allEnvironments: true }),
+      rule("c"),
+      rule("b", { environments: ["dev"] }),
+    ]);
+    const ids = result.rules.map((r) => r.id);
+    // First occurrence of each id is preserved unchanged
+    expect(ids[0]).toBe("a");
+    expect(ids[1]).toBe("b");
+    // Subsequent dups are suffixed via the stem-aware convention
+    expect(ids[2]).not.toBe("a");
+    expect(ids[2].startsWith("a__")).toBe(true);
+    expect(ids[4]).not.toBe("b");
+    expect(ids[4].startsWith("b__")).toBe(true);
+    // All ids end up unique
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(result.collisions.map((c) => c.originalId).sort()).toEqual([
+      "a",
+      "b",
+    ]);
   });
 
-  it("includes the provided context in the error", () => {
-    expect(() =>
-      assertUniqueRuleIds([rule("x"), rule("x")], "feature my-flag"),
-    ).toThrow(/feature my-flag/);
+  it("uses the rule's single-env scope as the suffix envHint", () => {
+    const result = ensureUniqueRuleIds([
+      rule("x", { environments: ["prod"] }),
+      rule("x", { environments: ["prod"] }),
+    ]);
+    expect(result.rules[0].id).toBe("x");
+    expect(result.rules[1].id).toBe(suffixRuleId("x", "prod", 2));
+  });
+
+  it("falls back to 'all' envHint for allEnvironments rules", () => {
+    const result = ensureUniqueRuleIds([
+      rule("x", { allEnvironments: true }),
+      rule("x", { allEnvironments: true }),
+    ]);
+    expect(result.rules[1].id).toBe(suffixRuleId("x", "all", 2));
+  });
+
+  it("falls back to 'dup' envHint for multi-env rules", () => {
+    const result = ensureUniqueRuleIds([
+      rule("x", { environments: ["dev", "prod"] }),
+      rule("x", { environments: ["dev", "prod"] }),
+    ]);
+    expect(result.rules[1].id).toBe(suffixRuleId("x", "dup", 2));
+  });
+
+  it("skips already-assigned suffixes to avoid secondary collisions", () => {
+    const result = ensureUniqueRuleIds([
+      rule("x", { environments: ["dev"] }),
+      rule("x__dev__2", { environments: ["dev"] }),
+      rule("x", { environments: ["dev"] }),
+    ]);
+    const ids = result.rules.map((r) => r.id);
+    expect(ids[0]).toBe("x");
+    expect(ids[1]).toBe("x__dev__2");
+    expect(ids[2]).toBe(suffixRuleId("x", "dev", 3));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("stems to the original id so external lookups still resolve", () => {
+    const result = ensureUniqueRuleIds([
+      rule("fr_abc", { environments: ["prod"] }),
+      rule("fr_abc", { environments: ["prod"] }),
+    ]);
+    expect(stemRuleId(result.rules[0].id)).toBe("fr_abc");
+    expect(stemRuleId(result.rules[1].id)).toBe("fr_abc");
+  });
+
+  it("is idempotent — re-running on its own output is a no-op", () => {
+    const first = ensureUniqueRuleIds([
+      rule("a", { environments: ["dev"] }),
+      rule("a", { environments: ["dev"] }),
+      rule("a", { environments: ["dev"] }),
+    ]);
+    const second = ensureUniqueRuleIds(first.rules);
+    expect(second.rules.map((r) => r.id)).toEqual(first.rules.map((r) => r.id));
+    expect(second.collisions).toEqual([]);
   });
 });
 

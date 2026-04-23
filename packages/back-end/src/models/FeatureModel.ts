@@ -54,7 +54,7 @@ import {
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
 import {
-  assertUniqueRuleIds,
+  ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
   isV2FeatureEnvSettings,
@@ -473,10 +473,16 @@ export async function createFeature(
   });
 
   if (Array.isArray(featureToCreate.rules)) {
-    assertUniqueRuleIds(
+    const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
       featureToCreate.rules as FeatureRule[],
-      `feature ${data.id}`,
     );
+    if (collisions.length > 0) {
+      logger.warn(
+        { featureId: data.id, collisions },
+        "Duplicate rule ids auto-suffixed on feature create",
+      );
+      featureToCreate.rules = dedupedRules;
+    }
   }
 
   // Run any custom hooks for this feature
@@ -850,13 +856,20 @@ export async function updateFeature(
 
   const normalizedUpdates = buildFeatureUpdate(allUpdates);
 
-  // Reject writes with duplicate rule ids — the v2 invariant is one entry
-  // per rule id; any regression here would silently corrupt data.
+  // v2 invariant: one entry per rule id. Duplicates are auto-suffixed (not
+  // rejected) so pre-existing corruption or future write-path bugs don't
+  // silently block the user. Every collision is logged for investigation.
   if (Array.isArray(normalizedUpdates.rules)) {
-    assertUniqueRuleIds(
+    const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
       normalizedUpdates.rules as FeatureRule[],
-      `feature ${feature.id}`,
     );
+    if (collisions.length > 0) {
+      logger.warn(
+        { featureId: feature.id, collisions },
+        "Duplicate rule ids auto-suffixed on feature update",
+      );
+      normalizedUpdates.rules = dedupedRules;
+    }
   }
 
   await FeatureModel.updateOne(

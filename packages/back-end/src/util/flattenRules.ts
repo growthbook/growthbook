@@ -37,21 +37,62 @@ export function isV2FeatureEnvSettings(
   return true;
 }
 
-// Called at persist chokepoints to turn silent id collisions into loud failures.
-export function assertUniqueRuleIds(rules: FeatureRule[], ctx: string): void {
+// Called at persist chokepoints. Silently suffixes duplicate ids to keep the
+// write unblocked, and returns both the deduped array and a list of collisions
+// so callers can surface them to operators (Sentry / warn log) — collisions
+// signal either a pre-existing data corruption or a write-path bug, and should
+// never occur in a healthy system.
+//
+// First occurrence keeps its id; later dups get `<stem>__<envHint>__<n>` via
+// `suffixRuleId`, where envHint is derived from the rule's scope (single env
+// name, "all" for allEnvironments, or "dup" as a last resort). All forms stem
+// back to the original id so external lookups (ramps, SDK tracking keys,
+// telemetry, UI) continue to resolve.
+export interface EnsureUniqueRuleIdsResult {
+  rules: FeatureRule[];
+  collisions: Array<{ originalId: string; assignedId: string }>;
+}
+
+export function ensureUniqueRuleIds(
+  rules: FeatureRule[],
+): EnsureUniqueRuleIdsResult {
   const seen = new Set<string>();
-  const dupes = new Set<string>();
+  const perStemCounter = new Map<string, number>();
+  const out: FeatureRule[] = [];
+  const collisions: Array<{ originalId: string; assignedId: string }> = [];
+
   for (const r of rules) {
-    if (!r?.id) continue;
-    if (seen.has(r.id)) dupes.add(r.id);
-    seen.add(r.id);
+    if (!r?.id) {
+      out.push(r);
+      continue;
+    }
+    if (!seen.has(r.id)) {
+      seen.add(r.id);
+      out.push(r);
+      continue;
+    }
+
+    const stem = stemRuleId(r.id);
+    const envHint = r.allEnvironments
+      ? "all"
+      : r.environments?.length === 1
+        ? r.environments[0]
+        : "dup";
+
+    let n = (perStemCounter.get(stem) ?? 1) + 1;
+    let candidate = suffixRuleId(stem, envHint, n);
+    while (seen.has(candidate)) {
+      n += 1;
+      candidate = suffixRuleId(stem, envHint, n);
+    }
+    perStemCounter.set(stem, n);
+    seen.add(candidate);
+
+    collisions.push({ originalId: r.id, assignedId: candidate });
+    out.push({ ...r, id: candidate } as FeatureRule);
   }
-  if (dupes.size > 0) {
-    throw new Error(
-      `Duplicate rule id(s) in ${ctx}: ${Array.from(dupes).join(", ")}. ` +
-        `Each v2 rule must have a unique id; per-env scope is encoded via allEnvironments/environments.`,
-    );
-  }
+
+  return { rules: out, collisions };
 }
 
 export function getApplicableEnvIds(

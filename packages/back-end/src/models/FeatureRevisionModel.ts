@@ -23,7 +23,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
-  assertUniqueRuleIds,
+  ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
   isV2RevisionRules,
@@ -792,12 +792,23 @@ export async function updateRevision(
         }
       : changes;
 
-  // Uniqueness guard — mirrors the one in `updateFeature`.
+  // Uniqueness guard — mirrors the one in `updateFeature`. Auto-suffixes on
+  // collision rather than rejecting, so the write proceeds.
   if (Array.isArray(normalizedChanges.rules)) {
-    assertUniqueRuleIds(
+    const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
       normalizedChanges.rules as FeatureRule[],
-      `revision ${revision.featureId}@${revision.version}`,
     );
+    if (collisions.length > 0) {
+      logger.warn(
+        {
+          featureId: revision.featureId,
+          version: revision.version,
+          collisions,
+        },
+        "Duplicate rule ids auto-suffixed on revision update",
+      );
+      normalizedChanges.rules = dedupedRules;
+    }
   }
 
   await runValidateFeatureRevisionHooks({
