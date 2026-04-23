@@ -4,7 +4,7 @@ import { experimentHasLinkedChanges, getNamespaceRanges } from "shared/util";
 import type { NamespaceValue } from "shared/types/feature";
 import type { ExperimentInterface } from "shared/types/experiment";
 
-export function toApiNamespace(ns: Namespaces): ApiNamespace {
+export function orgNamespaceToApi(ns: Namespaces): ApiNamespace {
   return {
     id: ns.name,
     displayName: ns.label,

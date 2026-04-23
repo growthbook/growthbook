@@ -4,7 +4,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { toApiNamespace } from "./namespaceApiUtils";
+import { orgNamespaceToApi } from "./namespaceApiUtils";
 
 export const postNamespaceRotateSeed = createApiRequestHandler(
   postNamespaceRotateSeedValidator,
@@ -44,5 +44,5 @@ export const postNamespaceRotateSeed = createApiRequestHandler(
     ),
   });
 
-  return { namespace: toApiNamespace(updated) };
+  return { namespace: orgNamespaceToApi(updated) };
 });

@@ -225,13 +225,12 @@ export const postNamespaceRotateSeedValidator = {
 
 export const getNamespaceMembershipsValidator = {
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...paginationQueryFields }).strict(),
   paramsSchema: nameParams,
-  responseSchema: z
-    .object({
-      experiments: z.array(apiNamespaceExperimentMemberValidator),
-    })
-    .strict(),
+  responseSchema: z.intersection(
+    z.object({ experiments: z.array(apiNamespaceExperimentMemberValidator) }),
+    apiPaginationFieldsValidator,
+  ),
   summary: "Get namespace membership",
   operationId: "getNamespaceMemberships",
   tags: ["namespaces"],

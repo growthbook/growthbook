@@ -2,7 +2,10 @@ import {
   getNamespaceMembershipsValidator,
   type ApiNamespaceExperimentMember,
 } from "shared/validators";
-import { createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import {
@@ -21,14 +24,18 @@ export const getNamespaceMemberships = createApiRequestHandler(
   }
 
   const allExperiments = await getAllExperiments(req.context);
-  const experiments: ApiNamespaceExperimentMember[] =
-    filterAllNamespaceExperiments(allExperiments, id).map((e) => ({
-      id: e.id,
-      name: e.name,
-      trackingKey: e.trackingKey,
-      status: e.status,
-      ranges: getLastPhaseNamespaceRanges(e),
-    }));
+  const members: ApiNamespaceExperimentMember[] = filterAllNamespaceExperiments(
+    allExperiments,
+    id,
+  ).map((e) => ({
+    id: e.id,
+    name: e.name,
+    trackingKey: e.trackingKey,
+    status: e.status,
+    ranges: getLastPhaseNamespaceRanges(e),
+  }));
 
-  return { experiments };
+  const { filtered, returnFields } = applyPagination(members, req.query);
+
+  return { experiments: filtered, ...returnFields };
 });

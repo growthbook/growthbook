@@ -8,7 +8,7 @@ import {
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { buildNamespace } from "back-end/src/util/namespaces";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { toApiNamespace } from "./namespaceApiUtils";
+import { orgNamespaceToApi } from "./namespaceApiUtils";
 
 export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
   async (req) => {
@@ -73,6 +73,6 @@ export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
       ),
     });
 
-    return { namespace: toApiNamespace(updated) };
+    return { namespace: orgNamespaceToApi(updated) };
   },
 );

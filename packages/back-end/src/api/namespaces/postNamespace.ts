@@ -5,7 +5,7 @@ import { BadRequestError, ConflictError } from "back-end/src/util/errors";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { buildNamespace } from "back-end/src/util/namespaces";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { toApiNamespace } from "./namespaceApiUtils";
+import { orgNamespaceToApi } from "./namespaceApiUtils";
 
 export const postNamespace = createApiRequestHandler(postNamespaceValidator)(
   async (req) => {
@@ -55,6 +55,6 @@ export const postNamespace = createApiRequestHandler(postNamespaceValidator)(
       ),
     });
 
-    return { namespace: toApiNamespace(newNamespace) };
+    return { namespace: orgNamespaceToApi(newNamespace) };
   },
 );

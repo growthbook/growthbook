@@ -3,7 +3,7 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { toApiNamespace } from "./namespaceApiUtils";
+import { orgNamespaceToApi } from "./namespaceApiUtils";
 
 export const listNamespaces = createApiRequestHandler(listNamespacesValidator)(
   async (req) => {
@@ -15,7 +15,7 @@ export const listNamespaces = createApiRequestHandler(listNamespacesValidator)(
     );
 
     return {
-      namespaces: filtered.map(toApiNamespace),
+      namespaces: filtered.map(orgNamespaceToApi),
       ...returnFields,
     };
   },

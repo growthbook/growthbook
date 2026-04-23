@@ -1,7 +1,7 @@
 import { getNamespaceValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
-import { toApiNamespace } from "./namespaceApiUtils";
+import { orgNamespaceToApi } from "./namespaceApiUtils";
 
 export const getNamespace = createApiRequestHandler(getNamespaceValidator)(
   async (req) => {
@@ -10,6 +10,6 @@ export const getNamespace = createApiRequestHandler(getNamespaceValidator)(
     if (!ns) {
       throw new NotFoundError("Namespace not found");
     }
-    return { namespace: toApiNamespace(ns) };
+    return { namespace: orgNamespaceToApi(ns) };
   },
 );
