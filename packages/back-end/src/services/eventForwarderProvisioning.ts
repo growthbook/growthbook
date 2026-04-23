@@ -441,6 +441,111 @@ async function ensureBigQueryConnector(
   return connectorName;
 }
 
+async function deleteConnectorIfExists(connectorName: string): Promise<void> {
+  const url = `${getCloudConnectorsBaseUrl()}/${encodeURIComponent(
+    connectorName,
+  )}`;
+  try {
+    await confluentRequest({
+      url,
+      method: "DELETE",
+      authHeader: toBasicAuth(
+        CONFLUENT_CLOUD_API_KEY,
+        CONFLUENT_CLOUD_API_SECRET,
+      ),
+    });
+  } catch (error) {
+    if (error instanceof ConfluentApiError && error.status === 404) {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function deleteKafkaTopicIfExists(topic: string): Promise<void> {
+  const authHeader = toBasicAuth(
+    CONFLUENT_KAFKA_API_KEY,
+    CONFLUENT_KAFKA_API_SECRET,
+  );
+  const topicUrl = `${getKafkaTopicsBaseUrl()}/${encodeURIComponent(topic)}`;
+  try {
+    await confluentRequest({
+      url: topicUrl,
+      method: "DELETE",
+      authHeader,
+    });
+  } catch (error) {
+    if (error instanceof ConfluentApiError && error.status === 404) {
+      return;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Deletes the Confluent BigQuery Storage Sink connector and Kafka topic using names stored on the
+ * config document (not recomputed from env), so changing CONFLUENT_* prefix defaults does not
+ * target the wrong resources. API base URLs still use current deployment secrets.
+ */
+export async function teardownBigQueryEventForwarderInfrastructure(
+  config: EventForwarderConfigInterface,
+): Promise<void> {
+  const missingConfig = getMissingProvisioningConfig();
+  if (missingConfig.length > 0) {
+    logger.warn(
+      {
+        eventForwarderConfigId: config.id,
+        missingConfig,
+      },
+      "Skipping Confluent teardown: incomplete provisioning secrets",
+    );
+    return;
+  }
+
+  const connectorName = config.connectorName?.trim() ?? "";
+  const topic = config.topic?.trim() ?? "";
+
+  if (!connectorName) {
+    logger.warn(
+      { eventForwarderConfigId: config.id },
+      "Skipping connector delete: no connectorName stored on event forwarder config (never provisioned successfully)",
+    );
+  } else {
+    try {
+      await deleteConnectorIfExists(connectorName);
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          connectorName,
+          eventForwarderConfigId: config.id,
+        },
+        "Failed to delete BigQuery Storage Sink connector for event forwarder",
+      );
+    }
+  }
+
+  if (!topic) {
+    logger.warn(
+      { eventForwarderConfigId: config.id },
+      "Skipping Kafka topic delete: no topic stored on event forwarder config",
+    );
+  } else {
+    try {
+      await deleteKafkaTopicIfExists(topic);
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          topic,
+          eventForwarderConfigId: config.id,
+        },
+        "Failed to delete Kafka topic for event forwarder",
+      );
+    }
+  }
+}
+
 export async function maybeProvisionEventForwarderConfig(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface | null,
@@ -508,7 +613,6 @@ export async function maybeProvisionEventForwarderConfig(
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
       status: "error",
-      connectorName: getConnectorName(eventForwarderConfig),
       lastProvisioningError: message,
     });
 

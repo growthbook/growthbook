@@ -11,11 +11,13 @@ const eventForwarderStatusValidator = z.enum(["pending", "ready", "error"]);
 export const eventForwarderConfigValidator = baseSchema
   .extend({
     projects: z.array(z.string()), // Initial values should be derived from the data source this was created from
-    topic: z.string(), // The kafka topic to send events to
+    /** Kafka topic name — pinned at creation; teardown must use this value (not derived from env). */
+    topic: z.string(),
     schemaId: z.number(), // The confluent schema registry schema id
     sinkType: eventForwarderSinkTypeValidator,
     config: z.string(), // Encrypted sink-specific configuration
     status: eventForwarderStatusValidator,
+    /** Confluent connector name — set after successful provisioning; teardown uses this only (not env-derived). */
     connectorName: z.string().optional(),
     connectorId: z.string().optional(),
     lastProvisioningError: z.string().optional(),

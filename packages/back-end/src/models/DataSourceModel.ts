@@ -29,6 +29,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarderDatasourceLifecycle";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
 const audit = createModelAuditLogger({
@@ -101,6 +102,27 @@ export async function getDataSourcesByOrganization(
   return datasources.filter((ds) =>
     context.permissions.canReadMultiProjectResource(ds.projects),
   );
+}
+
+/**
+ * Same-type datasources for an org except one id — no permission filtering (internal lifecycle).
+ */
+export async function getDataSourcesByOrganizationSameTypeExcludingId(
+  organizationId: string,
+  excludeDatasourceId: string,
+  type: DataSourceType,
+): Promise<DataSourceInterface[]> {
+  if (usingFileConfig()) {
+    return [];
+  }
+
+  const docs: DataSourceDocument[] = await DataSourceModel.find({
+    organization: organizationId,
+    type,
+    id: { $ne: excludeDatasourceId },
+  });
+
+  return docs.map(toInterface);
 }
 
 // WARNING: This does not restrict by organization
@@ -194,6 +216,8 @@ export async function deleteDatasource(
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
+  await syncEventForwarderAfterDatasourceDeleted(context, datasource);
+
   if (datasource.type === "growthbook_clickhouse") {
     await deleteClickhouseUser(context.org.id);
 
