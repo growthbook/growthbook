@@ -295,6 +295,116 @@ describe("backend", () => {
         joinsRequired: ["user_id"],
       });
     });
+
+    it("uses available joins to pick joinable id types (Wellhub scenario)", () => {
+      // This is the real-world scenario from Wellhub:
+      // - Experiment assignment uses wellhub_for_companies_user_id
+      // - Fact Table has user_id and tagus_client_id
+      // - Join exists: wellhub_for_companies_user_id <-> tagus_client_id
+      // - NO join exists: wellhub_for_companies_user_id <-> user_id
+      // Before the fix, user_id would be picked if more frequent.
+      // After the fix, tagus_client_id should be picked since it has a valid join.
+      expect(
+        getBaseIdTypeAndJoins(
+          [
+            ["wellhub_for_companies_user_id"], // exposure query
+            ["user_id", "tagus_client_id"], // fact table
+          ],
+          "wellhub_for_companies_user_id",
+          [["wellhub_for_companies_user_id", "tagus_client_id"]], // available joins
+        ),
+      ).toEqual({
+        baseIdType: "wellhub_for_companies_user_id",
+        joinsRequired: ["tagus_client_id"],
+      });
+    });
+
+    it("picks joinable id even when another id is more frequent", () => {
+      // user_id appears more often (in 3 objects) but only tagus_client_id has a valid join
+      // The algorithm should pick tagus_client_id for the fact table that has both IDs
+      expect(
+        getBaseIdTypeAndJoins(
+          [
+            ["base_id"], // exposure query
+            ["user_id", "tagus_client_id"], // fact table - both IDs available
+            ["user_id", "tagus_client_id"], // another metric from same fact table
+            ["user_id", "tagus_client_id"], // yet another metric (user_id more frequent overall)
+          ],
+          "base_id",
+          [["base_id", "tagus_client_id"]], // only join for tagus_client_id
+        ),
+      ).toEqual({
+        baseIdType: "base_id",
+        joinsRequired: ["tagus_client_id"], // picks tagus_client_id despite user_id being more frequent
+      });
+    });
+
+    it("falls back to most frequent when no available joins are provided", () => {
+      // Original behavior when availableIdJoins is not provided
+      expect(
+        getBaseIdTypeAndJoins(
+          [
+            ["base_id"],
+            ["user_id", "other_id"],
+            ["user_id"], // makes user_id more frequent
+          ],
+          "base_id",
+        ),
+      ).toEqual({
+        baseIdType: "base_id",
+        joinsRequired: ["user_id"],
+      });
+    });
+
+    it("works with chained joins through required joins", () => {
+      // base_id -> id_a (direct join)
+      // id_a -> id_b (join through id_a which is already required)
+      expect(
+        getBaseIdTypeAndJoins(
+          [
+            ["base_id"],
+            ["id_a"], // needs join from base
+            ["id_b"], // needs join from id_a
+          ],
+          "base_id",
+          [
+            ["base_id", "id_a"],
+            ["id_a", "id_b"],
+          ],
+        ),
+      ).toEqual({
+        baseIdType: "base_id",
+        joinsRequired: ["id_a", "id_b"],
+      });
+    });
+
+    it("handles when no joinable types exist (fallback behavior)", () => {
+      // When there's no valid join path, fall back to original behavior
+      // This preserves backwards compatibility for edge cases
+      expect(
+        getBaseIdTypeAndJoins(
+          [
+            ["base_id"],
+            ["orphan_id"], // no join available
+          ],
+          "base_id",
+          [["unrelated_a", "unrelated_b"]], // joins don't help
+        ),
+      ).toEqual({
+        baseIdType: "base_id",
+        joinsRequired: ["orphan_id"],
+      });
+    });
+
+    it("handles empty available joins array", () => {
+      // Empty array should fall back to original behavior
+      expect(
+        getBaseIdTypeAndJoins([["base_id"], ["other_id"]], "base_id", []),
+      ).toEqual({
+        baseIdType: "base_id",
+        joinsRequired: ["other_id"],
+      });
+    });
   });
 
   describe("expandDenominatorMetrics", () => {
