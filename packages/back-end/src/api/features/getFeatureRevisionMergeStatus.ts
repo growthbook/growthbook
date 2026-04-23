@@ -4,10 +4,7 @@ import {
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
 } from "shared/util";
-import {
-  getFeatureRevisionMergeStatusValidator,
-  getFeatureRevisionMergeStatusV2Validator,
-} from "shared/validators";
+import { getFeatureRevisionMergeStatusValidator } from "shared/validators";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -17,7 +14,7 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 
 // Shared handler: v1 and v2 have identical request/response schemas and the
 // merge result contains internal rule shapes (not API-serialized).
-const mergeStatusHandler = async (req: {
+export const mergeStatusHandler = async (req: {
   context: Parameters<typeof getFeature>[0];
   organization: { id: string };
   params: { id: string; version: number };
@@ -60,8 +57,4 @@ const mergeStatusHandler = async (req: {
 
 export const getFeatureRevisionMergeStatus = createApiRequestHandler(
   getFeatureRevisionMergeStatusValidator,
-)(mergeStatusHandler);
-
-export const getFeatureRevisionMergeStatusV2 = createApiRequestHandler(
-  getFeatureRevisionMergeStatusV2Validator,
 )(mergeStatusHandler);

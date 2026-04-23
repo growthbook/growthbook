@@ -1,7 +1,4 @@
-import {
-  getFeatureRevisionsValidator,
-  getFeatureRevisionsV2Validator,
-} from "shared/validators";
+import { getFeatureRevisionsValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -10,14 +7,14 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { NotFoundError } from "back-end/src/util/errors";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import {
   createApiRequestHandler,
   validatePagination,
 } from "back-end/src/util/handler";
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
 
-async function loadFeatureRevisionsPage(
+export async function loadFeatureRevisionsPage(
   context: ApiReqContext,
   organizationId: string,
   featureId: string,
@@ -102,27 +99,6 @@ export const getFeatureRevisions = createApiRequestHandler(
   const revisions = r.pagedRevisions.map((rev) =>
     toApiRevision(rev, req.context, r.feature),
   );
-  return {
-    revisions,
-    limit: r.outLimit,
-    offset: r.outOffset,
-    count: revisions.length,
-    total: r.total,
-    hasMore: r.hasMore,
-    nextOffset: r.nextOffset,
-  };
-});
-
-export const getFeatureRevisionsV2 = createApiRequestHandler(
-  getFeatureRevisionsV2Validator,
-)(async (req) => {
-  const r = await loadFeatureRevisionsPage(
-    req.context,
-    req.organization.id,
-    req.params.id,
-    req.query,
-  );
-  const revisions = r.pagedRevisions.map((rev) => toApiRevisionV2(rev));
   return {
     revisions,
     limit: r.outLimit,

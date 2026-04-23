@@ -9,12 +9,9 @@ import {
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
-  postFeatureRevisionRevertValidator,
-  postFeatureRevisionRevertV2Validator,
-} from "shared/validators";
+import { postFeatureRevisionRevertValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -35,7 +32,7 @@ import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
-async function revertFeatureRevision(
+export async function revertFeatureRevision(
   context: ApiReqContext,
   organization: OrganizationInterface,
   eventAudit: EventUser,
@@ -368,18 +365,4 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     req.audit,
   );
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const postFeatureRevisionRevertV2 = createApiRequestHandler(
-  postFeatureRevisionRevertV2Validator,
-)(async (req) => {
-  const { revision } = await revertFeatureRevision(
-    req.context,
-    req.organization,
-    req.eventAudit,
-    req.params,
-    req.body,
-    req.audit,
-  );
-  return { revision: toApiRevisionV2(revision) };
 });

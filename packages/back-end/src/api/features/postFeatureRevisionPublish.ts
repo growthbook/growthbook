@@ -1,7 +1,4 @@
-import {
-  postFeatureRevisionPublishValidator,
-  postFeatureRevisionPublishV2Validator,
-} from "shared/validators";
+import { postFeatureRevisionPublishValidator } from "shared/validators";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -20,7 +17,6 @@ import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getLiveAndBaseRevisionsForFeature,
   toApiRevision,
-  toApiRevisionV2,
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -31,7 +27,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 
-async function publishFeatureRevision(
+export async function publishFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
     body: { comment?: string };
@@ -215,11 +211,4 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
 )(async (req) => {
   const { feature, revision } = await publishFeatureRevision(req);
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const postFeatureRevisionPublishV2 = createApiRequestHandler(
-  postFeatureRevisionPublishV2Validator,
-)(async (req) => {
-  const { revision } = await publishFeatureRevision(req);
-  return { revision: toApiRevisionV2(revision) };
 });

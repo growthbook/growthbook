@@ -1,6 +1,5 @@
 import {
   getFeatureStaleValidator,
-  getFeatureStaleV2Validator,
   ACTIVE_DRAFT_STATUSES,
   FeatureStaleEntry,
 } from "shared/validators";
@@ -13,7 +12,7 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ReqContext } from "back-end/types/request";
 
-async function computeFeatureStale(
+export async function computeFeatureStale(
   context: ApiReqContext,
   query: { ids: string },
 ) {
@@ -109,8 +108,4 @@ async function computeFeatureStale(
 
 export const getFeatureStale = createApiRequestHandler(
   getFeatureStaleValidator,
-)(async (req) => computeFeatureStale(req.context, req.query));
-
-export const getFeatureStaleV2 = createApiRequestHandler(
-  getFeatureStaleV2Validator,
 )(async (req) => computeFeatureStale(req.context, req.query));

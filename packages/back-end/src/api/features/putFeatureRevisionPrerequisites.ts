@@ -1,12 +1,9 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import type { FeaturePrerequisite } from "shared/types/feature";
-import {
-  putFeatureRevisionPrerequisitesValidator,
-  putFeatureRevisionPrerequisitesV2Validator,
-} from "shared/validators";
+import { putFeatureRevisionPrerequisitesValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { NotFoundError, BadRequestError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -23,7 +20,7 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-async function setRevisionPrerequisites(
+export async function setRevisionPrerequisites(
   context: ApiReqContext,
   organization: OrganizationInterface,
   params: { id: string; version: number | "new" },
@@ -113,16 +110,4 @@ export const putFeatureRevisionPrerequisites = createApiRequestHandler(
     req.body,
   );
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const putFeatureRevisionPrerequisitesV2 = createApiRequestHandler(
-  putFeatureRevisionPrerequisitesV2Validator,
-)(async (req) => {
-  const { revision } = await setRevisionPrerequisites(
-    req.context,
-    req.organization,
-    req.params,
-    req.body,
-  );
-  return { revision: toApiRevisionV2(revision) };
 });

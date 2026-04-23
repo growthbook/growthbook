@@ -1,9 +1,6 @@
-import {
-  postFeatureRevisionDiscardValidator,
-  postFeatureRevisionDiscardV2Validator,
-} from "shared/validators";
+import { postFeatureRevisionDiscardValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -14,7 +11,7 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 
-async function discardFeatureRevision(
+export async function discardFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
   },
@@ -77,11 +74,4 @@ export const postFeatureRevisionDiscard = createApiRequestHandler(
 )(async (req) => {
   const { feature, revision } = await discardFeatureRevision(req);
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const postFeatureRevisionDiscardV2 = createApiRequestHandler(
-  postFeatureRevisionDiscardV2Validator,
-)(async (req) => {
-  const { revision } = await discardFeatureRevision(req);
-  return { revision: toApiRevisionV2(revision) };
 });

@@ -9,10 +9,7 @@ import {
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
-import {
-  revertFeatureValidator,
-  revertFeatureV2Validator,
-} from "shared/validators";
+import { revertFeatureValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -23,7 +20,6 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   getApiFeatureObj,
-  getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
@@ -33,7 +29,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
-async function revertFeatureCore(
+export async function revertFeatureCore(
   context: ApiReqContext,
   organization: OrganizationInterface,
   eventAudit: EventUser,
@@ -281,19 +277,3 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
     };
   },
 );
-
-export const revertFeatureV2 = createApiRequestHandler(
-  revertFeatureV2Validator,
-)(async (req) => {
-  const data = await revertFeatureCore(
-    req.context,
-    req.organization,
-    req.eventAudit,
-    req.params,
-    req.body,
-    req.audit,
-  );
-  return {
-    feature: await resolveOwnerEmail(getApiFeatureObjV2(data), req.context),
-  };
-});

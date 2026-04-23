@@ -1,8 +1,5 @@
 import { filterEnvironmentsByFeature, PermissionError } from "shared/util";
-import {
-  deleteFeatureValidator,
-  deleteFeatureV2Validator,
-} from "shared/validators";
+import { deleteFeatureValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
@@ -12,7 +9,7 @@ import { getEnabledEnvironments } from "back-end/src/util/features";
 
 // Single handler shared by v1 and v2: identical semantics, identical response
 // shape (`{ deletedId }`). Only the deprecation marker on the route spec differs.
-async function deleteFeatureHandler(
+export async function deleteFeatureHandler(
   req: ApiRequestLocals & { params: { id: string } },
 ) {
   const feature = await getFeature(req.context, req.params.id);
@@ -72,8 +69,4 @@ async function deleteFeatureHandler(
 
 export const deleteFeatureById = createApiRequestHandler(
   deleteFeatureValidator,
-)(deleteFeatureHandler);
-
-export const deleteFeatureByIdV2 = createApiRequestHandler(
-  deleteFeatureV2Validator,
 )(deleteFeatureHandler);

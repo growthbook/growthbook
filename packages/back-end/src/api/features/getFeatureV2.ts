@@ -1,4 +1,5 @@
-import { getFeatureValidator } from "shared/validators";
+import { getFeatureV2Validator } from "shared/validators";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getFeatureRevisionsByStatus,
   getRevision,
@@ -6,40 +7,38 @@ import {
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getFeature as getFeatureDB } from "back-end/src/models/FeatureModel";
 import {
-  getApiFeatureObj,
+  getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
-  req,
-) => {
-  const revisionFilter = req.query.withRevisions || "none";
+async function loadFeatureForApiV2(
+  context: ApiReqContext,
+  featureId: string,
+  withRevisions: string | undefined,
+) {
+  const revisionFilter = withRevisions || "none";
   const fetchRevisions = ["all", "drafts", "published"].includes(
-    revisionFilter || "none",
+    revisionFilter,
   );
-  const feature = await getFeatureDB(req.context, req.params.id);
+  const feature = await getFeatureDB(context, featureId);
   if (!feature) {
     throw new Error("Could not find a feature with that key");
   }
-
-  const groupMap = await getSavedGroupMap(req.context);
-  const experimentMap = await getExperimentMapForFeature(
-    req.context,
-    feature.id,
-  );
+  const groupMap = await getSavedGroupMap(context);
+  const experimentMap = await getExperimentMapForFeature(context, feature.id);
   const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
   const revision = await getRevision({
-    context: req.context,
+    context,
     organization: feature.organization,
     featureId: feature.id,
     version: feature.version,
   });
   const revisions = fetchRevisions
     ? await getFeatureRevisionsByStatus({
-        context: req.context,
+        context,
         organization: feature.organization,
         featureId: feature.id,
         status:
@@ -50,18 +49,32 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
               : undefined,
       })
     : undefined;
+
   return {
-    feature: await resolveOwnerEmail(
-      getApiFeatureObj({
-        feature,
-        organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision,
-        revisions,
-        safeRolloutMap,
-      }),
-      req.context,
-    ),
+    feature,
+    groupMap,
+    experimentMap,
+    revision,
+    revisions,
+    safeRolloutMap,
   };
-});
+}
+
+export const getFeatureV2 = createApiRequestHandler(getFeatureV2Validator)(
+  async (req) => {
+    const data = await loadFeatureForApiV2(
+      req.context,
+      req.params.id,
+      req.query.withRevisions,
+    );
+    return {
+      feature: await resolveOwnerEmail(
+        getApiFeatureObjV2({
+          ...data,
+          organization: req.organization,
+        }),
+        req.context,
+      ),
+    };
+  },
+);

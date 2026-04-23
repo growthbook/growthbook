@@ -1,9 +1,6 @@
-import {
-  postFeatureRevisionRequestReviewValidator,
-  postFeatureRevisionRequestReviewV2Validator,
-} from "shared/validators";
+import { postFeatureRevisionRequestReviewValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -14,7 +11,7 @@ import {
   markRevisionAsReviewRequested,
 } from "back-end/src/models/FeatureRevisionModel";
 
-async function requestReview(
+export async function requestReview(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
     body: { comment?: string };
@@ -84,11 +81,4 @@ export const postFeatureRevisionRequestReview = createApiRequestHandler(
 )(async (req) => {
   const { feature, revision } = await requestReview(req);
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const postFeatureRevisionRequestReviewV2 = createApiRequestHandler(
-  postFeatureRevisionRequestReviewV2Validator,
-)(async (req) => {
-  const { revision } = await requestReview(req);
-  return { revision: toApiRevisionV2(revision) };
 });

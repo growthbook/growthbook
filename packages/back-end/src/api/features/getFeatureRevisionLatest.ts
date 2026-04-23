@@ -1,16 +1,13 @@
-import {
-  getFeatureRevisionLatestValidator,
-  getFeatureRevisionLatestV2Validator,
-} from "shared/validators";
+import { getFeatureRevisionLatestValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getLatestActiveDraftForFeature } from "back-end/src/models/FeatureRevisionModel";
 
-async function loadLatestDraft(
+export async function loadLatestDraft(
   context: ApiReqContext,
   organizationId: string,
   featureId: string,
@@ -53,16 +50,4 @@ export const getFeatureRevisionLatest = createApiRequestHandler(
     req.query.mine,
   );
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const getFeatureRevisionLatestV2 = createApiRequestHandler(
-  getFeatureRevisionLatestV2Validator,
-)(async (req) => {
-  const { revision } = await loadLatestDraft(
-    req.context,
-    req.organization.id,
-    req.params.id,
-    req.query.mine,
-  );
-  return { revision: toApiRevisionV2(revision) };
 });

@@ -1,8 +1,7 @@
-import { postFeatureRevisionRulesReorderValidator } from "shared/validators";
+import { postFeatureRevisionRulesReorderV2Validator } from "shared/validators";
 import type { FeatureRule } from "shared/types/feature";
 import { resetReviewOnChange } from "shared/util";
-import { projectRulesForEnv } from "back-end/src/util/revisionRuleOps";
-import { toApiRevision } from "back-end/src/services/features";
+import { toApiRevisionV2 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -12,14 +11,13 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
-  assertValidEnvironment,
   discardIfJustCreated,
   isDraftStatus,
   resolveOrCreateRevision,
 } from "./validations";
 
-export const postFeatureRevisionRulesReorder = createApiRequestHandler(
-  postFeatureRevisionRulesReorderValidator,
+export const postFeatureRevisionRulesReorderV2 = createApiRequestHandler(
+  postFeatureRevisionRulesReorderV2Validator,
 )(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -31,8 +29,7 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const { environment, ruleIds } = req.body;
-  assertValidEnvironment(req.context, environment);
+  const { ruleIds } = req.body;
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -49,18 +46,14 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
       );
     }
 
+    // V2: reorder the global flat rule array. `ruleIds` must exactly cover all rules.
     const flatRules: FeatureRule[] = revision.rules ?? [];
-    const { envRules, parentIndices } = projectRulesForEnv(
-      flatRules,
-      environment,
-    );
-
-    const ruleMap = new Map(envRules.map((r) => [r.id, r]));
+    const ruleMap = new Map(flatRules.map((r) => [r.id, r]));
 
     const unknownIds = ruleIds.filter((id) => !ruleMap.has(id));
     if (unknownIds.length > 0) {
       throw new NotFoundError(
-        `Unknown rule ID(s): ${unknownIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
+        `Unknown rule ID(s): ${unknownIds.join(", ")}. ruleIds must contain exactly the existing rule IDs.`,
       );
     }
 
@@ -76,50 +69,38 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
       );
     }
 
-    const missingIds = envRules.map((r) => r.id).filter((id) => !seen.has(id));
+    const missingIds = flatRules.map((r) => r.id).filter((id) => !seen.has(id));
     if (missingIds.length > 0) {
       throw new BadRequestError(
-        `Missing rule ID(s): ${missingIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
+        `Missing rule ID(s): ${missingIds.join(", ")}. ruleIds must contain exactly the existing rule IDs.`,
       );
     }
 
     const reordered = ruleIds.map((id) => ruleMap.get(id)!);
 
-    // Short-circuit no-op reorders — drops any auto-created draft too.
-    const isNoop = envRules.every((r, i) => r.id === reordered[i].id);
+    const isNoop = flatRules.every((r, i) => r.id === reordered[i].id);
     if (isNoop) {
       await discardIfJustCreated(req.context, revision, created);
-      return { revision: toApiRevision(revision, req.context, feature) };
+      return { revision: toApiRevisionV2(revision) };
     }
 
-    // Fold the reordered env slice back into the flat revision.rules array,
-    // preserving other-env rule positions.
-    const parentIdxSet = new Set(parentIndices);
-    const newRules: FeatureRule[] = [];
-    let envCursor = 0;
-    flatRules.forEach((r, idx) => {
-      if (parentIdxSet.has(idx)) {
-        newRules.push(reordered[envCursor]);
-        envCursor++;
-      } else {
-        newRules.push(r);
-      }
-    });
+    // Collect affected envs for review reset.
+    const allEnvs = Object.keys(feature.environmentSettings ?? {});
 
     await updateRevision(
       req.context,
       feature,
       revision,
-      { rules: newRules },
+      { rules: reordered },
       {
         user: req.context.auditUser,
         action: "reorder rules",
-        subject: environment,
+        subject: "all environments",
         value: JSON.stringify(ruleIds),
       },
       resetReviewOnChange({
         feature,
-        changedEnvironments: [environment],
+        changedEnvironments: allEnvs,
         defaultValueChanged: false,
         settings: req.organization.settings,
       }),
@@ -139,12 +120,12 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
       finalRevision,
       "rule.reorder",
       {
-        environments: [environment],
+        environments: allEnvs,
         auditDetails: { ruleIds },
       },
     );
 
-    return { revision: toApiRevision(finalRevision, req.context, feature) };
+    return { revision: toApiRevisionV2(finalRevision) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

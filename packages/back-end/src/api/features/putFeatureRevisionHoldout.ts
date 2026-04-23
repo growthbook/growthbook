@@ -1,11 +1,8 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import {
-  putFeatureRevisionHoldoutValidator,
-  putFeatureRevisionHoldoutV2Validator,
-} from "shared/validators";
+import { putFeatureRevisionHoldoutValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -20,7 +17,7 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-async function setRevisionHoldout(
+export async function setRevisionHoldout(
   context: ApiReqContext,
   organization: OrganizationInterface,
   params: { id: string; version: number | "new" },
@@ -112,16 +109,4 @@ export const putFeatureRevisionHoldout = createApiRequestHandler(
     req.body,
   );
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const putFeatureRevisionHoldoutV2 = createApiRequestHandler(
-  putFeatureRevisionHoldoutV2Validator,
-)(async (req) => {
-  const { revision } = await setRevisionHoldout(
-    req.context,
-    req.organization,
-    req.params,
-    req.body,
-  );
-  return { revision: toApiRevisionV2(revision) };
 });

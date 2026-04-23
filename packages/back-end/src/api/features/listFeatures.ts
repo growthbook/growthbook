@@ -1,7 +1,4 @@
-import {
-  listFeaturesValidator,
-  listFeaturesV2Validator,
-} from "shared/validators";
+import { listFeaturesValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
@@ -13,7 +10,6 @@ import {
 } from "back-end/src/models/FeatureModel";
 import {
   getApiFeatureObj,
-  getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
@@ -26,7 +22,7 @@ import {
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 
-const emptyListResponse = (limit: number, offset: number) => ({
+export const emptyListResponse = (limit: number, offset: number) => ({
   features: [] as never[],
   limit,
   offset,
@@ -42,7 +38,7 @@ const emptyListResponse = (limit: number, offset: number) => ({
  * per-feature serializer (`getApiFeatureObj` vs `getApiFeatureObjV2`) they run
  * over the resulting slice.
  */
-async function loadFeaturesPage(
+export async function loadFeaturesPage(
   context: ApiReqContext,
   organizationId: string,
   query: {
@@ -236,43 +232,6 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
                 x.featureId === feature.id && x.version === feature.version,
             ) || null;
           return getApiFeatureObj({
-            feature,
-            organization: req.organization,
-            groupMap: r.groupMap,
-            experimentMap: r.experimentMap,
-            revision,
-            safeRolloutMap: r.safeRolloutMap,
-          });
-        }),
-        req.context,
-      ),
-      limit: r.outLimit,
-      offset: r.outOffset,
-      count: r.filtered.length,
-      total: r.total,
-      hasMore: r.hasMore,
-      nextOffset: r.nextOffset,
-    };
-  },
-);
-
-export const listFeaturesV2 = createApiRequestHandler(listFeaturesV2Validator)(
-  async (req) => {
-    const r = await loadFeaturesPage(
-      req.context,
-      req.organization.id,
-      req.query,
-    );
-    if (r.empty) return r.response;
-    return {
-      features: await resolveOwnerEmails(
-        r.filtered.map((feature) => {
-          const revision =
-            r.revisions?.find(
-              (x) =>
-                x.featureId === feature.id && x.version === feature.version,
-            ) || null;
-          return getApiFeatureObjV2({
             feature,
             organization: req.organization,
             groupMap: r.groupMap,

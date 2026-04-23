@@ -1,11 +1,8 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import {
-  putFeatureRevisionDefaultValueValidator,
-  putFeatureRevisionDefaultValueV2Validator,
-} from "shared/validators";
+import { putFeatureRevisionDefaultValueValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -20,7 +17,7 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-async function setRevisionDefaultValue(
+export async function setRevisionDefaultValue(
   context: ApiReqContext,
   organization: OrganizationInterface,
   params: { id: string; version: number | "new" },
@@ -108,16 +105,4 @@ export const putFeatureRevisionDefaultValue = createApiRequestHandler(
     req.body,
   );
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const putFeatureRevisionDefaultValueV2 = createApiRequestHandler(
-  putFeatureRevisionDefaultValueV2Validator,
-)(async (req) => {
-  const { revision } = await setRevisionDefaultValue(
-    req.context,
-    req.organization,
-    req.params,
-    req.body,
-  );
-  return { revision: toApiRevisionV2(revision) };
 });

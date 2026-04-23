@@ -12,7 +12,6 @@ import type { FeatureRule } from "shared/types/feature";
 import {
   RevisionMetadata,
   postFeatureRevisionRebaseValidator,
-  postFeatureRevisionRebaseV2Validator,
 } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -24,7 +23,6 @@ import {
 import {
   getLiveAndBaseRevisionsForFeature,
   toApiRevision,
-  toApiRevisionV2,
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -36,7 +34,7 @@ import {
 } from "back-end/src/util/errors";
 import { isDraftStatus } from "./validations";
 
-async function rebaseFeatureRevision(
+export async function rebaseFeatureRevision(
   context: ApiReqContext,
   organization: OrganizationInterface,
   params: { id: string; version: number },
@@ -203,17 +201,4 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     req.audit,
   );
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const postFeatureRevisionRebaseV2 = createApiRequestHandler(
-  postFeatureRevisionRebaseV2Validator,
-)(async (req) => {
-  const { revision } = await rebaseFeatureRevision(
-    req.context,
-    req.organization,
-    req.params,
-    req.body,
-    req.audit,
-  );
-  return { revision: toApiRevisionV2(revision) };
 });

@@ -1,9 +1,6 @@
-import {
-  postFeatureRevisionValidator,
-  postFeatureRevisionV2Validator,
-} from "shared/validators";
+import { postFeatureRevisionValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -12,7 +9,7 @@ import { createRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 
-async function createFeatureDraft(
+export async function createFeatureDraft(
   req: Pick<ApiRequestLocals, "context" | "audit"> & {
     params: { id: string };
     body: { comment?: string; title?: string };
@@ -71,11 +68,4 @@ export const postFeatureRevision = createApiRequestHandler(
 )(async (req) => {
   const { feature, revision } = await createFeatureDraft(req);
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const postFeatureRevisionV2 = createApiRequestHandler(
-  postFeatureRevisionV2Validator,
-)(async (req) => {
-  const { revision } = await createFeatureDraft(req);
-  return { revision: toApiRevisionV2(revision) };
 });

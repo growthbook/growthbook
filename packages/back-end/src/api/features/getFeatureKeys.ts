@@ -1,12 +1,12 @@
-import {
-  getFeatureKeysValidator,
-  getFeatureKeysV2Validator,
-} from "shared/validators";
+import { getFeatureKeysValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-async function listFeatureKeys(context: ApiReqContext, projectId?: string) {
+export async function listFeatureKeys(
+  context: ApiReqContext,
+  projectId?: string,
+) {
   const features = await getAllFeatures(context, {
     projects: projectId ? [projectId] : undefined,
   });
@@ -16,7 +16,3 @@ async function listFeatureKeys(context: ApiReqContext, projectId?: string) {
 export const getFeatureKeys = createApiRequestHandler(getFeatureKeysValidator)(
   async (req) => listFeatureKeys(req.context, req.query.projectId),
 );
-
-export const getFeatureKeysV2 = createApiRequestHandler(
-  getFeatureKeysV2Validator,
-)(async (req) => listFeatureKeys(req.context, req.query.projectId));

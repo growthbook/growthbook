@@ -1,11 +1,8 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import {
-  putFeatureRevisionMetadataValidator,
-  putFeatureRevisionMetadataV2Validator,
-} from "shared/validators";
+import { putFeatureRevisionMetadataValidator } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import type { ApiReqContext } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -23,7 +20,7 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-type RevisionMetadataBody = {
+export type RevisionMetadataBody = {
   comment?: string;
   title?: string;
   description?: string;
@@ -35,7 +32,7 @@ type RevisionMetadataBody = {
   [k: string]: unknown;
 };
 
-async function setRevisionMetadata(
+export async function setRevisionMetadata(
   context: ApiReqContext,
   organization: OrganizationInterface,
   params: { id: string; version: number | "new" },
@@ -172,16 +169,4 @@ export const putFeatureRevisionMetadata = createApiRequestHandler(
     req.body,
   );
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const putFeatureRevisionMetadataV2 = createApiRequestHandler(
-  putFeatureRevisionMetadataV2Validator,
-)(async (req) => {
-  const { revision } = await setRevisionMetadata(
-    req.context,
-    req.organization,
-    req.params,
-    req.body,
-  );
-  return { revision: toApiRevisionV2(revision) };
 });

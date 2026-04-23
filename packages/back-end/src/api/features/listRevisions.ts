@@ -1,7 +1,4 @@
-import {
-  listRevisionsValidator,
-  listRevisionsV2Validator,
-} from "shared/validators";
+import { listRevisionsValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -14,10 +11,10 @@ import {
   validatePagination,
 } from "back-end/src/util/handler";
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
 
-const emptyListResponse = (limit: number, offset: number) => ({
+export const emptyListResponse = (limit: number, offset: number) => ({
   empty: true as const,
   response: {
     revisions: [] as never[],
@@ -30,7 +27,7 @@ const emptyListResponse = (limit: number, offset: number) => ({
   },
 });
 
-async function loadRevisionsPage(
+export async function loadRevisionsPage(
   context: ApiReqContext,
   organizationId: string,
   query: {
@@ -166,24 +163,3 @@ export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
     };
   },
 );
-
-export const listRevisionsV2 = createApiRequestHandler(
-  listRevisionsV2Validator,
-)(async (req) => {
-  const r = await loadRevisionsPage(
-    req.context,
-    req.organization.id,
-    req.query,
-  );
-  if (r.empty) return r.response;
-  const mapped = r.revisions.map((rev) => toApiRevisionV2(rev));
-  return {
-    revisions: mapped,
-    limit: r.outLimit,
-    offset: r.outOffset,
-    count: mapped.length,
-    total: r.total,
-    hasMore: r.hasMore,
-    nextOffset: r.nextOffset,
-  };
-});

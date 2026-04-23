@@ -1,10 +1,7 @@
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
-import {
-  toggleFeatureValidator,
-  toggleFeatureV2Validator,
-} from "shared/validators";
+import { toggleFeatureValidator } from "shared/validators";
 import {
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
@@ -23,14 +20,13 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   getApiFeatureObj,
-  getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-async function toggleFeatureCore(
+export async function toggleFeatureCore(
   context: ApiReqContext,
   organization: OrganizationInterface,
   eventAudit: EventUser,
@@ -204,19 +200,3 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     };
   },
 );
-
-export const toggleFeatureV2 = createApiRequestHandler(
-  toggleFeatureV2Validator,
-)(async (req) => {
-  const data = await toggleFeatureCore(
-    req.context,
-    req.organization,
-    req.eventAudit,
-    req.params,
-    req.body,
-    req.audit,
-  );
-  return {
-    feature: await resolveOwnerEmail(getApiFeatureObjV2(data), req.context),
-  };
-});

@@ -9,12 +9,10 @@ import {
   FeatureRule,
   RulePatchInput,
   putFeatureRevisionRuleValidator,
-  putFeatureRevisionRuleV2Validator,
-  RulePatchInputV2,
 } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -34,7 +32,10 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-function applyPatch(existing: FeatureRule, patch: RulePatchInput): FeatureRule {
+export function applyPatch(
+  existing: FeatureRule,
+  patch: RulePatchInput,
+): FeatureRule {
   const type = existing.type;
 
   if (patch.type !== undefined && patch.type !== type) {
@@ -390,233 +391,6 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     );
 
     return { revision: toApiRevision(finalRevision, req.context, feature) };
-  } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
-    throw err;
-  }
-});
-
-export const putFeatureRevisionRuleV2 = createApiRequestHandler(
-  putFeatureRevisionRuleV2Validator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new NotFoundError("Could not find feature");
-
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const { schedule } = req.body;
-  const inlineRampSchedule = req.body.rampSchedule;
-  const patch = req.body.rule as RulePatchInputV2;
-
-  const { revision, created } = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
-    feature,
-    req.params.version,
-    { title: req.body.revisionTitle, comment: req.body.revisionComment },
-  );
-
-  try {
-    if (!isDraftStatus(revision.status)) {
-      throw new BadRequestError(
-        `Cannot edit a revision with status "${revision.status}"`,
-      );
-    }
-
-    // V2: find rule by ruleId directly in flat array (no env filter).
-    const flatRules: FeatureRule[] = revision.rules ?? [];
-    const idx = flatRules.findIndex((r) => r.id === req.params.ruleId);
-    if (idx === -1) {
-      throw new NotFoundError(`Rule "${req.params.ruleId}" not found`);
-    }
-
-    const oldRule = flatRules[idx];
-
-    if (oldRule.type === "safe-rollout") {
-      const safeRollout = await req.context.models.safeRollout.getById(
-        (oldRule as SafeRolloutRule).safeRolloutId,
-      );
-      if (safeRollout?.startedAt !== undefined) {
-        const immutableFieldChanges: string[] = [];
-        if (
-          patch.controlValue !== undefined &&
-          !isEqual(
-            patch.controlValue,
-            (oldRule as SafeRolloutRule).controlValue,
-          )
-        )
-          immutableFieldChanges.push("controlValue");
-        if (
-          patch.variationValue !== undefined &&
-          !isEqual(
-            patch.variationValue,
-            (oldRule as SafeRolloutRule).variationValue,
-          )
-        )
-          immutableFieldChanges.push("variationValue");
-        if (
-          patch.hashAttribute !== undefined &&
-          !isEqual(
-            patch.hashAttribute,
-            (oldRule as SafeRolloutRule).hashAttribute,
-          )
-        )
-          immutableFieldChanges.push("hashAttribute");
-        if (patch.seed !== undefined && !isEqual(patch.seed, oldRule.seed))
-          immutableFieldChanges.push("seed");
-        if (immutableFieldChanges.length > 0) {
-          throw new BadRequestError(
-            `Cannot update the following fields after a Safe Rollout has started: ${immutableFieldChanges.join(", ")}`,
-          );
-        }
-      }
-    }
-
-    const wantsNewSchedule =
-      Boolean(inlineRampSchedule) ||
-      (!inlineRampSchedule &&
-        (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
-    if (wantsNewSchedule) {
-      const liveSchedules =
-        await req.context.models.rampSchedules.findByTargetRule(
-          req.params.ruleId,
-          undefined,
-        );
-      if (liveSchedules.length > 0) {
-        throw new BadRequestError(
-          `Rule "${req.params.ruleId}" already has a live ramp schedule.` +
-            ` Update it via PUT /api/v2/ramp-schedules/${liveSchedules[0].id}.`,
-        );
-      }
-    }
-
-    // Apply patch including v2 scope fields.
-    const { allEnvironments, environments, ...basePatch } = patch;
-    const updatedRule = applyPatch(oldRule, basePatch as RulePatchInput);
-
-    // Apply scope changes if present.
-    if (allEnvironments !== undefined || environments !== undefined) {
-      (updatedRule as FeatureRule).allEnvironments =
-        allEnvironments ?? oldRule.allEnvironments ?? true;
-      (updatedRule as FeatureRule).environments = allEnvironments
-        ? undefined
-        : (environments ?? oldRule.environments);
-    }
-
-    validateRuleConditions({
-      condition:
-        basePatch.condition !== undefined ? updatedRule.condition : undefined,
-      prerequisites:
-        basePatch.prerequisites !== undefined ? updatedRule.prerequisites : [],
-    });
-    if (
-      basePatch.condition !== undefined ||
-      basePatch.savedGroups !== undefined ||
-      basePatch.prerequisites !== undefined
-    ) {
-      await validateRuleReferences(
-        {
-          condition:
-            basePatch.condition !== undefined
-              ? updatedRule.condition
-              : undefined,
-          savedGroups:
-            basePatch.savedGroups !== undefined ? updatedRule.savedGroups : [],
-          prerequisites:
-            basePatch.prerequisites !== undefined
-              ? updatedRule.prerequisites
-              : [],
-        },
-        req.context,
-      );
-    }
-
-    // Fold updated rule back into flat array at the same index.
-    const newRules = flatRules.map((r, i) => (i === idx ? updatedRule : r));
-    const changes: RevisionChanges = { rules: newRules };
-
-    let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
-      : undefined;
-    if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
-      const hasLegacySchedule =
-        oldRule.scheduleType === "schedule" ||
-        (oldRule.scheduleRules?.some((r) => r.timestamp) &&
-          oldRule.scheduleType !== "ramp");
-      if (hasLegacySchedule) {
-        updatedRule.scheduleRules = [
-          { enabled: true, timestamp: schedule.startDate ?? null },
-          { enabled: false, timestamp: schedule.endDate ?? null },
-        ];
-        updatedRule.scheduleType = "schedule";
-      } else {
-        if (schedule.startDate) updatedRule.enabled = false;
-        resolvedRampAction = buildScheduleRampAction(
-          updatedRule.id,
-          schedule.startDate,
-          schedule.endDate,
-        );
-      }
-    }
-
-    if (resolvedRampAction) {
-      const existing = revision.rampActions ?? [];
-      const filtered = existing.filter(
-        (a) =>
-          a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
-      );
-      changes.rampActions = [...filtered, resolvedRampAction];
-    }
-
-    // Affected envs for review reset.
-    const ruleEnvs = updatedRule.allEnvironments
-      ? Object.keys(feature.environmentSettings ?? {})
-      : (updatedRule.environments ?? []);
-
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "edit rule",
-        subject: req.params.ruleId,
-        value: JSON.stringify(updatedRule),
-      },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ruleEnvs,
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
-    );
-
-    const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
-      featureId: feature.id,
-      version: revision.version,
-    });
-    const finalRevision = updated ?? revision;
-
-    await recordRevisionUpdate(
-      req.context,
-      feature,
-      finalRevision,
-      "rule.update",
-      {
-        environments: ruleEnvs,
-        auditDetails: { ruleId: req.params.ruleId },
-      },
-    );
-
-    return { revision: toApiRevisionV2(finalRevision) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

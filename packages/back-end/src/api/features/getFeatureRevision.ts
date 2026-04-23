@@ -1,15 +1,12 @@
-import {
-  getFeatureRevisionValidator,
-  getFeatureRevisionV2Validator,
-} from "shared/validators";
+import { getFeatureRevisionValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
-import { toApiRevision, toApiRevisionV2 } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
-async function loadRevision(
+export async function loadRevision(
   context: ApiReqContext,
   organizationId: string,
   featureId: string,
@@ -39,16 +36,4 @@ export const getFeatureRevision = createApiRequestHandler(
     req.params.version,
   );
   return { revision: toApiRevision(revision, req.context, feature) };
-});
-
-export const getFeatureRevisionV2 = createApiRequestHandler(
-  getFeatureRevisionV2Validator,
-)(async (req) => {
-  const { revision } = await loadRevision(
-    req.context,
-    req.organization.id,
-    req.params.id,
-    req.params.version,
-  );
-  return { revision: toApiRevisionV2(revision) };
 });
