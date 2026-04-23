@@ -151,6 +151,17 @@ export async function createOrUpdateRevision(
   if (revisionId && !forceCreate) {
     const targetRevision = await context.models.revisions.getById(revisionId);
     if (targetRevision) {
+      // Guard against cross-entity writes: a caller could pass a revisionId
+      // that belongs to a different entity (same org) and we'd otherwise
+      // write entity A's proposed changes into entity B's draft. Reject
+      // any mismatched revision instead of silently corrupting the target.
+      if (
+        targetRevision.target.type !== entityType ||
+        targetRevision.target.id !== entity.id
+      ) {
+        throw new Error("Revision does not belong to the specified entity");
+      }
+
       const finalChanges = replaceChanges
         ? proposedChanges
         : upsertByPath(

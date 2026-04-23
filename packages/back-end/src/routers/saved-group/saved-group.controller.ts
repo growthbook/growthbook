@@ -13,7 +13,11 @@ import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
 } from "shared/types/saved-group";
-import { Revision, normalizeProposedChanges } from "shared/enterprise";
+import {
+  Revision,
+  getApprovalFlowSettings,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -27,6 +31,18 @@ import {
 import { getAdapter } from "back-end/src/revisions";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+
+// Fields that are considered "metadata" for the `autoPublish` server-side
+// gate. Content fields (`values`, `condition`) require full review when
+// approval is enabled and the caller can't bypass; changes to these fields
+// alone via the metadata-review shortcut are rejected.
+const SAVED_GROUP_METADATA_FIELDS: ReadonlySet<string> = new Set([
+  "groupName",
+  "owner",
+  "description",
+  "projects",
+  "archived",
+]);
 
 // region POST /saved-groups
 
@@ -693,10 +709,27 @@ export const putSavedGroup = async (
       context.permissions.throwPermissionError();
     }
 
-    // When approval is required, only merge if the caller can bypass. Otherwise
-    // fall back to returning the revision as a draft for review. autoPublish
-    // is caller-asserted (used when metadata review is disabled), so we honour
-    // it even when full content approval is required.
+    // autoPublish is the "metadata-only shortcut": it lets non-admins publish
+    // changes immediately when the org has disabled metadata review. It must
+    // NOT be usable to bypass full content review — otherwise any editor could
+    // append `?autoPublish=1` to skip the approval flow. Enforce server-side
+    // that autoPublish is only honoured when (a) the change is limited to
+    // metadata fields AND metadata review is disabled, or (b) the caller has
+    // the admin bypass permission.
+    if (autoPublish && approvalRequired && !canBypass) {
+      const isMetadataOnlyChange =
+        Object.keys(fieldsToUpdate).length > 0 &&
+        Object.keys(fieldsToUpdate).every((k) =>
+          SAVED_GROUP_METADATA_FIELDS.has(k),
+        );
+      const metadataReviewRequired =
+        getApprovalFlowSettings(org.settings?.approvalFlows, "saved-group")
+          ?.requireMetadataReview ?? true;
+      if (!isMetadataOnlyChange || metadataReviewRequired) {
+        context.permissions.throwPermissionError();
+      }
+    }
+
     const canImmediatelyMerge =
       !approvalRequired || bypassApproval || autoPublish;
 

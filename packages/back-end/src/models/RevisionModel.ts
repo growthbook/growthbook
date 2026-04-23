@@ -493,7 +493,12 @@ export class RevisionModel extends BaseClass {
         {
           id: uniqid("act_"),
           userId,
-          action: "created",
+          // "reopened" is the closest semantic match in the existing action
+          // enum for "transitioned back into review". Using "created" here
+          // surfaces a confusing "created" row in the timeline. If a
+          // dedicated "submitted" action is added to the enum later, swap
+          // this over.
+          action: "reopened",
           description: "Submitted for review",
           dateCreated: new Date(),
         },
@@ -700,8 +705,14 @@ export class RevisionModel extends BaseClass {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
+    // Always reopen into `draft`. A discarded revision may have been in any
+    // pre-resolution status (draft, pending-review, changes-requested,
+    // approved); landing in `pending-review` can force the author through a
+    // review cycle for a revision that was never submitted. Reopening to
+    // `draft` lets the author explicitly re-submit via `submitForReview`
+    // when ready — a safer default than inferring the pre-discard status.
     return this.update(existing, {
-      status: "pending-review",
+      status: "draft",
       resolution: undefined,
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
