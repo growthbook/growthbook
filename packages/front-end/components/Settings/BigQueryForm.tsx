@@ -1,4 +1,5 @@
 import { ChangeEventHandler, FC, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { isCloud } from "@/services/env";
@@ -238,72 +239,88 @@ const BigQueryForm: FC<{
               </div>
             </div>
             {eventForwarderConfig?.sinkType === "bigquery" && (
-              <div className="form-group col-md-12 mt-3 px-0">
-                <label>
-                  Event Forwarder Project ID{" "}
-                  <Tooltip body="Defaults to the datasource project, but you can override it for the BigQuery sink target." />
-                </label>
-                <Field
-                  type="text"
-                  className="form-control"
-                  name="eventForwarderProjectId"
-                  value={eventForwarderConfig.config.projectId}
-                  onChange={(e) =>
-                    setEventForwarderConfig({
-                      sinkType: "bigquery",
-                      config: {
-                        ...eventForwarderConfig.config,
-                        projectId: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="my_project"
-                  required
-                />
-                <label className="mt-3">
-                  Event Forwarder Dataset{" "}
-                  <Tooltip body="Defaults to the datasource dataset, but you can override it for the BigQuery sink target." />
-                </label>
-                <Field
-                  type="text"
-                  className="form-control"
-                  name="eventForwarderDataset"
-                  value={eventForwarderConfig.config.dataset}
-                  onChange={(e) =>
-                    setEventForwarderConfig({
-                      sinkType: "bigquery",
-                      config: {
-                        ...eventForwarderConfig.config,
-                        dataset: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="analytics_events"
-                  required
-                />
-                <label>
-                  Event Forwarder Table Name{" "}
-                  <Tooltip body="Defaults to gb_events. If that table already exists, GrowthBook will provision a connector using a suffixed fallback table name instead." />
-                </label>
-                <Field
-                  type="text"
-                  className="form-control"
-                  name="eventForwarderTableName"
-                  value={eventForwarderConfig.config.tableName}
-                  onChange={(e) =>
-                    setEventForwarderConfig({
-                      sinkType: "bigquery",
-                      config: {
-                        ...eventForwarderConfig.config,
-                        tableName: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="gb_events"
-                  helpText="Must be a valid BigQuery table name."
-                  required
-                />
-              </div>
+              <Flex
+                direction="column"
+                gap="3"
+                className="form-group col-md-12 mt-3 px-0"
+              >
+                <Flex direction="column" gap="1">
+                  <label className="mb-0">
+                    <Flex align="center" gap="1">
+                      <span>Event Forwarder Project ID</span>
+                      <Tooltip body="Defaults to the datasource project, but you can override it for the BigQuery sink target." />
+                    </Flex>
+                  </label>
+                  <Field
+                    type="text"
+                    className="form-control"
+                    name="eventForwarderProjectId"
+                    value={eventForwarderConfig.config.projectId}
+                    onChange={(e) =>
+                      setEventForwarderConfig({
+                        sinkType: "bigquery",
+                        config: {
+                          ...eventForwarderConfig.config,
+                          projectId: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="my_project"
+                    required
+                  />
+                </Flex>
+                <Flex direction="column" gap="1">
+                  <label className="mb-0">
+                    <Flex align="center" gap="1">
+                      <span>Event Forwarder Dataset</span>
+                      <Tooltip body="Defaults to the datasource dataset, but you can override it for the BigQuery sink target." />
+                    </Flex>
+                  </label>
+                  <Field
+                    type="text"
+                    className="form-control"
+                    name="eventForwarderDataset"
+                    value={eventForwarderConfig.config.dataset}
+                    onChange={(e) =>
+                      setEventForwarderConfig({
+                        sinkType: "bigquery",
+                        config: {
+                          ...eventForwarderConfig.config,
+                          dataset: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="analytics_events"
+                    required
+                  />
+                </Flex>
+                <Flex direction="column" gap="1">
+                  <label className="mb-0">
+                    <Flex align="center" gap="1">
+                      <span>Event Forwarder Table Name</span>
+                      <Tooltip body="Defaults to gb_events. If that table already exists, GrowthBook will provision a connector using a suffixed fallback table name instead." />
+                    </Flex>
+                  </label>
+                  <Field
+                    type="text"
+                    className="form-control"
+                    name="eventForwarderTableName"
+                    value={eventForwarderConfig.config.tableName}
+                    onChange={(e) =>
+                      setEventForwarderConfig({
+                        sinkType: "bigquery",
+                        config: {
+                          ...eventForwarderConfig.config,
+                          tableName: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="gb_events"
+                    helpText="Must be a valid BigQuery table name."
+                    required
+                  />
+                </Flex>
+              </Flex>
             )}
           </div>
         </>
