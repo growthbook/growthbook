@@ -27,7 +27,9 @@ import {
 import { buildSavedGroupRevisionUrl } from "@/components/Revision/revisionUtils";
 import { useRevisions } from "@/hooks/useRevisions";
 import useApi from "@/hooks/useApi";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -79,7 +81,14 @@ type ApprovalRow = {
   // only understands numbers/strings/arrays) can properly order rows by date.
   dateCreated: number;
   url: string;
+  // Projects the underlying entity belongs to. Features have exactly one
+  // project (empty string → "no project"); saved groups can belong to many
+  // or none. Used by the "Needs my review" scope to check per-project
+  // review/edit permissions without having to refetch the entities.
+  projects: string[];
 };
+
+type ScopeValue = "needs-my-review" | "my-requests" | "all";
 
 function getEntityTypeLabel(entityType: string): string {
   const labels: Record<string, string> = {
@@ -152,6 +161,11 @@ function revisionToRow(revision: Revision): ApprovalRow {
       ? revision.target.snapshot?.groupName || revision.target.id
       : revision.target.id;
 
+  const projects =
+    revision.target.type === "saved-group"
+      ? (revision.target.snapshot?.projects ?? [])
+      : [];
+
   return {
     id: revision.id,
     title: revision.title || "",
@@ -163,6 +177,7 @@ function revisionToRow(revision: Revision): ApprovalRow {
     status: revision.status,
     dateCreated: new Date(revision.dateCreated).getTime(),
     url: buildSavedGroupRevisionUrl(revision.target.id, revision),
+    projects,
   };
 }
 
@@ -181,6 +196,8 @@ function featureRevisionToRow(
   const status: RevisionStatus =
     revision.status === "published" ? "merged" : revision.status;
 
+  const featureProject = revision.featureMeta?.project ?? "";
+
   return {
     id: `${revision.featureId}-v${revision.version}`,
     title: revision.title || revision.comment || "",
@@ -192,13 +209,21 @@ function featureRevisionToRow(
     status,
     dateCreated: new Date(revision.dateCreated).getTime(),
     url: `/features/${revision.featureId}?v=${revision.version}`,
+    projects: [featureProject],
   };
 }
 
 const ApprovalRequests: FC = () => {
   const router = useRouter();
-  const { getUserDisplay, hasCommercialFeature } = useUser();
+  const { getUserDisplay, hasCommercialFeature, userId } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const hasFeature = hasCommercialFeature("require-approvals");
+
+  // Scope selector controlling the top-level "who cares about this row?"
+  // filter. Intentionally NOT persisted to localStorage — on each
+  // navigation the user should land on the actionable inbox rather than
+  // whatever view they last used.
+  const [scope, setScope] = useState<ScopeValue>("needs-my-review");
   // Server-side status filter is driven by the page's local search filter
   // state (see the useEffect below) so that selecting a status from the
   // FilterDropdown actually triggers a refetch. Defaults to the "open" alias
@@ -306,11 +331,56 @@ const ApprovalRequests: FC = () => {
   // Apply the implicit default-statuses filter on the client too so the
   // visible table matches the server query even though nothing is typed in
   // the search box.
-  const effectiveItems = useMemo(() => {
+  const statusFilteredItems = useMemo(() => {
     if (hasExplicitStatusFilter) return items;
     const allowed = new Set<string>(DEFAULT_STATUSES);
     return items.filter((item) => allowed.has(item.status));
   }, [items, hasExplicitStatusFilter]);
+
+  // Per-row "can I act on this as a reviewer?" check. Mirrors the rules used
+  // elsewhere: `canReview` permission on the feature's project for feature
+  // revisions, and "can edit = can review" (canUpdateSavedGroup) for
+  // saved-group revisions — matching canUserReviewEntity in
+  // shared/src/revisions/helpers.ts.
+  const canReviewRow = useCallback(
+    (row: ApprovalRow): boolean => {
+      if (row.entityType === "feature") {
+        return permissionsUtil.canReviewFeatureDrafts({
+          project: row.projects[0] ?? "",
+        });
+      }
+      if (row.entityType === "saved-group") {
+        return permissionsUtil.canUpdateSavedGroup(
+          { projects: row.projects },
+          { projects: row.projects },
+        );
+      }
+      return false;
+    },
+    [permissionsUtil],
+  );
+
+  // Scope-level filter applied on top of the status/search filtering.
+  // - "needs-my-review": rows I'm allowed to review, that I didn't author,
+  //   and that are in an actionable state (pending-review, changes-requested).
+  // - "my-requests": rows I authored (any status).
+  // - "all": no additional filtering.
+  const effectiveItems = useMemo(() => {
+    if (scope === "all") return statusFilteredItems;
+    if (scope === "my-requests") {
+      return statusFilteredItems.filter(
+        (row) => !!userId && row.authorId === userId,
+      );
+    }
+    // scope === "needs-my-review"
+    return statusFilteredItems.filter(
+      (row) =>
+        (row.status === "pending-review" ||
+          row.status === "changes-requested") &&
+        row.authorId !== userId &&
+        canReviewRow(row),
+    );
+  }, [statusFilteredItems, scope, userId, canReviewRow]);
 
   // For the Status FilterDropdown only: surface the implicit default statuses
   // as a synthetic syntax filter so the dropdown renders them as ticked when
@@ -450,6 +520,20 @@ const ApprovalRequests: FC = () => {
         </Text>
       </Box>
 
+      {/* Scope tabs — primary grouping of the page. Tabs here act as a
+          visual segmented control; the actual content is rendered outside
+          the Tabs root so switching scopes keeps the same table + filters
+          in place (no content remount flash). */}
+      <Box mb="4">
+        <Tabs value={scope} onValueChange={(v) => setScope(v as ScopeValue)}>
+          <TabsList>
+            <TabsTrigger value="needs-my-review">Needs a review</TabsTrigger>
+            <TabsTrigger value="my-requests">My requests</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </Box>
+
       {/* Filters */}
       <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
         <Box flexBasis="300px" flexShrink="0">
@@ -505,7 +589,27 @@ const ApprovalRequests: FC = () => {
 
       {/* Table */}
       {effectiveItems.length === 0 ? (
-        <Callout status="info">No approval requests found.</Callout>
+        <Callout status="info">
+          {scope === "needs-my-review" ? (
+            <>
+              No approval requests need a review right now.{" "}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setScope("all");
+                }}
+              >
+                Show all approval requests
+              </a>
+              .
+            </>
+          ) : scope === "my-requests" ? (
+            "You haven't submitted any approval requests."
+          ) : (
+            "No approval requests found."
+          )}
+        </Callout>
       ) : (
         <>
           <Table variant="list" roundedCorners stickyHeader={false}>
