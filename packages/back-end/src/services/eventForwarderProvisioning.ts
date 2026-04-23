@@ -2,6 +2,7 @@ import * as bq from "@google-cloud/bigquery";
 import { BigQueryEventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
+import { getLatestEventForwarderSchemaId } from "back-end/src/services/eventForwarderSchemaRegistry";
 import { fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -15,6 +16,9 @@ import {
   CONFLUENT_KAFKA_API_SECRET,
   CONFLUENT_KAFKA_CLUSTER_ID,
   CONFLUENT_KAFKA_REST_ENDPOINT,
+  SCHEMA_REGISTRY_API_KEY,
+  SCHEMA_REGISTRY_API_SECRET,
+  SCHEMA_REGISTRY_URL,
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 
@@ -219,6 +223,9 @@ function getMissingProvisioningConfig(): string[] {
   }
   if (!CONFLUENT_KAFKA_API_KEY) missing.push("CONFLUENT_KAFKA_API_KEY");
   if (!CONFLUENT_KAFKA_API_SECRET) missing.push("CONFLUENT_KAFKA_API_SECRET");
+  if (!SCHEMA_REGISTRY_URL) missing.push("SCHEMA_REGISTRY_URL");
+  if (!SCHEMA_REGISTRY_API_KEY) missing.push("SCHEMA_REGISTRY_API_KEY");
+  if (!SCHEMA_REGISTRY_API_SECRET) missing.push("SCHEMA_REGISTRY_API_SECRET");
 
   return missing;
 }
@@ -412,8 +419,12 @@ export async function maybeProvisionEventForwarderConfig(
     }
 
     await ensureKafkaTopic(eventForwarderConfig.topic);
+    const schemaId = await getLatestEventForwarderSchemaId(
+      eventForwarderConfig.topic,
+    );
     const connectorName = await ensureBigQueryConnector(eventForwarderConfig);
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      schemaId,
       status: "ready",
       connectorName,
       lastProvisioningError: "",

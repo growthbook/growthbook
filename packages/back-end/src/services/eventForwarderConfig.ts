@@ -9,7 +9,6 @@ import {
 import { EventForwarderConfigInterface } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import {
-  CONFLUENT_EVENT_FORWARDER_SCHEMA_ID,
   CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX,
   ENCRYPTION_KEY,
 } from "back-end/src/util/secrets";
@@ -219,7 +218,8 @@ export async function syncEventForwarderConfigFromDatasource({
     return await context.models.eventForwarderConfigs.create({
       projects,
       topic: getTopicName(datasource.organization),
-      schemaId: CONFLUENT_EVENT_FORWARDER_SCHEMA_ID,
+      // Provisioning resolves the current registry schema id after the topic exists.
+      schemaId: 0,
       sinkType: normalizedDraft.sinkType,
       config: encryptSinkConfig(normalizedDraft.config),
       status: "pending",
@@ -232,7 +232,7 @@ export async function syncEventForwarderConfigFromDatasource({
   return await context.models.eventForwarderConfigs.update(existing, {
     projects,
     topic: existing.topic || getTopicName(datasource.organization),
-    schemaId: existing.schemaId || CONFLUENT_EVENT_FORWARDER_SCHEMA_ID,
+    schemaId: existing.schemaId || 0,
     config: encryptSinkConfig(normalizedDraft.config),
     status: "pending",
     lastProvisioningError: "",

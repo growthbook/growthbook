@@ -348,12 +348,12 @@ export const CONFLUENT_KAFKA_API_KEY =
 // Kafka API secret: paired secret for the Kafka API key above.
 export const CONFLUENT_KAFKA_API_SECRET =
   process.env.CONFLUENT_KAFKA_API_SECRET || "";
-// Schema Registry schema id for the forwarded event payload: get this from Schema Registry after registering the event schema.
-export const CONFLUENT_EVENT_FORWARDER_SCHEMA_ID = parseEnvInt(
-  process.env.CONFLUENT_EVENT_FORWARDER_SCHEMA_ID,
-  0,
-  { min: 0, name: "CONFLUENT_EVENT_FORWARDER_SCHEMA_ID" },
-);
+// Schema Registry URL and API credentials: used to resolve the latest forwarded event schema dynamically.
+export const SCHEMA_REGISTRY_URL = process.env.SCHEMA_REGISTRY_URL || "";
+export const SCHEMA_REGISTRY_API_KEY =
+  process.env.SCHEMA_REGISTRY_API_KEY || "";
+export const SCHEMA_REGISTRY_API_SECRET =
+  process.env.SCHEMA_REGISTRY_API_SECRET || "";
 // Prefix for generated org topics: internal naming choice in GrowthBook, not from Confluent.
 export const CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX =
   process.env.CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX || "gb-events";
