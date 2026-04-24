@@ -1004,7 +1004,7 @@ function ConditionAndGroupInput({
                           marginRight: -4,
                         }}
                       >
-                        <PiTextAa />
+                        <PiTextAa size={18} />
                       </IconButton>
                     </Tooltip>
                   )}
