@@ -1,0 +1,60 @@
+import { subDays } from "date-fns";
+import { format, SQL_ROW_LIMIT } from "shared/sql";
+import type { DataSourceInterface } from "shared/types/datasource";
+import type { UserExperimentExposuresQueryParams } from "shared/types/integrations";
+import type { SqlHelpers } from "shared/types/sql";
+import { compileSqlTemplate } from "back-end/src/util/sql";
+
+import { getExposureQuery } from "./exposure-query";
+
+export function getUserExperimentExposuresQuery(
+  helpers: SqlHelpers,
+  datasource: DataSourceInterface,
+  params: UserExperimentExposuresQueryParams,
+): string {
+  const { userIdType } = params;
+  const allExposureQueries = (datasource.settings.queries?.exposure || [])
+    .map(({ id }) => getExposureQuery(datasource, id))
+    .filter((query) => query.userIdType === userIdType);
+
+  const allDimensionNames = Array.from(
+    new Set(allExposureQueries.flatMap((query) => query.dimensions || [])),
+  );
+  const startDate = subDays(new Date(), params.lookbackDays);
+
+  return format(
+    `-- User Exposures Query
+      WITH __userExposures AS (
+        ${allExposureQueries
+          .map((exposureQuery, i) => {
+            const availableDimensions = exposureQuery.dimensions || [];
+            const tableAlias = `t${i}`;
+
+            const dimensionSelects = allDimensionNames.map((dim) => {
+              if (availableDimensions.includes(dim)) {
+                return `${helpers.castToString(`${tableAlias}.${dim}`)} AS ${dim}`;
+              } else {
+                return `${helpers.castToString("null")} AS ${dim}`;
+              }
+            });
+
+            const dimensionSelectString = dimensionSelects.join(", ");
+
+            return `
+              SELECT timestamp, experiment_id, variation_id, ${dimensionSelectString} FROM (
+                ${compileSqlTemplate(exposureQuery.query, {
+                  startDate: startDate,
+                })}
+              ) ${tableAlias}
+              WHERE ${helpers.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${helpers.toTimestamp(startDate)}
+            `;
+          })
+          .join("\nUNION ALL\n")}
+      )
+      SELECT * FROM __userExposures 
+      ORDER BY timestamp DESC 
+      LIMIT ${SQL_ROW_LIMIT}
+      `,
+    helpers.formatDialect,
+  );
+}

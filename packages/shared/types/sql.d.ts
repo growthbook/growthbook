@@ -59,10 +59,13 @@ export interface SqlHelpers {
       outputCol: string;
       percentile: number;
       ignoreZeros: boolean;
+      sourceIndex: number;
     }[],
     metricTable: string,
+    where?: string,
   ) => string;
   getInformationSchemaTable: () => string;
+  hasCountDistinctHLL: () => boolean;
   hllAggregate: (column: string) => string;
   hllReaggregate: (column: string) => string;
   hllCardinality: (column: string) => string;
