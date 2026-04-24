@@ -1,8 +1,8 @@
 import { Box, Text, Flex } from "@radix-ui/themes";
 import { formatMaxExperimentDuration } from "shared/experiments";
 import {
-  DecisionFrameworkExperimentRecommendationStatus,
   ExperimentInterfaceStringDates,
+  ExperimentResultStatusData,
 } from "shared/types/experiment";
 import {
   DecisionCriteriaInterface,
@@ -28,7 +28,7 @@ function targetSampleSizeDetail(
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
-  status: DecisionFrameworkExperimentRecommendationStatus;
+  status: ExperimentResultStatusData;
   variations: {
     variationId: string;
     decidingRule: DecisionCriteriaRule | null;
@@ -40,7 +40,7 @@ interface Props {
 }
 
 const getRecommendationText = (
-  status: "ship-now" | "ready-for-review" | "rollback-now",
+  status: ExperimentResultStatusData["status"],
   multipleVariations: boolean,
 ) => {
   switch (status) {
@@ -49,11 +49,15 @@ const getRecommendationText = (
         multipleVariations ? " and select the preferred variation" : ""
       }.`;
     case "ready-for-review":
+    case "max-duration-reached":
+    case "target-sample-size-reached":
       return `Reasons to review${
         multipleVariations ? " the eligible variations" : ""
       }.`;
     case "rollback-now":
       return "Review reasons to rollback.";
+    default:
+      return "";
   }
 };
 
@@ -70,7 +74,9 @@ export default function ExperimentDecisionExplanation({
   if (
     status.status !== "ship-now" &&
     status.status !== "ready-for-review" &&
-    status.status !== "rollback-now"
+    status.status !== "rollback-now" &&
+    status.status !== "max-duration-reached" &&
+    status.status !== "target-sample-size-reached"
   ) {
     return null;
   }
@@ -132,14 +138,23 @@ export default function ExperimentDecisionExplanation({
   const durationPhrase = maxDurationDetail(experiment);
   const samplePhrase = targetSampleSizeDetail(experiment);
 
-  const viaMaxDuration = !!status.recommendationMetViaMaxDuration;
-  const viaTargetSample = !!status.recommendationMetViaTargetSampleSize;
+  const viaMaxDuration =
+    ("recommendationMetViaMaxDuration" in status &&
+      !!status.recommendationMetViaMaxDuration) ||
+    status.status === "max-duration-reached";
+  const viaTargetSample =
+    ("recommendationMetViaTargetSampleSize" in status &&
+      !!status.recommendationMetViaTargetSampleSize) ||
+    status.status === "target-sample-size-reached";
   /**
    * Target power is considered achieved only when the decision is not attributed
    * to calendar or sample caps (`powerReached` is also true when caps force `daysNeeded === 0`).
    */
+  const powerReached = "powerReached" in status ? status.powerReached : false;
+  const sequentialUsed =
+    "sequentialUsed" in status ? status.sequentialUsed : false;
   const achievedTargetPower =
-    status.powerReached && !viaMaxDuration && !viaTargetSample;
+    powerReached && !viaMaxDuration && !viaTargetSample;
 
   const readinessReasonBullets: string[] = [];
   if (achievedTargetPower) {
@@ -194,7 +209,7 @@ export default function ExperimentDecisionExplanation({
                   <Text size="2">{line}</Text>
                 </Flex>
               ))}
-            {!status.powerReached && status.sequentialUsed && (
+            {!powerReached && sequentialUsed && (
               <Flex gap="2" align="center">
                 <Text size="2" className="text-muted">
                   •
@@ -222,9 +237,9 @@ export default function ExperimentDecisionExplanation({
                   No other decision rules were triggered, and{" "}
                   {status.status === "ship-now"
                     ? "ship"
-                    : status.status === "ready-for-review"
-                      ? "review"
-                      : "rollback"}{" "}
+                    : status.status === "rollback-now"
+                      ? "rollback"
+                      : "review"}{" "}
                   is the default action.
                 </Text>
               </Flex>

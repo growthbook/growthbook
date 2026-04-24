@@ -35,19 +35,32 @@ export default function RunningExperimentDecisionBanner({
     index: i,
   }));
 
-  if (
-    runningExperimentStatus.status !== "ship-now" &&
-    runningExperimentStatus.status !== "ready-for-review" &&
-    runningExperimentStatus.status !== "rollback-now"
-  )
-    return null;
+  const status = runningExperimentStatus.status;
+  const isDecisionBannerStatus =
+    status === "ship-now" ||
+    status === "ready-for-review" ||
+    status === "rollback-now" ||
+    status === "max-duration-reached" ||
+    status === "target-sample-size-reached";
 
-  const decidedVariations: VariationWithIndex[] =
-    runningExperimentStatus.variations
-      .map(({ variationId }) =>
-        indexedVariations.find((v) => v.id === variationId),
-      )
-      .filter((v) => v !== undefined);
+  if (!isDecisionBannerStatus) return null;
+
+  /** Cap-only statuses omit `variations`; treat every phase variation as in scope for review. */
+  const frameworkVariations =
+    status === "ship-now" ||
+    status === "ready-for-review" ||
+    status === "rollback-now"
+      ? runningExperimentStatus.variations
+      : indexedVariations.map((v) => ({
+          variationId: v.id,
+          decidingRule: null,
+        }));
+
+  const decidedVariations: VariationWithIndex[] = frameworkVariations
+    .map(({ variationId }) =>
+      indexedVariations.find((v) => v.id === variationId),
+    )
+    .filter((v) => v !== undefined);
 
   const variationNames: Record<string, JSX.Element> = {};
   variations.forEach((v) => {
@@ -69,21 +82,25 @@ export default function RunningExperimentDecisionBanner({
   if (decidedVariations.length === 0) return null;
 
   let decisionContent: JSX.Element | null = null;
-  if (runningExperimentStatus.status === "ship-now") {
+  if (status === "ship-now") {
     decisionContent = (
       <>
         <BsLightningFill className="mx-1 text-success" />
         <Text weight="bold">Ship now:</Text>
       </>
     );
-  } else if (runningExperimentStatus.status === "ready-for-review") {
+  } else if (
+    status === "ready-for-review" ||
+    status === "max-duration-reached" ||
+    status === "target-sample-size-reached"
+  ) {
     decisionContent = (
       <>
         <BsLightningFill className="mx-1 text-warning" />
         <Text weight="bold">Ready for review:</Text>
       </>
     );
-  } else if (runningExperimentStatus.status === "rollback-now") {
+  } else if (status === "rollback-now") {
     decisionContent = (
       <>
         <BsLightningFill className="mx-1 text-danger" />
@@ -126,7 +143,7 @@ export default function RunningExperimentDecisionBanner({
             <ExperimentDecisionExplanation
               experiment={experiment}
               status={runningExperimentStatus}
-              variations={runningExperimentStatus.variations}
+              variations={frameworkVariations}
               variationNames={variationNames}
               showDecisionCriteria={showDecisionCriteria}
               setShowDecisionCriteria={setShowDecisionCriteria}
