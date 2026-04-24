@@ -10,12 +10,12 @@ import {
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/add-case-when-time-filter";
-import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/aggregate-metric-column-legacy-metrics";
-import { getMaxHoursToConvert } from "back-end/src/integrations/sql/max-hours-to-convert";
-import { getFactMetricCTE } from "back-end/src/integrations/sql/fact-metric-cte";
-import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/experiment-fact-metrics-query";
-import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/feature-eval-diagnostics-query";
+import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
+import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
+import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
+import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
+import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
+import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
 

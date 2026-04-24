@@ -1,7 +1,7 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { getAggregationMetadata } from "back-end/src/integrations/sql/aggregation-metadata";
+import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";

@@ -1,6 +1,6 @@
 import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
-import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/percentile-cap-select-clause";
+import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
 
 export const databricksDialect: SqlDialect = {
