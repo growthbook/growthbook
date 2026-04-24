@@ -189,6 +189,65 @@ function makeSnapshotWithMetric(id: string) {
   return snapshot;
 }
 
+function makeLegacyInlineSnapshotSettings(experimentId: string) {
+  return {
+    manual: false,
+    dimensions: [],
+    metricSettings: [],
+    goalMetrics: ["met_1"],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    activationMetric: null,
+    defaultMetricPriorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: 1,
+    },
+    regressionAdjustmentEnabled: false,
+    attributionModel: "firstExposure",
+    experimentId,
+    queryFilter: "",
+    segment: "",
+    skipPartialData: false,
+    datasourceId: "ds_1",
+    exposureQueryId: "eq_1",
+    startDate: new Date(),
+    endDate: new Date(),
+    variations: [
+      { id: "0", weight: 0.5 },
+      { id: "1", weight: 0.5 },
+    ],
+  };
+}
+
+async function insertLegacyInlineSnapshot({
+  id,
+  experimentId,
+  analyses,
+}: {
+  id: string;
+  experimentId: string;
+  analyses: Partial<ExperimentSnapshotAnalysis>[];
+}) {
+  await mongoose.connection.db!.collection("experimentsnapshots").insertOne({
+    id,
+    organization: "org_1",
+    experiment: experimentId,
+    phase: 0,
+    dimension: null,
+    dateCreated: new Date(),
+    runStarted: null,
+    status: "success",
+    queries: [],
+    unknownVariations: [],
+    multipleExposures: 0,
+    hasChunkedAnalyses: false,
+    analyses,
+    settings: makeLegacyInlineSnapshotSettings(experimentId),
+  });
+}
+
 describe("ExperimentSnapshotModel", () => {
   let mongod: MongoMemoryServer;
 
@@ -1131,6 +1190,58 @@ describe("ExperimentSnapshotModel", () => {
   });
 
   describe("concurrent analysis writes", () => {
+    it("preserves the legacy inline analysis when two addOrUpdateSnapshotAnalysis calls race on different settings", async () => {
+      const context = getSnapshotUpdateContext();
+      const legacySnapshotId = "snp_legacy_inline_race_different_settings";
+      const experimentId = "exp_legacy_inline_race_different_settings";
+
+      const { analysisKey: legacyKey, ...legacyAnalysis } = makeAnalysis({
+        settings: makeAnalysisSettings({ statsEngine: "bayesian" }),
+        value: 11,
+      });
+      void legacyKey;
+
+      await insertLegacyInlineSnapshot({
+        id: legacySnapshotId,
+        experimentId,
+        analyses: [legacyAnalysis],
+      });
+
+      await Promise.all([
+        addOrUpdateSnapshotAnalysis({
+          context,
+          id: legacySnapshotId,
+          analysis: makeAnalysis({
+            settings: makeAnalysisSettings({
+              statsEngine: "frequentist",
+              differenceType: "relative",
+            }),
+            value: 22,
+          }),
+        }),
+        addOrUpdateSnapshotAnalysis({
+          context,
+          id: legacySnapshotId,
+          analysis: makeAnalysis({
+            settings: makeAnalysisSettings({
+              statsEngine: "bayesian",
+              differenceType: "absolute",
+            }),
+            value: 33,
+          }),
+        }),
+      ]);
+
+      const result = await findSnapshotById(context, legacySnapshotId);
+      expect(result?.analyses).toHaveLength(3);
+
+      const values =
+        result?.analyses.map(
+          (a) => a.results[0]?.variations[0]?.metrics.met_1?.value ?? -1,
+        ) ?? [];
+      expect(values.sort((a, b) => a - b)).toEqual([11, 22, 33]);
+    });
+
     it("persists both analyses when two writers race on different settings", async () => {
       const context = getSnapshotUpdateContext();
       const snapshot = makeSnapshotWithMetric("snp_race_different_settings");
@@ -1664,7 +1775,7 @@ describe("ExperimentSnapshotModel", () => {
     });
   });
 
-  describe("legacy write-path migration", () => {
+  describe("legacy snapshot compatibility", () => {
     it("preserves new-shape sub-records appended to a legacy chunk doc", async () => {
       // Simulates the on-disk state after a writer appends a
       // `data.<analysisKey>` sub-record (via bulkWrite) to a doc that
@@ -1970,7 +2081,7 @@ describe("ExperimentSnapshotModel", () => {
     it("preserves legacy data when addOrUpdateSnapshotAnalysis appends a new analysis", async () => {
       // End-to-end regression: a legacy snapshot + chunk on disk, then the
       // production write path (`addOrUpdateSnapshotAnalysis`) appends a new
-      // analysis. Without the chunk-migration fix the re-read silently
+      // analysis. Without the read-path fix the re-read silently
       // drops the pre-existing legacy data; with the fix both analyses
       // decode correctly.
       const context = getSnapshotUpdateContext();
@@ -2096,6 +2207,251 @@ describe("ExperimentSnapshotModel", () => {
       expect(
         appendedAnalysis!.results[0].variations[1].metrics.met_1.value,
       ).toBe(104);
+    });
+
+    it("preserves legacy inline analyses when updateSnapshotAnalysis writes to a snapshot from main", async () => {
+      const context = getSnapshotUpdateContext();
+      const legacySnapshotId = "snp_inline_migration_update";
+      const experimentId = "exp_inline_migration_update";
+
+      const { analysisKey: bayesianKey, ...legacyBayesian } = makeAnalysis({
+        settings: makeAnalysisSettings({ statsEngine: "bayesian" }),
+        value: 10,
+      });
+      const { analysisKey: frequentistKey, ...legacyFrequentist } =
+        makeAnalysis({
+          settings: makeAnalysisSettings({ statsEngine: "frequentist" }),
+          value: 20,
+        });
+      void bayesianKey;
+      void frequentistKey;
+
+      await insertLegacyInlineSnapshot({
+        id: legacySnapshotId,
+        experimentId,
+        analyses: [legacyBayesian, legacyFrequentist],
+      });
+
+      await updateSnapshotAnalysis({
+        context,
+        id: legacySnapshotId,
+        analysis: {
+          dateCreated: new Date(),
+          status: "success",
+          settings: makeAnalysisSettings({ statsEngine: "bayesian" }),
+          results: [
+            {
+              name: "",
+              srm: 0.95,
+              variations: [
+                {
+                  users: 100,
+                  metrics: { met_1: { value: 42, cr: 0.42, users: 100 } },
+                },
+                {
+                  users: 120,
+                  metrics: { met_1: { value: 47, cr: 0.392, users: 120 } },
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      const result = await findSnapshotById(context, legacySnapshotId);
+      expect(result?.analyses).toHaveLength(2);
+
+      const bayesian = result!.analyses.find(
+        (a) => a.settings.statsEngine === "bayesian",
+      );
+      const frequentist = result!.analyses.find(
+        (a) => a.settings.statsEngine === "frequentist",
+      );
+
+      // Target analysis reflects the new value.
+      expect(bayesian!.results[0].variations[0].metrics.met_1.value).toBe(42);
+      expect(bayesian!.results[0].variations[1].metrics.met_1.value).toBe(47);
+
+      // Non-target analysis's pre-existing inline results must still be
+      // visible after the snapshot enters the mixed inline/chunked state.
+      expect(frequentist!.results[0].variations[0].metrics.met_1.value).toBe(
+        20,
+      );
+      expect(frequentist!.results[0].variations[1].metrics.met_1.value).toBe(
+        25,
+      );
+
+      const snapshotsCollection = mongoose.connection.db!.collection(
+        "experimentsnapshots",
+      );
+      const stored = (await snapshotsCollection.findOne({
+        id: legacySnapshotId,
+      })) as {
+        hasChunkedAnalyses?: boolean;
+        analyses?: { results?: unknown[] }[];
+      } | null;
+      expect(stored?.hasChunkedAnalyses).toBe(true);
+      expect(
+        stored?.analyses
+          ?.map((storedAnalysis) => storedAnalysis.results?.length ?? 0)
+          .sort((a, b) => a - b),
+      ).toEqual([0, 1]);
+    });
+
+    it("preserves legacy inline analyses when addOrUpdateSnapshotAnalysis appends onto a snapshot from main", async () => {
+      const context = getSnapshotUpdateContext();
+      const legacySnapshotId = "snp_inline_migration_append";
+      const experimentId = "exp_inline_migration_append";
+
+      const { analysisKey: bayesianKey, ...legacyBayesian } = makeAnalysis({
+        settings: makeAnalysisSettings({ statsEngine: "bayesian" }),
+        value: 77,
+      });
+      void bayesianKey;
+
+      await insertLegacyInlineSnapshot({
+        id: legacySnapshotId,
+        experimentId,
+        analyses: [legacyBayesian],
+      });
+
+      await addOrUpdateSnapshotAnalysis({
+        context,
+        id: legacySnapshotId,
+        analysis: makeAnalysis({
+          settings: makeAnalysisSettings({ statsEngine: "frequentist" }),
+          value: 33,
+        }),
+      });
+
+      const result = await findSnapshotById(context, legacySnapshotId);
+      expect(result?.analyses).toHaveLength(2);
+
+      const bayesian = result!.analyses.find(
+        (a) => a.settings.statsEngine === "bayesian",
+      );
+      const frequentist = result!.analyses.find(
+        (a) => a.settings.statsEngine === "frequentist",
+      );
+
+      // Pre-existing inline analysis must still be visible after the write
+      // path creates a mixed inline/chunked snapshot on disk.
+      expect(bayesian!.results[0].variations[0].metrics.met_1.value).toBe(77);
+      expect(bayesian!.results[0].variations[1].metrics.met_1.value).toBe(82);
+
+      // Appended analysis data must also be visible.
+      expect(frequentist!.results[0].variations[0].metrics.met_1.value).toBe(
+        33,
+      );
+      expect(frequentist!.results[0].variations[1].metrics.met_1.value).toBe(
+        38,
+      );
+
+      const snapshotsCollection = mongoose.connection.db!.collection(
+        "experimentsnapshots",
+      );
+      const stored = (await snapshotsCollection.findOne({
+        id: legacySnapshotId,
+      })) as {
+        hasChunkedAnalyses?: boolean;
+        analyses?: { results?: unknown[] }[];
+      } | null;
+      expect(stored?.hasChunkedAnalyses).toBe(true);
+      expect(
+        stored?.analyses
+          ?.map((storedAnalysis) => storedAnalysis.results?.length ?? 0)
+          .sort((a, b) => a - b),
+      ).toEqual([0, 1]);
+    });
+
+    it("preserves legacy inline baseline analyses when changing difference type on the PR branch", async () => {
+      // Reproduces the bug report:
+      // 1. On `main`, create a non-chunked snapshot.
+      // 2. On `main`, switch baselines, which appends a second inline analysis.
+      // 3. On this PR, change only the difference type while staying on that
+      //    switched-baseline analysis.
+      //
+      // The fix should preserve the two prior inline analyses even though the
+      // write path only chunks the newly-added analysis and flips the snapshot
+      // into a mixed inline/chunked state on disk.
+      const context = getSnapshotUpdateContext();
+      const legacySnapshotId = "snp_legacy_inline_baseline_switch";
+      const experimentId = "exp_legacy_inline_baseline_switch";
+
+      const { analysisKey: baselineZeroKey, ...baselineZeroInline } =
+        makeAnalysis({
+          settings: makeAnalysisSettings({
+            baselineVariationIndex: 0,
+            differenceType: "relative",
+          }),
+          value: 10,
+        });
+      const { analysisKey: baselineOneKey, ...baselineOneInline } =
+        makeAnalysis({
+          settings: makeAnalysisSettings({
+            baselineVariationIndex: 1,
+            differenceType: "relative",
+          }),
+          value: 20,
+        });
+      void baselineZeroKey;
+      void baselineOneKey;
+
+      await insertLegacyInlineSnapshot({
+        id: legacySnapshotId,
+        experimentId,
+        analyses: [baselineZeroInline, baselineOneInline],
+      });
+
+      await addOrUpdateSnapshotAnalysis({
+        context,
+        id: legacySnapshotId,
+        analysis: makeAnalysis({
+          settings: makeAnalysisSettings({
+            baselineVariationIndex: 1,
+            differenceType: "absolute",
+          }),
+          value: 33,
+        }),
+      });
+
+      const result = await findSnapshotById(context, legacySnapshotId);
+      expect(result?.analyses).toHaveLength(3);
+
+      const baselineZeroRelative = result!.analyses.find(
+        (analysis) =>
+          analysis.settings.baselineVariationIndex === 0 &&
+          analysis.settings.differenceType === "relative",
+      );
+      const baselineOneRelative = result!.analyses.find(
+        (analysis) =>
+          analysis.settings.baselineVariationIndex === 1 &&
+          analysis.settings.differenceType === "relative",
+      );
+      const baselineOneAbsolute = result!.analyses.find(
+        (analysis) =>
+          analysis.settings.baselineVariationIndex === 1 &&
+          analysis.settings.differenceType === "absolute",
+      );
+
+      expect(
+        baselineZeroRelative!.results[0].variations[0].metrics.met_1.value,
+      ).toBe(10);
+      expect(
+        baselineZeroRelative!.results[0].variations[1].metrics.met_1.value,
+      ).toBe(15);
+      expect(
+        baselineOneRelative!.results[0].variations[0].metrics.met_1.value,
+      ).toBe(20);
+      expect(
+        baselineOneRelative!.results[0].variations[1].metrics.met_1.value,
+      ).toBe(25);
+      expect(
+        baselineOneAbsolute!.results[0].variations[0].metrics.met_1.value,
+      ).toBe(33);
+      expect(
+        baselineOneAbsolute!.results[0].variations[1].metrics.met_1.value,
+      ).toBe(38);
     });
   });
 });

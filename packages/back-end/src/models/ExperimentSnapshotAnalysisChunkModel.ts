@@ -413,10 +413,26 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
         filterMetricIds,
       );
 
+      const chunkedAnalysesMeta = snapshot.chunkedAnalysesMeta ?? {};
+      const chunkDataKeys = new Set<string>();
+      for (const chunk of decodableChunks) {
+        for (const key of Object.keys(chunk.data)) {
+          chunkDataKeys.add(key);
+        }
+      }
+
       // `decoded` mirrors the order of `snapshot.analyses` (we built
       // `analysisMetadata` from it above). Positional mapping back is safe.
+      // Preserve inline results on legacy snapshots that were partially
+      // transitioned to chunked storage: only analyses that actually have
+      // chunk/meta state should be overwritten from decoded chunk data.
       for (let i = 0; i < decoded.length; i++) {
-        if (snapshot.analyses[i]) {
+        const analysis = snapshot.analyses[i];
+        if (
+          analysis &&
+          (chunkedAnalysesMeta[analysis.analysisKey] ||
+            chunkDataKeys.has(analysis.analysisKey))
+        ) {
           snapshot.analyses[i].results = decoded[i].results;
         }
       }
