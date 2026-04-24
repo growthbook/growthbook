@@ -3399,12 +3399,15 @@ td.disabled {
   color: var(--color-text-disabled) !important;
   background-color: var(--gray-a2) !important;
 }
-// Normalize input/select heights to our size scale (excludes textarea which auto-resizes)
+// Normalize input/select heights to our size scale; textarea uses min-height so it can still grow
 input.form-control,
 select.form-control {
   height: 36px;
   padding-top: 4px;
   padding-bottom: 4px;
+}
+textarea.form-control {
+  min-height: 36px;
 }
 input.form-control--sm,
 select.form-control--sm {
