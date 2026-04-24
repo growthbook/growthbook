@@ -4,9 +4,9 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 const EditDataSourceForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -34,9 +34,9 @@ const EditDataSourceForm: FC<{
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
-      header={"Edit Data Source Settings"}
+      header="Edit Data Source Settings"
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (value) => {
@@ -78,7 +78,7 @@ const EditDataSourceForm: FC<{
         />
       )}
       <Field label="Experiment Id" {...form.register("trackingKey")} />
-    </Modal>
+    </DialogLayout>
   );
 };
 

@@ -2,8 +2,8 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 export interface Props {
   feature: FeatureInterface;
@@ -22,12 +22,12 @@ export default function EditRevisionCommentModal({
   const [comment, setComment] = useState(revision.comment || "");
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       open={true}
       close={close}
       header="Edit Revision Notes"
-      cta={"Save"}
+      cta="Save"
       submit={async () => {
         await apiCall(`/feature/${feature.id}/${revision.version}/comment`, {
           method: "PUT",
@@ -46,6 +46,6 @@ export default function EditRevisionCommentModal({
         }}
         textarea
       />
-    </Modal>
+    </DialogLayout>
   );
 }

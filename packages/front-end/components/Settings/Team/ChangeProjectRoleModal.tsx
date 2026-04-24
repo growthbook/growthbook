@@ -1,7 +1,7 @@
 import React, { FC, useState } from "react";
 import { ProjectMemberRole } from "shared/types/organization";
-import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 const ChangeProjectRoleModal: FC<{
@@ -13,7 +13,7 @@ const ChangeProjectRoleModal: FC<{
   const [value, setValue] = useState(projectRole);
   const { getProjectById } = useDefinitions();
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       close={close}
       header="Change Project Role"
@@ -41,7 +41,7 @@ const ChangeProjectRoleModal: FC<{
           });
         }}
       />
-    </Modal>
+    </DialogLayout>
   );
 };
 

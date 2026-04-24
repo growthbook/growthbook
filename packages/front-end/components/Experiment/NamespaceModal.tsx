@@ -5,13 +5,13 @@ import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 type NamespaceFormValue = {
   label: string;
@@ -98,12 +98,11 @@ function MultiRangeNamespaceModal({
   }, [attributes, selectedHashAttribute]);
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       open={true}
       close={close}
       size="md"
-      useRadixButton={true}
       cta={existing ? "Update" : "Create"}
       header={existing ? "Edit Namespace" : "Create Namespace"}
       submit={form.handleSubmit(async (value) => {
@@ -189,7 +188,7 @@ function MultiRangeNamespaceModal({
           )}
         </>
       )}
-    </Modal>
+    </DialogLayout>
   );
 }
 
@@ -217,12 +216,11 @@ function LegacyNamespaceModal({
   const { apiCall } = useAuth();
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       open={true}
       close={close}
       size="md"
-      useRadixButton={true}
       cta="Update"
       header="Edit Legacy Namespace"
       submit={form.handleSubmit(async (value) => {
@@ -254,7 +252,7 @@ function LegacyNamespaceModal({
         Used as the namespace hash seed and cannot be changed.
       </Text>
       <Field label="Description" textarea {...form.register("description")} />
-    </Modal>
+    </DialogLayout>
   );
 }
 

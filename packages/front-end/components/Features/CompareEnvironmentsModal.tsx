@@ -3,12 +3,12 @@ import { filterEnvironmentsByFeature } from "shared/util";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { Flex, Text } from "@radix-ui/themes";
 import { getRules, useEnvironments } from "@/services/features";
-import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
 import Badge from "@/ui/Badge";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 export interface Props {
   feature: FeatureInterface;
@@ -68,7 +68,7 @@ export default function CompareEnvironmentsModal({
   };
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType="compare-environments"
       header="Sync rules across environments"
       open={true}
@@ -77,7 +77,6 @@ export default function CompareEnvironmentsModal({
       cta="Overwrite Target Rules"
       ctaEnabled={!!sourceEnv && !!targetEnv}
       size="lg"
-      useRadixButton={true}
     >
       <div className="mb-3">
         Rules from source environment will <strong>overwrite</strong> any
@@ -131,6 +130,6 @@ export default function CompareEnvironmentsModal({
           styles={COMPACT_DIFF_STYLES}
         />
       )}
-    </Modal>
+    </DialogLayout>
   );
 }

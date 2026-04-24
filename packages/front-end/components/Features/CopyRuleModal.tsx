@@ -3,9 +3,9 @@ import { filterEnvironmentsByFeature } from "shared/util";
 import { useState } from "react";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { getRules, useEnvironments } from "@/services/features";
-import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 export interface Props {
   feature: FeatureInterface;
@@ -90,7 +90,7 @@ export default function CopyRuleModal({
   };
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       header={`Copy ${ruleTxt} to environment(s)`}
       open={true}
@@ -152,6 +152,6 @@ export default function CopyRuleModal({
           );
         })}
       </div>
-    </Modal>
+    </DialogLayout>
   );
 }

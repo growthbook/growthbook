@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import uniq from "lodash/uniq";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 export interface Props {
   setVariationIds: (ids: string[]) => Promise<void>;
@@ -25,7 +25,7 @@ export default function FixVariationIds({
   });
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       open={true}
       submit={form.handleSubmit(async (value) => {
@@ -51,6 +51,6 @@ export default function FixVariationIds({
           {...form.register(`ids.${i}`)}
         />
       ))}
-    </Modal>
+    </DialogLayout>
   );
 }
