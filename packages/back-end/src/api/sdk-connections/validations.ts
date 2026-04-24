@@ -45,8 +45,7 @@ type UpdateSdkConnectionPayload = Partial<CreateSdkConnectionPayload>;
 
 interface CreateSdkConnectionRequestBody
   extends CapabilitiesParams,
-    PremiumFeatures,
-    ProxyParams {
+    PremiumFeatures {
   name: string;
   environment: string;
   sdkVersion?: string;
