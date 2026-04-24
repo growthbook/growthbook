@@ -7741,12 +7741,22 @@ paths:
                     Auto-generated from name if not provided.
                   type: string
                 settings:
-                  description: Project settings.
+                  description: >-
+                    Project stats settings that, when set, override the
+                    organization settings.
                   type: object
                   properties:
                     statsEngine:
                       description: Stats engine.
                       type: string
+                    confidenceLevel:
+                      description: >-
+                        Bayesian chance-to-win threshold (stored as decimal,
+                        e.g. 0.95).
+                      type: number
+                    pValueThreshold:
+                      description: Frequentist p-value threshold (e.g. 0.05).
+                      type: number
                   additionalProperties: false
               required:
                 - name
@@ -7819,12 +7829,22 @@ paths:
                   description: URL-safe slug (lowercase letters, numbers, dashes).
                   type: string
                 settings:
-                  description: Project settings.
+                  description: >-
+                    Project stats settings that, when set, override the
+                    organization settings.
                   type: object
                   properties:
                     statsEngine:
                       description: Stats engine.
                       type: string
+                    confidenceLevel:
+                      description: >-
+                        Bayesian chance-to-win threshold (stored as decimal,
+                        e.g. 0.95).
+                      type: number
+                    pValueThreshold:
+                      description: Frequentist p-value threshold (e.g. 0.05).
+                      type: number
                   additionalProperties: false
               additionalProperties: false
       responses:
@@ -22404,6 +22424,10 @@ components:
           properties:
             statsEngine:
               type: string
+            confidenceLevel:
+              type: number
+            pValueThreshold:
+              type: number
           additionalProperties: false
       required:
         - id

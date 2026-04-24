@@ -999,7 +999,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         )}
                         {safeRollout?.startedAt && (
                           <Flex direction="column" mt="4" gap="4">
-                            <SafeRolloutDetails safeRollout={safeRollout} />
+                            <SafeRolloutDetails
+                              safeRollout={safeRollout}
+                              projectId={feature.project}
+                            />
                           </Flex>
                         )}
                         {!safeRollout?.startedAt && (

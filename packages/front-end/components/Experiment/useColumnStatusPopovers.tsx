@@ -9,6 +9,7 @@ interface UseColumnStatusPopoversOptions {
   stats: SnapshotMetric;
   rowResults: RowResults;
   metric?: ExperimentMetricInterface;
+  pValueThreshold: number;
   differenceType?: DifferenceType;
   statsEngine?: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
@@ -23,6 +24,7 @@ export function useColumnStatusPopovers({
   stats,
   rowResults,
   metric,
+  pValueThreshold,
   differenceType,
   statsEngine,
   ssrPolyfills,
@@ -57,6 +59,7 @@ export function useColumnStatusPopovers({
     data: {
       stats,
       metric: metric!,
+      pValueThreshold,
       differenceType: differenceType!,
       statsEngine: statsEngine!,
       ssrPolyfills,

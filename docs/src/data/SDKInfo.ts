@@ -414,7 +414,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.6",
+    version: "0.2.8",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -434,6 +434,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.2.7",
       },
       {
         stickyBucketing: "≥ v0.2.3",
@@ -678,7 +684,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "6.1.1",
+    version: "7.1.1",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -693,6 +699,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v7.1.1",
+      },
+      {
+        caseInsensitiveRegex: "≥ v7.1.1",
       },
       {
         remoteEval: "≥ v1.1.50",
@@ -725,7 +737,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.0.95",
+    version: "1.1.4",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -740,6 +752,15 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        namespacesV2: "≥ v1.1.4",
+      },
+      {
+        caseInsensitiveMembership: "≥ v1.1.1",
+      },
+      {
+        caseInsensitiveRegex: "≥ v1.1.1",
       },
       {
         remoteEval: "≥ v1.0.50",
