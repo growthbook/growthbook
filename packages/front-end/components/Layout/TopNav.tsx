@@ -1,6 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars } from "react-icons/fa";
+import { FaBars } from "react-icons/fa";
 import {
   PiPlusBold,
   PiCaretDownFill,
@@ -12,10 +12,10 @@ import {
   PiSunDim,
   PiBuildingFill,
 } from "react-icons/pi";
-import Link from "next/link";
 import Head from "next/head";
 import { Flex, Text } from "@radix-ui/themes";
 import router from "next/router";
+import Breadcrumbs from "@/ui/Breadcrumbs";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -343,30 +343,15 @@ const TopNav: FC<{
     }
   };
 
-  const renderBreadCrumb = () => {
-    return breadcrumb?.map((b, i) => (
-      <span
-        key={i}
-        className={i < breadcrumb.length - 1 ? "d-none d-lg-inline" : ""}
-        title={b.display}
-      >
-        {i > 0 && <FaAngleRight className="mx-2 d-none d-lg-inline" />}
-        {b.href ? (
-          <Link className={styles.breadcrumblink} href={b.href}>
-            {b.display}
-          </Link>
-        ) : (
-          b.display
-        )}
-      </span>
-    ));
-  };
   const renderTitleOrBreadCrumb = () => {
-    let titleOrBreadCrumb: string | JSX.Element[] = pageTitle;
-    if (breadcrumb.length > 0) {
-      titleOrBreadCrumb = renderBreadCrumb();
-    }
-    return <div className={styles.pagetitle}>{titleOrBreadCrumb}</div>;
+    const breadcrumbItems =
+      breadcrumb.length > 0 ? breadcrumb : [{ display: pageTitle }];
+
+    return (
+      <div className={styles.pagetitle}>
+        <Breadcrumbs items={breadcrumbItems} />
+      </div>
+    );
   };
   const renderChangePassword = () => {
     if (!usingSSO()) {
