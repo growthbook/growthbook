@@ -371,14 +371,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
       maxExperimentDuration:
-        initialValue?.type === "multi-armed-bandit"
-          ? undefined
-          : (initialValue?.maxExperimentDuration ??
-            DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
-      targetSampleSize:
-        initialValue?.type === "multi-armed-bandit"
-          ? undefined
-          : initialValue?.targetSampleSize,
+        initialValue?.maxExperimentDuration ??
+        DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
+      targetSampleSize: initialValue?.targetSampleSize,
     },
   });
 
@@ -549,8 +544,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             "Enter a conversion window override or disable the conversion window override",
           );
         }
-        delete data.maxExperimentDuration;
-        delete data.targetSampleSize;
       }
     }
 

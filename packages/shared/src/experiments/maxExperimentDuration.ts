@@ -1,7 +1,7 @@
 import { addDays, addHours, addWeeks } from "date-fns";
 import type { ExperimentInterface } from "shared/types/experiment";
 
-/** Allowed units for `maxExperimentDuration` on experiments (not bandits). Order: hours → days → weeks. */
+/** Allowed units for `maxExperimentDuration` on experiments. Order: hours → days → weeks. */
 export const MAX_EXPERIMENT_DURATION_UNITS = [
   "hours",
   "days",
@@ -34,43 +34,207 @@ export const MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION: MaxExperimentDuration = {
   unit: "days",
 };
 
-/**
- * Minimal experiment shape for calendar max-duration math.
- * Accepts API/string-dated phases (e.g. `ExperimentDataForStatusStringDates`) as well as `Date` phases.
- */
-export type ExperimentMaxDurationFields = {
-  type?: ExperimentInterface["type"];
+type ExperimentType = NonNullable<ExperimentInterface["type"]>;
+type NonBanditExperimentType = Exclude<ExperimentType, "multi-armed-bandit">;
+
+export type ExperimentMaxDurationPhases = {
   phases?: Array<{
     dateStarted?: string | Date | null;
     banditEvents?: NonNullable<
       ExperimentInterface["phases"]
     >[number]["banditEvents"];
   }>;
-  banditStage?: ExperimentInterface["banditStage"];
-  banditStageDateStarted?: ExperimentInterface["banditStageDateStarted"];
-  maxExperimentDuration?: MaxExperimentDuration;
-  /** Optional target sample size (latest snapshot `health.totalUsers`). Independent of calendar max duration. */
-  targetSampleSize?: number;
 };
 
 /**
- * Calendar anchor for maximum experiment duration (start of the latest phase).
- * Multi-armed bandits do not support a maximum duration cap; this returns `null` for them.
+ * Bandit-only fields used to **derive** explore start when `banditExplorePeriodStart` is
+ * omitted on {@link ExperimentMaxDurationFieldsInput}. They are not part of resolved
+ * {@link ExperimentMaxDurationFields} (after {@link buildExperimentMaxDurationFields}).
+ *
+ * - **`banditStage` / `banditStageDateStarted`:** exploit vs explore and exploit clock;
+ *   used with burn-in to recover explore start when the first `banditEvents` entry is at exploit.
+ * - **`banditBurnInValue` / `banditBurnInUnit`:** length of explore; subtracted from exploit
+ *   `banditStageDateStarted` when inferring explore start.
+ */
+export type ExperimentMaxDurationBanditDeriveSource =
+  ExperimentMaxDurationPhases & {
+    banditStage?: ExperimentInterface["banditStage"];
+    banditStageDateStarted?: ExperimentInterface["banditStageDateStarted"];
+    banditBurnInValue?: ExperimentInterface["banditBurnInValue"];
+    banditBurnInUnit?: ExperimentInterface["banditBurnInUnit"];
+  };
+
+/** Pre-resolve payload (API / status hooks). Bandit explore start may be omitted and derived. */
+export type ExperimentMaxDurationFieldsBanditInput =
+  ExperimentMaxDurationBanditDeriveSource & {
+    type: "multi-armed-bandit";
+    banditExplorePeriodStart?: string | Date | null;
+    maxExperimentDuration?: MaxExperimentDuration;
+    targetSampleSize?: number;
+  };
+
+export type ExperimentMaxDurationFieldsNonBanditInput =
+  ExperimentMaxDurationPhases & {
+    type: NonBanditExperimentType;
+    maxExperimentDuration?: MaxExperimentDuration;
+    targetSampleSize?: number;
+  };
+
+export type ExperimentMaxDurationFieldsInput =
+  | ExperimentMaxDurationFieldsBanditInput
+  | ExperimentMaxDurationFieldsNonBanditInput;
+
+/**
+ * Normalized calendar context. For **bandits**, `banditExplorePeriodStart` is always set
+ * (explicit or derived). Non-bandit variants never include bandit-only keys.
+ */
+export type ExperimentMaxDurationFieldsBandit = ExperimentMaxDurationPhases & {
+  type: "multi-armed-bandit";
+  banditExplorePeriodStart: string | Date;
+  maxExperimentDuration?: MaxExperimentDuration;
+  targetSampleSize?: number;
+};
+
+export type ExperimentMaxDurationFieldsNonBandit =
+  ExperimentMaxDurationPhases & {
+    type: NonBanditExperimentType;
+    maxExperimentDuration?: MaxExperimentDuration;
+    targetSampleSize?: number;
+  };
+
+export type ExperimentMaxDurationFields =
+  | ExperimentMaxDurationFieldsBandit
+  | ExperimentMaxDurationFieldsNonBandit;
+
+function banditBurnInDurationMs(
+  experiment: ExperimentMaxDurationBanditDeriveSource,
+): number {
+  const value =
+    typeof experiment.banditBurnInValue === "number" &&
+    Number.isFinite(experiment.banditBurnInValue)
+      ? experiment.banditBurnInValue
+      : 1;
+  const unit = experiment.banditBurnInUnit ?? "days";
+  const hoursMultiple = unit === "days" ? 24 : 1;
+  return value * hoursMultiple * MS_PER_HOUR;
+}
+
+function coerceDate(value: string | Date | null | undefined): Date | null {
+  if (value == null) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Bandits: anchor is explore period start, not the beginning of the current phase.
+ */
+function getBanditDurationAnchor(
+  experiment: ExperimentMaxDurationBanditDeriveSource,
+  lastPhase: NonNullable<ExperimentMaxDurationPhases["phases"]>[number],
+): Date | null {
+  const phaseStart = coerceDate(lastPhase.dateStarted);
+  const stageStarted = coerceDate(experiment.banditStageDateStarted);
+  const firstEvent = coerceDate(lastPhase.banditEvents?.[0]?.date);
+
+  const exploreStartFromExploitClock =
+    stageStarted != null
+      ? new Date(stageStarted.getTime() - banditBurnInDurationMs(experiment))
+      : null;
+
+  const stage = experiment.banditStage;
+
+  if (stage === "exploit") {
+    if (
+      firstEvent != null &&
+      stageStarted != null &&
+      firstEvent.getTime() < stageStarted.getTime()
+    ) {
+      return firstEvent;
+    }
+    if (exploreStartFromExploitClock != null) {
+      return exploreStartFromExploitClock;
+    }
+    return phaseStart;
+  }
+
+  if (stage === "explore" || stage === undefined) {
+    if (firstEvent != null) {
+      return firstEvent;
+    }
+    return stageStarted ?? phaseStart;
+  }
+
+  // `paused`: `banditStageDateStarted` is often pause/stop — prefer first event if any.
+  if (firstEvent != null) {
+    return firstEvent;
+  }
+  return phaseStart;
+}
+
+/**
+ * For bandits, fills `banditExplorePeriodStart` when omitted (same derivation as
+ * {@link getMaxExperimentDurationAnchor}). For other types, returns a copy without
+ * `banditExplorePeriodStart` if it was mistakenly set.
+ */
+export function buildExperimentMaxDurationFields(
+  experiment: ExperimentMaxDurationFieldsInput,
+): ExperimentMaxDurationFields {
+  if (experiment.type === "multi-armed-bandit") {
+    const banditExplorePeriodStart = coerceDate(
+      experiment.banditExplorePeriodStart,
+    );
+    if (banditExplorePeriodStart) {
+      return {
+        type: "multi-armed-bandit",
+        banditExplorePeriodStart: banditExplorePeriodStart,
+        phases: experiment.phases,
+        maxExperimentDuration: experiment.maxExperimentDuration,
+        targetSampleSize: experiment.targetSampleSize,
+      };
+    }
+    const lastPhase = experiment.phases?.[experiment.phases.length - 1];
+    if (lastPhase) {
+      const derived = getBanditDurationAnchor(experiment, lastPhase);
+      if (derived != null) {
+        return {
+          type: "multi-armed-bandit",
+          banditExplorePeriodStart: derived,
+          phases: experiment.phases,
+          maxExperimentDuration: experiment.maxExperimentDuration,
+          targetSampleSize: experiment.targetSampleSize,
+        };
+      }
+    }
+    throw new Error(
+      "buildExperimentMaxDurationFields: multi-armed-bandit needs banditExplorePeriodStart or resolvable phases (bandit events / stage / burn-in).",
+    );
+  }
+
+  return {
+    type: experiment.type,
+    phases: experiment.phases,
+    maxExperimentDuration: experiment.maxExperimentDuration,
+    targetSampleSize: experiment.targetSampleSize,
+  };
+}
+
+/**
+ * Beginning of explore period for bandit, beginning of latest phase for other types. Accepts {@link ExperimentMaxDurationFieldsInput} so callers need not build first.
  */
 export function getMaxExperimentDurationAnchor(
-  experiment: ExperimentMaxDurationFields,
+  experiment: ExperimentMaxDurationFieldsInput,
 ): Date | null {
-  if (experiment.type === "multi-armed-bandit") {
-    return null;
-  }
-
   const lastPhase = experiment.phases?.[experiment.phases.length - 1];
-  const phaseStart = lastPhase?.dateStarted;
-
-  if (phaseStart) {
-    return new Date(phaseStart);
+  if (experiment.type === "multi-armed-bandit") {
+    const banditExplorePeriodStart = coerceDate(
+      experiment.banditExplorePeriodStart,
+    );
+    if (banditExplorePeriodStart) {
+      return banditExplorePeriodStart;
+    }
+    return lastPhase ? getBanditDurationAnchor(experiment, lastPhase) : null;
   }
-  return null;
+  return coerceDate(lastPhase?.dateStarted);
 }
 
 export function addMaxDurationToDate(
@@ -145,11 +309,8 @@ export function formatMaxExperimentDuration(
 
 /** Absolute end instant for the shipping deadline, or `null` if uncapped / unknown anchor. */
 export function getMaxExperimentEndDate(
-  experiment: ExperimentMaxDurationFields,
+  experiment: ExperimentMaxDurationFieldsInput,
 ): Date | null {
-  if (experiment.type === "multi-armed-bandit") {
-    return null;
-  }
   if (!experiment.maxExperimentDuration) {
     return null;
   }
@@ -165,7 +326,7 @@ export function getMaxExperimentEndDate(
  * partial day counts as a full day). Returns `null` if there is no configured cap.
  */
 export function getCalendarDaysRemainingUntilMaxExperimentEnd(
-  experiment: ExperimentMaxDurationFields,
+  experiment: ExperimentMaxDurationFieldsInput,
   now: Date = new Date(),
 ): number | null {
   const end = getMaxExperimentEndDate(experiment);
@@ -178,14 +339,11 @@ export function getCalendarDaysRemainingUntilMaxExperimentEnd(
 
 /** True when `targetSampleSize` is set and latest total users meets or exceeds it. */
 export function isTargetSampleSizeReached(
-  experiment: ExperimentMaxDurationFields,
+  experiment: Pick<ExperimentMaxDurationFieldsInput, "targetSampleSize">,
   totalUsers: number | null | undefined,
 ): boolean {
   const cap = experiment.targetSampleSize;
   if (cap == null || !Number.isFinite(cap) || cap < 1) {
-    return false;
-  }
-  if (experiment.type === "multi-armed-bandit") {
     return false;
   }
   if (totalUsers == null || !Number.isFinite(totalUsers)) {

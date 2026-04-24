@@ -1,5 +1,7 @@
 import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentMaxDurationFieldsInput } from "../src/experiments/maxExperimentDuration";
 import {
+  buildExperimentMaxDurationFields,
   formatMaxExperimentDuration,
   nominalMaxExperimentDurationMs,
   formatTargetSampleSize,
@@ -119,8 +121,92 @@ describe("formatMaxExperimentDuration", () => {
 });
 
 describe("getMaxExperimentDurationAnchor", () => {
-  it("returns null for multi-armed-bandit experiments", () => {
-    expect(getMaxExperimentDurationAnchor(baseBandit())).toBeNull();
+  it("uses first bandit event time for multi-armed-bandit (explore start), not phase dateStarted", () => {
+    const phaseStart = new Date("2025-06-01T08:00:00.000Z");
+    const exploreStart = new Date("2025-01-01T12:00:00.000Z");
+    const anchor = getMaxExperimentDurationAnchor({
+      ...baseBandit(),
+      phases: [
+        {
+          ...baseBandit().phases![0],
+          dateStarted: phaseStart,
+          banditEvents: [
+            {
+              date: exploreStart,
+              banditResult: {
+                currentWeights: [0.5, 0.5],
+                updatedWeights: [0.5, 0.5],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect(anchor?.toISOString()).toBe(exploreStart.toISOString());
+  });
+
+  it("for bandit exploit without events, subtracts burn-in from exploit stage start (explore anchor)", () => {
+    const exploitStart = new Date("2025-02-01T12:00:00.000Z");
+    const anchor = getMaxExperimentDurationAnchor({
+      type: "multi-armed-bandit",
+      banditStage: "exploit",
+      banditStageDateStarted: exploitStart,
+      banditBurnInValue: 7,
+      banditBurnInUnit: "days",
+      phases: [
+        {
+          dateStarted: new Date("2024-12-01"),
+          name: "Main",
+          reason: "",
+          coverage: 1,
+          condition: "",
+          variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "0", status: "active" },
+            { id: "1", status: "active" },
+          ],
+        },
+      ],
+    });
+
+    const expected = new Date(exploitStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+    expect(anchor?.toISOString()).toBe(expected.toISOString());
+  });
+
+  it("for bandit exploit, ignores first event when it is at exploit start (still anchor explore)", () => {
+    const exploitStart = new Date("2025-02-01T12:00:00.000Z");
+    const anchor = getMaxExperimentDurationAnchor({
+      type: "multi-armed-bandit",
+      banditStage: "exploit",
+      banditStageDateStarted: exploitStart,
+      banditBurnInValue: 7,
+      banditBurnInUnit: "days",
+      phases: [
+        {
+          dateStarted: new Date("2024-12-01"),
+          name: "Main",
+          reason: "",
+          coverage: 1,
+          condition: "",
+          variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "0", status: "active" },
+            { id: "1", status: "active" },
+          ],
+          banditEvents: [
+            {
+              date: exploitStart,
+              banditResult: {
+                currentWeights: [0.5, 0.5],
+                updatedWeights: [0.5, 0.5],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const expected = new Date(exploitStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+    expect(anchor?.toISOString()).toBe(expected.toISOString());
   });
 
   it("uses latest phase dateStarted for standard experiments", () => {
@@ -143,6 +229,69 @@ describe("getMaxExperimentDurationAnchor", () => {
       ],
     });
     expect(anchor?.toISOString()).toBe(phaseStart.toISOString());
+  });
+
+  it("ignores stray banditExplorePeriodStart at runtime for standard experiments", () => {
+    const phaseStart = new Date("2025-06-01T08:00:00.000Z");
+    const anchor = getMaxExperimentDurationAnchor({
+      type: "standard",
+      phases: [
+        {
+          dateStarted: phaseStart,
+          name: "Main",
+          reason: "",
+          coverage: 1,
+          condition: "",
+          variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "0", status: "active" },
+            { id: "1", status: "active" },
+          ],
+        },
+      ],
+      banditExplorePeriodStart: new Date("2024-01-01T00:00:00.000Z"),
+    } as unknown as ExperimentMaxDurationFieldsInput);
+    expect(anchor?.toISOString()).toBe(phaseStart.toISOString());
+  });
+
+  it("prefers explicit banditExplorePeriodStart over derived bandit explore anchor", () => {
+    const explicitExplore = new Date("2024-06-01T00:00:00.000Z");
+    const anchor = getMaxExperimentDurationAnchor({
+      ...baseBandit(),
+      banditExplorePeriodStart: explicitExplore,
+    });
+    expect(anchor?.toISOString()).toBe(explicitExplore.toISOString());
+  });
+});
+
+describe("buildExperimentMaxDurationFields", () => {
+  it("fills banditExplorePeriodStart from bandit explore when missing", () => {
+    const bb = baseBandit();
+    const b = buildExperimentMaxDurationFields({ ...bb });
+    expect(new Date(b.banditExplorePeriodStart as Date).toISOString()).toBe(
+      (bb.phases![0].banditEvents![0].date as Date).toISOString(),
+    );
+  });
+
+  it("does not include banditExplorePeriodStart on built standard experiments", () => {
+    const b = buildExperimentMaxDurationFields({
+      type: "standard",
+      phases: [
+        {
+          dateStarted: new Date("2025-01-01"),
+          name: "Main",
+          reason: "",
+          coverage: 1,
+          condition: "",
+          variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "0", status: "active" },
+            { id: "1", status: "active" },
+          ],
+        },
+      ],
+    });
+    expect("banditExplorePeriodStart" in b).toBe(false);
   });
 });
 
@@ -229,16 +378,37 @@ describe("getCalendarDaysRemainingUntilMaxExperimentEnd", () => {
     ).toBeNull();
   });
 
-  it("returns null for multi-armed-bandit even if max duration is set", () => {
+  it("applies max duration for multi-armed-bandit from explore start (first event), not phase start", () => {
+    const exploreStart = new Date("2025-01-01T00:00:00.000Z");
+    const now = new Date("2025-02-08T00:00:00.000Z");
+    const phaseStart = new Date("2025-02-01T00:00:00.000Z");
+    const daysDiff = 38;
+    const maxDurationDays = 50;
+    const expected = maxDurationDays - daysDiff;
     expect(
       getCalendarDaysRemainingUntilMaxExperimentEnd(
         {
           ...baseBandit(),
-          maxExperimentDuration: { value: 14, unit: "days" },
+          phases: [
+            {
+              ...baseBandit().phases![0],
+              dateStarted: phaseStart,
+              banditEvents: [
+                {
+                  date: exploreStart,
+                  banditResult: {
+                    currentWeights: [0.5, 0.5],
+                    updatedWeights: [0.5, 0.5],
+                  },
+                },
+              ],
+            },
+          ],
+          maxExperimentDuration: { value: maxDurationDays, unit: "days" },
         },
-        new Date("2025-01-05"),
+        now,
       ),
-    ).toBeNull();
+    ).toBe(expected);
   });
 });
 
@@ -277,15 +447,15 @@ describe("isTargetSampleSizeReached", () => {
     expect(isTargetSampleSizeReached(base, 101)).toBe(true);
   });
 
-  it("is false for bandit", () => {
+  it("is true for bandit at or above cap", () => {
     expect(
       isTargetSampleSizeReached(
         {
           ...baseBandit(),
           targetSampleSize: 10,
         },
-        1000,
+        10,
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

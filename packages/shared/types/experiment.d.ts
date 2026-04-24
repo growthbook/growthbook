@@ -56,32 +56,22 @@ export type DecisionFrameworkVariation = {
   decidingRule: DecisionCriteriaRule | null;
 };
 
+/** Shared fields for experiment decision recommendations that list phase variations. */
+export type DecisionFrameworkRecommendationWithVariations = {
+  variations: DecisionFrameworkVariation[];
+  powerReached: boolean;
+  sequentialUsed: boolean;
+  recommendationMetViaMaxDuration?: boolean;
+  recommendationMetViaTargetSampleSize?: boolean;
+};
+
 export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "days-left"; daysLeft: number }
-  | {
-      status: "ship-now";
-      variations: DecisionFrameworkVariation[];
-      powerReached: boolean;
-      sequentialUsed: boolean;
-      recommendationMetViaMaxDuration?: boolean;
-      recommendationMetViaTargetSampleSize?: boolean;
-    }
-  | {
-      status: "rollback-now";
-      variations: DecisionFrameworkVariation[];
-      powerReached: boolean;
-      sequentialUsed: boolean;
-      recommendationMetViaMaxDuration?: boolean;
-      recommendationMetViaTargetSampleSize?: boolean;
-    }
-  | {
+  | ({ status: "ship-now" } & DecisionFrameworkRecommendationWithVariations)
+  | ({ status: "rollback-now" } & DecisionFrameworkRecommendationWithVariations)
+  | ({
       status: "ready-for-review";
-      variations: DecisionFrameworkVariation[];
-      powerReached: boolean;
-      sequentialUsed: boolean;
-      recommendationMetViaMaxDuration?: boolean;
-      recommendationMetViaTargetSampleSize?: boolean;
-    };
+    } & DecisionFrameworkRecommendationWithVariations);
 
 export type ExperimentUnhealthyData = {
   // if key exists, the status is unhealthy
@@ -97,20 +87,9 @@ export type ExperimentResultStatus =
   | DecisionFrameworkExperimentRecommendationStatus
   | { status: "no-data" }
   | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
-  | { status: "before-min-duration" }
-  | { status: "max-duration-reached" }
-  | { status: "target-sample-size-reached" };
-
-export type SafeRolloutResultStatus = Exclude<
-  ExperimentResultStatus,
-  { status: "max-duration-reached" } | { status: "target-sample-size-reached" }
->;
+  | { status: "before-min-duration" };
 
 export type ExperimentResultStatusData = ExperimentResultStatus & {
-  tooltip?: string;
-};
-
-export type SafeRolloutResultStatusData = SafeRolloutResultStatus & {
   tooltip?: string;
 };
 
@@ -291,6 +270,8 @@ export type ExperimentDataForStatusStringDates = Pick<
   | "targetSampleSize"
   | "banditStage"
   | "banditStageDateStarted"
+  | "banditBurnInValue"
+  | "banditBurnInUnit"
 >;
 
 export type ExperimentDataForStatus = Pick<
@@ -312,4 +293,6 @@ export type ExperimentDataForStatus = Pick<
   | "targetSampleSize"
   | "banditStage"
   | "banditStageDateStarted"
+  | "banditBurnInValue"
+  | "banditBurnInUnit"
 >;

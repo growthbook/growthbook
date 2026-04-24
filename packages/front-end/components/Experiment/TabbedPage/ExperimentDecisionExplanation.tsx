@@ -49,8 +49,6 @@ const getRecommendationText = (
         multipleVariations ? " and select the preferred variation" : ""
       }.`;
     case "ready-for-review":
-    case "max-duration-reached":
-    case "target-sample-size-reached":
       return `Reasons to review${
         multipleVariations ? " the eligible variations" : ""
       }.`;
@@ -74,9 +72,7 @@ export default function ExperimentDecisionExplanation({
   if (
     status.status !== "ship-now" &&
     status.status !== "ready-for-review" &&
-    status.status !== "rollback-now" &&
-    status.status !== "max-duration-reached" &&
-    status.status !== "target-sample-size-reached"
+    status.status !== "rollback-now"
   ) {
     return null;
   }
@@ -139,13 +135,11 @@ export default function ExperimentDecisionExplanation({
   const samplePhrase = targetSampleSizeDetail(experiment);
 
   const viaMaxDuration =
-    ("recommendationMetViaMaxDuration" in status &&
-      !!status.recommendationMetViaMaxDuration) ||
-    status.status === "max-duration-reached";
+    "recommendationMetViaMaxDuration" in status &&
+    !!status.recommendationMetViaMaxDuration;
   const viaTargetSample =
-    ("recommendationMetViaTargetSampleSize" in status &&
-      !!status.recommendationMetViaTargetSampleSize) ||
-    status.status === "target-sample-size-reached";
+    "recommendationMetViaTargetSampleSize" in status &&
+    !!status.recommendationMetViaTargetSampleSize;
   /**
    * Target power is considered achieved only when the decision is not attributed
    * to calendar or sample caps (`powerReached` is also true when caps force `daysNeeded === 0`).

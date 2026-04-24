@@ -6,6 +6,14 @@ import {
   ExperimentResultStatusData,
   VariationWithIndex,
 } from "shared/types/experiment";
+
+/** Banner + explanation only use decision-framework statuses that carry `variations`. */
+type RunningDecisionExperimentStatus = Extract<
+  ExperimentResultStatusData,
+  | { status: "ship-now" }
+  | { status: "rollback-now" }
+  | { status: "ready-for-review" }
+>;
 import { useState } from "react";
 import { BsLightningFill } from "react-icons/bs";
 import Collapsible from "react-collapsible";
@@ -39,22 +47,13 @@ export default function RunningExperimentDecisionBanner({
   const isDecisionBannerStatus =
     status === "ship-now" ||
     status === "ready-for-review" ||
-    status === "rollback-now" ||
-    status === "max-duration-reached" ||
-    status === "target-sample-size-reached";
+    status === "rollback-now";
 
   if (!isDecisionBannerStatus) return null;
 
-  /** Cap-only statuses omit `variations`; treat every phase variation as in scope for review. */
-  const frameworkVariations =
-    status === "ship-now" ||
-    status === "ready-for-review" ||
-    status === "rollback-now"
-      ? runningExperimentStatus.variations
-      : indexedVariations.map((v) => ({
-          variationId: v.id,
-          decidingRule: null,
-        }));
+  const frameworkVariations = (
+    runningExperimentStatus as RunningDecisionExperimentStatus
+  ).variations;
 
   const decidedVariations: VariationWithIndex[] = frameworkVariations
     .map(({ variationId }) =>
@@ -89,11 +88,7 @@ export default function RunningExperimentDecisionBanner({
         <Text weight="bold">Ship now:</Text>
       </>
     );
-  } else if (
-    status === "ready-for-review" ||
-    status === "max-duration-reached" ||
-    status === "target-sample-size-reached"
-  ) {
+  } else if (status === "ready-for-review") {
     decisionContent = (
       <>
         <BsLightningFill className="mx-1 text-warning" />

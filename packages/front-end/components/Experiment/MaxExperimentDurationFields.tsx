@@ -135,10 +135,13 @@ function DurationValueField({
 export function MaxExperimentDurationFields({
   form: formProp,
   disabled,
+  isBandit,
 }: {
   /** `react-hook-form` instance that includes `maxExperimentDuration` (e.g. AnalysisForm). */
   form: unknown;
   disabled?: boolean;
+  /** Bandit caps count from explore start (first weights update), not phase `dateStarted`. */
+  isBandit?: boolean;
 }) {
   const form = formProp as UseFormReturn<MaxDurationForm>;
 
@@ -195,9 +198,9 @@ export function MaxExperimentDurationFields({
         }}
       />
       <small className="form-text text-muted d-block">
-        Calendar limit from the start of the current phase. After this window,
-        the experiment status will be marked stopped and the Experiment Decision
-        Framework will render a recommendation.
+        {isBandit
+          ? "Calendar limit from the start of the Explore period."
+          : "Calendar limit from the start of the current phase. After this window, the experiment status will be marked stopped and the Experiment Decision Framework will render a recommendation."}
       </small>
     </div>
   );

@@ -586,11 +586,8 @@ export async function createExperiment({
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
     maxExperimentDuration:
-      data.type === "multi-armed-bandit"
-        ? undefined
-        : (data.maxExperimentDuration ?? DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
-    targetSampleSize:
-      data.type === "multi-armed-bandit" ? undefined : data.targetSampleSize,
+      data.maxExperimentDuration ?? DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
+    targetSampleSize: data.targetSampleSize,
     //set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
@@ -655,18 +652,10 @@ export async function updateExperiment({
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
-  const effectiveType =
-    allChanges.type !== undefined ? allChanges.type : experiment.type;
-
   const setChanges = { ...allChanges };
   const unsetFields: Record<string, ""> = {};
 
-  if (effectiveType === "multi-armed-bandit") {
-    delete setChanges.maxExperimentDuration;
-    delete setChanges.targetSampleSize;
-    unsetFields.maxExperimentDuration = "";
-    unsetFields.targetSampleSize = "";
-  } else if (setChanges.targetSampleSize === null) {
+  if (setChanges.targetSampleSize === null) {
     delete setChanges.targetSampleSize;
     unsetFields.targetSampleSize = "";
   }
@@ -687,9 +676,6 @@ export async function updateExperiment({
   );
 
   const updated = { ...experiment, ...setChanges };
-  if (unsetFields.maxExperimentDuration) {
-    delete updated.maxExperimentDuration;
-  }
   if (unsetFields.targetSampleSize) {
     delete updated.targetSampleSize;
   }

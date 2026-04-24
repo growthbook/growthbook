@@ -12,7 +12,6 @@ import {
   ExperimentHealthSettings,
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
-  SafeRolloutResultStatusData,
 } from "shared/types/experiment";
 import {
   SafeRolloutInterface,
@@ -32,6 +31,7 @@ import { daysBetween } from "../../dates";
 import {
   getCalendarDaysRemainingUntilMaxExperimentEnd,
   isTargetSampleSizeReached,
+  type ExperimentMaxDurationFieldsInput,
 } from "../../experiments/maxExperimentDuration";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
@@ -400,6 +400,38 @@ export function getDecisionFrameworkStatus({
   }
 }
 
+/**
+ * When a calendar or sample cap applies but {@link getDecisionFrameworkStatus} did not
+ * return a status (e.g. no goal metrics), surface the same eligible outcomes as the
+ * framework — here `ready-for-review` — and record which cap(s) drove it via flags.
+ */
+function durationDrivenReadyForReview(
+  experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates,
+  options: {
+    viaMaxDuration: boolean;
+    viaTargetSample: boolean;
+    tooltip?: string;
+  },
+): ExperimentResultStatusData {
+  const variations = getLatestPhaseVariations(experimentData).map((v) => ({
+    variationId: v.id,
+    decidingRule: null,
+  }));
+  return {
+    status: "ready-for-review",
+    variations,
+    powerReached: false,
+    sequentialUsed: false,
+    ...(options.viaMaxDuration
+      ? { recommendationMetViaMaxDuration: true }
+      : {}),
+    ...(options.viaTargetSample
+      ? { recommendationMetViaTargetSampleSize: true }
+      : {}),
+    tooltip: options.tooltip,
+  };
+}
+
 function withRecommendationMetViaMaxDuration(
   status: ExperimentResultStatusData,
 ): ExperimentResultStatusData {
@@ -575,14 +607,16 @@ export function getExperimentResultStatus({
       : undefined;
 
   const maxDurationAdditionalDays =
-    getCalendarDaysRemainingUntilMaxExperimentEnd(experimentData);
+    getCalendarDaysRemainingUntilMaxExperimentEnd(
+      experimentData as ExperimentMaxDurationFieldsInput,
+    );
 
-  const calendarCapReached = maxDurationAdditionalDays === 0;
+  const maxDurationReached = maxDurationAdditionalDays === 0;
   const targetSampleSizeReached = isTargetSampleSizeReached(
     experimentData,
     healthSummary?.totalUsers,
   );
-  const anyExperimentCapReached = calendarCapReached || targetSampleSizeReached;
+  const anyExperimentCapReached = maxDurationReached || targetSampleSizeReached;
 
   const { minWholeDays: combinedWholeDays, maxDurationTooltipHint } =
     daysLeftFromMaxDurationAndPower(
@@ -738,7 +772,7 @@ export function getExperimentResultStatus({
     if (anyExperimentCapReached) {
       if (atExperimentCapDecisionStatus) {
         let out = atExperimentCapDecisionStatus;
-        if (calendarCapReached) {
+        if (maxDurationReached) {
           out = withRecommendationMetViaMaxDuration(out);
         }
         if (targetSampleSizeReached) {
@@ -746,19 +780,23 @@ export function getExperimentResultStatus({
         }
         return out;
       }
-      if (calendarCapReached) {
-        return {
-          status: "max-duration-reached",
-          tooltip:
+      if (maxDurationReached || targetSampleSizeReached) {
+        const tooltipParts: string[] = [];
+        if (maxDurationReached) {
+          tooltipParts.push(
             "The experiment has reached the configured maximum duration. Review results.",
-        };
-      }
-      if (targetSampleSizeReached) {
-        return {
-          status: "target-sample-size-reached",
-          tooltip:
-            "The configured maximum sample size has been reached. Review results.",
-        };
+          );
+        }
+        if (targetSampleSizeReached) {
+          tooltipParts.push(
+            "The configured target sample size has been reached. Review results.",
+          );
+        }
+        return durationDrivenReadyForReview(experimentData, {
+          viaMaxDuration: maxDurationReached,
+          viaTargetSample: targetSampleSizeReached,
+          tooltip: tooltipParts.join(" "),
+        });
       }
     }
 
@@ -773,20 +811,23 @@ export function getExperimentResultStatus({
     }
   }
 
-  if (maxDurationAdditionalDays === 0) {
-    return {
-      status: "max-duration-reached",
-      tooltip:
-        "The configured maximum experiment duration has ended. Review results and stop or extend the experiment when appropriate.",
-    };
-  }
-
-  if (targetSampleSizeReached) {
-    return {
-      status: "target-sample-size-reached",
-      tooltip:
-        "The configured maximum sample size has been reached. Review results and stop or adjust the limit when appropriate.",
-    };
+  if (maxDurationAdditionalDays === 0 || targetSampleSizeReached) {
+    const tooltipParts: string[] = [];
+    if (maxDurationAdditionalDays === 0) {
+      tooltipParts.push(
+        "The configured maximum experiment duration has ended. Review results.",
+      );
+    }
+    if (targetSampleSizeReached) {
+      tooltipParts.push(
+        "The configured maximum sample size has been reached. Review results.",
+      );
+    }
+    return durationDrivenReadyForReview(experimentData, {
+      viaMaxDuration: maxDurationAdditionalDays === 0,
+      viaTargetSample: targetSampleSizeReached,
+      tooltip: tooltipParts.join(" "),
+    });
   }
 }
 
@@ -821,7 +862,7 @@ export function getSafeRolloutResultStatus({
   safeRollout: SafeRolloutInterface;
   healthSettings: ExperimentHealthSettings;
   daysLeft: number;
-}): SafeRolloutResultStatusData | undefined {
+}): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = safeRollout.analysisSummary?.health;
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;

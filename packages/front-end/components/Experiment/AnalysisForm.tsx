@@ -208,14 +208,8 @@ const AnalysisForm: FC<{
         "hours") as "hours" | "days",
       disableStickyBucketing: experiment.disableStickyBucketing ?? false,
       maxExperimentDuration:
-        experiment.type === "multi-armed-bandit"
-          ? undefined
-          : (experiment.maxExperimentDuration ??
-            DEFAULT_NEW_EXPERIMENT_MAX_DURATION),
-      targetSampleSize:
-        experiment.type === "multi-armed-bandit"
-          ? undefined
-          : experiment.targetSampleSize,
+        experiment.maxExperimentDuration ?? DEFAULT_NEW_EXPERIMENT_MAX_DURATION,
+      targetSampleSize: experiment.targetSampleSize,
     },
   });
 
@@ -338,18 +332,16 @@ const AnalysisForm: FC<{
           skipPartialData: skipPartialData === "strict",
         };
 
-        if (!isBandit && maxExperimentDuration) {
+        if (maxExperimentDuration) {
           body.maxExperimentDuration = maxExperimentDuration;
         }
-        if (!isBandit) {
-          body.targetSampleSize =
-            targetSampleSize !== undefined &&
-            targetSampleSize !== null &&
-            Number.isFinite(targetSampleSize) &&
-            targetSampleSize >= 1
-              ? targetSampleSize
-              : null;
-        }
+        body.targetSampleSize =
+          targetSampleSize !== undefined &&
+          targetSampleSize !== null &&
+          Number.isFinite(targetSampleSize) &&
+          targetSampleSize >= 1
+            ? targetSampleSize
+            : null;
 
         fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
@@ -622,16 +614,15 @@ const AnalysisForm: FC<{
             )}
           </div>
         )}
-        {!isBandit ? (
-          <>
-            <hr />
-            <MaxExperimentDurationFields
-              form={form}
-              disabled={!canRunExperiment}
-            />
-            <TargetSampleSizeFields form={form} disabled={!canRunExperiment} />
-          </>
-        ) : null}
+        <>
+          <hr />
+          <MaxExperimentDurationFields
+            form={form}
+            disabled={!canRunExperiment}
+            isBandit={isBandit}
+          />
+          <TargetSampleSizeFields form={form} disabled={!canRunExperiment} />
+        </>
         {!!datasource && !isBandit && !isHoldout && (
           <>
             <Tooltip

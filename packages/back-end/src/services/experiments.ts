@@ -3414,12 +3414,10 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.defaultDashboardId !== undefined
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
-    ...(payload.maxExperimentDuration !== undefined &&
-    (payload.type ?? "standard") !== "multi-armed-bandit"
+    ...(payload.maxExperimentDuration !== undefined
       ? { maxExperimentDuration: payload.maxExperimentDuration }
       : {}),
-    ...(payload.targetSampleSize !== undefined &&
-    (payload.type ?? "standard") !== "multi-armed-bandit"
+    ...(payload.targetSampleSize !== undefined
       ? { targetSampleSize: payload.targetSampleSize }
       : {}),
   };
@@ -3773,14 +3771,6 @@ export function updateExperimentApiPayloadToInterface(
         ...changes,
       } as ExperimentInterface);
     }
-  }
-
-  const effectiveTypeForMaxDuration =
-    changes.type !== undefined ? changes.type : experiment.type;
-  if (effectiveTypeForMaxDuration === "multi-armed-bandit") {
-    delete (changes as { maxExperimentDuration?: unknown })
-      .maxExperimentDuration;
-    delete (changes as { targetSampleSize?: unknown }).targetSampleSize;
   }
 
   return changes;

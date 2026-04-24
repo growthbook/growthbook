@@ -691,8 +691,7 @@ export function upgradeExperimentDoc(
   // Running experiments created before max duration: default cap until edited
   if (
     experiment.maxExperimentDuration === undefined &&
-    experiment.status === "running" &&
-    experiment.type !== "multi-armed-bandit"
+    experiment.status === "running"
   ) {
     experiment.maxExperimentDuration = MIGRATED_RUNNING_EXPERIMENT_MAX_DURATION;
   }

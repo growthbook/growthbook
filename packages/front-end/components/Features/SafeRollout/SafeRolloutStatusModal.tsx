@@ -11,7 +11,7 @@ import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
-import { SafeRolloutResultStatus } from "shared/types/experiment";
+import { ExperimentResultStatus } from "shared/types/experiment";
 import { useEffect, useMemo } from "react";
 import { featureRequiresReview } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -38,7 +38,7 @@ export interface Props {
 type RolloutStatusChoice = "rolled-back" | "released" | "";
 
 function getDefaultStatusAndText(
-  decisionStatus: SafeRolloutResultStatus | undefined,
+  decisionStatus: ExperimentResultStatus | undefined,
 ): { defaultStatus: RolloutStatusChoice; text: string } {
   if (!decisionStatus) {
     return {

@@ -1401,7 +1401,7 @@ describe("getExperimentResultStatus and maximum experiment duration", () => {
     }
   });
 
-  it("returns max-duration-reached when the cap is past but the decision framework is off (non-enterprise)", () => {
+  it("returns ready-for-review flagged via max duration when the cap is past but DF is off (non-enterprise)", () => {
     const healthNoDf = getHealthSettings(
       { decisionFrameworkEnabled: false } as OrganizationSettings,
       true,
@@ -1428,9 +1428,18 @@ describe("getExperimentResultStatus and maximum experiment duration", () => {
       decisionCriteria: PRESET_DECISION_CRITERIA,
     });
     expect(r).toMatchObject({
-      status: "max-duration-reached",
+      status: "ready-for-review",
+      recommendationMetViaMaxDuration: true,
+      powerReached: false,
+      sequentialUsed: false,
       tooltip: expect.stringContaining("maximum experiment duration has ended"),
     });
+    const status = r as ExperimentResultStatusData | undefined;
+    if (status?.status === "ready-for-review") {
+      expect(status.variations.map((v) => v.variationId).sort()).toEqual(
+        ["v0", "v1"].sort(),
+      );
+    }
   });
 
   it("runs the decision framework when target sample size is reached (enterprise)", () => {
@@ -1458,7 +1467,7 @@ describe("getExperimentResultStatus and maximum experiment duration", () => {
     });
   });
 
-  it("returns target-sample-size-reached when target sample size is reached but DF is off", () => {
+  it("returns ready-for-review flagged via target sample when cap is reached but DF is off", () => {
     const healthNoDf = getHealthSettings(
       { decisionFrameworkEnabled: false } as OrganizationSettings,
       true,
@@ -1480,9 +1489,18 @@ describe("getExperimentResultStatus and maximum experiment duration", () => {
       decisionCriteria: PRESET_DECISION_CRITERIA,
     });
     expect(r).toMatchObject({
-      status: "target-sample-size-reached",
+      status: "ready-for-review",
+      recommendationMetViaTargetSampleSize: true,
+      powerReached: false,
+      sequentialUsed: false,
       tooltip: expect.stringContaining("maximum sample size"),
     });
+    const status = r as ExperimentResultStatusData | undefined;
+    if (status?.status === "ready-for-review") {
+      expect(status.variations.map((v) => v.variationId).sort()).toEqual(
+        ["v0", "v1"].sort(),
+      );
+    }
   });
 
   it("tags both caps when calendar max and user sample are reached together", () => {
