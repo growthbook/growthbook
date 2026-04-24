@@ -282,30 +282,22 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       prerequisites:
         patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
     });
-    // Attribute registration check: run whenever the patch touches any of the
-    // fields we care about. hashAttribute/fallbackAttribute only exist on some
-    // rule types; absence just means "don't check that field".
-    const patchedAnyAttributeField =
-      patch.condition !== undefined ||
-      "hashAttribute" in patch ||
-      "fallbackAttribute" in patch;
-    if (patchedAnyAttributeField) {
-      validateRuleAttributes(
-        {
-          condition:
-            patch.condition !== undefined ? updatedRule.condition : undefined,
-          hashAttribute:
-            "hashAttribute" in patch
-              ? (updatedRule as { hashAttribute?: string }).hashAttribute
-              : undefined,
-          fallbackAttribute:
-            "fallbackAttribute" in patch
-              ? (updatedRule as { fallbackAttribute?: string })
-                  .fallbackAttribute
-              : undefined,
-        },
-        req.context,
-      );
+    // Attribute registration check: only validate the fields the caller
+    // actually patched. patch is the Zod-typed RulePatchInput, so condition
+    // and hashAttribute are already string | undefined. fallbackAttribute
+    // isn't on the patch schema at all.
+    const changedAttributes: {
+      condition?: string;
+      hashAttribute?: string;
+    } = {};
+    if (patch.condition !== undefined) {
+      changedAttributes.condition = patch.condition;
+    }
+    if (patch.hashAttribute !== undefined) {
+      changedAttributes.hashAttribute = patch.hashAttribute;
+    }
+    if (Object.keys(changedAttributes).length > 0) {
+      validateRuleAttributes(changedAttributes, req.context);
     }
     if (
       patch.condition !== undefined ||
