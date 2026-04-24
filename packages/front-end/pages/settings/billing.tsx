@@ -1,5 +1,6 @@
 import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { Flex } from "@radix-ui/themes";
 import { LicenseInterface } from "shared/enterprise";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -9,6 +10,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaymentInfo from "@/enterprise/components/Billing/PaymentInfo";
 import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 import { isCloud } from "@/services/env";
+import Callout from "@/ui/Callout";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -56,10 +58,10 @@ const BillingPage: FC = () => {
   if (accountPlan === "enterprise") {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-info">
+        <Callout status="info">
           This page is not available for enterprise customers. Please contact
           your account rep for any billing questions or changes.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -67,9 +69,9 @@ const BillingPage: FC = () => {
   if (!permissionsUtil.canManageBilling()) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -77,12 +79,12 @@ const BillingPage: FC = () => {
   if (subscription?.isVercelIntegration) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-info">
+        <Callout status="info">
           This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard for any billing
           information. If you&apos;d like to cancel your subscription, you can
           do so in the GrowthBook Integration Dashboard in Vercel.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -101,12 +103,12 @@ const BillingPage: FC = () => {
         {subscription?.status ? (
           <SubscriptionInfo />
         ) : canSubscribe ? (
-          <div className="bg-white p-3">
-            <div className="alert alert-warning mb-0">
-              <div className="d-flex align-items-center">
-                <div>
+          <div className="p-3">
+            <Callout status="info" mb="0">
+              <Flex align="center">
+                <span>
                   You are currently on the <strong>Starter Plan</strong>.
-                </div>
+                </span>
                 <button
                   className="btn btn-primary ml-auto"
                   onClick={(e) => {
@@ -116,14 +118,14 @@ const BillingPage: FC = () => {
                 >
                   Upgrade Now
                 </button>
-              </div>
-            </div>
+              </Flex>
+            </Callout>
           </div>
         ) : (
-          <p>
+          <div>
             Contact <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>{" "}
             to make changes to your subscription plan.
-          </p>
+          </div>
         )}
       </div>
       {subscription?.status ? (

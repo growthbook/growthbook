@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
+import Callout from "@/ui/Callout";
 
 const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -35,7 +36,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   const isSDKIntegrated =

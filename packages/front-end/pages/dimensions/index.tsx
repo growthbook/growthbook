@@ -23,6 +23,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 
 type ExperimentDimensionItem = {
   id: string;
@@ -129,21 +130,21 @@ const DimensionsPage: FC = () => {
             </DocLink>
           </div>
         </div>
-        <div className="alert alert-info">
+        <Callout status="info">
           Dimensions are only available if you connect GrowthBook to a
           compatible data source (Snowflake, Redshift, BigQuery, ClickHouse,
           Athena, Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel).
           Support for other data sources like Google Analytics is coming soon.
-        </div>
+        </Callout>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         There was an error loading the list of dimensions
-      </div>
+      </Callout>
     );
   }
 
@@ -344,18 +345,18 @@ const DimensionsPage: FC = () => {
         </div>
       )}
       {!error && dimensions.length === 0 && orgCanCreateDimensions && (
-        <div className="alert alert-info">
+        <Callout status="info">
           You don&apos;t have any user dimensions defined yet.{" "}
           {hasCreateDimensionPermission &&
             "Click the button above to create your first one."}
-        </div>
+        </Callout>
       )}
       {!error && dimensions.length === 0 && !orgCanCreateDimensions && (
-        <div className="alert alert-info">
+        <Callout status="info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
           <DocLink docSection="config_yml">View Documentation</DocLink>
-        </div>
+        </Callout>
       )}
     </div>
   );

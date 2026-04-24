@@ -13,6 +13,7 @@ import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
+import Callout from "@/ui/Callout";
 
 const LearningsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -82,11 +83,7 @@ const LearningsPage = (): React.ReactElement => {
   );
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
 
   if (loading || !ready) {
