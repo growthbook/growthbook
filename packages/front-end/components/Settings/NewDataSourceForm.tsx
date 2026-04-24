@@ -444,6 +444,7 @@ const NewDataSourceForm: FC<{
                 ...connectionInfo,
                 type: option.type,
                 params: option.default,
+                eventForwarderConfig: null,
               } as Partial<DataSourceInterfaceWithParams>);
 
               if (

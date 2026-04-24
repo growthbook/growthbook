@@ -1,4 +1,5 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { ChangeEventHandler } from "react";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm from "./BigQueryForm";
@@ -30,7 +31,7 @@ export default function ConnectionSettings({
 }: Props) {
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
-    params: { [key: string]: string },
+    params: { [key: string]: string | boolean },
     settings: { [key: string]: string } = {},
   ) => {
     const newVal = {
@@ -56,6 +57,17 @@ export default function ConnectionSettings({
   };
   const onManualParamChange = (name, value) => {
     setParams({ [name]: value });
+  };
+  const setEventForwarderConfig = (
+    eventForwarderConfig: EventForwarderConfigDraft | null,
+  ) => {
+    const newVal = {
+      ...datasource,
+      eventForwarderConfig,
+    };
+
+    setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
+    setDirty && setDirty(true);
   };
 
   if (!datasource.type) return null;
@@ -185,6 +197,8 @@ export default function ConnectionSettings({
           existing={existing}
           setParams={setParams}
           params={datasource?.params || {}}
+          eventForwarderConfig={datasource.eventForwarderConfig || null}
+          setEventForwarderConfig={setEventForwarderConfig}
           onParamChange={onParamChange}
         />
       );

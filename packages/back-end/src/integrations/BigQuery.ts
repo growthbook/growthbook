@@ -179,6 +179,20 @@ export default class BigQuery extends SqlIntegration {
     return datasetNames;
   }
 
+  async tableExists(
+    datasetName: string,
+    tableName: string,
+    projectId?: string,
+  ): Promise<boolean> {
+    const table = this.getClient()
+      .dataset(datasetName, {
+        projectId: projectId || this.params.defaultProject,
+      })
+      .table(tableName);
+    const [exists] = await table.exists();
+    return exists;
+  }
+
   async getInformationSchema(): Promise<InformationSchema[]> {
     const datasetNames = await this.listDatasets();
 
