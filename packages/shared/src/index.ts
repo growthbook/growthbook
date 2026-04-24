@@ -11,3 +11,4 @@ export * as health from "./health";
 export * as sql from "./sql";
 export * as validators from "./validators";
 export * as apiSpec from "./api-spec";
+export * as eventForwarderAvro from "./event-forwarder-avro";

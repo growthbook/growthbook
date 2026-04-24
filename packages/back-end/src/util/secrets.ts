@@ -363,6 +363,52 @@ export const SUPERADMIN_DEFAULT_ROLE =
 
 export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
 
+// Confluent Cloud API key: create under Environment/Cloud API keys in Confluent Cloud.
+export const CONFLUENT_CLOUD_API_KEY =
+  process.env.CONFLUENT_CLOUD_API_KEY || "";
+// Confluent Cloud API secret: paired secret for the Environment/Cloud API key above.
+export const CONFLUENT_CLOUD_API_SECRET =
+  process.env.CONFLUENT_CLOUD_API_SECRET || "";
+// Confluent environment id: copy from the target Environment in Confluent Cloud.
+export const CONFLUENT_ENVIRONMENT_ID =
+  process.env.CONFLUENT_ENVIRONMENT_ID || "";
+// Kafka cluster id: copy from the Kafka cluster details page in Confluent Cloud.
+export const CONFLUENT_KAFKA_CLUSTER_ID =
+  process.env.CONFLUENT_KAFKA_CLUSTER_ID || "";
+// Kafka REST endpoint: copy the cluster's Kafka REST endpoint / API endpoint from cluster details.
+export const CONFLUENT_KAFKA_REST_ENDPOINT =
+  process.env.CONFLUENT_KAFKA_REST_ENDPOINT || "";
+// Kafka API key: create under the target Kafka cluster's API keys so topic and connector reads can authenticate.
+export const CONFLUENT_KAFKA_API_KEY =
+  process.env.CONFLUENT_KAFKA_API_KEY || "";
+// Kafka API secret: paired secret for the Kafka API key above.
+export const CONFLUENT_KAFKA_API_SECRET =
+  process.env.CONFLUENT_KAFKA_API_SECRET || "";
+// Schema Registry URL and API credentials: used to resolve the latest forwarded event schema dynamically.
+export const SCHEMA_REGISTRY_URL = process.env.SCHEMA_REGISTRY_URL || "";
+export const SCHEMA_REGISTRY_API_KEY =
+  process.env.SCHEMA_REGISTRY_API_KEY || "";
+export const SCHEMA_REGISTRY_API_SECRET =
+  process.env.SCHEMA_REGISTRY_API_SECRET || "";
+// Prefix for generated org topics: internal naming choice in GrowthBook, not from Confluent.
+export const CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX =
+  process.env.CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX || "gb-events";
+// Prefix for generated connector names: internal naming choice in GrowthBook, not from Confluent.
+export const CONFLUENT_EVENT_FORWARDER_CONNECTOR_PREFIX =
+  process.env.CONFLUENT_EVENT_FORWARDER_CONNECTOR_PREFIX || "gb-ef";
+// Topic partition count to request when GrowthBook creates the shared org topic in Confluent.
+export const CONFLUENT_EVENT_FORWARDER_TOPIC_PARTITIONS = parseEnvInt(
+  process.env.CONFLUENT_EVENT_FORWARDER_TOPIC_PARTITIONS,
+  1,
+  { min: 1, name: "CONFLUENT_EVENT_FORWARDER_TOPIC_PARTITIONS" },
+);
+// Topic replication factor to request when GrowthBook creates the shared org topic in Confluent.
+export const CONFLUENT_EVENT_FORWARDER_TOPIC_REPLICATION_FACTOR = parseEnvInt(
+  process.env.CONFLUENT_EVENT_FORWARDER_TOPIC_REPLICATION_FACTOR,
+  3,
+  { min: 1, name: "CONFLUENT_EVENT_FORWARDER_TOPIC_REPLICATION_FACTOR" },
+);
+
 // Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
   process.env.DISABLE_API_ROOT_PATH,
