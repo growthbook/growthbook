@@ -1,67 +1,106 @@
-import isEqual from "lodash/isEqual";
 import { DataSourceInterface } from "shared/types/datasource";
 import { usingFileConfig } from "back-end/src/init/config";
-import { getDataSourcesByOrganizationSameTypeExcludingId } from "back-end/src/models/DataSourceModel";
 import { getEventForwarderSinkTypeForDatasource } from "back-end/src/services/eventForwarderConfig";
 import { teardownBigQueryEventForwarderInfrastructure } from "back-end/src/services/eventForwarderProvisioning";
+import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 
-function mergeProjectsFromDatasources(
-  datasources: Pick<DataSourceInterface, "projects">[],
-): string[] {
-  const merged = new Set<string>();
-  for (const ds of datasources) {
-    for (const p of ds.projects ?? []) {
-      merged.add(p);
-    }
-  }
-  return [...merged].sort();
-}
-
 /**
- * After removing a datasource: updates or removes the org event forwarder row when this datasource
- * type maps to a sink (BigQuery / Snowflake / Databricks). Confluent teardown runs only for the
- * BigQuery sink when this was the last datasource of that warehouse type in the org.
+ * After removing a datasource: if a per-datasource event forwarder row exists for this id,
+ * tear down BigQuery Confluent resources when applicable and delete that row.
  */
 export async function syncEventForwarderAfterDatasourceDeleted(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
 ): Promise<void> {
-  if (usingFileConfig()) return;
-
-  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
-  if (!sinkType) return;
-
-  const existing =
-    await context.models.eventForwarderConfigs.dangerousGetBySinkTypeBypassPermission(
-      sinkType,
-    );
-  if (!existing) return;
-
-  const remaining = await getDataSourcesByOrganizationSameTypeExcludingId(
-    context.org.id,
-    datasource.id,
-    datasource.type,
+  logger.info(
+    {
+      organizationId: context.org.id,
+      datasourceId: datasource.id,
+      datasourceType: datasource.type,
+    },
+    "Event forwarder sync after datasource delete: starting",
   );
 
-  if (remaining.length === 0) {
-    if (sinkType === "bigquery") {
-      await teardownBigQueryEventForwarderInfrastructure(existing);
-    }
-    await context.models.eventForwarderConfigs.deleteForDatasourceCascade(
-      existing,
+  if (usingFileConfig()) {
+    logger.info(
+      {
+        organizationId: context.org.id,
+        datasourceId: datasource.id,
+      },
+      "Event forwarder sync after datasource delete: skipped (config.yml / file config mode)",
     );
     return;
   }
 
-  const projects = mergeProjectsFromDatasources(remaining);
-  if (isEqual(existing.projects, projects)) {
+  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
+  if (!sinkType) {
+    logger.info(
+      {
+        organizationId: context.org.id,
+        datasourceId: datasource.id,
+        datasourceType: datasource.type,
+      },
+      "Event forwarder sync after datasource delete: datasource type has no event-forwarder sink (no Confluent row to reconcile)",
+    );
     return;
   }
 
-  await context.models.eventForwarderConfigs.dangerousUpdateBypassPermission(
+  const existing =
+    await context.models.eventForwarderConfigs.dangerousGetByDatasourceIdBypassPermission(
+      datasource.id,
+    );
+  if (!existing) {
+    logger.info(
+      {
+        organizationId: context.org.id,
+        datasourceId: datasource.id,
+        sinkType,
+      },
+      "Event forwarder sync after datasource delete: no event forwarder config for this datasource — skipping teardown and cascade delete",
+    );
+    return;
+  }
+
+  logger.info(
+    {
+      organizationId: context.org.id,
+      datasourceId: datasource.id,
+      sinkType,
+      eventForwarderConfigId: existing.id,
+    },
+    "Event forwarder sync after datasource delete: removing event forwarder row for this datasource",
+  );
+
+  if (sinkType === "bigquery") {
+    logger.info(
+      {
+        organizationId: context.org.id,
+        eventForwarderConfigId: existing.id,
+      },
+      "Event forwarder sync: invoking BigQuery Confluent teardown (connector + Kafka topics)",
+    );
+    await teardownBigQueryEventForwarderInfrastructure(existing);
+    logger.info(
+      {
+        organizationId: context.org.id,
+        eventForwarderConfigId: existing.id,
+      },
+      "Event forwarder sync: BigQuery Confluent teardown returned",
+    );
+  } else {
+    logger.info(
+      {
+        organizationId: context.org.id,
+        sinkType,
+        eventForwarderConfigId: existing.id,
+      },
+      "Event forwarder sync: skipping Confluent BigQuery teardown (sink is not bigquery)",
+    );
+  }
+
+  await context.models.eventForwarderConfigs.deleteForDatasourceCascade(
     existing,
-    { projects },
   );
 }

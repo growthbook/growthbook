@@ -68,9 +68,13 @@ function sanitizeBigQueryIdentifier(value: string): string {
   return /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
 }
 
-function getConnectorName(config: EventForwarderConfigInterface): string {
+/** Deterministic connector name; persisted on the document after first successful provision. */
+export function getEventForwarderConnectorName(
+  config: EventForwarderConfigInterface,
+): string {
+  const dsPart = sanitizeKafkaName(config.datasourceId);
   return sanitizeKafkaName(
-    `${CONFLUENT_EVENT_FORWARDER_CONNECTOR_PREFIX}-${config.sinkType}-${config.organization}`,
+    `${CONFLUENT_EVENT_FORWARDER_CONNECTOR_PREFIX}-${config.sinkType}-${config.organization}-${dsPart}`,
   ).slice(0, 64);
 }
 
@@ -262,6 +266,100 @@ function getMissingProvisioningConfig(): string[] {
   return missing;
 }
 
+/** Secrets required for Confluent Connect API (connector lifecycle, connector resource id). */
+function getMissingCloudConnectProvisioningConfig(): string[] {
+  const missing: string[] = [];
+  if (!CONFLUENT_CLOUD_API_KEY) missing.push("CONFLUENT_CLOUD_API_KEY");
+  if (!CONFLUENT_CLOUD_API_SECRET) missing.push("CONFLUENT_CLOUD_API_SECRET");
+  if (!CONFLUENT_ENVIRONMENT_ID) missing.push("CONFLUENT_ENVIRONMENT_ID");
+  if (!CONFLUENT_KAFKA_CLUSTER_ID) missing.push("CONFLUENT_KAFKA_CLUSTER_ID");
+  return missing;
+}
+
+/** Secrets required for Kafka REST (topic create/delete). Schema Registry is not used here. */
+function getMissingKafkaRestProvisioningConfig(): string[] {
+  const missing: string[] = [];
+  if (!CONFLUENT_KAFKA_CLUSTER_ID) missing.push("CONFLUENT_KAFKA_CLUSTER_ID");
+  if (!CONFLUENT_KAFKA_REST_ENDPOINT) {
+    missing.push("CONFLUENT_KAFKA_REST_ENDPOINT");
+  }
+  if (!CONFLUENT_KAFKA_API_KEY) missing.push("CONFLUENT_KAFKA_API_KEY");
+  if (!CONFLUENT_KAFKA_API_SECRET) missing.push("CONFLUENT_KAFKA_API_SECRET");
+  return missing;
+}
+
+function parseConnectorResourceId(parsed: unknown): string | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const root = parsed as Record<string, unknown>;
+  const idField = root.id;
+  if (typeof idField === "string" && idField.startsWith("lcc-")) {
+    return idField;
+  }
+  if (idField && typeof idField === "object") {
+    const inner = (idField as Record<string, unknown>).id;
+    if (typeof inner === "string" && inner.startsWith("lcc-")) {
+      return inner;
+    }
+  }
+  return null;
+}
+
+/** Confluent DLQ topic for a managed connector: `dlq-` + resource id. `resourceId` is `connectorId` on the event forwarder doc (`lcc-*`). */
+function dlqTopicNameForConnectorResourceId(resourceId: string): string | null {
+  const id = resourceId.trim();
+  return id.startsWith("lcc-") ? `dlq-${id}` : null;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Confluent Cloud DLQ topics are named `dlq-{resourceId}` where resourceId is the managed
+ * connector id (e.g. lcc-abc123).
+ *
+ * Confluent documents `lcc-*` ids on **list** connectors with `expand=id`; per-connector GET
+ * may omit `id`, so we try the expanded list first, then GET `.../connectors/{name}?expand=id`.
+ */
+async function getManagedConnectorResourceId(
+  connectorName: string,
+): Promise<string | null> {
+  const authHeader = toBasicAuth(
+    CONFLUENT_CLOUD_API_KEY,
+    CONFLUENT_CLOUD_API_SECRET,
+  );
+
+  try {
+    const expanded = await confluentRequest<unknown>({
+      url: `${getCloudConnectorsBaseUrl()}?expand=id`,
+      authHeader,
+    });
+    if (expanded && typeof expanded === "object" && !Array.isArray(expanded)) {
+      const entry = (expanded as Record<string, unknown>)[connectorName];
+      const id = entry ? parseConnectorResourceId(entry) : null;
+      if (id) return id;
+    }
+  } catch {
+    // Fall through — list can fail or omit the new connector briefly after create.
+  }
+
+  const singleUrl = `${getCloudConnectorsBaseUrl()}/${encodeURIComponent(
+    connectorName,
+  )}?expand=id`;
+  try {
+    const parsed = await confluentRequest<unknown>({
+      url: singleUrl,
+      authHeader,
+    });
+    return parseConnectorResourceId(parsed);
+  } catch (error) {
+    if (error instanceof ConfluentApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function ensureKafkaTopic(topic: string): Promise<void> {
   const authHeader = toBasicAuth(
     CONFLUENT_KAFKA_API_KEY,
@@ -408,7 +506,11 @@ async function ensureBigQueryConnector(
   eventForwarderConfig: EventForwarderConfigInterface,
   projectId: string,
 ): Promise<string> {
-  const connectorName = getConnectorName(eventForwarderConfig);
+  const stored = eventForwarderConfig.connectorName?.trim();
+  const connectorName =
+    stored && stored.length > 0
+      ? stored
+      : getEventForwarderConnectorName(eventForwarderConfig);
   const existing = await getConnectorConfig(connectorName);
   const config =
     decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
@@ -441,10 +543,21 @@ async function ensureBigQueryConnector(
   return connectorName;
 }
 
-async function deleteConnectorIfExists(connectorName: string): Promise<void> {
+async function deleteConnectorIfExists(
+  connectorName: string,
+  logFields?: { eventForwarderConfigId?: string },
+): Promise<void> {
   const url = `${getCloudConnectorsBaseUrl()}/${encodeURIComponent(
     connectorName,
   )}`;
+  logger.info(
+    {
+      ...logFields,
+      connectorName,
+      deleteUrl: url,
+    },
+    "Teardown: deleting Confluent BigQuery Storage Sink connector",
+  );
   try {
     await confluentRequest({
       url,
@@ -454,28 +567,77 @@ async function deleteConnectorIfExists(connectorName: string): Promise<void> {
         CONFLUENT_CLOUD_API_SECRET,
       ),
     });
+    logger.info(
+      {
+        ...logFields,
+        connectorName,
+        deleteUrl: url,
+      },
+      "Teardown: Confluent connector delete completed (connector removed or API returned success)",
+    );
   } catch (error) {
     if (error instanceof ConfluentApiError && error.status === 404) {
+      logger.info(
+        {
+          ...logFields,
+          connectorName,
+          deleteUrl: url,
+        },
+        "Teardown: Confluent connector was already absent (404)",
+      );
       return;
     }
     throw error;
   }
 }
 
-async function deleteKafkaTopicIfExists(topic: string): Promise<void> {
+async function deleteKafkaTopicIfExists(
+  topic: string,
+  logFields?: {
+    eventForwarderConfigId?: string;
+    topicRole?: "main" | "dlq";
+  },
+): Promise<void> {
   const authHeader = toBasicAuth(
     CONFLUENT_KAFKA_API_KEY,
     CONFLUENT_KAFKA_API_SECRET,
   );
   const topicUrl = `${getKafkaTopicsBaseUrl()}/${encodeURIComponent(topic)}`;
+  logger.info(
+    {
+      ...logFields,
+      topic,
+      topicRole: logFields?.topicRole,
+      deleteUrl: topicUrl,
+    },
+    "Teardown: deleting Kafka topic",
+  );
   try {
     await confluentRequest({
       url: topicUrl,
       method: "DELETE",
       authHeader,
     });
+    logger.info(
+      {
+        ...logFields,
+        topic,
+        topicRole: logFields?.topicRole,
+        deleteUrl: topicUrl,
+      },
+      "Teardown: Kafka topic delete completed (topic removed or API returned success)",
+    );
   } catch (error) {
     if (error instanceof ConfluentApiError && error.status === 404) {
+      logger.info(
+        {
+          ...logFields,
+          topic,
+          topicRole: logFields?.topicRole,
+          deleteUrl: topicUrl,
+        },
+        "Teardown: Kafka topic was already absent (404)",
+      );
       return;
     }
     throw error;
@@ -483,36 +645,108 @@ async function deleteKafkaTopicIfExists(topic: string): Promise<void> {
 }
 
 /**
- * Deletes the Confluent BigQuery Storage Sink connector and Kafka topic using names stored on the
+ * Deletes the Confluent BigQuery Storage Sink connector and Kafka topics using names stored on the
  * config document (not recomputed from env), so changing CONFLUENT_* prefix defaults does not
  * target the wrong resources. API base URLs still use current deployment secrets.
+ *
+ * The DLQ topic `dlq-lcc-*` is deleted using persisted `connectorId` (`lcc-*`) when present; if it
+ * was never stored, resolves the id via the Connect API once before deleting the connector.
  */
 export async function teardownBigQueryEventForwarderInfrastructure(
   config: EventForwarderConfigInterface,
 ): Promise<void> {
-  const missingConfig = getMissingProvisioningConfig();
-  if (missingConfig.length > 0) {
-    logger.warn(
-      {
-        eventForwarderConfigId: config.id,
-        missingConfig,
-      },
-      "Skipping Confluent teardown: incomplete provisioning secrets",
-    );
-    return;
-  }
+  logger.info(
+    { eventForwarderConfigId: config.id },
+    "BigQuery event forwarder teardown: function invoked",
+  );
+  const missingCloud = getMissingCloudConnectProvisioningConfig();
+  const missingKafka = getMissingKafkaRestProvisioningConfig();
 
   const connectorName = config.connectorName?.trim() ?? "";
   const topic = config.topic?.trim() ?? "";
 
-  if (!connectorName) {
+  /** Set on successful provisioning; names the DLQ topic `dlq-<connectorId>`. */
+  let storedResourceId = config.connectorId?.trim() ?? "";
+  if (!storedResourceId.startsWith("lcc-")) {
+    storedResourceId = "";
+  }
+
+  let connectorResourceIdForDlq = storedResourceId;
+
+  if (
+    !connectorResourceIdForDlq &&
+    connectorName &&
+    missingCloud.length === 0
+  ) {
+    try {
+      connectorResourceIdForDlq =
+        (await getManagedConnectorResourceId(connectorName)) ?? "";
+    } catch (error) {
+      logger.warn(
+        {
+          err: error,
+          connectorName,
+          eventForwarderConfigId: config.id,
+        },
+        "Could not resolve Confluent connector resource id for DLQ topic teardown",
+      );
+    }
+  } else if (
+    !connectorResourceIdForDlq &&
+    connectorName &&
+    missingCloud.length > 0
+  ) {
+    logger.warn(
+      {
+        eventForwarderConfigId: config.id,
+        connectorName,
+        missingCloudConnectSecrets: missingCloud,
+      },
+      "Skipping connector resource id fetch for DLQ teardown: incomplete Confluent Cloud Connect secrets",
+    );
+  }
+
+  const dlqTopic =
+    dlqTopicNameForConnectorResourceId(connectorResourceIdForDlq) ?? "";
+
+  logger.info(
+    {
+      eventForwarderConfigId: config.id,
+      connectorName: connectorName || undefined,
+      kafkaTopic: topic || undefined,
+      dlqTopic: dlqTopic || undefined,
+      storedConnectorId: storedResourceId || undefined,
+      resolvedConnectorResourceId: connectorResourceIdForDlq || undefined,
+      missingCloudConnectSecrets:
+        missingCloud.length > 0 ? missingCloud : undefined,
+      missingKafkaRestSecrets:
+        missingKafka.length > 0 ? missingKafka : undefined,
+    },
+    "BigQuery event forwarder teardown: resolved Confluent resource names for delete attempts",
+  );
+
+  if (missingCloud.length > 0) {
+    logger.warn(
+      {
+        eventForwarderConfigId: config.id,
+        missingCloudConnectSecrets: missingCloud,
+        connectorName: connectorName || undefined,
+        manualConnectorDeleteUrl: connectorName
+          ? `${getCloudConnectorsBaseUrl()}/${encodeURIComponent(connectorName)}`
+          : undefined,
+      },
+      "Skipping Confluent connector delete: incomplete Cloud Connect secrets (remove connector manually if needed)",
+    );
+  } else if (!connectorName) {
     logger.warn(
       { eventForwarderConfigId: config.id },
       "Skipping connector delete: no connectorName stored on event forwarder config (never provisioned successfully)",
     );
   } else {
     try {
-      await deleteConnectorIfExists(connectorName);
+      await deleteConnectorIfExists(connectorName, {
+        eventForwarderConfigId: config.id,
+      });
     } catch (error) {
       logger.error(
         {
@@ -525,6 +759,21 @@ export async function teardownBigQueryEventForwarderInfrastructure(
     }
   }
 
+  if (missingKafka.length > 0) {
+    logger.warn(
+      {
+        eventForwarderConfigId: config.id,
+        missingKafkaRestSecrets: missingKafka,
+        kafkaTopic: topic || undefined,
+        dlqTopic: dlqTopic || undefined,
+        connectorName: connectorName || undefined,
+        manualKafkaTopicDeleteBaseUrl: getKafkaTopicsBaseUrl(),
+      },
+      "Skipping Kafka topic deletes: incomplete Kafka REST secrets — delete main/DLQ topics manually in Confluent if needed",
+    );
+    return;
+  }
+
   if (!topic) {
     logger.warn(
       { eventForwarderConfigId: config.id },
@@ -532,7 +781,10 @@ export async function teardownBigQueryEventForwarderInfrastructure(
     );
   } else {
     try {
-      await deleteKafkaTopicIfExists(topic);
+      await deleteKafkaTopicIfExists(topic, {
+        eventForwarderConfigId: config.id,
+        topicRole: "main",
+      });
     } catch (error) {
       logger.error(
         {
@@ -544,6 +796,44 @@ export async function teardownBigQueryEventForwarderInfrastructure(
       );
     }
   }
+
+  if (dlqTopic) {
+    try {
+      await deleteKafkaTopicIfExists(dlqTopic, {
+        eventForwarderConfigId: config.id,
+        topicRole: "dlq",
+      });
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          topic: dlqTopic,
+          eventForwarderConfigId: config.id,
+        },
+        "Failed to delete connector DLQ Kafka topic for event forwarder",
+      );
+    }
+  } else if (connectorName || storedResourceId) {
+    logger.warn(
+      {
+        eventForwarderConfigId: config.id,
+        connectorName: connectorName || undefined,
+        hadStoredConnectorId: Boolean(storedResourceId),
+      },
+      "Skipping DLQ topic delete: could not determine dlq-lcc* topic name (missing connector resource id)",
+    );
+  }
+
+  logger.info(
+    {
+      eventForwarderConfigId: config.id,
+      connectorDeleteWasEligible:
+        missingCloud.length === 0 && Boolean(connectorName),
+      mainKafkaTopicDeleteAttempted: Boolean(topic),
+      dlqKafkaTopicDeleteAttempted: Boolean(dlqTopic),
+    },
+    "BigQuery event forwarder teardown: finished Kafka topic phase (see earlier per-resource logs for HTTP outcomes)",
+  );
 }
 
 export async function maybeProvisionEventForwarderConfig(
@@ -591,10 +881,39 @@ export async function maybeProvisionEventForwarderConfig(
       eventForwarderConfig,
       projectId,
     );
+
+    let connectorResourceId = "";
+    for (let attempt = 0; attempt < 6; attempt++) {
+      connectorResourceId =
+        (await getManagedConnectorResourceId(connectorName)) ?? "";
+      if (connectorResourceId) break;
+      if (attempt < 5) {
+        await delay(1500);
+      }
+    }
+
+    const persistedConnectorId =
+      connectorResourceId ||
+      (eventForwarderConfig.connectorId?.trim().startsWith("lcc-")
+        ? eventForwarderConfig.connectorId!.trim()
+        : "");
+
+    if (!persistedConnectorId) {
+      logger.warn(
+        {
+          connectorName,
+          eventForwarderConfigId: eventForwarderConfig.id,
+          organizationId: context.org.id,
+        },
+        "Could not resolve Confluent connector resource id after provisioning; connectorId will be empty until a later provision run",
+      );
+    }
+
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
       schemaId,
       status: "ready",
       connectorName,
+      connectorId: persistedConnectorId,
       lastProvisioningError: "",
     });
 

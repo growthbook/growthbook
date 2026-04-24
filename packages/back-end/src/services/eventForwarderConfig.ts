@@ -27,9 +27,13 @@ function sanitizeKafkaName(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function getTopicName(orgId: string): string {
+/** Kafka topic pinned at create; includes datasource so topics are unique per forwarder. */
+export function getEventForwarderTopicName(
+  orgId: string,
+  datasourceId: string,
+): string {
   return sanitizeKafkaName(
-    `${CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX}-${orgId}`,
+    `${CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX}-${orgId}-${datasourceId}`,
   );
 }
 
@@ -56,21 +60,12 @@ export function getEventForwarderSinkTypeForDatasource(
   }
 }
 
-export async function getEventForwarderConfigBySinkType(
+export async function getEventForwarderConfigForDatasource(
   context: ReqContext,
-  sinkType: EventForwarderSinkType,
+  datasourceId: string,
 ): Promise<EventForwarderConfigInterface | null> {
   const configs = await context.models.eventForwarderConfigs.getAll();
-  return configs.find((config) => config.sinkType === sinkType) ?? null;
-}
-
-function getMergedProjects(
-  existing: EventForwarderConfigInterface | null,
-  datasource: Pick<DataSourceInterface, "projects">,
-): string[] {
-  return Array.from(
-    new Set([...(existing?.projects ?? []), ...(datasource.projects ?? [])]),
-  ).sort();
+  return configs.find((config) => config.datasourceId === datasourceId) ?? null;
 }
 
 /**
@@ -186,12 +181,15 @@ export function toEventForwarderConfigDraft(
 
 export async function getEventForwarderConfigDraftForDatasource(
   context: ReqContext,
-  datasource: Pick<DataSourceInterface, "type">,
+  datasource: Pick<DataSourceInterface, "type" | "id">,
 ): Promise<EventForwarderConfigDraft | null> {
   const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
   if (!sinkType) return null;
 
-  const existing = await getEventForwarderConfigBySinkType(context, sinkType);
+  const existing = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
   return toEventForwarderConfigDraft(existing);
 }
 
@@ -213,11 +211,14 @@ export async function syncEventForwarderConfigFromDatasource({
 
   if (!sinkType || draft === undefined) {
     return sinkType
-      ? getEventForwarderConfigBySinkType(context, sinkType)
+      ? getEventForwarderConfigForDatasource(context, datasource.id)
       : null;
   }
 
-  const existing = await getEventForwarderConfigBySinkType(context, sinkType);
+  const existing = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
 
   if (draft === null) {
     if (existing) {
@@ -251,10 +252,11 @@ export async function syncEventForwarderConfigFromDatasource({
     }
   }
 
-  const projects = getMergedProjects(existing, datasource);
+  const projects = [...(datasource.projects ?? [])].sort();
 
   if (!existing) {
     return await context.models.eventForwarderConfigs.create({
+      datasourceId: datasource.id,
       projects,
       topic: getTopicName(datasource.organization),
       // Provisioning resolves the current registry schema id after the topic exists.
@@ -269,8 +271,11 @@ export async function syncEventForwarderConfigFromDatasource({
   }
 
   return await context.models.eventForwarderConfigs.update(existing, {
+    datasourceId: existing.datasourceId || datasource.id,
     projects,
-    topic: existing.topic || getTopicName(datasource.organization),
+    topic:
+      existing.topic ||
+      getEventForwarderTopicName(datasource.organization, datasource.id),
     schemaId: existing.schemaId || 0,
     config: encryptSinkConfig(normalizedPayload),
     status: "pending",

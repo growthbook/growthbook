@@ -10,6 +10,8 @@ const eventForwarderStatusValidator = z.enum(["pending", "ready", "error"]);
 
 export const eventForwarderConfigValidator = baseSchema
   .extend({
+    /** Owning datasource (`ds_*`); unique per org with `organization`. */
+    datasourceId: z.string(),
     projects: z.array(z.string()), // Initial values should be derived from the data source this was created from
     /** Kafka topic name — pinned at creation; teardown must use this value (not derived from env). */
     topic: z.string(),

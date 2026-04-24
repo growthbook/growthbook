@@ -1,4 +1,3 @@
-import type { EventForwarderSinkType } from "shared/types/event-forwarder";
 import {
   EventForwarderConfigInterface,
   eventForwarderConfigValidator,
@@ -20,7 +19,7 @@ const BaseClass = MakeModelClass({
   idPrefix: "efc_",
   additionalIndexes: [
     {
-      fields: { organization: 1, sinkType: 1 },
+      fields: { organization: 1, datasourceId: 1 },
       unique: true,
     },
   ],
@@ -58,14 +57,14 @@ export class EventForwarderConfigModel extends BaseClass {
   }
 
   /**
-   * Loads the org-scoped BigQuery sink config regardless of datasource project visibility.
+   * Loads the forwarder row for a datasource regardless of project visibility on the row.
    * Caller must enforce higher-level authorization (e.g. datasource delete).
    */
-  public async dangerousGetBySinkTypeBypassPermission(
-    sinkType: EventForwarderSinkType,
+  public async dangerousGetByDatasourceIdBypassPermission(
+    datasourceId: string,
   ): Promise<EventForwarderConfigInterface | null> {
     const rows = await this._find(
-      { sinkType },
+      { datasourceId },
       { bypassReadPermissionChecks: true, limit: 1 },
     );
     return rows[0] ?? null;

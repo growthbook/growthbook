@@ -104,27 +104,6 @@ export async function getDataSourcesByOrganization(
   );
 }
 
-/**
- * Same-type datasources for an org except one id — no permission filtering (internal lifecycle).
- */
-export async function getDataSourcesByOrganizationSameTypeExcludingId(
-  organizationId: string,
-  excludeDatasourceId: string,
-  type: DataSourceType,
-): Promise<DataSourceInterface[]> {
-  if (usingFileConfig()) {
-    return [];
-  }
-
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    organization: organizationId,
-    type,
-    id: { $ne: excludeDatasourceId },
-  });
-
-  return docs.map(toInterface);
-}
-
 // WARNING: This does not restrict by organization
 export async function _dangerourslyGetAllDatasourcesByOrganizations(
   organizations: string[],
@@ -244,18 +223,29 @@ export async function deleteDatasource(
 
 /**
  * Deletes data sources where the provided project is the only project of that data source.
- * @param projectId
- * @param organizationId
+ * Runs event-forwarder teardown per datasource before removal so Confluent resources are not orphaned.
  */
 export async function deleteAllDataSourcesForAProject({
+  context,
   projectId,
   organizationId,
 }: {
+  context: ReqContext | ApiReqContext;
   projectId: string;
   organizationId: string;
 }) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
+  }
+
+  const docs = await DataSourceModel.find({
+    organization: organizationId,
+    projects: [projectId],
+  });
+
+  for (const doc of docs) {
+    const datasource = toInterface(doc);
+    await syncEventForwarderAfterDatasourceDeleted(context, datasource);
   }
 
   await DataSourceModel.deleteMany({
