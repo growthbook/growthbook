@@ -1,4 +1,4 @@
-import { GroupMap, SavedGroupInterface } from "../types/groups";
+import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,

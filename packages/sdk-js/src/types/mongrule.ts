@@ -12,19 +12,23 @@ type NotCondition = {
 };
 export type Operator =
   | "$in"
+  | "$ini"
   | "$inGroup"
   | "$nin"
+  | "$nini"
   | "$notInGroup"
   | "$gt"
   | "$gte"
   | "$lt"
   | "$lte"
   | "$regex"
+  | "$regexi"
   | "$ne"
   | "$eq"
   | "$size"
   | "$elemMatch"
   | "$all"
+  | "$alli"
   | "$not"
   | "$type"
   | "$exists"
@@ -44,18 +48,22 @@ export type VarType =
   | "undefined";
 export type OperatorConditionValue = {
   $in?: (string | number)[];
+  $ini?: (string | number)[];
   $inGroup?: string;
   $nin?: (string | number)[];
+  $nini?: (string | number)[];
   $notInGroup?: string;
   $gt?: number | string;
   $gte?: number | string;
   $lt?: number | string;
   $lte?: number | string;
   $regex?: string;
+  $regexi?: string;
   $ne?: number | string;
   $eq?: number | string;
   $exists?: boolean;
   $all?: ConditionValue[];
+  $alli?: ConditionValue[];
   $size?: number | ConditionValue;
   $type?: VarType;
   $elemMatch?: ConditionInterface | OperatorConditionValue;

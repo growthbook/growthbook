@@ -1,24 +1,11 @@
-import { Text } from "@radix-ui/themes";
-import useMembers from "@/hooks/useMembers";
-import metaDataStyles from "@/ui/Metadata.module.scss";
-import UserAvatar from "../Avatar/UserAvatar";
-import SelectField from "../Forms/SelectField";
+import { useMemo } from "react";
+import Owner from "@/components/Avatar/Owner";
+import SelectField from "@/components/Forms/SelectField";
+import { useUser } from "@/services/UserContext";
 
 interface Props {
   value: string;
   onChange: (v: string) => void;
-  resourceType:
-    | "dimension"
-    | "feature"
-    | "experiment"
-    | "segment"
-    | "factSegment"
-    | "savedGroup"
-    | "metric"
-    | "factMetric"
-    | "archetype"
-    | "factTable"
-    | "dashboard";
   placeholder?: string;
   disabled?: boolean;
 }
@@ -27,57 +14,47 @@ export default function SelectOwner({
   value,
   onChange,
   placeholder = "",
-  resourceType,
   disabled = false,
 }: Props) {
-  const { memberUsernameOptions, memberUserNameAndIdOptions } = useMembers();
+  const { users } = useUser();
 
-  // Some resources store the owner by name and some by id, so check which one it is
-  const ownerIdentifierType = [
-    "experiment",
-    "experimentTemplate",
-    "factTable",
-    "archetype",
-    "dashboard",
-  ].includes(resourceType)
-    ? "id"
-    : "name";
+  const memberOptions = useMemo(() => {
+    return Array.from(users.values()).map((user) => ({
+      value: user.id,
+      label: user.name || user.email,
+    }));
+  }, [users]);
 
-  // if the resource stores owner by id, we need the id to be the value, rather than the name
-  const memberOptions =
-    ownerIdentifierType === "id"
-      ? memberUserNameAndIdOptions
-      : memberUsernameOptions;
+  const memberOptionValues = useMemo(() => {
+    return new Set(memberOptions.map((member) => member.value));
+  }, [memberOptions]);
+
+  const options = useMemo(() => {
+    if (!value || memberOptionValues.has(value)) {
+      return memberOptions;
+    }
+
+    // Keep showing legacy owner values (username/email) until user chooses a new owner.
+    return [{ value, label: value }, ...memberOptions];
+  }, [memberOptions, memberOptionValues, value]);
 
   return (
     <SelectField
       label="Owner"
-      options={memberOptions.map((member) => ({
-        value: member.value,
-        label: member.display,
-      }))}
+      labelClassName="font-weight-bold"
+      options={options}
       value={value}
       disabled={disabled}
       placeholder={placeholder}
-      onChange={(v) => onChange(v)}
-      formatOptionLabel={({ label }) => {
-        return (
-          <>
-            <span>
-              {label !== "" && (
-                <UserAvatar name={label} size="sm" variant="soft" />
-              )}
-              <Text
-                weight="regular"
-                className={metaDataStyles.valueColor}
-                ml="1"
-              >
-                {label === "" ? "None" : label}
-              </Text>
-            </span>
-          </>
-        );
-      }}
+      onChange={onChange}
+      formatOptionLabel={(option) => (
+        <Owner
+          ownerId={option.value}
+          gap="1"
+          textColor="text-mid"
+          weight="regular"
+        />
+      )}
     />
   );
 }

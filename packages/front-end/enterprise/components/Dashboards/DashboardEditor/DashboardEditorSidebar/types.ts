@@ -13,12 +13,6 @@ export type ExperimentMetricBlockContext = BlockContext & {
     label: string;
     sliceLevels: SliceLevelsData[];
   }>;
-  togglePinnedMetricSlice?: (
-    metricId: string,
-    sliceLevels: SliceLevelsData[],
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => void;
-  isSlicePinned?: (pinKey: string) => boolean;
 };
 
 export type ExperimentTimeSeriesBlockContext = BlockContext & {
@@ -28,12 +22,6 @@ export type ExperimentTimeSeriesBlockContext = BlockContext & {
     label: string;
     sliceLevels: SliceLevelsData[];
   }>;
-  togglePinnedMetricSlice?: (
-    metricId: string,
-    sliceLevels: SliceLevelsData[],
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => void;
-  isSlicePinned?: (pinKey: string) => boolean;
 };
 
 // add more block-specific contexts here

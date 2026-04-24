@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { IconType } from "react-icons/lib";
 import { useRouter } from "next/router";
@@ -8,14 +8,24 @@ import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
 import { GlobalPermission } from "shared/types/organization";
 import { Permissions } from "shared/permissions";
 import { SegmentInterface } from "shared/types/segment";
-import { SavedQuery } from "shared/validators";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import useApi from "@/hooks/useApi";
+import Badge from "@/ui/Badge";
 import styles from "./SidebarLink.module.scss";
+
+export type SidebarLinkFilterProps = {
+  permissionsUtils: Permissions;
+  segments: SegmentInterface[];
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  superAdmin: boolean;
+  isCloud: boolean;
+  isMultiOrg: boolean;
+  gb?: GrowthBook<AppFeatures>;
+  project?: string;
+};
 
 export type SidebarLinkProps = {
   name: string;
@@ -28,32 +38,35 @@ export type SidebarLinkProps = {
   className?: string;
   autoClose?: boolean;
   navigateOnExpand?: boolean;
-  filter?: (props: {
-    permissionsUtils: Permissions;
-    segments: SegmentInterface[];
-    permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-    superAdmin: boolean;
-    isCloud: boolean;
-    isMultiOrg: boolean;
-    gb?: GrowthBook<AppFeatures>;
-    project?: string;
-    savedQueries: SavedQuery[];
-  }) => boolean;
+  filter?: (props: SidebarLinkFilterProps) => boolean;
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
 };
 
+/** Same inputs the sidebar uses for `filter` on nav links — use for Cmd+K / tests so visibility stays in sync. */
+export function buildSidebarLinkFilterProps(input: {
+  permissionsUtils: Permissions;
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  superAdmin: boolean | undefined;
+  gb: GrowthBook<AppFeatures> | undefined;
+  project: string | undefined;
+  segments: SegmentInterface[];
+}): SidebarLinkFilterProps {
+  return {
+    permissionsUtils: input.permissionsUtils,
+    permissions: input.permissions,
+    superAdmin: !!input.superAdmin,
+    isCloud: isCloud(),
+    isMultiOrg: isMultiOrg(),
+    gb: input.gb,
+    project: input.project,
+    segments: input.segments,
+  };
+}
+
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
-  const { data: savedQueryData } = useApi<{
-    status: number;
-    savedQueries: SavedQuery[];
-  }>("/saved-queries");
-  const savedQueries = useMemo(
-    () => savedQueryData?.savedQueries ?? [],
-    [savedQueryData],
-  );
 
   const router = useRouter();
 
@@ -73,17 +86,14 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     }
   }, [selected]);
 
-  const filterProps = {
+  const filterProps = buildSidebarLinkFilterProps({
     permissionsUtils,
     permissions,
-    superAdmin: !!superAdmin,
-    isCloud: isCloud(),
-    isMultiOrg: isMultiOrg(),
+    superAdmin,
     gb: growthbook,
     project,
     segments,
-    savedQueries,
-  };
+  });
 
   if (props.filter && !props.filter(filterProps)) {
     return null;
@@ -201,7 +211,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                   )}
                   {l.name}
                   {l.beta && (
-                    <div className="badge badge-purple ml-2">beta</div>
+                    <Badge color="indigo" label="Beta" variant="solid" ml="2" />
                   )}
                 </Link>
               </li>

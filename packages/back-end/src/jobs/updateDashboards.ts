@@ -1,8 +1,8 @@
 import Agenda, { Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-import { DashboardModel } from "../enterprise/models/DashboardModel";
-import { updateNonExperimentDashboard } from "../enterprise/services/dashboards";
+import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
+import { updateNonExperimentDashboard } from "back-end/src/enterprise/services/dashboards";
 
 const QUEUE_DASHBOARD_UPDATES = "queueDashboardUpdates";
 

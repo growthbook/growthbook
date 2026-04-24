@@ -6,11 +6,8 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { omit } from "lodash";
-import { SavedGroupInterface } from "shared/types/groups";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
-import { WebhookInterface } from "shared/types/webhook";
 import {
   LegacyExperimentReportArgs,
   ExperimentReportInterface,
@@ -28,7 +25,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
+import { Namespaces, OrganizationInterface } from "shared/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
@@ -38,7 +35,6 @@ import {
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -412,10 +408,6 @@ export function upgradeFeatureInterface(
     }
   }
 
-  if (newFeature.legacyDraft && !newFeature.legacyDraftMigrated) {
-    newFeature.hasDrafts = true;
-  }
-
   if (newFeature.jsonSchema) {
     newFeature.jsonSchema.schemaType =
       newFeature.jsonSchema.schemaType || "schema";
@@ -486,6 +478,13 @@ export function upgradeOrganizationDoc(
     org.settings.statsEngine = DEFAULT_STATS_ENGINE;
   }
 
+  // Backfill restApiBypassesReviews=true for orgs created before this field existed.
+  // New orgs have it set explicitly to false at creation time; only old orgs without
+  // the field should inherit the original "always bypass" behaviour.
+  if (org.settings.restApiBypassesReviews === undefined) {
+    org.settings.restApiBypassesReviews = true;
+  }
+
   // Migrate Arroval Flow Settings
   if (
     org.settings?.requireReviews === true ||
@@ -511,12 +510,33 @@ export function upgradeOrganizationDoc(
     }
   });
 
-  // Make sure namespaces have labels- if it's missing, use the name
+  // Make sure namespaces have labels, seeds, and format flags - if missing, use deterministic defaults.
+  // Note: do NOT use uuidv4() here. This function runs on every DB read and is never
+  // persisted, so a random seed would change on every request. Use ns.name as a stable fallback.
   if (org?.settings?.namespaces?.length) {
-    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
-      ...ns,
-      label: ns.label || ns.name,
-    }));
+    org.settings.namespaces = org.settings.namespaces.map((ns) => {
+      const hashAttribute =
+        "hashAttribute" in ns ? ns.hashAttribute : undefined;
+      const seed = "seed" in ns ? ns.seed : undefined;
+      return {
+        ...ns,
+        label: ns.label || ns.name,
+        seed: seed || ns.name,
+        format: ns.format || (hashAttribute ? "multiRange" : "legacy"), // Set format based on hashAttribute presence
+      } as Namespaces;
+    });
+  }
+
+  // Migrate postStratificationDisabled to postStratificationEnabled
+  // If postStratificationEnabled is undefined OR true, it means ON
+  // Only if postStratificationEnabled is explicitly false should it be OFF
+  if (org.settings?.postStratificationDisabled !== undefined) {
+    // Convert from inverted logic: disabled=true -> enabled=false
+    if (org.settings.postStratificationEnabled === undefined) {
+      org.settings.postStratificationEnabled =
+        !org.settings.postStratificationDisabled;
+    }
+    delete org.settings.postStratificationDisabled;
   }
 
   return org;
@@ -569,7 +589,7 @@ export function upgradeExperimentDoc(
       };
       // Some experiments have a namespace with only `enabled` set, no idea why
       // This breaks namespaces, so add default values if missing
-      if (!phase.namespace.range) {
+      if (!("range" in phase.namespace) && !("ranges" in phase.namespace)) {
         phase.namespace = {
           enabled: false,
           name: "",
@@ -587,6 +607,25 @@ export function upgradeExperimentDoc(
                 srm: event.banditResult.srm,
               },
             }),
+        }));
+      }
+    });
+  }
+
+  // Populate phase-level variation status from top-level variations
+  if (experiment.phases) {
+    experiment.phases.forEach((phase) => {
+      if (!phase.variations) {
+        phase.variations = experiment.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        }));
+      }
+      if (phase.variations && phase.variations.length === 0) {
+        // catch case where variations is an empty array
+        phase.variations = experiment.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
         }));
       }
     });
@@ -770,6 +809,7 @@ export function migrateSnapshot(
               sequentialTestingTuningParameter ||
               DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
             numGoalMetrics: goalMetrics.length,
+            numGuardrailMetrics: 0,
           },
           results,
         },
@@ -838,7 +878,6 @@ export function migrateSnapshot(
     });
 
     snapshot.settings = {
-      manual: !!manual,
       dimensions: snapshot.dimension
         ? [
             {
@@ -863,6 +902,8 @@ export function migrateSnapshot(
       skipPartialData: !!skipPartialData,
       attributionModel: "firstExposure",
       variations,
+      // Deprecated manual setting
+      ...(manual !== undefined ? { manual: !!manual } : {}),
     };
   } else {
     // Add new settings field in case it is missing
@@ -919,35 +960,6 @@ export function migrateSnapshot(
   return snapshot;
 }
 
-export function migrateSavedGroup(
-  legacy: LegacySavedGroupInterface,
-): SavedGroupInterface {
-  // Add `type` field to legacy groups
-  const { source, type, ...otherFields } = legacy;
-  const group: SavedGroupInterface = {
-    ...otherFields,
-    type: type || (source === "runtime" ? "condition" : "list"),
-  };
-
-  // Migrate legacy runtime groups to use a condition
-  if (
-    group.type === "condition" &&
-    !group.condition &&
-    source === "runtime" &&
-    group.attributeKey
-  ) {
-    group.condition = JSON.stringify({
-      $groups: {
-        $elemMatch: {
-          $eq: group.attributeKey,
-        },
-      },
-    });
-  }
-
-  return group;
-}
-
 export function migrateSdkWebhookLogModel(
   doc: SdkWebHookLogDocument,
 ): SdkWebHookLogDocument {
@@ -956,18 +968,4 @@ export function migrateSdkWebhookLogModel(
     delete doc.webhookReduestId;
   }
   return doc;
-}
-
-export function migrateWebhookModel(doc: WebhookInterface): WebhookInterface {
-  const newDoc = omit(doc, ["sendPayload"]) as WebhookInterface;
-  if (!doc.payloadFormat) {
-    if (doc.httpMethod === "GET") {
-      newDoc.payloadFormat = "none";
-    } else if (doc.sendPayload) {
-      newDoc.payloadFormat = "standard";
-    } else {
-      newDoc.payloadFormat = "standard-no-payload";
-    }
-  }
-  return newDoc;
 }

@@ -3,6 +3,7 @@ import {
   ExperimentDecisionFrameworkSettings,
   ProjectInterface,
 } from "shared/validators";
+import { CommercialFeature } from "shared/enterprise";
 import { OrganizationSettings } from "shared/types/organization";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { DimensionInterface } from "shared/types/dimension";
@@ -57,7 +58,6 @@ export type ExperimentSnapshotReportArgs = {
       levels: string[];
     }>;
   }>;
-  pinnedMetricSlices?: string[];
 };
 
 export interface ExperimentReportMetadata {
@@ -71,6 +71,7 @@ export type ExperimentReportPhase = Pick<
   | "dateEnded"
   | "name"
   | "variationWeights"
+  | "variations"
   | "banditEvents"
   | "coverage"
 >;
@@ -88,9 +89,6 @@ export interface ExperimentReportVariation {
   id: string;
   name: string;
   weight: number;
-}
-export interface ExperimentReportVariationWithIndex
-  extends ExperimentReportVariation {
   index: number;
 }
 export interface MetricSnapshotSettings {
@@ -196,4 +194,5 @@ export type ExperimentReportSSRData = {
   settings: OrganizationSettings;
   projects: Record<string, ProjectInterface>;
   dimensions: DimensionInterface[];
+  commercialFeatures?: CommercialFeature[];
 };

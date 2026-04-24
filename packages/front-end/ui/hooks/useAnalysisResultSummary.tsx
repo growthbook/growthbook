@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ExperimentReportVariationWithIndex } from "shared/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import {
   StatsEngine,
   PValueCorrection,
@@ -17,7 +17,7 @@ export function useAnalysisResultSummary({
   pValueCorrection,
   noTooltip,
 }: {
-  orderedVariations: ExperimentReportVariationWithIndex[];
+  orderedVariations: ExperimentReportVariation[];
   rows: ExperimentTableRow[];
   rowsResults: (RowResults | "query error" | null)[][];
   dimension?: string;

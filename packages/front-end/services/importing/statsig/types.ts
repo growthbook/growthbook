@@ -2,7 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { TagInterface } from "shared/types/tag";
 import { Environment } from "shared/types/organization";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   CreateFactMetricProps,
   CreateFactTableProps,

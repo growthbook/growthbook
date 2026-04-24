@@ -70,5 +70,28 @@ describe("feature utils", () => {
         child: ["nested object", "new entry"],
       });
     });
+
+    it("handles undefined environmentRecord with parent environments", () => {
+      const result = applyEnvironmentInheritance(
+        [
+          { id: "parent", description: "" },
+          { id: "child", parent: "parent", description: "" },
+        ],
+        undefined as unknown as Record<string, unknown>,
+      );
+      expect(result).toEqual({});
+    });
+
+    it("handles empty environmentRecord with parent environments", () => {
+      const result = applyEnvironmentInheritance(
+        [
+          { id: "dev", description: "" },
+          { id: "staging", parent: "dev", description: "" },
+          { id: "production", parent: "staging", description: "" },
+        ],
+        {},
+      );
+      expect(result).toEqual({});
+    });
   });
 });

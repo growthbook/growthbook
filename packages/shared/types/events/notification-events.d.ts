@@ -1,5 +1,8 @@
-import { ExperimentWarningNotificationPayload } from "shared/validators";
-import { ApiExperiment, ApiFeature } from "shared/types/openapi";
+import {
+  ExperimentWarningNotificationPayload,
+  ApiExperiment,
+  FeatureWebhookPayload,
+} from "shared/validators";
 import { LegacyNotificationEventPayload } from "./base-types";
 import { UserLoginEventProperties } from "./event-types";
 
@@ -24,7 +27,7 @@ export type LegacyFeatureCreatedNotificationEvent =
     "feature",
     "feature.created",
     {
-      current: ApiFeature;
+      current: FeatureWebhookPayload;
     }
   >;
 
@@ -33,8 +36,8 @@ export type LegacyFeatureUpdatedNotificationEvent =
     "feature",
     "feature.updated",
     {
-      current: ApiFeature;
-      previous: ApiFeature;
+      current: FeatureWebhookPayload;
+      previous: FeatureWebhookPayload;
     }
   >;
 
@@ -43,7 +46,7 @@ export type LegacyFeatureDeletedNotificationEvent =
     "feature",
     "feature.deleted",
     {
-      previous: ApiFeature;
+      previous: FeatureWebhookPayload;
     }
   >;
 

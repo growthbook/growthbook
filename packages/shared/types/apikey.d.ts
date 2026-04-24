@@ -1,25 +1,14 @@
-export interface ApiKeyInterface {
-  id?: string;
-  key: string;
-  environment?: string;
-  project?: string;
-  description?: string;
-  organization: string;
-  dateCreated: Date;
-  userId?: string;
-  role?: string;
-  encryptSDK?: boolean;
-  encryptionKey?: string;
-  secret?: boolean;
-}
+import { z } from "zod";
+import {
+  apiKeySchema,
+  secretApiKey,
+  secretApiKeyRedacted,
+} from "shared/validators";
 
-export type SecretApiKey = Omit<
-  ApiKeyInterface,
-  "secret" | "environment" | "project" | "id"
-> & {
-  secret: true;
-  id: string;
-  encryptionKey?: string;
-};
+export type ApiKeyInterface = z.infer<typeof apiKeySchema>;
+// For typecasting after verifying that the key has a role
+export type ApiKeyWithRole = ApiKeyInterface & { role: string };
 
-export type SecretApiKeyRedacted = Omit<SecretApiKey, "key">;
+export type SecretApiKey = z.infer<typeof secretApiKey>;
+
+export type SecretApiKeyRedacted = z.infer<typeof secretApiKeyRedacted>;

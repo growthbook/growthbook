@@ -14,13 +14,14 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
 import Link from "next/link";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
+import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -37,12 +38,12 @@ import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetri
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeatureSettings from "@/components/GeneralSettings/FeatureSettings";
+import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import HelperText from "@/ui/HelperText";
-import { AppFeatures } from "@/types/app-features";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
@@ -62,8 +63,6 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
   const [saveMsg, setSaveMsg] = useState(false);
@@ -132,8 +131,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
           resetReviewOnChange: false,
           environments: [],
           projects: [],
+          featureRequireEnvironmentReview: true,
+          featureRequireMetadataReview: true,
         },
       ],
+      restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       disableMultiMetricQueries: false,
@@ -169,7 +171,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
-      openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
+      defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
+      embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
       defaultFeatureRulesInAllEnvs:
@@ -178,7 +181,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
       savedGroupSizeLimit: undefined,
-      postStratificationDisabled: settings.postStratificationDisabled ?? false,
+      postStratificationEnabled:
+        settings.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED,
     },
   });
   const { apiCall } = useAuth();
@@ -224,7 +229,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
-    openAIDefaultModel: form.watch("openAIDefaultModel"),
+    defaultAIModel: form.watch("defaultAIModel"),
+    embeddingModel: form.watch("embeddingModel"),
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
@@ -323,13 +329,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
-    const formattedPrompts = Object.entries(promptValues).map(
-      ([key, value]) => ({
-        type: key,
-        prompt: value,
-      }),
-    );
-
+    const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
+      type,
+      prompt: promptValues[type],
+      overrideModel: promptValues[`${type}-model`] || undefined,
+    }));
     await apiCall(`/ai/prompts`, {
       method: "POST",
       body: JSON.stringify({ prompts: formattedPrompts }),
@@ -433,15 +437,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 cronString={cronString}
                 updateCronString={updateCronString}
               />
-              {growthbook.isOn("bandits") && (
-                <Frame mb="4">
-                  <BanditSettings page="org-settings" />
-                </Frame>
-              )}
+              <Frame mb="4">
+                <BanditSettings page="org-settings" />
+              </Frame>
             </TabsContent>
 
             <TabsContent value="feature">
               <FeatureSettings />
+              <RampScheduleTemplates />
             </TabsContent>
 
             <TabsContent value="metrics">
@@ -524,7 +527,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
-                await savePrompts();
+                // Only save prompts if the prompt form has changes
+                if (promptForm.formState.isDirty) {
+                  await savePrompts();
+                }
               }}
               setError={setSubmitError}
             >

@@ -264,7 +264,12 @@ export const isValidPowerCalculationParams = (
         ...(params.type === "binomial" ? binomialParams : []),
         ...(params.type === "mean" ? meanParams : []),
       ] as const
-    ).every((k) => validEntry(k, params[k]));
+    ).every((k) =>
+      validEntry(
+        k,
+        (params as unknown as Record<string, number | boolean | undefined>)[k],
+      ),
+    );
   });
 
 export const ensureAndReturnPowerCalculationParams = (

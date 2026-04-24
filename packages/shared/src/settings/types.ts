@@ -18,7 +18,7 @@ import { StatsEngine, PValueCorrection } from "shared/types/stats";
 import { ProjectInterface } from "shared/types/project";
 import { ReportInterface } from "shared/types/report";
 import { MetricWindowSettings } from "shared/types/fact-table";
-import { ExperimentMetricInterface } from "../experiments";
+import { ExperimentMetricInterface } from "../experiments/experiments";
 
 interface SettingMetadata {
   scopeApplied?: keyof ScopeDefinition | "organization";
@@ -81,6 +81,7 @@ interface BaseSettings {
   regressionAdjustmentDays: number;
   sequentialTestingEnabled: boolean;
   sequentialTestingTuningParameter: number;
+  postStratificationEnabled: boolean;
   attributionModel: AttributionModel;
   srmThreshold: number;
   secureAttributeSalt: string;

@@ -1,5 +1,6 @@
 import { MemberRoleInfo, MetricDefaults } from "shared/types/organization";
 import {
+  DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_METRIC_CAPPING,
@@ -9,6 +10,7 @@ import {
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_P_VALUE_CORRECTION,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_ENABLED,
@@ -23,7 +25,6 @@ import {
 } from "../../constants";
 import { Settings } from "../types";
 
-export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_ATTRIBUTION_MODEL = "firstExposure";
 export const DEFAULT_ROLE: MemberRoleInfo = {
   environments: [],
@@ -81,6 +82,7 @@ export default function genDefaultSettings(): Settings {
     sequentialTestingEnabled: DEFAULT_SEQUENTIAL_TESTING_ENABLED,
     sequentialTestingTuningParameter:
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    postStratificationEnabled: DEFAULT_POST_STRATIFICATION_ENABLED,
     sdkInstructionsViewed: DEFAULT_SDK_INSTRUCTIONS_VIEWED,
     statsEngine: DEFAULT_STATS_ENGINE,
     updateSchedule: DEFAULT_UPDATE_SCHEDULE,

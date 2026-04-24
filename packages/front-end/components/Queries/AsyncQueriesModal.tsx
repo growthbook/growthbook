@@ -7,7 +7,7 @@ import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
-import ExpandableSavedQuery from "../SavedQueries/ExpandableSavedQuery";
+import ExpandableSavedQuery from "@/components/SavedQueries/ExpandableSavedQuery";
 import ExpandableQuery from "./ExpandableQuery";
 import QueryStatsRow from "./QueryStatsRow";
 

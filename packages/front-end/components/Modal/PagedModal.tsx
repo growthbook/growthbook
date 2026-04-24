@@ -17,7 +17,7 @@ import { DocSection } from "@/components/DocLink";
 import track, { TrackEventProps } from "@/services/track";
 
 type Props = {
-  header: string | null;
+  header: string | ReactNode | null;
   subHeader?: string | ReactNode;
   submitColor?: string;
   hideCta?: boolean;
@@ -36,7 +36,7 @@ type Props = {
   navFill?: boolean;
   inline?: boolean;
   close?: () => void;
-  submit: () => Promise<void>;
+  submit?: () => Promise<void>;
   children: ReactNode;
   backButton?: boolean;
   onBackFirstStep?: () => void;
@@ -49,6 +49,7 @@ type Props = {
   onSkip?: () => Promise<void>;
   skipped?: Set<number>;
   hideNav?: boolean;
+  bodyPrefix?: ReactNode;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
   // The source (likely page or component) causing the modal to be shown
@@ -56,6 +57,7 @@ type Props = {
   // Currently the allowlist for what event props are valid is controlled outside of the codebase.
   // Make sure you've checked that any props you pass here are in the list!
   allowlistedTrackingEventProps?: TrackEventProps;
+  useRadixButton?: boolean;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -82,11 +84,13 @@ const PagedModal: FC<Props> = (props) => {
     onSkip,
     skipped,
     hideNav,
+    bodyPrefix,
     loading,
     trackingEventModalType,
     trackingEventModalSource,
     allowlistedTrackingEventProps = {},
     header,
+    hideCta,
     ...passThrough
   } = props;
   const [modalUuid] = useState(uuidv4());
@@ -274,21 +278,26 @@ const PagedModal: FC<Props> = (props) => {
       bodyClassName={bodyClassName}
       header={header}
       showHeaderCloseButton={showHeaderCloseButton}
+      hideCta={hideCta}
       {...passThrough}
       trackOnSubmit={!nextStep}
-      submit={async () => {
-        await validateSteps(nextStep);
-        if (!nextStep) {
-          await submit();
-          if (props.close && autoCloseOnSubmit) {
-            props.close();
-          }
-        } else if (steps[nextStep - 1].customNext) {
-          steps[nextStep - 1].customNext?.();
-        } else {
-          setStep(nextStep);
-        }
-      }}
+      submit={
+        submit
+          ? async () => {
+              await validateSteps(nextStep);
+              if (!nextStep) {
+                await submit?.();
+                if (props.close && autoCloseOnSubmit) {
+                  props.close();
+                }
+              } else if (steps[nextStep - 1].customNext) {
+                steps[nextStep - 1].customNext?.();
+              } else {
+                setStep(nextStep);
+              }
+            }
+          : undefined
+      }
       backCTA={
         backButton && (step >= 1 || onBackFirstStep) ? (
           <button
@@ -343,6 +352,7 @@ const PagedModal: FC<Props> = (props) => {
       modalUuid={modalUuid}
       aboveBodyContent={stepper}
     >
+      {bodyPrefix}
       <div className="mt-2">{content}</div>
     </Modal>
   );

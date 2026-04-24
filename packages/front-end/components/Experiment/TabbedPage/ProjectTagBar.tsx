@@ -1,16 +1,15 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Flex, Text } from "@radix-ui/themes";
-import { date } from "shared/dates";
+import { Flex } from "@radix-ui/themes";
+import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
-import React from "react";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
+import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -19,7 +18,7 @@ import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterface;
+  holdout?: HoldoutInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   setEditInfoFocusSelector: (value: FocusSelector) => void;
   editTags?: (() => void) | null;
@@ -38,7 +37,6 @@ export default function ProjectTagBar({
     getProjectById,
   } = useDefinitions();
 
-  const { getUserDisplay } = useUser();
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
@@ -55,23 +53,91 @@ export default function ProjectTagBar({
 
   const trackingKey = experiment.trackingKey;
 
-  const createdDate = date(experiment.dateCreated);
+  const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
 
-  const ownerName = getUserDisplay(experiment.owner, false) || "";
+  const createdDate = toUTCDate(experiment.dateCreated);
 
-  const renderOwner = () => {
+  const isHoldout = experiment.type === "holdout";
+
+  const hasMultiplePhases = (experiment.phases?.length ?? 0) > 1;
+
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
+
+  const showRuntime =
+    experiment.phases?.length > 0 &&
+    experiment.status !== "draft" &&
+    latestPhase?.dateStarted;
+
+  const renderRuntime = () => {
+    const phases = experiment.phases || [];
+    const numPhases = phases.length;
+
+    // If no phases: If experiment start date ? `experiment start date - now` : "not started"
+    if (numPhases === 0) {
+      return "not started";
+    }
+
+    // If holdout, total runtime from first phase to latest phase
+    // If not holdout, latest phase runtime
+    const firstPhase = phases[0];
+    const lastPhase = phases[phases.length - 1];
+    const startDate = isHoldout
+      ? toUTCDate(firstPhase?.dateStarted ?? "")
+      : toUTCDate(lastPhase?.dateStarted ?? "");
+    const endDate = lastPhase?.dateEnded
+      ? toUTCDate(lastPhase.dateEnded)
+      : "now";
+
+    if (!startDate) {
+      return "not started";
+    }
+
+    return `${startDate} - ${endDate}`;
+  };
+
+  const renderTotalRuntimeTooltip = (): JSX.Element | string => {
+    const phases = experiment.phases || [];
+    const numPhases = phases.length;
+
+    if (numPhases === 0) {
+      return "";
+    }
+
+    const firstPhase = phases[0];
+    const lastPhase = phases[phases.length - 1];
+
+    // Get the actual start date (not formatted)
+    const startDateStr = isHoldout
+      ? firstPhase.dateStarted
+      : lastPhase.dateStarted;
+
+    if (!startDateStr) {
+      return "";
+    }
+
+    // Get the end date (or use now)
+    const endDateStr = lastPhase?.dateEnded || new Date().toISOString();
+
+    const days = daysBetween(startDateStr, endDateStr);
+
+    // Format the date range
+    const startDateFormatted = toUTCDate(startDateStr);
+    const endDateFormatted = lastPhase?.dateEnded
+      ? toUTCDate(lastPhase.dateEnded)
+      : "now";
+
     return (
       <>
-        <span>
-          {ownerName !== "" && (
-            <UserAvatar name={ownerName} size="sm" variant="soft" />
-          )}
-          <Text weight="regular" className={metaDataStyles.valueColor} ml="1">
-            {ownerName === "" ? "None" : ownerName}
-          </Text>
-        </span>
+        <strong>Total runtime</strong>
+        <br />
+        {startDateFormatted} - {endDateFormatted} ({days}{" "}
+        {days === 1 ? "day" : "days"})
       </>
     );
+  };
+
+  const renderOwner = () => {
+    return <Owner ownerId={experiment.owner} gap="1" textColor="text-mid" />;
   };
 
   const RenderToolTipsAndValue = () => {
@@ -99,7 +165,7 @@ export default function ProjectTagBar({
     } else {
       return (
         projectId && (
-          <Text weight="regular" className={metaDataStyles.valueColor}>
+          <Text weight="regular" color="text-mid">
             {projectName}
           </Text>
         )
@@ -150,7 +216,7 @@ export default function ProjectTagBar({
           )}
         {!canUpdateHoldoutProjects(holdout.projects) &&
           holdout.projects.length === 0 && (
-            <Text weight="regular" className={metaDataStyles.valueColor}>
+            <Text weight="regular" color="text-mid">
               None
             </Text>
           )}
@@ -173,6 +239,7 @@ export default function ProjectTagBar({
             tags={experiment.tags}
             useFlex
             shouldShowEllipsis={false}
+            {...tagLinkProps("experiments")}
           />
         )}
         {editTags && experiment.tags?.length === 0 && (
@@ -206,10 +273,22 @@ export default function ProjectTagBar({
         {experiment.type !== "holdout" && (
           <Metadata label="Experiment Key" value={trackingKey || "None"} />
         )}
-        <Metadata label="Created" value={createdDate} />
         <Metadata label="Owner" value={renderOwner()} />
+        <Metadata label="Created" value={createdDate} />
+        {showRuntime && (
+          <Tooltip body={renderTotalRuntimeTooltip()}>
+            <Metadata
+              label={
+                hasMultiplePhases && experiment.type !== "holdout"
+                  ? "Latest Phase"
+                  : "Runtime"
+              }
+              value={renderRuntime()}
+            />
+          </Tooltip>
+        )}
       </Flex>
-      <div className="row">
+      <div className="row mt-2">
         <div className="col-auto">
           <Metadata label="Tags" value={renderTagsValue()} />
         </div>

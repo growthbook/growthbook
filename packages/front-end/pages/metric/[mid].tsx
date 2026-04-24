@@ -14,13 +14,11 @@ import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
+import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_WIN_RISK_THRESHOLD,
-} from "shared/constants";
 import { Box, Flex } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -64,6 +62,7 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
+import { AppFeatures } from "@/types/app-features";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -80,7 +79,8 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
-  const { organization } = useUser();
+  const { organization, getOwnerDisplay } = useUser();
+  const gb = useGrowthBook<AppFeatures>();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
@@ -373,7 +373,6 @@ const MetricPage: FC = () => {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="metric"
           cancel={() => setEditOwnerModal(false)}
           owner={metric.owner}
           save={async (owner) => {
@@ -559,28 +558,32 @@ const MetricPage: FC = () => {
                           mutateDefinitions({});
                         }}
                         aiSuggestFunction={async () => {
+                          // Only evaluate the feature flag if suggestion is requested
+                          const aiTemperature =
+                            gb?.getFeatureValue(
+                              "ai-suggestions-temperature",
+                              0.1,
+                            ) || 0.1;
+
                           const res = await apiCall<{
                             status: number;
                             data: {
                               description: string;
                             };
                           }>(
-                            `/metrics/${metric.id}/gen-description`,
+                            `/metrics/${metric.id}/gen-description?temperature=${aiTemperature}`,
                             {
                               method: "GET",
                             },
                             (responseData) => {
                               if (responseData.status === 429) {
-                                const retryAfter = parseInt(
-                                  responseData.retryAfter,
-                                );
-                                const hours = Math.floor(retryAfter / 3600);
-                                const minutes = Math.floor(
-                                  (retryAfter % 3600) / 60,
-                                );
                                 throw new Error(
-                                  `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+                                  formatAIRateLimitRetryMessage(
+                                    responseData.retryAfter,
+                                  ),
                                 );
+                              } else if (responseData.message) {
+                                throw new Error(responseData.message);
                               } else {
                                 throw new Error("Error getting AI suggestion");
                               }
@@ -941,7 +944,7 @@ const MetricPage: FC = () => {
               canOpen={canEditMetric}
             >
               <RightRailSectionGroup type="custom">
-                {metric.owner}
+                {getOwnerDisplay(metric.owner) || "None"}
               </RightRailSectionGroup>
             </RightRailSection>
 
@@ -1314,29 +1317,6 @@ const MetricPage: FC = () => {
                     <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(metric) * 100}%
-                    </span>
-                  </li>
-                </ul>
-              </RightRailSectionGroup>
-
-              <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled mb-4">
-                  <li className="mt-3 mb-2">
-                    <span className="uppercase-title lg">Risk Thresholds</span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to Bayesian analyses
-                    </small>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {(metric.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100}%
-                    </span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {(metric.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                 </ul>

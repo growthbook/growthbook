@@ -1,6 +1,9 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { SDKAttribute } from "shared/types/organization";
-import { StatsigFeatureGate, StatsigDynamicConfig } from "../types";
+import {
+  StatsigFeatureGate,
+  StatsigDynamicConfig,
+} from "@/services/importing/statsig/types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 import { ensureAttributeExists } from "./attributeCreator";

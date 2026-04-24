@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 import { NextApiRequest, NextApiResponse } from "next";
-import { stringToBoolean } from "shared/util";
+import { parseEnvInt, stringToBoolean } from "shared/util";
 
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable" | "enable-with-debug";
@@ -31,7 +31,12 @@ export interface EnvironmentInitValue {
   ingestorOverride: string;
   stripePublishableKey: string;
   experimentRefreshFrequency: number;
+  autoSliceUpdateFrequencyHours: number;
   hasOpenAIKey?: boolean;
+  hasAnthropicKey?: boolean;
+  hasXaiKey?: boolean;
+  hasMistralKey?: boolean;
+  hasGoogleAIKey?: boolean;
   uploadMethod: "local" | "s3" | "google-cloud";
 }
 
@@ -61,11 +66,18 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     EXPERIMENT_REFRESH_FREQUENCY,
+    AUTO_SLICE_UPDATE_FREQUENCY_HOURS,
     OPENAI_API_KEY,
+    ANTHROPIC_API_KEY,
+    XAI_API_KEY,
+    MISTRAL_API_KEY,
+    GOOGLE_AI_API_KEY,
     UPLOAD_METHOD,
   } = process.env;
 
-  const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
+  // Use process.cwd() which returns the front-end directory (set via ecosystem.config.js cwd)
+  // Go 2 levels up to reach the workspace/app root where buildinfo and config directories live
+  const rootPath = path.join(process.cwd(), "..", "..");
 
   const hasConfigFile = fs.existsSync(
     path.join(rootPath, "config", "config.yml"),
@@ -79,12 +91,14 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
     build.sha = fs
       .readFileSync(path.join(rootPath, "buildinfo", "SHA"))
-      .toString();
+      .toString()
+      .trim();
   }
   if (fs.existsSync(path.join(rootPath, "buildinfo", "DATE"))) {
     build.date = fs
       .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
-      .toString();
+      .toString()
+      .trim();
   }
 
   // Read version from package.json
@@ -122,9 +136,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       !hasConfigFile || stringToBoolean(ALLOW_CREATE_DIMENSIONS),
     build,
     environment: NODE_ENV || "development",
-    defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
-      ? parseInt(DEFAULT_CONVERSION_WINDOW_HOURS)
-      : 72,
+    defaultConversionWindowHours: parseEnvInt(
+      DEFAULT_CONVERSION_WINDOW_HOURS,
+      72,
+      { min: 1, name: "DEFAULT_CONVERSION_WINDOW_HOURS" },
+    ),
     telemetry:
       DISABLE_TELEMETRY === "debug"
         ? "debug"
@@ -139,12 +155,27 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
     ingestorOverride: INGESTOR_HOST || "",
     stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
-    experimentRefreshFrequency: EXPERIMENT_REFRESH_FREQUENCY
-      ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
-      : 6,
+    experimentRefreshFrequency: parseEnvInt(EXPERIMENT_REFRESH_FREQUENCY, 6, {
+      min: 1,
+      name: "EXPERIMENT_REFRESH_FREQUENCY",
+    }),
+    autoSliceUpdateFrequencyHours: parseEnvInt(
+      AUTO_SLICE_UPDATE_FREQUENCY_HOURS,
+      168,
+      { min: 1, name: "AUTO_SLICE_UPDATE_FREQUENCY_HOURS" },
+    ), // Default: 168 hours (7 days)
     hasOpenAIKey: !!OPENAI_API_KEY || false,
+    hasAnthropicKey: !!ANTHROPIC_API_KEY || false,
+    hasXaiKey: !!XAI_API_KEY || false,
+    hasMistralKey: !!MISTRAL_API_KEY || false,
+    hasGoogleAIKey: !!GOOGLE_AI_API_KEY || false,
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 
-  res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);
+  const cacheControl =
+    body.environment === "production"
+      ? "max-age=3600"
+      : "no-cache, no-store, must-revalidate";
+
+  res.setHeader("Cache-Control", cacheControl).status(200).json(body);
 }

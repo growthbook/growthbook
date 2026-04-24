@@ -36,7 +36,8 @@ export type DataType =
   | "boolean"
   | "date"
   | "timestamp"
-  | "hll";
+  | "hll"
+  | "kll";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
@@ -121,6 +122,7 @@ export type FactMetricData = {
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
   isPercentileCapped: boolean;
+  computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
   capCoalesceMetric: string;
@@ -131,6 +133,10 @@ export type FactMetricData = {
   denominatorAggFns: FactMetricAggregationMetadata;
   covariateNumeratorAggFns: FactMetricAggregationMetadata;
   covariateDenominatorAggFns: FactMetricAggregationMetadata;
+  uncappedCoalesceMetric: string;
+  uncappedCoalesceDenominator: string;
+  uncappedCoalesceCovariate: string;
+  uncappedCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
   raMetricFirstExposureSettings: CovariateFirstExposureSettings;
   raMetricPhaseStartSettings: CovariatePhaseStartSettings;
@@ -273,11 +279,12 @@ export type TestQueryParams = {
 
 export type ColumnTopValuesParams = {
   factTable: Pick<FactTableInterface, "sql" | "eventName">;
-  column: ColumnInterface;
+  columns: ColumnInterface[];
   limit?: number;
   lookbackDays?: number;
 };
 export type ColumnTopValuesResponseRow = {
+  column: string;
   value: string;
   count: number;
 };
@@ -451,6 +458,11 @@ export type MetricAnalysisParams = {
   metric: FactMetricInterface;
   factTableMap: FactTableMap;
   segment: SegmentInterface | null;
+};
+
+export type ProductAnalyticsExplorationParams = {
+  factTableMap: FactTableMap;
+  factMetricMap: Map<string, FactMetricInterface>;
 };
 
 export type DimensionColumnData = {

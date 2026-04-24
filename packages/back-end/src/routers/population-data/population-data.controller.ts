@@ -61,7 +61,6 @@ export const postPopulationData = async (
     );
 
   const snapshotSettings: ExperimentSnapshotSettings = {
-    manual: false,
     dimensions: [],
     metricSettings: [],
     goalMetrics: data.metricIds,
@@ -171,7 +170,7 @@ export const getPopulationData = async (
   );
 
   if (!populationData) {
-    throw new Error("PopulationData not found");
+    context.throwNotFoundError("PopulationData not found");
   }
 
   res.status(200).json({
@@ -191,7 +190,7 @@ export async function cancelPopulationData(
   );
 
   if (!populationData) {
-    throw new Error("Could not cancel query");
+    return context.throwNotFoundError("Could not cancel query");
   }
 
   const datasource = await getDataSourceById(
@@ -200,7 +199,9 @@ export async function cancelPopulationData(
   );
 
   if (!datasource) {
-    throw new Error("Could not cancel query, datasource not found");
+    return context.throwNotFoundError(
+      "Could not cancel query, datasource not found",
+    );
   }
 
   const integration = await getSourceIntegrationObject(context, datasource);

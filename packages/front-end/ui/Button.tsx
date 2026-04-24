@@ -14,7 +14,9 @@ export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md" | "lg";
 
 export type Props = {
-  onClick?: (() => Promise<void>) | (() => void);
+  onClick?:
+    | ((e?: React.MouseEvent<HTMLButtonElement>) => Promise<void>)
+    | (() => void);
   color?: Color;
   variant?: Variant;
   size?: Size;
@@ -24,6 +26,7 @@ export type Props = {
   icon?: ReactNode;
   iconPosition?: "left" | "right";
   stopPropagation?: boolean;
+  preventDefault?: boolean;
   children: string | string[] | ReactNode;
   style?: CSSProperties;
   tabIndex?: number;
@@ -56,6 +59,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       icon,
       iconPosition = "left",
       stopPropagation,
+      preventDefault = true,
       type = "button",
       children,
       ...otherProps
@@ -72,13 +76,13 @@ const Button = forwardRef<HTMLButtonElement, Props>(
         onClick={
           onClick
             ? async (e) => {
-                e.preventDefault();
+                if (preventDefault) e.preventDefault();
                 if (stopPropagation) e.stopPropagation();
                 if (loading) return;
                 setLoading(true);
                 setError?.(null);
                 try {
-                  await onClick();
+                  await onClick(e);
                 } catch (error) {
                   setError?.(error.message);
                 }

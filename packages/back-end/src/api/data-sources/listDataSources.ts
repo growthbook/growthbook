@@ -1,4 +1,3 @@
-import { ListDataSourcesResponse } from "shared/types/openapi";
 import { listDataSourcesValidator } from "shared/validators";
 import {
   getDataSourcesByOrganization,
@@ -12,7 +11,7 @@ import {
 
 export const listDataSources = createApiRequestHandler(
   listDataSourcesValidator,
-)(async (req): Promise<ListDataSourcesResponse> => {
+)(async (req) => {
   const dataSources = await getDataSourcesByOrganization(req.context);
 
   // TODO: Move sorting/limiting to the database query for better performance

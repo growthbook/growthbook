@@ -13,7 +13,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
-import { DocLink } from "../DocLink";
+import { DocLink } from "@/components/DocLink";
 
 export default function EnvironmentModal({
   existing,

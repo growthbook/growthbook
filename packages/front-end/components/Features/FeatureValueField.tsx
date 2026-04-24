@@ -9,10 +9,10 @@ import { getValidation } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
-import dJSON from "dirty-json";
 import clsx from "clsx";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCopy, PiBracketsCurly } from "react-icons/pi";
+import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -40,6 +40,7 @@ export interface Props {
   useCodeInput?: boolean;
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
+  hideCopyButton?: boolean;
 }
 
 export default function FeatureValueField({
@@ -56,6 +57,7 @@ export default function FeatureValueField({
   useCodeInput = false,
   showFullscreenButton = false,
   codeInputDefaultHeight,
+  hideCopyButton = false,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -67,8 +69,6 @@ export default function FeatureValueField({
     timeout: 800,
   });
 
-  const MEDIUM_FILE_SIZE = 1 * 1024; // 1KB - disable dirty-json parsing
-  const LARGE_FILE_SIZE = 1024 * 1024; // 1MB - default to text editor
   const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
   const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
     defaultCodeEditorToggledOn,
@@ -115,7 +115,9 @@ export default function FeatureValueField({
   if (valueType === "boolean" && !useDropdown) {
     return (
       <div className={clsx("form-group", { "mb-0": label === undefined })}>
-        {label !== undefined && <label>{label}</label>}
+        {label !== undefined && (
+          <label style={{ display: "block" }}>{label}</label>
+        )}
         <div>
           <RadioGroup
             disabled={disabled}
@@ -141,33 +143,7 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json") {
-    // Skip expensive dirty-json parsing for medium+ files
-    // dirty-json uses slow RegExp operations that block the UI
-    const isMediumOrLargerJSON = value.length > MEDIUM_FILE_SIZE;
-
-    let formatted;
-    if (!isMediumOrLargerJSON) {
-      try {
-        const parsed = dJSON.parse(value);
-        formatted = stringify(parsed);
-      } catch (e) {
-        // Ignore - if dirty-json fails, try native JSON.parse as fallback
-        try {
-          const parsed = JSON.parse(value);
-          formatted = stringify(parsed);
-        } catch (e2) {
-          // Ignore
-        }
-      }
-    } else {
-      // For medium+ files, only use native JSON.parse (much faster)
-      try {
-        const parsed = JSON.parse(value);
-        formatted = stringify(parsed);
-      } catch (e) {
-        // Invalid JSON - skip formatting for medium+ files to avoid blocking UI
-      }
-    }
+    const formatted = formatJSON(value);
 
     const codeEditorToggleButton = useCodeInput ? (
       <a
@@ -270,7 +246,9 @@ export default function FeatureValueField({
 
   const combinedHelpTextForString =
     valueType === "string" ? (
-      helpText ? (
+      hideCopyButton ? (
+        (helpText ?? null)
+      ) : helpText ? (
         <Flex align="center" gap="3" style={{ width: "100%" }}>
           <div style={{ flex: 1 }}>{helpText}</div>
           {copyButton}

@@ -65,12 +65,21 @@ async function sendMail({
     throw new Error("Email address must be a string");
   }
 
-  const headers: { [key: string]: string } = {};
+  const headers: { [key: string]: string } = {
+    // Required by Google for bulk senders; mailto fallback satisfies the
+    // header requirement even for transactional emails that have no real
+    // unsubscribe flow.
+    "List-Unsubscribe": `<mailto:${EMAIL_FROM}?subject=Unsubscribe>`,
+  };
 
-  // If using Sendgrid, we can bypass unsubscribe lists for important emails
+  // If using SendGrid, bypass bounce suppression so transactional emails
+  // (invites, password resets) reach users whose address previously soft-bounced.
+  // We use bypass_bounce_management instead of bypass_list_management because
+  // bypass_list_management circumvents unsubscribe lists, which is a strong
+  // spam signal for Gmail and other providers.
   if (ignoreUnsubscribes && EMAIL_HOST === "smtp.sendgrid.net") {
     headers["x-smtpapi"] =
-      '{"filters":{"bypass_list_management":{"settings":{"enable":1}}}}';
+      '{"filters":{"bypass_bounce_management":{"settings":{"enable":1}}}}';
   }
 
   await transporter.sendMail({
@@ -96,15 +105,14 @@ export async function sendInviteEmail(
   const html = nunjucks.render("invite.jinja", {
     inviteUrl,
     organizationName: organization.name,
+    invitedBy: invite.invitedBy || "",
   });
 
   await sendMail({
     html,
-    subject: `You've been invited to join ${noHyperlink(
-      organization.name,
-    )} on GrowthBook`,
+    subject: `You're invited to join ${noHyperlink(organization.name)} on GrowthBook`,
     to: invite.email,
-    text: `Join ${organization.name} on GrowthBook by visiting ${inviteUrl}`,
+    text: `${invite.invitedBy ? `${invite.invitedBy} is inviting you to` : "You've been invited to"} use GrowthBook with ${noHyperlink(organization.name)}. Accept your invitation: ${inviteUrl}`,
     ignoreUnsubscribes: true,
   });
 }

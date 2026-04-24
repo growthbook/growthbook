@@ -9,7 +9,11 @@ import {
   ExperimentType,
   MetricOverride,
 } from "shared/types/experiment";
-import { PValueCorrection, StatsEngine } from "shared/types/stats";
+import {
+  PValueCorrection,
+  SignificanceThresholds,
+  StatsEngine,
+} from "shared/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
 import {
@@ -28,11 +32,6 @@ import {
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-import {
-  ResultsMetricFilters,
-  sortAndFilterMetricsByTags,
-} from "@/components/Experiment/Results";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
@@ -41,6 +40,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ResultsTable from "./ResultsTable";
 
 const CompactResults: FC<{
+  significanceThresholds: SignificanceThresholds;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
@@ -52,7 +52,6 @@ const CompactResults: FC<{
   isLatestPhase: boolean;
   status: ExperimentStatus;
   goalMetrics: string[];
-  secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
   id: string;
@@ -60,13 +59,12 @@ const CompactResults: FC<{
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (filter: ResultsMetricFilters) => void;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
 }> = ({
+  significanceThresholds,
   editMetrics,
   variations,
   variationFilter,
@@ -79,15 +77,12 @@ const CompactResults: FC<{
   status,
   goalMetrics,
   guardrailMetrics,
-  secondaryMetrics,
   metricOverrides,
   id,
   statsEngine,
   pValueCorrection,
   regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
-  metricFilter,
-  setMetricFilter,
   noTooltip,
   experimentType,
   ssrPolyfills,
@@ -95,54 +90,20 @@ const CompactResults: FC<{
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
-  const _pValueThreshold = usePValueThreshold();
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+  const { pValueThreshold } = significanceThresholds;
 
-  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
-    useMemo(() => {
-      const expandedGoals = expandMetricGroups(
-        goalMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
-      );
-      const expandedSecondaries = expandMetricGroups(
-        secondaryMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
-      );
-      const expandedGuardrails = expandMetricGroups(
-        guardrailMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
-      );
-
-      return { expandedGoals, expandedSecondaries, expandedGuardrails };
-    }, [
+  const { expandedGoals, expandedGuardrails } = useMemo(() => {
+    const expandedGoals = expandMetricGroups(
       goalMetrics,
-      metricGroups,
-      ssrPolyfills?.metricGroups,
-      secondaryMetrics,
-      guardrailMetrics,
-    ]);
-
-  const allMetricTags = useMemo(() => {
-    const allMetricTagsSet: Set<string> = new Set();
-    [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
-      (metricId) => {
-        const metric =
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId);
-        metric?.tags?.forEach((tag) => {
-          allMetricTagsSet.add(tag);
-        });
-      },
+      ssrPolyfills?.metricGroups || metricGroups,
     );
-    return [...allMetricTagsSet];
-  }, [
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-    ssrPolyfills,
-    getExperimentMetricById,
-  ]);
+    const expandedGuardrails = expandMetricGroups(
+      guardrailMetrics,
+      ssrPolyfills?.metricGroups || metricGroups,
+    );
+
+    return { expandedGoals, expandedGuardrails };
+  }, [goalMetrics, metricGroups, ssrPolyfills?.metricGroups, guardrailMetrics]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(
@@ -190,19 +151,7 @@ const CompactResults: FC<{
       setAdjustedCIs([results], pValueThreshold);
     }
 
-    const guardrailDefs = expandedGuardrails
-      .map(
-        (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId),
-      )
-      .filter(isDefined);
-    const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
-      guardrailDefs,
-      metricFilter,
-    );
-
-    const retGuardrails = sortedFilteredGuardrails
+    const retGuardrails = expandedGuardrails
       .map((metricId) => getRow(metricId, "guardrail"))
       .filter(isDefined);
     return [...retGuardrails];
@@ -218,7 +167,6 @@ const CompactResults: FC<{
     ready,
     ssrPolyfills,
     getExperimentMetricById,
-    metricFilter,
   ]);
 
   const isBandit = experimentType === "multi-armed-bandit";
@@ -228,6 +176,7 @@ const CompactResults: FC<{
       {expandedGuardrails.length ? (
         <div className="mt-4" style={{ overflowX: "auto" }}>
           <ResultsTable
+            significanceThresholds={significanceThresholds}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             startDate={startDate}
@@ -247,9 +196,6 @@ const CompactResults: FC<{
               statsEngine,
               hideDetails,
             })}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-            metricTags={allMetricTags}
             isTabActive={true}
             noStickyHeader={true}
             noTooltip={noTooltip}

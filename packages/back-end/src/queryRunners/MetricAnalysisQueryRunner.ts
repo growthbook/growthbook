@@ -1,3 +1,4 @@
+import { UpdateProps } from "shared/types/base-model";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { isBinomialMetric, isRatioMetric } from "shared/experiments";
 import {
@@ -18,7 +19,7 @@ import {
 } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
-import { getMetricWithFiltersApplied } from "../services/metric-analysis";
+import { getMetricWithFiltersApplied } from "back-end/src/services/metric-analysis";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
@@ -46,8 +47,12 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         name: "metricAnalysis",
         query: this.integration.getMetricAnalysisQuery(this.metric, params),
         dependencies: [],
-        run: (query, setExternalId) =>
-          this.integration.runMetricAnalysisQuery(query, setExternalId),
+        run: (query, setExternalId, queryMetadata) =>
+          this.integration.runMetricAnalysisQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
         queryType: "metricAnalysis",
       }),
     ];
@@ -86,7 +91,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     result?: MetricAnalysisResult | undefined;
     error?: string | undefined;
   }): Promise<MetricAnalysisInterface> {
-    const updates: Partial<MetricAnalysisInterface> = {
+    const updates: UpdateProps<MetricAnalysisInterface> = {
       queries,
       error,
       result,

@@ -1,4 +1,3 @@
-import { GetFeatureResponse } from "shared/types/openapi";
 import { getFeatureValidator } from "shared/validators";
 import {
   getFeatureRevisionsByStatus,
@@ -10,11 +9,12 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
   req,
-): Promise<GetFeatureResponse> => {
+) => {
   const revisionFilter = req.query.withRevisions || "none";
   const fetchRevisions = ["all", "drafts", "published"].includes(
     revisionFilter || "none",
@@ -24,7 +24,7 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
     throw new Error("Could not find a feature with that key");
   }
 
-  const groupMap = await getSavedGroupMap(req.organization);
+  const groupMap = await getSavedGroupMap(req.context);
   const experimentMap = await getExperimentMapForFeature(
     req.context,
     feature.id,
@@ -51,14 +51,17 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
       })
     : undefined;
   return {
-    feature: getApiFeatureObj({
-      feature,
-      organization: req.organization,
-      groupMap,
-      experimentMap,
-      revision,
-      revisions,
-      safeRolloutMap,
-    }),
+    feature: await resolveOwnerEmail(
+      getApiFeatureObj({
+        feature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+        revision,
+        revisions,
+        safeRolloutMap,
+      }),
+      req.context,
+    ),
   };
 });

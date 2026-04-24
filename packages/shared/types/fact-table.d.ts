@@ -46,6 +46,7 @@ export interface ColumnInterface {
   deleted: boolean;
   isAutoSliceColumn?: boolean;
   autoSlices?: string[];
+  lockedAutoSlices?: string[];
 }
 
 export interface FactFilterInterface {
@@ -75,8 +76,11 @@ export interface FactTableInterface {
   eventName: string;
   columns: ColumnInterface[];
   columnsError?: string | null;
+  columnRefreshPending?: boolean;
   filters: FactFilterInterface[];
   archived?: boolean;
+  timestampColumn?: string;
+  autoSliceUpdatesEnabled?: boolean;
 }
 
 export type ColumnRef = z.infer<typeof columnRefValidator>;

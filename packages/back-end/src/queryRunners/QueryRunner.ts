@@ -3,10 +3,12 @@ import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import {
   Queries,
   QueryInterface,
+  QueryMetadata,
   QueryPointer,
   QueryStatus,
   QueryType,
 } from "shared/types/query";
+import { parseIntWithDefault, parseOptionalInt } from "shared/util";
 import {
   countRunningQueries,
   createNewQuery,
@@ -14,6 +16,7 @@ import {
   getQueriesByIds,
   getRecentQuery,
   updateQuery,
+  updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
@@ -55,6 +58,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   run: (
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ) => Promise<QueryResponse<Rows>>;
   /** @deprecated */
   process?: (rows: Rows) => ProcessedRows;
@@ -118,6 +122,7 @@ export abstract class QueryRunner<
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
+        queryMetadata?: QueryMetadata,
       ) => Promise<QueryResponse<RowsType>>;
       process?: (rows: RowsType) => ProcessedRowsType;
       onSuccess?: (rows: RowsType) => void | Promise<void>;
@@ -125,7 +130,7 @@ export abstract class QueryRunner<
     };
   } = {};
   private useCache: boolean;
-  private queuedQueryTimers: Record<string, NodeJS.Timeout> = {};
+  private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private finishedQueryMapCache: QueryMap = new Map();
 
   public constructor(
@@ -161,6 +166,28 @@ export abstract class QueryRunner<
     error?: string;
   }): Promise<Model>;
 
+  private setTimer(id: string, timer: NodeJS.Timeout): void {
+    this.pendingTimers[id] = timer;
+  }
+
+  private clearTimer(id: string): void {
+    if (this.pendingTimers[id]) {
+      clearTimeout(this.pendingTimers[id]);
+      delete this.pendingTimers[id];
+    }
+  }
+
+  private clearAllTimers(): void {
+    for (const id of Object.keys(this.pendingTimers)) {
+      clearTimeout(this.pendingTimers[id]);
+      delete this.pendingTimers[id];
+    }
+  }
+
+  private hasTimer(id: string): boolean {
+    return this.pendingTimers[id] !== undefined;
+  }
+
   async onQueryFinish() {
     if (!this.timer) {
       logger.debug(
@@ -180,6 +207,22 @@ export abstract class QueryRunner<
             e,
             "Error refreshing query statuses for runner of " + this.model.id,
           );
+          if (this.status !== "finished") {
+            const error = "Error finalizing query results: " + e.message;
+            try {
+              this.model = await this.updateModel({
+                status: "failed",
+                queries: this.model.queries,
+                error,
+              });
+            } catch (writeErr) {
+              logger.error(
+                writeErr,
+                "Failed to persist error status for runner of " + this.model.id,
+              );
+            }
+            this.setStatus("finished", error);
+          }
         }
       }, 1000);
     } else {
@@ -199,6 +242,20 @@ export abstract class QueryRunner<
     logger.debug(this.model.id + " runner: Starting queries");
     const queries = await this.startQueries(params);
     this.model.queries = queries;
+
+    if (queries.length === 0) {
+      const noQueriesError = "No queries were generated for this analysis";
+      logger.debug(this.model.id + " runner: " + noQueriesError);
+      const newModel = await this.updateModel({
+        status: "failed",
+        queries: [],
+        runStarted: new Date(),
+        error: noQueriesError,
+      });
+      this.model = newModel;
+      this.setStatus("finished", noQueriesError);
+      return newModel;
+    }
 
     // If already finished (queries were cached)
     let error = "";
@@ -267,7 +324,7 @@ export abstract class QueryRunner<
 
     // Otherwise, add a listener and wait
     await new Promise<void>((resolve, reject) => {
-      this.emitter.on(FINISH_EVENT, () => {
+      this.emitter.once(FINISH_EVENT, () => {
         if (this.error) {
           reject(this.error);
         } else {
@@ -288,7 +345,7 @@ export abstract class QueryRunner<
     );
     for (const query of queuedQueries) {
       // If the query already has a timeout set, we don't need to queue it up again.
-      if (this.queuedQueryTimers[query.id]) {
+      if (this.hasTimer(query.id)) {
         continue;
       }
       // check if all dependencies are finished
@@ -405,6 +462,13 @@ export abstract class QueryRunner<
 
     if (oldStatus === "running" && newStatus === "failed") {
       error = "Failed to run a majority of the database queries";
+
+      // If there's just a single query, use the error from the query itself
+      if (queryMap.size === 1) {
+        const query = Array.from(queryMap.values())[0];
+        error = query.error || error;
+      }
+
       logger.debug(
         "Query failed for " +
           this.model.id +
@@ -475,6 +539,7 @@ export abstract class QueryRunner<
         }
       }
 
+      this.clearAllTimers();
       const newModel = await this.updateModel({
         queries: [],
         status: "failed",
@@ -497,9 +562,12 @@ export abstract class QueryRunner<
         timeout + jitter
       } before retrying`,
     );
-    this.queuedQueryTimers[query.id] = setTimeout(() => {
-      this.executeQueryWhenReady(query, timeout);
-    }, timeout + jitter);
+    this.setTimer(
+      query.id,
+      setTimeout(() => {
+        this.executeQueryWhenReady(query, timeout);
+      }, timeout + jitter),
+    );
   }
 
   public async executeQueryWhenReady(
@@ -514,7 +582,7 @@ export abstract class QueryRunner<
       return;
     }
 
-    delete this.queuedQueryTimers[doc.id];
+    this.clearTimer(doc.id);
     const runCallbacks = this.runCallbacks[doc.id];
     if (runCallbacks === undefined) {
       logger.debug(`${doc.id}: Run callbacks not found..`);
@@ -542,6 +610,7 @@ export abstract class QueryRunner<
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
+        queryMetadata?: QueryMetadata,
       ) => Promise<QueryResponse<Rows>>;
       process?: (rows: Rows) => ProcessedRows;
       onFailure: () => void;
@@ -572,7 +641,7 @@ export abstract class QueryRunner<
       });
     };
 
-    run(doc.query, setExternalId)
+    run(doc.query, setExternalId, { queryType: doc.queryType })
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);
@@ -591,16 +660,22 @@ export abstract class QueryRunner<
       .catch(async (e) => {
         clearInterval(timer);
         logger.debug("Query failed: " + e.message);
-        updateQuery(this.context, doc, {
-          finishedAt: new Date(),
-          status: "failed",
-          error: e.message,
-        })
-          .then(() => {
-            onFailure();
-            this.onQueryFinish();
-          })
-          .catch((e) => logger.error(e));
+        try {
+          const updated = await updateQueryIfRunning(this.context, doc, {
+            finishedAt: new Date(),
+            status: "failed",
+            error: e.message,
+          });
+          if (!updated) {
+            logger.debug(
+              `Query ${doc.id} failure not written: already terminal (e.g. user cancel)`,
+            );
+          }
+          onFailure();
+          this.onQueryFinish();
+        } catch (err) {
+          logger.error(err);
+        }
       });
   }
 
@@ -624,10 +699,15 @@ export abstract class QueryRunner<
     if (this.useCache) {
       logger.debug("Trying to reuse existing query for " + name);
       try {
+        // Use datasource-specific cache TTL if set, otherwise use global default
+        const cacheTTLMins = parseOptionalInt(
+          this.integration.datasource.settings.queryCacheTTLMins,
+        );
         const existing = await getRecentQuery(
           this.integration.context.org.id,
           this.integration.datasource.id,
           query,
+          cacheTTLMins,
         );
         if (existing) {
           // Query still running, periodically check the status
@@ -648,17 +728,19 @@ export abstract class QueryRunner<
                     query.status === "failed" ||
                     query.status === "succeeded"
                   ) {
+                    this.clearTimer(existing.id);
                     this.onQueryFinish();
                   } else {
                     // Still running, check again after a delay
-                    setTimeout(check, 3000);
+                    this.setTimer(existing.id, setTimeout(check, 3000));
                   }
                 })
                 .catch(() => {
+                  this.clearTimer(existing.id);
                   this.onQueryFinish();
                 });
             };
-            setTimeout(check, 3000);
+            this.setTimer(existing.id, setTimeout(check, 3000));
           }
           // Query already finished
           else {
@@ -711,19 +793,22 @@ export abstract class QueryRunner<
 
     const defaultOnFailure = () => {};
     const onFailure = specifiedOnFailureCallback ?? defaultOnFailure;
+    const runCallbacksEntry = {
+      run,
+      process: process as ((rows: RowsType) => ProcessedRowsType) | undefined,
+      onFailure,
+      onSuccess: onSuccess as
+        | ((rows: RowsType) => void | Promise<void>)
+        | undefined,
+    };
     if (readyToRun) {
       this.executeQuery(doc, { run, process, onFailure, onSuccess });
     } else if (dependenciesComplete && !runAtEnd) {
-      this.runCallbacks[doc.id] = {
-        run,
-        process,
-        onFailure,
-        onSuccess,
-      };
+      this.runCallbacks[doc.id] = runCallbacksEntry;
       this.queueQueryExecution(doc);
     } else {
       // save callback methods for execution later
-      this.runCallbacks[doc.id] = { run, process, onFailure, onSuccess };
+      this.runCallbacks[doc.id] = runCallbacksEntry;
     }
 
     return {
@@ -737,8 +822,9 @@ export abstract class QueryRunner<
   private async concurrencyLimitReached(): Promise<boolean> {
     if (!this.integration.datasource.settings.maxConcurrentQueries)
       return new Promise<boolean>((resolve) => resolve(false));
-    const numericConcurrencyLimit = parseInt(
+    const numericConcurrencyLimit = parseIntWithDefault(
       this.integration.datasource.settings.maxConcurrentQueries,
+      NaN,
     );
     if (isNaN(numericConcurrencyLimit) || numericConcurrencyLimit === 0) {
       return new Promise<boolean>((resolve) => resolve(false));

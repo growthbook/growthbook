@@ -1,4 +1,4 @@
-import { RESERVED_ROLE_IDS } from "shared/permissions";
+import { RESERVED_ROLE_IDS, getRoleDisplayName } from "shared/permissions";
 import router from "next/router";
 import Link from "next/link";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -43,7 +43,7 @@ export default function RoleList() {
                       className={`font-weight-bold`}
                       href={`/settings/role/${r.id}`}
                     >
-                      {r.id}
+                      {getRoleDisplayName(r.id, organization)}
                     </Link>{" "}
                     <div className="tags-container">
                       {isCustom ? (

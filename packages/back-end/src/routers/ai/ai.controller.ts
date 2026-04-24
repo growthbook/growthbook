@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { AIPromptInterface, AIPromptType } from "shared/ai";
+import { AIModel, AIPromptInterface, AIPromptType } from "shared/ai";
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -8,7 +8,29 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ai";
+import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
+
+type GetTokenUsageResponse = {
+  status: 200;
+  tokenUsage: {
+    numTokensUsed: number;
+    dailyLimit: number;
+    nextResetAt: number;
+  };
+};
+
+export async function getTokenUsage(
+  req: AuthRequest,
+  res: Response<GetTokenUsageResponse>,
+) {
+  const { org } = getContextFromReq(req);
+  const tokenUsage = await getTokensUsedByOrganization(org);
+  return res.status(200).json({
+    status: 200,
+    tokenUsage,
+  });
+}
 
 type GetAIPromptResponse = {
   status: 200;
@@ -29,7 +51,7 @@ export async function getAIPrompts(
 
 export async function postAIPrompts(
   req: AuthRequest<{
-    prompts: { type: AIPromptType; prompt: string }[];
+    prompts: { type: AIPromptType; prompt: string; overrideModel?: AIModel }[];
   }>,
   res: Response,
 ) {
@@ -39,14 +61,18 @@ export async function postAIPrompts(
   const currentPrompts = await context.models.aiPrompts.getAll();
 
   await Promise.all(
-    prompts.map(async ({ type, prompt }) => {
+    prompts.map(async ({ type, prompt, overrideModel }) => {
       const existingPrompt = currentPrompts.find((p) => p.type === type);
       if (existingPrompt) {
-        return context.models.aiPrompts.update(existingPrompt, { prompt });
+        return context.models.aiPrompts.update(existingPrompt, {
+          prompt,
+          overrideModel,
+        });
       } else {
         return context.models.aiPrompts.create({
           type,
           prompt,
+          overrideModel,
         });
       }
     }),
@@ -58,7 +84,7 @@ export async function postAIPrompts(
 }
 
 export async function postReformat(
-  req: AuthRequest<{ type: AIPromptType; text: string }>,
+  req: AuthRequest<{ type: AIPromptType; text: string; temperature?: number }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -89,7 +115,8 @@ export async function postReformat(
     });
   }
 
-  const { prompt, isDefaultPrompt } =
+  const temperature = req.body.temperature ?? 0.1;
+  const { prompt, isDefaultPrompt, overrideModel } =
     await context.models.aiPrompts.getAIPrompt(req.body.type);
   if (!prompt) {
     return res.status(400).json({
@@ -103,9 +130,10 @@ export async function postReformat(
   const aiResults = await simpleCompletion({
     context,
     prompt: reformatPrompt,
-    temperature: 0.1,
+    temperature,
     type: req.body.type,
     isDefaultPrompt,
+    overrideModel,
   });
 
   res.status(200).json({

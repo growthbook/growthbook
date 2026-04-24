@@ -113,7 +113,7 @@ export interface SchemaFormatConfig {
     eventName: string;
     schema?: string;
   }) => string;
-  getEventFilterWhereClause: (metricName?: string) => string;
+  getEventFilterWhereClause: (metricName: string) => string;
   getDateLimitClause: (dates?: { start: Date; end: Date }) => string;
   displayNameColumn?: string;
 }
@@ -137,8 +137,11 @@ export interface DataSourceProperties {
   dropUnitsTable?: boolean;
   hasQuantileTesting?: boolean;
   hasEfficientPercentiles?: boolean;
+  canGroupPercentileCappedMetrics?: boolean;
   hasCountDistinctHLL?: boolean;
+  hasQuantileKLL?: boolean;
   hasIncrementalRefresh?: boolean;
+  maxColumns: number;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {
@@ -179,6 +182,7 @@ export interface FeatureUsageQuery {
 export interface UserIdType {
   userIdType: string;
   description?: string;
+  attributes?: string[];
 }
 
 export type DataSourceEvents = {
@@ -281,6 +285,7 @@ export type DataSourceSettings = {
   };
   pipelineSettings?: DataSourcePipelineSettings;
   maxConcurrentQueries?: string;
+  queryCacheTTLMins?: string;
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {

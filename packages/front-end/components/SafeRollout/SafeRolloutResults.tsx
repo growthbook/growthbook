@@ -6,8 +6,8 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   SAFE_ROLLOUT_VARIATIONS,
 } from "shared/constants";
-import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricSnapshotSettings } from "shared/types/report";
+import { SignificanceThresholds } from "shared/types/stats";
 import { SafeRolloutInterface } from "shared/validators";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { PiWarningFill } from "react-icons/pi";
@@ -23,8 +23,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
-import MultipleExposuresCard from "../HealthTab/MultipleExposuresCard";
-import SRMCard from "../HealthTab/SRMCard";
+import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
+import SRMCard from "@/components/HealthTab/SRMCard";
 import { useSafeRolloutSnapshot } from "./SnapshotProvider";
 import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
 
@@ -38,8 +38,9 @@ const WarningIcon = () => (
 
 const SafeRolloutResults: FC<{
   safeRollout: SafeRolloutInterface;
+  significanceThresholds: SignificanceThresholds;
   draftMode?: boolean;
-}> = ({ safeRollout, draftMode = false }) => {
+}> = ({ safeRollout, significanceThresholds, draftMode = false }) => {
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
@@ -181,6 +182,7 @@ const SafeRolloutResults: FC<{
 
             {showCompactResults ? (
               <CompactResults
+                significanceThresholds={significanceThresholds}
                 variations={SAFE_ROLLOUT_VARIATIONS}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}
@@ -191,7 +193,6 @@ const SafeRolloutResults: FC<{
                   safeRollout.status === "running" ? "running" : "stopped"
                 }
                 goalMetrics={[]}
-                secondaryMetrics={[]}
                 guardrailMetrics={safeRollout.guardrailMetricIds}
                 metricOverrides={[]}
                 id={safeRollout.id}
@@ -255,78 +256,3 @@ const SafeRolloutResults: FC<{
 };
 
 export default SafeRolloutResults;
-
-// given an ordered list of tags, sort the metrics by their tags
-export type ResultsMetricFilters = {
-  tagOrder?: string[];
-  filterByTag?: boolean;
-  tagFilter?: string[] | null; // if null, use tagOrder
-};
-export function sortAndFilterMetricsByTags(
-  metrics: ExperimentMetricInterface[],
-  filters?: ResultsMetricFilters,
-): string[] {
-  let { tagOrder, filterByTag, tagFilter } = filters || {};
-  // normalize input
-  if (!tagOrder) tagOrder = [];
-  if (!filterByTag) filterByTag = false;
-  if (!tagFilter) tagFilter = null;
-
-  if (filterByTag && !tagFilter) {
-    tagFilter = tagOrder;
-  }
-  const sortedMetrics: string[] = [];
-
-  const metricsByTag: Record<string, string[]> = {};
-  const metricDefs: Record<string, ExperimentMetricInterface> = {};
-
-  // get all possible tags from the metric definitions
-  const tagsInMetrics: Set<string> = new Set();
-  const allMetrics: ExperimentMetricInterface[] = [];
-  metrics.forEach((metric) => {
-    if (!metric) return;
-    metricDefs[metric.id] = metric;
-    allMetrics.push(metric);
-    metric.tags?.forEach((tag) => {
-      tagsInMetrics.add(tag);
-    });
-  });
-
-  // reduce tagOrder to only the tags that are in the metrics
-  tagOrder = tagOrder.filter((tag) => tagsInMetrics.has(tag));
-
-  // using tagOrder, build our initial set of sorted metrics
-  if (tagOrder?.length) {
-    tagOrder.forEach((tag) => {
-      metricsByTag[tag] = [];
-      for (const metricId in metricDefs) {
-        const metric = metricDefs[metricId];
-        if (metric.tags?.includes(tag)) {
-          if (filterByTag && !tagFilter?.includes(tag)) {
-            continue;
-          }
-          // pick out the metrics that match the tag
-          metricsByTag[tag].push(metricId);
-          delete metricDefs[metricId];
-        }
-      }
-    });
-    for (const tag in metricsByTag) {
-      sortedMetrics.push(...metricsByTag[tag]);
-    }
-  }
-
-  // add any remaining metrics to the end
-  for (const i in allMetrics) {
-    const metric = allMetrics[i];
-    if (filterByTag) {
-      if (metric.tags?.some((tag) => tagFilter?.includes(tag))) {
-        sortedMetrics.push(metric.id);
-      }
-    } else {
-      sortedMetrics.push(metric.id);
-    }
-  }
-
-  return sortedMetrics;
-}

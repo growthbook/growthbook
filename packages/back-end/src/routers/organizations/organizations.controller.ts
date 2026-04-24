@@ -1,7 +1,11 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { experimentHasLinkedChanges } from "shared/util";
+import {
+  experimentHasLinkedChanges,
+  getNamespaceRanges,
+  parseIntWithDefaultCapped,
+} from "shared/util";
 import {
   getRoles,
   areProjectRolesValid,
@@ -10,7 +14,7 @@ import {
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType } from "shared/validators";
+import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
 import {
@@ -18,22 +22,16 @@ import {
   CreateOrganizationPostBody,
   Invite,
   MemberRoleWithProjects,
+  NamespaceFormat,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  ProjectMemberRole,
   Role,
   SDKAttribute,
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
-import { getWatchedByUser } from "back-end/src/models/WatchModel";
-import {
-  deleteLegacySdkWebhookById,
-  deleteSdkWebhookById,
-  findAllLegacySdkWebhooks,
-  findSdkWebhookById,
-  updateSdkWebhook,
-} from "back-end/src/models/WebhookModel";
 import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
@@ -47,12 +45,14 @@ import {
   findVerifiedOrgsForNewUser,
   getContextFromReq,
   getInviteUrl,
+  getMembersOfTeam,
   getNumberOfUniqueMembersAndInvites,
   importConfig,
   inviteUser,
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
+  setLicenseKey,
 } from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
@@ -65,7 +65,10 @@ import {
   getRecentWatchedAudits,
   isValidAuditEntityType,
 } from "back-end/src/services/audit";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import {
+  getAllFeatures,
+  hasNonDemoFeature,
+} from "back-end/src/models/FeatureModel";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import {
   ALLOW_SELF_ORG_CREATION,
@@ -82,7 +85,6 @@ import {
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getAllSavedGroups } from "back-end/src/models/SavedGroupModel";
 import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
@@ -101,16 +103,8 @@ import {
 import { ConfigFile } from "back-end/src/init/config";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
-import {
-  createOrganizationApiKey,
-  createUserPersonalAccessApiKey,
-  deleteApiKeyById,
-  deleteApiKeyByKey,
-  getAllApiKeysByOrganization,
-  getApiKeyByIdOrKey,
-  getUnredactedSecretKey,
-} from "back-end/src/models/ApiKeyModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
+import { buildNamespace } from "back-end/src/util/namespaces";
 import {
   deleteUser,
   getUserById,
@@ -120,6 +114,7 @@ import {
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
+  hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
   findAllAuditsByEntityType,
@@ -131,7 +126,6 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
@@ -147,6 +141,7 @@ import {
   getEffectiveAccountPlan,
   getLicenseError,
   getSubscriptionFromLicense,
+  orgHasPremiumFeature,
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
@@ -183,7 +178,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.segments.getAll(),
     context.models.metricGroups.getAll(),
     getAllTags(orgId),
-    getAllSavedGroups(orgId),
+    context.models.savedGroups.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
     context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
@@ -227,9 +222,9 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { userId } = context;
   try {
-    const docs = await getRecentWatchedAudits(userId, org.id);
+    const docs = await getRecentWatchedAudits(context, userId);
 
     if (!docs.length) {
       return res.status(200).json({
@@ -265,7 +260,7 @@ export async function getAllHistory(
 ) {
   const { org } = getContextFromReq(req);
   const { type } = req.params;
-  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
@@ -348,7 +343,7 @@ export async function getHistory(
 ) {
   const { org } = getContextFromReq(req);
   const { type, id } = req.params;
-  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
@@ -491,6 +486,98 @@ export async function putMemberRole(
     return res.status(400).json({
       status: 400,
       message: e.message || "Failed to change role",
+    });
+  }
+}
+
+export async function putMemberProjectRole(
+  req: AuthRequest<{ projectRole: ProjectMemberRole }, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  const { org, userId } = context;
+  const { projectRole } = req.body;
+  const { id } = req.params;
+
+  // Project-admins can update project roles for their project - so we check if they have the canUpdateProject permission
+  // rather than the canManageTeam permission
+  if (!context.permissions.canUpdateProject(projectRole.project)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (id === userId) {
+    return res.status(400).json({
+      status: 400,
+      message: "Cannot change your own role",
+    });
+  }
+
+  if (!orgHasPremiumFeature(org, "advanced-permissions")) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Your plan does not support providing users with project-level permissions.",
+    });
+  }
+
+  // Validate the project role
+  const { memberIsValid, reason } = validateRoleAndEnvs(
+    org,
+    projectRole.role,
+    projectRole.limitAccessByEnvironment || false,
+    projectRole.environments,
+  );
+
+  if (!memberIsValid) {
+    return res.status(400).json({
+      status: 400,
+      message: reason,
+    });
+  }
+  const updatedProjectRole: ProjectMemberRole = {
+    ...projectRole,
+  };
+
+  let found = false;
+  org.members.forEach((m) => {
+    if (m.id === id) {
+      if (!m.projectRoles) {
+        m.projectRoles = [];
+      }
+      // Check if project role already exists
+      const existingIndex = m.projectRoles.findIndex(
+        (pr) => pr.project === projectRole.project,
+      );
+      if (existingIndex >= 0) {
+        // Update existing project role
+        m.projectRoles[existingIndex] = updatedProjectRole;
+      } else {
+        // Add new project role
+        m.projectRoles.push(updatedProjectRole);
+      }
+      found = true;
+    }
+  });
+
+  if (!found) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+
+  try {
+    await updateOrganization(org.id, {
+      members: org.members,
+    });
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to update project role",
     });
   }
 }
@@ -813,19 +900,17 @@ export async function getOrganization(
     : invites.map((i) => ({ email: i.email }));
 
   // Some other global org data needed by the front-end
-  const apiKeys = await getAllApiKeysByOrganization(context);
+  const apiKeys = await context.models.apiKeys.getAll();
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
   const expandedMembers = await expandOrgMembers(members, userId);
 
-  const teams = await getTeamsForOrganization(org.id);
+  const teams = await context.models.teams.getAll();
 
   const teamsWithMembers: TeamInterface[] = teams.map((team) => {
-    const memberIds = org.members
-      .filter((member) => member.teams?.includes(team.id))
-      .map((m) => m.id);
+    const memberIds = getMembersOfTeam(org, team.id);
     return {
       ...team,
       members: memberIds,
@@ -843,7 +928,7 @@ export async function getOrganization(
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
-  const watch = await getWatchedByUser(org.id, userId);
+  const watch = await context.models.watch.getWatchedByUser(userId);
 
   const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
 
@@ -930,17 +1015,21 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
             r.namespace &&
             r.namespace.enabled,
         )
-        .forEach((r: ExperimentRule) => {
-          const { name, range } = r.namespace as NamespaceValue;
-          namespaces[name] = namespaces[name] || [];
-          namespaces[name].push({
-            link: `/features/${f.id}`,
-            name: f.id,
-            id: f.id,
-            trackingKey: r.trackingKey || f.id,
-            start: range[0],
-            end: range[1],
-            environment: env,
+        .forEach((r) => {
+          const expRule = r as ExperimentRule;
+          const ns = expRule.namespace as NamespaceValue;
+          namespaces[ns.name] = namespaces[ns.name] || [];
+
+          getNamespaceRanges(ns).forEach((range) => {
+            namespaces[ns.name].push({
+              link: `/features/${f.id}`,
+              name: f.id,
+              id: f.id,
+              trackingKey: expRule.trackingKey || f.id,
+              start: range[0],
+              end: range[1],
+              environment: env,
+            });
           });
         });
     });
@@ -967,16 +1056,19 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     if (!phase) return;
     if (!phase.namespace || !phase.namespace.enabled) return;
 
-    const { name, range } = phase.namespace;
-    namespaces[name] = namespaces[name] || [];
-    namespaces[name].push({
-      link: `/experiment/${e.id}`,
-      name: e.name,
-      id: e.trackingKey,
-      trackingKey: e.trackingKey,
-      start: range[0],
-      end: range[1],
-      environment: "",
+    const ns = phase.namespace as NamespaceValue;
+    namespaces[ns.name] = namespaces[ns.name] || [];
+
+    getNamespaceRanges(ns).forEach((range) => {
+      namespaces[ns.name].push({
+        link: `/experiment/${e.id}`,
+        name: e.name,
+        id: e.trackingKey,
+        trackingKey: e.trackingKey,
+        start: range[0],
+        end: range[1],
+        environment: "",
+      });
     });
   });
 
@@ -992,10 +1084,18 @@ export async function postNamespaces(
     label: string;
     description: string;
     status: "active" | "inactive";
+    hashAttribute?: string;
+    format?: NamespaceFormat;
   }>,
   res: Response,
 ) {
-  const { label, description, status } = req.body;
+  const {
+    label,
+    description,
+    status,
+    hashAttribute,
+    format = "multiRange",
+  } = req.body;
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateNamespace()) {
@@ -1015,10 +1115,20 @@ export async function postNamespaces(
   // up later, but for now, 'name' is the unique identifier, and 'label' is
   // the display name.
   const name = uniqid("ns-");
+
+  const newNamespace = buildNamespace({
+    name,
+    label,
+    description,
+    status,
+    format,
+    hashAttribute,
+  });
+
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      namespaces: [...namespaces, { name, label, description, status }],
+      namespaces: [...namespaces, newNamespace],
     },
   });
 
@@ -1032,7 +1142,7 @@ export async function postNamespaces(
       { settings: { namespaces } },
       {
         settings: {
-          namespaces: [...namespaces, { name, description, status }],
+          namespaces: [...namespaces, newNamespace],
         },
       },
     ),
@@ -1049,12 +1159,14 @@ export async function putNamespaces(
       label: string;
       description: string;
       status: "active" | "inactive";
+      hashAttribute?: string;
+      format?: NamespaceFormat;
     },
     { name: string }
   >,
   res: Response,
 ) {
-  const { label, description, status } = req.body;
+  const { label, description, status, hashAttribute } = req.body;
   const { name } = req.params;
 
   const context = getContextFromReq(req);
@@ -1073,11 +1185,25 @@ export async function putNamespaces(
   }
 
   const updatedNamespaces = namespaces.map((n) => {
-    if (n.name === name) {
-      // cannot update the 'name' (id) of a namespace
-      return { label, name: n.name, description, status };
-    }
-    return n;
+    if (n.name !== name) return n;
+
+    const existingHashAttribute =
+      n.format === "multiRange" ? n.hashAttribute : undefined;
+    const existingSeed = n.format === "multiRange" ? n.seed : undefined;
+
+    // Treat missing fields as "leave alone" — partial PUTs (e.g. the
+    // Disable/Enable toggle on the namespaces page) should not blank out
+    // existing display fields on the namespace.
+    return buildNamespace({
+      name: n.name,
+      label: label ?? n.label ?? n.name,
+      description: description ?? n.description ?? "",
+      status: status ?? n.status ?? "active",
+      format: n.format ?? "legacy",
+      hashAttribute: hashAttribute ?? existingHashAttribute,
+      existingHashAttribute,
+      existingSeed,
+    });
   });
 
   await updateOrganization(org.id, {
@@ -1253,6 +1379,7 @@ export async function postInvite(
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    invitedBy: req.email,
   });
 
   return res.status(200).json({
@@ -1435,7 +1562,7 @@ export async function putOrganization(
     }
   }
   if (settings) {
-    Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
+    (Object.keys(settings) as (keyof OrganizationSettings)[]).forEach((k) => {
       if (k === "environments") {
         throw new Error(
           "Not supported: Updating organization environments not supported via this route.",
@@ -1620,7 +1747,7 @@ export const autoAddGroupsAttribute = async (
 
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const keys = await getAllApiKeysByOrganization(context);
+  const keys = await context.models.apiKeys.getAll();
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
   res.status(200).json({
@@ -1633,12 +1760,21 @@ export async function postApiKey(
   req: AuthRequest<{
     description?: string;
     type: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    projectRoles?: ProjectMemberRole[];
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
-  const { description = "", type } = req.body;
+  const { userId } = context;
+  const {
+    description = "",
+    type,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
 
   // Handle user personal access tokens
   if (type === "user") {
@@ -1647,10 +1783,9 @@ export async function postApiKey(
         "Cannot create user personal access token without a user ID",
       );
     }
-    const key = await createUserPersonalAccessApiKey({
+    const key = await context.models.apiKeys.createUserPersonalAccessApiKey({
       description,
       userId: userId,
-      organizationId: org.id,
     });
 
     return res.status(200).json({
@@ -1660,18 +1795,12 @@ export async function postApiKey(
   }
   // Handle organization secret tokens
   else {
-    if (!context.permissions.canCreateApiKey()) {
-      context.permissions.throwPermissionError();
-    }
-
-    if (type && !["readonly", "admin"].includes(type)) {
-      throw new Error("can only assign readonly or admin roles");
-    }
-
-    const key = await createOrganizationApiKey({
-      organizationId: org.id,
+    const key = await context.models.apiKeys.createOrganizationApiKey({
       description,
-      role: type as "readonly" | "admin",
+      roleId: type,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
     });
 
     return res.status(200).json({
@@ -1686,52 +1815,33 @@ export async function deleteApiKey(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { userId, org } = context;
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
   if (!key && !id) {
     throw new Error("Must provide either an API key or id in order to delete");
   }
 
-  const keyObj = await getApiKeyByIdOrKey(
-    context,
+  await context.models.apiKeys.deleteByIdOrKey(
     id || undefined,
     key || undefined,
   );
-  if (!keyObj) {
-    throw new Error("Could not find API key to delete");
-  }
-
-  if (keyObj.secret) {
-    if (!keyObj.userId) {
-      // If there is no userId, this is an API Key, so we check permissions.
-      if (!context.permissions.canDeleteApiKey()) {
-        context.permissions.throwPermissionError();
-      }
-      // Otherwise, this is a Personal Access Token (PAT) - users can delete only their own PATs regardless of permission level.
-    } else if (keyObj.userId !== userId) {
-      throw new Error("You do not have permission to delete this.");
-    }
-  } else {
-    if (
-      !context.permissions.canDeleteSDKConnection({
-        projects: [keyObj.project || ""],
-        environment: keyObj.environment || "",
-      })
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  }
-
-  if (id) {
-    await deleteApiKeyById(org.id, id);
-  } else if (key) {
-    await deleteApiKeyByKey(org.id, key);
-  }
 
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function putApiKeyDisabled(
+  req: AuthRequest<{ disabled: boolean }, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { disabled } = req.body;
+
+  await context.models.apiKeys.setDisabled(id, disabled);
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function postApiKeyReveal(
@@ -1739,10 +1849,9 @@ export async function postApiKeyReveal(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.body;
 
-  const key = await getUnredactedSecretKey(org.id, id);
+  const key = await context.models.apiKeys.getUnredactedSecretKey(id);
   if (!key) {
     return res.status(403).json({
       status: 403,
@@ -1773,7 +1882,7 @@ export async function postApiKeyReveal(
 
 export async function getLegacyWebhooks(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const webhooks = await findAllLegacySdkWebhooks(context);
+  const webhooks = await context.models.sdkWebhooks.findAllLegacySdkWebhooks();
 
   res.status(200).json({
     status: 200,
@@ -1790,7 +1899,7 @@ export async function testSDKWebhook(
   const webhookId = req.params.id;
 
   const context = getContextFromReq(req);
-  const webhook = await findSdkWebhookById(context, webhookId);
+  const webhook = await context.models.sdkWebhooks.getById(webhookId);
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
@@ -1819,7 +1928,7 @@ export async function putSDKWebhook(
   const context = getContextFromReq(req);
 
   const { id } = req.params;
-  const webhook = await findSdkWebhookById(context, id);
+  const webhook = await context.models.sdkWebhooks.getById(id);
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
@@ -1833,7 +1942,18 @@ export async function putSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  const updatedWebhook = await updateSdkWebhook(context, webhook, req.body);
+  const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
+
+  // Reset failure state when endpoint changes
+  const resetFields =
+    parsedUpdates.endpoint && parsedUpdates.endpoint !== webhook.endpoint
+      ? { consecutiveFailures: 0, disabled: false }
+      : {};
+
+  const updatedWebhook = await context.models.sdkWebhooks.update(webhook, {
+    ...parsedUpdates,
+    ...resetFields,
+  });
 
   // Fire the webhook now that it has changed
   fireSdkWebhook(context, updatedWebhook).catch(() => {
@@ -1855,7 +1975,7 @@ export async function deleteLegacyWebhook(
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;
-  await deleteLegacySdkWebhookById(context, id);
+  await context.models.sdkWebhooks.deleteLegacySdkWebhookById(id);
 
   res.status(200).json({
     status: 200,
@@ -1869,7 +1989,7 @@ export async function deleteSDKWebhook(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const webhook = await findSdkWebhookById(context, id);
+  const webhook = await context.models.sdkWebhooks.getById(id);
   if (webhook) {
     // It's ok if conns is empty here
     // We still want to allow deleting orphaned webhooks
@@ -1879,7 +1999,7 @@ export async function deleteSDKWebhook(
     }
   }
 
-  await deleteSdkWebhookById(context, id);
+  await context.models.sdkWebhooks.deleteById(id);
 
   res.status(200).json({
     status: 200,
@@ -2125,20 +2245,6 @@ export async function putAdminResetUserPassword(
   });
 }
 
-export async function setLicenseKey(
-  org: OrganizationInterface,
-  licenseKey: string,
-) {
-  if (!IS_CLOUD && IS_MULTI_ORG) {
-    throw new Error(
-      "You must use the LICENSE_KEY environmental variable on multi org sites.",
-    );
-  }
-
-  org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
-}
-
 export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
   res: Response,
@@ -2354,7 +2460,7 @@ export async function deleteCustomRole(
     context.permissions.throwPermissionError();
   }
 
-  await removeCustomRole(context.org, context.teams, id);
+  await removeCustomRole(context, id);
 
   res.status(200).json({
     status: 200,
@@ -2440,4 +2546,16 @@ export async function postAgreeToAgreement(
   } catch (e) {
     return res.status(500).json({ status: 500, message: e.message });
   }
+}
+
+export async function getFeatureExpUsage(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  const hasFeatures = await hasNonDemoFeature(context);
+  const hasExperiments = await hasNonDemoExperiment(context);
+
+  return res.status(200).json({
+    status: 200,
+    hasFeatures,
+    hasExperiments,
+  });
 }

@@ -38,6 +38,7 @@ interface Props
   percent?: boolean;
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
+  onMouseEnter?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
   ssrPolyfills?: SSRPolyfills;
 }
@@ -76,6 +77,7 @@ const AlignedGraph: FC<Props> = ({
   percent = true,
   onMouseMove,
   onMouseLeave,
+  onMouseEnter,
   onClick,
   ssrPolyfills,
 }) => {
@@ -326,6 +328,7 @@ const AlignedGraph: FC<Props> = ({
                     <ViolinPlot
                       onMouseMove={onMouseMove}
                       onMouseLeave={onMouseLeave}
+                      onMouseEnter={onMouseEnter}
                       onClick={onClick}
                       className={clsx("hover-target aligned-graph-violin", {
                         hover: isHovered,
@@ -375,6 +378,7 @@ const AlignedGraph: FC<Props> = ({
                     <rect
                       onMouseMove={onMouseMove}
                       onMouseLeave={onMouseLeave}
+                      onMouseEnter={onMouseEnter}
                       onClick={onClick}
                       className={clsx("hover-target aligned-graph-pill", {
                         hover: isHovered,

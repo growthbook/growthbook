@@ -3,6 +3,8 @@ export interface PrestoConnectionParams {
   engine: "presto" | "trino";
   host: string;
   port: number;
+  user?: string;
+  trinoUser?: string;
   username?: string;
   password?: string;
   customAuth?: string;

@@ -16,19 +16,23 @@ import { ExperimentReportVariation } from "shared/types/report";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { VisualChange } from "shared/types/visual-changeset";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
-import { HoldoutInterface } from "../validators/holdout";
+import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";
 export * from "./saved-groups";
 export * from "./metric-time-series";
+export * from "./numbers";
 export * from "./types";
+export * from "./errors";
+export * from "./namespaces";
+export * from "./custom-fields";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
@@ -181,7 +185,7 @@ export function includeExperimentInPayload(
 
   if (!experimentHasLinkedChanges(exp)) return false;
 
-  // Exclude if experiment is a draft and there are no visual changes (feature flags always ignore draft experiment rules)
+  // Exclude if experiment is a draft and there are no visual changes or redirects (feature flags always ignore draft experiment rules)
   if (
     !exp.hasVisualChangesets &&
     !exp.hasURLRedirects &&
@@ -226,7 +230,7 @@ export function includeExperimentInPayload(
 }
 
 export function includeHoldoutInPayload(
-  holdout: HoldoutInterface,
+  holdout: HoldoutInterfaceStringDates,
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
 ): boolean {
   // Archived experiments are always excluded
@@ -540,4 +544,8 @@ export function parseProcessLogBase() {
     : {
         base: parsedLogBase,
       };
+}
+
+export function capitalizeFirstCharacter(s: string) {
+  return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }

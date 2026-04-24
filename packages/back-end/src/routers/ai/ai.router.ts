@@ -3,10 +3,17 @@ import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawAIController from "./ai.controller";
+import { aiPromptTypeValidator, aiModelValidator } from "./ai.validators";
 
 const router = express.Router();
 
 const AIController = wrapController(rawAIController);
+
+router.get(
+  "/token-usage",
+  validateRequestMiddleware({}),
+  AIController.getTokenUsage,
+);
 
 router.get(
   "/prompts",
@@ -20,8 +27,9 @@ router.post(
     body: z.object({
       prompts: z.array(
         z.object({
-          type: z.string(),
+          type: aiPromptTypeValidator,
           prompt: z.string(),
+          overrideModel: aiModelValidator.optional(),
         }),
       ),
     }),
@@ -32,7 +40,10 @@ router.post(
 router.post(
   "/reformat",
   validateRequestMiddleware({
-    body: z.object({ type: z.string(), text: z.string() }),
+    body: z.object({
+      type: aiPromptTypeValidator,
+      text: z.string(),
+    }),
   }),
   AIController.postReformat,
 );

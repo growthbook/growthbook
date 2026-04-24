@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import Modal from "@/components/Modal";
+import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -10,6 +10,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import Text from "@/ui/Text";
 
 export type FocusSelector = "project" | "tags" | "name" | "projects";
 
@@ -43,14 +45,12 @@ export default function EditExperimentInfoModal({
   });
 
   return (
-    <Modal
+    <DialogLayout
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
       size="lg"
       trackingEventModalSource="experiment-more-menu"
-      // if this is undefined, the Modal component sets the value to the first enabled input field
-      autoFocusSelector=""
       header="Edit Info"
       submit={form.handleSubmit(async (data) => {
         await apiCall(`/experiment/${experiment.id}`, {
@@ -63,22 +63,25 @@ export default function EditExperimentInfoModal({
       <Field
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
+        labelClassName="font-weight-bold"
         {...form.register("name")}
         required
       />
       <Field
         disabled={experiment.status !== "draft"}
         label="Experiment Key"
+        labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         required
       />
       <SelectOwner
-        resourceType="experiment"
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}
       />
       <div className="form-group">
-        <label>Tags</label>
+        <Box mb="2">
+          <Text weight="semibold">Tags</Text>
+        </Box>
         <TagsInput
           autoFocus={focusSelector === "tags"}
           value={form.watch("tags") ?? []}
@@ -88,7 +91,7 @@ export default function EditExperimentInfoModal({
       <SelectField
         label={
           <>
-            Project
+            <Text weight="semibold">Project</Text>
             <Tooltip
               className="pl-1"
               body={
@@ -113,6 +116,6 @@ export default function EditExperimentInfoModal({
           restrict use of some Data Sources and Metrics.
         </Callout>
       ) : null}
-    </Modal>
+    </DialogLayout>
   );
 }

@@ -19,7 +19,18 @@ const BaseClass = MakeModelClass({
   schema: safeRolloutSnapshotInterface,
   collectionName: "saferolloutsnapshots",
   idPrefix: "srsnp_",
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
+  additionalIndexes: [
+    {
+      fields: {
+        organization: 1,
+        safeRolloutId: 1,
+        dimension: 1,
+        status: 1,
+        dateCreated: -1,
+      },
+    },
+  ],
 });
 
 export class SafeRolloutSnapshotModel extends BaseClass {

@@ -122,10 +122,12 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const existingCovariateSources =
     incrementalRefreshModel?.metricCovariateSources;
 
-  const metricSourceGroups = getIncrementalRefreshMetricSources(
-    selectedMetrics.filter((m) => isFactMetric(m)),
-    existingSources ?? [],
-  );
+  const metricSourceGroups = getIncrementalRefreshMetricSources({
+    metrics: selectedMetrics.filter((m) => isFactMetric(m)),
+    existingMetricSources: existingSources ?? [],
+    integration,
+    snapshotSettings,
+  });
 
   for (const group of metricSourceGroups) {
     const existingSource = existingSources?.find(
@@ -184,8 +186,12 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery(metricParams),
       dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runIncrementalRefreshStatisticsQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runIncrementalRefreshStatisticsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(statisticsQuery);
@@ -284,7 +290,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   }
 
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
-    const obj = await findSnapshotById(this.model.organization, this.model.id);
+    const obj = await findSnapshotById(this.context, this.model.id);
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
@@ -316,10 +322,9 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
             : "success",
     };
     await updateSnapshot({
-      organization: this.model.organization,
+      context: this.context,
       id: this.model.id,
       updates,
-      context: this.context,
     });
     if (
       this.model.report &&

@@ -24,6 +24,9 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   visualEditor: true,
   visualEditorDragDrop: true,
   visualEditorJS: true,
+  caseInsensitiveRegex: true,
+  caseInsensitiveMembership: true,
+  namespacesV2: true,
 };
 
 const languages = Object.keys(sdks);

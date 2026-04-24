@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { StatsigExperiment } from "../types";
+import { StatsigExperiment } from "@/services/importing/statsig/types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 
@@ -137,6 +137,10 @@ export function transformStatsigExperimentToGB(
       name: "Main",
       reason: results ? `Experiment ${results}` : "",
       variationWeights,
+      variations: variations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
       condition: phaseCondition,
       savedGroups: phaseSavedGroups,
       prerequisites: phasePrerequisites,

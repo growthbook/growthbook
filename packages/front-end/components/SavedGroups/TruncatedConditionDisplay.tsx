@@ -1,18 +1,23 @@
-import { useState, useMemo } from "react";
-import { SavedGroupTargeting } from "shared/types/feature";
+import { useState, useMemo, ReactNode } from "react";
+import { SavedGroupTargeting, FeaturePrerequisite } from "shared/types/feature";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 interface TruncatedConditionDisplayProps {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
   maxLength?: number;
+  prefix?: ReactNode;
 }
 
 export default function TruncatedConditionDisplay({
   condition,
   savedGroups,
+  prerequisites,
   maxLength = 200,
+  prefix,
 }: TruncatedConditionDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -30,7 +35,12 @@ export default function TruncatedConditionDisplay({
   if (!isLarge || isExpanded) {
     return (
       <>
-        <ConditionDisplay condition={condition} savedGroups={savedGroups} />
+        <ConditionDisplay
+          condition={condition}
+          savedGroups={savedGroups}
+          prerequisites={prerequisites}
+          prefix={prefix}
+        />
         {isExpanded && (
           <Link onClick={() => setIsExpanded(false)} mt="1">
             Collapse...
@@ -43,10 +53,10 @@ export default function TruncatedConditionDisplay({
   // Show placeholder for large conditions
   return (
     <>
-      <div
-        style={{ color: "var(--text-color-secondary)", fontStyle: "italic" }}
-      >
-        Large Condition
+      <div>
+        <Text color="text-mid" weight="semibold">
+          <em>Large Condition</em>
+        </Text>
       </div>
       <Link onClick={() => setIsExpanded(true)} mt="1">
         Expand...

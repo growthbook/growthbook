@@ -38,9 +38,9 @@ import { ExperimentPhase } from "shared/types/experiment";
 import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { encryptParams } from "back-end/src/services/datasource";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
-  migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
@@ -1219,7 +1219,6 @@ describe("Feature Migration", () => {
         status: "draft",
         version: 9,
       },
-      hasDrafts: true,
       environmentSettings: {
         dev: {
           enabled: true,
@@ -1515,10 +1514,20 @@ describe("Experiment Migration", () => {
     phases: [
       {
         phase: "main",
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
       {
         phase: "main",
         name: "New Name",
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
     ],
     uid: "1234",
@@ -1565,6 +1574,11 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
       {
         phase: "main",
@@ -1577,6 +1591,11 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
     ],
     sequentialTestingEnabled: false,
@@ -1724,6 +1743,70 @@ describe("Experiment Migration", () => {
       guardrails: ["met_def"],
     });
   });
+
+  it("Populates missing phase variations from top-level variations", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        phases: exp.phases.map((p: ExperimentPhase) => {
+          const phaseWithoutVariations = { ...p };
+          delete phaseWithoutVariations.variations;
+          return phaseWithoutVariations;
+        }),
+      }),
+    ).toEqual({
+      ...upgraded,
+      phases: upgraded.phases.map((p) => ({
+        ...p,
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
+      })),
+    });
+  });
+
+  it("Only backfills phase variations when missing", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        phases: [
+          {
+            ...exp.phases[0],
+            variations: [
+              { id: "0", status: "stopped" },
+              { id: "1", status: "active" },
+            ],
+          },
+          (() => {
+            const phaseWithoutVariations = { ...exp.phases[1] };
+            delete phaseWithoutVariations.variations;
+            return phaseWithoutVariations;
+          })(),
+        ],
+      }),
+    ).toEqual({
+      ...upgraded,
+      phases: [
+        {
+          ...upgraded.phases[0],
+          variations: [
+            { id: "0", status: "stopped" },
+            { id: "1", status: "active" },
+          ],
+        },
+        {
+          ...upgraded.phases[1],
+          variations: [
+            { id: "0", status: "active" },
+            { id: "1", status: "active" },
+            { id: "foo", status: "active" },
+          ],
+        },
+      ],
+    });
+  });
 });
 
 describe("Organization Migration", () => {
@@ -1761,6 +1844,7 @@ describe("Organization Migration", () => {
           limitAccessByEnvironment: false,
         },
         statsEngine: DEFAULT_STATS_ENGINE,
+        restApiBypassesReviews: true,
         environments: [
           {
             id: "dev",
@@ -1775,6 +1859,53 @@ describe("Organization Migration", () => {
         ],
       },
     });
+  });
+
+  it("backfills restApiBypassesReviews=true for orgs missing the setting", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {},
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.restApiBypassesReviews).toBe(true);
+  });
+
+  it("preserves restApiBypassesReviews=false when explicitly set", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: { restApiBypassesReviews: false },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.restApiBypassesReviews).toBe(false);
+  });
+
+  it("new orgs with restApiBypassesReviews=false set at creation are not backfilled to true", () => {
+    // Simulates an org created after the field was introduced — it has false stored
+    // in the DB and the migration must not overwrite it.
+    const testOrg: OrganizationInterface = {
+      id: "org_new",
+      name: "New Org",
+      ownerEmail: "owner@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: { restApiBypassesReviews: false },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
   it("migrate approval flow settings", () => {
@@ -1896,6 +2027,7 @@ describe("Snapshot Migration", () => {
             sequentialTesting: false,
             sequentialTestingTuningParameter: 5000,
             numGoalMetrics: 1,
+            numGuardrailMetrics: 0,
           },
         },
       ],
@@ -2115,6 +2247,7 @@ describe("Snapshot Migration", () => {
             sequentialTesting: false,
             sequentialTestingTuningParameter: 5000,
             numGoalMetrics: 1,
+            numGuardrailMetrics: 0,
           },
           status: "success",
         },
@@ -2322,7 +2455,7 @@ describe("saved group migrations", () => {
 
   it("migrates old saved groups without source", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
@@ -2337,7 +2470,7 @@ describe("saved group migrations", () => {
 
   it("migrates saved groups with source=inline", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
@@ -2353,7 +2486,7 @@ describe("saved group migrations", () => {
 
   it("migrates saved groups with source=runtime", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: [],
@@ -2370,7 +2503,7 @@ describe("saved group migrations", () => {
 
   it("does not migrate saved groups that already have type=list", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
@@ -2387,7 +2520,7 @@ describe("saved group migrations", () => {
 
   it("does not migrate saved groups that already have type=condition", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: [],

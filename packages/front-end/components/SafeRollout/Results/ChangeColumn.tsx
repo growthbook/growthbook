@@ -39,7 +39,7 @@ export default function ChangeColumn({
   stats,
   rowResults,
   statsEngine,
-  showPlusMinus = true,
+  showPlusMinus = false,
   showCI = false,
   differenceType,
   className,

@@ -7,9 +7,8 @@ import { setupApp } from "back-end/test/api/api.setup";
 import { insertMetric } from "back-end/src/models/MetricModel";
 import { ExperimentModel } from "back-end/src/models/ExperimentModel";
 import {
-  getConfidenceLevelsForOrg,
   getMetricDefaultsForOrg,
-  getPValueThresholdForOrg,
+  getSignificanceSettingsForProject,
 } from "back-end/src/services/organizations";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
@@ -24,10 +23,9 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
-  getConfidenceLevelsForOrg: jest.fn(),
   getEnvironmentIdsFromOrg: jest.fn(),
   getMetricDefaultsForOrg: jest.fn(),
-  getPValueThresholdForOrg: jest.fn(),
+  getSignificanceSettingsForProject: jest.fn(),
 }));
 
 const testCases = [
@@ -37,6 +35,7 @@ const testCases = [
     currentSnapshot: snapshots.base,
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
     getMetricDefaultsForOrg: [],
+    getPValueCorrectionForOrg: null,
     getPValueThresholdForOrg: 0.4,
     expected: [
       {
@@ -51,6 +50,7 @@ const testCases = [
     currentSnapshot: snapshots.base,
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
     getMetricDefaultsForOrg: [],
+    getPValueCorrectionForOrg: null,
     getPValueThresholdForOrg: 0.4,
     expected: [],
   },
@@ -60,6 +60,7 @@ const testCases = [
     currentSnapshot: snapshots.base,
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 1e-14 },
     getMetricDefaultsForOrg: [],
+    getPValueCorrectionForOrg: null,
     getPValueThresholdForOrg: 0.4,
     expected: [],
   },
@@ -69,6 +70,7 @@ const testCases = [
     currentSnapshot: snapshots.base,
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
     getMetricDefaultsForOrg: [],
+    getPValueCorrectionForOrg: null,
     getPValueThresholdForOrg: 0.4,
     expected: [
       {
@@ -83,6 +85,7 @@ const testCases = [
     currentSnapshot: snapshots.noSignificance,
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
     getMetricDefaultsForOrg: [],
+    getPValueCorrectionForOrg: null,
     getPValueThresholdForOrg: 0.4,
     expected: [],
   },
@@ -92,6 +95,7 @@ const testCases = [
     currentSnapshot: snapshots.base,
     getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
     getMetricDefaultsForOrg: [],
+    getPValueCorrectionForOrg: null,
     getPValueThresholdForOrg: 0.4,
     expected: [
       {
@@ -99,6 +103,17 @@ const testCases = [
         winning: false,
       },
     ],
+  },
+  // BH correction suppresses false positive: raw p=0.04 < 0.05 but
+  // adjusted p=0.06 >= 0.05 when another metric has p=0.06
+  {
+    beforeSnapshot: undefined,
+    currentSnapshot: snapshots.frequentistBorderline,
+    getConfidenceLevelsForOrg: { ciUpper: 0.95, ciLower: 0.05 },
+    getMetricDefaultsForOrg: [],
+    getPValueCorrectionForOrg: "benjamini-hochberg",
+    getPValueThresholdForOrg: 0.05,
+    expected: [],
   },
 ];
 
@@ -118,7 +133,9 @@ describe("Experiment Significance notifications", () => {
         },
         projects: {},
       }),
-    } as ReqContext;
+      auditLog: jest.fn(),
+      logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn() },
+    } as unknown as ReqContext;
 
     setReqContext(globalContext);
 
@@ -138,13 +155,12 @@ describe("Experiment Significance notifications", () => {
       testCases,
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
         getLatestSnapshot.mockReturnValue(beforeSnapshot);
-        getConfidenceLevelsForOrg.mockReturnValue(
-          params.getConfidenceLevelsForOrg,
-        );
+        getSignificanceSettingsForProject.mockResolvedValue({
+          ...params.getConfidenceLevelsForOrg,
+          pValueCorrection: params.getPValueCorrectionForOrg,
+          pValueThreshold: params.getPValueThresholdForOrg,
+        });
         getMetricDefaultsForOrg.mockReturnValue(params.getMetricDefaultsForOrg);
-        getPValueThresholdForOrg.mockReturnValue(
-          params.getPValueThresholdForOrg,
-        );
 
         const experiment = ensureAndReturn(
           await ExperimentModel.findOne({ id: currentSnapshot.experiment }),
@@ -154,6 +170,7 @@ describe("Experiment Significance notifications", () => {
           context: {
             org: { id: experiment.organization },
             permissions: { canReadMultiProjectResource: () => true },
+            models: { metricGroups: { getAll: () => [] } },
           },
           experiment,
           snapshot: currentSnapshot,

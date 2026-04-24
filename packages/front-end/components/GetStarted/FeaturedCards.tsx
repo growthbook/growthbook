@@ -7,15 +7,12 @@ import {
 } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { ProjectInterface } from "shared/types/project";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import track from "@/services/track";
-import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { isCloud } from "@/services/env";
 import styles from "./FeaturedCards.module.scss";
 
 export function FeatureFlagFeatureCard({ title = "Create Feature Flags" }) {
@@ -63,7 +60,6 @@ export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
   const { apiCall } = useAuth();
   const { projectId: demoDataSourceProjectId, demoExperimentId } =
     useDemoDataSourceProject();
-  const gb = useGrowthBook<AppFeatures>();
   const { mutateDefinitions, setProject } = useDefinitions();
 
   const openSampleExperiment = async () => {
@@ -73,14 +69,9 @@ export function SampleDataFeatureCard({ title = "View a Sample Experiment" }) {
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
-      }>(
-        isCloud() && gb.isOn("new-sample-data")
-          ? "/demo-datasource-project/new"
-          : "/demo-datasource-project",
-        {
-          method: "POST",
-        },
-      );
+      }>("/demo-datasource-project", {
+        method: "POST",
+      });
       track("Create Sample Project", {
         source: "experiments-get-started",
       });

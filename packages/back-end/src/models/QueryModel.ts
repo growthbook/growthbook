@@ -3,7 +3,7 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import { QueryInterface, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
-import { ApiQuery } from "shared/types/openapi";
+import { ApiQuery } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -80,6 +80,22 @@ export async function getQueriesByIds(
   return queries;
 }
 
+export async function getQueryStatusesByIds(
+  organization: string,
+  ids: string[],
+): Promise<Pick<QueryInterface, "id" | "status" | "finishedAt">[]> {
+  if (!ids.length) return [];
+  const docs = await QueryModel.find(
+    { organization, id: { $in: ids } },
+    { id: 1, status: 1, finishedAt: 1, _id: 0 },
+  );
+  return docs.map((d) => ({
+    id: d.id,
+    status: d.status,
+    finishedAt: d.finishedAt,
+  }));
+}
+
 export async function getQueryById(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -149,14 +165,56 @@ export async function updateQuery(
   };
 }
 
+/**
+ * Like updateQuery, but only applies if the document still has status "running".
+ * Returns whether an update matched. Use when another path may have already
+ * moved the query to a terminal state (e.g. user cancel with a custom error).
+ */
+export async function updateQueryIfRunning(
+  context: ReqContext | ApiReqContext,
+  query: QueryInterface,
+  changes: Partial<QueryInterface>,
+): Promise<boolean> {
+  if (query.organization !== context.org.id) {
+    throw new Error("Cannot update query from different organization");
+  }
+
+  let processedChanges: Partial<QueryInterface> = { ...changes };
+  if (
+    changes.result &&
+    changes.result === changes.rawResult &&
+    changes.rawResult &&
+    changes.rawResult.length > 0
+  ) {
+    await context.models.sqlResultChunks.createFromResults(
+      query.id,
+      changes.rawResult,
+    );
+    processedChanges = omit(processedChanges, ["result", "rawResult"]);
+    processedChanges.hasChunkedResults = true;
+  }
+
+  const result = await QueryModel.updateOne(
+    {
+      organization: context.org.id,
+      id: query.id,
+      status: "running",
+    },
+    { $set: processedChanges },
+  );
+  return result.matchedCount > 0;
+}
+
 export async function getRecentQuery(
   organization: string,
   datasource: string,
   query: string,
+  cacheTTLMins?: number,
 ) {
   // Only re-use queries that were run recently
+  const ttl = cacheTTLMins ?? QUERY_CACHE_TTL_MINS;
   const earliestDate = new Date();
-  earliestDate.setMinutes(earliestDate.getMinutes() - QUERY_CACHE_TTL_MINS);
+  earliestDate.setMinutes(earliestDate.getMinutes() - ttl);
 
   const latest = await QueryModel.find({
     organization,
@@ -166,6 +224,8 @@ export async function getRecentQuery(
       $gt: earliestDate,
     },
     status: { $in: ["succeeded", "running"] },
+    // Exclude documents that were created from cache - they shouldn't reset the TTL
+    cachedQueryUsed: { $exists: false },
   })
     .sort({ createdAt: -1 })
     .limit(1);
@@ -270,6 +330,7 @@ export async function createNewQueryFromCached({
     language: existing.language,
     organization: existing.organization,
     query: existing.query,
+    queryType: existing.queryType,
     startedAt: existing.startedAt,
     finishedAt: existing.finishedAt,
     status: existing.status,

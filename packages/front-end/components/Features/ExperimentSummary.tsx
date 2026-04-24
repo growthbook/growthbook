@@ -2,12 +2,14 @@ import { ExperimentRule, FeatureInterface } from "shared/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { calculateNamespaceCoverage } from "shared/util";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Badge from "@/ui/Badge";
 import LinkButton from "@/ui/LinkButton";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
+import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
@@ -30,9 +32,9 @@ export default function ExperimentSummary({
   const { namespaces: allNamespaces } = useOrgSettings();
 
   const hasNamespace = namespace && namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? namespace.range[1] - namespace.range[0]
-    : 1;
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && namespace ? calculateNamespaceCoverage(namespace) : 1;
   const effectiveCoverage = namespaceRange * (coverage ?? 1);
 
   return (
@@ -40,14 +42,7 @@ export default function ExperimentSummary({
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">SPLIT</Text>
         by
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>
-              {hashAttribute || ""}
-            </Text>
-          }
-        />
+        <AttributeBadge attributeId={hashAttribute || "id"} />
         {hasNamespace && (
           <>
             in the namespace

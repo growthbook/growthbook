@@ -156,7 +156,6 @@ export function FeatureString(props: {
 export const withRunExperiment = <P extends WithRunExperimentProps>(
   Component: React.ComponentType<P>,
 ): React.ComponentType<Omit<P, keyof WithRunExperimentProps>> => {
-  // eslint-disable-next-line
   const withRunExperimentWrapper = (props: any): React.ReactElement => (
     <GrowthBookContext.Consumer>
       {({ growthbook }): React.ReactElement => {
@@ -179,7 +178,7 @@ export const GrowthBookProvider: React.FC<
   }>
 > = ({ children, growthbook }) => {
   // Tell growthbook how to re-render our app (for dev mode integration)
-  // eslint-disable-next-line
+
   const [_, setRenderCount] = React.useState(0);
   React.useEffect(() => {
     if (!growthbook || !growthbook.setRenderer) return;

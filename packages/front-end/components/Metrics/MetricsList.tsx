@@ -8,7 +8,12 @@ import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import SortedTags from "@/components/Tags/SortedTags";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  tagFilterOnClick,
+  tagLinkProps,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -257,7 +262,7 @@ const MetricsList = (): React.ReactElement => {
     metrics: legacyMetrics,
     ready,
   } = useDefinitions();
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const { demoDataSourceId } = useDemoDataSourceProject();
 
   const router = useRouter();
@@ -280,9 +285,9 @@ const MetricsList = (): React.ReactElement => {
       datasourceDescription: m.datasource
         ? getDatasourceById(m.datasource)?.description || undefined
         : undefined,
-      ownerName: getUserDisplay(m.owner),
+      ownerName: getOwnerDisplay(m.owner),
     }),
-    [getDatasourceById],
+    [getDatasourceById, getOwnerDisplay],
   );
   const filteredMetrics = project
     ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
@@ -588,6 +593,11 @@ const MetricsList = (): React.ReactElement => {
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
                     useFlex={true}
+                    {...tagLinkProps("metrics")}
+                    onTagClick={tagFilterOnClick(
+                      searchInputProps.value,
+                      setSearchValue,
+                    )}
                   />
                 </td>
                 <td

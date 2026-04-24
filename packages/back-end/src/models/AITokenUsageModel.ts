@@ -2,10 +2,16 @@ import { omit } from "lodash";
 import mongoose from "mongoose";
 import { AITokenUsageInterface } from "shared/ai";
 import { OrganizationInterface } from "shared/types/organization";
+import { parseEnvInt } from "shared/util";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 type AITokenUsageDocument = mongoose.Document & AITokenUsageInterface;
 
-const DAILY_TOKEN_LIMIT = process.env.OPENAI_DAILY_TOKEN_LIMIT || 1000000;
+const DAILY_TOKEN_LIMIT = parseEnvInt(
+  process.env.OPENAI_DAILY_TOKEN_LIMIT,
+  1_000_000,
+  { min: 1, name: "OPENAI_DAILY_TOKEN_LIMIT" },
+);
 const RESET_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
 const aiTokenUsageSchema = new mongoose.Schema({
@@ -33,6 +39,13 @@ export const updateTokenUsage = async ({
   organization: OrganizationInterface;
   numTokensUsed: number;
 }) => {
+  if (!IS_CLOUD) {
+    return {
+      numTokensUsed: 0,
+      dailyLimit: Infinity,
+      lastResetAt: new Date().getTime(),
+    };
+  }
   let tokenUsage = await AITokenUsageModel.findOne({
     organization: organization.id,
   });
@@ -66,6 +79,13 @@ export const getTokensUsedByOrganization = async (
   dailyLimit: number;
   nextResetAt: number;
 }> => {
+  if (!IS_CLOUD) {
+    return {
+      numTokensUsed: 0,
+      dailyLimit: Infinity,
+      nextResetAt: new Date().getTime(),
+    };
+  }
   const { numTokensUsed, dailyLimit, lastResetAt } = await updateTokenUsage({
     organization,
     numTokensUsed: 0,

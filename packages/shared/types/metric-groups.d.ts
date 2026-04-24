@@ -1,18 +1,8 @@
-import { CreateProps } from "shared/types/base-model";
+import { z } from "zod";
 
-export interface MetricGroupInterface {
-  id: string;
-  name: string;
-  description: string;
-  datasource: string;
-  metrics: string[];
-  projects: string[];
-  tags: string[];
-  organization: string;
-  owner: string;
-  archived: boolean;
-  dateCreated: Date;
-  dateUpdated: Date;
-}
+import { CreateProps } from "shared/types/base-model";
+import { metricGroupValidator } from "../validators";
+
+export type MetricGroupInterface = z.infer<typeof metricGroupValidator>;
 
 export type CreateMetricGroupProps = CreateProps<MetricGroupInterface>;
