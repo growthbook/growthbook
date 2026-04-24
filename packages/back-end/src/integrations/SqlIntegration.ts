@@ -4,6 +4,7 @@ import { parseIntWithDefault } from "shared/util";
 import { format as formatDate, subDays } from "date-fns";
 import {
   ExperimentMetricInterface,
+  getFactTableTemplateVariables,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
