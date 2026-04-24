@@ -1,15 +1,17 @@
 import React from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCheck, PiCopy } from "react-icons/pi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { Popover } from "@/ui/Popover";
 import styles from "./ShareUrlPopover.module.scss";
 
 interface ShareUrlPopoverProps {
   trigger: React.ReactNode;
   url?: string;
-  title?: string;
+  title: string;
   description?: string;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
@@ -18,8 +20,8 @@ interface ShareUrlPopoverProps {
 export default function ShareUrlPopover({
   trigger,
   url,
-  title = "Share this exploration",
-  description = "Anyone in your organization with this link can open this exploration with the exact configuration applied.",
+  title,
+  description,
   side = "bottom",
   align = "center",
 }: ShareUrlPopoverProps) {
@@ -39,20 +41,18 @@ export default function ShareUrlPopover({
       content={
         <Box className={styles.inner}>
           <Flex direction="column" gap="1" mb="5">
-            <Text
-              size="5"
-              weight="bold"
-              style={{ color: "var(--color-text-high)" }}
-            >
+            <Heading as="h3" size="medium" color="text-high">
               {title}
-            </Text>
-            <Text size="3" style={{ color: "var(--color-text-mid)" }}>
-              {description}
-            </Text>
+            </Heading>
+            {description && (
+              <Text size="medium" color="text-mid">
+                {description}
+              </Text>
+            )}
           </Flex>
           <Flex gap="2" align="center">
             <Box className={styles.urlField} title={shareUrl}>
-              <Text size="3" style={{ color: "var(--color-text-high)" }}>
+              <Text size="medium" color="text-high">
                 {shareUrl}
               </Text>
             </Box>

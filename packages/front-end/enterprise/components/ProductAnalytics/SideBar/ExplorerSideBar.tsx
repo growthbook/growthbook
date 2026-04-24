@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Flex, Box } from "@radix-ui/themes";
+import { Flex, Box, IconButton } from "@radix-ui/themes";
 import {
   DatasetType,
   FactTableValue,
@@ -132,15 +132,18 @@ export default function ExplorerSideBar({
               </Button>
             </Tooltip>
             <ShareUrlPopover
+              title="Share this exploration"
+              description="Anyone in your organization with read access to the Data Source this exploration uses, can open this exploration."
               trigger={
-                <Button
-                  size="sm"
+                <IconButton
+                  size="2"
                   variant="solid"
                   color="violet"
                   aria-label="Share exploration link"
+                  style={{ height: 32, width: 32 }}
                 >
-                  <PiLink />
-                </Button>
+                  <PiLink size={20} />
+                </IconButton>
               }
               side="bottom"
               align="end"
