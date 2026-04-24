@@ -6,7 +6,7 @@ import React, { FC } from "react";
 import { useForm } from "react-hook-form";
 import SelectField from "@/components/Forms/SelectField";
 import AttributeForm from "@/components/Archetype/AttributeForm";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -46,7 +46,7 @@ const SimulateFeatureModal: FC<{
   }
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       close={() => {
         close();
@@ -100,7 +100,7 @@ const SimulateFeatureModal: FC<{
           </div>
         </div>
       )}
-    </Modal>
+    </DialogLayout>
   );
 };
 export default SimulateFeatureModal;

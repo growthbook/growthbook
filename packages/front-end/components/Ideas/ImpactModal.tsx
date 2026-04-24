@@ -5,7 +5,7 @@ import { IdeaInterface } from "shared/types/idea";
 import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
@@ -40,7 +40,7 @@ const ImpactModal: FC<{
   const possibleSegments = segments.filter((s) => s.datasource == datasource);
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       header="Impact Score Parameters"
       open={true}
@@ -171,7 +171,7 @@ const ImpactModal: FC<{
           ) : null
         }
       />
-    </Modal>
+    </DialogLayout>
   );
 };
 

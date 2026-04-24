@@ -4,11 +4,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/CustomFields/CustomFieldDisplay.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/DataViz/DataVizConfigPanel.tsx": {
     "no-restricted-imports": {
       "count": 1

@@ -35,7 +35,7 @@ import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -181,7 +181,7 @@ export default function LegacyReportPage({
       />
       <div className="container-fluid pagecontents experiment-details">
         {editModalOpen && (
-          <Modal
+          <DialogLayout
             trackingEventModalType=""
             open={true}
             submit={form.handleSubmit(async (value) => {
@@ -217,7 +217,7 @@ export default function LegacyReportPage({
                 form.setValue("status", newStatus);
               }}
             />
-          </Modal>
+          </DialogLayout>
         )}
         <div className="mb-3">
           {report?.experimentId && (

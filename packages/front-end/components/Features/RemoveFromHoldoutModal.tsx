@@ -3,7 +3,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
@@ -71,7 +71,7 @@ export default function RemoveFromHoldoutModal({
   };
 
   return (
-    <Modal
+    <DialogLayout
       header="Remove from holdout"
       open={true}
       close={close}
@@ -96,6 +96,6 @@ export default function RemoveFromHoldoutModal({
           held-out units to the feature on next publish.
         </Callout>
       </div>
-    </Modal>
+    </DialogLayout>
   );
 }

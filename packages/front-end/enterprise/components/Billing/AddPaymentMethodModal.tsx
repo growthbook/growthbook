@@ -7,7 +7,7 @@ import {
 import { Flex } from "@radix-ui/themes";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { useStripeContext } from "@/hooks/useStripeContext";
 
 interface Props {
@@ -64,7 +64,7 @@ export default function AddPaymentMethodModal({
   };
 
   return (
-    <Modal
+    <DialogLayout
       open={true}
       trackingEventModalType="add-edit-payment-method"
       cta="Save Payment Method"
@@ -86,6 +86,6 @@ export default function AddPaymentMethodModal({
           </Flex>
         ) : null}
       </>
-    </Modal>
+    </DialogLayout>
   );
 }

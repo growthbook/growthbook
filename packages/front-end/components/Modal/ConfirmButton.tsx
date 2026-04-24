@@ -1,5 +1,5 @@
 import { ReactNode, FC, useState, ReactElement, isValidElement } from "react";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 const ConfirmButton: FC<{
   onClick: () => Promise<void>;
@@ -28,7 +28,7 @@ const ConfirmButton: FC<{
   return (
     <>
       {confirming ? (
-        <Modal
+        <DialogLayout
           trackingEventModalType=""
           header={modalHeader}
           close={() => setConfirming(false)}
@@ -46,7 +46,7 @@ const ConfirmButton: FC<{
             ) : (
               <p>{additionalMessage}</p>
             ))}
-        </Modal>
+        </DialogLayout>
       ) : (
         ""
       )}

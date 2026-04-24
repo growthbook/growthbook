@@ -1,6 +1,6 @@
 import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
 
@@ -28,7 +28,7 @@ const EditProjectsForm: FC<{
   });
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       header={"Edit Projects"}
       open={true}
@@ -49,7 +49,7 @@ const EditProjectsForm: FC<{
         helpText={`Assign this ${entityName} to specific projects`}
       />
       <div style={{ height: 200 }} />
-    </Modal>
+    </DialogLayout>
   );
 };
 

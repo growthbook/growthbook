@@ -17,7 +17,7 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
 import { ApiCallType, useAuth } from "@/services/auth";
@@ -578,7 +578,7 @@ function FeatureImportRow({
         </td>
       </tr>
       {open && data.feature && (
-        <Modal
+        <DialogLayout
           trackingEventModalType=""
           open
           close={() => setOpen(false)}
@@ -610,7 +610,7 @@ function FeatureImportRow({
               />
             </>
           )}
-        </Modal>
+        </DialogLayout>
       )}
     </>
   );

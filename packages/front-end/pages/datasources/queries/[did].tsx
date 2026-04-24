@@ -17,7 +17,7 @@ import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -100,7 +100,7 @@ const DataSourceQueries = (): React.ReactElement => {
   return (
     <div className="container pagecontents">
       {modalData && (
-        <Modal
+        <DialogLayout
           trackingEventModalType=""
           open
           close={() => setModalData(null)}
@@ -109,7 +109,7 @@ const DataSourceQueries = (): React.ReactElement => {
           includeCloseCta={false}
         >
           <ExpandableQuery query={modalData} i={0} total={1} />{" "}
-        </Modal>
+        </DialogLayout>
       )}
 
       <PageHead

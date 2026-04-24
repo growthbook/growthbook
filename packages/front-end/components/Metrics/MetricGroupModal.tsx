@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -40,7 +40,7 @@ const MetricGroupModal: FC<{
   );
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       header={existingMetricGroup ? "Edit Metric Group" : "Add Metric Group"}
       open={true}
@@ -150,7 +150,7 @@ const MetricGroupModal: FC<{
           />
         </div>
       )}
-    </Modal>
+    </DialogLayout>
   );
 };
 

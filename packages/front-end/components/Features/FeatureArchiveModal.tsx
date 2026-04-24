@@ -8,7 +8,7 @@ import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -75,7 +75,7 @@ export default function FeatureArchiveModal({
     !loading && totalDependents === 0 && (confirmEnvBypass || !hasActiveEnvs);
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       header={isArchived ? "Unarchive Feature" : "Archive Feature"}
       size="lg"
@@ -113,7 +113,6 @@ export default function FeatureArchiveModal({
         close();
       }}
       ctaEnabled={canSubmit}
-      useRadixButton={true}
     >
       <DraftSelectorForChanges
         feature={feature}
@@ -175,6 +174,6 @@ export default function FeatureArchiveModal({
           payloads.
         </p>
       )}
-    </Modal>
+    </DialogLayout>
   );
 }

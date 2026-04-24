@@ -21,7 +21,7 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { GBAddCircle } from "@/components/Icons";
@@ -485,7 +485,7 @@ export default function EditSchemaModal({
   );
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       header="Edit Feature Validation"
       cta={mode === "publish" ? "Publish" : "Save to Draft"}
@@ -637,6 +637,6 @@ export default function EditSchemaModal({
           )}
         </>
       )}
-    </Modal>
+    </DialogLayout>
   );
 }
