@@ -23,6 +23,8 @@ export type SelectOptions =
     )[]
   | Record<string, string>;
 
+export type FieldSize = "sm" | "md" | "normal" | "lg";
+
 export type BaseFieldProps = {
   label?: ReactNode;
   markRequired?: boolean;
@@ -46,12 +48,16 @@ export type BaseFieldProps = {
   append?: ReactElement | string;
   comboBox?: boolean;
   currentLength?: number;
+  size?: FieldSize;
 };
 
 export type FieldProps = BaseFieldProps &
-  React.DetailedHTMLProps<
-    React.InputHTMLAttributes<HTMLInputElement>,
-    HTMLInputElement
+  Omit<
+    React.DetailedHTMLProps<
+      React.InputHTMLAttributes<HTMLInputElement>,
+      HTMLInputElement
+    >,
+    "size"
   >;
 
 function Options({ options }: { options: SelectOptions }) {
@@ -117,6 +123,7 @@ const Field = forwardRef(
       initialOption,
       comboBox,
       customClassName: customClassNameProp,
+      size = "normal",
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -126,7 +133,7 @@ const Field = forwardRef(
       () => id || `field_${Math.floor(Math.random() * 1000000)}`,
     );
 
-    const cn = clsx("form-control", className);
+    const cn = clsx("form-control", `form-control--${size}`, className);
 
     let component: ReactElement;
     if (render) {

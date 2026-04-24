@@ -3331,6 +3331,10 @@ td.disabled {
 .cursor-disabled {
   cursor: not-allowed;
 }
+// Offsets a row action button to align with the control of a labelless "normal"-size field.
+.field-row-action {
+  padding-top: 10px;
+}
 .cursor-default {
   cursor: default;
 }
@@ -3394,6 +3398,35 @@ td.disabled {
   cursor: not-allowed;
   color: var(--color-text-disabled) !important;
   background-color: var(--gray-a2) !important;
+}
+// Normalize input/select heights to our size scale (excludes textarea which auto-resizes)
+input.form-control,
+select.form-control {
+  height: 36px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+input.form-control--sm,
+select.form-control--sm {
+  height: 28px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-1);
+  border-radius: var(--radius-2);
+}
+input.form-control--md,
+select.form-control--md {
+  height: 32px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-2);
+  border-radius: var(--radius-2);
+}
+input.form-control--lg,
+select.form-control--lg {
+  height: 40px;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 input:disabled {
   cursor: not-allowed;

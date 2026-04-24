@@ -24,7 +24,8 @@ import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import clsx from "clsx";
 import { PiCaretDown, PiCopy, PiXBold } from "react-icons/pi";
-import { Text, Tooltip } from "@radix-ui/themes";
+import { Tooltip } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import {
   ReactSelectProps,
   SingleValue,
@@ -395,7 +396,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             {!legacyLabelFormatting &&
               label !== undefined &&
               (typeof label === "string" ? (
-                <Text as="label" htmlFor={id} size="3" weight="medium">
+                <Text as="label" htmlFor={id} size="large" weight="medium">
                   {label}
                 </Text>
               ) : (

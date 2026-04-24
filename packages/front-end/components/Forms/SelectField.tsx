@@ -347,7 +347,7 @@ const SelectField: FC<SelectFieldProps> = ({
             {!legacyLabelFormatting &&
               label !== undefined &&
               (typeof label === "string" ? (
-                <Text as="label" htmlFor={id} size="3" weight="medium">
+                <Text as="label" htmlFor={id} size="large" weight="medium">
                   {label}
                 </Text>
               ) : (

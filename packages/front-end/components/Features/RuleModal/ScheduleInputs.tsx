@@ -125,7 +125,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
           options={START_OPTIONS}
           onChange={handleStartChange}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />
@@ -152,7 +152,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
           options={END_OPTIONS}
           onChange={handleEndChange}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />

@@ -40,6 +40,7 @@ export interface TextProps {
   color?: TextColors;
   align?: TextAlign;
   title?: string;
+  htmlFor?: string;
 
   truncate?: boolean;
   overflowWrap?: TextOverflowWrap;
@@ -69,6 +70,7 @@ export default forwardRef<
     color,
     align = "left",
     title,
+    htmlFor,
     overflowWrap = "normal",
     whiteSpace = "normal",
     fontStyle = "normal",
@@ -109,6 +111,7 @@ export default forwardRef<
       align={align}
       as={as}
       title={title}
+      htmlFor={htmlFor}
       style={style}
       truncate={truncate}
       m={m}

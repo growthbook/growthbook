@@ -148,7 +148,7 @@ export function ConditionRow({
           )}
           <Box style={{ flex: "1 1 0", minWidth: 0 }}>{attributeSlot}</Box>
           {removeSlot != undefined && (
-            <Box flexShrink="0" pt="3">
+            <Box flexShrink="0" className="field-row-action">
               {removeSlot}
             </Box>
           )}
@@ -213,7 +213,7 @@ export function ConditionRow({
         </Box>
       </Flex>
       {removeSlot !== undefined && (
-        <Box flexShrink="0" pt="3">
+        <Box flexShrink="0" className="field-row-action">
           {removeSlot}
         </Box>
       )}

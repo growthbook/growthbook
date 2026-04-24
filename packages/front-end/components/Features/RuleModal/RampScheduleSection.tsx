@@ -728,7 +728,7 @@ export default function RampScheduleSection({
             <Box style={{ width: COL.coverage, flexShrink: 0 }}>
               <div className={`position-relative ${styles.percentInputWrap}`}>
                 <Field
-                  style={{ width: COL.coverage, minHeight: 38 }}
+                  style={{ width: COL.coverage }}
                   type="number"
                   min="0"
                   max="100"
@@ -881,7 +881,7 @@ export default function RampScheduleSection({
                       className={`position-relative ${styles.percentInputWrap}`}
                     >
                       <Field
-                        style={{ width: COL.coverage, minHeight: 38 }}
+                        style={{ width: COL.coverage }}
                         type="number"
                         min="0"
                         max="100"
@@ -942,7 +942,6 @@ export default function RampScheduleSection({
                         })
                       }
                       containerClassName="mb-0"
-                      containerStyle={{ minHeight: 38 }}
                       useMultilineLabels
                       formatOptionLabel={(option, meta) => {
                         if (meta.context === "value")
@@ -969,7 +968,6 @@ export default function RampScheduleSection({
                   {step.triggerType === "interval" && (
                     <>
                       <Field
-                        style={{ minHeight: 38 }}
                         type="number"
                         min="1"
                         onFocus={(e) => e.target.select()}
@@ -1003,7 +1001,6 @@ export default function RampScheduleSection({
                             })
                           }
                           containerClassName="mb-0"
-                          containerStyle={{ minHeight: 38 }}
                         />
                       </Box>
                     </>
@@ -1042,7 +1039,6 @@ export default function RampScheduleSection({
                               updateStep(i, { approvalNotes: e.target.value })
                             }
                             containerClassName="mb-0"
-                            style={{ minHeight: 38 }}
                           />
                         </Box>
                       )}
