@@ -34,12 +34,12 @@ import SelectField from "@/components//Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -219,14 +219,13 @@ export default function EditTargetingModal({
 
   if (safeToEdit) {
     return (
-      <Modal
+      <DialogLayout
         trackingEventModalType=""
         open={true}
         close={close}
-        header={`Edit Targeting`}
+        header="Edit Targeting"
         ctaEnabled={canSubmit}
         submit={onSubmit}
-        cta="Save"
         size="lg"
       >
         <TargetingForm
@@ -236,7 +235,7 @@ export default function EditTargetingModal({
           conditionKey={conditionKey}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
-      </Modal>
+      </DialogLayout>
     );
   }
 

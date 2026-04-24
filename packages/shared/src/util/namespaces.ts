@@ -46,9 +46,9 @@ export function getNamespaceRanges(
   namespace: NamespaceValue,
 ): [number, number][] {
   if (isLegacyNamespaceFormat(namespace)) {
-    return [namespace.range];
+    return namespace.range ? [namespace.range] : [];
   }
-  return namespace.ranges;
+  return namespace.ranges ?? [];
 }
 
 /**

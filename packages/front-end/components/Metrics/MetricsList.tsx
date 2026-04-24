@@ -8,7 +8,12 @@ import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import SortedTags from "@/components/Tags/SortedTags";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  tagFilterOnClick,
+  tagLinkProps,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -588,6 +593,11 @@ const MetricsList = (): React.ReactElement => {
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
                     useFlex={true}
+                    {...tagLinkProps("metrics")}
+                    onTagClick={tagFilterOnClick(
+                      searchInputProps.value,
+                      setSearchValue,
+                    )}
                   />
                 </td>
                 <td

@@ -24,7 +24,6 @@ import {
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import FlagCard from "@/components/FlagCard/FlagCard";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
 import Callout from "@/ui/Callout";
@@ -52,6 +51,7 @@ export interface AnalysisResultSummaryProps {
   };
   differenceType: DifferenceType;
   isBandit?: boolean;
+  pValueThreshold: number;
   ssrPolyfills?: SSRPolyfills;
 }
 
@@ -59,16 +59,13 @@ export default function AnalysisResultSummary({
   data,
   differenceType,
   isBandit,
+  pValueThreshold,
   ssrPolyfills,
 }: AnalysisResultSummaryProps) {
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
 
   const { getFactTableById } = useDefinitions();
-
-  const _pValueThreshold = usePValueThreshold();
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
 
   if (!data) return null;
 

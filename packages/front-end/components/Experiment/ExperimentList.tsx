@@ -15,6 +15,7 @@ import { useExperimentSearch } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 
 export default function ExperimentList({
   num,
@@ -96,7 +97,11 @@ export default function ExperimentList({
                   </Flex>
                 </td>
                 <td>
-                  <SortedTags tags={Object.values(test.tags)} useFlex={true} />
+                  <SortedTags
+                    tags={Object.values(test.tags)}
+                    useFlex={true}
+                    {...tagLinkProps("experiments")}
+                  />
                 </td>
                 <td title={datetime(test.date)}>{date(test.date)}</td>
                 <td>{test.ownerName}</td>

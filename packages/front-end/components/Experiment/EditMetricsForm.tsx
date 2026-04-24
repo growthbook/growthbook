@@ -18,13 +18,13 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import Modal from "@/components/Modal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -186,10 +186,9 @@ const EditMetricsForm: FC<{
   }
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType="edit-metrics-form"
       trackingEventModalSource={source}
-      autoFocusSelector=""
       header="Edit Metrics"
       size="lg"
       open={true}
@@ -203,7 +202,6 @@ const EditMetricsForm: FC<{
         });
         mutate();
       })}
-      cta="Save"
     >
       <ExperimentMetricsSelector
         noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
@@ -327,7 +325,7 @@ const EditMetricsForm: FC<{
           </Collapsible>
         </>
       ) : null}
-    </Modal>
+    </DialogLayout>
   );
 };
 

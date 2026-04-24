@@ -31,6 +31,7 @@ interface Props
   hideScaledImpact?: boolean;
   // Props for popover
   metric?: ExperimentMetricInterface;
+  pValueThreshold: number;
   differenceType?: DifferenceType;
   statsEngine?: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
@@ -50,6 +51,7 @@ export default function PValueColumn({
   className,
   hideScaledImpact = false,
   metric,
+  pValueThreshold,
   differenceType,
   statsEngine,
   ssrPolyfills,
@@ -75,6 +77,7 @@ export default function PValueColumn({
     stats,
     rowResults,
     metric,
+    pValueThreshold,
     differenceType,
     statsEngine,
     ssrPolyfills,

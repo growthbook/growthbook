@@ -5,13 +5,16 @@ import { FaPlusCircle } from "react-icons/fa";
 import { PiWarningCircle, PiXBold } from "react-icons/pi";
 import omit from "lodash/omit";
 import { Namespaces } from "shared/types/organization";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import useApi from "@/hooks/useApi";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { NamespaceApiResponse } from "@/pages/namespaces";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -91,6 +94,14 @@ export default function NamespaceSelector({
 }: Props) {
   const { data, error } = useApi<NamespaceApiResponse>(
     `/organization/namespaces`,
+  );
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasIncompatibleConnections = useMemo(
+    () =>
+      (sdkConnectionsData?.connections ?? []).some(
+        (c) => !getConnectionSDKCapabilities(c).includes("namespacesV2"),
+      ),
+    [sdkConnectionsData],
   );
   const { namespaces } = useOrgSettings();
   const [rangeDrafts, setRangeDrafts] = useState<Record<string, string>>({});
@@ -393,20 +404,17 @@ export default function NamespaceSelector({
               setRangeDrafts({});
 
               const cachedRanges = namespaceRangesCache.current[v];
+              const gaps = findGaps(namespaceUsage, v, featureId, trackingKey);
+              const initialGap = getLargestGap(gaps);
+              const namespaceFull = !cachedRanges?.length && !initialGap;
+              // Namespace is 100% allocated — auto-enable overlap and default to full range.
+              if (namespaceFull) setAllowOverlap(true);
               const initialRanges: RangeTuple[] =
                 cachedRanges && cachedRanges.length > 0
                   ? cachedRanges
-                  : (() => {
-                      const initialGap = getLargestGap(
-                        findGaps(namespaceUsage, v, featureId, trackingKey),
-                      );
-                      return [
-                        [
-                          initialGap?.start || 0,
-                          initialGap?.end || 0,
-                        ] as RangeTuple,
-                      ];
-                    })();
+                  : namespaceFull
+                    ? [[0, 1]]
+                    : [[initialGap!.start, initialGap!.end]];
 
               const nextNs: NamespaceFormState =
                 selected?.format === "multiRange"
@@ -440,21 +448,25 @@ export default function NamespaceSelector({
               const row = (
                 <Flex as="div" align="baseline">
                   <span>{option.label}</span>
-                  {hashAttr && (
-                    <Text size="small" color="text-mid" ml="auto">
-                      {option.isDisabled && (
-                        <PiWarningCircle
-                          size={15}
-                          style={{
-                            color: "var(--amber-9)",
-                            verticalAlign: "-3px",
-                            marginRight: 4,
-                          }}
-                        />
-                      )}
-                      hash attribute: <strong>{hashAttr}</strong>
-                    </Text>
-                  )}
+                  <Text size="small" color="text-mid" ml="auto">
+                    {hashAttr ? (
+                      <>
+                        {option.isDisabled && (
+                          <PiWarningCircle
+                            size={15}
+                            style={{
+                              color: "var(--amber-9)",
+                              verticalAlign: "-3px",
+                              marginRight: 4,
+                            }}
+                          />
+                        )}
+                        hash attribute: <strong>{hashAttr}</strong>
+                      </>
+                    ) : (
+                      <span style={{ opacity: 0.45 }}>legacy</span>
+                    )}
+                  </Text>
                 </Flex>
               );
               if (!option.isDisabled) return row;
@@ -473,6 +485,13 @@ export default function NamespaceSelector({
                   attribute.
                 </HelperText>
               )}
+              {hasIncompatibleConnections &&
+                selectedNamespace?.format === "multiRange" && (
+                  <Callout status="warning" mb="3" size="sm">
+                    Some of your SDK Connections may not support multi-range
+                    namespaces.
+                  </Callout>
+                )}
 
               <NamespaceUsageGraph
                 namespace={namespace}
@@ -636,12 +655,20 @@ export default function NamespaceSelector({
                   );
                 })}
 
-                <Link onClick={addRange} mt="1">
-                  <FaPlusCircle
-                    style={{ verticalAlign: "-2px", marginRight: 6 }}
-                  />
-                  Add Range
-                </Link>
+                {largestAvailableGap ? (
+                  <Link onClick={addRange} mt="1">
+                    <FaPlusCircle
+                      style={{ verticalAlign: "-2px", marginRight: 6 }}
+                    />
+                    Add Range
+                  </Link>
+                ) : (
+                  <HelperText status="info" mt="2" size="sm">
+                    No space available in this namespace. Enable{" "}
+                    <strong>Allow overlap</strong> above to assign a range
+                    regardless.
+                  </HelperText>
+                )}
               </Box>
             </div>
           )}

@@ -1,8 +1,8 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -34,13 +34,14 @@ export default function RemoveFromHoldoutModal({
   };
 
   return (
-    <Modal
+    <DialogLayout
       header="Remove from holdout"
       close={close}
       open={true}
       trackingEventModalType="remove-experiment-from-holdout"
       size="lg"
       cta="Remove"
+      ctaColor="red"
       submit={handleSubmit}
       ctaEnabled={canRemoveFromHoldout}
     >
@@ -59,6 +60,6 @@ export default function RemoveFromHoldoutModal({
           </Text>
         </Callout>
       )}
-    </Modal>
+    </DialogLayout>
   );
 }

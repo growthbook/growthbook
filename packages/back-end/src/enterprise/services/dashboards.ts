@@ -1,6 +1,7 @@
 import { isEqual, uniqWith } from "lodash";
 import { isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { getScopedSettings } from "shared/settings";
 import {
   blockHasFieldOfType,
   BlockSnapshotSettings,
@@ -159,6 +160,14 @@ export async function updateExperimentDashboards({
     isEqual,
   );
 
+  const dashboardProject = experiment.project
+    ? ((await context.models.projects.getById(experiment.project)) ?? undefined)
+    : undefined;
+  const { settings: scopedDashboardSettings } = getScopedSettings({
+    organization: context.org,
+    project: dashboardProject,
+    experiment,
+  });
   const metricGroups = await context.models.metricGroups.getAll();
 
   for (const snapshotSettings of uniqueSnapshotSettings) {
@@ -179,6 +188,7 @@ export async function updateExperimentDashboards({
       regressionAdjustmentEnabled,
       postStratificationEnabled,
       dimension: snapshotSettings.dimensionId,
+      pValueThreshold: scopedDashboardSettings.pValueThreshold.value,
       metricGroups,
     });
 
