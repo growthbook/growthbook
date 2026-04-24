@@ -1,7 +1,6 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import * as exposureQueryModule from "back-end/src/integrations/sql/exposure-query";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/aggregation-metadata";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { factTableFactory } from "../factories/FactTable.factory";
@@ -228,15 +227,16 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   };
 
   beforeEach(() => {
-    // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
-    jest
-      .spyOn(exposureQueryModule, "getExposureQuery")
-      .mockReturnValue(exposureQuery);
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
+    // @ts-expect-error -- context not needed for this unit test; exposure list
+    // satisfies getExposureQuery(settings.exposureQueryId === "exposure") without
+    // jest.spyOn (non-configurable export under @swc/jest).
+    integration = new BigQuery("", {
+      settings: {
+        queries: {
+          exposure: [exposureQuery],
+        },
+      },
+    });
   });
 
   it("getCreateMetricSourceTableQuery emits BYTES sketch + INT64 n_events columns", () => {

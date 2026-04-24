@@ -9,7 +9,7 @@ import {
 } from "shared/types/fact-table";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import * as exposureQueryModule from "back-end/src/integrations/sql/exposure-query";
+import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/aggregate-metric-column-legacy-metrics";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -87,7 +87,7 @@ describe("bigquery integration", () => {
     // builder metrics not tested
 
     expect(
-      addCaseWhenTimeFilter(bqIntegration.getSqlDialect(), {
+      addCaseWhenTimeFilter(bigQueryDialect, {
         col: "val",
         metric: normalSqlMetric,
         overrideConversionWindows: false,
@@ -100,11 +100,11 @@ describe("bigquery integration", () => {
     );
 
     const date = new Date();
-    const endDateFilter = `AND m.timestamp <= ${bqIntegration["toTimestamp"](
+    const endDateFilter = `AND m.timestamp <= ${bigQueryDialect.toTimestamp(
       date,
     )}`;
     expect(
-      addCaseWhenTimeFilter(bqIntegration.getSqlDialect(), {
+      addCaseWhenTimeFilter(bigQueryDialect, {
         col: "val",
         metric: normalSqlMetric,
         overrideConversionWindows: true,
@@ -117,17 +117,17 @@ describe("bigquery integration", () => {
     );
 
     expect(
-      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlDialect(), {
+      getAggregateMetricColumnLegacyMetrics(bigQueryDialect, {
         metric: customNumberAggMetric,
       }),
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
     expect(
-      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlDialect(), {
+      getAggregateMetricColumnLegacyMetrics(bigQueryDialect, {
         metric: customCountAgg,
       }),
     ).toEqual("COUNT(value) / (5 + COUNT(value))");
     expect(
-      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlDialect(), {
+      getAggregateMetricColumnLegacyMetrics(bigQueryDialect, {
         metric: normalSqlMetric,
       }),
     ).toEqual("SUM(COALESCE(value, 0))");
@@ -248,7 +248,7 @@ describe("bigquery integration", () => {
   });
 
   it("escape single quotes and backslash correctly", () => {
-    expect(bqIntegration["escapeStringLiteral"](`test\\'string`)).toEqual(
+    expect(bigQueryDialect.escapeStringLiteral(`test\\'string`)).toEqual(
       `test\\\\\\'string`,
     );
   });
@@ -695,9 +695,27 @@ describe("bigquery integration", () => {
 
 describe("full fact metric experiment query - bigquery", () => {
   let bqIntegration: BigQuery;
+
+  // Empty exposureQueryId resolves to lookup id "anonymous_id" in getExposureQuery.
+  // Real config avoids jest.spyOn on the module export (non-configurable under @swc/jest).
+  const testExposureQuery: ExposureQuery = {
+    id: "anonymous_id",
+    name: "Exposure",
+    description: "Exposure",
+    query: "*",
+    userIdType: "user_id",
+    dimensions: [],
+  };
+
   beforeEach(() => {
     // @ts-expect-error -- context not needed for test
-    bqIntegration = new BigQuery("", {});
+    bqIntegration = new BigQuery("", {
+      settings: {
+        queries: {
+          exposure: [testExposureQuery],
+        },
+      },
+    });
   });
 
   // Create test fact tables
@@ -1182,15 +1200,6 @@ describe("full fact metric experiment query - bigquery", () => {
     [eventsFactTable.id, eventsFactTable],
   ]);
 
-  const exposureQuery: ExposureQuery = {
-    id: "exposure",
-    name: "Exposure",
-    description: "Exposure",
-    query: "*",
-    userIdType: "user_id",
-    dimensions: [],
-  };
-
   const metricsToTest = generateFactMetrics();
 
   it("generates all metrics", () => {
@@ -1200,11 +1209,6 @@ describe("full fact metric experiment query - bigquery", () => {
   it.each(metricsToTest)(
     "generated fact metric SQL is correct for $id",
     (metric) => {
-      // Mock the getExposureQuery method to return our test exposureQuery
-      const getExposureQuerySpy = jest
-        .spyOn(exposureQueryModule, "getExposureQuery")
-        .mockReturnValue(exposureQuery);
-
       const startDate = new Date("2023-01-01");
       const endDate = new Date("2023-01-31");
 
@@ -1248,9 +1252,6 @@ describe("full fact metric experiment query - bigquery", () => {
       const normalizedSql = sql.replace(/\s+/g, " ").trim();
 
       expect(format(normalizedSql, "bigquery")).toMatchSnapshot();
-
-      // Restore the original method
-      getExposureQuerySpy.mockRestore();
     },
   );
 });
