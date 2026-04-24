@@ -4,6 +4,20 @@ import { forwardRef, ReactNode } from "react";
 import clsx from "clsx";
 import HelperText from "./HelperText";
 
+export type SelectSize = "sm" | "md" | "normal" | "lg";
+
+function toRadixSize(size: SelectSize): "1" | "2" | "3" {
+  switch (size) {
+    case "sm":
+      return "1";
+    case "md":
+      return "2";
+    case "lg":
+    case "normal":
+      return "3";
+  }
+}
+
 type SelectProps = {
   label?: ReactNode;
   defaultValue?: string;
@@ -13,7 +27,7 @@ type SelectProps = {
   value: string | undefined;
   setValue: (value: string) => void;
   children: React.ReactNode;
-  size?: "1" | "2" | "3";
+  size?: SelectSize;
   placeholder?: string;
   variant?: "classic" | "surface" | "soft" | "ghost";
   style?: React.CSSProperties;
@@ -31,7 +45,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     children,
     value,
     setValue,
-    size = "3",
+    size = "normal",
     placeholder,
     variant = "surface",
     triggerClassName,
@@ -41,7 +55,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   ref,
 ) {
   return (
-    <Flex direction="column" {...containerProps} ref={ref}>
+    <Flex direction="column" {...containerProps} ref={ref} className={`gb-select--${size}`}>
       {typeof label === "string" ? (
         <Text as="label" size="3" weight="medium">
           {label}
@@ -51,7 +65,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       ) : null}
       <RadixSelect.Root
         defaultValue={defaultValue}
-        size={size}
+        size={toRadixSize(size)}
         disabled={disabled}
         value={value}
         onValueChange={setValue}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import MultiSelectField from "./MultiSelectField";
+import SelectField from "@/components/Forms/SelectField";
 
 const FRUIT_OPTIONS = [
   { label: "Apple", value: "apple" },
@@ -41,11 +41,53 @@ const GROUPED_OPTIONS = [
   },
 ];
 
-function BasicStory() {
-  const [value, setValue] = useState<string[]>(["apple", "banana"]);
+function SizeStory() {
+  const [v1, setV1] = useState("apple");
+  const [v2, setV2] = useState("banana");
+  const [v3, setV3] = useState("mango");
+  const [v4, setV4] = useState("cherry");
   return (
-    <MultiSelectField
-      label="Favourite fruits (normal)"
+    <Flex direction="column" gap="3">
+      <SelectField
+        label="Size sm"
+        size="sm"
+        legacyLabelFormatting={false}
+        value={v1}
+        options={FRUIT_OPTIONS}
+        onChange={setV1}
+      />
+      <SelectField
+        label="Size md"
+        size="md"
+        legacyLabelFormatting={false}
+        value={v2}
+        options={FRUIT_OPTIONS}
+        onChange={setV2}
+      />
+      <SelectField
+        label="Size normal (default)"
+        size="normal"
+        value={v3}
+        options={FRUIT_OPTIONS}
+        onChange={setV3}
+      />
+      <SelectField
+        label="Size lg"
+        size="lg"
+        legacyLabelFormatting={false}
+        value={v4}
+        options={FRUIT_OPTIONS}
+        onChange={setV4}
+      />
+    </Flex>
+  );
+}
+
+function BasicStory() {
+  const [value, setValue] = useState("apple");
+  return (
+    <SelectField
+      label="Favourite fruit"
       value={value}
       options={FRUIT_OPTIONS}
       onChange={setValue}
@@ -53,43 +95,10 @@ function BasicStory() {
   );
 }
 
-function SizeStory() {
-  const [v1, setV1] = useState<string[]>(["apple"]);
-  const [v2, setV2] = useState<string[]>(["banana"]);
-  const [v3, setV3] = useState<string[]>(["mango"]);
-  return (
-    <Flex direction="column" gap="3">
-      <MultiSelectField
-        label="Size md"
-        size="md"
-        legacyLabelFormatting={false}
-        value={v1}
-        options={FRUIT_OPTIONS}
-        onChange={setV1}
-      />
-      <MultiSelectField
-        label="Size normal (default)"
-        size="normal"
-        value={v2}
-        options={FRUIT_OPTIONS}
-        onChange={setV2}
-      />
-      <MultiSelectField
-        label="Size lg"
-        size="lg"
-        legacyLabelFormatting={false}
-        value={v3}
-        options={FRUIT_OPTIONS}
-        onChange={setV3}
-      />
-    </Flex>
-  );
-}
-
 function GroupedStory() {
-  const [value, setValue] = useState<string[]>(["lemon", "blueberry"]);
+  const [value, setValue] = useState("lemon");
   return (
-    <MultiSelectField
+    <SelectField
       label="Fruits by category"
       value={value}
       options={GROUPED_OPTIONS}
@@ -99,39 +108,24 @@ function GroupedStory() {
 }
 
 function CreatableStory() {
-  const [value, setValue] = useState<string[]>(["custom-tag"]);
+  const [value, setValue] = useState("custom-fruit");
   return (
-    <MultiSelectField
-      label="Tags (creatable)"
+    <SelectField
+      label="Fruit (creatable)"
       helpText="Type a value and press Enter to add it"
       value={value}
       options={FRUIT_OPTIONS}
       onChange={setValue}
-      creatable
-    />
-  );
-}
-
-function CreatableNoMenuStory() {
-  const [value, setValue] = useState<string[]>([]);
-  return (
-    <MultiSelectField
-      label="Free-form values (no dropdown)"
-      helpText="Type a value and press Enter. No dropdown is shown."
-      value={value}
-      options={[]}
-      onChange={setValue}
-      creatable
-      noMenu
+      createable
     />
   );
 }
 
 function DisabledStory() {
   return (
-    <MultiSelectField
+    <SelectField
       label="Disabled"
-      value={["apple", "banana"]}
+      value="apple"
       options={FRUIT_OPTIONS}
       onChange={() => {}}
       disabled
@@ -140,54 +134,39 @@ function DisabledStory() {
 }
 
 function WithErrorStory() {
-  const [value, setValue] = useState<string[]>([]);
+  const [value, setValue] = useState("");
   return (
-    <MultiSelectField
+    <SelectField
       label="With error"
       value={value}
       options={FRUIT_OPTIONS}
       onChange={setValue}
-      error="Please select at least one option"
+      error="Please select an option"
     />
   );
 }
 
 function WithWarningStory() {
-  const [value, setValue] = useState<string[]>(["apple"]);
+  const [value, setValue] = useState("apple");
   return (
-    <MultiSelectField
+    <SelectField
       label="With warning"
       value={value}
       options={FRUIT_OPTIONS}
       onChange={setValue}
-      error="Selecting too many options may impact performance"
+      error="This option may affect performance"
       errorLevel="warning"
     />
   );
 }
 
-function NoCopyButtonStory() {
-  const [value, setValue] = useState<string[]>(["apple", "banana"]);
-  return (
-    <MultiSelectField
-      label="No copy button"
-      value={value}
-      options={FRUIT_OPTIONS}
-      onChange={setValue}
-      showCopyButton={false}
-    />
-  );
-}
-
-export default function MultiSelectFieldStories() {
+export default function SelectFieldStories() {
   return (
     <Flex direction="column" gap="4" maxWidth="420px">
       <SizeStory />
       <BasicStory />
       <GroupedStory />
       <CreatableStory />
-      <CreatableNoMenuStory />
-      <NoCopyButtonStory />
       <DisabledStory />
       <WithErrorStory />
       <WithWarningStory />

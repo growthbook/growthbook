@@ -27,6 +27,7 @@ import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
 import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
 import SelectStories from "@/ui/Select.stories";
+import SelectFieldStories from "@/ui/SelectField.stories";
 import SliderStories from "@/ui/Slider.stories";
 import StepperStories from "@/ui/Stepper.stories";
 import SwitchStories from "@/ui/Switch.stories";
@@ -84,6 +85,7 @@ export default function DesignSystemPage() {
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
     { name: "Select", Stories: SelectStories },
+    { name: "SelectField (legacy)", Stories: SelectFieldStories },
     { name: "MultiSelectField", Stories: MultiSelectFieldStories },
     { name: "Slider", Stories: SliderStories },
     { name: "Stepper", Stories: StepperStories },

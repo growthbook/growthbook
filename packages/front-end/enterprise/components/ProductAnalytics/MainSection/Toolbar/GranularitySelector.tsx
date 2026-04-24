@@ -37,7 +37,7 @@ export default function GranularitySelector() {
 
   return (
     <Select
-      size="2"
+      size="sm"
       value={granularity}
       placeholder="Granularity"
       setValue={(v) => {

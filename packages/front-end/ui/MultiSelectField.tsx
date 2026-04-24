@@ -1,4 +1,4 @@
-import { FC, MouseEventHandler, ReactNode, useState } from "react";
+import { FC, MouseEventHandler, ReactNode, useMemo, useState } from "react";
 import ReactSelect, {
   components,
   GroupBase,
@@ -204,7 +204,13 @@ function CustomDropdownIndicator(
 
 export type MultiSelectFieldProps = Omit<
   FieldProps,
-  "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
+  | "value"
+  | "onChange"
+  | "options"
+  | "multi"
+  | "initialOption"
+  | "placeholder"
+  | "size"
 > & {
   value: string[];
   placeholder?: string;
@@ -225,8 +231,9 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
-  size?: "1" | "2" | "3" | "legacy";
+  size?: "md" | "normal" | "lg";
   errorLevel?: "error" | "warning";
+  legacyLabelFormatting?: boolean;
 };
 
 const MultiSelectField: FC<MultiSelectFieldProps> = ({
@@ -250,8 +257,9 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
-  size = "legacy",
+  size = "normal" as "md" | "normal" | "lg",
   errorLevel = "error",
+  legacyLabelFormatting = true,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -269,9 +277,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
     | "render"
     | "ref"
   >;
-  // When using a design-system size, pass the label through Field only in legacy mode.
-  // In non-legacy mode we render it ourselves using the Radix Text component.
-  if (size === "legacy") {
+  if (legacyLabelFormatting) {
     fieldProps.label = label;
   }
 
@@ -347,22 +353,46 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       ),
     );
   };
-  const mergeStyles = customStyles
-    ? {
-        styles: {
-          ...ReactSelectProps.styles,
-          ...customStyles,
-        },
-      }
-    : {};
+  const mergeStyles = useMemo(() => {
+    const sizeMinHeight: Record<string, number> = {
+      md: 32,
+      normal: 36,
+      lg: 40,
+    };
+    const sizeVPadding: Record<string, number> = { md: 0, normal: 2, lg: 4 };
+    return {
+      styles: {
+        ...ReactSelectProps.styles,
+        ...(customStyles || {}),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        control: (base: any, state: any) => ({
+          ...(customStyles?.control
+            ? customStyles.control(
+                ReactSelectProps.styles.control(base, state),
+                state,
+              )
+            : ReactSelectProps.styles.control(base, state)),
+          minHeight: sizeMinHeight[size],
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        valueContainer: (base: any) => ({
+          ...base,
+          paddingTop: sizeVPadding[size],
+          paddingBottom: sizeVPadding[size],
+        }),
+      },
+    };
+  }, [size, customStyles]);
   return (
     <Field
       {...fieldProps}
-      customClassName={clsx(customClassName, { "cursor-disabled": disabled })}
+      customClassName={clsx(customClassName, {
+        "cursor-disabled": disabled,
+      })}
       render={(id, ref) => {
         return (
           <>
-            {size !== "legacy" &&
+            {!legacyLabelFormatting &&
               label !== undefined &&
               (typeof label === "string" ? (
                 <Text as="label" htmlFor={id} size="3" weight="medium">
@@ -373,7 +403,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
               ))}
             <div style={{ position: "relative" }}>
               <Component
-                className={clsx({
+                className={clsx(`gb-multi-select--${size}`, {
                   error: !!error && errorLevel === "error",
                   warning: !!error && errorLevel === "warning",
                 })}

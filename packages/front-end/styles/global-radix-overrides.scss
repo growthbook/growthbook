@@ -342,6 +342,25 @@
   &.error {
     box-shadow: inset 0 0 0 1px var(--red-8);
   }
+
+  &[data-state="open"] {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -1px;
+  }
+}
+
+.gb-select--normal .rt-SelectTrigger {
+  height: 36px;
+}
+
+.gb-select--md .rt-SelectTrigger {
+  height: 32px;
+  border-radius: var(--radius-2);
+}
+
+.gb-select--lg .rt-SelectTrigger {
+  height: 40px;
+  border-radius: var(--radius-3);
 }
 
 // Slider

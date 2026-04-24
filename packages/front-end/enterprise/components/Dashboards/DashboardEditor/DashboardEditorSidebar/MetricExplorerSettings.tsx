@@ -113,7 +113,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               {metric && factTable && (
                 <Select
                   label="Unit"
-                  size="2"
+                  size="sm"
                   value={block.analysisSettings.userIdType}
                   placeholder="Select unit"
                   setValue={(v) =>
@@ -158,7 +158,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               {metric && metric?.metricType !== "ratio" && (
                 <Select
                   label="Metric Value"
-                  size="2"
+                  size="sm"
                   value={block.valueType}
                   placeholder="Select value"
                   setValue={(v) =>
@@ -177,7 +177,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               )}
               <Select
                 label="Date Range"
-                size="2"
+                size="sm"
                 value={
                   isCustomLookback
                     ? "-1"
@@ -265,7 +265,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
 
               <Select
                 label="Graph Type"
-                size="2"
+                size="sm"
                 value={block.visualizationType}
                 placeholder="Select value"
                 setValue={(v) =>
