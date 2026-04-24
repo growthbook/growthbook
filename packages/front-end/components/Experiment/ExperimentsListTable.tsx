@@ -17,6 +17,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -29,6 +30,8 @@ interface ExperimentsListTableProps {
   filtered: Array<ComputedExperimentInterface>;
   isFiltered: boolean;
   project?: string | null;
+  searchValue: string;
+  setSearchValue: (value: string) => void;
 }
 
 const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
@@ -37,6 +40,8 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   filtered,
   isFiltered,
   project,
+  searchValue,
+  setSearchValue,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const NUM_PER_PAGE = 20;
@@ -169,7 +174,12 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                 </TableCell>
               )}
               <TableCell>
-                <SortedTags tags={Object.values(e.tags)} useFlex={true} />
+                <SortedTags
+                  tags={Object.values(e.tags)}
+                  useFlex={true}
+                  {...tagLinkProps("experiments")}
+                  onTagClick={tagFilterOnClick(searchValue, setSearchValue)}
+                />
               </TableCell>
               <TableCell>{e.ownerName ?? <em>None</em>}</TableCell>
               <TableCell title={datetime(e.date)}>

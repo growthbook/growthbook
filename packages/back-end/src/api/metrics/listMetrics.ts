@@ -1,8 +1,8 @@
-import { ListMetricsResponse } from "shared/types/openapi";
 import { listMetricsValidator } from "shared/validators";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
 import { toMetricApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -10,7 +10,7 @@ import {
 
 export const listMetrics = createApiRequestHandler(listMetricsValidator)(async (
   req,
-): Promise<ListMetricsResponse> => {
+) => {
   // Filter at the database level for better performance
   const metrics = await getMetricsByOrganization(req.context, {
     datasourceId: req.query.datasourceId,
@@ -27,12 +27,15 @@ export const listMetrics = createApiRequestHandler(listMetricsValidator)(async (
   );
 
   return {
-    metrics: filtered.map((metric) =>
-      toMetricApiInterface(
-        req.organization,
-        metric,
-        datasources.find((ds) => ds.id === metric.datasource) || null,
+    metrics: await resolveOwnerEmails(
+      filtered.map((metric) =>
+        toMetricApiInterface(
+          req.organization,
+          metric,
+          datasources.find((ds) => ds.id === metric.datasource) || null,
+        ),
       ),
+      req.context,
     ),
     ...returnFields,
   };

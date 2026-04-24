@@ -10,6 +10,7 @@ import {
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
+  createInterfaceEnvSettingsFromApiEnvSettings,
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
@@ -1294,6 +1295,310 @@ describe("SDK Payloads", () => {
     });
   });
 
+  it("handles multi-range namespaces in experiment definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        id: "abc",
+        type: "experiment-ref",
+        enabled: true,
+        experimentId: "exp_multi",
+        description: "",
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+      },
+    ];
+    const exp: Partial<ExperimentInterface> = {
+      id: "exp_multi",
+      name: "Multi Experiment",
+      trackingKey: "exp-multi-key",
+      organization: "123",
+      owner: "",
+      implementation: "code",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      tags: [],
+      variations: [
+        { id: "v0", key: "ctrl", name: "Control", screenshots: [] },
+        { id: "v1", key: "var", name: "Var", screenshots: [] },
+      ],
+      status: "running",
+      releasedVariationId: "",
+      autoSnapshots: false,
+      previewURL: "",
+      targetURLRegex: "",
+      archived: false,
+      phases: [
+        {
+          condition: "{}",
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Phase 1",
+          namespace: {
+            enabled: true,
+            name: "multi-ns",
+            ranges: [
+              [0, 0.2],
+              [0.5, 0.7],
+            ],
+            hashAttribute: "login_id",
+          },
+          reason: "",
+          variationWeights: [0.5, 0.5],
+          seed: "multi-seed",
+        },
+      ],
+      linkedFeatures: ["feature"],
+    };
+    const experimentMap = new Map([["exp_multi", exp]]);
+    const namespaces = new Map<
+      string,
+      {
+        hashAttribute?: string;
+        seed?: string;
+        format?: "legacy" | "multiRange";
+      }
+    >([
+      [
+        "multi-ns",
+        {
+          hashAttribute: "login_id",
+          seed: "custom-seed",
+          format: "multiRange",
+        },
+      ],
+    ]);
+
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap,
+        namespaces,
+        includeRuleIds: true,
+        includeExperimentNames: true,
+      }),
+    ).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-multi-key",
+          coverage: 1,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          meta: [
+            { key: "ctrl", name: "Control" },
+            { key: "var", name: "Var" },
+          ],
+          name: "Multi Experiment",
+          filters: [
+            {
+              attribute: "login_id",
+              seed: "custom-seed",
+              hashVersion: 2,
+              ranges: [
+                [0, 0.2],
+                [0.5, 0.7],
+              ],
+            },
+          ],
+          phase: "0",
+          seed: "multi-seed",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+  });
+
+  it("maintains legacy namespace tuple for backward compatibility", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        id: "abc",
+        type: "experiment-ref",
+        enabled: true,
+        experimentId: "exp_legacy",
+        description: "",
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+      },
+    ];
+    const exp: ExperimentInterface = {
+      id: "exp_legacy",
+      name: "Legacy Experiment",
+      trackingKey: "exp-legacy-key",
+      organization: "123",
+      owner: "",
+      implementation: "code",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      tags: [],
+      variations: [
+        { id: "v0", key: "ctrl", name: "Control", screenshots: [] },
+        { id: "v1", key: "var", name: "Var", screenshots: [] },
+      ],
+      status: "running",
+      releasedVariationId: "",
+      autoSnapshots: false,
+      previewURL: "",
+      targetURLRegex: "",
+      archived: false,
+      phases: [
+        {
+          condition: "{}",
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Phase 1",
+          namespace: {
+            enabled: true,
+            name: "legacy-ns",
+            range: [0, 0.5],
+          },
+          reason: "",
+          variationWeights: [0.5, 0.5],
+        },
+      ],
+      linkedFeatures: ["feature"],
+    };
+    const experimentMap = new Map([["exp_legacy", exp]]);
+    const namespaces = new Map<
+      string,
+      {
+        hashAttribute?: string;
+        seed?: string;
+        format?: "legacy" | "multiRange";
+      }
+    >([
+      [
+        "legacy-ns",
+        {
+          format: "legacy",
+        },
+      ],
+    ]);
+
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap,
+        namespaces,
+        includeRuleIds: true,
+        includeExperimentNames: true,
+      }),
+    ).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-legacy-key",
+          coverage: 1,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          meta: [
+            { key: "ctrl", name: "Control" },
+            { key: "var", name: "Var" },
+          ],
+          name: "Legacy Experiment",
+          namespace: ["legacy-ns", 0, 0.5],
+          phase: "0",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+  });
+
+  it("prioritizes rule-level hashAttribute over namespace definition", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        id: "abc",
+        type: "experiment-ref",
+        enabled: true,
+        experimentId: "exp_priority",
+        description: "",
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+      },
+    ];
+    const exp: Partial<ExperimentInterface> = {
+      id: "exp_priority",
+      name: "Priority Experiment",
+      trackingKey: "exp-priority-key",
+      hashAttribute: "id",
+      hashVersion: 2,
+      variations: [
+        { id: "v0", key: "ctrl", name: "Control", screenshots: [] },
+        { id: "v1", key: "var", name: "Var", screenshots: [] },
+      ],
+      status: "running",
+      phases: [
+        {
+          coverage: 1,
+          name: "Phase 1",
+          namespace: {
+            enabled: true,
+            name: "multi-ns",
+            ranges: [[0, 0.5]],
+            hashAttribute: "rule_attr", // rule-level override
+            hashVersion: 2,
+          },
+          variationWeights: [0.5, 0.5],
+        },
+      ],
+      linkedFeatures: ["feature"],
+    };
+    const experimentMap = new Map([["exp_priority", exp]]);
+    const namespaces = new Map<
+      string,
+      {
+        hashAttribute?: string;
+        seed?: string;
+        format?: "legacy" | "multiRange";
+      }
+    >([
+      [
+        "multi-ns",
+        {
+          hashAttribute: "ns_attr", // namespace-level default
+          seed: "ns-seed",
+          format: "multiRange",
+        },
+      ],
+    ]);
+
+    const result = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap,
+      namespaces,
+    });
+
+    // The experiment's own hashAttribute ("id") must not be overridden by the
+    // namespace's hashAttribute — they are independent in the SDK.
+    expect(result.rules[0].hashAttribute).toEqual("id");
+    // The filter carries the namespace's hashAttribute; in this test the phase's
+    // namespace has its own hashAttribute override ("rule_attr") that wins over
+    // the org-level namespace default ("ns_attr").
+    expect(result.rules[0].filters?.[0].attribute).toEqual("rule_attr");
+  });
+
   it("Uses safe rollouts to build feature definitions", () => {
     const feature = cloneDeep(baseFeature);
     feature.environmentSettings["production"].rules = [
@@ -1425,6 +1730,145 @@ describe("SDK Payloads", () => {
         },
       ],
     });
+  });
+
+  it("Injects ExperimentMetadata into experiment-ref rules when metadataOptions are set", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.project = "proj_feature";
+    feature.tags = ["feature-tag"];
+    feature.customFields = { owner: "alice" };
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "experiment-ref",
+        experimentId: "exp_meta",
+        description: "",
+        id: "rule_1",
+        enabled: true,
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+      },
+    ];
+
+    const exp: ExperimentInterface = {
+      archived: false,
+      autoAssign: false,
+      implementation: "code",
+      autoSnapshots: false,
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      exposureQueryId: "",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      id: "exp_meta",
+      metrics: [],
+      name: "Metadata Experiment",
+      organization: "",
+      owner: "",
+      project: "proj_exp",
+      tags: ["exp-tag"],
+      customFields: { owner: "bob", region: "us" },
+      phases: [
+        {
+          condition: "",
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Phase 1",
+          reason: "",
+          variationWeights: [0.5, 0.5],
+          namespace: { enabled: false, name: "", range: [0, 1] },
+        },
+      ],
+      previewURL: "",
+      releasedVariationId: "",
+      status: "running",
+      targetURLRegex: "",
+      trackingKey: "meta-exp-key",
+      variations: [
+        { id: "v0", key: "k0", name: "Control", screenshots: [] },
+        { id: "v1", key: "k1", name: "Variation", screenshots: [] },
+      ],
+      linkedFeatures: ["feature"],
+      excludeFromPayload: false,
+    };
+
+    const expMap = new Map([["exp_meta", exp]]);
+
+    const projFeature = {
+      id: "proj_feature",
+      publicId: "feature-project",
+      name: "Feature Project",
+    };
+    const projExp = {
+      id: "proj_exp",
+      publicId: "exp-project",
+      name: "Exp Project",
+    };
+    const projectsMap = new Map([
+      ["proj_feature", projFeature],
+      ["proj_exp", projExp],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    // Without metadataOptions: no metadata on rules or feature def
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap,
+        experimentMap: expMap,
+        safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+        includeRuleIds: true,
+      }),
+    ).toEqual({
+      defaultValue: true,
+      rules: [expect.objectContaining({ id: "rule_1", key: "meta-exp-key" })],
+    });
+
+    // With metadataOptions: experiment-ref rule gets ExperimentMetadata from the
+    // experiment (proj_exp / exp-tag / bob), NOT from the feature
+    const defWithMeta = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: {
+        includeProjectIdInMetadata: true,
+        includeCustomFieldsInMetadata: true,
+        allowedCustomFieldsInMetadata: ["owner"],
+        includeTagsInMetadata: true,
+      },
+      projectsMap,
+    });
+
+    expect(defWithMeta?.rules?.[0]).toEqual(
+      expect.objectContaining({
+        id: "rule_1",
+        metadata: {
+          projects: ["exp-project"],
+          tags: ["exp-tag"],
+          customFields: { owner: "bob" },
+        },
+      }),
+    );
+
+    // Confirm experiment metadata differs from what feature metadata would be
+    expect(defWithMeta?.rules?.[0]?.metadata).not.toEqual({
+      projects: ["feature-project"],
+      tags: ["feature-tag"],
+      customFields: { owner: "alice" },
+    });
+
+    // allowedCustomFieldsInMetadata filters keys — region is excluded
+    expect(defWithMeta?.rules?.[0]?.metadata?.customFields).not.toHaveProperty(
+      "region",
+    );
   });
 
   it("Gets Feature Definitions", () => {
@@ -1664,5 +2108,75 @@ describe("SDK Payloads", () => {
         groupId: ["1", "2", "3"].map((val) => sha256(val, "salt")),
       });
     });
+  });
+});
+
+describe("createInterfaceEnvSettingsFromApiEnvSettings", () => {
+  const baseFeature = {
+    id: "test-feature",
+    valueType: "boolean",
+    defaultValue: "false",
+    environmentSettings: {},
+  } as FeatureInterface;
+
+  it("preserves rule-level prerequisites across rule types", () => {
+    const prerequisites = [
+      { id: "parent-feature", condition: '{"value": true}' },
+    ];
+    const result = createInterfaceEnvSettingsFromApiEnvSettings(
+      baseFeature,
+      [{ id: "production" }],
+      {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              type: "force",
+              value: "true",
+              prerequisites,
+            },
+            {
+              type: "rollout",
+              value: "true",
+              coverage: 0.5,
+              hashAttribute: "id",
+              prerequisites,
+            },
+            {
+              type: "experiment-ref",
+              experimentId: "exp_1",
+              variations: [{ variationId: "v0", value: "false" }],
+              prerequisites,
+            },
+            {
+              type: "experiment",
+              condition: "{}",
+              values: [{ value: "true", weight: 1 }],
+              prerequisites,
+            },
+          ],
+        },
+      },
+    );
+
+    const rules = result.production.rules;
+    expect(rules).toHaveLength(4);
+    rules.forEach((rule) => {
+      expect(rule.prerequisites).toEqual(prerequisites);
+    });
+  });
+
+  it("omits prerequisites when not provided", () => {
+    const result = createInterfaceEnvSettingsFromApiEnvSettings(
+      baseFeature,
+      [{ id: "production" }],
+      {
+        production: {
+          enabled: true,
+          rules: [{ type: "force", value: "true" }],
+        },
+      },
+    );
+    expect(result.production.rules[0]).not.toHaveProperty("prerequisites");
   });
 });

@@ -1,6 +1,6 @@
-import { ListSegmentsResponse } from "shared/types/openapi";
 import { listSegmentsValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyFilter,
   applyPagination,
@@ -8,7 +8,7 @@ import {
 } from "back-end/src/util/handler";
 
 export const listSegments = createApiRequestHandler(listSegmentsValidator)(
-  async (req): Promise<ListSegmentsResponse> => {
+  async (req) => {
     const segments = await req.context.models.segments.getAll();
 
     // TODO: Move sorting/limiting to the database query for better performance
@@ -22,7 +22,10 @@ export const listSegments = createApiRequestHandler(listSegmentsValidator)(
     );
 
     return {
-      segments: filtered.map((segment) => toSegmentApiInterface(segment)),
+      segments: await resolveOwnerEmails(
+        filtered.map((segment) => toSegmentApiInterface(segment)),
+        req.context,
+      ),
       ...returnFields,
     };
   },

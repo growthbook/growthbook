@@ -71,6 +71,7 @@ export default {
           collapsed: false,
           items: [
             "features/publishing-and-approval-flows", // Publishing & Approval Flows (NEW)
+            "features/json-schema-validation", // JSON Schema Validation
             "features/stale-detection", // Stale Feature Detection
             "features/code-references", // Code References
             "features/diagnostics", // Feature Diagnostics
@@ -84,6 +85,16 @@ export default {
       label: "Data & Metrics",
       collapsed: true,
       items: [
+        {
+          type: "doc",
+          id: "experimentation-analysis/choose-your-data-path",
+          label: "Choose Your Data Path",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/managed-warehouse",
+          label: "Managed Warehouse",
+        },
         {
           type: "category",
           label: "Connecting to Your Data Warehouse",
@@ -287,11 +298,6 @@ export default {
           type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/managed-warehouse",
-          label: "Managed Warehouse",
         },
         {
           type: "doc",

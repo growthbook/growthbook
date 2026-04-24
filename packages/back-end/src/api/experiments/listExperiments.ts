@@ -2,10 +2,10 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   listExperimentsValidator,
 } from "shared/validators";
-import { ListExperimentsResponse } from "shared/types/openapi";
 import { ProjectInterface } from "shared/types/project";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -13,7 +13,7 @@ import {
 
 export const listExperiments = createApiRequestHandler(
   listExperimentsValidator,
-)(async (req): Promise<ListExperimentsResponse> => {
+)(async (req) => {
   // Filter and sort at the database level for better performance
   // Note: type is not specified, which defaults to excluding holdouts
   const experiments = await getAllExperiments(req.context, {
@@ -21,6 +21,7 @@ export const listExperiments = createApiRequestHandler(
     project: req.query.projectId,
     datasourceId: req.query.datasourceId,
     trackingKey: req.query.experimentId,
+    status: req.query.status,
     sortBy: { dateCreated: 1 },
   });
 
@@ -47,7 +48,10 @@ export const listExperiments = createApiRequestHandler(
       projectMap,
     ),
   );
-  const apiExperiments = await Promise.all(promises);
+  const apiExperiments = await resolveOwnerEmails(
+    await Promise.all(promises),
+    req.context,
+  );
 
   return {
     experiments: apiExperiments,

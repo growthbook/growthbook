@@ -1,12 +1,13 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { DEFAULT_ROLES, getRoles } from "shared/permissions";
+import { getRoles } from "shared/permissions";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import RoleSelector from "@/components/Settings/Team/RoleSelector";
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -15,69 +16,49 @@ const ApiKeysModal: FC<{
   defaultDescription?: string;
 }> = ({ close, personalAccessToken, onCreate, defaultDescription = "" }) => {
   const { apiCall } = useAuth();
-  const { organization, hasCommercialFeature } = useUser();
-  const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
+  const { organization } = useUser();
 
-  const groupedRoles = useMemo(() => {
-    const roleList = getRoles(organization);
-    const deactivatedRoles = hasCustomRolesFeature
-      ? (organization.deactivatedRoles ?? [])
-      : [];
-    const defaultRoles = {
-      label: "Default Roles",
-      options: roleList
-        .filter(
-          (role) =>
-            !deactivatedRoles.includes(role.id) &&
-            role.id in DEFAULT_ROLES &&
-            role.id !== "noaccess",
-        )
-        .map((role) => ({
-          label: role.displayName || role.id,
-          value: role.id,
-        })),
-    };
-    const customRoles = {
-      label: "Custom Roles",
-      options: hasCustomRolesFeature
-        ? roleList
-            .filter(
-              (role) =>
-                !deactivatedRoles.includes(role.id) &&
-                !(role.id in DEFAULT_ROLES),
-            )
-            .map((role) => ({
-              label: role.displayName || role.id,
-              value: role.id,
-            }))
-        : [],
-    };
-    return [defaultRoles, customRoles];
-  }, [organization, hasCustomRolesFeature]);
+  const defaultRole = useMemo(() => {
+    const deactivated = new Set(organization.deactivatedRoles ?? []);
+    const roles = getRoles(organization);
+    return (
+      roles.find((r) => r.id !== "noaccess" && !deactivated.has(r.id))?.id ??
+      "readonly"
+    );
+  }, [organization]);
 
   const form = useForm<{
     description: string;
-    type: string;
   }>({
     defaultValues: {
       description: defaultDescription,
-      type: personalAccessToken
-        ? "user"
-        : (groupedRoles[0].options[0]?.value ??
-          groupedRoles[1].options[0]?.value ??
-          ""),
     },
   });
 
+  const [roleState, setRoleState] = useState<MemberRoleWithProjects>({
+    role: defaultRole,
+    limitAccessByEnvironment: false,
+    environments: [],
+  });
+
   const onSubmit = form.handleSubmit(async (value) => {
+    const { role, ...roleStateData } = roleState;
+    const key = personalAccessToken
+      ? {
+          description: value.description,
+          type: "user",
+        }
+      : {
+          description: value.description,
+          type: role,
+          ...roleStateData,
+        };
     await apiCall("/keys", {
       method: "POST",
-      body: JSON.stringify({
-        ...value,
-      }),
+      body: JSON.stringify(key),
     });
     track("Create API Key", {
-      isSecret: value.type !== "user",
+      isSecret: !personalAccessToken,
     });
     onCreate();
   });
@@ -97,13 +78,7 @@ const ApiKeysModal: FC<{
         {...form.register("description")}
       />
       {!personalAccessToken && (
-        <SelectField
-          label="Role"
-          value={form.watch("type")}
-          onChange={(v) => form.setValue("type", v)}
-          options={groupedRoles}
-          sort={false}
-        />
+        <RoleSelector value={roleState} setValue={setRoleState} />
       )}
     </Modal>
   );

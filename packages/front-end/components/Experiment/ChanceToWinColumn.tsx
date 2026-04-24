@@ -16,11 +16,10 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 });
 
-interface Props
-  extends DetailedHTMLProps<
-    TdHTMLAttributes<HTMLTableCellElement>,
-    HTMLTableCellElement
-  > {
+interface Props extends DetailedHTMLProps<
+  TdHTMLAttributes<HTMLTableCellElement>,
+  HTMLTableCellElement
+> {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   rowResults: RowResults;
@@ -31,6 +30,7 @@ interface Props
   hideScaledImpact?: boolean;
   // Props for popover
   metric?: ExperimentMetricInterface;
+  pValueThreshold: number;
   differenceType?: DifferenceType;
   statsEngine?: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
@@ -46,6 +46,7 @@ export default function ChanceToWinColumn({
   className,
   hideScaledImpact = false,
   metric,
+  pValueThreshold,
   differenceType,
   statsEngine,
   ssrPolyfills,
@@ -56,6 +57,7 @@ export default function ChanceToWinColumn({
     stats,
     rowResults,
     metric,
+    pValueThreshold,
     differenceType,
     statsEngine,
     ssrPolyfills,

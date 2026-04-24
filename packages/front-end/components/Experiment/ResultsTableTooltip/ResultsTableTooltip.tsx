@@ -49,8 +49,10 @@ export interface TooltipData {
   yAlign: YAlign;
 }
 
-interface Props
-  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
+interface Props extends DetailedHTMLProps<
+  HTMLAttributes<HTMLDivElement>,
+  HTMLDivElement
+> {
   left: number;
   top: number;
   data?: TooltipData;
@@ -58,6 +60,7 @@ interface Props
   close: () => void;
   differenceType: DifferenceType;
   isBandit?: boolean;
+  pValueThreshold: number;
   ssrPolyfills?: SSRPolyfills;
   transitionClassName?: string;
 }
@@ -69,6 +72,7 @@ export default function ResultsTableTooltip({
   close,
   differenceType,
   isBandit,
+  pValueThreshold,
   ssrPolyfills,
   transitionClassName,
   ...otherProps
@@ -162,6 +166,7 @@ export default function ResultsTableTooltip({
           ssrPolyfills={ssrPolyfills}
           differenceType={differenceType}
           isBandit={isBandit}
+          pValueThreshold={pValueThreshold}
         />
       </div>
     </div>

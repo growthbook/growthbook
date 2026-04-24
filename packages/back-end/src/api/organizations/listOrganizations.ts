@@ -1,4 +1,3 @@
-import { ListOrganizationsResponse } from "shared/types/openapi";
 import { listOrganizationsValidator } from "shared/validators";
 import {
   findAllOrganizations,
@@ -12,13 +11,16 @@ import {
 
 export const listOrganizations = createApiRequestHandler(
   listOrganizationsValidator,
-)(async (req): Promise<ListOrganizationsResponse> => {
+)(async (req) => {
   await validateIsSuperUserRequest(req);
 
+  const limit = req.query.limit ?? 10;
+  const offset = req.query.offset ?? 0;
+
   const organizations = await findAllOrganizations(
-    1 + req.query.offset / req.query.limit,
+    1 + offset / limit,
     req.query.search || "",
-    req.query.limit,
+    limit,
   );
 
   return {
@@ -28,7 +30,7 @@ export const listOrganizations = createApiRequestHandler(
     ...getPaginationReturnFields(
       organizations.organizations,
       organizations.total,
-      req.query,
+      { limit, offset },
     ),
   };
 });

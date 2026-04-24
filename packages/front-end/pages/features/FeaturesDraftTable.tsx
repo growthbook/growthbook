@@ -3,8 +3,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
-import { EventUserLoggedIn } from "shared/types/events/event-types";
-import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
+import {
+  EventUserLoggedIn,
+  EventUserApiKey,
+} from "shared/types/events/event-types";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
@@ -13,6 +15,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/ui/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import ProjectBadges from "@/components/ProjectBadges";
+import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 import Table, {
   TableHeader,
   TableBody,
@@ -34,38 +38,14 @@ export default function FeaturesDraftTable() {
   const NUM_PER_PAGE = 20;
   const { data } = draftAndReviewData;
   const { getProjectById } = useDefinitions();
-  const renderStatusCopy = (revision: FeatureRevisionInterface) => {
-    switch (revision.status) {
-      case "approved":
-        return (
-          <span className="mr-3">
-            <PiCheckCircleFill className="text-success  mr-1" /> Approved
-          </span>
-        );
-      case "pending-review":
-        return (
-          <span className="mr-3">
-            <PiCircleDuotone className="text-warning  mr-1" /> Pending Review
-          </span>
-        );
-      case "draft":
-        return <span className="mr-3">Draft</span>;
-      case "changes-requested":
-        return (
-          <span className="mr-3">
-            <PiFileX className="text-danger mr-1" />
-            Changes Requested
-          </span>
-        );
-      default:
-        return;
-    }
-  };
 
   const featuresAndRevisions = data?.revisions;
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as EventUserLoggedIn | null;
+    const createdBy = revision?.createdBy as
+      | EventUserLoggedIn
+      | EventUserApiKey
+      | null;
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {
       case "draft":
@@ -200,8 +180,11 @@ export default function FeaturesDraftTable() {
                       >
                         <span className="text-danger">Invalid project</span>
                       </Tooltip>
-                    ) : projectId ? (
-                      (getProjectById(projectId)?.name ?? "—")
+                    ) : featureAndRevision.project ? (
+                      <ProjectBadges
+                        resourceType="feature"
+                        projectIds={[featureAndRevision.project]}
+                      />
                     ) : (
                       "—"
                     )}
@@ -210,7 +193,12 @@ export default function FeaturesDraftTable() {
                   <TableCell title={datetime(featureAndRevision.dateUpdated)}>
                     {ago(featureAndRevision.dateUpdated)}
                   </TableCell>
-                  <TableCell>{renderStatusCopy(featureAndRevision)}</TableCell>
+                  <TableCell>
+                    <RevisionStatusBadge
+                      revision={featureAndRevision}
+                      liveVersion={-1}
+                    />
+                  </TableCell>
                 </TableRow>
               );
             })}

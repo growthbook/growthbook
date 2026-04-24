@@ -44,9 +44,7 @@ const BaseClass = MakeModelClass({
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
-          const team = await req.context.models.teams.getById(
-            req.params.teamId,
-          );
+          const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
           await addMembersToTeam({
             organization: req.context.org,
@@ -63,9 +61,7 @@ const BaseClass = MakeModelClass({
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
-          const team = await req.context.models.teams.getById(
-            req.params.teamId,
-          );
+          const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
           await removeMembersFromTeam({
             organization: req.context.org,
@@ -82,9 +78,7 @@ const BaseClass = MakeModelClass({
         reqHandler: async (req): Promise<ApiDeleteTeamReturn> => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
-          const team = await req.context.models.teams.getById(
-            req.params.teamId,
-          );
+          const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
           if (stringToBoolean(req.query.deleteMembers)) {
             await removeMembersFromTeam({

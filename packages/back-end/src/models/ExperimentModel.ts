@@ -9,7 +9,10 @@ import {
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
-import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  ExperimentStatus,
+} from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
@@ -92,6 +95,12 @@ const banditResultObject = {
   error: String,
   reweight: Boolean,
   weightsWereUpdated: Boolean,
+};
+
+const phaseVariation = {
+  _id: false,
+  id: String,
+  status: String,
 };
 
 const experimentSchema = new mongoose.Schema({
@@ -242,6 +251,7 @@ const experimentSchema = new mongoose.Schema({
       namespace: {},
       seed: String,
       variationWeights: [Number],
+      variations: { type: [phaseVariation], default: undefined },
       groups: [String],
       banditEvents: [
         {
@@ -300,6 +310,10 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      covariateImbalance: {
+        _id: false,
+        isImbalanced: Boolean,
+      },
       power: {
         _id: false,
         type: { type: String, enum: ["error", "success"] },
@@ -422,6 +436,7 @@ export async function getAllExperiments(
     type,
     datasourceId,
     trackingKey,
+    status,
     sortBy,
   }: {
     project?: string;
@@ -429,6 +444,7 @@ export async function getAllExperiments(
     type?: ExperimentType;
     datasourceId?: string;
     trackingKey?: string;
+    status?: ExperimentStatus;
     sortBy?: SortFilter;
   } = {},
 ): Promise<ExperimentInterface[]> {
@@ -450,6 +466,10 @@ export async function getAllExperiments(
 
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+
+  if (status) {
+    query.status = status;
   }
 
   if (type === "multi-armed-bandit") {
@@ -1182,7 +1202,7 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }
@@ -1755,7 +1775,6 @@ const getExperimentChanges = (
     "releasedVariationId",
     "excludeFromPayload",
     "autoAssign",
-    "variations",
     "phases",
   ];
 

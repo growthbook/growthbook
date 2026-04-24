@@ -1,30 +1,26 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
+} from "shared/types/experiment";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
-import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import Link from "@/ui/Link";
-
-interface RedirectLinkedChangesProps {
-  setUrlRedirectModal?: (boolean) => void;
-  urlRedirects: URLRedirectInterface[];
-  experiment: ExperimentInterfaceStringDates;
-  canAddChanges: boolean;
-  mutate?: () => void;
-  isPublic?: boolean;
-}
+import Text from "@/ui/Text";
+import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
+import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 
 interface RedirectProps {
   urlRedirect: URLRedirectInterface;
   experiment: ExperimentInterfaceStringDates;
   canEdit: boolean;
   mutate?: () => void;
+  environmentStates?: LinkedChangeEnvStates;
 }
 
 function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
@@ -43,7 +39,7 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
         rel="noreferrer"
         target="_blank"
       >
-        <Flex align="center" py="2">
+        <Flex align="center">
           {parsedUrl1.hostname === parsedUrl2.hostname ? (
             <>
               {filtered.map((part, index) => {
@@ -57,7 +53,9 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
           ) : (
             <>{url2}</>
           )}
-          <PiArrowSquareOutFill className="ml-1" />
+          <Box ml="1">
+            <PiArrowSquareOutFill color="var(--violet-a11)" />
+          </Box>
         </Flex>
       </Link>
     );
@@ -67,11 +65,12 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
   }
 }
 
-const Redirect = ({
+export const RedirectLinkedChanges = ({
   urlRedirect,
   experiment,
   mutate,
   canEdit,
+  environmentStates,
 }: RedirectProps) => {
   const { apiCall } = useAuth();
   const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
@@ -89,130 +88,57 @@ const Redirect = ({
           source={"redirect-linked-changes"}
         />
       ) : null}
-      <div className="appbox p-3 mb-0">
-        <Flex justify="between" align="start">
-          <Box as="div">
-            <Link
-              href={originUrl}
-              underline="none"
-              weight="bold"
-              rel="noreferrer"
-              target="_blank"
-            >
-              <Flex align="center" py="2">
-                {originUrl}
-                <PiArrowSquareOutFill className="ml-1" />
-              </Flex>
-            </Link>
-            <Text as="span" color="gray">
-              Original URL
-            </Text>
-          </Box>
-          {canEdit && (
-            <div>
-              <button
-                className="btn btn-link text-danger"
-                onClick={async () => {
-                  await apiCall(`/url-redirects/${urlRedirect.id}`, {
-                    method: "DELETE",
-                  });
-                  mutate?.();
-                }}
-              >
-                Remove
-              </button>
-              <button
-                className="btn btn-link link-purple"
-                onClick={() => {
-                  setEditingRedirect(true);
-                }}
-              >
-                Edit
-              </button>
-            </div>
-          )}
-        </Flex>
-        <hr />
-        <h5>
-          Redirects
-          <Tooltip
-            body="Some links may be gated and can not be previewed"
-            className="pl-1"
-          />
-        </h5>
-        {(() => {
-          const variations = getLatestPhaseVariations(experiment);
-          return variations.map((v, i) => (
-            <div
-              className={
-                i === variations.length - 1
-                  ? `mb-0 variation with-variation-label variation${v.index}`
-                  : `mb-4 variation with-variation-label variation${v.index}`
-              }
-              key={v.id}
-            >
-              <div className="d-flex align-items-baseline">
-                <span
-                  className="label"
-                  style={{
-                    width: 18,
-                    height: 18,
-                  }}
-                >
-                  {i}
-                </span>
-                <div className="col pl-0">
-                  <h5 className="mb-0">{v.name}</h5>
-                  {urlRedirect.destinationURLs[i]?.url ? (
+      <LinkedChange
+        changeType="redirect"
+        heading={originUrl}
+        headingLink={originUrl}
+        onEdit={() => setEditingRedirect(true)}
+        onDelete={async () => {
+          await apiCall(`/url-redirects/${urlRedirect.id}`, {
+            method: "DELETE",
+          });
+          mutate?.();
+        }}
+        canEdit={canEdit}
+      >
+        <Box className="appbox">
+          <Flex width="100%" gap="4" py="4" px="5" direction="column">
+            <Box flexGrow="1">
+              <LinkedChangeVariationRows
+                experiment={experiment}
+                renderContent={(j) =>
+                  urlRedirect.destinationURLs[j]?.url ? (
                     <UrlDifferenceRenderer
                       url1={urlRedirect.urlPattern}
-                      url2={urlRedirect.destinationURLs[i].url}
+                      url2={urlRedirect.destinationURLs[j].url}
                     />
                   ) : (
-                    <i className="text-muted">No redirect</i>
-                  )}
-                </div>
-              </div>
-            </div>
-          ));
-        })()}
-      </div>
+                    <Text color="text-low">No redirect</Text>
+                  )
+                }
+              />
+            </Box>
+          </Flex>
+          {environmentStates && Object.keys(environmentStates).length > 0 && (
+            <>
+              <Separator size="4" />
+              <EnvironmentStatesGrid
+                environmentStates={Object.entries(environmentStates).map(
+                  ([env, state]) => ({
+                    env,
+                    state,
+                    isActive: state === "active",
+                    tooltip:
+                      state === "active"
+                        ? "An SDK connection in this environment has URL redirect experiments enabled"
+                        : "No SDK connection in this environment has URL redirect experiments enabled",
+                  }),
+                )}
+              />
+            </>
+          )}
+        </Box>
+      </LinkedChange>
     </>
   );
 };
-
-export default function RedirectLinkedChanges({
-  setUrlRedirectModal,
-  urlRedirects,
-  experiment,
-  canAddChanges,
-  mutate,
-  isPublic,
-}: RedirectLinkedChangesProps) {
-  const redirectCount = urlRedirects.length;
-
-  return (
-    <LinkedChangesContainer
-      canAddChanges={canAddChanges}
-      changeCount={redirectCount}
-      experimentStatus={experiment.status}
-      type="redirects"
-      onAddChange={() => setUrlRedirectModal?.(true)}
-    >
-      {!isPublic ? (
-        <>
-          {urlRedirects.map((r, i) => (
-            <div className={i > 0 ? "mt-3" : undefined} key={r.id}>
-              <Redirect
-                urlRedirect={r}
-                experiment={experiment}
-                mutate={mutate}
-                canEdit={canAddChanges}
-              />
-            </div>
-          ))}
-        </>
-      ) : null}
-    </LinkedChangesContainer>
-  );
-}

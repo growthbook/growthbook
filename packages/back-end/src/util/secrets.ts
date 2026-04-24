@@ -327,6 +327,16 @@ export const CLICKHOUSE_OVERAGE_TABLE =
 export const CLICKHOUSE_DEV_PREFIX =
   process.env.CLICKHOUSE_DEV_PREFIX || "test_";
 
+/** When true, managed warehouse ClickHouse provisioning runs on central-license-server.
+ * TODO(james): remove this once we are sure we don't need to rollback.
+ */
+export const MANAGED_CLICKHOUSE_USE_LICENSE_SERVER = stringToBoolean(
+  process.env.MANAGED_CLICKHOUSE_USE_LICENSE_SERVER,
+  IS_CLOUD,
+);
+
+export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
+
 // Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
   process.env.DISABLE_API_ROOT_PATH,
@@ -354,7 +364,21 @@ export const secretsReplacer = (
     );
 
     const stringReplacer = (s: string) => {
-      const template = Handlebars.compile(s, {
+      // Handlebars can't resolve keys with spaces via plain {{ key }} syntax.
+      // Rewrite any such occurrences to bracket-literal form {{[key]}} so
+      // both new and previously-saved webhooks work correctly.
+      let processed = s;
+      for (const key of Object.keys(encodedSecrets)) {
+        if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) {
+          const escapedForRegex = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const escapedForReplacement = key.replace(/\$/g, "$$$$");
+          processed = processed.replace(
+            new RegExp(`\\{\\{\\s*${escapedForRegex}\\s*\\}\\}`, "g"),
+            `{{[${escapedForReplacement}]}}`,
+          );
+        }
+      }
+      const template = Handlebars.compile(processed, {
         noEscape: true,
         strict: true,
       });

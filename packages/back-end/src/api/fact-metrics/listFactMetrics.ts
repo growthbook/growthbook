@@ -1,5 +1,5 @@
-import { ListFactMetricsResponse } from "shared/types/openapi";
 import { listFactMetricsValidator } from "shared/validators";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -7,7 +7,7 @@ import {
 
 export const listFactMetrics = createApiRequestHandler(
   listFactMetricsValidator,
-)(async (req): Promise<ListFactMetricsResponse> => {
+)(async (req) => {
   const factMetrics = await req.context.models.factMetrics.getAllSorted({
     datasourceId: req.query.datasourceId,
     factTableId: req.query.factTableId,
@@ -18,8 +18,11 @@ export const listFactMetrics = createApiRequestHandler(
   const { filtered, returnFields } = applyPagination(factMetrics, req.query);
 
   return {
-    factMetrics: filtered.map((factMetric) =>
-      req.context.models.factMetrics.toApiInterface(factMetric),
+    factMetrics: await resolveOwnerEmails(
+      filtered.map((factMetric) =>
+        req.context.models.factMetrics.toApiInterface(factMetric),
+      ),
+      req.context,
     ),
     ...returnFields,
   };

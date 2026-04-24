@@ -25,7 +25,6 @@ import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
 import Modal from "@/components/Modal";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
@@ -58,6 +57,8 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -171,6 +172,8 @@ export default function ExperimentHeader({
     useState<FocusSelector>("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAddToHoldoutModal, setShowAddToHoldoutModal] = useState(false);
+  const [showRemoveFromHoldoutModal, setShowRemoveFromHoldoutModal] =
+    useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -202,15 +205,8 @@ export default function ExperimentHeader({
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
   };
-  const tabsRef = useRef<HTMLDivElement>(null);
+  const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
-  const { scrollY } = useScrollPosition();
-  useEffect(() => {
-    if (!tabsRef.current) return;
-    const isHeaderSticky =
-      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
-    setHeaderPinned(isHeaderSticky);
-  }, [scrollY]);
 
   const phases = experiment.phases || [];
   const hasMultiplePhases = phases.length > 1;
@@ -262,6 +258,25 @@ export default function ExperimentHeader({
   const shouldHideTabs =
     (experiment.status === "draft" && !hasResults && phases.length === 1) ||
     showDashboardView;
+
+  useEffect(() => {
+    if (shouldHideTabs) return;
+    const el = tabsPinSentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHeaderPinned(!entry.isIntersecting);
+      },
+      {
+        root: null,
+        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
+        threshold: 0,
+      },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [shouldHideTabs]);
 
   useEffect(() => {
     if (shouldHideTabs) {
@@ -538,13 +553,14 @@ export default function ExperimentHeader({
         </Modal>
       ) : null}
       {showDeleteModal ? (
-        <Modal
+        <DialogLayout
           header={`Delete ${isHoldout ? "Holdout" : "Experiment"}`}
           trackingEventModalType="delete-experiment"
           trackingEventModalSource="experiment-more-menu"
           open={true}
           close={() => setShowDeleteModal(false)}
           cta="Delete"
+          ctaColor="red"
           submit={async () => {
             try {
               await apiCall<{ status: number; message?: string }>(
@@ -570,22 +586,22 @@ export default function ExperimentHeader({
             }
           }}
         >
-          <div>
-            <p>
+          <Box>
+            <Text as="p">
               Are you sure you want to delete this{" "}
               {isHoldout ? "holdout" : "experiment"}?
-            </p>
+            </Text>
             {!safeToEdit ? (
-              <div className="alert alert-danger">
-                This will immediately stop all linked Feature Flags and Visual
-                Changes from running
-              </div>
+              <Callout status="warning">
+                This will immediately stop all linked Feature Flags, Visual
+                Editor Changes, and URL Redirects from running
+              </Callout>
             ) : null}
-          </div>
-        </Modal>
+          </Box>
+        </DialogLayout>
       ) : null}
       {showArchiveModal ? (
-        <Modal
+        <DialogLayout
           header={`${experiment.archived ? "Unarchive" : "Archive"} ${
             isHoldout ? "Holdout" : "Experiment"
           }`}
@@ -593,6 +609,7 @@ export default function ExperimentHeader({
           trackingEventModalSource="experiment-more-menu"
           open={true}
           cta={experiment.archived ? "Unarchive" : "Archive"}
+          ctaColor={experiment.archived ? "violet" : "red"}
           close={() => setShowArchiveModal(false)}
           submit={async () => {
             try {
@@ -610,18 +627,18 @@ export default function ExperimentHeader({
             }
           }}
         >
-          <div>
-            <p>{`Are you sure you want to ${
+          <Box>
+            <Text as="p">{`Are you sure you want to ${
               experiment.archived ? "unarchive" : "archive"
-            } this ${isHoldout ? "holdout" : "experiment"}?`}</p>
+            } this ${isHoldout ? "holdout" : "experiment"}?`}</Text>
             {!safeToEdit && !experiment.archived ? (
-              <div className="alert alert-danger">
-                This will immediately stop all linked Feature Flags and Visual
-                Changes from running
-              </div>
+              <Callout status="warning">
+                This will immediately stop all linked Feature Flags, Visual
+                Editor Changes, and URL Redirects from running
+              </Callout>
             ) : null}
-          </div>
-        </Modal>
+          </Box>
+        </DialogLayout>
       ) : null}
       {showStartExperiment && experiment.status === "draft" && (
         <StartExperimentModal
@@ -700,6 +717,13 @@ export default function ExperimentHeader({
         <AddToHoldoutModal
           experiment={experiment}
           close={() => setShowAddToHoldoutModal(false)}
+          mutate={mutate}
+        />
+      ) : null}
+      {showRemoveFromHoldoutModal ? (
+        <RemoveFromHoldoutModal
+          experiment={experiment}
+          close={() => setShowRemoveFromHoldoutModal(false)}
           mutate={mutate}
         />
       ) : null}
@@ -868,6 +892,16 @@ export default function ExperimentHeader({
                       Add to holdout
                     </DropdownMenuItem>
                   )}
+                {canEditExperiment && !isHoldout && experiment.holdoutId && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowRemoveFromHoldoutModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Remove from holdout
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuGroup>
               {isHoldout && canRunExperiment && (
                 <>
@@ -1117,69 +1151,83 @@ export default function ExperimentHeader({
       </div>
 
       {shouldHideTabs ? null : (
-        <div
-          className={clsx("experiment-tabs d-print-none", {
-            pinned: headerPinned,
-          })}
-        >
-          <div className="position-relative container-fluid pagecontents px-3">
-            <div className="d-flex header-tabs" ref={tabsRef}>
-              <Tabs
-                value={tab}
-                onValueChange={setTab}
-                style={{ width: "100%" }}
-              >
-                <TabsList size="3">
-                  <Flex align="center" className="flex-1">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="results">Results</TabsTrigger>
-                    {isBandit ? (
-                      <TabsTrigger value="explore">Explore</TabsTrigger>
-                    ) : null}
-                    {!isBandit && !isHoldout && (
-                      <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
-                    )}
-                    {disableHealthTab ? (
-                      <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                        <TabsTrigger disabled value="health">
+        <>
+          <div
+            ref={tabsPinSentinelRef}
+            aria-hidden
+            className="d-print-none"
+            style={{
+              height: 1,
+              width: "100%",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            className={clsx("experiment-tabs d-print-none", {
+              pinned: headerPinned,
+            })}
+          >
+            <div className="position-relative container-fluid pagecontents px-3">
+              <div className="d-flex header-tabs">
+                <Tabs
+                  value={tab}
+                  onValueChange={setTab}
+                  style={{ width: "100%" }}
+                >
+                  <TabsList size="3">
+                    <Flex align="center" className="flex-1">
+                      <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="results">Results</TabsTrigger>
+                      {isBandit ? (
+                        <TabsTrigger value="explore">Explore</TabsTrigger>
+                      ) : null}
+                      {!isBandit && !isHoldout && (
+                        <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
+                      )}
+                      {disableHealthTab ? (
+                        <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                          <TabsTrigger disabled value="health">
+                            Health
+                          </TabsTrigger>
+                        </DisabledHealthTabTooltip>
+                      ) : (
+                        <TabsTrigger
+                          value="health"
+                          onClick={() => {
+                            track("Open health tab", { source: "tab-click" });
+                          }}
+                        >
                           Health
+                          {healthNotificationCount > 0 ? (
+                            <Avatar size="sm" ml="2" color="red">
+                              {healthNotificationCount}
+                            </Avatar>
+                          ) : null}
                         </TabsTrigger>
-                      </DisabledHealthTabTooltip>
-                    ) : (
-                      <TabsTrigger
-                        value="health"
-                        onClick={() => {
-                          track("Open health tab", { source: "tab-click" });
-                        }}
-                      >
-                        Health
-                        {healthNotificationCount > 0 ? (
-                          <Avatar size="sm" ml="2" color="red">
-                            {healthNotificationCount}
-                          </Avatar>
-                        ) : null}
-                      </TabsTrigger>
-                    )}
-                    {hasMultiplePhases ? (
-                      <>
-                        <div className="flex-1" />
-                        <Text size="medium" weight="medium">
-                          <PhaseSelector
-                            phase={phase}
-                            phases={experiment.phases}
-                            isBandit={experiment.type === "multi-armed-bandit"}
-                            isHoldout={experiment.type === "holdout"}
-                            holdout={holdout}
-                          />
-                        </Text>
-                      </>
-                    ) : null}
-                  </Flex>
-                </TabsList>
-              </Tabs>
+                      )}
+                      {hasMultiplePhases ? (
+                        <>
+                          <div className="flex-1" />
+                          <Text size="medium" weight="medium">
+                            <PhaseSelector
+                              phase={phase}
+                              phases={experiment.phases}
+                              isBandit={
+                                experiment.type === "multi-armed-bandit"
+                              }
+                              isHoldout={experiment.type === "holdout"}
+                              holdout={holdout}
+                            />
+                          </Text>
+                        </>
+                      ) : null}
+                    </Flex>
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );

@@ -1,5 +1,6 @@
 import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
+import { z } from "zod";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
@@ -14,12 +15,15 @@ import {
   filterProjectsByEnvironmentWithNull,
   isDefined,
   PrerequisiteStateResult,
+  toApiNamespace,
   validateCondition,
   validateFeatureValue,
   getSavedGroupsValuesFromGroupMap,
   getSavedGroupsValuesFromInterfaces,
   NodeHandler,
   recursiveWalk,
+  checkIfRevisionNeedsReview,
+  namespacesToMap,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -38,15 +42,19 @@ import {
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
-import { FeatureDefinition } from "shared/types/sdk";
 import {
-  ApiFeatureWithRevisions,
-  ApiFeatureEnvironment,
-  ApiFeatureRule,
-} from "shared/types/openapi";
+  AutoExperimentWithMetadata,
+  ExperimentMetadata,
+  FeatureDefinition,
+} from "shared/types/sdk";
+import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
+  apiFeatureRevisionValidator,
+  ApiFeatureWithRevisions,
+  ApiFeatureEnvironment,
+  ApiFeatureRule,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -80,6 +88,8 @@ import {
   getAllVisualExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
+  applyNamespaceToPayload,
+  buildPayloadMetadata,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
@@ -94,7 +104,10 @@ import {
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -109,6 +122,11 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
+  projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
   organization,
@@ -126,7 +144,12 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-  capabilities?: SDKCapability[]; // undefined = all capabilities
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
+  projectsMap?: Map<string, ProjectInterface>;
+  capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
@@ -154,6 +177,13 @@ export function generateFeaturesPayload({
       savedGroupsMap,
       includeRuleIds,
       includeExperimentNames,
+      metadataOptions: {
+        includeProjectIdInMetadata,
+        includeCustomFieldsInMetadata,
+        allowedCustomFieldsInMetadata,
+        includeTagsInMetadata,
+      },
+      projectsMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -243,6 +273,11 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
+  projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
   organization,
@@ -255,16 +290,21 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, PrerequisiteStateResult>;
-  capabilities?: SDKCapability[]; // undefined = all capabilities
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
+  projectsMap?: Map<string, ProjectInterface>;
+  capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeExperimentNames?: boolean;
-}): AutoExperiment[] {
+}): AutoExperimentWithMetadata[] {
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
   const isValidSDKExperiment = (
-    e: AutoExperiment | null,
-  ): e is AutoExperiment => !!e;
+    e: AutoExperimentWithMetadata | null,
+  ): e is AutoExperimentWithMetadata => !!e;
 
   const newVisualExperiments = reduceExperimentsWithPrerequisites(
     visualExperiments,
@@ -287,7 +327,7 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperiment | null> =
+  const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
     sortedAutoExperiments.map((data) => {
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
@@ -334,7 +374,7 @@ export function generateAutoExperimentsPayload({
           ? data.urlRedirect.id
           : data.visualChangeset.id;
 
-      const exp: AutoExperiment = {
+      const exp: AutoExperimentWithMetadata = {
         key: e.trackingKey,
         changeId: sha256(
           `${e.trackingKey}_${data.type}_${implementationId}`,
@@ -382,16 +422,6 @@ export function generateAutoExperimentsPayload({
             ? { key: v.key, name: v.name }
             : { key: v.key },
         ),
-        filters: phase?.namespace?.enabled
-          ? [
-              {
-                attribute: e.hashAttribute,
-                seed: phase.namespace.name,
-                hashVersion: 2,
-                ranges: [phase.namespace.range],
-              },
-            ]
-          : [],
         seed: phase.seed,
         ...(includeExperimentNames === true ? { name: e.name } : {}),
         phase: `${e.phases.length - 1}`,
@@ -402,6 +432,15 @@ export function generateAutoExperimentsPayload({
         coverage: phase.coverage,
       };
 
+      // Handle namespace
+      if (phase?.namespace?.enabled && phase.namespace.name) {
+        applyNamespaceToPayload(
+          exp,
+          phase.namespace,
+          namespacesToMap(organization?.settings?.namespaces),
+        );
+      }
+
       if (prerequisites.length) {
         exp.parentConditions = prerequisites;
       }
@@ -409,6 +448,18 @@ export function generateAutoExperimentsPayload({
       if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
         exp.persistQueryString = true;
       }
+
+      const metadata = buildPayloadMetadata<ExperimentMetadata>(
+        { project: e.project, customFields: e.customFields, tags: e.tags },
+        {
+          includeProjectIdInMetadata,
+          includeCustomFieldsInMetadata,
+          allowedCustomFieldsInMetadata,
+          includeTagsInMetadata,
+        },
+        projectsMap,
+      );
+      if (metadata) exp.metadata = metadata;
 
       if (capabilities !== undefined && savedGroupsMap && organization) {
         if (
@@ -426,7 +477,7 @@ export function generateAutoExperimentsPayload({
         }
         const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
         if (removedExperimentKeys.length) {
-          return omit(exp, removedExperimentKeys) as AutoExperiment;
+          return omit(exp, removedExperimentKeys) as AutoExperimentWithMetadata;
         }
       }
 
@@ -653,6 +704,11 @@ export async function refreshSDKPayloadCache({
     ? await findSDKConnectionsByOrganization(context)
     : sdkConnectionsToUpdate;
 
+  if (sdkConnections.some((c) => c.includeProjectIdInMetadata)) {
+    const allProjects = await context.models.projects.getAll();
+    rawData.projectsMap = new Map(allProjects.map((p) => [p.id, p]));
+  }
+
   const connectionsUpdated: SDKConnectionInterface[] = [];
   const promises: (() => Promise<void>)[] = [];
 
@@ -706,6 +762,12 @@ export async function refreshSDKPayloadCache({
             savedGroupReferencesEnabled:
               connection.savedGroupReferencesEnabled &&
               capabilities.includes("savedGroupReferences"),
+            includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
+            includeCustomFieldsInMetadata:
+              connection.includeCustomFieldsInMetadata,
+            allowedCustomFieldsInMetadata:
+              connection.allowedCustomFieldsInMetadata,
+            includeTagsInMetadata: connection.includeTagsInMetadata,
           },
           data: { ...rawData, holdoutsMap },
         });
@@ -904,6 +966,10 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -922,6 +988,8 @@ export type SDKPayloadRawData = {
   >;
   visualExperiments?: VisualExperiment[];
   urlRedirectExperiments?: URLRedirectExperiment[];
+  // Populated when any connection in the refresh has includeProjectIdInMetadata=true
+  projectsMap?: Map<string, ProjectInterface>;
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -938,6 +1006,10 @@ export type ConnectionPayloadOptions = {
   includeRuleIds?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
 };
 
 // Full input for building one connection's SDK payload
@@ -981,6 +1053,10 @@ export async function buildSDKPayloadForConnection(
     includeRuleIds,
     hashSecureAttributes,
     savedGroupReferencesEnabled,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
   } = connection;
 
   if (projects === null) {
@@ -1031,6 +1107,13 @@ export async function buildSDKPayloadForConnection(
     projectList,
   );
 
+  // Load projects map if metadata is requested and not already provided in bulk data
+  let projectsMap: Map<string, ProjectInterface> | undefined = data.projectsMap;
+  if (includeProjectIdInMetadata && !projectsMap) {
+    const allProjects = await context.models.projects.getAll();
+    projectsMap = new Map(allProjects.map((p) => [p.id, p]));
+  }
+
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -1047,6 +1130,11 @@ export async function buildSDKPayloadForConnection(
     savedGroupsMap,
     includeRuleIds,
     includeExperimentNames: connection.includeExperimentNames,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
+    projectsMap,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1069,6 +1157,11 @@ export async function buildSDKPayloadForConnection(
     organization: context.org,
     savedGroupsMap,
     includeExperimentNames,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
+    projectsMap,
   });
 
   const savedGroupsInUse = filterUsedSavedGroups(
@@ -1132,7 +1225,6 @@ export async function getFeatureDefinitions(
 ): Promise<FeatureDefinitionSDKPayload> {
   const { context, environment = "production", projects } = args;
   const projectFilter = projects && projects.length > 0 ? projects : undefined;
-
   const allSavedGroups = await context.models.savedGroups.getAll();
   const allFeatures = await getAllFeatures(context, {
     projects: projectFilter,
@@ -1159,6 +1251,10 @@ export async function getFeatureDefinitions(
       includeRuleIds: args.includeRuleIds,
       hashSecureAttributes: args.hashSecureAttributes,
       savedGroupReferencesEnabled: args.savedGroupReferencesEnabled,
+      includeProjectIdInMetadata: args.includeProjectIdInMetadata,
+      includeCustomFieldsInMetadata: args.includeCustomFieldsInMetadata,
+      allowedCustomFieldsInMetadata: args.allowedCustomFieldsInMetadata,
+      includeTagsInMetadata: args.includeTagsInMetadata,
     },
     data: {
       features: allFeatures,
@@ -1182,6 +1278,7 @@ export function evaluateFeature({
   skipRulesWithPrerequisites = true,
   date = new Date(),
   safeRolloutMap,
+  namespaces,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -1193,6 +1290,10 @@ export function evaluateFeature({
   skipRulesWithPrerequisites?: boolean;
   date?: Date;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1226,6 +1327,7 @@ export function evaluateFeature({
         revision,
         date,
         safeRolloutMap,
+        namespaces: namespaces,
       });
 
       if (definition) {
@@ -1356,6 +1458,7 @@ export async function evaluateAllFeatures({
       prereqStateCache: {},
       safeRolloutMap,
       holdoutsMap,
+      organization: context.org,
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1513,6 +1616,123 @@ export async function encrypt(
   );
 }
 
+function eventUserToString(
+  user: FeatureRevisionInterface["createdBy"],
+): string | undefined {
+  if (!user) return undefined;
+  if (user.type === "api_key") return "API";
+  if (user.type === "system") return "SYSTEM";
+  return user.name || undefined;
+}
+
+function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
+  const base = {
+    description: rule.description,
+    id: rule.id,
+    condition: rule.condition || "",
+    enabled: !!rule.enabled,
+    scheduleRules: rule.scheduleRules,
+    scheduleType: rule.scheduleType,
+    savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+      matchType: s.match,
+      savedGroups: s.ids,
+    })),
+    prerequisites: rule.prerequisites || [],
+  };
+  switch (rule.type) {
+    case "force":
+      return { ...base, type: "force", value: rule.value };
+    case "rollout":
+      return {
+        ...base,
+        type: "rollout",
+        value: rule.value,
+        coverage: rule.coverage ?? 1,
+        hashAttribute: rule.hashAttribute,
+        seed: rule.seed,
+      };
+    case "experiment":
+      return {
+        ...base,
+        type: "experiment",
+        coverage: rule.coverage ?? 1,
+        trackingKey: rule.trackingKey,
+        hashAttribute: rule.hashAttribute,
+        fallbackAttribute: rule.fallbackAttribute,
+        disableStickyBucketing: rule.disableStickyBucketing,
+        bucketVersion: rule.bucketVersion,
+        minBucketVersion: rule.minBucketVersion,
+        namespace: toApiNamespace(rule.namespace),
+        value: rule.values,
+      };
+    case "experiment-ref":
+      return {
+        ...base,
+        type: "experiment-ref",
+        variations: rule.variations,
+        experimentId: rule.experimentId,
+      };
+    case "safe-rollout":
+      return {
+        ...base,
+        type: "safe-rollout",
+        controlValue: rule.controlValue,
+        variationValue: rule.variationValue,
+        seed: rule.seed,
+        hashAttribute: rule.hashAttribute,
+        trackingKey: rule.trackingKey,
+        safeRolloutId: rule.safeRolloutId,
+        status: rule.status,
+      };
+  }
+}
+
+/** Convert a FeatureRevisionInterface to the API response shape. */
+export function revisionToApiInterface(
+  rev: FeatureRevisionInterface,
+): z.infer<typeof apiFeatureRevisionValidator> {
+  const rules: Record<string, ApiFeatureRule[]> = {};
+  for (const [env, envRules] of Object.entries(rev.rules ?? {})) {
+    rules[env] = (envRules || []).map(normalizeRuleForApi);
+  }
+
+  return {
+    featureId: rev.featureId,
+    baseVersion: rev.baseVersion,
+    version: rev.version,
+    comment: rev.comment || "",
+    date:
+      rev.dateCreated?.toISOString?.() ||
+      new Date(rev.dateCreated).toISOString(),
+    status: rev.status,
+    createdBy: eventUserToString(rev.createdBy),
+    publishedBy: eventUserToString(rev.publishedBy),
+    defaultValue: rev.defaultValue,
+    rules,
+    ...(rev.environmentsEnabled !== undefined && {
+      environmentsEnabled: rev.environmentsEnabled,
+    }),
+    ...(rev.prerequisites !== undefined && {
+      prerequisites: rev.prerequisites,
+    }),
+    ...(rev.metadata !== undefined && {
+      metadata: {
+        ...rev.metadata,
+        jsonSchema: rev.metadata.jsonSchema
+          ? {
+              ...rev.metadata.jsonSchema,
+              date:
+                rev.metadata.jsonSchema.date?.toISOString?.() ||
+                (rev.metadata.jsonSchema.date
+                  ? new Date(rev.metadata.jsonSchema.date).toISOString()
+                  : undefined),
+            }
+          : undefined,
+      },
+    }),
+  };
+}
+
 export function getApiFeatureObj({
   feature,
   organization,
@@ -1556,12 +1776,13 @@ export function getApiFeatureObj({
       experimentMap,
       environment: env,
       safeRolloutMap,
+      namespaces: namespacesToMap(organization.settings?.namespaces),
     });
 
     featureEnvironments[env] = {
       enabled,
       defaultValue,
-      rules,
+      rules: rules as ApiFeatureRule[],
     };
     if (definition) {
       featureEnvironments[env].definition = JSON.stringify(definition);
@@ -1607,9 +1828,10 @@ export function getApiFeatureObj({
         experimentMap,
         environment: env,
         safeRolloutMap,
+        namespaces: namespacesToMap(organization.settings?.namespaces),
       });
 
-      environmentRules[env] = rules;
+      environmentRules[env] = rules as ApiFeatureRule[];
       environmentDefinitions[env] = JSON.stringify(definition);
     });
     const createdBy =
@@ -1625,6 +1847,7 @@ export function getApiFeatureObj({
           ? "SYSTEM"
           : rev?.publishedBy?.name;
     return {
+      featureId: rev.featureId,
       baseVersion: rev.baseVersion,
       version: rev.version,
       comment: rev?.comment || "",
@@ -1898,74 +2121,90 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       );
     }
 
-    if (r.type === "experiment-ref") {
-      const experimentRefRule: ExperimentRefRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        enabled: r.enabled != null ? r.enabled : true,
-        description: r.description ?? "",
-        experimentId: r.experimentId,
-        variations: r.variations.map((v) => ({
-          variationId: v.variationId,
-          value: validateFeatureValue(feature, v.value),
-        })),
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return experimentRefRule;
-    } else if (r.type === "experiment") {
-      const values = r.values || r.value;
-      if (!values) {
-        throw new Error("Missing values");
+    switch (r.type) {
+      case "experiment-ref": {
+        const experimentRefRule: ExperimentRefRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          enabled: r.enabled != null ? r.enabled : true,
+          description: r.description ?? "",
+          experimentId: r.experimentId,
+          variations: r.variations.map((v) => ({
+            variationId: v.variationId,
+            value: validateFeatureValue(feature, v.value),
+          })),
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return experimentRefRule;
       }
-      const experimentRule: ExperimentRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        hashAttribute: r.hashAttribute ?? "",
-        coverage: r.coverage,
-        // missing tracking key will be filled in by addIdsToRules
-        trackingKey: r.trackingKey ?? "",
-        enabled: r.enabled != null ? r.enabled : true,
-        description: r.description ?? "",
-        values: values,
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return experimentRule;
-    } else if (r.type === "force") {
-      const forceRule: ForceRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        description: r.description ?? "",
-        value: validateFeatureValue(feature, r.value),
-        condition: r.condition,
-        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-          ids: s.savedGroups,
-          match: s.matchType,
-        })),
-        enabled: r.enabled != null ? r.enabled : true,
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return forceRule;
+      case "experiment": {
+        const values = r.values || r.value;
+        if (!values) {
+          throw new Error("Missing values");
+        }
+        const experimentRule: ExperimentRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          hashAttribute: r.hashAttribute ?? "",
+          coverage: r.coverage,
+          // missing tracking key will be filled in by addIdsToRules
+          trackingKey: r.trackingKey ?? "",
+          enabled: r.enabled != null ? r.enabled : true,
+          description: r.description ?? "",
+          values: values,
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return experimentRule;
+      }
+      case "force": {
+        const forceRule: ForceRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          description: r.description ?? "",
+          value: validateFeatureValue(feature, r.value),
+          condition: r.condition,
+          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+            ids: s.savedGroups,
+            match: s.matchType,
+          })),
+          enabled: r.enabled != null ? r.enabled : true,
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return forceRule;
+      }
+      case "rollout": {
+        const rolloutRule: RolloutRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          coverage: r.coverage,
+          description: r.description ?? "",
+          hashAttribute: r.hashAttribute,
+          value: validateFeatureValue(feature, r.value),
+          condition: r.condition,
+          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+            ids: s.savedGroups,
+            match: s.matchType,
+          })),
+          enabled: r.enabled != null ? r.enabled : true,
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return rolloutRule;
+      }
+      default: {
+        const _exhaustive: never = r;
+        throw new Error(
+          `Unrecognized feature rule type: "${(_exhaustive as { type?: string }).type ?? "unknown"}"`,
+        );
+      }
     }
-    const rolloutRule: RolloutRule = {
-      // missing id will be filled in by addIdsToRules
-      id: r.id ?? "",
-      type: r.type,
-      coverage: r.coverage,
-      description: r.description ?? "",
-      hashAttribute: r.hashAttribute,
-      value: validateFeatureValue(feature, r.value),
-      condition: r.condition,
-      savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-        ids: s.savedGroups,
-        match: s.matchType,
-      })),
-      enabled: r.enabled != null ? r.enabled : true,
-      ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-    };
-    return rolloutRule;
   });
 
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
@@ -2201,3 +2440,124 @@ const getInlinePrerequisitesReductionInfo = (
     newPrerequisites,
   };
 };
+
+export async function getDraftRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  version: number,
+): Promise<FeatureRevisionInterface> {
+  // This is the published version, create a new draft revision
+  const { org } = context;
+  if (version === feature.version) {
+    const newRevision = await createRevision({
+      context,
+      feature,
+      user: context.auditUser,
+      environments: getEnvironmentIdsFromOrg(context.org),
+      baseVersion: version,
+      org,
+    });
+
+    return newRevision;
+  }
+
+  // If this is already a draft, return it
+  const revision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version,
+  });
+  if (!revision) {
+    throw new Error("Cannot find revision");
+  }
+  if (
+    !(
+      revision.status === "draft" ||
+      revision.status === "pending-review" ||
+      revision.status === "changes-requested" ||
+      revision.status === "approved"
+    )
+  ) {
+    throw new Error("Can only make changes to draft revisions");
+  }
+
+  return revision;
+}
+
+export async function getLiveRevisionForFeature(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface> {
+  const live = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!live) {
+    throw new Error(`Could not find live revision for feature ${feature.id}`);
+  }
+  return live;
+}
+
+export async function getLiveAndBaseRevisionsForFeature({
+  context,
+  feature,
+  revision,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+}): Promise<{
+  live: FeatureRevisionInterface;
+  base: FeatureRevisionInterface;
+}> {
+  const live = await getLiveRevisionForFeature(context, feature);
+
+  const base =
+    revision.baseVersion === live.version
+      ? live
+      : await getRevision({
+          context,
+          organization: feature.organization,
+          featureId: feature.id,
+          version: revision.baseVersion,
+        });
+  if (!base) {
+    throw new Error("Could not lookup feature history");
+  }
+
+  return { live, base };
+}
+
+// Throws if the draft requires approval and the caller cannot bypass.
+export async function assertCanAutoPublish(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const { org } = context;
+  const allEnvironments = getEnvironmentIdsFromOrg(org);
+
+  const baseRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: draft.baseVersion,
+  });
+  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
+
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision,
+    revision: draft,
+    allEnvironments,
+    settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
+
+  if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
+    context.permissions.throwPermissionError();
+  }
+}

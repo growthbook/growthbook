@@ -1,10 +1,14 @@
 import { FC, useEffect, useMemo, useState } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
-import Switch from "@/ui/Switch";
+import { Flex, Box } from "@radix-ui/themes";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import DatePicker from "@/components/DatePicker";
+import Link from "@/ui/Link";
+import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];
@@ -119,41 +123,117 @@ const CustomFieldInput: FC<{
   };
 
   return (
-    <>
-      <div className={className}>
-        {!availableFields?.length ? (
-          <div className="p-3 text-center">
-            No fields available for this experiment or project
-          </div>
-        ) : (
-          <>
-            {availableFields.map((v) => {
-              const fieldInputId = `custom-field-${v.id}`;
-              return (
-                <div key={v.id}>
-                  {v.type === "boolean" ? (
-                    <div className="mb-3 mt-3">
-                      <label htmlFor={fieldInputId}>{v.name}</label>
-                      <Switch
-                        id={fieldInputId}
-                        mr="3"
-                        value={
-                          normalizedCustomFields?.[v.id]
-                            ? normalizedCustomFields[v.id] === "true"
-                            : false
-                        }
-                        onChange={(t) => {
-                          updateCustomField(v.id, "" + JSON.stringify(t));
-                        }}
-                      />
-                      {v.description && (
-                        <div>
-                          <small className="text-muted">{v.description}</small>
-                        </div>
-                      )}
-                    </div>
-                  ) : v.type === "enum" ? (
-                    <SelectField
+    <Flex direction="column" gap="6" my="2" className={className}>
+      {!availableFields?.length ? (
+        <Text align="center" color="text-low">
+          No fields available for this experiment or project
+        </Text>
+      ) : (
+        <>
+          {availableFields.map((v, i) => {
+            return (
+              <Box key={i}>
+                {v.type === "boolean" ? (
+                  <Checkbox
+                    id={`bool-${v.id}`}
+                    label={v.name}
+                    description={v.description}
+                    value={
+                      normalizedCustomFields?.[v.id]
+                        ? normalizedCustomFields[v.id] === "true"
+                        : false
+                    }
+                    setValue={(t) => {
+                      updateCustomField(v.id, "" + JSON.stringify(t));
+                    }}
+                  />
+                ) : v.type === "enum" ? (
+                  <SelectField
+                    label={
+                      <>
+                        {v.name}
+                        {v.required && (
+                          <span className="text-danger ml-1">*</span>
+                        )}
+                      </>
+                    }
+                    value={
+                      normalizedCustomFields?.[v.id] ?? v?.defaultValue ?? ""
+                    }
+                    options={
+                      v.values
+                        ? v.values
+                            .split(",")
+                            .map((k) => k.trim())
+                            .map((j) => ({ value: j, label: j }))
+                        : []
+                    }
+                    onChange={(s) => {
+                      updateCustomField(v.id, s);
+                    }}
+                    helpText={v.description}
+                    required={v.required}
+                    containerClassName="mb-0"
+                  />
+                ) : v.type === "multiselect" ? (
+                  <MultiSelectField
+                    label={
+                      <>
+                        {v.name}
+                        {v.required && (
+                          <span className="text-danger ml-1">*</span>
+                        )}
+                      </>
+                    }
+                    value={
+                      normalizedCustomFields?.[v.id]
+                        ? getMultiSelectValue(normalizedCustomFields[v.id])
+                        : []
+                    }
+                    options={
+                      v.values
+                        ? v.values
+                            .split(",")
+                            .map((k) => k.trim())
+                            .map((j) => ({ value: j, label: j }))
+                        : []
+                    }
+                    onChange={(values) => {
+                      updateCustomField(v.id, JSON.stringify(values));
+                    }}
+                    helpText={v.description}
+                    required={v.required}
+                    containerClassName="mb-0"
+                  />
+                ) : v.type === "textarea" ? (
+                  <Field
+                    textarea
+                    minRows={2}
+                    maxRows={6}
+                    value={normalizedCustomFields?.[v.id] ?? ""}
+                    label={
+                      <>
+                        {v.name}
+                        {v.required && (
+                          <span className="text-danger ml-1">*</span>
+                        )}
+                      </>
+                    }
+                    type={v.type}
+                    required={v.required}
+                    onChange={(e) => {
+                      updateCustomField(v.id, e.target.value);
+                    }}
+                    helpText={v.description}
+                    containerClassName="mb-0"
+                  />
+                ) : v.type === "date" || v.type === "datetime" ? (
+                  <Box>
+                    <DatePicker
+                      date={normalizedCustomFields?.[v.id] || undefined}
+                      setDate={(d) => {
+                        updateCustomField(v.id, d?.toISOString() ?? "");
+                      }}
                       label={
                         <>
                           {v.name}
@@ -162,100 +242,58 @@ const CustomFieldInput: FC<{
                           )}
                         </>
                       }
-                      value={
-                        normalizedCustomFields?.[v.id] ?? v?.defaultValue ?? ""
-                      }
-                      options={
-                        v.values
-                          ? v.values
-                              .split(",")
-                              .map((k) => k.trim())
-                              .map((j) => ({ value: j, label: j }))
-                          : []
-                      }
-                      onChange={(s) => {
-                        updateCustomField(v.id, s);
-                      }}
-                      helpText={v.description}
-                      required={v.required}
+                      precision={v.type === "datetime" ? "datetime" : "date"}
+                      containerClassName="mb-0"
                     />
-                  ) : v.type === "multiselect" ? (
-                    <MultiSelectField
-                      label={
-                        <>
-                          {v.name}
-                          {v.required && (
-                            <span className="text-danger ml-1">*</span>
-                          )}
-                        </>
-                      }
-                      value={
-                        normalizedCustomFields?.[v.id]
-                          ? getMultiSelectValue(normalizedCustomFields[v.id])
-                          : []
-                      }
-                      options={
-                        v.values
-                          ? v.values
-                              .split(",")
-                              .map((k) => k.trim())
-                              .map((j) => ({ value: j, label: j }))
-                          : []
-                      }
-                      onChange={(values) => {
-                        updateCustomField(v.id, JSON.stringify(values));
-                      }}
-                      helpText={v.description}
-                      required={v.required}
-                    />
-                  ) : v.type === "textarea" ? (
-                    <Field
-                      textarea
-                      minRows={2}
-                      maxRows={6}
-                      value={normalizedCustomFields?.[v.id] ?? ""}
-                      label={
-                        <>
-                          {v.name}
-                          {v.required && (
-                            <span className="text-danger ml-1">*</span>
-                          )}
-                        </>
-                      }
-                      type={v.type}
-                      required={v.required}
-                      onChange={(e) => {
-                        updateCustomField(v.id, e.target.value);
-                      }}
-                      helpText={v.description}
-                    />
-                  ) : (
-                    <Field
-                      value={normalizedCustomFields?.[v.id] ?? ""}
-                      label={
-                        <>
-                          {v.name}
-                          {v.required && (
-                            <span className="text-danger ml-1">*</span>
-                          )}
-                        </>
-                      }
-                      type={v.type}
-                      required={v.required}
-                      placeholder={v?.placeholder ?? ""}
-                      onChange={(e) => {
-                        updateCustomField(v.id, e.target.value);
-                      }}
-                      helpText={v.description}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </>
-        )}
-      </div>
-    </>
+                    {(v.description ||
+                      (!v.required && normalizedCustomFields?.[v.id])) && (
+                      <Flex justify="between" align="start" mt="1">
+                        {v.description ? (
+                          <Text size="small" color="text-low">
+                            {v.description}
+                          </Text>
+                        ) : (
+                          <Box />
+                        )}
+                        {!v.required && normalizedCustomFields?.[v.id] && (
+                          <Link
+                            onClick={() => updateCustomField(v.id, "")}
+                            color="gray"
+                            size="1"
+                          >
+                            Clear
+                          </Link>
+                        )}
+                      </Flex>
+                    )}
+                  </Box>
+                ) : (
+                  <Field
+                    value={normalizedCustomFields?.[v.id] ?? ""}
+                    label={
+                      <>
+                        {v.name}
+                        {v.required && (
+                          <span className="text-danger ml-1">*</span>
+                        )}
+                      </>
+                    }
+                    type={v.type}
+                    required={v.required}
+                    placeholder={v?.placeholder ?? ""}
+                    onChange={(e) => {
+                      updateCustomField(v.id, e.target.value);
+                    }}
+                    helpText={v.description}
+                    containerClassName="mb-0"
+                  />
+                )}
+              </Box>
+            );
+          })}
+        </>
+      )}
+    </Flex>
   );
 };
 

@@ -8,6 +8,7 @@ import {
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
+import { UpdateProps } from "shared/types/base-model";
 import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
@@ -157,7 +158,7 @@ export async function updateDashboard(
 
   const updatedDashboard = await context.models.dashboards.updateById(
     id,
-    updates as Partial<DashboardInterface>,
+    updates as UpdateProps<DashboardInterface>,
   );
 
   res.status(200).json({

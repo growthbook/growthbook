@@ -17,6 +17,8 @@ import {
   useEnvironments,
   useFeatureSearch,
 } from "@/services/features";
+import { tagFilterOnClick, tagLinkProps } from "@/services/search";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/ui/Pagination";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -82,6 +84,8 @@ export default function FeaturesPage() {
   const { data: sdkConnectionData } = useSDKConnections();
   const permissionsUtil = usePermissionsUtil();
   const [modalOpen, setModalOpen] = useState(false);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
     useState<FeatureMetaInfo | null>(null);
@@ -91,7 +95,7 @@ export default function FeaturesPage() {
     state: boolean;
   } | null>(null);
 
-  useAuth();
+  const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const showConfirmation = !!settings?.killswitchConfirmation;
 
@@ -296,6 +300,7 @@ export default function FeaturesPage() {
                   </TableColumnHeader>
                 )}
                 <TableColumnHeader>Stale</TableColumnHeader>
+                <TableColumnHeader style={{ width: 30 }} />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -370,6 +375,11 @@ export default function FeaturesPage() {
                           useFlex={true}
                           maxVisibleTags={1}
                           truncateTagChars={15}
+                          {...tagLinkProps("features")}
+                          onTagClick={tagFilterOnClick(
+                            searchInputProps.value,
+                            setSearchValue,
+                          )}
                         />
                       </div>
                     </TableCell>
@@ -412,7 +422,15 @@ export default function FeaturesPage() {
                     <TableCell
                       style={{ textAlign: "center", verticalAlign: "middle" }}
                     >
-                      <div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span>{feature.version}</span>
                         {draftEntry ? (
                           <Tooltip
                             flipTheme={false}
@@ -465,6 +483,28 @@ export default function FeaturesPage() {
                         }
                       />
                     </TableCell>
+                    <TableCell style={{ width: 30 }}>
+                      <MoreMenu>
+                        {permissionsUtil.canCreateFeature(feature) &&
+                        permissionsUtil.canManageFeatureDrafts({
+                          project: feature.project,
+                        }) ? (
+                          <button
+                            className="dropdown-item"
+                            type="button"
+                            onClick={async () => {
+                              const res = await apiCall<{
+                                feature: FeatureInterface;
+                              }>(`/feature/${feature.id}`);
+                              setFeatureToDuplicate(res.feature);
+                              setModalOpen(true);
+                            }}
+                          >
+                            Duplicate
+                          </button>
+                        ) : null}
+                      </MoreMenu>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -472,7 +512,7 @@ export default function FeaturesPage() {
                 <TableRow>
                   <TableCell
                     colSpan={
-                      6 +
+                      8 +
                       (showProjectColumn ? 1 : 0) +
                       toggleEnvs.length +
                       (showGraphs ? 1 : 0)
@@ -590,14 +630,19 @@ export default function FeaturesPage() {
       )}
       {modalOpen && (
         <FeatureModal
-          cta="Create"
-          close={() => setModalOpen(false)}
+          cta={featureToDuplicate ? "Duplicate" : "Create"}
+          close={() => {
+            setModalOpen(false);
+            setFeatureToDuplicate(null);
+          }}
+          featureToDuplicate={featureToDuplicate || undefined}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
               hasFeatures ? "?new" : "?first&new"
             }`;
             router.push(url);
             mutate();
+            setFeatureToDuplicate(null);
           }}
         />
       )}

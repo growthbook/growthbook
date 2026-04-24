@@ -7,6 +7,7 @@ import {
   SAFE_ROLLOUT_VARIATIONS,
 } from "shared/constants";
 import { MetricSnapshotSettings } from "shared/types/report";
+import { SignificanceThresholds } from "shared/types/stats";
 import { SafeRolloutInterface } from "shared/validators";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { PiWarningFill } from "react-icons/pi";
@@ -37,8 +38,9 @@ const WarningIcon = () => (
 
 const SafeRolloutResults: FC<{
   safeRollout: SafeRolloutInterface;
+  significanceThresholds: SignificanceThresholds;
   draftMode?: boolean;
-}> = ({ safeRollout, draftMode = false }) => {
+}> = ({ safeRollout, significanceThresholds, draftMode = false }) => {
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
@@ -180,6 +182,7 @@ const SafeRolloutResults: FC<{
 
             {showCompactResults ? (
               <CompactResults
+                significanceThresholds={significanceThresholds}
                 variations={SAFE_ROLLOUT_VARIATIONS}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}

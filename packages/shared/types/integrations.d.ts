@@ -36,7 +36,8 @@ export type DataType =
   | "boolean"
   | "date"
   | "timestamp"
-  | "hll";
+  | "hll"
+  | "kll";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
@@ -309,8 +310,7 @@ export interface CreateExperimentIncrementalUnitsQueryParams {
   unitsTableFullName: string;
 }
 
-export interface UpdateExperimentIncrementalUnitsQueryParams
-  extends CreateExperimentIncrementalUnitsQueryParams {
+export interface UpdateExperimentIncrementalUnitsQueryParams extends CreateExperimentIncrementalUnitsQueryParams {
   segment: SegmentInterface | null;
   incrementalRefreshStartTime: Date;
   lastMaxTimestamp: Date | null;
@@ -395,8 +395,7 @@ export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   forcedUserIdType?: string;
 }
 
-export interface ExperimentFactMetricsQueryParams
-  extends ExperimentBaseQueryParams {
+export interface ExperimentFactMetricsQueryParams extends ExperimentBaseQueryParams {
   metrics: FactMetricInterface[];
   unitsSource: UnitsSource;
   unitsSql?: string;
@@ -409,14 +408,14 @@ export interface PopulationBaseQueryParams {
   segment: SegmentInterface | null;
 }
 export interface PopulationMetricQueryParams
-  extends ExperimentMetricQueryParams,
-    PopulationBaseQueryParams {}
+  extends ExperimentMetricQueryParams, PopulationBaseQueryParams {}
 export interface PopulationFactMetricsQueryParams
-  extends ExperimentFactMetricsQueryParams,
-    PopulationBaseQueryParams {}
+  extends ExperimentFactMetricsQueryParams, PopulationBaseQueryParams {}
 
-export interface ExperimentAggregateUnitsQueryParams
-  extends Omit<ExperimentBaseQueryParams, "dimensions"> {
+export interface ExperimentAggregateUnitsQueryParams extends Omit<
+  ExperimentBaseQueryParams,
+  "dimensions"
+> {
   dimensions: ExperimentDimensionWithSpecifiedSlices[];
   useUnitsTable: boolean;
 }
@@ -792,14 +791,18 @@ export interface SchemaWithPath extends Omit<Schema, "tables"> {
   tables: TableWithPath[];
 }
 
-export interface InformationSchemaWithPath
-  extends Omit<InformationSchema, "schemas"> {
+export interface InformationSchemaWithPath extends Omit<
+  InformationSchema,
+  "schemas"
+> {
   path: string;
   schemas: SchemaWithPath[];
 }
 
-export interface InformationSchemaInterfaceWithPaths
-  extends Omit<InformationSchemaInterface, "databases"> {
+export interface InformationSchemaInterfaceWithPaths extends Omit<
+  InformationSchemaInterface,
+  "databases"
+> {
   databases: InformationSchemaWithPath[];
 }
 

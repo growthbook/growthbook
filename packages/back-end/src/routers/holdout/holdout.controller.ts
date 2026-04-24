@@ -4,6 +4,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
 import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
+import { UpdateProps } from "shared/types/base-model";
 import {
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
@@ -247,6 +248,7 @@ export const createHoldout = async (
       experimentId: experiment.id,
       projects: data.projects || [],
       name: experiment.name,
+      skipAsDefaultHoldout: data.skipAsDefaultHoldout,
       environmentSettings: data.environmentSettings || {},
       linkedFeatures: {},
       linkedExperiments: {},
@@ -350,7 +352,7 @@ export const getHoldouts = async (
 // region PUT /holdout/:id
 
 export const updateHoldout = async (
-  req: AuthRequest<Partial<HoldoutInterface>, { id: string }>,
+  req: AuthRequest<UpdateProps<HoldoutInterface>, { id: string }>,
   res: Response<
     | { status: 200; holdout?: HoldoutInterface }
     | { status: 404; message?: string }

@@ -4,14 +4,18 @@ import {
   SDKCapability,
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
+import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
 import { useUser } from "@/services/UserContext";
+import Text from "@/ui/Text";
+import Avatar from "@/ui/Avatar";
+import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
-const LINKED_CHANGES: Record<
+export const LINKED_CHANGES: Record<
   LinkedChange,
   {
     header: string;
@@ -53,12 +57,12 @@ const AddLinkedChangeRow = ({
   experiment,
 }: {
   type: LinkedChange;
-  setModal: (boolean) => void;
+  setModal: (open: boolean) => void;
   experiment: ExperimentInterfaceStringDates;
 }) => {
   const { header, cta, description, commercialFeature, sdkCapabilityKey } =
     LINKED_CHANGES[type];
-  const { component: Icon, color } = ICON_PROPERTIES[type];
+  const { component: Icon, radixColor } = ICON_PROPERTIES[type];
   const { data: sdkConnectionsData } = useSDKConnections();
 
   const { hasCommercialFeature } = useUser();
@@ -76,81 +80,67 @@ const AddLinkedChangeRow = ({
   const isCTAClickable = hasSDKWithFeature;
 
   return (
-    <div className="d-flex">
-      <span
-        className="mr-3"
-        style={{
-          background: `${color}15`,
-          borderRadius: "50%",
-          height: "45px",
-          width: "45px",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Icon
-          style={{
-            color: color,
-            height: "24px",
-            width: "24px",
-          }}
-        />
-      </span>
-      <div className="flex-grow-1">
-        <div className="d-flex justify-content-between">
-          <b
-            className={isCTAClickable ? styles.sectionHeader : undefined}
-            onClick={() => {
-              if (isCTAClickable) {
-                setModal(true);
-              }
-            }}
+    <Flex align="center" justify="between" gap="3" width="100%">
+      <Flex align="center" direction="row" flexGrow="1" minWidth="0" gap="5">
+        <Box width="150px" flexShrink="0">
+          <Avatar
+            radius="full"
+            color={radixColor as AvatarProps["color"]}
+            size="md"
+            variant="soft"
+            mr="2"
           >
+            <Icon />
+          </Avatar>
+          <Text size="large" weight="semibold" color="text-high">
             {header}
-          </b>
-          {isCTAClickable ? (
-            commercialFeature && !hasFeature ? (
-              <PremiumTooltip
-                commercialFeature={commercialFeature}
-                body={
-                  "You can add this to your draft, but you will not be able to start the experiment until upgrading."
-                }
-                usePortal={true}
-              >
-                <div
-                  className="btn btn-link link-purple p-0"
-                  onClick={() => {
-                    setModal(true);
-                  }}
-                >
-                  {cta}
-                </div>
-              </PremiumTooltip>
-            ) : (
-              <div
-                className="btn btn-link link-purple p-0"
+          </Text>
+        </Box>
+        <Box flexGrow="1" minWidth="0">
+          <Text color="text-low">{description}</Text>
+        </Box>
+      </Flex>
+      <Box flexShrink="0">
+        {isCTAClickable ? (
+          commercialFeature && !hasFeature ? (
+            <PremiumTooltip
+              commercialFeature={commercialFeature}
+              body={
+                "You can add this to your draft, but you will not be able to start the experiment until upgrading."
+              }
+              usePortal={true}
+            >
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setModal(true);
                 }}
               >
                 {cta}
-              </div>
-            )
+              </Button>
+            </PremiumTooltip>
           ) : (
-            <div>
-              <Tooltip
-                body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
-                tipPosition="top"
-              >
-                <div className="btn btn-link disabled p-0">{cta}</div>
-              </Tooltip>
-            </div>
-          )}
-        </div>
-        <p className="mt-2 mb-1">{description}</p>
-      </div>
-    </div>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setModal(true);
+              }}
+            >
+              {cta}
+            </Button>
+          )
+        ) : (
+          <Tooltip
+            body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
+            tipPosition="top"
+          >
+            <Button variant="ghost" disabled>
+              {cta}
+            </Button>
+          </Tooltip>
+        )}
+      </Box>
+    </Flex>
   );
 };
 
@@ -190,35 +180,36 @@ export default function AddLinkedChanges({
   };
 
   const possibleSections = Object.keys(sections);
-  const sectionsToRender = possibleSections.filter((s) => sections[s].render);
-  if (!sectionsToRender.length) return null;
 
   return (
-    <div className="appbox px-4 py-3 my-4">
-      {sectionsToRender.length < possibleSections.length ? (
+    <Box className="appbox" p="5" my="5">
+      {numLinkedChanges > 0 ? (
         <>
-          <h4>Add Implementation</h4>
+          <Heading as="h4" size="small">
+            Add Implementation
+          </Heading>
         </>
       ) : (
         <>
-          <h4>Select an Implementation</h4>
+          <Heading as="h4" size="small">
+            Select an Implementation
+          </Heading>
         </>
       )}
-      <hr />
-      <>
-        {sectionsToRender.map((s, i) => {
+      <Box className="appbox mb-0" p="4" mt="2" mb="0">
+        {possibleSections.map((s, i) => {
           return (
-            <div key={s}>
+            <Box key={s}>
               <AddLinkedChangeRow
                 type={s as LinkedChange}
                 setModal={sections[s].setModal}
                 experiment={experiment}
               />
-              {i < sectionsToRender.length - 1 && <hr />}
-            </div>
+              {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
+            </Box>
           );
         })}
-      </>
-    </div>
+      </Box>
+    </Box>
   );
 }

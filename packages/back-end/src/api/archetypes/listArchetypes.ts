@@ -1,13 +1,13 @@
-import { ListArchetypesResponse } from "shared/types/openapi";
 import { listArchetypesValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   getAllArchetypes,
   toArchetypeApiInterface,
 } from "back-end/src/models/ArchetypeModel";
 
 export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
-  async (req): Promise<ListArchetypesResponse> => {
+  async (req) => {
     const archetypes = await getAllArchetypes(
       req.context.org.id,
       req.context.userId,
@@ -17,8 +17,11 @@ export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
     );
 
     return {
-      archetypes: filteredArchetypes.map((archetype) =>
-        toArchetypeApiInterface(archetype),
+      archetypes: await resolveOwnerEmails(
+        filteredArchetypes.map((archetype) =>
+          toArchetypeApiInterface(archetype),
+        ),
+        req.context,
       ),
     };
   },

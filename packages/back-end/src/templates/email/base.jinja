@@ -11,7 +11,7 @@
   <!-- Tell iOS not to automatically link certain text strings. -->
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <title></title> <!--   The title tag shows in email notifications, like Android 4.4. -->
+  <title>GrowthBook</title> <!-- The title tag shows in email notifications, like Android 4.4. -->
 
   <!-- What it does: Makes background images in 72ppi Outlook render at correct size. -->
   <!--[if gte mso 9]>
@@ -23,24 +23,14 @@
     </xml>
     <![endif]-->
 
-  <!-- Web Font / @font-face : BEGIN -->
-  <!-- NOTE: If web fonts are not required, lines 23 - 41 can be safely removed. -->
-
   <!-- Desktop Outlook chokes on web font references and defaults to Times New Roman, so we force a safe fallback font. -->
   <!--[if mso]>
         <style>
             * {
-                font-family: sans-serif !important;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
             }
         </style>
     <![endif]-->
-
-  <!-- All other clients get the webfont reference; some will render the font and others will silently fail to the fallbacks. More on that here: http://stylecampaign.com/blog/2015/02/webfont-support-in-email/ -->
-  <!--[if !mso]><!-->
-  <!-- insert web font reference, eg: <link href='https://fonts.googleapis.com/css?family=Roboto:400,700' rel='stylesheet' type='text/css'> -->
-  <!--<![endif]-->
-
-  <!-- Web Font / @font-face : END -->
 
   <!-- CSS Reset : BEGIN -->
   <style>
@@ -139,23 +129,15 @@
 
     /* iPhone 4, 4S, 5, 5S, 5C, and 5SE */
     @media only screen and (min-device-width: 320px) and (max-device-width: 374px) {
-      u~div .email-container {
-        min-width: 320px !important;
-      }
+      u~div .email-container { min-width: 320px !important; }
     }
-
     /* iPhone 6, 6S, 7, 8, and X */
     @media only screen and (min-device-width: 375px) and (max-device-width: 413px) {
-      u~div .email-container {
-        min-width: 375px !important;
-      }
+      u~div .email-container { min-width: 375px !important; }
     }
-
     /* iPhone 6+, 7+, and 8+ */
     @media only screen and (min-device-width: 414px) {
-      u~div .email-container {
-        min-width: 414px !important;
-      }
+      u~div .email-container { min-width: 414px !important; }
     }
   </style>
   <!-- CSS Reset : END -->
@@ -163,41 +145,34 @@
   <!-- Progressive Enhancements : BEGIN -->
   <style>
     /* What it does: Hover styles for buttons */
-    .button-td,
-    .button-a {
+    .button-td, .button-a {
       transition: all 100ms ease-in;
     }
-
     .button-td-primary:hover,
     .button-a-primary:hover {
-      background: #129CD1 !important;
-      border-color: #129CD1 !important;
+      opacity: 0.85 !important;
     }
-
-    /* Media Queries */
+    /* What it does: Adjust typography on small screens to improve readability */
     @media screen and (max-width: 600px) {
-
-      /* What it does: Adjust typography on small screens to improve readability */
       .email-container p {
         font-size: 17px !important;
       }
-
     }
   </style>
   <!-- Progressive Enhancements : END -->
 
 </head>
 <!--
-	The email background color (#222222) is defined in three places:
-	1. body tag: for most email clients
-	2. center tag: for Gmail and Inbox mobile apps and web versions of Gmail, GSuite, Inbox, Yahoo, AOL, Libero, Comcast, freenet, Mail.ru, Orange.fr
-	3. mso conditional: For Windows 10 Mail
+  The email background color (#faf8ff) is defined in three places:
+  1. body tag: for most email clients
+  2. center tag: for Gmail and Inbox mobile apps and web versions of Gmail, GSuite, Inbox, Yahoo, AOL, Libero, Comcast, freenet, Mail.ru, Orange.fr
+  3. mso conditional: For Windows 10 Mail
 -->
 
-<body width="100%" style="margin: 0; padding: 0 !important; mso-line-height-rule: exactly; background-color: #f0faff;">
-  <center role="article" aria-roledescription="email" lang="en" style="width: 100%; background-color: #f0faff;">
+<body width="100%" style="margin: 0; padding: 0 !important; mso-line-height-rule: exactly; background-color: #faf8ff;">
+  <center role="article" aria-roledescription="email" lang="en" style="width: 100%; background-color: #faf8ff;">
     <!--[if mso | IE]>
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #222222;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #faf8ff;">
     <tr>
     <td>
     <![endif]-->
@@ -208,19 +183,19 @@
     </div>
     <!-- Visually Hidden Preheader Text : END -->
 
-    <!-- Create white space after the desired preview text so email clients don’t pull other distracting text into the inbox preview. Extend as necessary. -->
+    <!-- Create white space after the desired preview text so email clients don't pull other distracting text into the inbox preview. Extend as necessary. -->
     <!-- Preview Text Spacing Hack : BEGIN -->
     <div
-      style="display: none; font-size: 1px; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all; font-family: sans-serif;">
+      style="display: none; font-size: 1px; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
       &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
     </div>
     <!-- Preview Text Spacing Hack : END -->
 
     <!--
-            Set the email width. Defined in two places:
-            1. max-width for all clients except Desktop Windows Outlook, allowing the email to squish on narrow but never go wider than 600px.
-            2. MSO tags for Desktop Windows Outlook enforce a 600px width.
-        -->
+      Set the email width. Defined in two places:
+      1. max-width for all clients except Desktop Windows Outlook, allowing the email to squish on narrow but never go wider than 600px.
+      2. MSO tags for Desktop Windows Outlook enforce a 600px width.
+    -->
     <div style="max-width: 600px; margin: 0 auto;" class="email-container">
       <!--[if mso]>
             <table align="center" role="presentation" cellspacing="0" cellpadding="0" border="0" width="600">
@@ -231,38 +206,65 @@
       <!-- Email Body : BEGIN -->
       <table align="center" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
         style="margin: auto;">
-        <!-- Email Header : BEGIN -->
+
+        <!-- Top spacing -->
         <tr>
-          <td style="padding: 20px 0; text-align: center">
-            <img src="https://cdn.growthbook.io/growthbook-logo.png" width="264" height="48" alt="GrowthBook"
-              border="0"
-              style="height: auto; font-family: sans-serif; font-size: 15px; line-height: 15px; color: #555555;">
-          </td>
+          <td style="padding: 24px 0 0; font-size: 0; line-height: 0;">&nbsp;</td>
         </tr>
-        <!-- Email Header : END -->
 
-
-        <!-- 1 Column Text + Button : BEGIN -->
+        <!-- White card : BEGIN -->
         <tr>
-          <td style="background-color: #ffffff;">
+          <td style="background-color: #f0edf7; border-radius: 8px; padding: 1px;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
               <tr>
-                <td style="padding: 20px; font-family: sans-serif; font-size: 15px; line-height: 20px; color: #555555;">
-                  <h1
-                    style="margin: 0 0 10px 0; font-family: sans-serif; font-size: 25px; line-height: 30px; color: #333333; font-weight: normal;">
-                    {% block title %}{% endblock %}</h1>
-                  {% block top %}{% endblock %}
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 20px; font-family: sans-serif; font-size: 15px; line-height: 20px; color: #555555;">
-                  {% block bottom %}{% endblock %}
+                <td style="background-color: #ffffff; border-radius: 7px; overflow: hidden;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+
+                    <!-- Logo row -->
+                    <tr>
+                      <td style="padding: 30px 30px 40px;">
+                        <img src="https://cdn.growthbook.io/growthbook-logo-dark.png" width="150" height="24" alt="GrowthBook"
+                          border="0"
+                          style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 15px; color: #555555;">
+                      </td>
+                    </tr>
+
+                    <!-- Title + Top block -->
+                    <tr>
+                      <td style="padding: 0 30px 24px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 22px; color: #555555;">
+                        <h1
+                          style="margin: 0 0 20px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 26px; line-height: 34px; color: #333333; font-weight: 600;">
+                          {% block title %}{% endblock %}</h1>
+                        {% block top %}{% endblock %}
+                      </td>
+                    </tr>
+
+                    <!-- Bottom block -->
+                    <tr>
+                      <td style="padding: 0 30px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; line-height: 20px; color: #888888;">
+                        {% block bottom %}{% endblock %}
+                      </td>
+                    </tr>
+
+                    <!-- Lower block -->
+                    <tr>
+                      <td style="padding: 0 30px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 18px; color: #888888;">
+                        {% block lower %}{% endblock %}
+                      </td>
+                    </tr>
+
+                  </table>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
-        <!-- 1 Column Text + Button : END -->
+        <!-- White card : END -->
+
+        <!-- Bottom spacing -->
+        <tr>
+          <td style="padding: 0 0 24px; font-size: 0; line-height: 0;">&nbsp;</td>
+        </tr>
 
       </table>
       <!-- Email Body : END -->

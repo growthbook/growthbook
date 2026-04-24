@@ -9,6 +9,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
@@ -79,6 +80,7 @@ interface MetricDrilldownModalProps {
 
   // Experiment context props
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
@@ -133,6 +135,7 @@ interface MetricDrilldownContentProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
@@ -170,6 +173,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   localDifferenceType,
   setLocalDifferenceType,
   experimentId,
+  significanceThresholds,
   phase,
   experimentStatus,
   variations,
@@ -189,10 +193,12 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const { isAuthenticated } = useAuth();
   const { analysis } = useSnapshot();
 
-  // When dimensionInfo is provided (from BreakDownResults), use the passed initialResults
-  // which contains the correct dimension-specific data. Otherwise, use snapshot results.
+  // When dimensionInfo is provided (from BreakDownResults), use the dimension-specific
+  // results from the current analysis (which updates after baseline/difference changes),
+  // falling back to initialResults only when analysis isn't available yet.
+  // Without dimensionInfo, use the first result (aggregate view).
   const results = dimensionInfo
-    ? initialResults
+    ? (analysis?.results?.[dimensionInfo.index] ?? initialResults)
     : (analysis?.results?.[0] ?? initialResults);
 
   // TODO: Check what we need here
@@ -218,6 +224,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
+    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const mainMetricRow = useMemo(() => {
@@ -296,6 +303,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
         <MetricDrilldownOverview
           row={mainMetricRow}
           experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           phase={phase}
@@ -337,6 +345,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           variationFilter={localVariationFilter}
           setVariationFilter={setLocalVariationFilter}
           experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
           phase={phase}
           variations={variations}
           startDate={startDate}
@@ -360,6 +369,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
         <MetricDrilldownDebug
           row={mainMetricRow}
           metric={metric}
+          significanceThresholds={significanceThresholds}
           statsEngine={statsEngine}
           differenceType={localDifferenceType}
           setDifferenceType={setLocalDifferenceType}
@@ -405,6 +415,7 @@ const MetricDrilldownModal = ({
   variationFilter,
   // Experiment context
   experimentId,
+  significanceThresholds,
   phase,
   experimentStatus,
   variations,
@@ -475,6 +486,7 @@ const MetricDrilldownModal = ({
     localDifferenceType,
     setLocalDifferenceType,
     experimentId,
+    significanceThresholds,
     phase,
     experimentStatus,
     variations,

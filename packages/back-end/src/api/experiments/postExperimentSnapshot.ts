@@ -1,5 +1,4 @@
 import { postExperimentSnapshotValidator } from "shared/validators";
-import { PostExperimentSnapshotResponse } from "shared/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
@@ -9,11 +8,11 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 // TODO update params (add phase, useCache)
 export const postExperimentSnapshot = createApiRequestHandler(
   postExperimentSnapshotValidator,
-)(async (req): Promise<PostExperimentSnapshotResponse> => {
+)(async (req) => {
   const context = req.context;
   const id = req.params.id;
 
-  const { triggeredBy } = req.body;
+  const { triggeredBy } = req.body ?? {};
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {

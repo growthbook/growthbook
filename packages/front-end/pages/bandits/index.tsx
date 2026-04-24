@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -85,11 +86,16 @@ const ExperimentsPage = (): React.ReactElement => {
     [showMineOnly, userId, tagsFilter.tags, watchedExperiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTableColumnHeader } =
-    useExperimentSearch({
-      allExperiments,
-      filterResults,
-    });
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    setSearchValue,
+  } = useExperimentSearch({
+    allExperiments,
+    filterResults,
+  });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -424,6 +430,11 @@ const ExperimentsPage = (): React.ReactElement => {
                         <SortedTags
                           tags={Object.values(e.tags)}
                           useFlex={true}
+                          {...tagLinkProps("bandits")}
+                          onTagClick={tagFilterOnClick(
+                            searchInputProps.value,
+                            setSearchValue,
+                          )}
                         />
                       </TableCell>
                       <TableCell className="nowrap" data-title="Owner:">

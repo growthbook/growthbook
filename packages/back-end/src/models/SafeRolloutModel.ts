@@ -119,7 +119,7 @@ export class SafeRolloutModel extends BaseClass {
 
       // Check for disallowed field updates
       for (const [key, value] of Object.entries(updates)) {
-        const typedKey = key as keyof typeof updates;
+        const typedKey = key as keyof SafeRolloutInterface;
 
         // If the field is not allowed and is being changed
         if (

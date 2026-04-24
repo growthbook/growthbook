@@ -1,7 +1,9 @@
 import { Text } from "@radix-ui/themes";
+import { MouseEvent } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Tag from "./Tag";
+import LinkedTag from "./LinkedTag";
 
 export type Props = {
   tags?: string[];
@@ -17,6 +19,9 @@ export type Props = {
    * When set, overrides showEllipsisAtIndex / shouldShowEllipsis for overflow.
    */
   maxVisibleTags?: number;
+  getTagHref?: (tag: string) => string;
+  linkEntity?: string;
+  onTagClick?: (tag: string, e: MouseEvent) => void;
 };
 
 export default function SortedTags({
@@ -28,9 +33,11 @@ export default function SortedTags({
   truncateTagChars,
   ellipsisFormat,
   maxVisibleTags,
+  getTagHref,
+  linkEntity,
+  onTagClick,
 }: Props) {
   const { tags: all } = useDefinitions();
-  //index starting at 0
   if (!tags || !tags.length) return null;
 
   const sortedIds = all.map((t) => t.id);
@@ -54,6 +61,19 @@ export default function SortedTags({
   const renderTags = (tagsToRender: string[], truncateInTable = true) => {
     return tagsToRender.map((tag, i) => {
       const skipMargin = useFlex || (skipFirstMargin && i === 0);
+      const href = getTagHref?.(tag);
+      if (href) {
+        return (
+          <LinkedTag
+            tag={tag}
+            key={tag}
+            skipMargin={skipMargin}
+            href={href}
+            entity={linkEntity}
+            onTagClick={onTagClick}
+          />
+        );
+      }
       return (
         <Tag
           tag={tag}

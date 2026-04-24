@@ -167,6 +167,9 @@ function makeAnalysisSettings(
   return {
     dimensions: [],
     statsEngine: "bayesian",
+    numGoalMetrics: 1,
+    numGuardrailMetrics: 0,
+    differenceType: "relative",
     ...overrides,
   } as ExperimentSnapshotAnalysisSettings;
 }
@@ -244,6 +247,7 @@ describe("snapshot lifecycle", () => {
       }),
     });
     expect(createExperimentSnapshotModelMock).toHaveBeenCalledWith({
+      context,
       data: plan.snapshot,
     });
     expect(resultsQueryRunnerMock).toHaveBeenCalledWith(

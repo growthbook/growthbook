@@ -14,11 +14,10 @@ import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useColumnStatusPopovers } from "./useColumnStatusPopovers";
 
-interface Props
-  extends DetailedHTMLProps<
-    TdHTMLAttributes<HTMLTableCellElement>,
-    HTMLTableCellElement
-  > {
+interface Props extends DetailedHTMLProps<
+  TdHTMLAttributes<HTMLTableCellElement>,
+  HTMLTableCellElement
+> {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   rowResults: RowResults;
@@ -31,6 +30,7 @@ interface Props
   hideScaledImpact?: boolean;
   // Props for popover
   metric?: ExperimentMetricInterface;
+  pValueThreshold: number;
   differenceType?: DifferenceType;
   statsEngine?: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
@@ -50,6 +50,7 @@ export default function PValueColumn({
   className,
   hideScaledImpact = false,
   metric,
+  pValueThreshold,
   differenceType,
   statsEngine,
   ssrPolyfills,
@@ -75,6 +76,7 @@ export default function PValueColumn({
     stats,
     rowResults,
     metric,
+    pValueThreshold,
     differenceType,
     statsEngine,
     ssrPolyfills,

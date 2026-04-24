@@ -7,6 +7,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 
 export function HashVersionTooltip({ children }: { children: ReactNode }) {
   return (
@@ -43,7 +44,9 @@ export default function HashVersionSelector({
 
   return (
     <>
-      <label>Hashing Algorithm</label>
+      <Text as="label" weight="semibold">
+        Hashing Algorithm
+      </Text>
       <RadioGroup
         options={[
           {
