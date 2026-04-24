@@ -1,7 +1,6 @@
 import React, { FC, useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
 import clsx from "clsx";
-import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
@@ -21,6 +20,7 @@ import {
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
+import Link from "@/ui/Link";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";

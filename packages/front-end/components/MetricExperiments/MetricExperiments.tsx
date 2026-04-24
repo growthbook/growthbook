@@ -1,7 +1,6 @@
 import React, { FC, useEffect, useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
 import clsx from "clsx";
-import Link from "next/link";
 import { Flex } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import {
@@ -22,6 +21,7 @@ import {
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";

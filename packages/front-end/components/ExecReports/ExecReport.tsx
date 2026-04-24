@@ -3,7 +3,7 @@ import { Flex, Box, Text, Heading } from "@radix-ui/themes";
 import { getDisallowedProjects } from "shared/util";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import useProjectOptions from "@/hooks/useProjectOptions";

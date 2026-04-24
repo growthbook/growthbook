@@ -5,7 +5,6 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, datetime, date } from "shared/dates";
@@ -14,6 +13,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
