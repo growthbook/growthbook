@@ -12,16 +12,14 @@ import BigQuery from "back-end/src/integrations/BigQuery";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/aggregate-metric-column-legacy-metrics";
-import { factTableFactory } from "./factories/FactTable.factory";
+import { getMaxHoursToConvert } from "back-end/src/integrations/sql/max-hours-to-convert";
+import { getFactMetricCTE } from "back-end/src/integrations/sql/fact-metric-cte";
+import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/experiment-fact-metrics-query";
+import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/feature-eval-diagnostics-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
+import { factTableFactory } from "./factories/FactTable.factory";
 
 describe("bigquery integration", () => {
-  let bqIntegration: BigQuery;
-  beforeEach(() => {
-    // @ts-expect-error -- context not needed for test
-    bqIntegration = new BigQuery("", {});
-  });
-
   it("builds the correct aggregate metric column", () => {
     const baseMetric: MetricInterface = {
       datasource: "",
@@ -215,13 +213,11 @@ describe("bigquery integration", () => {
     };
 
     // standard metric
-    expect(
-      bqIntegration["getMaxHoursToConvert"](false, [numeratorMetric], null),
-    ).toEqual(20);
+    expect(getMaxHoursToConvert(false, [numeratorMetric], null)).toEqual(20);
 
     // funnel metric
     expect(
-      bqIntegration["getMaxHoursToConvert"](
+      getMaxHoursToConvert(
         true,
         [denominatorBinomialMetric].concat([numeratorMetric]),
         null,
@@ -230,7 +226,7 @@ describe("bigquery integration", () => {
 
     // ratio metric
     expect(
-      bqIntegration["getMaxHoursToConvert"](
+      getMaxHoursToConvert(
         false,
         [denominatorCountMetric].concat([numeratorMetric]),
         null,
@@ -239,7 +235,7 @@ describe("bigquery integration", () => {
 
     // ratio metric activated
     expect(
-      bqIntegration["getMaxHoursToConvert"](
+      getMaxHoursToConvert(
         false,
         [denominatorCountMetric].concat([numeratorMetric]),
         activationMetric,
@@ -275,7 +271,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [{ metric: factMetric, index: 0 }],
       factTable,
       baseIdType: "user_id",
@@ -347,7 +343,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [factMetric, factMetric2].map((metric, index) => ({
         metric,
         index,
@@ -386,7 +382,7 @@ describe("bigquery integration", () => {
       },
     });
 
-    const result2 = bqIntegration["getFactMetricCTE"]({
+    const result2 = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [factMetric, factMetric2, factMetric3].map(
         (metric, index) => ({ metric, index }),
       ),
@@ -462,7 +458,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [factMetric1, factMetric2].map((metric, index) => ({
         metric,
         index,
@@ -544,7 +540,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [{ metric: ratioMetric, index: 0 }],
       factTable: factTableWithFilters,
       baseIdType: "user_id",
@@ -610,7 +606,7 @@ describe("bigquery integration", () => {
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
-    const result = bqIntegration["getFactMetricCTE"]({
+    const result = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [
         { metric: ratioMetricWithDenominatorNoFilter, index: 0 },
       ],
@@ -661,7 +657,7 @@ describe("bigquery integration", () => {
       },
     });
 
-    const result2 = bqIntegration["getFactMetricCTE"]({
+    const result2 = getFactMetricCTE(bigQueryDialect, {
       metricsWithIndices: [
         { metric: ratioMetricWithNumeratorNoFilter, index: 0 },
       ],
@@ -1212,41 +1208,45 @@ describe("full fact metric experiment query - bigquery", () => {
       const startDate = new Date("2023-01-01");
       const endDate = new Date("2023-01-31");
 
-      const sql = bqIntegration["getExperimentFactMetricsQuery"]({
-        settings: {
-          manual: false,
-          dimensions: [],
-          metricSettings: [],
-          goalMetrics: [],
-          secondaryMetrics: [],
-          guardrailMetrics: [],
-          activationMetric: null,
-          defaultMetricPriorSettings: {
-            override: false,
-            proper: false,
-            mean: 0,
-            stddev: 0,
+      const sql = getExperimentFactMetricsQuery(
+        bigQueryDialect,
+        bqIntegration.datasource,
+        {
+          settings: {
+            manual: false,
+            dimensions: [],
+            metricSettings: [],
+            goalMetrics: [],
+            secondaryMetrics: [],
+            guardrailMetrics: [],
+            activationMetric: null,
+            defaultMetricPriorSettings: {
+              override: false,
+              proper: false,
+              mean: 0,
+              stddev: 0,
+            },
+            regressionAdjustmentEnabled: true,
+            attributionModel: "firstExposure",
+            experimentId: "",
+            queryFilter: "",
+            segment: "",
+            // TODO
+            skipPartialData: false,
+            datasourceId: "",
+            exposureQueryId: "",
+            startDate,
+            endDate,
+            variations: [],
           },
-          regressionAdjustmentEnabled: true,
-          attributionModel: "firstExposure",
-          experimentId: "",
-          queryFilter: "",
-          segment: "",
-          // TODO
-          skipPartialData: false,
-          datasourceId: "",
-          exposureQueryId: "",
-          startDate,
-          endDate,
-          variations: [],
+          unitsSource: "exposureQuery",
+          activationMetric: null,
+          dimensions: [],
+          segment: null,
+          metrics: [metric],
+          factTableMap,
         },
-        unitsSource: "exposureQuery",
-        activationMetric: null,
-        dimensions: [],
-        segment: null,
-        metrics: [metric],
-        factTableMap,
-      });
+      );
 
       // Normalize SQL for consistency
       const normalizedSql = sql.replace(/\s+/g, " ").trim();
@@ -1283,9 +1283,13 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
     // @ts-expect-error -- context not needed for test
     const bqIntegration = new BigQuery("", datasource);
 
-    const sql = bqIntegration.getFeatureEvalDiagnosticsQuery({
-      feature: "my-feature-key",
-    });
+    const sql = getFeatureEvalDiagnosticsQuery(
+      bigQueryDialect,
+      bqIntegration.datasource,
+      {
+        feature: "my-feature-key",
+      },
+    );
 
     expect(sql).not.toContain("{{startDateISO}}");
     expect(sql).not.toContain("{{endDateISO}}");
