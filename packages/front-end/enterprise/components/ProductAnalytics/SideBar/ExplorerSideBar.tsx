@@ -5,7 +5,8 @@ import {
   FactTableValue,
   ExplorationConfig,
 } from "shared/validators";
-import { PiArrowsClockwise } from "react-icons/pi";
+import { PiArrowsClockwise, PiLink } from "react-icons/pi";
+import ShareUrlPopover from "@/ui/ShareUrlPopover";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
@@ -103,33 +104,48 @@ export default function ExplorerSideBar({
       {error && renderingInDashboardSidebar ? (
         <Callout status="error">{error}</Callout>
       ) : null}
-      <Flex justify="end" height="32px" py="2">
+      <Flex justify="end" align="center" height="32px" py="2" gap="2">
         {!renderingInDashboardSidebar ? (
-          <Tooltip
-            body={saveToDashboardDisabledReason || ""}
-            shouldDisplay={!!saveToDashboardDisabledReason}
-          >
-            <Button
-              size="sm"
-              ml="auto"
-              disabled={!!saveToDashboardDisabledReason}
-              onClick={() => {
-                if (!hasDashboardsFeature) {
-                  setShowUpgradeModal(true);
-                } else {
-                  setShowSaveToDashboardModal(true);
-                }
-              }}
+          <>
+            <Tooltip
+              body={saveToDashboardDisabledReason || ""}
+              shouldDisplay={!!saveToDashboardDisabledReason}
             >
-              <Flex align="center" justify="center" gap="2">
-                <PaidFeatureBadge
-                  commercialFeature="product-analytics-dashboards"
-                  useTip={false}
-                />
-                Save to Dashboard
-              </Flex>
-            </Button>
-          </Tooltip>
+              <Button
+                size="sm"
+                disabled={!!saveToDashboardDisabledReason}
+                onClick={() => {
+                  if (!hasDashboardsFeature) {
+                    setShowUpgradeModal(true);
+                  } else {
+                    setShowSaveToDashboardModal(true);
+                  }
+                }}
+              >
+                <Flex align="center" justify="center" gap="2">
+                  <PaidFeatureBadge
+                    commercialFeature="product-analytics-dashboards"
+                    useTip={false}
+                  />
+                  Save to Dashboard
+                </Flex>
+              </Button>
+            </Tooltip>
+            <ShareUrlPopover
+              trigger={
+                <Button
+                  size="sm"
+                  variant="solid"
+                  color="violet"
+                  aria-label="Share exploration link"
+                >
+                  <PiLink />
+                </Button>
+              }
+              side="bottom"
+              align="end"
+            />
+          </>
         ) : (
           <Flex direction="row" align="center" justify="between" width="100%">
             <DataSourceDropdown />
