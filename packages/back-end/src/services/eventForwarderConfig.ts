@@ -258,7 +258,7 @@ export async function syncEventForwarderConfigFromDatasource({
     return await context.models.eventForwarderConfigs.create({
       datasourceId: datasource.id,
       projects,
-      topic: getTopicName(datasource.organization),
+      topic: getEventForwarderTopicName(datasource.organization, datasource.id),
       // Provisioning resolves the current registry schema id after the topic exists.
       schemaId: 0,
       sinkType: draft.sinkType,
