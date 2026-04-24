@@ -11,7 +11,7 @@ import { getCustomFieldProjectChangeWarning } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import track from "@/services/track";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import Modal from "@/components/Modal";

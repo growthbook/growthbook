@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import { RadixTheme } from "@/services/RadixTheme";
 

@@ -1,7 +1,7 @@
 import { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";

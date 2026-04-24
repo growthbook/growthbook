@@ -9,7 +9,7 @@ import {
 } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Switch from "@/ui/Switch";
 import SelectField, {
   GroupedValue,

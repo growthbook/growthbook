@@ -4,7 +4,7 @@ import { Flex, Box } from "@radix-ui/themes";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
 import Checkbox from "@/ui/Checkbox";

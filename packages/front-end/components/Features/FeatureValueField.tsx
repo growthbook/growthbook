@@ -16,7 +16,7 @@ import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";

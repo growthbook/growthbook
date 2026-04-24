@@ -8,7 +8,7 @@ import Field from "@/components/Forms/Field";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import styles from "./AttributeForm.module.scss";
 

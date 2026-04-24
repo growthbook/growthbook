@@ -7,7 +7,7 @@ import {
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { validateSQL } from "@/services/datasources";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";

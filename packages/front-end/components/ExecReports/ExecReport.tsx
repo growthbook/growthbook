@@ -4,7 +4,7 @@ import { getDisallowedProjects } from "shared/util";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useDefinitions } from "@/services/DefinitionsContext";

@@ -5,6 +5,25 @@
 .gb-select__control {
   border-color: var(--border-color-200) !important;
   background-color: var(--color-surface) !important;
+  border-radius: var(--radius-3) !important;
+
+  &--is-disabled {
+    background-color: var(--gray-a2) !important;
+  }
+}
+
+.error {
+  .gb-multi-select__control,
+  .gb-select__control {
+    border-color: var(--red-8) !important;
+  }
+}
+
+.warning {
+  .gb-multi-select__control,
+  .gb-select__control {
+    border-color: var(--amber-8) !important;
+  }
 }
 
 .gb-multi-select__menu,
@@ -157,7 +176,8 @@
 .gb-select__dropdown-indicator,
 .gb-multi-select__dropdown-indicator {
   padding: 4px !important;
-  margin-right: -4px;
+  margin-right: 0;
+  color: var(--gray-12) !important;
 }
 
 // Raw text / token mode toggle button inside creatable multiselect (StringArrayField)

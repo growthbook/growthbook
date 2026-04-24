@@ -26,7 +26,7 @@ import {
   dataSourceConnections,
   eventSchema,
 } from "@/services/eventSchema";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";

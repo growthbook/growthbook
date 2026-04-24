@@ -31,7 +31,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
 
 function HasChangesIcon({

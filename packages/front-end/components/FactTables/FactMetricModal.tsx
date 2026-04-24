@@ -48,7 +48,7 @@ import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";

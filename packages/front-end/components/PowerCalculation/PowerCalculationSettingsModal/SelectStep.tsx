@@ -9,7 +9,7 @@ import {
 import { config, FullModalPowerCalculationParams } from "shared/power";
 import { isProjectListValidForProject } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Modal from "@/components/Modal";

@@ -10,7 +10,7 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/components/Button";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { getInitialSettings } from "@/services/datasources";
 import { DocLink, DocSection } from "@/components/DocLink";
 import { useAuth } from "@/services/auth";

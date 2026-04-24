@@ -12,7 +12,7 @@ import {
 } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useExperiments } from "@/hooks/useExperiments";
 import PipelineValidationResultsView from "@/enterprise/components/DataPipeline/PipelineValidationResults";
 import { useDataSourcePipelineSettingsValidation } from "@/enterprise/components/DataPipeline/useDataSourcePipelineSettingsValidation";

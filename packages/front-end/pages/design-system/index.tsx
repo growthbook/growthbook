@@ -25,6 +25,7 @@ import PopoverStories from "@/ui/Popover.stories";
 import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
+import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
 import SelectStories from "@/ui/Select.stories";
 import SliderStories from "@/ui/Slider.stories";
 import StepperStories from "@/ui/Stepper.stories";
@@ -83,6 +84,7 @@ export default function DesignSystemPage() {
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
     { name: "Select", Stories: SelectStories },
+    { name: "MultiSelectField", Stories: MultiSelectFieldStories },
     { name: "Slider", Stories: SliderStories },
     { name: "Stepper", Stories: StepperStories },
     { name: "Switch", Stories: SwitchStories },

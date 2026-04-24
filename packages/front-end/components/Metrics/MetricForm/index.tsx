@@ -32,7 +32,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import TagsInput from "@/components/Tags/TagsInput";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SQLInputField from "@/components/SQLInputField";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";

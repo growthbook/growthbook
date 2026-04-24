@@ -10,6 +10,7 @@ import ReactSelect, {
   OptionProps,
   FormatOptionLabelMeta,
   ClearIndicatorProps,
+  DropdownIndicatorProps,
 } from "react-select";
 import {
   SortableContainer,
@@ -22,8 +23,8 @@ import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import clsx from "clsx";
-import { PiCopy, PiXBold } from "react-icons/pi";
-import { Tooltip } from "@radix-ui/themes";
+import { PiCaretDown, PiCopy, PiXBold } from "react-icons/pi";
+import { Text, Tooltip } from "@radix-ui/themes";
 import {
   ReactSelectProps,
   SingleValue,
@@ -32,6 +33,7 @@ import {
   useSelectOptions,
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
+import HelperText from "@/ui/HelperText";
 import { ColorOption } from "@/components/Tags/TagsInput";
 
 const SortableMultiValue = SortableElement(
@@ -190,6 +192,16 @@ function CustomMultiValueRemove(
   );
 }
 
+function CustomDropdownIndicator(
+  props: DropdownIndicatorProps<SingleValue, true, GroupBase<SingleValue>>,
+) {
+  return (
+    <components.DropdownIndicator {...props}>
+      <PiCaretDown size={16} />
+    </components.DropdownIndicator>
+  );
+}
+
 export type MultiSelectFieldProps = Omit<
   FieldProps,
   "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
@@ -213,6 +225,8 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
+  size?: "1" | "2" | "3" | "legacy";
+  errorLevel?: "error" | "warning";
 };
 
 const MultiSelectField: FC<MultiSelectFieldProps> = ({
@@ -236,12 +250,14 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
+  size = "legacy",
+  errorLevel = "error",
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
   const selected = value.map((v) => map.get(v)).filter(isDefined);
 
-  const { ref: _ref, ...fieldPropsRest } = otherProps;
+  const { ref: _ref, error, label, ...fieldPropsRest } = otherProps;
   const fieldProps = fieldPropsRest as Omit<
     FieldProps,
     | "value"
@@ -253,6 +269,11 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
     | "render"
     | "ref"
   >;
+  // When using a design-system size, pass the label through Field only in legacy mode.
+  // In non-legacy mode we render it ourselves using the Radix Text component.
+  if (size === "legacy") {
+    fieldProps.label = label;
+  }
 
   const Component = creatable ? SortableCreatableSelect : SortableSelect;
 
@@ -340,147 +361,171 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       customClassName={clsx(customClassName, { "cursor-disabled": disabled })}
       render={(id, ref) => {
         return (
-          <div style={{ position: "relative" }}>
-            <Component
-              onPaste={handlePaste}
-              showCopyButton={showCopyButton}
-              useDragHandle
-              classNamePrefix="gb-multi-select"
-              helperClass="multi-select-container"
-              axis="xy"
-              onSortEnd={(s, e) => {
-                onSortEnd(s, e);
-                // The following is a hack to clean up elements that might be
-                // left in the dom after dragging. Hopefully we can remove this
-                // if react-select and react-sortable fixes it.
-                setTimeout(() => {
-                  const nodes = document.querySelectorAll(
-                    "body > .multi-select-container",
-                  );
-                  nodes.forEach((n) => {
-                    n.remove();
-                  });
-                }, 100);
-              }}
-              distance={4}
-              getHelperDimensions={({ node }) => node.getBoundingClientRect()}
-              id={id}
-              ref={ref}
-              formatOptionLabel={formatOptionLabel}
-              formatGroupLabel={formatGroupLabel}
-              isDisabled={disabled || false}
-              options={sorted}
-              isMulti={true}
-              onChange={(selected) => {
-                onChange(selected?.map((s) => s.value) ?? []);
-              }}
-              isValidNewOption={(value) => {
-                if (!pattern) return !!value;
-                return new RegExp(pattern).test(value);
-              }}
-              components={{
-                MultiValue: SortableMultiValue,
-                MultiValueLabel: SortableMultiValueLabel,
-                MultiValueRemove: CustomMultiValueRemove,
-                Option: OptionWithTitle,
-                Input,
-                ClearIndicator: CustomClearIndicator,
-                GroupHeading,
-                ...(showCopyButton
-                  ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
-                  : {}),
-                ...(creatable && noMenu
-                  ? {
-                      Menu: () => null,
-                      DropdownIndicator: () => null,
-                      IndicatorSeparator: () => null,
-                    }
-                  : creatable
+          <>
+            {size !== "legacy" &&
+              label !== undefined &&
+              (typeof label === "string" ? (
+                <Text as="label" htmlFor={id} size="3" weight="medium">
+                  {label}
+                </Text>
+              ) : (
+                label
+              ))}
+            <div style={{ position: "relative" }}>
+              <Component
+                className={clsx({
+                  error: !!error && errorLevel === "error",
+                  warning: !!error && errorLevel === "warning",
+                })}
+                onPaste={handlePaste}
+                showCopyButton={showCopyButton}
+                useDragHandle
+                classNamePrefix="gb-multi-select"
+                helperClass="multi-select-container"
+                axis="xy"
+                onSortEnd={(s, e) => {
+                  onSortEnd(s, e);
+                  // The following is a hack to clean up elements that might be
+                  // left in the dom after dragging. Hopefully we can remove this
+                  // if react-select and react-sortable fixes it.
+                  setTimeout(() => {
+                    const nodes = document.querySelectorAll(
+                      "body > .multi-select-container",
+                    );
+                    nodes.forEach((n) => {
+                      n.remove();
+                    });
+                  }, 100);
+                }}
+                distance={4}
+                getHelperDimensions={({ node }) => node.getBoundingClientRect()}
+                id={id}
+                ref={ref}
+                formatOptionLabel={formatOptionLabel}
+                formatGroupLabel={formatGroupLabel}
+                isDisabled={disabled || false}
+                options={sorted}
+                isMulti={true}
+                onChange={(selected) => {
+                  onChange(selected?.map((s) => s.value) ?? []);
+                }}
+                isValidNewOption={(value) => {
+                  if (!pattern) return !!value;
+                  return new RegExp(pattern).test(value);
+                }}
+                components={{
+                  MultiValue: SortableMultiValue,
+                  MultiValueLabel: SortableMultiValueLabel,
+                  MultiValueRemove: CustomMultiValueRemove,
+                  Option: OptionWithTitle,
+                  Input,
+                  ClearIndicator: CustomClearIndicator,
+                  GroupHeading,
+                  ...(showCopyButton
+                    ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
+                    : {}),
+                  ...(creatable && noMenu
                     ? {
+                        Menu: () => null,
+                        DropdownIndicator: () => null,
                         IndicatorSeparator: () => null,
-                        MenuList: (props) => {
-                          return (
-                            <>
-                              <div
-                                className="px-2 py-1"
-                                style={{
-                                  fontWeight: 500,
-                                  fontSize: "85%",
-                                }}
-                              >
-                                <strong>Select an option or create one</strong>
-                              </div>
-                              <components.MenuList {...props} />
-                            </>
-                          );
-                        },
                       }
-                    : {
-                        IndicatorSeparator: () => null,
-                      }),
-              }}
-              {...(creatable && noMenu
-                ? {
-                    // Prevent multi-select from submitting if you type the same value twice
-                    onKeyDown: (e) => {
-                      const v = (e.target as HTMLInputElement).value;
-                      if (e.code === "Enter" && (!v || value.includes(v))) {
-                        e.preventDefault();
-                      }
-                    },
-                  }
-                : {})}
-              closeMenuOnSelect={closeMenuOnSelect}
-              autoFocus={autoFocus}
-              value={selected}
-              {...(creatable
-                ? {
-                    formatCreateLabel: (input: string) => {
-                      return (
-                        <span>
-                          <span className="text-muted">Create</span>{" "}
-                          <span
-                            className="badge bg-purple-light-2"
-                            style={{
-                              fontWeight: 600,
-                              padding: "3px 6px",
-                              lineHeight: "1.5",
-                              borderRadius: "2px",
-                            }}
-                          >
-                            {input}
+                    : creatable
+                      ? {
+                          DropdownIndicator: CustomDropdownIndicator,
+                          IndicatorSeparator: () => null,
+                          MenuList: (props) => {
+                            return (
+                              <>
+                                <div
+                                  className="px-2 py-1"
+                                  style={{
+                                    fontWeight: 500,
+                                    fontSize: "85%",
+                                  }}
+                                >
+                                  <strong>
+                                    Select an option or create one
+                                  </strong>
+                                </div>
+                                <components.MenuList {...props} />
+                              </>
+                            );
+                          },
+                        }
+                      : {
+                          DropdownIndicator: CustomDropdownIndicator,
+                          IndicatorSeparator: () => null,
+                        }),
+                }}
+                {...(creatable && noMenu
+                  ? {
+                      // Prevent multi-select from submitting if you type the same value twice
+                      onKeyDown: (e) => {
+                        const v = (e.target as HTMLInputElement).value;
+                        if (e.code === "Enter" && (!v || value.includes(v))) {
+                          e.preventDefault();
+                        }
+                      },
+                    }
+                  : {})}
+                closeMenuOnSelect={closeMenuOnSelect}
+                autoFocus={autoFocus}
+                value={selected}
+                {...(creatable
+                  ? {
+                      formatCreateLabel: (input: string) => {
+                        return (
+                          <span>
+                            <span className="text-muted">Create</span>{" "}
+                            <span
+                              className="badge bg-purple-light-2"
+                              style={{
+                                fontWeight: 600,
+                                padding: "3px 6px",
+                                lineHeight: "1.5",
+                                borderRadius: "2px",
+                              }}
+                            >
+                              {input}
+                            </span>
                           </span>
-                        </span>
-                      );
-                    },
-                  }
-                : {})}
-              placeholder={initialOption ?? placeholder}
-              isOptionDisabled={isOptionDisabled}
-              {...{ ...ReactSelectProps, ...mergeStyles }}
-            />
-            {required && (
-              <input
-                tabIndex={-1}
-                autoComplete="off"
-                style={{
-                  opacity: 0,
-                  width: "100%",
-                  height: 0,
-                  position: "absolute",
-                  pointerEvents: "none",
-                }}
-                value={value.join(",")}
-                onChange={() => {}}
-                onFocus={() => {
-                  if (ref?.current) {
-                    ref.current.focus();
-                  }
-                }}
-                required
+                        );
+                      },
+                    }
+                  : {})}
+                placeholder={initialOption ?? placeholder}
+                isOptionDisabled={isOptionDisabled}
+                {...{ ...ReactSelectProps, ...mergeStyles }}
               />
+              {required && (
+                <input
+                  tabIndex={-1}
+                  autoComplete="off"
+                  style={{
+                    opacity: 0,
+                    width: "100%",
+                    height: 0,
+                    position: "absolute",
+                    pointerEvents: "none",
+                  }}
+                  value={value.join(",")}
+                  onChange={() => {}}
+                  onFocus={() => {
+                    if (ref?.current) {
+                      ref.current.focus();
+                    }
+                  }}
+                  required
+                />
+              )}
+            </div>
+            {error && (
+              <HelperText status={errorLevel} mt="1">
+                {error}
+              </HelperText>
             )}
-          </div>
+          </>
         );
       }}
     />
