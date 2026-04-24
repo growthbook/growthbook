@@ -5,6 +5,7 @@ import { PiWarning } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
@@ -238,6 +239,7 @@ export default function ProjectTagBar({
             tags={experiment.tags}
             useFlex
             shouldShowEllipsis={false}
+            {...tagLinkProps("experiments")}
           />
         )}
         {editTags && experiment.tags?.length === 0 && (

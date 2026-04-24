@@ -22,6 +22,7 @@ import {
   IS_CLOUD,
   CLICKHOUSE_DEV_PREFIX,
   CLICKHOUSE_OVERAGE_TABLE,
+  MANAGED_CLICKHOUSE_USE_LICENSE_SERVER,
 } from "back-end/src/util/secrets";
 import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -33,6 +34,14 @@ import {
   lockDataSource,
   unlockDataSource,
 } from "back-end/src/models/DataSourceModel";
+import {
+  addCloudSDKMappingViaLicenseServer,
+  createClickhouseUserViaLicenseServer,
+  dangerousRecreateClickhouseTablesViaLicenseServer,
+  deleteClickhouseUserViaLicenseServer,
+  migrateOverageEventsForOrgIdViaLicenseServer,
+  updateMaterializedColumnsInClickhouseViaLicenseServer,
+} from "back-end/src/services/licenseServerManagedClickhouse";
 
 type ClickHouseDataType =
   | "DateTime"
@@ -370,6 +379,13 @@ export async function createClickhouseUser(
   context: ReqContext,
   materializedColumns: MaterializedColumn[] = [],
 ): Promise<DataSourceParams> {
+  if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+    return createClickhouseUserViaLicenseServer(
+      context.org.id,
+      materializedColumns,
+    );
+  }
+
   const client = createAdminClickhouseClient();
 
   const orgId = context.org.id;
@@ -461,34 +477,45 @@ export async function _dangerousRecreateClickhouseTables(
   context: ReqContext,
   datasource: GrowthbookClickhouseDataSource,
 ): Promise<void> {
-  const client = createAdminClickhouseClient();
-
   const orgId = context.org.id;
-  const user = clickhouseUserId(orgId);
-  const database = user;
 
   // Backfilling data can take a while, so lock the datasource for 30 minutes
   await lockDataSource(context, datasource, 1800);
 
   try {
-    // Drop the entire database and recreate it
-    logger.info(`Dropping Clickhouse database ${database}`);
-    await runCommand(client, `DROP DATABASE IF EXISTS ${database}`);
+    if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+      await dangerousRecreateClickhouseTablesViaLicenseServer(
+        orgId,
+        datasource.settings.materializedColumns || [],
+      );
+    } else {
+      const client = createAdminClickhouseClient();
+      const user = clickhouseUserId(orgId);
+      const database = user;
 
-    logger.info(`Creating Clickhouse database ${database}`);
-    await runCommand(client, `CREATE DATABASE ${database}`);
+      // Drop the entire database and recreate it
+      logger.info(`Dropping Clickhouse database ${database}`);
+      await runCommand(client, `DROP DATABASE IF EXISTS ${database}`);
 
-    await createClickhouseTables(
-      client,
-      orgId,
-      datasource.settings.materializedColumns || [],
-    );
+      logger.info(`Creating Clickhouse database ${database}`);
+      await runCommand(client, `CREATE DATABASE ${database}`);
+
+      await createClickhouseTables(
+        client,
+        orgId,
+        datasource.settings.materializedColumns || [],
+      );
+    }
   } finally {
     await unlockDataSource(context, datasource);
   }
 }
 
 export async function deleteClickhouseUser(organization: string) {
+  if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+    return deleteClickhouseUserViaLicenseServer(organization);
+  }
+
   const client = createAdminClickhouseClient();
   const user = clickhouseUserId(organization);
   const database = user;
@@ -505,12 +532,16 @@ export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
 
   // This is not a fatal error, so just log instead of throwing
   try {
-    const client = createAdminClickhouseClient();
-    await client.insert({
-      table: "usage.sdk_key_mapping",
-      values: [{ key, organization }],
-      format: "JSONEachRow",
-    });
+    if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+      await addCloudSDKMappingViaLicenseServer(key, organization);
+    } else {
+      const client = createAdminClickhouseClient();
+      await client.insert({
+        table: "usage.sdk_key_mapping",
+        values: [{ key, organization }],
+        format: "JSONEachRow",
+      });
+    }
   } catch (e) {
     logger.error(
       e,
@@ -520,6 +551,10 @@ export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
 }
 
 export async function migrateOverageEventsForOrgId(orgId: string) {
+  if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+    return migrateOverageEventsForOrgIdViaLicenseServer(orgId);
+  }
+
   const client = createAdminClickhouseClient();
   await runCommand(
     client,
@@ -697,83 +732,94 @@ export async function updateMaterializedColumns({
   await lockDataSource(context, datasource, 300);
 
   try {
-    const client = createAdminClickhouseClient();
-
     const orgId = datasource.organization;
 
-    const addClauses = columnsToAdd
-      .map(
-        ({ columnName, datatype }) =>
-          `ADD COLUMN IF NOT EXISTS ${columnName} ${getClickhouseDatatype(
-            datatype,
-          )}`,
-      )
-      .join(", ");
-    const dropClauses = columnsToDelete
-      .map((columnName) => `DROP COLUMN IF EXISTS ${columnName}`)
-      .join(", ");
-    const renameClauses = columnsToRename
-      .map(({ from, to }) => `RENAME COLUMN ${from} to ${to}`)
-      .join(", ");
-    const clauses = `${addClauses}${
-      columnsToAdd.length > 0 &&
-      columnsToDelete.length + columnsToRename.length > 0
-        ? ", "
-        : ""
-    }${dropClauses}${
-      columnsToDelete.length > 0 && columnsToRename.length > 0 ? ", " : ""
-    }${renameClauses}`;
+    if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+      await updateMaterializedColumnsInClickhouseViaLicenseServer({
+        orgId,
+        columnsToAdd,
+        columnsToDelete,
+        columnsToRename,
+        finalColumns,
+        originalColumns,
+      });
+    } else {
+      const client = createAdminClickhouseClient();
 
-    // Track which columns the view should be recreated with in case of an error
-    let viewColumns = originalColumns;
+      const addClauses = columnsToAdd
+        .map(
+          ({ columnName, datatype }) =>
+            `ADD COLUMN IF NOT EXISTS ${columnName} ${getClickhouseDatatype(
+              datatype,
+            )}`,
+        )
+        .join(", ");
+      const dropClauses = columnsToDelete
+        .map((columnName) => `DROP COLUMN IF EXISTS ${columnName}`)
+        .join(", ");
+      const renameClauses = columnsToRename
+        .map(({ from, to }) => `RENAME COLUMN ${from} to ${to}`)
+        .join(", ");
+      const clauses = `${addClauses}${
+        columnsToAdd.length > 0 &&
+        columnsToDelete.length + columnsToRename.length > 0
+          ? ", "
+          : ""
+      }${dropClauses}${
+        columnsToDelete.length > 0 && columnsToRename.length > 0 ? ", " : ""
+      }${renameClauses}`;
 
-    // First update the main events table
-    const { tableName: eventsTableName, viewName: eventsViewName } =
-      getEventsSQL(orgId, []);
-    logger.info(
-      `Updating materialized columns; dropping view ${eventsViewName}`,
-    );
-    await runCommand(client, `DROP VIEW IF EXISTS ${eventsViewName}`);
-    let err = undefined;
-    try {
-      logger.info(`Updating table schema for ${eventsTableName}`);
-      await runCommand(client, `ALTER TABLE ${eventsTableName} ${clauses}`);
-      viewColumns = finalColumns;
-    } catch (e) {
-      logger.error(e);
-      err = e;
-    } finally {
-      logger.info(`Recreating materialized view ${eventsViewName}`);
-      const eventsSQL = getEventsSQL(orgId, viewColumns);
-      await runCommand(client, eventsSQL.createView);
-    }
-    if (err) {
-      throw err;
-    }
+      // Track which columns the view should be recreated with in case of an error
+      let viewColumns = originalColumns;
 
-    // Now update the experiment views table
-    const { tableName: exposureTableName, viewName: exposureViewName } =
-      getExperimentViewSQL(orgId, []);
-    logger.info(
-      `Updating materialized columns; dropping view ${exposureViewName}`,
-    );
-    await runCommand(client, `DROP VIEW IF EXISTS ${exposureViewName}`);
-    err = undefined;
-    viewColumns = originalColumns;
-    try {
-      logger.info(`Updating table schema for ${exposureTableName}`);
-      await runCommand(client, `ALTER TABLE ${exposureTableName} ${clauses}`);
-      viewColumns = finalColumns;
-    } catch (e) {
-      logger.error(e);
-      err = e;
-    } finally {
-      logger.info(`Recreating materialized view ${exposureViewName}`);
-      const experimentViewSQL = getExperimentViewSQL(orgId, viewColumns);
-      await runCommand(client, experimentViewSQL.createView);
-    }
-    if (err) {
-      throw err;
+      // First update the main events table
+      const { tableName: eventsTableName, viewName: eventsViewName } =
+        getEventsSQL(orgId, []);
+      logger.info(
+        `Updating materialized columns; dropping view ${eventsViewName}`,
+      );
+      await runCommand(client, `DROP VIEW IF EXISTS ${eventsViewName}`);
+      let err = undefined;
+      try {
+        logger.info(`Updating table schema for ${eventsTableName}`);
+        await runCommand(client, `ALTER TABLE ${eventsTableName} ${clauses}`);
+        viewColumns = finalColumns;
+      } catch (e) {
+        logger.error(e);
+        err = e;
+      } finally {
+        logger.info(`Recreating materialized view ${eventsViewName}`);
+        const eventsSQL = getEventsSQL(orgId, viewColumns);
+        await runCommand(client, eventsSQL.createView);
+      }
+      if (err) {
+        throw err;
+      }
+
+      // Now update the experiment views table
+      const { tableName: exposureTableName, viewName: exposureViewName } =
+        getExperimentViewSQL(orgId, []);
+      logger.info(
+        `Updating materialized columns; dropping view ${exposureViewName}`,
+      );
+      await runCommand(client, `DROP VIEW IF EXISTS ${exposureViewName}`);
+      err = undefined;
+      viewColumns = originalColumns;
+      try {
+        logger.info(`Updating table schema for ${exposureTableName}`);
+        await runCommand(client, `ALTER TABLE ${exposureTableName} ${clauses}`);
+        viewColumns = finalColumns;
+      } catch (e) {
+        logger.error(e);
+        err = e;
+      } finally {
+        logger.info(`Recreating materialized view ${exposureViewName}`);
+        const experimentViewSQL = getExperimentViewSQL(orgId, viewColumns);
+        await runCommand(client, experimentViewSQL.createView);
+      }
+      if (err) {
+        throw err;
+      }
     }
 
     // Update the main events fact table with the new columns

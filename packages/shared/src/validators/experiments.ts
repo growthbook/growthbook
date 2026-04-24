@@ -638,7 +638,10 @@ const apiExperimentPhase = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
-      range: z.array(z.number()).min(2).max(2),
+      enabled: z.boolean().optional(),
+      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+      range: z.array(z.number()).min(2).max(2).optional(),
+      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
   targetingCondition: z.string(),
@@ -919,8 +922,10 @@ const apiPhaseInput = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
-      range: z.array(z.number()).min(2).max(2),
       enabled: z.boolean().optional(),
+      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+      range: z.array(z.number()).min(2).max(2).optional(),
+      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
   targetingCondition: z.string().optional(),

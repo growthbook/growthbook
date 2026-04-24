@@ -114,11 +114,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/EditDescriptionModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -212,11 +207,6 @@
   "packages/front-end/components/Experiment/VariationsTable.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/holdout/AddToHoldoutModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {
@@ -629,11 +619,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -665,6 +650,11 @@
     }
   },
   "packages/front-end/components/Settings/UpgradeModal/index.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Share/ShareModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -832,11 +822,6 @@
   "packages/front-end/pages/product-analytics/dashboards/index.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/pages/project/[pid].tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/pages/saved-groups/[sgid].tsx": {
