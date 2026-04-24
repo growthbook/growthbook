@@ -147,6 +147,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const environmentSettings =
       req.body.environments != null
         ? updateInterfaceEnvSettingsFromApiEnvSettings(
+            req.context,
             feature,
             req.body.environments,
           )

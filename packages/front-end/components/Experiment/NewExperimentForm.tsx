@@ -38,6 +38,7 @@ import {
   generateVariationId,
   useAttributeSchema,
   useEnvironments,
+  validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
@@ -505,6 +506,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       if (prerequisiteTargetingSdkIssues) {
         throw new Error("Prerequisite targeting issues must be resolved");
       }
+
+      // Opt-in client-side pre-flight — catches typo'd experiment attributes
+      // before the network round-trip, same wording as the back-end error.
+      validateUnregisteredAttributes(
+        {
+          hashAttribute: (data as { hashAttribute?: string }).hashAttribute,
+          fallbackAttribute: (data as { fallbackAttribute?: string })
+            .fallbackAttribute,
+          condition: data.phases[0].condition,
+        },
+        "experiment",
+        {
+          attributeSchema,
+          requireRegisteredAttributes: settings.requireRegisteredAttributes,
+        },
+      );
 
       // bandits
       if (

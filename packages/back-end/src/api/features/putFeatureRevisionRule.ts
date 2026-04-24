@@ -27,6 +27,7 @@ import {
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -281,6 +282,31 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       prerequisites:
         patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
     });
+    // Attribute registration check: run whenever the patch touches any of the
+    // fields we care about. hashAttribute/fallbackAttribute only exist on some
+    // rule types; absence just means "don't check that field".
+    const patchedAnyAttributeField =
+      patch.condition !== undefined ||
+      "hashAttribute" in patch ||
+      "fallbackAttribute" in patch;
+    if (patchedAnyAttributeField) {
+      validateRuleAttributes(
+        {
+          condition:
+            patch.condition !== undefined ? updatedRule.condition : undefined,
+          hashAttribute:
+            "hashAttribute" in patch
+              ? (updatedRule as { hashAttribute?: string }).hashAttribute
+              : undefined,
+          fallbackAttribute:
+            "fallbackAttribute" in patch
+              ? (updatedRule as { fallbackAttribute?: string })
+                  .fallbackAttribute
+              : undefined,
+        },
+        req.context,
+      );
+    }
     if (
       patch.condition !== undefined ||
       patch.savedGroups !== undefined ||

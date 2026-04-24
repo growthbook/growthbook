@@ -106,6 +106,7 @@ import {
   getDraftRevision,
   assertCanAutoPublish,
 } from "back-end/src/services/features";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   getSDKPayloadCacheLocation,
   formatLegacyCacheKey,
@@ -1835,6 +1836,19 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
+  // Opt-in attribute registration check before any side effects (safe-rollout
+  // create, holdout linking, revision update).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (rule as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+  );
+
   if (rule.type === "safe-rollout") {
     const environment = selectedEnvironments[0];
     if (selectedEnvironments.length > 1) {
@@ -2686,6 +2700,19 @@ export async function putFeatureRule(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check on edits too — typos can be
+  // introduced on updates just as easily as on creates.
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (rule as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+  );
 
   if (rule.type === "safe-rollout") {
     if (!rule.safeRolloutId) {

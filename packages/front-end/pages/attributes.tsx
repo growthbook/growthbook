@@ -16,7 +16,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
@@ -32,6 +34,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { apiCall } = useAuth();
   const { project, projects, getProjectById } = useDefinitions();
   const attributeSchema = useAttributeSchema(true, project);
+  const orgSettings = useOrgSettings();
+  const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
+  const [savingRequireRegistered, setSavingRequireRegistered] = useState(false);
 
   const canCreateAttributes = permissionsUtil.canViewAttributeModal(
     project,
@@ -301,6 +306,33 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 experiments. Attributes set here must also be passed in through
                 the SDK.
               </p>
+              {canManageOrgSettings && (
+                <Box mb="3">
+                  <Checkbox
+                    id="toggle-requireRegisteredAttributes"
+                    label="Reject feature rules and experiments that reference unknown attributes"
+                    description="When enabled, saving a feature rule or experiment fails if it uses a hashAttribute, fallbackAttribute, or condition key that isn't declared (and unarchived) above. Catches typos like userID vs userId before they ship."
+                    value={!!orgSettings.requireRegisteredAttributes}
+                    disabled={savingRequireRegistered}
+                    setValue={async (value) => {
+                      setSavingRequireRegistered(true);
+                      try {
+                        await apiCall(`/organization`, {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            settings: {
+                              requireRegisteredAttributes: value,
+                            },
+                          }),
+                        });
+                        await refreshOrganization();
+                      } finally {
+                        setSavingRequireRegistered(false);
+                      }
+                    }}
+                  />
+                </Box>
+              )}
             </div>
           </div>
           {attributeSchema?.length > 0 && (

@@ -22,6 +22,8 @@ import {
   inferSchemaField,
   inferSchemaFields,
   inferSimpleSchemaFromValue,
+  extractConditionAttributeKeys,
+  findUnregisteredAttributes,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -1489,6 +1491,113 @@ describe("validateCondition", () => {
       success: true,
       empty: false,
     });
+  });
+});
+
+describe("extractConditionAttributeKeys", () => {
+  it("returns empty for nullish / non-object input", () => {
+    expect(extractConditionAttributeKeys(undefined)).toEqual([]);
+    expect(extractConditionAttributeKeys(null)).toEqual([]);
+    expect(extractConditionAttributeKeys("string")).toEqual([]);
+    expect(extractConditionAttributeKeys({})).toEqual([]);
+  });
+
+  it("extracts bare equality keys", () => {
+    expect(
+      extractConditionAttributeKeys({ userId: "abc", country: "US" }).sort(),
+    ).toEqual(["country", "userId"]);
+  });
+
+  it("skips operator keys ($eq, $gte, $in, $elemMatch)", () => {
+    expect(
+      extractConditionAttributeKeys({
+        age: { $gte: 18, $lte: 99 },
+        country: { $in: ["US", "CA"] },
+        roles: { $elemMatch: { $eq: "admin" } },
+      }).sort(),
+    ).toEqual(["age", "country", "roles"]);
+  });
+
+  it("treats $inGroup / $notInGroup as operators, not attributes", () => {
+    expect(
+      extractConditionAttributeKeys({
+        userId: { $inGroup: "sg_123" },
+        tenant: { $notInGroup: "sg_456" },
+      }).sort(),
+    ).toEqual(["tenant", "userId"]);
+  });
+
+  it("recurses into $and / $or / $nor / $not", () => {
+    expect(
+      extractConditionAttributeKeys({
+        $and: [{ userId: "x" }, { $or: [{ plan: "free" }, { plan: "trial" }] }],
+        $nor: [{ banned: true }],
+        $not: { archived: true },
+      }).sort(),
+    ).toEqual(["archived", "banned", "plan", "userId"]);
+  });
+
+  it("deduplicates repeated attribute keys", () => {
+    expect(
+      extractConditionAttributeKeys({
+        $or: [{ plan: "free" }, { plan: "trial" }, { plan: "paid" }],
+      }),
+    ).toEqual(["plan"]);
+  });
+
+  it("keeps dot-notation keys intact (caller checks root segment)", () => {
+    expect(
+      extractConditionAttributeKeys({ "user.id": "x", "user.role": "admin" }),
+    ).toEqual(["user.id", "user.role"]);
+  });
+});
+
+describe("findUnregisteredAttributes", () => {
+  const schema = [
+    { property: "userId", datatype: "string" as const },
+    { property: "country", datatype: "string" as const },
+    { property: "user", datatype: "string" as const },
+    {
+      property: "legacyId",
+      datatype: "string" as const,
+      archived: true,
+    },
+  ];
+
+  it("returns empty when every key is registered and active", () => {
+    expect(findUnregisteredAttributes(["userId", "country"], schema)).toEqual(
+      [],
+    );
+  });
+
+  it("flags truly unknown keys", () => {
+    expect(
+      findUnregisteredAttributes(["userId", "accountUUID"], schema),
+    ).toEqual(["accountUUID"]);
+  });
+
+  it("flags archived attributes as unregistered", () => {
+    expect(findUnregisteredAttributes(["legacyId"], schema)).toEqual([
+      "legacyId",
+    ]);
+  });
+
+  it("treats dot-notation keys as registered via their root segment", () => {
+    expect(
+      findUnregisteredAttributes(["user.id", "user.role"], schema),
+    ).toEqual([]);
+  });
+
+  it("deduplicates repeated bad keys in the output", () => {
+    expect(
+      findUnregisteredAttributes(["typo", "typo", "other_typo"], schema),
+    ).toEqual(["typo", "other_typo"]);
+  });
+
+  it("treats undefined schema as empty (everything unregistered)", () => {
+    expect(findUnregisteredAttributes(["userId"], undefined)).toEqual([
+      "userId",
+    ]);
   });
 });
 

@@ -29,6 +29,8 @@ import {
   getMatchingRules,
   validateAndFixCondition,
   validateFeatureValue,
+  extractConditionAttributeKeys,
+  findUnregisteredAttributes,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
@@ -527,9 +529,59 @@ export function useAttributeSchema(
   }, [attributeSchema, showArchived, projectFilter]);
 }
 
+// Shared formatter so the client-side pre-flight error matches the back-end
+// BadRequestError message byte-for-byte.
+function formatUnknownAttributesError(
+  label: string,
+  unknown: string[],
+): string {
+  const quoted = unknown.map((k) => `"${k}"`).join(", ");
+  return (
+    `Unknown attribute key(s) on ${label}: ${quoted}. ` +
+    `Declare them under Settings > Targeting Attributes or fix the typo.`
+  );
+}
+
+export function validateUnregisteredAttributes(
+  parts: {
+    hashAttribute?: string;
+    fallbackAttribute?: string;
+    condition?: string;
+  },
+  label: string,
+  options: {
+    attributeSchema?: SDKAttributeSchema;
+    requireRegisteredAttributes?: boolean;
+  },
+): void {
+  if (!options.requireRegisteredAttributes) return;
+
+  const keys: string[] = [];
+  if (parts.hashAttribute) keys.push(parts.hashAttribute);
+  if (parts.fallbackAttribute) keys.push(parts.fallbackAttribute);
+  if (parts.condition && parts.condition !== "{}") {
+    try {
+      keys.push(...extractConditionAttributeKeys(JSON.parse(parts.condition)));
+    } catch {
+      // Unparseable condition — `validateAndFixCondition` / `validateCondition`
+      // elsewhere will surface JSON errors.
+      return;
+    }
+  }
+  if (!keys.length) return;
+  const unknown = findUnregisteredAttributes(keys, options.attributeSchema);
+  if (unknown.length) {
+    throw new Error(formatUnknownAttributesError(label, unknown));
+  }
+}
+
 export function validateFeatureRule(
   rule: FeatureRule,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  options: {
+    attributeSchema?: SDKAttributeSchema;
+    requireRegisteredAttributes?: boolean;
+  } = {},
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -546,6 +598,21 @@ export function validateFeatureRule(
       false,
     );
   }
+
+  // Opt-in client-side pre-flight — same rules as the back-end, same error
+  // wording. Keeps the user from burning a round-trip on a typo. Uses the
+  // potentially-repaired condition from above (ruleCopy) so the preview
+  // matches what will actually be saved.
+  validateUnregisteredAttributes(
+    {
+      hashAttribute: (ruleCopy as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (ruleCopy as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: ruleCopy.condition,
+    },
+    "rule",
+    options,
+  );
   if (rule.prerequisites) {
     if (rule.prerequisites.some((p) => !p.id)) {
       throw new Error("Cannot have empty prerequisites");

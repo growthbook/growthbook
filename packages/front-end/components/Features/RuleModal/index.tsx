@@ -650,6 +650,10 @@ export default function RuleModal({
             type: "experiment",
           },
           feature,
+          {
+            attributeSchema,
+            requireRegisteredAttributes: settings.requireRegisteredAttributes,
+          },
         );
         if (newRule) {
           form.reset({
@@ -918,7 +922,10 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
-      const correctedRule = validateFeatureRule(values, feature);
+      const correctedRule = validateFeatureRule(values, feature, {
+        attributeSchema,
+        requireRegisteredAttributes: settings.requireRegisteredAttributes,
+      });
       if (correctedRule) {
         form.reset(correctedRule);
         throw new Error(

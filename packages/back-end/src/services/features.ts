@@ -81,6 +81,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
@@ -2110,6 +2111,7 @@ export function sha256(str: string, salt: string): string {
 }
 
 const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
+  context: ReqContext,
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
 ): FeatureInterface["environmentSettings"][string]["rules"] =>
@@ -2120,6 +2122,23 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         "Invalid targeting condition JSON: " + conditionRes.error,
       );
     }
+
+    // Opt-in attribute registration check (org-level setting). Covers every
+    // rule created via the REST feature payload (postFeature / updateFeature).
+    const ruleWithAttrs = r as {
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+      condition?: string;
+    };
+    assertRegisteredAttributes(
+      context,
+      {
+        hashAttribute: ruleWithAttrs.hashAttribute,
+        fallbackAttribute: ruleWithAttrs.fallbackAttribute,
+        condition: ruleWithAttrs.condition,
+      },
+      "rule",
+    );
 
     switch (r.type) {
       case "experiment-ref": {
@@ -2208,6 +2227,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   });
 
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
+  context: ReqContext,
   feature: FeatureInterface,
   baseEnvs: Environment[],
   incomingEnvs: ApiFeatureEnvSettings,
@@ -2219,6 +2239,7 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
         enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
         rules: incomingEnvs?.[e.id]?.rules
           ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+              context,
               feature,
               incomingEnvs[e.id].rules,
             )
@@ -2229,6 +2250,7 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
   );
 
 export const updateInterfaceEnvSettingsFromApiEnvSettings = (
+  context: ReqContext,
   feature: FeatureInterface,
   incomingEnvs: ApiFeatureEnvSettings,
 ): FeatureInterface["environmentSettings"] => {
@@ -2240,6 +2262,7 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
         enabled: incomingEnvs[k].enabled ?? existing[k]?.enabled ?? false,
         rules: incomingEnvs[k].rules
           ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+              context,
               feature,
               incomingEnvs[k].rules,
             )

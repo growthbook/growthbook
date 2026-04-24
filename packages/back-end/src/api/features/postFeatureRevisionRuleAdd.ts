@@ -40,6 +40,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   resolveOrCreateRevision,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
 } from "./validations";
@@ -237,6 +238,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Validate condition JSON and references before any DB writes.
     validateRuleConditions(rule);
+    validateRuleAttributes(rule, req.context);
     await validateRuleReferences(rule, req.context);
 
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {

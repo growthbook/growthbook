@@ -147,6 +147,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   };
 
   const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
+    req.context,
     feature,
     orgEnvs,
     req.body.environments ?? {},

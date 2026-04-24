@@ -26,6 +26,7 @@ import {
   OrganizationSettings,
   RequireReview,
   Environment,
+  SDKAttributeSchema,
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { GroupMap } from "shared/types/saved-group";
@@ -1361,6 +1362,73 @@ export function validateAndFixCondition(
     );
   }
   throw new Error("Invalid targeting condition JSON: " + res.error);
+}
+
+// MongoDB-style logical operators whose values wrap nested sub-conditions
+// rather than attribute keys. $and/$or/$nor take arrays; $not takes a single
+// object (or inline operators).
+const LOGICAL_CONDITION_OPS = new Set(["$and", "$or", "$nor", "$not"]);
+
+// Walks a parsed targeting condition and returns the set of attribute field
+// names referenced at the root (e.g. "userId" in { userId: { $eq: "x" } }).
+// - Skips any $-prefixed operator keys (values are either nested conditions
+//   or literal comparators, never attribute names).
+// - Recurses into $and/$or/$nor/$not so nested targeting still surfaces its
+//   attribute keys.
+// - Dot-notation keys (e.g. "user.id") are reported as the full key; callers
+//   that check against attributeSchema should compare against the root segment.
+export function extractConditionAttributeKeys(condition: unknown): string[] {
+  const found = new Set<string>();
+
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    for (const [key, value] of Object.entries(
+      node as Record<string, unknown>,
+    )) {
+      if (LOGICAL_CONDITION_OPS.has(key)) {
+        walk(value);
+        continue;
+      }
+      if (key.startsWith("$")) {
+        // Non-logical operators ($eq, $in, $elemMatch, $inGroup, ...) — their
+        // values are comparison operands / nested conditions, not attribute keys.
+        continue;
+      }
+      found.add(key);
+    }
+  };
+
+  walk(condition);
+  return Array.from(found);
+}
+
+// Returns the subset of `keys` that are NOT declared as active attributes in
+// `attributeSchema`. An attribute is "registered" when it appears in the
+// schema with `archived !== true`. Dot-notation keys are checked against
+// their root segment, matching how attribute schema is declared.
+export function findUnregisteredAttributes(
+  keys: string[],
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  const registered = new Set<string>();
+  for (const attr of attributeSchema ?? []) {
+    if (attr.archived) continue;
+    registered.add(attr.property);
+  }
+  const missing: string[] = [];
+  const seen = new Set<string>();
+  for (const key of keys) {
+    const root = key.split(".")[0];
+    if (registered.has(root)) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    missing.push(key);
+  }
+  return missing;
 }
 
 export function getDefaultPrerequisiteCondition(parentFeature?: {

@@ -15,6 +15,7 @@ import {
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   resolveOwnerEmail,
@@ -223,6 +224,24 @@ export const updateExperiment = createApiRequestHandler(
   ) {
     throw new Error(
       "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+    );
+  }
+
+  // Opt-in attribute registration check (org-level setting). Covers the
+  // experiment-level hash/fallback attributes and every provided phase.
+  assertRegisteredAttributes(
+    req.context,
+    {
+      hashAttribute: req.body.hashAttribute,
+      fallbackAttribute: req.body.fallbackAttribute,
+    },
+    "experiment",
+  );
+  for (const phase of req.body.phases ?? []) {
+    assertRegisteredAttributes(
+      req.context,
+      { condition: phase.condition },
+      "experiment phase",
     );
   }
 

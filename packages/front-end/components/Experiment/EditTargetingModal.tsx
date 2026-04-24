@@ -14,7 +14,11 @@ import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUt
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import { useAttributeSchema, useEnvironments } from "@/services/features";
+import {
+  useAttributeSchema,
+  useEnvironments,
+  validateUnregisteredAttributes,
+} from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -74,6 +78,8 @@ export default function EditTargetingModal({
   safeToEdit,
 }: Props) {
   const { apiCall } = useAuth();
+  const orgSettings = useOrgSettings();
+  const attributeSchema = useAttributeSchema(false, experiment.project);
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const [step, setStep] = useState(0);
@@ -194,6 +200,23 @@ export default function EditTargetingModal({
     if (prerequisiteTargetingSdkIssues) {
       throw new Error("Prerequisite targeting issues must be resolved");
     }
+
+    // Opt-in client-side pre-flight — mirrors the back-end check in
+    // postExperimentTargeting so typo'd attributes fail fast without a
+    // round-trip and with the same error wording.
+    validateUnregisteredAttributes(
+      {
+        hashAttribute: (value as { hashAttribute?: string }).hashAttribute,
+        fallbackAttribute: (value as { fallbackAttribute?: string })
+          .fallbackAttribute,
+        condition: value.condition,
+      },
+      "experiment",
+      {
+        attributeSchema,
+        requireRegisteredAttributes: orgSettings.requireRegisteredAttributes,
+      },
+    );
 
     // Collapse contiguous / overlapping namespace ranges on save so the
     // persisted phase carries a clean shape (e.g. [0.6, 0.9] + [0.9, 1] →

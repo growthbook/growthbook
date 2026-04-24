@@ -1,4 +1,9 @@
+import {
+  extractConditionAttributeKeys,
+  findUnregisteredAttributes,
+} from "shared/util";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { BadRequestError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 
 export async function removeTagInAttribute(
@@ -22,4 +27,52 @@ export async function removeTagInAttribute(
       attributeSchema: updatedAttributeSchema,
     },
   });
+}
+
+// Rejects saves that reference attribute keys not declared (and not archived)
+// in the org's attributeSchema. No-op unless the org opts in via
+// `settings.requireRegisteredAttributes`. Mirrors the existing saved-group
+// "Unknown attributeKey" behavior so feature rules and experiments can't
+// silently ship dead targeting due to typos like account_uuid vs accountUUID.
+//
+// `condition` must be a raw JSON string — this helper does not validate JSON
+// shape (that's `validateCondition`'s job); it only scans field names after
+// parsing and silently returns if parsing fails.
+export function assertRegisteredAttributes(
+  context: ReqContext,
+  parts: {
+    hashAttribute?: string | null;
+    fallbackAttribute?: string | null;
+    condition?: string | null;
+  },
+  label: string,
+): void {
+  if (!context.org.settings?.requireRegisteredAttributes) return;
+
+  const attributeSchema = context.org.settings.attributeSchema || [];
+  const keys: string[] = [];
+
+  if (parts.hashAttribute) keys.push(parts.hashAttribute);
+  if (parts.fallbackAttribute) keys.push(parts.fallbackAttribute);
+
+  if (parts.condition && parts.condition !== "{}") {
+    try {
+      const parsed = JSON.parse(parts.condition);
+      keys.push(...extractConditionAttributeKeys(parsed));
+    } catch {
+      // Unparseable condition — `validateCondition` elsewhere will surface
+      // the JSON error. Don't double-throw here.
+    }
+  }
+
+  if (!keys.length) return;
+
+  const unknown = findUnregisteredAttributes(keys, attributeSchema);
+  if (!unknown.length) return;
+
+  const quoted = unknown.map((k) => `"${k}"`).join(", ");
+  throw new BadRequestError(
+    `Unknown attribute key(s) on ${label}: ${quoted}. ` +
+      `Declare them under Settings > Targeting Attributes or fix the typo.`,
+  );
 }
