@@ -56,9 +56,9 @@ const DataSourceQueries = (): React.ReactElement => {
   if (!canView) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -66,9 +66,9 @@ const DataSourceQueries = (): React.ReactElement => {
   if (datasourceError || queriesError) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           {datasourceError ?? queriesError?.message}
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -79,9 +79,9 @@ const DataSourceQueries = (): React.ReactElement => {
   if (!d) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Datasource <code>{did}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }

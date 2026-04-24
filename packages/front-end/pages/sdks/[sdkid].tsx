@@ -19,6 +19,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
+import Callout from "@/ui/Callout";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
@@ -40,13 +41,13 @@ export default function SDKConnectionPage() {
   const hasProxy = connection?.proxy?.enabled;
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
   }
   if (!connection) {
-    return <div className="alert alert-danger">Invalid SDK Connection id</div>;
+    return <Callout status="error">Invalid SDK Connection id</Callout>;
   }
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);

@@ -111,7 +111,7 @@ const DataSourcePage: FC = () => {
   if (error) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">{error}</div>
+        <Callout status="error">{error}</Callout>
       </div>
     );
   }
@@ -121,9 +121,9 @@ const DataSourcePage: FC = () => {
   if (!d) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Datasource <code>{did}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -143,27 +143,27 @@ const DataSourcePage: FC = () => {
       {d.projects?.includes(
         getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
-        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
-          <div className="flex-1">
+        <Callout status="info" mb="3" contentsAs="div">
+          <Flex align="center" justify="between">
             This is part of our sample dataset. You can safely delete this once
             you are done exploring.
-          </div>
-          <div style={{ width: 180 }} className="ml-2">
             <DeleteDemoDatasourceButton
               onDelete={() => router.push("/datasources")}
               source="datasource"
             />
-          </div>
-        </div>
+          </Flex>
+        </Callout>
       )}
 
       {d.decryptionError && (
-        <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
-          <strong>Error Decrypting Data Source Credentials.</strong>{" "}
-          <DocLink docSection="env_prod" className="btn btn-primary">
-            View instructions for fixing
-          </DocLink>
-        </div>
+        <Callout status="error" mb="3" contentsAs="div">
+          <Flex align="center" justify="between">
+            Error Decrypting Data Source Credentials.
+            <DocLink docSection="env_prod" className="btn btn-primary">
+              View instructions for fixing
+            </DocLink>
+          </Flex>
+        </Callout>
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">

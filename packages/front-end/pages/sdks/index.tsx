@@ -9,6 +9,7 @@ import Webhooks from "@/components/Settings/Webhooks";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { GBArrowLeft } from "@/components/Icons";
+import Callout from "@/ui/Callout";
 
 export default function SDKsPage() {
   const { data, mutate } = useApi<{ keys: ApiKeyInterface[] }>("/keys");
@@ -49,7 +50,7 @@ export default function SDKsPage() {
 
       {legacyEnabled && legacy ? (
         <>
-          <div className="alert alert-warning">
+          <Callout status="warning">
             <h3>Deprecated</h3>
             <p>
               Legacy SDK Endpoints and Webhooks are deprecated. We recommend
@@ -59,7 +60,7 @@ export default function SDKsPage() {
             Existing Legacy SDK Endpoints and Webhooks will continue to work,
             but are in a read-only state. After migrating, you can delete them
             here.
-          </div>
+          </Callout>
           {hasLegacyEndpoints && (
             <SDKEndpoints keys={data?.keys || []} mutate={mutate} />
           )}

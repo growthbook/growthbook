@@ -7,7 +7,6 @@ import React, {
   ReactNode,
   ReactElement,
 } from "react";
-import Link from "next/link";
 import { FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";
@@ -63,6 +62,8 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
 import { AppFeatures } from "@/types/app-features";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -126,7 +127,7 @@ const MetricPage: FC = () => {
   }, [data]);
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -287,9 +288,9 @@ const MetricPage: FC = () => {
       } catch (e) {
         console.error(e);
         return (
-          <div className="alert alert-danger">
+          <Callout status="error">
             An error occurred getting the metric usage
-          </div>
+          </Callout>
         );
       }
       return null;
@@ -415,28 +416,26 @@ const MetricPage: FC = () => {
       />
 
       {metric.status === "archived" && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
-        </div>
+        </Callout>
       )}
 
       {metric.projects?.includes(
         getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
-        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
-          <div className="flex-1">
+        <Callout status="info" mb="3">
+          <Flex align="center" justify="between">
             This metric is part of our sample dataset. You can safely delete
             this once you are done exploring.
-          </div>
-          <div style={{ width: 180 }} className="ml-2">
             <DeleteDemoDatasourceButton
               onDelete={() => router.push("/metrics")}
               source="metric"
             />
-          </div>
-        </div>
+          </Flex>
+        </Callout>
       )}
 
       <div className="row align-items-center mb-2">
@@ -683,38 +682,32 @@ const MetricPage: FC = () => {
                       )}
                     </div>
                     {hasQueries && status === "failed" && (
-                      <div className="alert alert-danger my-3">
+                      <Callout status="error" my="3">
                         Error running the analysis.{" "}
                         <ViewAsyncQueriesButton
                           queries={metric.queries.map((q) => q.query)}
                           error={metric.analysisError}
                           ctaComponent={(onClick) => (
-                            <a
-                              className="alert-link"
-                              href="#"
-                              onClick={onClick}
-                            >
-                              View Queries
-                            </a>
+                            <Link onClick={onClick}>View Queries</Link>
                           )}
                         />{" "}
                         for more info
-                      </div>
+                      </Callout>
                     )}
                     {hasQueries && status === "running" && (
-                      <div className="alert alert-info">
+                      <Callout status="info">
                         Your analysis is currently running.{" "}
                         {analysis && "The data below is from the previous run."}
-                      </div>
+                      </Callout>
                     )}
                     {analysis &&
                       status === "succeeded" &&
                       (metric.segment || analysis.segment) &&
                       metric.segment !== analysis.segment && (
-                        <div className="alert alert-info">
+                        <Callout status="info">
                           The graphs below are using an old Segment. Update them
                           to see the latest numbers.
-                        </div>
+                        </Callout>
                       )}
                     {analysis && (
                       <div className="mb-4">

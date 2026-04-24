@@ -87,10 +87,10 @@ export default function FactTablePage() {
 
   if (!factTable) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Could not find the requested fact table.{" "}
         <Link href="/fact-tables">Back to all fact tables</Link>
-      </div>
+      </Callout>
     );
   }
   const canDuplicate = permissionsUtil.canCreateFactTable({
@@ -235,11 +235,11 @@ export default function FactTablePage() {
       )}
 
       {factTable.archived && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This Fact Table is archived.</strong> Existing references will
           continue working, but you will be unable to add metrics from this Fact
           Table to new experiments.
-        </div>
+        </Callout>
       )}
       <div className="row mb-3">
         <div className="col-auto">

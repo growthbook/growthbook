@@ -230,10 +230,10 @@ export default function FactMetricPage() {
 
   if (!factMetric) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Could not find the requested metric.{" "}
         <Link href="/metrics">Back to all metrics</Link>
-      </div>
+      </Callout>
     );
   }
 
@@ -528,11 +528,11 @@ export default function FactMetricPage() {
       )}
 
       {factMetric.archived && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
-        </div>
+        </Callout>
       )}
       <div className="row mb-3">
         <div className="col-auto">
