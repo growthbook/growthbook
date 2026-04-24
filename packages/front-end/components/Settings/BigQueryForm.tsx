@@ -1,18 +1,33 @@
 import { ChangeEventHandler, FC, useState } from "react";
+import { Flex } from "@radix-ui/themes";
+import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
+import Checkbox from "@/ui/Checkbox";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
+  eventForwarderConfig: EventForwarderConfigDraft | null;
   existing: boolean;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | boolean }) => void;
+  setEventForwarderConfig: (
+    eventForwarderConfig: EventForwarderConfigDraft | null,
+  ) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, setParams, existing, onParamChange }) => {
+}> = ({
+  params,
+  eventForwarderConfig,
+  setParams,
+  setEventForwarderConfig,
+  existing,
+  onParamChange,
+}) => {
   const [testConnectionResults, setTestConnectionResults] = useState<{
     status: "success" | "danger" | "warning";
     message: string;
@@ -111,11 +126,12 @@ const BigQueryForm: FC<{
                       if (typeof str !== "string") {
                         return;
                       }
+                      const raw = stripLeadingUtf8ByteOrderMark(str);
                       const json: {
                         project_id: string;
                         private_key: string;
                         client_email: string;
-                      } = JSON.parse(str);
+                      } = JSON.parse(raw);
 
                       if (
                         json.project_id &&
@@ -127,7 +143,17 @@ const BigQueryForm: FC<{
                           projectId: json.project_id,
                           clientEmail: json.client_email,
                           defaultProject: json.project_id,
+                          serviceAccountJson: raw,
                         });
+                        if (eventForwarderConfig?.sinkType === "bigquery") {
+                          setEventForwarderConfig({
+                            sinkType: "bigquery",
+                            config: {
+                              ...eventForwarderConfig.config,
+                              serviceAccountKey: raw,
+                            },
+                          });
+                        }
                       }
                     } catch (e) {
                       console.error(e);
@@ -182,6 +208,71 @@ const BigQueryForm: FC<{
             >
               Test Connection
             </Button>
+            {/* TODO: Wrap under enterprise plan */}
+            <div className="mt-3">
+              <Checkbox
+                id="enableEventForwarder"
+                label="Enable Event Forwarder"
+                value={!!eventForwarderConfig}
+                setValue={(value) => {
+                  if (!value) {
+                    setEventForwarderConfig(null);
+                    return;
+                  }
+
+                  setEventForwarderConfig({
+                    sinkType: "bigquery",
+                    config: {
+                      tableName: "gb_events",
+                      serviceAccountKey:
+                        stripLeadingUtf8ByteOrderMark(
+                          params.serviceAccountJson ?? "",
+                        ).trim() || "",
+                    },
+                  });
+                }}
+              />
+              <div>
+                <span className="text-muted small">
+                  Enriched events are written to the Default Dataset on this
+                  page (same as experiment assignment data).
+                </span>
+              </div>
+            </div>
+            {eventForwarderConfig?.sinkType === "bigquery" && (
+              <Flex
+                direction="column"
+                gap="3"
+                className="form-group col-md-12 mt-3 px-0"
+              >
+                <Flex direction="column" gap="1">
+                  <label className="mb-0">
+                    <Flex align="center" gap="1">
+                      <span>Event Forwarder Table Name</span>
+                      <Tooltip body="Defaults to gb_events. If that table already exists, GrowthBook will provision a connector using a suffixed fallback table name instead." />
+                    </Flex>
+                  </label>
+                  <Field
+                    type="text"
+                    className="form-control"
+                    name="eventForwarderTableName"
+                    value={eventForwarderConfig.config.tableName}
+                    onChange={(e) =>
+                      setEventForwarderConfig({
+                        sinkType: "bigquery",
+                        config: {
+                          ...eventForwarderConfig.config,
+                          tableName: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="gb_events"
+                    helpText="Letters, numbers, and underscores (Unicode allowed). Hyphens and spaces are normalized to underscores when saving."
+                    required
+                  />
+                </Flex>
+              </Flex>
+            )}
           </div>
         </>
       )}
