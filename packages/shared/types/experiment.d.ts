@@ -147,18 +147,19 @@ export type LegacyMetricOverride = MetricOverride & {
   conversionDelayHours?: number;
 };
 
-export interface LegacyExperimentInterface extends Omit<
-  ExperimentInterface,
-  | "phases"
-  | "variations"
-  | "attributionModel"
-  | "releasedVariationId"
-  | "metricOverrides"
-  | "goalMetrics"
-  | "secondaryMetrics"
-  | "guardrailMetrics"
-  | "decisionFrameworkSettings"
-> {
+export interface LegacyExperimentInterface
+  extends Omit<
+    ExperimentInterface,
+    | "phases"
+    | "variations"
+    | "attributionModel"
+    | "releasedVariationId"
+    | "metricOverrides"
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "decisionFrameworkSettings"
+  > {
   /**
    * @deprecated
    */

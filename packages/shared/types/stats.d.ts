@@ -81,12 +81,14 @@ export interface FrequentistTestResult extends TestResult {
 }
 
 export interface BayesianVariationResponseIndividual
-  extends BaselineResponse, BayesianTestResult {
+  extends BaselineResponse,
+    BayesianTestResult {
   power?: MetricPowerResponseFromStatsEngine;
 }
 
 export interface FrequentistVariationResponseIndividual
-  extends BaselineResponse, FrequentistTestResult {
+  extends BaselineResponse,
+    FrequentistTestResult {
   power?: MetricPowerResponseFromStatsEngine;
 }
 
@@ -107,11 +109,13 @@ interface BaselineResponseWithSupplementalResults extends BaselineResponse {
   supplementalResults?: SupplementalResults;
 }
 
-interface BayesianVariationResponse extends BayesianVariationResponseIndividual {
+interface BayesianVariationResponse
+  extends BayesianVariationResponseIndividual {
   supplementalResults?: SupplementalResults;
 }
 
-interface FrequentistVariationResponse extends FrequentistVariationResponseIndividual {
+interface FrequentistVariationResponse
+  extends FrequentistVariationResponseIndividual {
   supplementalResults?: SupplementalResults;
 }
 

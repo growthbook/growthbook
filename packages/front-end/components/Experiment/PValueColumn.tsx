@@ -14,10 +14,11 @@ import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useColumnStatusPopovers } from "./useColumnStatusPopovers";
 
-interface Props extends DetailedHTMLProps<
-  TdHTMLAttributes<HTMLTableCellElement>,
-  HTMLTableCellElement
-> {
+interface Props
+  extends DetailedHTMLProps<
+    TdHTMLAttributes<HTMLTableCellElement>,
+    HTMLTableCellElement
+  > {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   rowResults: RowResults;

@@ -16,10 +16,8 @@ import { RowResults } from "@/services/experiments";
 import AlignedGraph from "./AlignedGraph";
 import { useResultPopover } from "./useResultPopover";
 
-interface Props extends DetailedHTMLProps<
-  HTMLAttributes<SVGPathElement>,
-  SVGPathElement
-> {
+interface Props
+  extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   metric: ExperimentMetricInterface;
   significanceThresholds: SignificanceThresholds;
   baseline: SnapshotMetric;

@@ -104,16 +104,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/ChanceToWinColumn.tsx": {
-    "prettier/prettier": {
-      "count": 4
-    }
-  },
-  "packages/front-end/components/Experiment/ChangeColumn.tsx": {
-    "prettier/prettier": {
-      "count": 4
-    }
-  },
   "packages/front-end/components/Experiment/CompactResults.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -179,16 +169,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/PValueColumn.tsx": {
-    "prettier/prettier": {
-      "count": 4
-    }
-  },
-  "packages/front-end/components/Experiment/PercentGraph.tsx": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/RefreshSnapshotButton.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -201,11 +181,6 @@
   },
   "packages/front-end/components/Experiment/ResultsFilter/ResultsFilter.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/ResultsTableTooltip/ResultsTableTooltip.tsx": {
-    "prettier/prettier": {
       "count": 1
     }
   },
@@ -962,21 +937,6 @@
   "packages/shared/types/events/base-types.d.ts": {
     "prettier/prettier": {
       "count": 1
-    }
-  },
-  "packages/shared/types/experiment.d.ts": {
-    "prettier/prettier": {
-      "count": 12
-    }
-  },
-  "packages/shared/types/integrations.d.ts": {
-    "prettier/prettier": {
-      "count": 7
-    }
-  },
-  "packages/shared/types/stats.d.ts": {
-    "prettier/prettier": {
-      "count": 4
     }
   }
 }

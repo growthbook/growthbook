@@ -16,10 +16,11 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 });
 
-interface Props extends DetailedHTMLProps<
-  TdHTMLAttributes<HTMLTableCellElement>,
-  HTMLTableCellElement
-> {
+interface Props
+  extends DetailedHTMLProps<
+    TdHTMLAttributes<HTMLTableCellElement>,
+    HTMLTableCellElement
+  > {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   rowResults: RowResults;

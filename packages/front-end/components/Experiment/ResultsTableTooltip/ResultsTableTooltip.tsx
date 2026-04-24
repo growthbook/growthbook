@@ -49,10 +49,8 @@ export interface TooltipData {
   yAlign: YAlign;
 }
 
-interface Props extends DetailedHTMLProps<
-  HTMLAttributes<HTMLDivElement>,
-  HTMLDivElement
-> {
+interface Props
+  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   left: number;
   top: number;
   data?: TooltipData;
