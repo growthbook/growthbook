@@ -2,6 +2,7 @@ import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { date } from "shared/dates";
+import { calculateNamespaceCoverage } from "shared/util";
 import { phaseSummary } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { GBEdit } from "@/components/Icons";
@@ -21,9 +22,11 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? calculateNamespaceCoverage(phase.namespace)
+      : 1;
 
   return (
     <div className={i ? "border-top" : ""}>

@@ -1,5 +1,10 @@
 {
   "versions": [
+    {
+      "version": "7.1.1",
+      "capabilities": ["caseInsensitiveMembership", "caseInsensitiveRegex"]
+    },
+    { "version": "7.0.0" },
     { "version": "6.1.1" },
     { "version": "6.1.0" },
     { "version": "5.0.1" },
@@ -38,7 +43,7 @@
     },
     {
       "version": "0.0.0",
-      "capabilities": ["looseUnmarshalling"]
+      "capabilities": ["looseUnmarshalling", "namespacesV2"]
     }
   ]
 }

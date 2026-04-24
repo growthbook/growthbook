@@ -267,6 +267,74 @@ describe("environements API", () => {
     });
   });
 
+  it("can create projects with settings", async () => {
+    const createMock = jest.fn();
+    const createValidatorMock = jest.fn();
+    const toApiInterfaceMock = jest.fn();
+
+    setReqContext({
+      models: {
+        projects: {
+          create: createMock,
+          createValidator: { parse: createValidatorMock },
+          toApiInterface: toApiInterfaceMock,
+        },
+      },
+    });
+
+    createMock.mockImplementation((v) => ({ ...v, id: "prj__4" }));
+    createValidatorMock.mockImplementation((v) => v);
+    toApiInterfaceMock.mockImplementation((v) => ({
+      ...v,
+      id: `${v.id}__interface`,
+    }));
+
+    const response = await request(app)
+      .post("/api/v1/projects")
+      .send({
+        name: "le proj quatre",
+        settings: {
+          confidenceLevel: 0.95,
+          pValueThreshold: 0.05,
+        },
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      project: {
+        id: "prj__4__interface",
+        name: "le proj quatre",
+        settings: {
+          confidenceLevel: 0.95,
+          pValueThreshold: 0.05,
+        },
+      },
+    });
+    expect(createValidatorMock).toHaveBeenCalledWith({
+      name: "le proj quatre",
+      settings: {
+        confidenceLevel: 0.95,
+        pValueThreshold: 0.05,
+      },
+    });
+    expect(createMock).toHaveBeenCalledWith({
+      name: "le proj quatre",
+      settings: {
+        confidenceLevel: 0.95,
+        pValueThreshold: 0.05,
+      },
+    });
+    expect(toApiInterfaceMock).toHaveBeenCalledWith({
+      id: "prj__4",
+      name: "le proj quatre",
+      settings: {
+        confidenceLevel: 0.95,
+        pValueThreshold: 0.05,
+      },
+    });
+  });
+
   it("validates create payload", async () => {
     const response = await request(app)
       .post("/api/v1/projects")

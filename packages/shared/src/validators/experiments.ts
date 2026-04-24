@@ -8,7 +8,7 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -265,6 +265,11 @@ export const experimentAnalysisSummaryHealth = z.object({
         additionalDaysNeeded: z.number(),
       }),
     ])
+    .optional(),
+  covariateImbalance: z
+    .object({
+      isImbalanced: z.boolean(),
+    })
     .optional(),
 });
 export type ExperimentAnalysisSummaryHealth = z.infer<
@@ -633,7 +638,10 @@ const apiExperimentPhase = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
-      range: z.array(z.number()).min(2).max(2),
+      enabled: z.boolean().optional(),
+      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+      range: z.array(z.number()).min(2).max(2).optional(),
+      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
   targetingCondition: z.string(),
@@ -693,6 +701,7 @@ const apiExperimentShape = z.object({
   description: z.string(),
   tags: z.array(z.string()),
   owner: ownerField,
+  ownerEmail: ownerEmailField,
   archived: z.boolean(),
   status: z.string(),
   autoRefresh: z.boolean(),
@@ -913,8 +922,10 @@ const apiPhaseInput = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
-      range: z.array(z.number()).min(2).max(2),
       enabled: z.boolean().optional(),
+      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+      range: z.array(z.number()).min(2).max(2).optional(),
+      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
   targetingCondition: z.string().optional(),

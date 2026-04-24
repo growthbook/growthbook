@@ -114,6 +114,9 @@ function makeAnalysisSettings(
   return {
     dimensions: [],
     statsEngine: "bayesian",
+    numGoalMetrics: 1,
+    numGuardrailMetrics: 0,
+    differenceType: "relative",
     ...overrides,
   } as ExperimentSnapshotAnalysisSettings;
 }

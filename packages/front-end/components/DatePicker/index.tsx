@@ -10,6 +10,7 @@ import { debounce } from "lodash";
 import Field from "@/components/Forms/Field";
 import { RadixTheme } from "@/services/RadixTheme";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -185,7 +186,11 @@ export default function DatePicker({
                 flex: wrapRangeInputs && isRange ? "1 1 140px" : undefined,
               }}
             >
-              {label ? <label>{label}</label> : null}
+              {label ? (
+                <Text as="label" weight="semibold">
+                  {label}
+                </Text>
+              ) : null}
               <div
                 style={
                   clearButton && !isRange
