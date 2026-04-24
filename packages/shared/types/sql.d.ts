@@ -32,11 +32,12 @@ export interface SqlHelpers {
     column: string,
     granularity: "hour" | "day" | "week" | "month" | "year",
   ) => string;
+  dateDiff: (startCol: string, endCol: string) => string;
   percentileApprox: (column: string, percentile: number | string) => string;
   toTimestamp: (date: Date) => string;
   castToFloat: (column: string) => string;
   castToString: (column: string) => string;
-  castToTimestamp: (column: string) => string;
+  castToDate: (column: string) => string;
   castUserDateCol: (column: string) => string;
   getCurrentTimestamp: () => string;
   ifElse: (condition: string, ifTrue: string, ifFalse: string) => string;
@@ -47,7 +48,32 @@ export interface SqlHelpers {
     sign: "+" | "-",
     amount: number,
   ) => string;
+  formatDate: (column: string) => string;
   formatDateTimeString: (column: string) => string;
   selectStarLimit: (table: string, limit: number) => string;
+  getSchema: () => string;
   formatDialect: FormatDialect;
+  percentileCapSelectClause: (
+    values: {
+      valueCol: string;
+      outputCol: string;
+      percentile: number;
+      ignoreZeros: boolean;
+    }[],
+    metricTable: string,
+  ) => string;
+  getInformationSchemaTable: () => string;
+  hllAggregate: (column: string) => string;
+  hllReaggregate: (column: string) => string;
+  hllCardinality: (column: string) => string;
+  kllInit: (column: string) => string;
+  kllMergePartial: (column: string) => string;
+  kllExtractPoint: (column: string, quantile: number) => string;
+  kllExtractQuantiles: (column: string, numQuantiles: number) => string;
+  kllRankApprox: (
+    sketchCol: string,
+    thresholdCol: string,
+    nEventsCol: string,
+    numQuantiles: number,
+  ) => string;
 }

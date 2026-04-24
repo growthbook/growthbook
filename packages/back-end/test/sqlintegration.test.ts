@@ -9,6 +9,7 @@ import {
 } from "shared/types/fact-table";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import * as exposureQueryModule from "back-end/src/integrations/sql/exposure-query";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/aggregate-metric-column-legacy-metrics";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -1201,8 +1202,7 @@ describe("full fact metric experiment query - bigquery", () => {
     (metric) => {
       // Mock the getExposureQuery method to return our test exposureQuery
       const getExposureQuerySpy = jest
-        // eslint-disable-next-line
-        .spyOn(bqIntegration as any, "getExposureQuery")
+        .spyOn(exposureQueryModule, "getExposureQuery")
         .mockReturnValue(exposureQuery);
 
       const startDate = new Date("2023-01-01");

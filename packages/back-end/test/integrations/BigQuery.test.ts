@@ -1,6 +1,8 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import * as exposureQueryModule from "back-end/src/integrations/sql/exposure-query";
+import { getAggregationMetadata } from "back-end/src/integrations/sql/aggregation-metadata";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
@@ -155,7 +157,7 @@ describe("BigQuery KLL quantile sketch methods", () => {
       quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
       numerator: { factTableId: "ft1", column: "amount" },
     });
-    const metadata = integration.getAggregationMetadata({
+    const metadata = getAggregationMetadata(integration.getSqlHelpers(), {
       metric,
       useDenominator: false,
     });
@@ -232,8 +234,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // @ts-expect-error -- context/datasource not needed for this unit test
     integration = new BigQuery("", {});
     jest
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .spyOn(integration as any, "getExposureQuery")
+      .spyOn(exposureQueryModule, "getExposureQuery")
       .mockReturnValue(exposureQuery);
   });
 
