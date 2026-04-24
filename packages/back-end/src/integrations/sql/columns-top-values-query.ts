@@ -1,10 +1,10 @@
 import { format } from "shared/sql";
 import type { ColumnTopValuesParams } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 export function getColumnsTopValuesQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   { factTable, columns, limit = 50, lookbackDays = 14 }: ColumnTopValuesParams,
 ): string {
   if (columns.length === 0) {
@@ -24,14 +24,14 @@ export function getColumnsTopValuesQuery(
   // Generate a UNION ALL query for each column
   const columnQueries = columns.map((column, i) => {
     return `
-    (${helpers.selectStarLimit(
+    (${dialect.selectStarLimit(
       `(
         SELECT
-          ${helpers.castToString(`'${column.column}'`)} AS column_name,
-          ${helpers.castToString(column.column)} AS value,
+          ${dialect.castToString(`'${column.column}'`)} AS column_name,
+          ${dialect.castToString(column.column)} AS value,
           COUNT(*) AS count
         FROM __factTable
-        WHERE timestamp >= ${helpers.toTimestamp(start)}
+        WHERE timestamp >= ${dialect.toTimestamp(start)}
           AND ${column.column} IS NOT NULL
         GROUP BY ${column.column}
         ORDER BY count DESC
@@ -57,6 +57,6 @@ WITH
 SELECT * FROM __topValues
 ORDER BY column_name, count DESC
     `,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

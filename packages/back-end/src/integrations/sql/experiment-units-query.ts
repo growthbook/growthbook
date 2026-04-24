@@ -1,7 +1,7 @@
 import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getConversionWindowClause } from "./conversion-window-clause";
@@ -20,7 +20,7 @@ import { processDimensions } from "./process-dimensions";
 import { getSegmentCTE } from "./segment-cte";
 
 export function getExperimentUnitsQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: ExperimentUnitsQueryParams,
 ): string {
@@ -49,7 +49,7 @@ export function getExperimentUnitsQuery(
   );
 
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
-    helpers,
+    dialect,
     datasource.settings,
     {
       objects: [
@@ -69,7 +69,7 @@ export function getExperimentUnitsQuery(
   const endDate: Date = getExperimentEndDate(settings, 0);
 
   const timestampColumn = "e.timestamp";
-  const timestampDateTimeColumn = helpers.castUserDateCol(timestampColumn);
+  const timestampDateTimeColumn = dialect.castUserDateCol(timestampColumn);
   const overrideConversionWindows =
     settings.attributionModel === "experimentDuration" ||
     settings.attributionModel === "lookbackOverride";
@@ -89,13 +89,13 @@ export function getExperimentUnitsQuery(
       -- Viewed Experiment
       SELECT
         e.${baseIdType} as ${baseIdType}
-        , ${helpers.castToString("e.variation_id")} as variation
+        , ${dialect.castToString("e.variation_id")} as variation
         , ${timestampDateTimeColumn} as timestamp
         ${experimentDimensions
           .map((d) => {
             if (d.specifiedSlices?.length) {
               return `, ${getDimensionInStatement(
-                helpers,
+                dialect,
                 d.id,
                 d.specifiedSlices,
               )} AS dim_${d.id}`;
@@ -107,17 +107,17 @@ export function getExperimentUnitsQuery(
           __rawExperiment e
       WHERE
           e.experiment_id = '${settings.experimentId}'
-          AND ${timestampColumn} >= ${helpers.toTimestamp(startDate)}
+          AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate
-              ? `AND ${timestampColumn} <= ${helpers.toTimestamp(endDate)}`
+              ? `AND ${timestampColumn} <= ${dialect.toTimestamp(endDate)}`
               : ""
           }
           ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
     )
     ${
       activationMetric
-        ? `, __activationMetric as (${getMetricCTE(helpers, {
+        ? `, __activationMetric as (${getMetricCTE(dialect, {
             metric: activationMetric,
             baseIdType,
             idJoinMap,
@@ -142,7 +142,7 @@ export function getExperimentUnitsQuery(
     ${
       segment
         ? `, __segment as (${getSegmentCTE(
-            helpers,
+            dialect,
             segment,
             baseIdType,
             idJoinMap,
@@ -173,8 +173,8 @@ export function getExperimentUnitsQuery(
         e.${baseIdType} AS ${baseIdType}
         , ${
           !!settings.banditSettings?.useFirstExposure && settings.banditSettings
-            ? getFirstVariationValuePerUnit(helpers)
-            : helpers.ifElse(
+            ? getFirstVariationValuePerUnit(dialect)
+            : dialect.ifElse(
                 "count(distinct e.variation) > 1",
                 "'__multiple__'",
                 "max(e.variation)",
@@ -184,20 +184,20 @@ export function getExperimentUnitsQuery(
         ${unitDimensions
           .map(
             (d) => `
-          , ${getDimensionValuePerUnit(helpers, d)} AS dim_unit_${d.dimension.id}`,
+          , ${getDimensionValuePerUnit(dialect, d)} AS dim_unit_${d.dimension.id}`,
           )
           .join("\n")}
         ${experimentDimensions
           .map(
             (d) => `
-          , ${getDimensionValuePerUnit(helpers, d)} AS dim_exp_${d.id}`,
+          , ${getDimensionValuePerUnit(dialect, d)} AS dim_exp_${d.id}`,
           )
           .join("\n")}
         ${
           activationMetric
-            ? `, MIN(${helpers.ifElse(
+            ? `, MIN(${dialect.ifElse(
                 getConversionWindowClause(
-                  helpers,
+                  dialect,
                   "e.timestamp",
                   "a.timestamp",
                   activationMetric,

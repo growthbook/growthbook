@@ -24,7 +24,7 @@ export type FormatDialect = SqlLanguage | "";
 
 export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 
-export interface SqlHelpers {
+export interface SqlDialect {
   escapeStringLiteral: (s: string) => string;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
@@ -51,7 +51,7 @@ export interface SqlHelpers {
   formatDate: (column: string) => string;
   formatDateTimeString: (column: string) => string;
   selectStarLimit: (table: string, limit: number) => string;
-  getSchema: () => string;
+  defaultSchema: string;
   formatDialect: FormatDialect;
   percentileCapSelectClause: (
     values: {
@@ -64,7 +64,6 @@ export interface SqlHelpers {
     metricTable: string,
     where?: string,
   ) => string;
-  getInformationSchemaTable: () => string;
   hasCountDistinctHLL: () => boolean;
   hllAggregate: (column: string) => string;
   hllReaggregate: (column: string) => string;

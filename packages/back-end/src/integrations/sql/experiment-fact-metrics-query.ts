@@ -7,7 +7,7 @@ import type {
   ExperimentFactMetricsQueryParams,
   FactMetricPercentileData,
 } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
 import { addCaseWhenTimeFilter } from "./add-case-when-time-filter";
@@ -29,7 +29,7 @@ import { processDimensions } from "./process-dimensions";
 import { getQuantileGridColumns } from "./quantile-grid-columns";
 
 export function getExperimentFactMetricsQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: ExperimentFactMetricsQueryParams,
 ): string {
@@ -70,11 +70,12 @@ export function getExperimentFactMetricsQuery(
 
   const userIdType =
     params.forcedUserIdType ??
-    getExposureQuery(datasource, settings.exposureQueryId || "").userIdType;
+    getExposureQuery(datasource, settings.exposureQueryId || "")
+      .userIdType;
 
   const metricData = metricsWithIndices.map((metric) =>
     getMetricData(
-      helpers,
+      dialect,
       metric,
       settings,
       activationMetric,
@@ -112,7 +113,7 @@ export function getExperimentFactMetricsQuery(
     );
   }
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
-    helpers,
+    dialect,
     datasource.settings,
     {
       objects: idTypeObjects,
@@ -131,7 +132,7 @@ export function getExperimentFactMetricsQuery(
   );
 
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
-    getDimensionCol(helpers, d),
+    getDimensionCol(dialect, d),
   );
   // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
   // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
@@ -139,7 +140,7 @@ export function getExperimentFactMetricsQuery(
   if (banditDates?.length && dimensionCols.length === 0) {
     dimensionCols.push({
       alias: "dimension",
-      value: helpers.castToString("'All'"),
+      value: dialect.castToString("'All'"),
     });
   }
 
@@ -159,7 +160,7 @@ export function getExperimentFactMetricsQuery(
   }
   if (settings.skipPartialData) {
     distinctUsersWhere.push(
-      `${timestampColumn} <= ${helpers.toTimestamp(endDate)}`,
+      `${timestampColumn} <= ${dialect.toTimestamp(endDate)}`,
     );
   }
 
@@ -208,7 +209,10 @@ export function getExperimentFactMetricsQuery(
   const regressionAdjustedTableIndices = new Set<number>();
   regressionAdjustedMetrics.forEach((m) => {
     regressionAdjustedTableIndices.add(m.numeratorSourceIndex);
-    if (m.ratioMetric && m.denominatorSourceIndex !== m.numeratorSourceIndex) {
+    if (
+      m.ratioMetric &&
+      m.denominatorSourceIndex !== m.numeratorSourceIndex
+    ) {
       regressionAdjustedTableIndices.add(m.denominatorSourceIndex);
     }
   });
@@ -219,7 +223,7 @@ export function getExperimentFactMetricsQuery(
     ${idJoinSQL}
     ${
       params.unitsSource === "exposureQuery"
-        ? `${getExperimentUnitsQuery(helpers, datasource, {
+        ? `${getExperimentUnitsQuery(dialect, datasource, {
             ...params,
             includeIdJoins: false,
           })},`
@@ -233,18 +237,18 @@ export function getExperimentFactMetricsQuery(
         ${dimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
         , variation
         , ${timestampColumn} AS timestamp
-        , ${helpers.dateTrunc("first_exposure_timestamp", "day")} AS first_exposure_date
-        ${banditDates?.length ? getBanditCaseWhen(helpers, banditDates) : ""}
+        , ${dialect.dateTrunc("first_exposure_timestamp", "day")} AS first_exposure_date
+        ${banditDates?.length ? getBanditCaseWhen(dialect, banditDates) : ""}
     ${raMetricSettings
       .map(
         ({ alias, hours, minDelay }) => `
             , ${addHours(
-              helpers,
+              dialect,
               "first_exposure_timestamp",
               minDelay,
             )} AS ${alias}_preexposure_end
             , ${addHours(
-              helpers,
+              dialect,
               "first_exposure_timestamp",
               minDelay - hours,
             )} AS ${alias}_preexposure_start`,
@@ -265,7 +269,7 @@ export function getExperimentFactMetricsQuery(
       .map(
         (f) =>
           `, __factTable${f.index === 0 ? "" : f.index} as (
-        ${getFactMetricCTE(helpers, {
+        ${getFactMetricCTE(dialect, {
           baseIdType,
           idJoinMap,
           factTable: f.factTable,
@@ -290,7 +294,7 @@ export function getExperimentFactMetricsQuery(
               (data) =>
                 `${
                   data.numeratorSourceIndex === f.index
-                    ? `, ${addCaseWhenTimeFilter(helpers, {
+                    ? `, ${addCaseWhenTimeFilter(dialect, {
                         col: `m.${data.alias}_value`,
                         metric: data.metric,
                         overrideConversionWindows:
@@ -306,7 +310,7 @@ export function getExperimentFactMetricsQuery(
                 }
                 ${
                   data.ratioMetric && data.denominatorSourceIndex === f.index
-                    ? `, ${addCaseWhenTimeFilter(helpers, {
+                    ? `, ${addCaseWhenTimeFilter(dialect, {
                         col: `m.${data.alias}_denominator`,
                         metric: data.metric,
                         overrideConversionWindows:
@@ -330,7 +334,7 @@ export function getExperimentFactMetricsQuery(
                     (metric) =>
                       `${
                         metric.numeratorSourceIndex === f.index
-                          ? `, ${helpers.ifElse(
+                          ? `, ${dialect.ifElse(
                               `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                               `m.${metric.alias}_value`,
                               "NULL",
@@ -339,7 +343,7 @@ export function getExperimentFactMetricsQuery(
                       }${
                         metric.ratioMetric &&
                         metric.denominatorSourceIndex === f.index
-                          ? `, ${helpers.ifElse(
+                          ? `, ${dialect.ifElse(
                               `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                               `m.${metric.alias}_denominator`,
                               "NULL",
@@ -366,7 +370,7 @@ export function getExperimentFactMetricsQuery(
         ${eventQuantileData
           .map((data) =>
             getQuantileGridColumns(
-              helpers,
+              dialect,
               data.metricQuantileSettings,
               `${data.alias}_`,
             ),
@@ -465,7 +469,7 @@ export function getExperimentFactMetricsQuery(
       percentileTableIndices.has(f.index)
         ? `
       , __capValue${f.index === 0 ? "" : f.index} AS (
-          ${helpers.percentileCapSelectClause(
+          ${dialect.percentileCapSelectClause(
             percentileData.filter((p) => p.sourceIndex === f.index),
             `__userMetricAgg${f.index === 0 ? "" : f.index}`,
           )}
@@ -478,7 +482,7 @@ export function getExperimentFactMetricsQuery(
       .join("\n")}    
     ${
       banditDates?.length
-        ? getBanditStatisticsFactMetricCTE(helpers, {
+        ? getBanditStatisticsFactMetricCTE(dialect, {
             baseIdType,
             metricData,
             dimensionCols,
@@ -488,7 +492,7 @@ export function getExperimentFactMetricsQuery(
           })
         : `
     -- One row per variation/dimension with aggregations
-    ${getExperimentFactMetricStatisticsCTE(helpers, {
+    ${getExperimentFactMetricStatisticsCTE(dialect, {
       dimensionCols,
       metricData,
       eventQuantileData,
@@ -501,6 +505,6 @@ export function getExperimentFactMetricsQuery(
     })}
     `
     }`,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

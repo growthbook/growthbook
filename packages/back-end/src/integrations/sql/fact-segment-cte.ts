@@ -1,10 +1,10 @@
 import { FactTableInterface } from "shared/types/fact-table";
-import type { SQLVars, SqlHelpers } from "shared/types/sql";
+import type { SQLVars, SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 /** Fact Table CTE for segments based on fact tables */
 export function getFactSegmentCTE(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     factTable,
     baseIdType,
@@ -38,7 +38,7 @@ export function getFactSegmentCTE(
   }
 
   // BQ datetime cast for SELECT statements (do not use for where)
-  const timestampDateTimeColumn = helpers.castUserDateCol("m.timestamp");
+  const timestampDateTimeColumn = dialect.castUserDateCol("m.timestamp");
 
   const sql = factTable.sql;
 

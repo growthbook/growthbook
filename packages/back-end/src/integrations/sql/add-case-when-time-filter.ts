@@ -1,11 +1,11 @@
 import type { ExperimentMetricInterface } from "shared/experiments";
 import type { MetricQuantileSettings } from "shared/types/fact-table";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { getConversionWindowClause } from "./conversion-window-clause";
 
 export function addCaseWhenTimeFilter(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     col,
     metric,
@@ -24,9 +24,9 @@ export function addCaseWhenTimeFilter(
     exposureTimestampColExpr: string;
   },
 ): string {
-  return `${helpers.ifElse(
+  return `${dialect.ifElse(
     `${getConversionWindowClause(
-      helpers,
+      dialect,
       exposureTimestampColExpr,
       metricTimestampColExpr,
       metric,

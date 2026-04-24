@@ -2,15 +2,15 @@ import { subDays } from "date-fns";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FeatureEvalDiagnosticsQueryParams } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 export function getFeatureEvalDiagnosticsQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: FeatureEvalDiagnosticsQueryParams,
 ): string {
-  const featureKey = helpers.escapeStringLiteral(params.feature);
+  const featureKey = dialect.escapeStringLiteral(params.feature);
   const oneWeekAgo = subDays(new Date(), 7);
 
   const featureEvalQuery = datasource.settings?.queries?.featureUsage
@@ -27,10 +27,10 @@ export function getFeatureEvalDiagnosticsQuery(
         ${compiledFeatureEvalQuery}
       )
       SELECT * FROM __featureEvalQuery
-      WHERE feature_key = '${featureKey}' AND timestamp >= ${helpers.toTimestamp(oneWeekAgo)}
+      WHERE feature_key = '${featureKey}' AND timestamp >= ${dialect.toTimestamp(oneWeekAgo)}
       ORDER BY timestamp DESC
       LIMIT 100
       `,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

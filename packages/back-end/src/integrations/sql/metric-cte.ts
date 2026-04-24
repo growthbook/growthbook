@@ -6,7 +6,7 @@ import {
   isFactMetric,
   parseSliceMetricId,
 } from "shared/experiments";
-import type { PhaseSQLVar, SqlHelpers } from "shared/types/sql";
+import type { PhaseSQLVar, SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 
@@ -14,7 +14,7 @@ import { getMetricColumns } from "./metric-columns";
 import { getMetricQueryFormat } from "./metric-query-format";
 
 export function getMetricCTE(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     metric,
     baseIdType,
@@ -40,7 +40,7 @@ export function getMetricCTE(
   },
 ): string {
   const cols = getMetricColumns(
-    helpers,
+    dialect,
     metric,
     factTableMap,
     "m",
@@ -90,9 +90,9 @@ export function getMetricCTE(
     }
   }
 
-  const timestampDateTimeColumn = helpers.castUserDateCol(cols.timestamp);
+  const timestampDateTimeColumn = dialect.castUserDateCol(cols.timestamp);
 
-  const schema = helpers.getSchema();
+  const schema = dialect.defaultSchema;
 
   const where: string[] = [];
   let sql = "";
@@ -110,9 +110,9 @@ export function getMetricCTE(
     getColumnRefWhereClause({
       factTable,
       columnRef,
-      escapeStringLiteral: helpers.escapeStringLiteral,
-      jsonExtract: helpers.jsonExtract,
-      evalBoolean: helpers.evalBoolean,
+      escapeStringLiteral: dialect.escapeStringLiteral,
+      jsonExtract: dialect.jsonExtract,
+      evalBoolean: dialect.evalBoolean,
       sliceInfo,
     }).forEach((filterSQL) => {
       where.push(filterSQL);
@@ -127,10 +127,10 @@ export function getMetricCTE(
 
   // Add date filter
   if (startDate) {
-    where.push(`${cols.timestamp} >= ${helpers.toTimestamp(startDate)}`);
+    where.push(`${cols.timestamp} >= ${dialect.toTimestamp(startDate)}`);
   }
   if (endDate) {
-    where.push(`${cols.timestamp} <= ${helpers.toTimestamp(endDate)}`);
+    where.push(`${cols.timestamp} <= ${dialect.toTimestamp(endDate)}`);
   }
 
   return compileSqlTemplate(

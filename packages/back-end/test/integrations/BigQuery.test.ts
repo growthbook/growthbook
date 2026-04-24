@@ -86,35 +86,35 @@ describe("BigQuery KLL quantile sketch methods", () => {
   });
 
   it("maps kll data type to BYTES", () => {
-    expect(integration.getDataType("kll")).toBe("BYTES");
+    expect(integration.getSqlDialect().getDataType("kll")).toBe("BYTES");
   });
 
   it("generates KLL INIT with hardcoded precision 1000", () => {
-    expect(integration.kllInit("m.value")).toBe(
+    expect(integration.getSqlDialect().kllInit("m.value")).toBe(
       "KLL_QUANTILES.INIT_FLOAT64(m.value, 1000)",
     );
   });
 
   it("generates KLL MERGE_PARTIAL", () => {
-    expect(integration.kllMergePartial("sketch_col")).toBe(
+    expect(integration.getSqlDialect().kllMergePartial("sketch_col")).toBe(
       "KLL_QUANTILES.MERGE_PARTIAL(sketch_col)",
     );
   });
 
   it("generates KLL EXTRACT_POINT", () => {
-    expect(integration.kllExtractPoint("sketch_col", 0.95)).toBe(
+    expect(integration.getSqlDialect().kllExtractPoint("sketch_col", 0.95)).toBe(
       "KLL_QUANTILES.EXTRACT_POINT_FLOAT64(sketch_col, 0.95)",
     );
   });
 
   it("generates KLL EXTRACT (quantile array)", () => {
-    expect(integration.kllExtractQuantiles("sketch_col", 100)).toBe(
+    expect(integration.getSqlDialect().kllExtractQuantiles("sketch_col", 100)).toBe(
       "KLL_QUANTILES.EXTRACT_FLOAT64(sketch_col, 100)",
     );
   });
 
   it("generates rank approximation via CDF counting", () => {
-    const sql = integration.kllRankApprox(
+    const sql = integration.getSqlDialect().kllRankApprox(
       "m.sketch",
       "qm.q_hat",
       "m.n_events",
@@ -157,7 +157,7 @@ describe("BigQuery KLL quantile sketch methods", () => {
       quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
       numerator: { factTableId: "ft1", column: "amount" },
     });
-    const metadata = getAggregationMetadata(integration.getSqlHelpers(), {
+    const metadata = getAggregationMetadata(integration.getSqlDialect(), {
       metric,
       useDenominator: false,
     });

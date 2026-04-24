@@ -1,7 +1,7 @@
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 
 export function getPipelineValidationInsertQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     tableFullName,
   }: {
@@ -12,6 +12,6 @@ export function getPipelineValidationInsertQuery(
       ${tableFullName}
       (user_id, variation, first_exposure_timestamp)
       VALUES
-      ('user_3', 'A', ${helpers.getCurrentTimestamp()})
+      ('user_3', 'A', ${dialect.getCurrentTimestamp()})
     `;
 }

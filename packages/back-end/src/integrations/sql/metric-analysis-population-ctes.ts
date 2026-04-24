@@ -1,7 +1,7 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import type { SegmentInterface } from "shared/types/segment";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
@@ -9,7 +9,7 @@ import { getExposureQuery } from "./exposure-query";
 import { getSegmentCTE } from "./segment-cte";
 
 export function getMetricAnalysisPopulationCTEs(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     datasource,
     settings,
@@ -44,10 +44,10 @@ export function getMetricAnalysisPopulationCTEs(
         FROM
             __rawExperiment
         WHERE
-            timestamp >= ${helpers.toTimestamp(settings.startDate)}
+            timestamp >= ${dialect.toTimestamp(settings.startDate)}
             ${
               settings.endDate
-                ? `AND timestamp <= ${helpers.toTimestamp(settings.endDate)}`
+                ? `AND timestamp <= ${dialect.toTimestamp(settings.endDate)}`
                 : ""
             }
         ),`;
@@ -57,7 +57,7 @@ export function getMetricAnalysisPopulationCTEs(
     // TODO segment missing
     return `
       __segment as (${getSegmentCTE(
-        helpers,
+        dialect,
         segment,
         settings.userIdType,
         idJoinMap,
@@ -73,10 +73,10 @@ export function getMetricAnalysisPopulationCTEs(
         FROM
           __segment e
         WHERE
-            date >= ${helpers.toTimestamp(settings.startDate)}
+            date >= ${dialect.toTimestamp(settings.startDate)}
             ${
               settings.endDate
-                ? `AND date <= ${helpers.toTimestamp(settings.endDate)}`
+                ? `AND date <= ${dialect.toTimestamp(settings.endDate)}`
                 : ""
             }
       ),`;

@@ -1,4 +1,4 @@
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { quantileColumn } from "./quantile-column";
 
@@ -10,9 +10,9 @@ export type PercentileCapSelectClauseValue = {
   sourceIndex: number;
 };
 
-/** Default SQL for a percentile-cap subquery; warehouses may override via `SqlHelpers.percentileCapSelectClause`. */
+/** Default SQL for a percentile-cap subquery; warehouses may override via `SqlDialect.percentileCapSelectClause`. */
 export function defaultPercentileCapSelectClause(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   values: PercentileCapSelectClauseValue[],
   metricTable: string,
   where: string = "",
@@ -22,9 +22,9 @@ export function defaultPercentileCapSelectClause(
           ${values
             .map(({ valueCol, outputCol, percentile, ignoreZeros }) => {
               const value = ignoreZeros
-                ? helpers.ifElse(`${valueCol} = 0`, "NULL", valueCol)
+                ? dialect.ifElse(`${valueCol} = 0`, "NULL", valueCol)
                 : valueCol;
-              return quantileColumn(helpers, value, outputCol, percentile);
+              return quantileColumn(dialect, value, outputCol, percentile);
             })
             .join(",\n")}
         FROM ${metricTable}

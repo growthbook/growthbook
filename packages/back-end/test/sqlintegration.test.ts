@@ -87,7 +87,7 @@ describe("bigquery integration", () => {
     // builder metrics not tested
 
     expect(
-      addCaseWhenTimeFilter(bqIntegration.getSqlHelpers(), {
+      addCaseWhenTimeFilter(bqIntegration.getSqlDialect(), {
         col: "val",
         metric: normalSqlMetric,
         overrideConversionWindows: false,
@@ -104,7 +104,7 @@ describe("bigquery integration", () => {
       date,
     )}`;
     expect(
-      addCaseWhenTimeFilter(bqIntegration.getSqlHelpers(), {
+      addCaseWhenTimeFilter(bqIntegration.getSqlDialect(), {
         col: "val",
         metric: normalSqlMetric,
         overrideConversionWindows: true,
@@ -117,17 +117,17 @@ describe("bigquery integration", () => {
     );
 
     expect(
-      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlHelpers(), {
+      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlDialect(), {
         metric: customNumberAggMetric,
       }),
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
     expect(
-      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlHelpers(), {
+      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlDialect(), {
         metric: customCountAgg,
       }),
     ).toEqual("COUNT(value) / (5 + COUNT(value))");
     expect(
-      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlHelpers(), {
+      getAggregateMetricColumnLegacyMetrics(bqIntegration.getSqlDialect(), {
         metric: normalSqlMetric,
       }),
     ).toEqual("SUM(COALESCE(value, 0))");

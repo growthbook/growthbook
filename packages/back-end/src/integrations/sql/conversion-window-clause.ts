@@ -3,12 +3,12 @@ import {
   getDelayWindowHours,
   getMetricWindowHours,
 } from "shared/experiments";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { addHours } from "./add-hours";
 
 export function getConversionWindowClause(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   baseCol: string,
   metricCol: string,
   metric: ExperimentMetricInterface,
@@ -19,7 +19,7 @@ export function getConversionWindowClause(
   const delayHours = getDelayWindowHours(metric.windowSettings);
 
   // all metrics have to be after the base timestamp +- delay hours
-  let metricWindow = `${metricCol} >= ${addHours(helpers, baseCol, delayHours)}`;
+  let metricWindow = `${metricCol} >= ${addHours(dialect, baseCol, delayHours)}`;
 
   if (
     metric.windowSettings.type === "conversion" &&
@@ -29,14 +29,14 @@ export function getConversionWindowClause(
     // which can extend beyond experiment end date
     metricWindow = `${metricWindow}
         AND ${metricCol} <= ${addHours(
-          helpers,
+          dialect,
           baseCol,
           delayHours + windowHours,
         )}`;
   } else {
     // otherwise, it must be before the experiment end date
     metricWindow = `${metricWindow}
-      AND ${metricCol} <= ${helpers.toTimestamp(endDate)}`;
+      AND ${metricCol} <= ${dialect.toTimestamp(endDate)}`;
   }
 
   if (metric.windowSettings.type === "lookback") {
@@ -45,7 +45,7 @@ export function getConversionWindowClause(
     // also ensure for lookback windows that metric happened in last
     // X hours of the experiment
     metricWindow = `${metricWindow}
-      AND ${addHours(helpers, metricCol, windowHours)} >= ${helpers.toTimestamp(
+      AND ${addHours(dialect, metricCol, windowHours)} >= ${dialect.toTimestamp(
         endDate,
       )}`;
   }

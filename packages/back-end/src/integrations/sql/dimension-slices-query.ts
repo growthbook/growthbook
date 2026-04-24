@@ -2,7 +2,7 @@ import { subDays } from "date-fns";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { DimensionSlicesQueryParams } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import {
   compileSqlTemplate,
   getBaseIdTypeAndJoins,
@@ -13,7 +13,7 @@ import { getExposureQuery } from "./exposure-query";
 import { getUnitCountCTE } from "./unit-count-cte";
 
 export function getDimensionSlicesQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: DimensionSlicesQueryParams,
 ): string {
@@ -45,7 +45,7 @@ export function getDimensionSlicesQuery(
         FROM
           __rawExperiment e
         WHERE
-          ${timestampColumn} >= ${helpers.toTimestamp(startDate)}
+          ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
       ),
       __distinctUnits AS (
         SELECT
@@ -53,7 +53,7 @@ export function getDimensionSlicesQuery(
           ${params.dimensions
             .map(
               (d) => `
-            , ${getDimensionValuePerUnit(helpers, d)} AS dim_exp_${d.id}`,
+            , ${getDimensionValuePerUnit(dialect, d)} AS dim_exp_${d.id}`,
             )
             .join("\n")}
           , 1 AS variation
@@ -66,14 +66,14 @@ export function getDimensionSlicesQuery(
       dim_values AS (
         SELECT
           1 AS variation
-          , ${helpers.castToString("''")} AS dimension_value
-          , ${helpers.castToString("''")} AS dimension_name
+          , ${dialect.castToString("''")} AS dimension_value
+          , ${dialect.castToString("''")} AS dimension_name
           , COUNT(*) AS units
         FROM
           __distinctUnits
         UNION ALL
         ${params.dimensions
-          .map((d) => getUnitCountCTE(helpers, `dim_exp_${d.id}`))
+          .map((d) => getUnitCountCTE(dialect, `dim_exp_${d.id}`))
           .join("\nUNION ALL\n")}
       ),
       total_n AS (
@@ -104,6 +104,6 @@ export function getDimensionSlicesQuery(
       WHERE 
         rn <= 20
     `,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

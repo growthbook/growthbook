@@ -11,7 +11,7 @@ import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentMetricQueryParams } from "shared/types/integrations";
 import type { MetricInterface } from "shared/types/metric";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
 import { addCaseWhenTimeFilter } from "./add-case-when-time-filter";
@@ -36,7 +36,7 @@ import { processActivationMetric } from "./process-activation-metric";
 import { processDimensions } from "./process-dimensions";
 
 export function getExperimentMetricQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: ExperimentMetricQueryParams,
 ): string {
@@ -117,21 +117,21 @@ export function getExperimentMetricQuery(
     ? eligibleForUncappedMetric(denominator)
     : false;
 
-  const capCoalesceMetric = capCoalesceValue(helpers, {
+  const capCoalesceMetric = capCoalesceValue(dialect, {
     valueCol: "m.value",
     metric,
     capTablePrefix: "cap",
     columnRef: null,
   });
   const capCoalesceDenominator = denominator
-    ? capCoalesceValue(helpers, {
+    ? capCoalesceValue(dialect, {
         valueCol: "d.value",
         metric: denominator,
         capTablePrefix: "capd",
         columnRef: null,
       })
     : "";
-  const capCoalesceCovariate = capCoalesceValue(helpers, {
+  const capCoalesceCovariate = capCoalesceValue(dialect, {
     valueCol: "c.value",
     metric: metric,
     capTablePrefix: "cap",
@@ -160,21 +160,21 @@ export function getExperimentMetricQuery(
       value: 0,
     },
   };
-  const uncappedCoalesceMetric = capCoalesceValue(helpers, {
+  const uncappedCoalesceMetric = capCoalesceValue(dialect, {
     valueCol: "m.value",
     metric: uncappedMetric,
     capTablePrefix: "cap",
     columnRef: null,
   });
   const uncappedCoalesceDenominator = uncappedDenominator
-    ? capCoalesceValue(helpers, {
+    ? capCoalesceValue(dialect, {
         valueCol: "d.value",
         metric: uncappedDenominator,
         capTablePrefix: "capd",
         columnRef: null,
       })
     : "";
-  const uncappedCoalesceCovariate = capCoalesceValue(helpers, {
+  const uncappedCoalesceCovariate = capCoalesceValue(dialect, {
     valueCol: "c.value",
     metric: uncappedCovariate,
     capTablePrefix: "cap",
@@ -212,7 +212,7 @@ export function getExperimentMetricQuery(
     );
   }
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
-    helpers,
+    dialect,
     datasource.settings,
     {
       objects: idTypeObjects,
@@ -234,7 +234,7 @@ export function getExperimentMetricQuery(
   );
 
   const dimensionCols = params.dimensions.map((d) =>
-    getDimensionCol(helpers, d),
+    getDimensionCol(dialect, d),
   );
   // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
   // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
@@ -242,7 +242,7 @@ export function getExperimentMetricQuery(
   if (banditDates?.length && dimensionCols.length === 0) {
     dimensionCols.push({
       alias: "dimension",
-      value: helpers.castToString("'All'"),
+      value: dialect.castToString("'All'"),
     });
   }
 
@@ -260,7 +260,7 @@ export function getExperimentMetricQuery(
   }
   if (settings.skipPartialData) {
     distinctUsersWhere.push(
-      `${timestampColumn} <= ${helpers.toTimestamp(endDate)}`,
+      `${timestampColumn} <= ${dialect.toTimestamp(endDate)}`,
     );
   }
 
@@ -270,7 +270,7 @@ WITH
   ${idJoinSQL}
   ${
     params.unitsSource === "exposureQuery"
-      ? `${getExperimentUnitsQuery(helpers, datasource, {
+      ? `${getExperimentUnitsQuery(dialect, datasource, {
           ...params,
           includeIdJoins: false,
         })},`
@@ -284,17 +284,17 @@ WITH
       ${dimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
       , variation
       , ${timestampColumn} AS timestamp
-      , ${helpers.dateTrunc("first_exposure_timestamp", "day")} AS first_exposure_date
-      ${banditDates?.length ? getBanditCaseWhen(helpers, banditDates) : ""}
+      , ${dialect.dateTrunc("first_exposure_timestamp", "day")} AS first_exposure_date
+      ${banditDates?.length ? getBanditCaseWhen(dialect, banditDates) : ""}
       ${
         regressionAdjusted
           ? `, ${addHours(
-              helpers,
+              dialect,
               "first_exposure_timestamp",
               minMetricDelay,
             )} AS preexposure_end
             , ${addHours(
-              helpers,
+              dialect,
               "first_exposure_timestamp",
               minMetricDelay - regressionAdjustmentHours,
             )} AS preexposure_start`
@@ -311,7 +311,7 @@ WITH
         : ""
     }
   )
-  , __metric as (${getMetricCTE(helpers, {
+  , __metric as (${getMetricCTE(dialect, {
     metric,
     baseIdType,
     idJoinMap,
@@ -324,7 +324,7 @@ WITH
   })})
   ${denominatorMetrics
     .map((m, i) => {
-      return `, __denominator${i} as (${getMetricCTE(helpers, {
+      return `, __denominator${i} as (${getMetricCTE(dialect, {
         metric: m,
         baseIdType,
         idJoinMap,
@@ -341,7 +341,7 @@ WITH
   ${
     funnelMetric
       ? `, __denominatorUsers as (${getFunnelUsersCTE(
-          helpers,
+          dialect,
           baseIdType,
           denominatorMetrics,
           settings.endDate,
@@ -360,7 +360,7 @@ WITH
       ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
       ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
       , d.${baseIdType} AS ${baseIdType}
-      , ${addCaseWhenTimeFilter(helpers, {
+      , ${addCaseWhenTimeFilter(dialect, {
         col: "m.value",
         metric,
         overrideConversionWindows,
@@ -381,7 +381,7 @@ WITH
       ${dimensionCols.map((c) => `, umj.${c.alias} AS ${c.alias}`).join("")}
       ${banditDates?.length ? `, umj.bandit_period AS bandit_period` : ""}
       , umj.${baseIdType}
-      , ${getAggregateMetricColumnLegacyMetrics(helpers, {
+      , ${getAggregateMetricColumnLegacyMetrics(dialect, {
         metric,
       })} as value
     FROM
@@ -396,7 +396,7 @@ WITH
     isPercentileCapped
       ? `
     , __capValue AS (
-        ${helpers.percentileCapSelectClause(
+        ${dialect.percentileCapSelectClause(
           [
             {
               valueCol: "value",
@@ -423,7 +423,7 @@ WITH
             ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
             ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
             , d.${baseIdType} AS ${baseIdType}
-            , ${getAggregateMetricColumnLegacyMetrics(helpers, {
+            , ${getAggregateMetricColumnLegacyMetrics(dialect, {
               metric: denominator,
             })} as value
           FROM
@@ -433,7 +433,7 @@ WITH
             )
           WHERE
             ${getConversionWindowClause(
-              helpers,
+              dialect,
               "d.timestamp",
               "m.timestamp",
               denominator,
@@ -450,7 +450,7 @@ WITH
           denominator && denominatorIsPercentileCapped
             ? `
           , __capValueDenominator AS (
-            ${helpers.percentileCapSelectClause(
+            ${dialect.percentileCapSelectClause(
               [
                 {
                   valueCol: "value",
@@ -479,7 +479,7 @@ WITH
         d.variation AS variation
         ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
         , d.${baseIdType} AS ${baseIdType}
-        , ${getAggregateMetricColumnLegacyMetrics(helpers, {
+        , ${getAggregateMetricColumnLegacyMetrics(dialect, {
           metric,
         })} as value
       FROM
@@ -500,7 +500,7 @@ WITH
   }
   ${
     banditDates?.length
-      ? getBanditStatisticsCTE(helpers, {
+      ? getBanditStatisticsCTE(dialect, {
           baseIdType,
           metricData: [
             {
@@ -609,6 +609,6 @@ m.variation
 ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
   `
   }`,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

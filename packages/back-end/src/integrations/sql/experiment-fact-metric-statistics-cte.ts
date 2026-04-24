@@ -4,13 +4,13 @@ import type {
   FactMetricQuantileData,
 } from "shared/types/integrations";
 import type { FactTableInterface } from "shared/types/fact-table";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileGridColumns } from "./quantile-grid-columns";
 
 export function getExperimentFactMetricStatisticsCTE(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     dimensionCols,
     metricData,
@@ -42,7 +42,7 @@ export function getExperimentFactMetricStatisticsCTE(
             //TODO test numerator suffix capping
             const numeratorSuffix = `${data.numeratorSourceIndex === 0 ? "" : data.numeratorSourceIndex}`;
             return `
-           , ${helpers.castToString(`'${data.id}'`)} as ${data.alias}_id
+           , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
               data.computeUncappedMetric
                 ? `
@@ -89,7 +89,7 @@ export function getExperimentFactMetricStatisticsCTE(
             ${
               data.quantileMetric === "unit"
                 ? `${getQuantileGridColumns(
-                    helpers,
+                    dialect,
                     data.metricQuantileSettings,
                     `${data.alias}_`,
                   )}

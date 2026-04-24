@@ -1,7 +1,7 @@
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 
 export function getBanditCaseWhen(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   periods: Date[],
 ): string {
   return `
@@ -9,9 +9,9 @@ export function getBanditCaseWhen(
           ${periods
             .sort((a, b) => b.getTime() - a.getTime())
             .map((p) => {
-              return `WHEN first_exposure_timestamp >= ${helpers.toTimestamp(
+              return `WHEN first_exposure_timestamp >= ${dialect.toTimestamp(
                 p,
-              )} THEN ${helpers.toTimestamp(p)}`;
+              )} THEN ${dialect.toTimestamp(p)}`;
             })
             .join("\n")}
         END AS bandit_period`;

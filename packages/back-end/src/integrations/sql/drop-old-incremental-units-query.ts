@@ -1,10 +1,10 @@
 import { format } from "shared/sql";
 import { DropOldIncrementalUnitsQueryParams } from "shared/types/integrations";
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 
 export function getDropOldIncrementalUnitsQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   params: DropOldIncrementalUnitsQueryParams,
 ): string {
   if (!params.unitsTableFullName.includes(INCREMENTAL_UNITS_TABLE_PREFIX)) {
@@ -16,6 +16,6 @@ export function getDropOldIncrementalUnitsQuery(
     `
       DROP TABLE IF EXISTS ${params.unitsTableFullName}
       `,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

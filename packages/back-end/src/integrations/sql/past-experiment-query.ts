@@ -1,13 +1,13 @@
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import { format } from "shared/sql";
 import type { ExposureQuery } from "shared/types/datasource";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 
 export function getPastExperimentQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   experimentQueries: ExposureQuery[],
   from: Date,
   end: Date,
@@ -18,33 +18,33 @@ export function getPastExperimentQuery(
       ${experimentQueries
         .map((q, i) => {
           const hasNameCol = q.hasNameCol || false;
-          const userCountColumn = helpers.hasCountDistinctHLL()
-            ? helpers.hllCardinality(helpers.hllAggregate(q.userIdType))
+          const userCountColumn = dialect.hasCountDistinctHLL()
+            ? dialect.hllCardinality(dialect.hllAggregate(q.userIdType))
             : `COUNT(distinct ${q.userIdType})`;
           return `
         __exposures${i} as (
           SELECT 
-            ${helpers.castToString(`'${q.id}'`)} as exposure_query,
+            ${dialect.castToString(`'${q.id}'`)} as exposure_query,
             experiment_id,
             ${
               hasNameCol ? "MIN(experiment_name)" : "experiment_id"
             } as experiment_name,
-            ${helpers.castToString("variation_id")} as variation_id,
+            ${dialect.castToString("variation_id")} as variation_id,
             ${
               hasNameCol
                 ? "MIN(variation_name)"
-                : helpers.castToString("variation_id")
+                : dialect.castToString("variation_id")
             } as variation_name,
-            ${helpers.dateTrunc(helpers.castUserDateCol("timestamp"), "day")} as date,
+            ${dialect.dateTrunc(dialect.castUserDateCol("timestamp"), "day")} as date,
             ${userCountColumn} as users,
-            MAX(${helpers.castUserDateCol("timestamp")}) as latest_data
+            MAX(${dialect.castUserDateCol("timestamp")}) as latest_data
           FROM
             (
               ${compileSqlTemplate(q.query, { startDate: from })}
             ) e${i}
           WHERE
-            timestamp > ${helpers.toTimestamp(from)}
-            AND timestamp <= ${helpers.toTimestamp(end)}
+            timestamp > ${dialect.toTimestamp(from)}
+            AND timestamp <= ${dialect.toTimestamp(end)}
             AND SUBSTRING(experiment_id, 1, ${
               SAFE_ROLLOUT_TRACKING_KEY_PREFIX.length
             }) != '${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}'
@@ -53,7 +53,7 @@ export function getPastExperimentQuery(
           GROUP BY
             experiment_id,
             variation_id,
-            ${helpers.dateTrunc(helpers.castUserDateCol("timestamp"), "day")}
+            ${dialect.dateTrunc(dialect.castUserDateCol("timestamp"), "day")}
         ),`;
         })
         .join("\n")}
@@ -103,7 +103,7 @@ export function getPastExperimentQuery(
         GROUP BY
           d.exposure_query, d.experiment_id, d.variation_id
       )
-    ${helpers.selectStarLimit(
+    ${dialect.selectStarLimit(
       `
       __variations
     ORDER BY
@@ -111,6 +111,6 @@ export function getPastExperimentQuery(
       `,
       MAX_ROWS_PAST_EXPERIMENTS_QUERY,
     )}`,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

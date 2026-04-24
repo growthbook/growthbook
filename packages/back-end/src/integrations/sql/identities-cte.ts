@@ -1,11 +1,11 @@
 import type { DataSourceSettings } from "shared/types/datasource";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { getBaseIdTypeAndJoins } from "back-end/src/util/sql";
 
 import { getIdentitiesQuery } from "./identities-query";
 
 export function getIdentitiesCTE(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   settings: DataSourceSettings,
   {
     objects,
@@ -41,7 +41,7 @@ export function getIdentitiesCTE(
     joins.push(
       `${table} as (
         ${getIdentitiesQuery(
-          helpers,
+          dialect,
           settings,
           baseIdType,
           idType,

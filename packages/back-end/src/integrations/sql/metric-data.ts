@@ -15,7 +15,7 @@ import type {
   MetricQuantileSettings,
 } from "shared/types/fact-table";
 import type { FactMetricData } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { getAggregationMetadata } from "./aggregation-metadata";
 import { applyDailyParticipationTransformation } from "./apply-daily-participation-transformation";
@@ -27,7 +27,7 @@ import { getMetricStart } from "./metric-start";
 import { getRaMetricPhaseStartSettings } from "./ra-metric-phase-start-settings";
 
 export function getMetricData(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   metricWithIndex: { metric: FactMetricInterface; index: number },
   settings: Pick<
     ExperimentSnapshotSettings,
@@ -71,28 +71,28 @@ export function getMetricData(
     )?.index ?? 0;
   const numeratorAlias = `${numeratorSourceIndex === 0 ? "" : numeratorSourceIndex}`;
   const denominatorAlias = `${denominatorSourceIndex === 0 ? "" : denominatorSourceIndex}`;
-  const capCoalesceMetric = capCoalesceValue(helpers, {
+  const capCoalesceMetric = capCoalesceValue(dialect, {
     valueCol: `m${numeratorAlias}.${alias}_value`,
     metric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
     columnRef: metric.numerator,
   });
-  const capCoalesceDenominator = capCoalesceValue(helpers, {
+  const capCoalesceDenominator = capCoalesceValue(dialect, {
     valueCol: `m${denominatorAlias}.${alias}_denominator`,
     metric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
     columnRef: metric.denominator,
   });
-  const capCoalesceCovariate = capCoalesceValue(helpers, {
+  const capCoalesceCovariate = capCoalesceValue(dialect, {
     valueCol: `${covariateTableAlias}${numeratorAlias}.${alias}_covariate_value`,
     metric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
     columnRef: metric.numerator,
   });
-  const capCoalesceDenominatorCovariate = capCoalesceValue(helpers, {
+  const capCoalesceDenominatorCovariate = capCoalesceValue(dialect, {
     valueCol: `${covariateTableAlias}${denominatorAlias}.${alias}_covariate_denominator`,
     metric,
     capTablePrefix: `cap${denominatorAlias}`,
@@ -106,28 +106,28 @@ export function getMetricData(
       value: 0,
     },
   };
-  const uncappedCoalesceMetric = capCoalesceValue(helpers, {
+  const uncappedCoalesceMetric = capCoalesceValue(dialect, {
     valueCol: `m${numeratorAlias}.${alias}_value`,
     metric: uncappedMetric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
     columnRef: metric.numerator,
   });
-  const uncappedCoalesceDenominator = capCoalesceValue(helpers, {
+  const uncappedCoalesceDenominator = capCoalesceValue(dialect, {
     valueCol: `m${denominatorAlias}.${alias}_denominator`,
     metric: uncappedMetric,
     capTablePrefix: `cap${denominatorAlias}`,
     capValueCol: `${alias}_denominator_cap`,
     columnRef: metric.denominator,
   });
-  const uncappedCoalesceCovariate = capCoalesceValue(helpers, {
+  const uncappedCoalesceCovariate = capCoalesceValue(dialect, {
     valueCol: `${covariateTableAlias}${numeratorAlias}.${alias}_covariate_value`,
     metric: uncappedMetric,
     capTablePrefix: `cap${numeratorAlias}`,
     capValueCol: `${alias}_value_cap`,
     columnRef: metric.numerator,
   });
-  const uncappedCoalesceDenominatorCovariate = capCoalesceValue(helpers, {
+  const uncappedCoalesceDenominatorCovariate = capCoalesceValue(dialect, {
     valueCol: `${covariateTableAlias}${denominatorAlias}.${alias}_covariate_denominator`,
     metric: uncappedMetric,
     capTablePrefix: `cap${denominatorAlias}`,
@@ -167,20 +167,20 @@ export function getMetricData(
     activationMetric,
   );
 
-  const numeratorAggFns = getAggregationMetadata(helpers, {
+  const numeratorAggFns = getAggregationMetadata(dialect, {
     metric,
     useDenominator: false,
   });
-  const denominatorAggFns = getAggregationMetadata(helpers, {
+  const denominatorAggFns = getAggregationMetadata(dialect, {
     metric,
     useDenominator: true,
   });
 
-  const covariateNumeratorAggFns = getAggregationMetadata(helpers, {
+  const covariateNumeratorAggFns = getAggregationMetadata(dialect, {
     metric,
     useDenominator: false,
   });
-  const covariateDenominatorAggFns = getAggregationMetadata(helpers, {
+  const covariateDenominatorAggFns = getAggregationMetadata(dialect, {
     metric,
     useDenominator: true,
   });
@@ -196,7 +196,7 @@ export function getMetricData(
           initialTimestampColumn: string;
           analysisEndDate: Date;
         }) =>
-          applyDailyParticipationTransformation(helpers, {
+          applyDailyParticipationTransformation(dialect, {
             column,
             initialTimestampColumn,
             analysisEndDate,

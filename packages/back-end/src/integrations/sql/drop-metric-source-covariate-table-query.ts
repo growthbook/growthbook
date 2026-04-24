@@ -1,10 +1,10 @@
 import { format } from "shared/sql";
 import { DropMetricSourceCovariateTableQueryParams } from "shared/types/integrations";
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import { INCREMENTAL_METRICS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 
 export function getDropMetricSourceCovariateTableQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   params: DropMetricSourceCovariateTableQueryParams,
 ): string {
   if (
@@ -21,6 +21,6 @@ export function getDropMetricSourceCovariateTableQuery(
     `
       DROP TABLE IF EXISTS ${params.metricSourceCovariateTableFullName}
       `,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

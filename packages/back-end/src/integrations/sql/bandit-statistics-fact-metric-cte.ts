@@ -1,4 +1,4 @@
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import type {
   BanditMetricData,
   DimensionColumnData,
@@ -6,7 +6,7 @@ import type {
 import type { FactTableInterface } from "shared/types/fact-table";
 
 export function getBanditStatisticsFactMetricCTE(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     baseIdType,
     metricData,
@@ -30,7 +30,7 @@ export function getBanditStatisticsFactMetricCTE(
         m.variation AS variation
         ${dimensionCols.map((d) => `, m.${d.alias} AS ${d.alias}`).join("")}
         , m.bandit_period AS bandit_period
-        , ${helpers.castToFloat(`COUNT(*)`)} AS users
+        , ${dialect.castToFloat(`COUNT(*)`)} AS users
         ${metricData
           .map((data) => {
             const alias = data.alias + "_";
@@ -46,10 +46,10 @@ export function getBanditStatisticsFactMetricCTE(
               ? `, MAX(COALESCE(cap${numeratorSourceSuffix}.${alias}value_cap, 0)) AS ${alias}main_cap_value`
               : ""
           }
-          , ${helpers.castToFloat(
+          , ${dialect.castToFloat(
             `SUM(${data.capCoalesceMetric})`,
           )} AS ${alias}main_sum
-          , ${helpers.castToFloat(
+          , ${dialect.castToFloat(
             `SUM(POWER(${data.capCoalesceMetric}, 2))`,
           )} AS ${alias}main_sum_squares
           ${
@@ -60,13 +60,13 @@ export function getBanditStatisticsFactMetricCTE(
                 ? `, MAX(COALESCE(cap${denominatorSourceSuffix}.${alias}denominator_cap, 0)) as ${alias}denominator_cap_value`
                 : ""
             }
-            , ${helpers.castToFloat(
+            , ${dialect.castToFloat(
               `SUM(${data.capCoalesceDenominator})`,
             )} AS ${alias}denominator_sum
-            , ${helpers.castToFloat(
+            , ${dialect.castToFloat(
               `SUM(POWER(${data.capCoalesceDenominator}, 2))`,
             )} AS ${alias}denominator_sum_squares
-            , ${helpers.castToFloat(
+            , ${dialect.castToFloat(
               `SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric})`,
             )} AS ${alias}main_denominator_sum_product
           `
@@ -75,13 +75,13 @@ export function getBanditStatisticsFactMetricCTE(
           ${
             data.regressionAdjusted
               ? `
-            , ${helpers.castToFloat(
+            , ${dialect.castToFloat(
               `SUM(${data.capCoalesceCovariate})`,
             )} AS ${alias}covariate_sum
-            , ${helpers.castToFloat(
+            , ${dialect.castToFloat(
               `SUM(POWER(${data.capCoalesceCovariate}, 2))`,
             )} AS ${alias}covariate_sum_squares
-            , ${helpers.castToFloat(
+            , ${dialect.castToFloat(
               `SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate})`,
             )} AS ${alias}main_covariate_sum_product
             `
@@ -119,7 +119,7 @@ export function getBanditStatisticsFactMetricCTE(
     ),
     __dimensionTotals AS (
       SELECT
-        ${helpers.castToFloat(`SUM(users)`)} AS total_users
+        ${dialect.castToFloat(`SUM(users)`)} AS total_users
         ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
       FROM 
         __banditPeriodStatistics
@@ -138,7 +138,7 @@ export function getBanditStatisticsFactMetricCTE(
         ${
           data.regressionAdjusted
             ? `
-            , ${helpers.ifElse(
+            , ${dialect.ifElse(
               `(SUM(bps.users) - 1) <= 0`,
               "0",
               `(
@@ -146,7 +146,7 @@ export function getBanditStatisticsFactMetricCTE(
                 POWER(SUM(bps.${alias}covariate_sum), 2) / SUM(bps.users)
               ) / (SUM(bps.users) - 1)`,
             )} AS ${alias}period_pre_variance
-            , ${helpers.ifElse(
+            , ${dialect.ifElse(
               `(SUM(bps.users) - 1) <= 0`,
               "0",
               `(
@@ -183,7 +183,7 @@ export function getBanditStatisticsFactMetricCTE(
           data.regressionAdjusted
             ? `
 
-            , ${helpers.ifElse(
+            , ${dialect.ifElse(
               `SUM(POWER(weight, 2) * ${alias}period_pre_variance) <= 0`,
               "0",
               `SUM(POWER(weight, 2) * ${alias}period_covariance) / 
@@ -210,10 +210,10 @@ export function getBanditStatisticsFactMetricCTE(
         .map((data) => {
           const alias = data.alias + "_";
           return `
-      , ${helpers.castToString(`'${data.id}'`)} as ${alias}id
+      , ${dialect.castToString(`'${data.id}'`)} as ${alias}id
       , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
       , SUM(bps.users) * (SUM(
-        ${helpers.ifElse(
+        ${dialect.ifElse(
           "bps.users <= 1",
           "0",
           `POWER(bpw.weight, 2) * ((
@@ -226,7 +226,7 @@ export function getBanditStatisticsFactMetricCTE(
           ? `
         , SUM(bpw.weight * bps.${alias}denominator_sum / bps.users) * SUM(bps.users) AS ${alias}denominator_sum
         , SUM(bps.users) * (SUM(
-        ${helpers.ifElse(
+        ${dialect.ifElse(
           "bps.users <= 1",
           "0",
           `POWER(bpw.weight, 2) * ((
@@ -238,7 +238,7 @@ export function getBanditStatisticsFactMetricCTE(
         ) AS ${alias}denominator_sum_squares
         , SUM(bps.users) * (
             (SUM(bps.users) - 1) * SUM(
-              ${helpers.ifElse(
+              ${dialect.ifElse(
                 "bps.users <= 1",
                 "0",
                 `
@@ -258,7 +258,7 @@ export function getBanditStatisticsFactMetricCTE(
           ? `
         , SUM(bpw.weight * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS ${alias}covariate_sum
         , SUM(bps.users) * (SUM(
-        ${helpers.ifElse(
+        ${dialect.ifElse(
           "bps.users <= 1",
           "0",
           `POWER(bpw.weight, 2) * ((
@@ -268,7 +268,7 @@ export function getBanditStatisticsFactMetricCTE(
         )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
         , SUM(bps.users) * (
             (SUM(bps.users) - 1) * SUM(
-              ${helpers.ifElse(
+              ${dialect.ifElse(
                 "bps.users <= 1",
                 "0",
                 `

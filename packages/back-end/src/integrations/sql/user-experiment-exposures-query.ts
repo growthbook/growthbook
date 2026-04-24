@@ -2,13 +2,13 @@ import { subDays } from "date-fns";
 import { format, SQL_ROW_LIMIT } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { UserExperimentExposuresQueryParams } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getExposureQuery } from "./exposure-query";
 
 export function getUserExperimentExposuresQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: UserExperimentExposuresQueryParams,
 ): string {
@@ -32,9 +32,9 @@ export function getUserExperimentExposuresQuery(
 
             const dimensionSelects = allDimensionNames.map((dim) => {
               if (availableDimensions.includes(dim)) {
-                return `${helpers.castToString(`${tableAlias}.${dim}`)} AS ${dim}`;
+                return `${dialect.castToString(`${tableAlias}.${dim}`)} AS ${dim}`;
               } else {
-                return `${helpers.castToString("null")} AS ${dim}`;
+                return `${dialect.castToString("null")} AS ${dim}`;
               }
             });
 
@@ -46,7 +46,7 @@ export function getUserExperimentExposuresQuery(
                   startDate: startDate,
                 })}
               ) ${tableAlias}
-              WHERE ${helpers.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${helpers.toTimestamp(startDate)}
+              WHERE ${dialect.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${dialect.toTimestamp(startDate)}
             `;
           })
           .join("\nUNION ALL\n")}
@@ -55,6 +55,6 @@ export function getUserExperimentExposuresQuery(
       ORDER BY timestamp DESC 
       LIMIT ${SQL_ROW_LIMIT}
       `,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

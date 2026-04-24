@@ -4,7 +4,7 @@ import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { MetricAnalysisParams } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { capCoalesceValue } from "./cap-coalesce-value";
 import { getFactMetricCTE } from "./fact-metric-cte";
@@ -14,7 +14,7 @@ import { getMetricAnalysisStatisticClauses } from "./metric-analysis-statistic-c
 import { getMetricData } from "./metric-data";
 
 export function getMetricAnalysisQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   datasource: DataSourceInterface,
   metric: FactMetricInterface,
   params: Omit<MetricAnalysisParams, "metric">,
@@ -28,7 +28,7 @@ export function getMetricAnalysisQuery(
   // TODO check if query broken if segment has template variables
   // TODO return cap numbers
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
-    helpers,
+    dialect,
     datasource.settings,
     {
       objects: idTypeObjects,
@@ -46,7 +46,7 @@ export function getMetricAnalysisQuery(
   }
 
   const metricData = getMetricData(
-    helpers,
+    dialect,
     { metric, index: 0 },
     {
       // Ignore conversion windows in aggregation functions
@@ -80,14 +80,14 @@ export function getMetricAnalysisQuery(
 
   const createHistogram = metric.metricType === "mean";
 
-  const finalValueColumn = capCoalesceValue(helpers, {
+  const finalValueColumn = capCoalesceValue(dialect, {
     valueCol: "value",
     metric,
     capTablePrefix: "cap",
     capValueCol: "value_capped",
     columnRef: metric.numerator,
   });
-  const finalDenominatorColumn = capCoalesceValue(helpers, {
+  const finalDenominatorColumn = capCoalesceValue(dialect, {
     valueCol: "denominator",
     metric,
     capTablePrefix: "cap",
@@ -95,7 +95,7 @@ export function getMetricAnalysisQuery(
     columnRef: metric.denominator,
   });
 
-  const populationSQL = getMetricAnalysisPopulationCTEs(helpers, {
+  const populationSQL = getMetricAnalysisPopulationCTEs(dialect, {
     datasource,
     settings,
     idJoinMap,
@@ -108,7 +108,7 @@ export function getMetricAnalysisQuery(
       WITH
         ${idJoinSQL}
         ${populationSQL}
-      __factTable AS (${getFactMetricCTE(helpers, {
+      __factTable AS (${getFactMetricCTE(dialect, {
         baseIdType,
         idJoinMap,
         metricsWithIndices: [{ metric: metric, index: 0 }],
@@ -121,7 +121,7 @@ export function getMetricAnalysisQuery(
           -- Get aggregated metric per user by day
           SELECT
           ${populationSQL ? "p" : "f"}.${baseIdType} AS ${baseIdType}
-            , ${helpers.dateTrunc("f.timestamp", "day")} AS date
+            , ${dialect.dateTrunc("f.timestamp", "day")} AS date
             , ${metricData.numeratorAggFns.fullAggregationFunction(`f.${metricData.alias}_value`)} AS value
             , ${metricData.numeratorAggFns.partialAggregationFunction(`f.${metricData.alias}_value`)} AS value_for_reaggregation
                   ${
@@ -140,7 +140,7 @@ export function getMetricAnalysisQuery(
             FROM __factTable f`
           } 
           GROUP BY
-            ${helpers.dateTrunc("f.timestamp", "day")}
+            ${dialect.dateTrunc("f.timestamp", "day")}
             , ${populationSQL ? "p" : "f"}.${baseIdType}
         )
         , __userMetricOverall AS (
@@ -150,7 +150,7 @@ export function getMetricAnalysisQuery(
               column: metricData.numeratorAggFns.reAggregationFunction(
                 "value_for_reaggregation",
               ),
-              initialTimestampColumn: helpers.toTimestamp(settings.startDate),
+              initialTimestampColumn: dialect.toTimestamp(settings.startDate),
               analysisEndDate: settings.endDate,
             })} AS value
             ${
@@ -159,7 +159,7 @@ export function getMetricAnalysisQuery(
                     column: metricData.denominatorAggFns.reAggregationFunction(
                       "denominator_for_reaggregation",
                     ),
-                    initialTimestampColumn: helpers.toTimestamp(
+                    initialTimestampColumn: dialect.toTimestamp(
                       settings.startDate,
                     ),
                     analysisEndDate: settings.endDate,
@@ -175,7 +175,7 @@ export function getMetricAnalysisQuery(
           metricData.isPercentileCapped
             ? `
         , __capValue AS (
-            ${helpers.percentileCapSelectClause(
+            ${dialect.percentileCapSelectClause(
               [
                 {
                   valueCol: "value",
@@ -209,8 +209,8 @@ export function getMetricAnalysisQuery(
         , __statisticsDaily AS (
           SELECT
             date
-            , MAX(${helpers.castToString("'date'")}) AS data_type
-            , ${helpers.castToString(
+            , MAX(${dialect.castToString("'date'")}) AS data_type
+            , ${dialect.castToString(
               `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
             )} AS capped
             ${getMetricAnalysisStatisticClauses(
@@ -223,9 +223,9 @@ export function getMetricAnalysisQuery(
                 ? `
             , MIN(${finalValueColumn}) as value_min
             , MAX(${finalValueColumn}) as value_max
-            , ${helpers.castToFloat("NULL")} AS bin_width
+            , ${dialect.castToFloat("NULL")} AS bin_width
             ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys()]
-              .map((i) => `, ${helpers.castToFloat("NULL")} AS units_bin_${i}`)
+              .map((i) => `, ${dialect.castToFloat("NULL")} AS units_bin_${i}`)
               .join("\n")}`
                 : ""
             }
@@ -235,9 +235,9 @@ export function getMetricAnalysisQuery(
         )
         , __statisticsOverall AS (
           SELECT
-            ${helpers.castToDate("NULL")} AS date
-            , MAX(${helpers.castToString("'overall'")}) AS data_type
-            , ${helpers.castToString(
+            ${dialect.castToDate("NULL")} AS date
+            , MAX(${dialect.castToString("'overall'")}) AS data_type
+            , ${dialect.castToString(
               `'${metric.cappingSettings.type ? "capped" : "uncapped"}'`,
             )} AS capped
             ${getMetricAnalysisStatisticClauses(
@@ -262,7 +262,7 @@ export function getMetricAnalysisQuery(
             ? `
         , __histogram AS (
           SELECT
-            SUM(${helpers.ifElse(
+            SUM(${dialect.ifElse(
               "m.value < (s.value_min + s.bin_width)",
               "1",
               "0",
@@ -270,7 +270,7 @@ export function getMetricAnalysisQuery(
             ${[...Array(DEFAULT_METRIC_HISTOGRAM_BINS - 2).keys()]
               .map(
                 (i) =>
-                  `, SUM(${helpers.ifElse(
+                  `, SUM(${dialect.ifElse(
                     `m.value >= (s.value_min + s.bin_width*${
                       i + 1
                     }.0) AND m.value < (s.value_min + s.bin_width*${i + 2}.0)`,
@@ -279,7 +279,7 @@ export function getMetricAnalysisQuery(
                   )}) as units_bin_${i + 1}`,
               )
               .join("\n")}
-            , SUM(${helpers.ifElse(
+            , SUM(${dialect.ifElse(
               `m.value >= (s.value_min + s.bin_width*${
                 DEFAULT_METRIC_HISTOGRAM_BINS - 1
               }.0)`,
@@ -302,6 +302,6 @@ export function getMetricAnalysisQuery(
             *
         FROM __statisticsDaily
       `,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

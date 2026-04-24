@@ -4,28 +4,28 @@ import {
   ExperimentDimension,
   UserDimension,
 } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 export function getDimensionValuePerUnit(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   dimension: UserDimension | ExperimentDimension | null,
   experimentDimensionPrefix?: string,
 ): string {
   if (!dimension) {
-    return helpers.castToString("''");
+    return dialect.castToString("''");
   }
   if (dimension.type === "user") {
-    return `COALESCE(MAX(${helpers.castToString(
+    return `COALESCE(MAX(${dialect.castToString(
       `__dim_unit_${dimension.dimension.id}.value`,
     )}),'${NULL_DIMENSION_VALUE}')`;
   }
   if (dimension.type === "experiment") {
     return `SUBSTRING(
         MIN(
-          CONCAT(SUBSTRING(${helpers.castToString("e.timestamp")}, 1, 19),
-            coalesce(${helpers.castToString(
+          CONCAT(SUBSTRING(${dialect.castToString("e.timestamp")}, 1, 19),
+            coalesce(${dialect.castToString(
               `e.${experimentDimensionPrefix ?? "dim_"}${dimension.id}`,
-            )}, ${helpers.castToString(`'${NULL_DIMENSION_VALUE}'`)})
+            )}, ${dialect.castToString(`'${NULL_DIMENSION_VALUE}'`)})
           )
         ),
         20,

@@ -1,11 +1,11 @@
 import type { ExperimentMetricInterface } from "shared/experiments";
 import type { DimensionColumnData } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { getConversionWindowClause } from "./conversion-window-clause";
 
 export function getFunnelUsersCTE(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   baseIdType: string,
   metrics: ExperimentMetricInterface[],
   endDate: Date,
@@ -55,7 +55,7 @@ export function getFunnelUsersCTE(
             const prevAlias = i ? `t${i - 1}` : "initial";
             const alias = `t${i}`;
             return getConversionWindowClause(
-              helpers,
+              dialect,
               `${prevAlias}.timestamp`,
               `${alias}.timestamp`,
               m,

@@ -1,5 +1,5 @@
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 
-export function castToHllDataType(helpers: SqlHelpers, col: string): string {
-  return `CAST(${col} AS ${helpers.getDataType("hll")})`;
+export function castToHllDataType(dialect: SqlDialect, col: string): string {
+  return `CAST(${col} AS ${dialect.getDataType("hll")})`;
 }

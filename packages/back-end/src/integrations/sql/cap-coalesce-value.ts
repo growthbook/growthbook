@@ -4,10 +4,10 @@ import {
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { ColumnRef } from "shared/types/fact-table";
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 
 export function capCoalesceValue(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     valueCol,
     metric,
@@ -30,7 +30,7 @@ export function capCoalesceValue(
     isCappableMetricType(metric)
   ) {
     return `LEAST(
-        ${helpers.castToFloat(`COALESCE(${valueCol}, 0)`)},
+        ${dialect.castToFloat(`COALESCE(${valueCol}, 0)`)},
         ${metric.cappingSettings.value}
       )`;
   }
@@ -41,7 +41,7 @@ export function capCoalesceValue(
     isCappableMetricType(metric)
   ) {
     return `LEAST(
-        ${helpers.castToFloat(`COALESCE(${valueCol}, 0)`)},
+        ${dialect.castToFloat(`COALESCE(${valueCol}, 0)`)},
         ${capTablePrefix}.${capValueCol}
       )`;
   }

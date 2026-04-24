@@ -1,11 +1,11 @@
 import type { MetricInterface } from "shared/types/metric";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { replaceCountStar } from "back-end/src/util/sql";
 
 import { getMetricQueryFormat } from "./metric-query-format";
 
 export function getAggregateMetricColumnLegacyMetrics(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   { metric }: { metric: MetricInterface },
 ): string {
   // Binomial metrics don't have a value, so use hard-coded "1" as the value
@@ -19,7 +19,7 @@ export function getAggregateMetricColumnLegacyMetrics(
     if (metric.aggregation && Number(metric.aggregation)) {
       // Note that if user has conversion row but value IS NULL, this will
       // return 0 for that user rather than `metric.aggregation`
-      return helpers.ifElse("value IS NOT NULL", metric.aggregation, "0");
+      return dialect.ifElse("value IS NOT NULL", metric.aggregation, "0");
     }
     // Other custom aggregation
     else if (metric.aggregation) {

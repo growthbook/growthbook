@@ -1,12 +1,12 @@
 import { SegmentInterface } from "shared/types/segment";
-import type { SQLVars, SqlHelpers } from "shared/types/sql";
+import type { SQLVars, SqlDialect } from "shared/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getFactSegmentCTE } from "./fact-segment-cte";
 
 export function getSegmentCTE(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   segment: SegmentInterface,
   baseIdType: string,
   idJoinMap: Record<string, string>,
@@ -37,7 +37,7 @@ export function getSegmentCTE(
       throw new Error(`Unknown fact table: ${segment.factTableId}`);
     }
 
-    segmentSql = getFactSegmentCTE(helpers, {
+    segmentSql = getFactSegmentCTE(dialect, {
       baseIdType,
       idJoinMap,
       factTable,
@@ -49,7 +49,7 @@ export function getSegmentCTE(
         SELECT * FROM (\n${segmentSql}\n) s `;
   }
 
-  const dateCol = helpers.castUserDateCol("s.date");
+  const dateCol = dialect.castUserDateCol("s.date");
 
   const userIdType = segment.userIdType || "user_id";
 

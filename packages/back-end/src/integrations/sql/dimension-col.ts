@@ -1,8 +1,8 @@
 import type { Dimension, DimensionColumnData } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 export function getDimensionCol(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   dimension: Dimension,
 ): DimensionColumnData {
   switch (dimension.type) {
@@ -18,14 +18,14 @@ export function getDimensionCol(
       };
     case "date":
       return {
-        value: `${helpers.formatDate(
-          helpers.dateTrunc("first_exposure_timestamp", "day"),
+        value: `${dialect.formatDate(
+          dialect.dateTrunc("first_exposure_timestamp", "day"),
         )}`,
         alias: "dim_pre_date",
       };
     case "activation":
       return {
-        value: helpers.ifElse(
+        value: dialect.ifElse(
           `first_activation_timestamp IS NULL`,
           "'Not Activated'",
           "'Activated'",

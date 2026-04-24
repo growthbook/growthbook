@@ -7,7 +7,7 @@ import type {
 } from "shared/types/integrations";
 import type { ExperimentMetricInterface } from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
@@ -17,7 +17,7 @@ import { getMetricData } from "./metric-data";
 import { processActivationMetric } from "./process-activation-metric";
 
 export function parseExperimentFactMetricsParams(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   params: {
     metrics: FactMetricInterface[];
     activationMetric: ExperimentMetricInterface | null;
@@ -55,7 +55,7 @@ export function parseExperimentFactMetricsParams(
 
   const metricData = metricsWithIndices.map((m) => {
     return getMetricData(
-      helpers,
+      dialect,
       { metric: m.metric, index: m.index },
       settings,
       activationMetric,

@@ -8,10 +8,10 @@ import type {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 export function getFactMetricColumn(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   metric: FactMetricInterface,
   columnRef: ColumnRef,
   factTable: FactTableInterface,
@@ -37,13 +37,13 @@ export function getFactMetricColumn(
     column === "$$count"
       ? "1"
       : column === "$$distinctDates"
-        ? helpers.dateTrunc(timestampColumn, "day")
+        ? dialect.dateTrunc(timestampColumn, "day")
         : factTable && column
           ? getColumnExpression(
               column,
               factTable,
               (jsonCol: string, path: string, isNumeric: boolean): string =>
-                helpers.jsonExtract(jsonCol, path, isNumeric),
+                dialect.jsonExtract(jsonCol, path, isNumeric),
               alias,
             )
           : `${alias}.${column}`;

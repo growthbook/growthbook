@@ -1,7 +1,7 @@
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 
 export function addHours(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   col: string,
   hours: number,
 ): string {
@@ -25,5 +25,5 @@ export function addHours(
     return col;
   }
 
-  return helpers.addTime(col, unit, sign, amount);
+  return dialect.addTime(col, unit, sign, amount);
 }

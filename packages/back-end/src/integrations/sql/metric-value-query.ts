@@ -1,7 +1,7 @@
 import { format } from "shared/sql";
-import type { DataSourceSettings } from "shared/types/datasource";
+import type { DataSourceInterface } from "shared/types/datasource";
 import type { MetricValueParams } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { getAggregateMetricColumnLegacyMetrics } from "./aggregate-metric-column-legacy-metrics";
 import { getIdentitiesCTE } from "./identities-cte";
@@ -12,13 +12,13 @@ import { getMetricStart } from "./metric-start";
 import { getSegmentCTE } from "./segment-cte";
 
 export function getMetricValueQuery(
-  helpers: SqlHelpers,
-  dataSourceSettings: DataSourceSettings,
+  dialect: SqlDialect,
+  datasource: DataSourceInterface,
   params: MetricValueParams,
 ): string {
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
-    helpers,
-    dataSourceSettings,
+    dialect,
+    datasource.settings,
     {
       objects: [
         params.metric.userIdTypes || [],
@@ -36,7 +36,7 @@ export function getMetricValueQuery(
   );
   const metricEnd = getMetricEnd([params.metric], params.to);
 
-  const aggregate = getAggregateMetricColumnLegacyMetrics(helpers, {
+  const aggregate = getAggregateMetricColumnLegacyMetrics(dialect, {
     metric: params.metric,
   });
 
@@ -47,7 +47,7 @@ export function getMetricValueQuery(
         ${
           params.segment
             ? `segment as (${getSegmentCTE(
-                helpers,
+                dialect,
                 params.segment,
                 baseIdType,
                 idJoinMap,
@@ -55,7 +55,7 @@ export function getMetricValueQuery(
               )}),`
             : ""
         }
-        __metric as (${getMetricCTE(helpers, {
+        __metric as (${getMetricCTE(dialect, {
           metric: params.metric,
           baseIdType,
           idJoinMap,
@@ -91,7 +91,7 @@ export function getMetricValueQuery(
           , __userMetricDates as (
             -- Add in the aggregate metric value for each user
             SELECT
-              ${helpers.dateTrunc("m.timestamp", "day")} as date,
+              ${dialect.dateTrunc("m.timestamp", "day")} as date,
               ${aggregate} as value
             FROM
               __metric m
@@ -101,7 +101,7 @@ export function getMetricValueQuery(
                   : ""
               }
             GROUP BY
-              ${helpers.dateTrunc("m.timestamp", "day")},
+              ${dialect.dateTrunc("m.timestamp", "day")},
               m.${baseIdType}
           )
           , __byDateOverall as (
@@ -148,6 +148,6 @@ export function getMetricValueQuery(
       }
       
       `,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }

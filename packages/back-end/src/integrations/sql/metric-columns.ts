@@ -6,7 +6,7 @@ import {
   isBinomialMetric,
   isFactMetric,
 } from "shared/experiments";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
 
 import { getMetricQueryFormat } from "./metric-query-format";
@@ -15,7 +15,7 @@ import { getMetricQueryFormat } from "./metric-query-format";
 // currently this is used for activation metrics even if they are
 // fact metrics
 export function getMetricColumns(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   metric: ExperimentMetricInterface,
   factTableMap: FactTableMap,
   alias = "m",
@@ -53,7 +53,7 @@ export function getMetricColumns(
       column === "$$distinctDates"
         ? "1"
         : factTable && column
-          ? getColumnExpression(column, factTable, helpers.jsonExtract, alias)
+          ? getColumnExpression(column, factTable, dialect.jsonExtract, alias)
           : `${alias}.${column}`;
 
     return {

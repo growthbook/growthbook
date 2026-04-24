@@ -1,17 +1,17 @@
 import type { MetricQuantileSettings } from "shared/types/fact-table";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileBoundValues } from "./quantile-bound-values";
 import { quantileColumn } from "./quantile-column";
 
 export function getQuantileGridColumns(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   metricQuantileSettings: MetricQuantileSettings,
   prefix: string,
 ): string {
   return `, ${quantileColumn(
-    helpers,
+    dialect,
     `m.${prefix}value`,
     `${prefix}quantile`,
     metricQuantileSettings.quantile,
@@ -23,13 +23,13 @@ export function getQuantileGridColumns(
         nstar,
       );
       return `, ${quantileColumn(
-        helpers,
+        dialect,
         `m.${prefix}value`,
         `${prefix}quantile_lower_${nstar}`,
         lower,
       )}
           , ${quantileColumn(
-            helpers,
+            dialect,
             `m.${prefix}value`,
             `${prefix}quantile_upper_${nstar}`,
             upper,

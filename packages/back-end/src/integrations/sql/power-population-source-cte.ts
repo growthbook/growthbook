@@ -1,13 +1,13 @@
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 
 import { getSegmentCTE } from "./segment-cte";
 
 export function getPowerPopulationSourceCTE(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     settings,
     factTableMap,
@@ -26,7 +26,7 @@ export function getPowerPopulationSourceCTE(
           : undefined;
         return `
           __source AS (${getSegmentCTE(
-            helpers,
+            dialect,
             segment,
             settings.userIdType,
             {}, // no id join map needed as id type is segment id type

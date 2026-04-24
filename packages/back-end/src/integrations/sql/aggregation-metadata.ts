@@ -1,12 +1,12 @@
 import { getAggregateFilters, isBinomialMetric } from "shared/experiments";
 import type { FactMetricAggregationMetadata } from "shared/types/integrations";
 import type { FactMetricInterface } from "shared/types/fact-table";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { castToHllDataType } from "./cast-to-hll-data-type";
 
 export function getAggregationMetadata(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     metric,
     useDenominator,
@@ -91,7 +91,7 @@ export function getAggregationMetadata(
     return {
       intermediateDataType: "date",
       partialAggregationFunction: (column: string) =>
-        helpers.castToDate(`MAX(${column})`),
+        dialect.castToDate(`MAX(${column})`),
       finalDataType: "integer",
       reAggregationFunction,
       fullAggregationFunction,
@@ -104,18 +104,18 @@ export function getAggregationMetadata(
   ) {
     const reAggregationFunction = nullIfZero
       ? (column: string) =>
-          `NULLIF(${helpers.hllCardinality(helpers.hllReaggregate(column))}, 0)`
+          `NULLIF(${dialect.hllCardinality(dialect.hllReaggregate(column))}, 0)`
       : (column: string) =>
-          helpers.hllCardinality(helpers.hllReaggregate(column));
+          dialect.hllCardinality(dialect.hllReaggregate(column));
     const fullAggregationFunction = nullIfZero
       ? (column: string) =>
-          `NULLIF(${helpers.hllCardinality(helpers.hllAggregate(column))}, 0)`
+          `NULLIF(${dialect.hllCardinality(dialect.hllAggregate(column))}, 0)`
       : (column: string) =>
-          helpers.hllCardinality(helpers.hllAggregate(column));
+          dialect.hllCardinality(dialect.hllAggregate(column));
     return {
       intermediateDataType: "hll",
       partialAggregationFunction: (column: string) =>
-        castToHllDataType(helpers, helpers.hllAggregate(column)),
+        castToHllDataType(dialect, dialect.hllAggregate(column)),
       finalDataType: "integer",
       reAggregationFunction,
       fullAggregationFunction,
@@ -146,12 +146,12 @@ export function getAggregationMetadata(
     // getIncrementalRefreshStatisticsQuery.
     return {
       intermediateDataType: "kll",
-      partialAggregationFunction: (column: string) => helpers.kllInit(column),
+      partialAggregationFunction: (column: string) => dialect.kllInit(column),
       reAggregationFunction: (column: string) =>
-        helpers.kllMergePartial(column),
+        dialect.kllMergePartial(column),
       finalDataType: "integer",
       fullAggregationFunction: (column: string, quantileColumn?: string) =>
-        `SUM(${helpers.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
+        `SUM(${dialect.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
     };
   }
 

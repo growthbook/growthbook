@@ -5,7 +5,7 @@ import {
   parseSliceMetricId,
 } from "shared/experiments";
 import { buildMinimalOrCondition } from "shared/sql";
-import type { PhaseSQLVar, SqlHelpers } from "shared/types/sql";
+import type { PhaseSQLVar, SqlDialect } from "shared/types/sql";
 import type {
   FactMetricInterface,
   FactTableInterface,
@@ -17,7 +17,7 @@ import { toTimestampWithMs } from "./to-timestamp-with-ms";
 
 /** Fact Table CTE for multiple fact metrics that share the same fact table */
 export function getFactMetricCTE(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     metricsWithIndices,
     factTable,
@@ -67,7 +67,7 @@ export function getFactMetricCTE(
   }
 
   // BQ datetime cast for SELECT statements (do not use for where)
-  const timestampDateTimeColumn = helpers.castUserDateCol("m.timestamp");
+  const timestampDateTimeColumn = dialect.castUserDateCol("m.timestamp");
 
   const sql = factTable.sql;
   const where: string[] = [];
@@ -78,7 +78,7 @@ export function getFactMetricCTE(
     const operator = exclusiveStartDateFilter ? ">" : ">=";
     const timestampFn = exclusiveStartDateFilter
       ? toTimestampWithMs
-      : helpers.toTimestamp.bind(helpers);
+      : dialect.toTimestamp.bind(dialect);
     where.push(`m.timestamp ${operator} ${timestampFn(startDate)}`);
   }
   if (endDate) {
@@ -86,7 +86,7 @@ export function getFactMetricCTE(
     const operator = exclusiveEndDateFilter ? "<" : "<=";
     const timestampFn = exclusiveEndDateFilter
       ? toTimestampWithMs
-      : helpers.toTimestamp.bind(helpers);
+      : dialect.toTimestamp.bind(dialect);
     where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
   }
 
@@ -98,7 +98,7 @@ export function getFactMetricCTE(
     const index = metricWithIndex.index;
     if (m.numerator?.factTableId === factTable.id) {
       const value = getFactMetricColumn(
-        helpers,
+        dialect,
         m,
         m.numerator,
         factTable,
@@ -111,9 +111,9 @@ export function getFactMetricCTE(
       const filters = getColumnRefWhereClause({
         factTable,
         columnRef: m.numerator,
-        escapeStringLiteral: helpers.escapeStringLiteral,
-        jsonExtract: helpers.jsonExtract,
-        evalBoolean: helpers.evalBoolean,
+        escapeStringLiteral: dialect.escapeStringLiteral,
+        jsonExtract: dialect.jsonExtract,
+        evalBoolean: dialect.evalBoolean,
         sliceInfo,
       });
 
@@ -134,7 +134,7 @@ export function getFactMetricCTE(
       }
 
       const value = getFactMetricColumn(
-        helpers,
+        dialect,
         m,
         m.denominator,
         factTable,
@@ -147,9 +147,9 @@ export function getFactMetricCTE(
       const filters = getColumnRefWhereClause({
         factTable,
         columnRef: m.denominator,
-        escapeStringLiteral: helpers.escapeStringLiteral,
-        jsonExtract: helpers.jsonExtract,
-        evalBoolean: helpers.evalBoolean,
+        escapeStringLiteral: dialect.escapeStringLiteral,
+        jsonExtract: dialect.jsonExtract,
+        evalBoolean: dialect.evalBoolean,
         sliceInfo,
       });
       const column =
@@ -173,7 +173,7 @@ export function getFactMetricCTE(
   return compileSqlTemplate(
     `-- Fact Table (${factTable.name})
       SELECT
-        ${castIdToString ? helpers.castToString(userIdCol) : userIdCol} as ${baseIdType},
+        ${castIdToString ? dialect.castToString(userIdCol) : userIdCol} as ${baseIdType},
         ${timestampDateTimeColumn} as timestamp,
         ${metricCols.join(",\n")}
       FROM(

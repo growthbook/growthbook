@@ -1,9 +1,9 @@
 import { DataSourceSettings } from "shared/types/datasource";
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 export function getIdentitiesQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   settings: DataSourceSettings,
   id1: string,
   id2: string,
@@ -55,8 +55,8 @@ export function getIdentitiesQuery(
             experimentId,
           })}) i
         WHERE
-          ${timestampColumn} >= ${helpers.toTimestamp(from)}
-          ${to ? `AND ${timestampColumn} <= ${helpers.toTimestamp(to)}` : ""}
+          ${timestampColumn} >= ${dialect.toTimestamp(from)}
+          ${to ? `AND ${timestampColumn} <= ${dialect.toTimestamp(to)}` : ""}
         GROUP BY
           user_id, anonymous_id
         `;

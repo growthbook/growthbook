@@ -1,7 +1,7 @@
 import { Client, ClientOptions, QueryOptions } from "presto-client";
 import { format } from "shared/sql";
 import { parseIntWithDefault } from "shared/util";
-import { FormatDialect } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import { prestoCreateTablePartitions } from "shared/enterprise";
 import {
   QueryResponse,
@@ -16,6 +16,7 @@ import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
+import { prestoDialect } from "./dialects/presto";
 
 // eslint-disable-next-line
 type Row = any;
@@ -33,14 +34,11 @@ export default class Presto extends SqlIntegration {
     this.params =
       decryptDataSourceParams<PrestoConnectionParams>(encryptedParams);
   }
-  getFormatDialect(): FormatDialect {
-    return "trino";
+  getSqlDialect(): SqlDialect {
+    return prestoDialect;
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
-  }
-  toTimestamp(date: Date) {
-    return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
   isWritingTablesSupported(): boolean {
     return true;
@@ -192,41 +190,6 @@ export default class Presto extends SqlIntegration {
       client.execute(executeOptions);
     });
   }
-  addTime(
-    col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
-    amount: number,
-  ): string {
-    return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
-  }
-  formatDate(col: string): string {
-    return `substr(to_iso8601(${col}),1,10)`;
-  }
-  formatDateTimeString(col: string): string {
-    return `to_iso8601(${col})`;
-  }
-  dateDiff(startCol: string, endCol: string) {
-    return `date_diff('day', ${startCol}, ${endCol})`;
-  }
-  ensureFloat(col: string): string {
-    return `CAST(${col} AS DOUBLE)`;
-  }
-  hasCountDistinctHLL(): boolean {
-    return true;
-  }
-  hllAggregate(col: string): string {
-    return `APPROX_SET(${col})`;
-  }
-  castToHyperLogLog(col: string): string {
-    return `CAST(${col} AS HyperLogLog)`;
-  }
-  hllReaggregate(col: string): string {
-    return `MERGE(${this.castToHyperLogLog(col)})`;
-  }
-  hllCardinality(col: string): string {
-    return `CARDINALITY(${col})`;
-  }
   getDefaultDatabase() {
     return this.params.catalog || "";
   }
@@ -243,13 +206,13 @@ export default class Presto extends SqlIntegration {
   ): string {
     return format(
       `CREATE TABLE ${unitsTableFullName} (
-        user_id ${this.getDataType("string")},
-        variation ${this.getDataType("string")},
-        first_exposure_timestamp ${this.getDataType("timestamp")}
+        user_id ${this.getSqlDialect().getDataType("string")},
+        variation ${this.getSqlDialect().getDataType("string")},
+        first_exposure_timestamp ${this.getSqlDialect().getDataType("timestamp")}
     )
       ${this.createUnitsTableOptions()}
     `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -269,7 +232,7 @@ export default class Presto extends SqlIntegration {
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.unitsTableFullName)}
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -281,7 +244,7 @@ export default class Presto extends SqlIntegration {
       SELECT MAX(max_timestamp) AS max_timestamp
       FROM ${this.getTablePartitionsTableName(params.metricSourceTableFullName)}
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 }

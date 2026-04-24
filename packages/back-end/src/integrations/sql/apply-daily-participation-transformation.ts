@@ -1,5 +1,5 @@
 import type { FactMetricInterface } from "shared/types/fact-table";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { computeParticipationDenominator } from "./compute-participation-denominator";
 
@@ -10,7 +10,7 @@ import { computeParticipationDenominator } from "./compute-participation-denomin
  * For all other metric types, this returns the value unchanged.
  */
 export function applyDailyParticipationTransformation(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     column,
     initialTimestampColumn,
@@ -30,8 +30,8 @@ export function applyDailyParticipationTransformation(
   }
 
   return `
-      ${helpers.castToFloat(column)} / 
-      ${computeParticipationDenominator(helpers, {
+      ${dialect.castToFloat(column)} / 
+      ${computeParticipationDenominator(dialect, {
         initialTimestampColumn,
         analysisEndDate,
         metric,

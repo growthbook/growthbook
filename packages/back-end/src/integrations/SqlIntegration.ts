@@ -22,12 +22,7 @@ import {
   isMultiStatementSQL,
   SQL_ROW_LIMIT,
 } from "shared/sql";
-import {
-  TemplateVariables,
-  FormatDialect,
-  DateTruncGranularity,
-  SqlHelpers,
-} from "shared/types/sql";
+import { TemplateVariables, SqlDialect } from "shared/types/sql";
 import {
   MetricValueParams,
   ExperimentMetricQueryParams,
@@ -101,6 +96,7 @@ import {
   DataSourceInterface,
   AutoFactTableSchemas,
   SchemaFormat,
+  DataSourceInterfaceWithParams,
 } from "shared/types/datasource";
 import {
   ExperimentSnapshotSettings,
@@ -161,7 +157,6 @@ import { getMetricAnalysisQuery as buildMetricAnalysisQuerySql } from "./sql/met
 import { getMetricSourceTableSchema } from "./sql/metric-source-table-schema";
 import { getMetricValueQuery as buildMetricValueQuerySql } from "./sql/metric-value-query";
 import { getPastExperimentQuery as buildPastExperimentQuerySql } from "./sql/past-experiment-query";
-import { defaultPercentileCapSelectClause } from "./sql/percentile-cap-select-clause";
 import { getPipelineValidationInsertQuery } from "./sql/pipeline-validation-insert-query";
 import { getPowerPopulationCTEs } from "./sql/power-population-ctes";
 import { processActivationMetric } from "./sql/process-activation-metric";
@@ -174,7 +169,6 @@ import { getSampleUnitsCTE } from "./sql/sample-units-cte";
 import { getSegmentCTE } from "./sql/segment-cte";
 import { toTimestampWithMs } from "./sql/to-timestamp-with-ms";
 import { getUserExperimentExposuresQuery as getUserExperimentExposuresQueryFromSql } from "./sql/user-experiment-exposures-query";
-
 export { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 export { MAX_ROWS_PAST_EXPERIMENTS_QUERY } from "./sql/past-experiment-query";
 export const TEST_QUERY_SQL = "SELECT 1";
@@ -205,6 +199,8 @@ export default abstract class SqlIntegration
     logger.debug(`Cancel query: ${externalId} - not implemented`);
   }
   abstract getSensitiveParamKeys(): string[];
+
+  abstract getSqlDialect(): SqlDialect;
 
   constructor(context: ReqContextClass, datasource: DataSourceInterface) {
     this.wrapRunQuery();
@@ -263,7 +259,7 @@ export default abstract class SqlIntegration
       hasQuantileTesting: this.hasQuantileTesting(),
       hasEfficientPercentiles: this.hasEfficientPercentile(),
       canGroupPercentileCappedMetrics: this.canGroupPercentileCappedMetrics(),
-      hasCountDistinctHLL: this.hasCountDistinctHLL(),
+      hasCountDistinctHLL: this.getSqlDialect().hasCountDistinctHLL(),
       hasQuantileKLL: this.hasQuantileKLL(),
       hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
       maxColumns: 1000,
@@ -318,59 +314,12 @@ export default abstract class SqlIntegration
   requiresSchema = true;
   escapePathCharacter: string | null = null;
 
-  getSchema(): string {
-    return "";
-  }
-  getFormatDialect(): FormatDialect {
-    return "";
-  }
-  toTimestamp(date: Date) {
-    return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
-  }
-  addTime(
-    col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
-    amount: number,
-  ): string {
-    return `${col} ${sign} INTERVAL '${amount} ${unit}s'`;
-  }
-  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
-    return `date_trunc('${granularity}', ${col})`;
-  }
-  dateDiff(startCol: string, endCol: string) {
-    return `datediff(day, ${startCol}, ${endCol})`;
-  }
-  formatDate(col: string): string {
-    return col;
-  }
-  ifElse(condition: string, ifTrue: string, ifFalse: string) {
-    return `(CASE WHEN ${condition} THEN ${ifTrue} ELSE ${ifFalse} END)`;
-  }
-  castToString(col: string): string {
-    return `cast(${col} as varchar)`;
-  }
-  castToDate(col: string): string {
-    return `CAST(${col} AS DATE)`;
-  }
-  ensureFloat(col: string): string {
-    return col;
-  }
-  escapeStringLiteral(value: string): string {
-    return value.replace(/'/g, `''`);
-  }
-  castUserDateCol(column: string): string {
-    return column;
-  }
-  formatDateTimeString(col: string): string {
-    return this.castToString(col);
-  }
-  selectStarLimit(table: string, limit: number): string {
-    return `SELECT * FROM ${table} LIMIT ${limit}`;
-  }
-
   ensureMaxLimit(sql: string, limit: number): string {
     return ensureLimit(sql, limit);
+  }
+
+  getCurrentTimestamp(): string {
+    return this.getSqlDialect().getCurrentTimestamp();
   }
 
   hasQuantileTesting(): boolean {
@@ -382,90 +331,12 @@ export default abstract class SqlIntegration
   canGroupPercentileCappedMetrics(): boolean {
     return true;
   }
-  hasCountDistinctHLL(): boolean {
-    return false;
-  }
   hasQuantileKLL(): boolean {
     return false;
   }
   supportsLimitZeroColumnValidation(): boolean {
     return false;
   }
-  // eslint-disable-next-line
-  hllAggregate(col: string): string {
-    throw new Error(
-      "COUNT DISTINCT is not supported for fact metrics in this data source.",
-    );
-  }
-  // eslint-disable-next-line
-  hllReaggregate(col: string): string {
-    throw new Error(
-      "COUNT DISTINCT is not supported for fact metrics in this data source.",
-    );
-  }
-  // eslint-disable-next-line
-  hllCardinality(col: string): string {
-    throw new Error(
-      "COUNT DISTINCT is not supported for fact metrics in this data source.",
-    );
-  }
-  // eslint-disable-next-line
-  kllInit(col: string): string {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  }
-  // eslint-disable-next-line
-  kllMergePartial(col: string): string {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  }
-  // eslint-disable-next-line
-  kllExtractPoint(col: string, quantile: number): string {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  }
-  // eslint-disable-next-line
-  kllExtractQuantiles(col: string, numQuantiles: number): string {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  }
-  /**
-   * SQL expression that approximates (fraction of events below threshold) × n_events
-   * for a per-user merged KLL sketch, using a discrete CDF from the sketch.
-   *
-   * Implementations typically: sample the sketch at numQuantiles evenly spaced
-   * quantile levels (yielding numQuantiles+1 monotone values), count how many
-   * samples are strictly below the threshold, scale by n_events / numQuantiles,
-   * and COALESCE to 0 when sketch or threshold is null / empty.
-   *
-   * Fraction discretization error is O(1/numQuantiles) (e.g. ±1% at 100).
-   * Warehouses must override together with kllExtractQuantiles when
-   * hasQuantileKLL() is true.
-   */
-  kllRankApprox(
-    _sketchCol: string,
-    _thresholdCol: string,
-    _nEventsCol: string,
-    _numQuantiles: number,
-  ): string {
-    throw new Error(
-      "KLL rank approximation is not implemented for this data source.",
-    );
-  }
-
-  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
-    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
-    return isNumeric ? this.ensureFloat(raw) : raw;
-  }
-
-  evalBoolean(col: string, value: boolean): string {
-    return `${col} IS ${value ? "TRUE" : "FALSE"}`;
-  }
-
   getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
@@ -473,7 +344,7 @@ export default abstract class SqlIntegration
     ).map(({ id }) => getExposureQuery(this.datasource, id));
 
     return buildPastExperimentQuerySql(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       experimentQueries,
       params.from,
       new Date(),
@@ -510,8 +381,8 @@ export default abstract class SqlIntegration
 
   getMetricValueQuery(params: MetricValueParams): string {
     return buildMetricValueQuerySql(
-      this.getSqlHelpers(),
-      this.datasource.settings,
+      this.getSqlDialect(),
+      this.datasource,
       params,
     );
   }
@@ -521,7 +392,7 @@ export default abstract class SqlIntegration
     params: Omit<MetricAnalysisParams, "metric">,
   ): string {
     return buildMetricAnalysisQuerySql(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource,
       metric,
       params,
@@ -827,7 +698,7 @@ export default abstract class SqlIntegration
   }
 
   getFreeFormQuery(sql: string, limit?: number): string {
-    return getFreeFormQuery(this.getSqlHelpers(), sql, limit);
+    return getFreeFormQuery(this.getSqlDialect(), sql, limit);
   }
 
   getTestQuery(params: TestQueryParams): string {
@@ -840,13 +711,13 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      ${this.selectStarLimit("__table", limit)}`,
+      ${this.getSqlDialect().selectStarLimit("__table", limit)}`,
       {
         startDate,
         templateVariables,
       },
     );
-    return format(limitedQuery, this.getFormatDialect());
+    return format(limitedQuery, this.getSqlDialect().formatDialect);
   }
 
   async runTestQuery(
@@ -911,7 +782,7 @@ export default abstract class SqlIntegration
         SELECT * FROM __experimentUnits
       );
     `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -931,7 +802,7 @@ export default abstract class SqlIntegration
   getPopulationMetricQuery(params: PopulationMetricQueryParams): string {
     const { factTableMap, segment, populationSettings } = params;
     // dimension date?
-    const populationSQL = getPowerPopulationCTEs(this.getSqlHelpers(), {
+    const populationSQL = getPowerPopulationCTEs(this.getSqlDialect(), {
       settings: populationSettings,
       factTableMap,
       segment,
@@ -950,7 +821,7 @@ export default abstract class SqlIntegration
   ): string {
     const { factTableMap, segment, populationSettings } = params;
 
-    const populationSQL = getPowerPopulationCTEs(this.getSqlHelpers(), {
+    const populationSQL = getPowerPopulationCTEs(this.getSqlDialect(), {
       settings: populationSettings,
       factTableMap,
       segment,
@@ -965,7 +836,7 @@ export default abstract class SqlIntegration
 
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
     return buildExperimentUnitsQuerySql(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource,
       params,
     );
@@ -981,7 +852,7 @@ export default abstract class SqlIntegration
     params: ExperimentAggregateUnitsQueryParams,
   ): string {
     return getExperimentAggregateUnitsQueryFromSql(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource,
       params,
     );
@@ -989,7 +860,7 @@ export default abstract class SqlIntegration
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
     return getDimensionSlicesQueryFromSql(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource,
       params,
     );
@@ -1022,7 +893,7 @@ export default abstract class SqlIntegration
     params: UserExperimentExposuresQueryParams,
   ): string {
     return getUserExperimentExposuresQueryFromSql(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource,
       params,
     );
@@ -1032,7 +903,7 @@ export default abstract class SqlIntegration
     params: FeatureEvalDiagnosticsQueryParams,
   ): string {
     return getFeatureEvalDiagnosticsQueryFromSql(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource,
       params,
     );
@@ -1089,7 +960,7 @@ export default abstract class SqlIntegration
     params: ExperimentFactMetricsQueryParams,
   ): string {
     return getExperimentFactMetricsQueryFromSql(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource,
       params,
     );
@@ -1097,7 +968,7 @@ export default abstract class SqlIntegration
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     return buildExperimentMetricQuerySql(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource,
       params,
     );
@@ -1120,7 +991,7 @@ export default abstract class SqlIntegration
     ignoreNulls?: boolean;
     denominatorIsPercentileCapped?: boolean;
   }): string {
-    return getBanditStatisticsCTE(this.getSqlHelpers(), {
+    return getBanditStatisticsCTE(this.getSqlDialect(), {
       baseIdType,
       metricData,
       dimensionCols,
@@ -1146,7 +1017,7 @@ export default abstract class SqlIntegration
     regressionAdjustedTableIndices: Set<number>;
     percentileTableIndices: Set<number>;
   }): string {
-    return getBanditStatisticsFactMetricCTE(this.getSqlHelpers(), {
+    return getBanditStatisticsFactMetricCTE(this.getSqlDialect(), {
       baseIdType,
       metricData,
       dimensionCols,
@@ -1154,29 +1025,6 @@ export default abstract class SqlIntegration
       regressionAdjustedTableIndices,
       percentileTableIndices,
     });
-  }
-
-  approxQuantile(value: string, quantile: string | number): string {
-    return `APPROX_PERCENTILE(${value}, ${quantile})`;
-  }
-
-  percentileCapSelectClause(
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-      sourceIndex: number;
-    }[],
-    metricTable: string,
-    where: string = "",
-  ) {
-    return defaultPercentileCapSelectClause(
-      this.getSqlHelpers(),
-      values,
-      metricTable,
-      where,
-    );
   }
 
   getExperimentResultsQuery(): string {
@@ -1248,7 +1096,7 @@ export default abstract class SqlIntegration
     WHERE ${this.getInformationSchemaWhereClause()}
     GROUP BY table_name, table_schema, table_catalog`;
 
-    const results = await this.runQuery(format(sql, this.getFormatDialect()));
+    const results = await this.runQuery(format(sql, this.getSqlDialect().formatDialect));
 
     if (!results.rows.length) {
       throw new Error(`No tables found.`);
@@ -1272,7 +1120,7 @@ export default abstract class SqlIntegration
     AND table_schema = '${tableSchema}'
     AND table_catalog = '${databaseName}'`;
 
-    const results = await this.runQuery(format(sql, this.getFormatDialect()));
+    const results = await this.runQuery(format(sql, this.getSqlDialect().formatDialect));
 
     return { tableData: results.rows };
   }
@@ -1389,7 +1237,7 @@ export default abstract class SqlIntegration
             : ""
         }
 `;
-    return format(sqlQuery, this.getFormatDialect());
+    return format(sqlQuery, this.getSqlDialect().formatDialect);
   }
 
   doesMetricExist(
@@ -1434,7 +1282,7 @@ export default abstract class SqlIntegration
             : ""
         }
 `;
-    return format(sqlQuery, this.getFormatDialect());
+    return format(sqlQuery, this.getSqlDialect().formatDialect);
   }
   getMetricsToCreate(
     result: TrackedEventData,
@@ -1598,7 +1446,7 @@ export default abstract class SqlIntegration
     );
 
     const { rows: resultRows } = await this.runQuery(
-      format(sql, this.getFormatDialect()),
+      format(sql, this.getSqlDialect().formatDialect),
     );
 
     const additionalEvents = getAdditionalEvents();
@@ -1617,7 +1465,7 @@ export default abstract class SqlIntegration
 
       try {
         const { rows: additionalEventResults } = await this.runQuery(
-          format(sql, this.getFormatDialect()),
+          format(sql, this.getSqlDialect().formatDialect),
         );
 
         additionalEventResults.forEach((result) => {
@@ -1660,20 +1508,20 @@ export default abstract class SqlIntegration
     sketchCol: string,
     prefix: string,
   ) {
-    return `, ${this.kllExtractPoint(sketchCol, metricQuantileSettings.quantile)} AS ${prefix}quantile
+    return `, ${this.getSqlDialect().kllExtractPoint(sketchCol, metricQuantileSettings.quantile)} AS ${prefix}quantile
     ${N_STAR_VALUES.map((nstar) => {
       const { lower, upper } = getQuantileBoundValues(
         metricQuantileSettings.quantile,
         0.05,
         nstar,
       );
-      return `, ${this.kllExtractPoint(sketchCol, lower)} AS ${prefix}quantile_lower_${nstar}
-          , ${this.kllExtractPoint(sketchCol, upper)} AS ${prefix}quantile_upper_${nstar}`;
+      return `, ${this.getSqlDialect().kllExtractPoint(sketchCol, lower)} AS ${prefix}quantile_lower_${nstar}
+          , ${this.getSqlDialect().kllExtractPoint(sketchCol, upper)} AS ${prefix}quantile_upper_${nstar}`;
     }).join("\n")}`;
   }
 
   public getColumnsTopValuesQuery(params: ColumnTopValuesParams) {
-    return getColumnsTopValuesQueryStandalone(this.getSqlHelpers(), params);
+    return getColumnsTopValuesQueryStandalone(this.getSqlDialect(), params);
   }
 
   public async runColumnsTopValuesQuery(
@@ -1697,7 +1545,7 @@ export default abstract class SqlIntegration
   }: {
     tableFullName: string;
   }): string {
-    return getPipelineValidationInsertQuery(this.getSqlHelpers(), {
+    return getPipelineValidationInsertQuery(this.getSqlDialect(), {
       tableFullName,
     });
   }
@@ -1752,22 +1600,22 @@ export default abstract class SqlIntegration
       `
     CREATE TABLE ${params.unitsTableFullName}
     (
-      ${exposureQuery.userIdType} ${this.getDataType("string")}
-      , variation ${this.getDataType("string")}
-      , first_exposure_timestamp ${this.getDataType("timestamp")}
+      ${exposureQuery.userIdType} ${this.getSqlDialect().getDataType("string")}
+      , variation ${this.getSqlDialect().getDataType("string")}
+      , first_exposure_timestamp ${this.getSqlDialect().getDataType("timestamp")}
       ${
         activationMetric
-          ? `, first_activation_timestamp ${this.getDataType("timestamp")}`
+          ? `, first_activation_timestamp ${this.getSqlDialect().getDataType("timestamp")}`
           : ""
       }
       ${experimentDimensions
-        .map((d) => `, dim_exp_${d.id} ${this.getDataType("string")}`)
+        .map((d) => `, dim_exp_${d.id} ${this.getSqlDialect().getDataType("string")}`)
         .join("\n")}
-      , max_timestamp ${this.getDataType("timestamp")}
+      , max_timestamp ${this.getSqlDialect().getDataType("timestamp")}
     )
     ${this.createTablePartitions(["max_timestamp"])}
     `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -1779,7 +1627,7 @@ export default abstract class SqlIntegration
       this.parseExperimentParams(params);
 
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource.settings,
       {
         objects: [
@@ -1832,7 +1680,7 @@ export default abstract class SqlIntegration
         ${
           segment
             ? `, __segment as (${getSegmentCTE(
-                this.getSqlHelpers(),
+                this.getSqlDialect(),
                 segment,
                 baseIdType,
                 idJoinMap,
@@ -1855,12 +1703,12 @@ export default abstract class SqlIntegration
         )
         , __filteredNewExposures AS (
           SELECT 
-            ${this.castToString(`${baseIdType}`)} AS ${baseIdType}
-            , ${this.castToString(`variation_id`)} AS variation
+            ${this.getSqlDialect().castToString(`${baseIdType}`)} AS ${baseIdType}
+            , ${this.getSqlDialect().castToString(`variation_id`)} AS variation
             , timestamp AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
-              .map((d) => `, ${this.castToString(d.id)} AS dim_exp_${d.id}`)
+              .map((d) => `, ${this.getSqlDialect().castToString(d.id)} AS dim_exp_${d.id}`)
               .join("\n")}
           FROM __newExposures
           WHERE 
@@ -1890,7 +1738,7 @@ export default abstract class SqlIntegration
         , __experimentUnits AS (
           SELECT
             e.${baseIdType} AS ${baseIdType}
-            , ${this.ifElse(
+            , ${this.getSqlDialect().ifElse(
               "COUNT(DISTINCT e.variation) > 1",
               "'__multiple__'",
               "MAX(e.variation)",
@@ -1900,7 +1748,7 @@ export default abstract class SqlIntegration
             ${experimentDimensions
               .map(
                 (d) => `
-              , ${getDimensionValuePerUnit(this.getSqlHelpers(), d, "dim_exp_")} AS dim_exp_${d.id}`,
+              , ${getDimensionValuePerUnit(this.getSqlDialect(), d, "dim_exp_")} AS dim_exp_${d.id}`,
               )
               .join("\n")}
           FROM __jointExposures e
@@ -1917,20 +1765,20 @@ export default abstract class SqlIntegration
         FROM __experimentUnits
       )
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
   getDropOldIncrementalUnitsQuery(
     params: DropOldIncrementalUnitsQueryParams,
   ): string {
-    return getDropOldIncrementalUnitsQuery(this.getSqlHelpers(), params);
+    return getDropOldIncrementalUnitsQuery(this.getSqlDialect(), params);
   }
 
   getAlterNewIncrementalUnitsQuery(
     params: AlterNewIncrementalUnitsQueryParams,
   ): string {
-    return getAlterNewIncrementalUnitsQuery(this.getSqlHelpers(), params);
+    return getAlterNewIncrementalUnitsQuery(this.getSqlDialect(), params);
   }
 
   getMaxTimestampIncrementalUnitsQuery(
@@ -1940,7 +1788,7 @@ export default abstract class SqlIntegration
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTableFullName}
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -2011,14 +1859,14 @@ export default abstract class SqlIntegration
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTableFullName}
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
   getDropMetricSourceCovariateTableQuery(
     params: DropMetricSourceCovariateTableQueryParams,
   ): string {
-    return getDropMetricSourceCovariateTableQuery(this.getSqlHelpers(), params);
+    return getDropMetricSourceCovariateTableQuery(this.getSqlDialect(), params);
   }
 
   getCreateMetricSourceCovariateTableQuery(
@@ -2048,7 +1896,7 @@ export default abstract class SqlIntegration
       ${columnDefinitions.join("\n, ")}
     )
     `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -2090,7 +1938,7 @@ export default abstract class SqlIntegration
     // TODO(incremental-refresh): use max hours to convert from here
     // for eventual "skipPartialData" feature
     const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       paramsMetricsSorted,
     );
 
@@ -2101,7 +1949,7 @@ export default abstract class SqlIntegration
     const metricData = factTableWithMetricData.metricData;
 
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource.settings,
       {
         objects: [
@@ -2129,7 +1977,7 @@ export default abstract class SqlIntegration
     SELECT * FROM (
       WITH 
         ${idJoinSQL}
-        __factTable AS (${getFactMetricCTE(this.getSqlHelpers(), {
+        __factTable AS (${getFactMetricCTE(this.getSqlDialect(), {
           baseIdType,
           idJoinMap,
           factTable: factTableWithMetricData.factTable,
@@ -2160,7 +2008,7 @@ export default abstract class SqlIntegration
                 ${
                   m.numeratorSourceIndex === factTableWithMetricData.index
                     ? `, ${aggfunction(
-                        this.ifElse(
+                        this.getSqlDialect().ifElse(
                           `m.timestamp >= ${toTimestampWithMs(raSettings.covariateStartDate)} 
                             AND m.timestamp < ${toTimestampWithMs(raSettings.covariateEndDate)}`,
                           `${m.alias}_value`,
@@ -2174,7 +2022,7 @@ export default abstract class SqlIntegration
                   isRatioMetric(m.metric) &&
                   m.denominatorSourceIndex === factTableWithMetricData.index
                     ? `, ${denomAggFunction(
-                        this.ifElse(
+                        this.getSqlDialect().ifElse(
                           `m.timestamp >= ${toTimestampWithMs(raSettings.covariateStartDate)} 
                             AND m.timestamp < ${toTimestampWithMs(raSettings.covariateEndDate)}`,
                           `${m.alias}_denominator`,
@@ -2215,7 +2063,7 @@ export default abstract class SqlIntegration
       FROM __newCovariateValues c
       )
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -2258,12 +2106,8 @@ export default abstract class SqlIntegration
     )
     ${this.createTablePartitions(["max_timestamp", "metric_date"])}
     `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
-  }
-
-  getCurrentTimestamp(): string {
-    return `CURRENT_TIMESTAMP`;
   }
 
   protected getMetricSourceTableColumnDefinitions(
@@ -2271,7 +2115,7 @@ export default abstract class SqlIntegration
     metrics: FactMetricInterface[],
   ): string[] {
     const schema = getMetricSourceTableSchema(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       baseIdType,
       metrics,
     );
@@ -2285,7 +2129,7 @@ export default abstract class SqlIntegration
     metrics: FactMetricInterface[],
   ): string[] {
     const schema = getMetricSourceTableSchema(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       baseIdType,
       metrics,
     );
@@ -2298,21 +2142,21 @@ export default abstract class SqlIntegration
   ): Map<string, string> {
     const schema = new Map<string, string>();
 
-    schema.set(baseIdType, this.getDataType("string"));
+    schema.set(baseIdType, this.getSqlDialect().getDataType("string"));
 
     metrics.forEach((metric) => {
-      const numeratorMetadata = getAggregationMetadata(this.getSqlHelpers(), {
+      const numeratorMetadata = getAggregationMetadata(this.getSqlDialect(), {
         metric,
         useDenominator: false,
       });
       schema.set(
         `${encodeMetricIdForColumnName(metric.id)}_value`,
-        this.getDataType(numeratorMetadata.finalDataType),
+        this.getSqlDialect().getDataType(numeratorMetadata.finalDataType),
       );
 
       if (isRatioMetric(metric)) {
         const denominatorMetadata = getAggregationMetadata(
-          this.getSqlHelpers(),
+          this.getSqlDialect(),
           {
             metric,
             useDenominator: true,
@@ -2320,7 +2164,7 @@ export default abstract class SqlIntegration
         );
         schema.set(
           `${encodeMetricIdForColumnName(metric.id)}_denominator_value`,
-          this.getDataType(denominatorMetadata.finalDataType),
+          this.getSqlDialect().getDataType(denominatorMetadata.finalDataType),
         );
       }
     });
@@ -2370,7 +2214,7 @@ export default abstract class SqlIntegration
     }
 
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource.settings,
       {
         objects: [[exposureQuery.userIdType], factTable?.userIdTypes || []],
@@ -2394,7 +2238,7 @@ export default abstract class SqlIntegration
     // TODO(incremental-refresh): use max hours to convert from here
     // for eventual "skipPartialData" feature
     const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       {
         ...paramsMetricsSorted,
         covariateTableAlias: "c",
@@ -2423,7 +2267,7 @@ export default abstract class SqlIntegration
     SELECT * FROM (
       WITH 
         ${idJoinSQL}
-        __factTable AS (${getFactMetricCTE(this.getSqlHelpers(), {
+        __factTable AS (${getFactMetricCTE(this.getSqlDialect(), {
           baseIdType,
           idJoinMap,
           metricsWithIndices: factTableWithMetricData.metricData.map((m) => ({
@@ -2451,7 +2295,7 @@ export default abstract class SqlIntegration
             ${metricData
               .map(
                 (data) =>
-                  `, ${addCaseWhenTimeFilter(this.getSqlHelpers(), {
+                  `, ${addCaseWhenTimeFilter(this.getSqlDialect(), {
                     col: `m.${data.alias}_value`,
                     metric: data.metric,
                     overrideConversionWindows: data.overrideConversionWindows,
@@ -2467,7 +2311,7 @@ export default abstract class SqlIntegration
                   })} AS ${data.alias}_value
                 ${
                   data.ratioMetric
-                    ? `, ${addCaseWhenTimeFilter(this.getSqlHelpers(), {
+                    ? `, ${addCaseWhenTimeFilter(this.getSqlDialect(), {
                         col: `m.${data.alias}_denominator`,
                         metric: data.metric,
                         overrideConversionWindows:
@@ -2488,7 +2332,7 @@ export default abstract class SqlIntegration
         , __newDailyValues AS (
           SELECT
             ${baseIdType}
-            , ${this.castToDate("timestamp")} AS metric_date
+            , ${this.getSqlDialect().castToDate("timestamp")} AS metric_date
             ${metricData
               .map((m) => {
                 // Use partial aggregation function since we are
@@ -2515,7 +2359,7 @@ export default abstract class SqlIntegration
           FROM __newMetricRows
           GROUP BY
             ${baseIdType}
-            , ${this.castToDate("timestamp")}
+            , ${this.getSqlDialect().castToDate("timestamp")}
         )
        SELECT
           dv.${baseIdType} AS ${baseIdType}
@@ -2533,14 +2377,14 @@ export default abstract class SqlIntegration
                 }`,
             )
             .join("\n")}
-          , ${this.getCurrentTimestamp()} AS refresh_timestamp
+          , ${this.getSqlDialect().getCurrentTimestamp()} AS refresh_timestamp
           , mt.max_timestamp AS max_timestamp
           , dv.metric_date AS metric_date
         FROM __newDailyValues dv
         CROSS JOIN __maxTimestamp mt
 )
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -2557,7 +2401,7 @@ export default abstract class SqlIntegration
     );
 
     const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       {
         ...params,
         // Covariate data joined to single table with `m` alias before columns are extracted
@@ -2599,7 +2443,7 @@ export default abstract class SqlIntegration
     ];
 
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
-      this.getSqlHelpers(),
+      this.getSqlDialect(),
       this.datasource.settings,
       {
         objects: idTypeObjects,
@@ -2613,19 +2457,19 @@ export default abstract class SqlIntegration
     const unitDimensionCols = unitDimensions.map((d) => ({
       // override value with the a MAX statement that will get one
       // value per unit
-      value: getDimensionValuePerUnit(this.getSqlHelpers(), d),
-      alias: getDimensionCol(this.getSqlHelpers(), d).alias,
+      value: getDimensionValuePerUnit(this.getSqlDialect(), d),
+      alias: getDimensionCol(this.getSqlDialect(), d).alias,
     }));
 
     const experimentDimensionCols = experimentDimensions.map((d) =>
-      getDimensionCol(this.getSqlHelpers(), d),
+      getDimensionCol(this.getSqlDialect(), d),
     );
     const precomputedDimensionCols: DimensionColumnData[] =
       params.dimensionsForPrecomputation.map((d) => {
-        const col = getDimensionCol(this.getSqlHelpers(), d);
+        const col = getDimensionCol(this.getSqlDialect(), d);
         // override value with case when statement for precomputed dimensions
         const value = getDimensionInStatement(
-          this.getSqlHelpers(),
+          this.getSqlDialect(),
           col.alias,
           d.specifiedSlices,
         );
@@ -2635,7 +2479,7 @@ export default abstract class SqlIntegration
         };
       });
     const dateDimensionCol = dateDimension
-      ? getDimensionCol(this.getSqlHelpers(), dateDimension)
+      ? getDimensionCol(this.getSqlDialect(), dateDimension)
       : undefined;
 
     const nonUnitDimensionCols = [
@@ -2678,7 +2522,7 @@ export default abstract class SqlIntegration
               (
                 d,
               ) => `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-            ${this.castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = e.${baseIdType}
+            ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = e.${baseIdType}
           )`,
             )
             .join("\n")}
@@ -2732,7 +2576,7 @@ export default abstract class SqlIntegration
             .filter((d) => d.quantileMetric === "event")
             .map(
               (d) =>
-                `, ${this.kllMergePartial(`m.${encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
+                `, ${this.getSqlDialect().kllMergePartial(`m.${encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
             )
             .join("\n")}
         FROM __experimentUnits u
@@ -2782,7 +2626,7 @@ export default abstract class SqlIntegration
                   const nEventsCol = `COALESCE(m.${encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
                   const sketchCol = `m.${encodeMetricIdForColumnName(data.metric.id)}_value`;
                   const thresholdCol = `qm.${data.alias}_quantile`;
-                  return `, ${this.kllRankApprox(sketchCol, thresholdCol, nEventsCol, 100)} AS ${data.alias}_value
+                  return `, ${this.getSqlDialect().kllRankApprox(sketchCol, thresholdCol, nEventsCol, 100)} AS ${data.alias}_value
                   , ${nEventsCol} AS ${data.alias}_n_events`;
                 }
                 // Unit quantiles with ignoreZeros: reAggregationFunction already
@@ -2867,12 +2711,12 @@ export default abstract class SqlIntegration
         percentileData.length > 0
           ? `
         , __capValue AS (
-            ${this.getSqlHelpers().percentileCapSelectClause(percentileData, "__joinedData")}
+            ${this.getSqlDialect().percentileCapSelectClause(percentileData, "__joinedData")}
         )
         `
           : ""
       }
-      ${getExperimentFactMetricStatisticsCTE(this.getSqlHelpers(), {
+      ${getExperimentFactMetricStatisticsCTE(this.getSqlDialect(), {
         dimensionCols: allDimensionCols,
         metricData,
         eventQuantileData,
@@ -2889,7 +2733,7 @@ export default abstract class SqlIntegration
         percentileTableIndices,
       })}
       `,
-      this.getFormatDialect(),
+      this.getSqlDialect().formatDialect,
     );
   }
 
@@ -2910,43 +2754,7 @@ export default abstract class SqlIntegration
   }
 
   getSampleUnitsCTE(): string {
-    return getSampleUnitsCTE(this.getSqlHelpers());
-  }
-
-  getSqlHelpers(): SqlHelpers {
-    return {
-      dateTrunc: this.dateTrunc.bind(this),
-      dateDiff: this.dateDiff.bind(this),
-      escapeStringLiteral: this.escapeStringLiteral.bind(this),
-      jsonExtract: this.extractJSONField.bind(this),
-      evalBoolean: this.evalBoolean.bind(this),
-      percentileApprox: this.approxQuantile.bind(this),
-      toTimestamp: this.toTimestamp.bind(this),
-      formatDialect: this.getFormatDialect(),
-      formatDate: this.formatDate.bind(this),
-      formatDateTimeString: this.formatDateTimeString.bind(this),
-      castToFloat: this.ensureFloat.bind(this),
-      castToString: this.castToString.bind(this),
-      castToDate: this.castToDate.bind(this),
-      castUserDateCol: this.castUserDateCol.bind(this),
-      getCurrentTimestamp: this.getCurrentTimestamp.bind(this),
-      ifElse: this.ifElse.bind(this),
-      getDataType: this.getDataType.bind(this),
-      addTime: this.addTime.bind(this),
-      selectStarLimit: this.selectStarLimit.bind(this),
-      getSchema: this.getSchema.bind(this),
-      getInformationSchemaTable: this.getInformationSchemaTable.bind(this),
-      percentileCapSelectClause: this.percentileCapSelectClause.bind(this),
-      hasCountDistinctHLL: this.hasCountDistinctHLL.bind(this),
-      hllAggregate: this.hllAggregate.bind(this),
-      hllReaggregate: this.hllReaggregate.bind(this),
-      hllCardinality: this.hllCardinality.bind(this),
-      kllInit: this.kllInit.bind(this),
-      kllMergePartial: this.kllMergePartial.bind(this),
-      kllExtractPoint: this.kllExtractPoint.bind(this),
-      kllExtractQuantiles: this.kllExtractQuantiles.bind(this),
-      kllRankApprox: this.kllRankApprox.bind(this),
-    };
+    return getSampleUnitsCTE(this.getSqlDialect());
   }
 
   getProductAnalyticsQuery(
@@ -2964,7 +2772,7 @@ export default abstract class SqlIntegration
     startDate: Date;
     endDate: Date;
   } {
-    const sqlHelpers = this.getSqlHelpers();
+    const dialect = this.getSqlDialect();
 
     const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
@@ -2972,7 +2780,7 @@ export default abstract class SqlIntegration
       config,
       factTableMap,
       metricMap,
-      sqlHelpers,
+      dialect,
       this.datasource,
     );
 

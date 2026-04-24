@@ -1,12 +1,12 @@
 import { getDelayWindowHours, getMetricWindowHours } from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { addHours } from "./add-hours";
 import { castToTimestamp } from "./cast-to-timestamp";
 
 export function computeParticipationDenominator(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   {
     initialTimestampColumn,
     analysisEndDate,
@@ -24,23 +24,23 @@ export function computeParticipationDenominator(
 
   let startDateString = castToTimestamp(initialTimestampColumn);
   if (delayHours > 0) {
-    startDateString = addHours(helpers, startDateString, delayHours);
+    startDateString = addHours(dialect, startDateString, delayHours);
   }
 
-  let endDateString = castToTimestamp(helpers.toTimestamp(analysisEndDate));
+  let endDateString = castToTimestamp(dialect.toTimestamp(analysisEndDate));
 
   if (metric.windowSettings.type === "lookback") {
     const lookbackStartDate = new Date(analysisEndDate);
     lookbackStartDate.setHours(lookbackStartDate.getHours() - windowHours);
-    startDateString = `GREATEST(${startDateString}, ${castToTimestamp(helpers.toTimestamp(lookbackStartDate))})`;
+    startDateString = `GREATEST(${startDateString}, ${castToTimestamp(dialect.toTimestamp(lookbackStartDate))})`;
   } else if (
     metric.windowSettings.type === "conversion" &&
     !overrideConversionWindows
   ) {
-    endDateString = `LEAST(${helpers.getCurrentTimestamp()}, ${addHours(helpers, startDateString, windowHours)})`;
+    endDateString = `LEAST(${dialect.getCurrentTimestamp()}, ${addHours(dialect, startDateString, windowHours)})`;
   }
 
-  return helpers.castToFloat(
-    `GREATEST(${helpers.dateDiff(startDateString, endDateString)} + 1, 1)`,
+  return dialect.castToFloat(
+    `GREATEST(${dialect.dateDiff(startDateString, endDateString)} + 1, 1)`,
   );
 }

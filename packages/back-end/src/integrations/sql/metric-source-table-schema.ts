@@ -1,37 +1,37 @@
 import { isRatioMetric, quantileMetricType } from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 
 import { encodeMetricIdForColumnName } from "./encode-metric-id-for-column-name";
 import { getAggregationMetadata } from "./aggregation-metadata";
 
 export function getMetricSourceTableSchema(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   baseIdType: string,
   metrics: FactMetricInterface[],
 ): Map<string, string> {
   const schema = new Map<string, string>();
 
-  schema.set(baseIdType, helpers.getDataType("string"));
+  schema.set(baseIdType, dialect.getDataType("string"));
 
   metrics.forEach((metric) => {
-    const numeratorMetadata = getAggregationMetadata(helpers, {
+    const numeratorMetadata = getAggregationMetadata(dialect, {
       metric,
       useDenominator: false,
     });
     schema.set(
       `${encodeMetricIdForColumnName(metric.id)}_value`,
-      helpers.getDataType(numeratorMetadata.intermediateDataType),
+      dialect.getDataType(numeratorMetadata.intermediateDataType),
     );
 
     if (isRatioMetric(metric)) {
-      const denominatorMetadata = getAggregationMetadata(helpers, {
+      const denominatorMetadata = getAggregationMetadata(dialect, {
         metric,
         useDenominator: true,
       });
       schema.set(
         `${encodeMetricIdForColumnName(metric.id)}_denominator_value`,
-        helpers.getDataType(denominatorMetadata.intermediateDataType),
+        dialect.getDataType(denominatorMetadata.intermediateDataType),
       );
     }
 
@@ -42,14 +42,14 @@ export function getMetricSourceTableSchema(
     if (quantileMetricType(metric) === "event") {
       schema.set(
         `${encodeMetricIdForColumnName(metric.id)}_n_events`,
-        helpers.getDataType("integer"),
+        dialect.getDataType("integer"),
       );
     }
   });
 
-  schema.set("refresh_timestamp", helpers.getDataType("timestamp"));
-  schema.set("max_timestamp", helpers.getDataType("timestamp"));
-  schema.set("metric_date", helpers.getDataType("date"));
+  schema.set("refresh_timestamp", dialect.getDataType("timestamp"));
+  schema.set("max_timestamp", dialect.getDataType("timestamp"));
+  schema.set("metric_date", dialect.getDataType("date"));
 
   return schema;
 }

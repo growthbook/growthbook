@@ -3,7 +3,7 @@ import { getUserIdTypes } from "shared/experiments";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentAggregateUnitsQueryParams } from "shared/types/integrations";
-import type { SqlHelpers } from "shared/types/sql";
+import type { SqlDialect } from "shared/types/sql";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 
 import { getBanditCaseWhen } from "./bandit-case-when";
@@ -15,7 +15,7 @@ import { getIdentitiesCTE } from "./identities-cte";
 import { getUnitCountCTE } from "./unit-count-cte";
 
 export function getExperimentAggregateUnitsQuery(
-  helpers: SqlHelpers,
+  dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: ExperimentAggregateUnitsQueryParams,
 ): string {
@@ -42,7 +42,7 @@ export function getExperimentAggregateUnitsQuery(
   const computeBanditSrm = !!banditDates && !!variationPeriodWeights;
 
   const { baseIdType, idJoinSQL } = getIdentitiesCTE(
-    helpers,
+    dialect,
     datasource.settings,
     {
       objects: [
@@ -65,7 +65,7 @@ export function getExperimentAggregateUnitsQuery(
       ${idJoinSQL}
       ${
         !useUnitsTable
-          ? `${getExperimentUnitsQuery(helpers, datasource, {
+          ? `${getExperimentUnitsQuery(dialect, datasource, {
               ...params,
               includeIdJoins: false,
             })},`
@@ -75,15 +75,15 @@ export function getExperimentAggregateUnitsQuery(
         SELECT
           ${baseIdType}
           , variation
-          , ${helpers.formatDate(
-            helpers.dateTrunc("first_exposure_timestamp", "day"),
+          , ${dialect.formatDate(
+            dialect.dateTrunc("first_exposure_timestamp", "day"),
           )} AS dim_exposure_date
-          ${banditDates ? `${getBanditCaseWhen(helpers, banditDates)}` : ""}
+          ${banditDates ? `${getBanditCaseWhen(dialect, banditDates)}` : ""}
           ${experimentDimensions
             .map(
               (d) =>
                 `, ${getDimensionInStatement(
-                  helpers,
+                  dialect,
                   `dim_exp_${d.id}`,
                   d.specifiedSlices,
                 )} AS dim_exp_${d.id}`,
@@ -91,7 +91,7 @@ export function getExperimentAggregateUnitsQuery(
             .join("\n")}
           ${
             activationMetric
-              ? `, ${helpers.ifElse(
+              ? `, ${dialect.ifElse(
                   `first_activation_timestamp IS NULL`,
                   "'Not Activated'",
                   "'Activated'",
@@ -111,7 +111,7 @@ export function getExperimentAggregateUnitsQuery(
         ]
           .map((d) =>
             getUnitCountCTE(
-              helpers,
+              dialect,
               d,
               activationMetric && d !== "dim_activated"
                 ? "WHERE dim_activated = 'Activated'"
@@ -129,8 +129,8 @@ export function getExperimentAggregateUnitsQuery(
             .map(
               (w) => `
             SELECT
-              ${helpers.castToString(`'${w.variationId}'`)} AS variation
-              , ${helpers.toTimestamp(w.date)} AS bandit_period
+              ${dialect.castToString(`'${w.variationId}'`)} AS variation
+              , ${dialect.toTimestamp(w.date)} AS bandit_period
               , ${w.weight} AS weight
           `,
             )
@@ -161,7 +161,7 @@ export function getExperimentAggregateUnitsQuery(
         , __expectedUnitsByVariationBanditPeriod AS (
           SELECT
             u.variation AS variation
-            , MAX(${helpers.castToString("''")}) AS constant
+            , MAX(${dialect.castToString("''")}) AS constant
             , SUM(u.units) AS units
             , SUM(t.total_units * u.weight) AS expected_units
           FROM __unitsByVariationBanditPeriod u
@@ -174,9 +174,9 @@ export function getExperimentAggregateUnitsQuery(
         )
         , __banditSrm AS (
           SELECT
-            MAX(${helpers.castToString("''")}) AS variation
-            , MAX(${helpers.castToString("''")}) AS dimension_value
-            , MAX(${helpers.castToString(
+            MAX(${dialect.castToString("''")}) AS variation
+            , MAX(${dialect.castToString("''")}) AS dimension_value
+            , MAX(${dialect.castToString(
               `'${BANDIT_SRM_DIMENSION_NAME}'`,
             )}) AS dimension_name
             , SUM(POW(expected_units - units, 2) / expected_units) AS units
@@ -197,13 +197,13 @@ export function getExperimentAggregateUnitsQuery(
           : ""
       }
 
-      ${helpers.selectStarLimit(
+      ${dialect.selectStarLimit(
         computeBanditSrm
           ? "__unitsByDimensionWithBanditSrm"
           : "__unitsByDimension",
         MAX_ROWS_UNIT_AGGREGATE_QUERY,
       )}
     `,
-    helpers.formatDialect,
+    dialect.formatDialect,
   );
 }
