@@ -161,6 +161,18 @@ export default function ExperimentDecisionExplanation({
     readinessReasonBullets.push(
       "The experiment has reached the targeted statistical power.",
     );
+  } else if (viaMaxDuration && viaTargetSample) {
+    const durationClause =
+      durationPhrase != null
+        ? `maximum duration of ${durationPhrase}`
+        : "maximum duration";
+    const sampleClause =
+      samplePhrase != null
+        ? `target sample size of ${samplePhrase}`
+        : "target sample size";
+    readinessReasonBullets.push(
+      `The experiment reached its configured ${durationClause} and reached its configured ${sampleClause}.`,
+    );
   } else {
     if (viaMaxDuration) {
       readinessReasonBullets.push(

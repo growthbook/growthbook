@@ -346,56 +346,66 @@ export default function AnalysisSettings({
           )}
         </div>
         {!isBandit && !isHoldout && hasDecisionFramework && (
-          <div className="row mt-4">
-            <div className="col-4">
-              <div className="h5">Target MDE</div>
-              <div>
-                {goalsWithTargetMDE.length ? (
-                  <ul className="list-unstyled mb-0">
-                    {goalsWithTargetMDE.map((metric, i) => {
-                      return (
-                        <li key={`goal-mde-${i}`}>
-                          {metric.name} (
-                          {percentFormatter.format(metric.computedTargetMDE)})
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <em>none</em>
-                )}
-              </div>
-              {canEditAnalysisSettings ? (
+          <>
+            <div className="row mt-4">
+              <div className="col-12 mb-4">
+                <div className="h5">Decision Criteria</div>
+                <div>
+                  <Text weight="regular">{decisionCriteria.name}</Text>
+                  <Text color="text-mid">{`: ${decisionCriteria.description}`}</Text>
+                </div>
                 <div className="mt-1">
                   <Link
                     onClick={() => {
-                      setTargetMDEModal(true);
+                      setDecisionCriteriaModal(true);
                     }}
                   >
-                    View/Edit
+                    {canEditAnalysisSettings ? "View/Edit" : "View"}
                   </Link>
                 </div>
+              </div>
+            </div>
+            <div className="row">
+              <div className="col-4 mb-4">
+                <div className="h5">Target MDE</div>
+                <div>
+                  {goalsWithTargetMDE.length ? (
+                    <ul className="list-unstyled mb-0">
+                      {goalsWithTargetMDE.map((metric, i) => {
+                        return (
+                          <li key={`goal-mde-${i}`}>
+                            {metric.name} (
+                            {percentFormatter.format(metric.computedTargetMDE)})
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <em>none</em>
+                  )}
+                </div>
+                {canEditAnalysisSettings ? (
+                  <div className="mt-1">
+                    <Link
+                      onClick={() => {
+                        setTargetMDEModal(true);
+                      }}
+                    >
+                      View/Edit
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+              {!isPublic ? (
+                <>
+                  {maxExperimentDurationColumn}
+                  {targetSampleSizeColumn}
+                </>
               ) : null}
             </div>
-            <div className="col-4">
-              <div className="h5">Decision Criteria</div>
-              <div>
-                <Text weight="regular">{decisionCriteria.name}</Text>
-                <Text color="text-mid">{`: ${decisionCriteria.description}`}</Text>
-              </div>
-              <div className="mt-1">
-                <Link
-                  onClick={() => {
-                    setDecisionCriteriaModal(true);
-                  }}
-                >
-                  {canEditAnalysisSettings ? "View/Edit" : "View"}
-                </Link>
-              </div>
-            </div>
-          </div>
+          </>
         )}
-        {!isPublic && !isBandit && (
+        {!isPublic && !isBandit && !hasDecisionFramework && (
           <div className="row mt-4">
             {maxExperimentDurationColumn}
             {targetSampleSizeColumn}
