@@ -42,7 +42,9 @@ import {
   PrerequisiteStateResult,
 } from "@/hooks/usePrerequisiteStates";
 import { condToJson, jsonToConds } from "@/services/features";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  FormatOptionLabelType,
+} from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
@@ -526,7 +528,9 @@ export default function PrerequisiteInput({
                                   parentFeatureMeta?.valueType,
                                 )}
                                 sort={false}
-                                formatOptionLabel={formatOperatorLabel}
+                                formatOptionLabel={
+                                  formatOperatorLabel as FormatOptionLabelType
+                                }
                                 onChange={(op) => {
                                   if (!conds?.[0]?.[0]) return;
                                   const newConds = [...conds[0]];

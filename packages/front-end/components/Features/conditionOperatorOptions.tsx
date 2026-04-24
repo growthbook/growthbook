@@ -257,14 +257,18 @@ export function getConditionOperators(
       OP_NOT_EXISTS,
     ];
   if (enumValues?.length)
-    return [OP_EQ, OP_NE, OP_IN, OP_NIN, OP_EXISTS, OP_NOT_EXISTS, ...sg];
+    // Saved groups intentionally excluded for enum attributes (matches original behaviour)
+    return [OP_EQ, OP_NE, OP_IN, OP_NIN, OP_EXISTS, OP_NOT_EXISTS];
   if (datatype === "string") {
     if (format === "date")
+      // Regex operators are kept for date strings to avoid breaking existing conditions
       return [
         OP_EQ,
         OP_NE,
         OP_IN,
         OP_NIN,
+        OP_REGEX,
+        OP_NOT_REGEX,
         OP_AFTER,
         OP_AFTER_ON,
         OP_BEFORE,

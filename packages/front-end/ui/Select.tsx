@@ -55,7 +55,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   ref,
 ) {
   return (
-    <Flex direction="column" {...containerProps} ref={ref} className={`gb-select--${size}`}>
+    <Flex
+      direction="column"
+      {...containerProps}
+      ref={ref}
+      className={`gb-select--${size}`}
+    >
       {typeof label === "string" ? (
         <Text as="label" size="3" weight="medium">
           {label}

@@ -30,7 +30,9 @@ import {
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  FormatOptionLabelType,
+} from "@/components/Forms/SelectField";
 import CodeTextArea, {
   FIVE_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
@@ -964,7 +966,9 @@ function ConditionAndGroupInput({
                     name="operator"
                     options={operatorOptions}
                     sort={false}
-                    formatOptionLabel={formatOperatorLabel}
+                    formatOptionLabel={
+                      formatOperatorLabel as FormatOptionLabelType
+                    }
                     onChange={(v) => {
                       const newOperator = withOperatorCaseInsensitivity(
                         v,
