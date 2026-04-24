@@ -141,7 +141,7 @@ export function ConditionRow({
         <Flex gap="3" align="start">
           {prefixSlot !== undefined && (
             <Box flexShrink="0" style={{ width: 35 }}>
-              <Flex align="center" style={{ height: 38 }}>
+              <Flex align="center" style={{ height: 36 }}>
                 {prefixSlot}
               </Flex>
             </Box>
@@ -177,7 +177,7 @@ export function ConditionRow({
     <Flex gap="3" align="start" className="gb-condition-row">
       {prefixSlot !== undefined && (
         <Box flexShrink="0" style={{ width: 35 }}>
-          <Flex align="center" style={{ height: 38 }}>
+          <Flex align="center" style={{ height: 36 }}>
             {prefixSlot}
           </Flex>
         </Box>

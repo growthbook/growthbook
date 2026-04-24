@@ -4,7 +4,7 @@ import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { dateNoYear } from "shared/dates";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { DropdownMenu as RadixDropdownMenu, Box, Flex } from "@radix-ui/themes";
-import { PiCaretDownBold } from "react-icons/pi";
+import { PiCaretDown } from "react-icons/pi";
 import RevisionLabel, {
   revisionLabelText,
 } from "@/components/Features/RevisionLabel";
@@ -253,7 +253,10 @@ export default function RevisionDropdown({
           />
         </Box>
       )}
-      <PiCaretDownBold style={{ flexShrink: 0 }} />
+      <PiCaretDown
+        size={16}
+        style={{ flexShrink: 0, color: "var(--gray-12)" }}
+      />
     </Flex>
   );
 

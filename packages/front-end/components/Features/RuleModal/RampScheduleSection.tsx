@@ -10,7 +10,7 @@ import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import {
   PiPlusBold,
   PiInfo,
-  PiCaretDownBold,
+  PiCaretDown,
   PiBookmarkSimple,
 } from "react-icons/pi";
 import type {
@@ -1209,7 +1209,10 @@ export default function RampScheduleSection({
         {selectedTemplate?.name ??
           (templates.length === 0 ? "No presets available" : "Custom...")}
       </span>
-      <PiCaretDownBold style={{ flexShrink: 0 }} />
+      <PiCaretDown
+        size={16}
+        style={{ flexShrink: 0, color: "var(--gray-12)" }}
+      />
     </Flex>
   );
 
@@ -1227,7 +1230,7 @@ export default function RampScheduleSection({
           open={presetOpen}
           onOpenChange={setPresetOpen}
           trigger={presetTrigger}
-          triggerClassName="dropdown-trigger-select-style dropdown-trigger-header"
+          triggerClassName="dropdown-trigger-select-style"
           triggerStyle={{ paddingTop: 4, paddingBottom: 4 }}
           menuWidth="full"
           menuPlacement="end"
