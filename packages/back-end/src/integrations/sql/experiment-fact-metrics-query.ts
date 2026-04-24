@@ -70,8 +70,7 @@ export function getExperimentFactMetricsQuery(
 
   const userIdType =
     params.forcedUserIdType ??
-    getExposureQuery(datasource, settings.exposureQueryId || "")
-      .userIdType;
+    getExposureQuery(datasource, settings.exposureQueryId || "").userIdType;
 
   const metricData = metricsWithIndices.map((metric) =>
     getMetricData(
@@ -209,10 +208,7 @@ export function getExperimentFactMetricsQuery(
   const regressionAdjustedTableIndices = new Set<number>();
   regressionAdjustedMetrics.forEach((m) => {
     regressionAdjustedTableIndices.add(m.numeratorSourceIndex);
-    if (
-      m.ratioMetric &&
-      m.denominatorSourceIndex !== m.numeratorSourceIndex
-    ) {
+    if (m.ratioMetric && m.denominatorSourceIndex !== m.numeratorSourceIndex) {
       regressionAdjustedTableIndices.add(m.denominatorSourceIndex);
     }
   });

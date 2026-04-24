@@ -102,24 +102,21 @@ describe("BigQuery KLL quantile sketch methods", () => {
   });
 
   it("generates KLL EXTRACT_POINT", () => {
-    expect(integration.getSqlDialect().kllExtractPoint("sketch_col", 0.95)).toBe(
-      "KLL_QUANTILES.EXTRACT_POINT_FLOAT64(sketch_col, 0.95)",
-    );
+    expect(
+      integration.getSqlDialect().kllExtractPoint("sketch_col", 0.95),
+    ).toBe("KLL_QUANTILES.EXTRACT_POINT_FLOAT64(sketch_col, 0.95)");
   });
 
   it("generates KLL EXTRACT (quantile array)", () => {
-    expect(integration.getSqlDialect().kllExtractQuantiles("sketch_col", 100)).toBe(
-      "KLL_QUANTILES.EXTRACT_FLOAT64(sketch_col, 100)",
-    );
+    expect(
+      integration.getSqlDialect().kllExtractQuantiles("sketch_col", 100),
+    ).toBe("KLL_QUANTILES.EXTRACT_FLOAT64(sketch_col, 100)");
   });
 
   it("generates rank approximation via CDF counting", () => {
-    const sql = integration.getSqlDialect().kllRankApprox(
-      "m.sketch",
-      "qm.q_hat",
-      "m.n_events",
-      100,
-    );
+    const sql = integration
+      .getSqlDialect()
+      .kllRankApprox("m.sketch", "qm.q_hat", "m.n_events", 100);
     // 100 quantiles → 101 points at levels {0, 1/100, ..., 1}.
     // count of points strictly below percentile p is ≈100p, so divide by 100
     // (not 101) for an unbiased estimate.
