@@ -49,6 +49,3 @@ charts/**/*.tgz
 preview/Dockerfile.generated
 
 next-env.d.ts
-
-# Local dev state (ch-ui database, app secret)
-data/
