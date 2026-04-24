@@ -29,6 +29,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarderDatasourceLifecycle";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
 const audit = createModelAuditLogger({
@@ -194,6 +195,8 @@ export async function deleteDatasource(
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
+  await syncEventForwarderAfterDatasourceDeleted(context, datasource);
+
   if (datasource.type === "growthbook_clickhouse") {
     await deleteClickhouseUser(context.org.id);
 
@@ -220,18 +223,29 @@ export async function deleteDatasource(
 
 /**
  * Deletes data sources where the provided project is the only project of that data source.
- * @param projectId
- * @param organizationId
+ * Runs event-forwarder teardown per datasource before removal so Confluent resources are not orphaned.
  */
 export async function deleteAllDataSourcesForAProject({
+  context,
   projectId,
   organizationId,
 }: {
+  context: ReqContext | ApiReqContext;
   projectId: string;
   organizationId: string;
 }) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
+  }
+
+  const docs = await DataSourceModel.find({
+    organization: organizationId,
+    projects: [projectId],
+  });
+
+  for (const doc of docs) {
+    const datasource = toInterface(doc);
+    await syncEventForwarderAfterDatasourceDeleted(context, datasource);
   }
 
   await DataSourceModel.deleteMany({
