@@ -4,6 +4,7 @@ import { ApprovalFlowConfigurations } from "shared/types/organization";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
+export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 export const DEFAULT_P_VALUE_CORRECTION = null;
 export const DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE = 0.001;

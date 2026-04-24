@@ -1,12 +1,10 @@
-import React, { FC, useMemo } from "react";
+import { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { Box } from "@radix-ui/themes";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import Text from "@/ui/Text";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import Field from "@/components/Forms/Field";
 
 type EditIdentifierTypeProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -95,28 +93,21 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
     : "";
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       open={true}
       submit={handleSubmit}
       close={onCancel}
       size="md"
       header={`${mode === "edit" ? "Edit" : "Add"} Identifier Type`}
-      cta="Save"
+      subheader="Define all the different units you use to split traffic in an
+            experiment"
       ctaEnabled={saveEnabled}
-      autoFocusSelector="#id-modal-identifier-type"
-      useRadixButton
     >
       <>
-        <Box mb="4">
-          <Text size="medium" color="text-mid">
-            Define all the different units you use to split traffic in an
-            experiment. Some examples: user_id, device_id, ip_address.
-          </Text>
-        </Box>
-
         <Field
           label="Identifier Type"
+          labelClassName="font-weight-bold"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
           readOnly={mode === "edit"}
@@ -126,6 +117,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
         />
         <Field
           label="Description (optional)"
+          labelClassName="font-weight-bold"
           {...form.register("description")}
           minRows={1}
           maxRows={5}
@@ -134,6 +126,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
         {hashAttributes && (
           <MultiSelectField
             label="Hash Attributes"
+            labelClassName="font-weight-bold"
             value={form.watch("attributes")}
             helpText="Select the hash attributes that map to this identifier type."
             onChange={(value) => {
@@ -146,6 +139,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           />
         )}
       </>
-    </Modal>
+    </DialogLayout>
   );
 };

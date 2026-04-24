@@ -29,6 +29,7 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
@@ -645,7 +646,8 @@ export default function FactMetricPage() {
           </div>
         ) : null}
         <div className="col-auto">
-          Tags: <SortedTags tags={factMetric.tags} />
+          Tags:{" "}
+          <SortedTags tags={factMetric.tags} {...tagLinkProps("metrics")} />
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"

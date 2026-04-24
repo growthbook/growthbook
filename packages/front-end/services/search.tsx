@@ -3,6 +3,7 @@ import {
   useMemo,
   ChangeEvent,
   FC,
+  MouseEvent,
   ReactNode,
   useCallback,
   useEffect,
@@ -31,6 +32,52 @@ export type SearchFields<T> = (
   | keyof T
   | `${Exclude<keyof T, symbol>}^${number}`
 )[];
+
+// Builds a list-page URL with a pre-applied `q` syntax filter for useSearch.
+// Always quotes value so reserved chars are literal; strips inner quotes (parser has no escape).
+export function buildFilterUrl(
+  pathname: string,
+  field: string,
+  value: string,
+): string {
+  const params = new URLSearchParams();
+  params.set("q", `${field}:"${value.replace(/"/g, "")}"`);
+  return `${pathname}?${params.toString()}`;
+}
+
+// Props for <SortedTags> to link each tag to `/${entity}?q=tag:"..."`.
+export function tagLinkProps(
+  entity: "features" | "experiments" | "metrics" | "bandits",
+) {
+  return {
+    getTagHref: (tag: string) => buildFilterUrl(`/${entity}`, "tag", tag),
+    linkEntity: entity,
+  };
+}
+
+// Matches a `tag:` clause in a search value so we can replace just that portion.
+const tagFilterClauseRegex =
+  /(^|\s)tag:!?[><=^~]?(?:"[^"]*"|[^\s,]+)(?:,(?:"[^"]*"|[^\s,]+))*/gi;
+
+// Click handler for list pages: filter the current list in place instead of navigating.
+// Replaces only the tag clause in the current search value so other filters are preserved.
+// Modifier clicks (cmd/ctrl/shift/alt) fall through to the anchor's href so the browser
+// can open the filter page in a new tab/window as the user expects.
+export function tagFilterOnClick(
+  currentValue: string,
+  setSearchValue: (value: string) => void,
+): (tag: string, e: MouseEvent) => void {
+  return (tag, e) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const safe = tag.replace(/"/g, "");
+    const stripped = currentValue
+      .replace(tagFilterClauseRegex, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    setSearchValue(stripped ? `${stripped} tag:"${safe}"` : `tag:"${safe}"`);
+  };
+}
 
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 

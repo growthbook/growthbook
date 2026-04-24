@@ -31,6 +31,7 @@ export * from "./metric-time-series";
 export * from "./numbers";
 export * from "./types";
 export * from "./errors";
+export * from "./namespaces";
 export * from "./custom-fields";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
