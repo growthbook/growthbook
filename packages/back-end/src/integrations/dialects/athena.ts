@@ -18,6 +18,10 @@ export const athenaDialect: SqlDialect = {
   dateDiff: (startCol: string, endCol: string) =>
     `date_diff('day', ${startCol}, ${endCol})`,
   castToFloat: (col: string) => `CAST(${col} AS double)`,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
+    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    return isNumeric ? athenaDialect.castToFloat(raw) : raw;
+  },
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `APPROX_SET(${col})`,
   hllReaggregate: (col: string) => `MERGE(${col})`,
