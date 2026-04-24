@@ -1,9 +1,4 @@
 {
-  "packages/back-end/src/api/ApiModel.ts": {
-    "prettier/prettier": {
-      "count": 4
-    }
-  },
   "packages/front-end/components/Archetype/AssignmentTester.tsx": {
     "no-restricted-imports": {
       "count": 2

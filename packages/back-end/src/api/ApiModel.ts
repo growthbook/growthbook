@@ -107,10 +107,10 @@ export type OpenApiEndpointSpec = {
  */
 export type OpenApiModelSpec<
   T extends ApiBaseSchema = ApiBaseSchema,
-  C extends ApiCreateZodObject<ApiBaseSchema> =
-    ApiCreateZodObject<ApiBaseSchema>,
-  U extends ApiUpdateZodObject<ApiBaseSchema> =
-    ApiUpdateZodObject<ApiBaseSchema>,
+  C extends
+    ApiCreateZodObject<ApiBaseSchema> = ApiCreateZodObject<ApiBaseSchema>,
+  U extends
+    ApiUpdateZodObject<ApiBaseSchema> = ApiUpdateZodObject<ApiBaseSchema>,
 > = {
   modelSingular: string;
   modelPlural: string;
@@ -142,10 +142,10 @@ export type OpenApiModelSpec<
  */
 export type ApiModelConfig<
   T extends ApiBaseSchema = ApiBaseSchema,
-  C extends ApiCreateZodObject<ApiBaseSchema> =
-    ApiCreateZodObject<ApiBaseSchema>,
-  U extends ApiUpdateZodObject<ApiBaseSchema> =
-    ApiUpdateZodObject<ApiBaseSchema>,
+  C extends
+    ApiCreateZodObject<ApiBaseSchema> = ApiCreateZodObject<ApiBaseSchema>,
+  U extends
+    ApiUpdateZodObject<ApiBaseSchema> = ApiUpdateZodObject<ApiBaseSchema>,
 > = {
   modelKey: ModelName;
   openApiSpec: OpenApiModelSpec<T, C, U>;
