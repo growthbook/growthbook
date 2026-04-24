@@ -36,6 +36,30 @@ function normalizeDuration(
   return { value, unit };
 }
 
+/** Validate raw form value so invalid numbers are not masked by `normalizeDuration`. */
+function validateMaxExperimentDuration(
+  v: MaxExperimentDuration | undefined,
+): true | string {
+  if (v == null || typeof v !== "object") {
+    return "Must be at least 1";
+  }
+  const { value, unit } = v;
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 1
+  ) {
+    return "Must be at least 1";
+  }
+  if (
+    !MAX_EXPERIMENT_DURATION_UNITS.includes(unit as MaxExperimentDurationUnit)
+  ) {
+    return "Choose a valid unit (hours, days, or weeks).";
+  }
+  return true;
+}
+
 function parsePositiveDurationValue(raw: string): number | undefined {
   if (raw === "" || !/^\d+$/.test(raw)) return undefined;
   const n = Number.parseInt(raw, 10);
@@ -125,10 +149,7 @@ export function MaxExperimentDurationFields({
         name="maxExperimentDuration"
         control={form.control}
         rules={{
-          validate: (v) => {
-            const d = normalizeDuration(v);
-            return d.value >= 1 || "Must be at least 1";
-          },
+          validate: (v) => validateMaxExperimentDuration(v),
         }}
         render={({ field }) => {
           const duration = normalizeDuration(field.value);

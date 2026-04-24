@@ -2,6 +2,7 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
   Variation,
+  getBanditRestrictedFieldErrorsForExperimentUpdate,
   updateExperimentValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -34,6 +35,15 @@ export const updateExperiment = createApiRequestHandler(
   }
   if (experiment.type === "holdout") {
     throw new Error("Holdouts are not supported via this API");
+  }
+
+  const banditRestrictedErrors =
+    getBanditRestrictedFieldErrorsForExperimentUpdate(
+      req.body,
+      experiment.type,
+    );
+  if (banditRestrictedErrors.length) {
+    throw new Error(banditRestrictedErrors.join("\n"));
   }
 
   // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel

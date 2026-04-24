@@ -1,6 +1,7 @@
 import type { ExperimentInterface } from "shared/types/experiment";
 import {
   formatMaxExperimentDuration,
+  nominalMaxExperimentDurationMs,
   formatTargetSampleSize,
   getCalendarDaysRemainingUntilMaxExperimentEnd,
   getMaxExperimentDurationAnchor,
@@ -50,6 +51,20 @@ function baseBandit(
     ...overrides,
   };
 }
+
+describe("nominalMaxExperimentDurationMs", () => {
+  it("uses fixed 24h days and 7-day weeks (independent of local DST)", () => {
+    expect(nominalMaxExperimentDurationMs({ value: 1, unit: "days" })).toBe(
+      86_400_000,
+    );
+    expect(nominalMaxExperimentDurationMs({ value: 1, unit: "weeks" })).toBe(
+      7 * 86_400_000,
+    );
+    expect(nominalMaxExperimentDurationMs({ value: 3, unit: "hours" })).toBe(
+      3 * 3_600_000,
+    );
+  });
+});
 
 describe("formatMaxExperimentDuration", () => {
   it("shows days for multi-day windows from days or weeks", () => {

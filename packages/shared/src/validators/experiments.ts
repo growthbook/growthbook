@@ -1295,27 +1295,44 @@ const updateExperimentBody = z
     maxExperimentDuration: maxExperimentDurationValidator.optional(),
     targetSampleSize: targetSampleSizeValidator.optional(),
   })
-  .strict()
-  .superRefine((data, ctx) => {
-    if (data.type === "multi-armed-bandit") {
-      if (data.maxExperimentDuration !== undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            "maxExperimentDuration is not supported for multi-armed-bandit experiments",
-          path: ["maxExperimentDuration"],
-        });
-      }
-      if (data.targetSampleSize !== undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            "targetSampleSize is not supported for multi-armed-bandit experiments",
-          path: ["targetSampleSize"],
-        });
-      }
-    }
-  });
+  .strict();
+
+/**
+ * `maxExperimentDuration` / `targetSampleSize` are invalid for bandit experiments.
+ * Zod cannot apply this on partial update bodies alone because `type` is optional:
+ * omitting `type` on PATCH leaves `body.type` undefined even when the persisted
+ * experiment is a bandit. Callers with access to the persisted experiment should
+ * run this after parsing the body (e.g. REST `updateExperiment` handler).
+ */
+export function getBanditRestrictedFieldErrorsForExperimentUpdate(
+  body: Pick<
+    z.infer<typeof updateExperimentBody>,
+    "type" | "maxExperimentDuration" | "targetSampleSize"
+  >,
+  persistedExperimentType: ExperimentInterface["type"] | undefined,
+): string[] {
+  const effectiveType =
+    body.type !== undefined
+      ? body.type
+      : persistedExperimentType === "holdout"
+        ? "standard"
+        : (persistedExperimentType ?? "standard");
+  if (effectiveType !== "multi-armed-bandit") {
+    return [];
+  }
+  const errors: string[] = [];
+  if (body.maxExperimentDuration !== undefined) {
+    errors.push(
+      "maxExperimentDuration is not supported for multi-armed-bandit experiments",
+    );
+  }
+  if (body.targetSampleSize !== undefined) {
+    errors.push(
+      "targetSampleSize is not supported for multi-armed-bandit experiments",
+    );
+  }
+  return errors;
+}
 
 // Common params
 const idParams = z

@@ -93,8 +93,31 @@ export function addMaxDurationToDate(
 }
 
 /**
+ * Nominal span of a configured max duration in milliseconds (fixed 24h days, 7-day weeks).
+ * Used for display strings so formatting does not depend on the runtime timezone or DST;
+ * `addMaxDurationToDate` still uses calendar semantics for real phase anchors.
+ */
+export function nominalMaxExperimentDurationMs(
+  duration: MaxExperimentDuration,
+): number {
+  const { value, unit } = duration;
+  switch (unit) {
+    case "hours":
+      return value * MS_PER_HOUR;
+    case "days":
+      return value * MS_PER_DAY;
+    case "weeks":
+      return value * 7 * MS_PER_DAY;
+    default: {
+      const _exhaustive: never = unit;
+      return _exhaustive;
+    }
+  }
+}
+
+/**
  * Human-readable max duration for summary rows: **hours** if the configured window is
- * under 24 hours, otherwise **days** (from the true calendar length, with partial days
+ * under 24 hours, otherwise **days** (from the nominal calendar length, with partial days
  * rounded up).
  */
 export function formatMaxExperimentDuration(
@@ -108,9 +131,7 @@ export function formatMaxExperimentDuration(
   ) {
     return "—";
   }
-  const anchor = new Date("2000-01-01T00:00:00.000Z");
-  const end = addMaxDurationToDate(anchor, duration);
-  const ms = end.getTime() - anchor.getTime();
+  const ms = nominalMaxExperimentDurationMs(duration);
   const hoursTotal = ms / MS_PER_HOUR;
 
   if (hoursTotal < 24) {
