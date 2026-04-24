@@ -23,7 +23,7 @@ export function formatOperatorLabel(
 ): React.ReactNode {
   if (context === "menu") {
     return (
-      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ display: "flex", alignItems: "center" }}>
         <span
           style={{
             width: ICON_WIDTH,
