@@ -326,19 +326,33 @@ const SelectField: FC<SelectFieldProps> = ({
 
   if (!options.length && createable) {
     return (
-      <Field
-        {...fieldProps}
-        error={error}
-        ref={selectRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        autoFocus={autoFocus}
-        required={required}
-        className={className}
-        onBlur={onBlur}
-      />
+      <>
+        {!legacyLabelFormatting && label !== undefined && (
+          <Text
+            as="label"
+            size={
+              labelSize ??
+              (size === "lg" ? "large" : size === "sm" ? "small" : "medium")
+            }
+            weight={labelWeight}
+          >
+            {label}
+          </Text>
+        )}
+        <Field
+          {...fieldProps}
+          error={error}
+          ref={selectRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          required={required}
+          className={className}
+          onBlur={onBlur}
+        />
+      </>
     );
   }
 
