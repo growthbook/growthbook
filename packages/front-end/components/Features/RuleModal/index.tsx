@@ -38,7 +38,6 @@ import {
   NewExperimentRefRule,
   getDefaultRuleValue,
   getFeatureDefaultValue,
-  getRules,
   useAttributeSchema,
   useEnvironments,
   validateFeatureRule,
@@ -91,11 +90,11 @@ export interface Props {
   feature: FeatureInterface;
   setVersion: (version: number) => void;
   mutate: () => void;
+  // Global flat index into `feature.rules`. Used to position a new rule
+  // (mode: "create"); ignored for edit/duplicate which use `ruleId`.
   i: number;
   environment: string;
-  /** Stable rule ID. When provided (edit/duplicate), the rule is looked up by
-   * ID from `feature.rules` directly — works for pending rules (`environments:
-   * []`) that don't project into any env tab. */
+  // Stable rule locator. Required for edit/duplicate modes.
   ruleId?: string;
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
@@ -146,13 +145,12 @@ export default function RuleModal({
 
   const attributeSchema = useAttributeSchema(false, feature.project);
 
-  // When a stable ruleId is provided (edit/duplicate from the all-envs view),
-  // look up by ID directly so pending rules (environments:[]) are reachable.
-  // Fall back to env-projected index for env-tab callers that don't pass ruleId.
-  const rules = getRules(feature, environment);
-  const rule: (typeof rules)[number] | undefined = ruleId
-    ? (feature.rules ?? []).find((r) => r.id === ruleId)
-    : rules[i];
+  // Resolve the rule by id (edit/duplicate). For create mode, no ruleId
+  // is supplied and `rule` stays undefined.
+  const flatRules = feature.rules ?? [];
+  const rule: FeatureRule | undefined = ruleId
+    ? flatRules.find((r) => r.id === ruleId)
+    : undefined;
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -458,7 +456,7 @@ export default function RuleModal({
       prerequisites.length > 0
         ? {
             environment,
-            ruleIndex: i,
+            ruleId: rule?.id,
             prerequisites: prerequisites.map((p) => ({
               id: p.id,
               condition: p.condition,
@@ -645,9 +643,11 @@ export default function RuleModal({
       values.scheduleRules = [];
     }
 
-    // unset the ID if we're duplicating the rule.
+    // For duplicate mode, assign the pre-generated id so the inline ramp
+    // payload (which uses pregenRuleId) targets the rule the backend creates.
+    // The backend preserves a truthy client-supplied id.
     if (mode === "duplicate") {
-      values.id = "";
+      values.id = pregenRuleId;
     }
 
     // Merge rule-level env scope from the modal state. Safe-rollout rules are
@@ -1019,6 +1019,9 @@ export default function RuleModal({
       let res: { version: number } | undefined;
 
       if (mode === "edit") {
+        // Edit-mode callers always supply ruleId; assert here so the rest
+        // of the branch can use it without optional chaining.
+        if (!ruleId) throw new Error("Missing ruleId for edit");
         if (values.type === "safe-rollout") {
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
@@ -1185,8 +1188,7 @@ export default function RuleModal({
               method: "PUT",
               body: JSON.stringify({
                 rule: values,
-                // Prefer stable ruleId addressing; fall back to flat index.
-                ...(rule?.id ? { ruleId: rule.id } : { i, environment }),
+                ruleId,
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),

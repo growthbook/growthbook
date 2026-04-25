@@ -1281,7 +1281,7 @@ export default function FeaturesOverview({
                       envGridWidth > 0 &&
                       200 + envs.length * 120 < envGridWidth - 80
                         ? -26 // align to the env grid's labels' baseline
-                        : undefined,
+                        : 8,
                   }}
                 >
                   <Button

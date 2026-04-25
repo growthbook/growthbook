@@ -792,8 +792,6 @@ export async function updateRevision(
         }
       : changes;
 
-  // Uniqueness guard — mirrors the one in `updateFeature`. Auto-suffixes on
-  // collision rather than rejecting, so the write proceeds.
   if (Array.isArray(normalizedChanges.rules)) {
     const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
       normalizedChanges.rules as FeatureRule[],

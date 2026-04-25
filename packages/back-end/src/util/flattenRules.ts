@@ -37,17 +37,10 @@ export function isV2FeatureEnvSettings(
   return true;
 }
 
-// Called at persist chokepoints. Silently suffixes duplicate ids to keep the
-// write unblocked, and returns both the deduped array and a list of collisions
-// so callers can surface them to operators (Sentry / warn log) — collisions
-// signal either a pre-existing data corruption or a write-path bug, and should
-// never occur in a healthy system.
-//
-// First occurrence keeps its id; later dups get `<stem>__<envHint>__<n>` via
-// `suffixRuleId`, where envHint is derived from the rule's scope (single env
-// name, "all" for allEnvironments, or "dup" as a last resort). All forms stem
-// back to the original id so external lookups (ramps, SDK tracking keys,
-// telemetry, UI) continue to resolve.
+// Persist-chokepoint guard: suffixes duplicate ids (later occurrences get
+// `<stem>__<envHint>__<n>` via `suffixRuleId`) and returns collisions for
+// callers to log. All forms stem back to the original id so external lookups
+// (ramps, SDK tracking keys, telemetry) continue to resolve.
 export interface EnsureUniqueRuleIdsResult {
   rules: FeatureRule[];
   collisions: Array<{ originalId: string; assignedId: string }>;

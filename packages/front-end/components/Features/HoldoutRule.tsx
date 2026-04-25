@@ -106,7 +106,12 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
             <Flex align="start" justify="between" gap="3" p="1" px="2">
               <Box style={{ width: ruleCount > 1 ? "14px" : "0px" }} />
               <Box>
-                <Badge label={<>1</>} radius="full" color="gray" />
+                <Badge
+                  label={<>1</>}
+                  radius="full"
+                  color="gray"
+                  style={{ minWidth: 20 }}
+                />
               </Box>
               <Box flexGrow="1" pr="2">
                 <Flex
@@ -161,8 +166,9 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                             radius="full"
                             size="2"
                             highContrast
+                            style={{ marginRight: "calc(var(--space-2) * -1)" }}
                           >
-                            <BsThreeDotsVertical size={18} />
+                            <BsThreeDotsVertical size={16} />
                           </IconButton>
                         }
                         open={dropdownOpen}

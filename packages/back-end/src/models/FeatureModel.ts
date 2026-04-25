@@ -856,9 +856,6 @@ export async function updateFeature(
 
   const normalizedUpdates = buildFeatureUpdate(allUpdates);
 
-  // v2 invariant: one entry per rule id. Duplicates are auto-suffixed (not
-  // rejected) so pre-existing corruption or future write-path bugs don't
-  // silently block the user. Every collision is logged for investigation.
   if (Array.isArray(normalizedUpdates.rules)) {
     const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
       normalizedUpdates.rules as FeatureRule[],

@@ -140,13 +140,11 @@ import ExperimentRefSummary, {
 } from "./ExperimentRefSummary";
 
 interface SortableProps {
+  // Global flat index into `feature.rules`; fallback addressing for the modal.
   i: number;
   rule: FeatureRule;
   feature: FeatureInterface;
   environment: string;
-  /** Stable rule ID for edit/duplicate addressing. When present, the modal
-   * looks up the rule by ID rather than by (environment, i) projection. */
-  ruleId?: string;
   mutate: () => void;
   setRuleModal: (args: {
     environment: string;
@@ -213,7 +211,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule,
       feature,
       environment,
-      ruleId,
       setRuleModal,
       mutate,
       handle,
@@ -248,6 +245,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         rule.condition || "",
         attributeMap,
       );
+
+    // Numbering is the rule's index in the global `feature.rules[]`; env
+    // tabs are filtered views of the same list. Falls back to `i` mid-drag.
+    const flatIdx =
+      rule.id != null
+        ? (feature.rules ?? []).findIndex((r) => r.id === rule.id)
+        : -1;
+    const globalRuleIdx = flatIdx === -1 ? i : flatIdx;
 
     let title: string | ReactElement =
       rule.description || rule.type[0].toUpperCase() + rule.type.slice(1);
@@ -446,9 +451,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </Box>
               <Box>
                 <Badge
-                  label={<>{holdout ? i + 2 : i + 1}</>}
+                  label={<>{holdout ? globalRuleIdx + 2 : globalRuleIdx + 1}</>}
                   radius="full"
                   color="gray"
+                  style={{ minWidth: 20 }}
                 />
               </Box>
               <Box flexGrow="1" pr="2" style={{ maxWidth: "100%" }}>
@@ -516,8 +522,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             radius="full"
                             size="2"
                             highContrast
+                            style={{ marginRight: "calc(var(--space-2) * -1)" }}
                           >
-                            <BsThreeDotsVertical size={18} />
+                            <BsThreeDotsVertical size={16} />
                           </IconButton>
                         }
                         open={dropdownOpen}
@@ -531,7 +538,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               setRuleModal({
                                 environment,
                                 i,
-                                ruleId,
+                                ruleId: rule.id,
                                 mode: "edit",
                               });
                               setDropdownOpen(false);
@@ -545,7 +552,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 setRuleModal({
                                   environment,
                                   i,
-                                  ruleId,
+                                  ruleId: rule.id,
                                   mode: "duplicate",
                                 });
                                 setDropdownOpen(false);
@@ -571,9 +578,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    ...(rule.id
-                                      ? { ruleId: rule.id }
-                                      : { environment, i }),
+                                    ruleId: rule.id,
                                     rule: {
                                       ...rule,
                                       enabled: !rule.enabled,
@@ -604,9 +609,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                       {
                                         method: "PUT",
                                         body: JSON.stringify({
-                                          ...(rule.id
-                                            ? { ruleId: rule.id }
-                                            : { environment, i }),
+                                          ruleId: rule.id,
                                           rule,
                                           rampSchedule: { mode: "clear" },
                                         }),
@@ -876,9 +879,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                             {
                                               method: "PUT",
                                               body: JSON.stringify({
-                                                ...(rule.id
-                                                  ? { ruleId: rule.id }
-                                                  : { environment, i }),
+                                                ruleId: rule.id,
                                                 rule,
                                                 rampSchedule: {
                                                   mode: "detach",
@@ -923,11 +924,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   `/feature/${feature.id}/${version}/rule`,
                                   {
                                     method: "DELETE",
-                                    body: JSON.stringify(
-                                      rule.id
-                                        ? { ruleId: rule.id }
-                                        : { environment, i },
-                                    ),
+                                    body: JSON.stringify({ ruleId: rule.id }),
                                   },
                                 );
                                 await mutate();
@@ -1027,7 +1024,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             rule={rule}
                             feature={feature}
                             environment={environment}
-                            i={i}
                             setVersion={setVersion}
                             mutate={mutate}
                             open={safeRolloutStatusModalOpen}

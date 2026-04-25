@@ -109,13 +109,10 @@ import {
 } from "back-end/src/services/features";
 import {
   moveFlatRule,
-  projectRulesForEnv,
-  removeRuleAtEnvIndex,
   stampRuleForEnvs,
-  updateRuleAtFlatIndex,
+  updateRuleById,
   removeRuleById,
 } from "back-end/src/util/revisionRuleOps";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import {
   getSDKPayloadCacheLocation,
   formatLegacyCacheKey,
@@ -1838,15 +1835,7 @@ export async function postFeatureRule(
   const environmentIds = environments.map((e) => e.id);
 
   if (!selectedEnvironments.length) {
-    if (
-      "environment" in req.body &&
-      typeof req.body.environment === "string" &&
-      req.body.environment
-    ) {
-      selectedEnvironments.push(req.body.environment);
-    } else {
-      throw new Error("Must select at least one environment");
-    }
+    throw new Error("Must select at least one environment");
   }
 
   selectedEnvironments.forEach((env) => {
@@ -2748,13 +2737,11 @@ export async function putFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const {
-    environment,
-    rule,
-    ruleId,
-    i,
-    rampSchedule: rampSchedulePayload,
-  } = req.body;
+  const { rule, ruleId, rampSchedule: rampSchedulePayload } = req.body;
+
+  if (!ruleId) {
+    throw new Error("Must provide ruleId to identify the rule");
+  }
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -2764,14 +2751,6 @@ export async function putFeatureRule(
   const allEnvironments = getEnvironments(context.org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
-
-  // Legacy path: validate `environment` only when caller addresses by
-  // (environment, i) instead of ruleId.
-  if (!ruleId && i === undefined && environment) {
-    if (!environmentIds.includes(environment)) {
-      throw new Error("Invalid environment");
-    }
-  }
 
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||
@@ -2831,22 +2810,11 @@ export async function putFeatureRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  // Resolve the target rule: ruleId (preferred) or flat index `i` (fallback).
   const existingRules = cloneDeep(revision.rules ?? []);
-  let flatIdx: number;
-  if (ruleId) {
-    flatIdx = existingRules.findIndex((r) => r.id === ruleId);
-    if (flatIdx === -1) throw new Error("Unknown rule");
-  } else if (i !== undefined) {
-    if (!existingRules[i]) throw new Error("Unknown rule");
-    flatIdx = i;
-  } else {
-    throw new Error("Must provide ruleId or i to identify the rule");
-  }
-  const existingRule = existingRules[flatIdx];
-  const existingRuleId = existingRule.id;
+  const existingRule = existingRules.find((r) => r.id === ruleId);
+  if (!existingRule) throw new Error("Unknown rule");
 
-  // Permission checks use the rule's own scope, not the caller-supplied env.
+  // Audit/review scope is the rule's own env scope.
   const ruleChangedEnvs: string[] =
     existingRule.allEnvironments || existingRule.environments === undefined
       ? environmentIds
@@ -2859,12 +2827,11 @@ export async function putFeatureRule(
     settings: org?.settings,
   });
 
-  // Prepare ramp action changes if needed (will be combined with rule changes)
   let rampActionsUpdate:
     | RevisionRampCreateAction
     | RevisionRampDetachAction
     | undefined;
-  if (rampSchedulePayload && existingRuleId) {
+  if (rampSchedulePayload) {
     if (rampSchedulePayload.mode === "create") {
       const createAction: RevisionRampCreateAction = {
         mode: "create",
@@ -2877,18 +2844,18 @@ export async function putFeatureRule(
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
-        ruleId: existingRuleId,
+        ruleId,
       };
       rampActionsUpdate = createAction;
     } else if (rampSchedulePayload.mode === "detach") {
       const hasPendingCreate = (revision.rampActions ?? []).some(
-        (a) => a.mode === "create" && a.ruleId === existingRuleId,
+        (a) => a.mode === "create" && a.ruleId === ruleId,
       );
       if (!hasPendingCreate) {
         const detachAction: RevisionRampDetachAction = {
           mode: "detach",
           rampScheduleId: rampSchedulePayload.rampScheduleId,
-          ruleId: existingRuleId,
+          ruleId,
           deleteScheduleWhenEmpty: rampSchedulePayload.deleteScheduleWhenEmpty,
         };
         rampActionsUpdate = detachAction;
@@ -2899,35 +2866,29 @@ export async function putFeatureRule(
 
   // When merging produces `allEnvironments: true`, drop any stale
   // `environments` list to avoid persisting a contradictory pair.
-  const { rules: nextRules } = updateRuleAtFlatIndex(
-    existingRules,
-    flatIdx,
-    (existing) => {
-      const merged = {
-        ...existing,
-        ...(rule as Partial<FeatureRule>),
+  const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
+    const merged = {
+      ...e,
+      ...(rule as Partial<FeatureRule>),
+    } as FeatureRule;
+    if (merged.allEnvironments === true) {
+      return {
+        ...omit(merged, ["environments"]),
+        allEnvironments: true,
       } as FeatureRule;
-      if (merged.allEnvironments === true) {
-        return {
-          ...omit(merged, ["environments"]),
-          allEnvironments: true,
-        } as FeatureRule;
-      }
-      return merged;
-    },
-  );
-  const ruleChanges = { rules: nextRules };
+    }
+    return merged;
+  });
 
-  // Combine rule and ramp changes into a single revision update
-  const combinedChanges: Record<string, unknown> = ruleChanges;
-  if (rampSchedulePayload?.mode === "clear" && existingRuleId) {
-    // Strip any pending create/detach action for this rule
+  const combinedChanges: Record<string, unknown> = { rules: nextRules };
+  if (rampSchedulePayload?.mode === "clear") {
+    // Strip any pending create/detach action for this rule.
     const existingActions = revision.rampActions ?? [];
     combinedChanges.rampActions = existingActions.filter(
       (a) =>
         !(
-          (a.mode === "create" && a.ruleId === existingRuleId) ||
-          (a.mode === "detach" && a.ruleId === existingRuleId)
+          (a.mode === "create" && a.ruleId === ruleId) ||
+          (a.mode === "detach" && a.ruleId === ruleId)
         ),
     );
   } else if (rampActionsUpdate) {
@@ -2942,7 +2903,6 @@ export async function putFeatureRule(
     combinedChanges.rampActions = [...filtered, rampActionsUpdate];
   }
 
-  // Single updateRevision call combines both rule and ramp changes atomically
   const updatedRevisionAfterRuleEdit = await updateRevision(
     context,
     feature,
@@ -2951,7 +2911,7 @@ export async function putFeatureRule(
     {
       user: res.locals.eventAudit,
       action: "edit rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
-      subject: `rule ${existingRuleId ?? flatIdx}`,
+      subject: `rule ${ruleId}`,
       value: JSON.stringify(rule),
     },
     resetReview,
@@ -3359,16 +3319,17 @@ export async function getDraftandReviewRevisions(
 }
 
 export async function deleteFeatureRule(
-  req: AuthRequest<
-    { environment: string; i: number; ruleId?: string },
-    { id: string; version: string }
-  >,
+  req: AuthRequest<{ ruleId: string }, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, i, ruleId } = req.body;
+  const { ruleId } = req.body;
+
+  if (!ruleId) {
+    throw new Error("Must provide ruleId to identify the rule");
+  }
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -3378,11 +3339,6 @@ export async function deleteFeatureRule(
   const allEnvironments = getEnvironments(context.org);
   const featureEnvs = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = featureEnvs.map((e) => e.id);
-
-  // Legacy path: validate `environment` only when caller uses (environment, i).
-  if (!ruleId && environment && !environmentIds.includes(environment)) {
-    throw new Error("Invalid environment");
-  }
 
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||
@@ -3394,33 +3350,14 @@ export async function deleteFeatureRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const existingRules = cloneDeep(revision.rules ?? []);
 
-  let nextRules: FeatureRule[];
-  let rule: FeatureRule;
-  let ruleChangedEnvs: string[];
-
-  if (ruleId) {
-    ({ rules: nextRules, removed: rule } = removeRuleById(
-      existingRules,
-      ruleId,
-    ));
-    ruleChangedEnvs =
-      rule.allEnvironments || rule.environments === undefined
-        ? environmentIds
-        : (rule.environments ?? []);
-  } else {
-    // Legacy env-projected path for backward compat.
-    const applicableEnvs = getApplicableEnvIds(
-      getEnvironments(org),
-      feature.project,
-    );
-    ({ rules: nextRules, removed: rule } = removeRuleAtEnvIndex(
-      existingRules,
-      environment,
-      i,
-      applicableEnvs,
-    ));
-    ruleChangedEnvs = [environment];
-  }
+  const { rules: nextRules, removed: rule } = removeRuleById(
+    existingRules,
+    ruleId,
+  );
+  const ruleChangedEnvs: string[] =
+    rule.allEnvironments || rule.environments === undefined
+      ? environmentIds
+      : (rule.environments ?? []);
 
   const changes = { rules: nextRules };
 
@@ -3438,7 +3375,7 @@ export async function deleteFeatureRule(
     {
       user: res.locals.eventAudit,
       action: "delete rule",
-      subject: `rule ${ruleId ?? `${environment} position ${i + 1}`}`,
+      subject: `rule ${ruleId}`,
       value: JSON.stringify(rule),
     },
     resetReview,
@@ -4786,7 +4723,8 @@ export async function postBatchPrerequisiteStates(
     };
     checkRulePrerequisites?: {
       environment: string;
-      ruleIndex: number;
+      // Omit for "new rule" checks (virtually appended).
+      ruleId?: string;
       prerequisites: FeaturePrerequisite[];
     };
   }>,
@@ -4887,7 +4825,7 @@ async function evaluateBatchPrerequisiteStates({
   };
   checkRulePrerequisites?: {
     environment: string;
-    ruleIndex: number;
+    ruleId?: string;
     prerequisites: FeaturePrerequisite[];
   };
   res: Response;
@@ -5120,21 +5058,20 @@ async function evaluateBatchPrerequisiteStates({
     const testRevision = revision ? cloneDeep(revision) : null;
 
     if (testRevision) {
-      // Splice in the proposed rule at `ruleIndex` for cycle detection.
+      // Splice the proposed prereqs into the existing rule, or append a
+      // virtual rule scoped to `environment` for "new rule" checks.
       testFeature.rules = testRevision.rules ?? [];
 
-      const { environment, ruleIndex, prerequisites } = checkRulePrerequisites;
+      const { environment, ruleId, prerequisites } = checkRulePrerequisites;
       const flat: FeatureRule[] = testRevision.rules ?? [];
-      const { envRules, parentIndices } = projectRulesForEnv(flat, environment);
-      const existingRule = envRules[ruleIndex];
-      if (existingRule) {
-        const parentIdx = parentIndices[ruleIndex];
-        flat[parentIdx] = {
-          ...existingRule,
+      const flatIdx = ruleId ? flat.findIndex((r) => r.id === ruleId) : -1;
+      if (flatIdx >= 0) {
+        flat[flatIdx] = {
+          ...flat[flatIdx],
           prerequisites: prerequisites || [],
         } as FeatureRule;
         testRevision.rules = flat;
-      } else if (ruleIndex === envRules.length) {
+      } else {
         const newRule = stampRuleForEnvs(
           {
             type: "force",

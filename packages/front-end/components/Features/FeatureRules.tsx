@@ -1,5 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   FeatureRule,
@@ -27,8 +28,7 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { Box, Flex, Text } from "@radix-ui/themes";
-import { PiPlusBold } from "react-icons/pi";
+import { Box, Flex, TextField } from "@radix-ui/themes";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -42,7 +42,13 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
 import HoldoutValueModal from "./HoldoutValueModal";
 import { Rule, SortableRule } from "./Rule";
@@ -112,51 +118,37 @@ export default function FeatureRules({
     isRuleInactive(r, experimentsMap),
   );
 
-  // Open the rule modal when triggered externally (e.g. ramp timeline CTA).
-  // RuleModal addresses rules by (env, index), so for pending/unmatched rules
-  // we fall back to any env the rule projects into.
+  // Externally triggered rule open (e.g. ramp timeline CTA). Resolve to a
+  // global flat index; switch to the requested env tab when possible, else
+  // any env the rule projects into, else "All environments" for pending rules.
   useEffect(() => {
     if (!pendingRuleEdit) return;
     const { environment, ruleId } = pendingRuleEdit;
+    const handled = () => onPendingRuleEditHandled?.();
 
-    // Try preferred env first, then any env the rule projects into.
-    const preferredRules = getRules(feature, environment);
-    const preferredIdx = preferredRules.findIndex((r) => r.id === ruleId);
-    if (preferredIdx !== -1) {
-      setEnv(environment);
-      setRuleModal({ i: preferredIdx, environment, ruleId, mode: "edit" });
-      onPendingRuleEditHandled?.();
+    const flatIdx = (feature.rules ?? []).findIndex((r) => r.id === ruleId);
+    if (flatIdx === -1) {
+      handled();
       return;
     }
 
-    for (const e of environments) {
-      if (e.id === environment) continue;
-      const projected = getRules(feature, e.id);
-      const idx = projected.findIndex((r) => r.id === ruleId);
-      if (idx !== -1) {
-        setEnv(e.id);
-        setRuleModal({ i: idx, environment: e.id, ruleId, mode: "edit" });
-        onPendingRuleEditHandled?.();
-        return;
-      }
-    }
+    const preferredHas =
+      getRules(feature, environment).findIndex((r) => r.id === ruleId) !== -1;
+    const projectedEnv = preferredHas
+      ? environment
+      : (environments.find(
+          (e) =>
+            getRules(feature, e.id).findIndex((r) => r.id === ruleId) !== -1,
+        )?.id ?? "");
 
-    // Pending rule: switch to the flat "All environments" view and open by id.
-    const flatRule = (feature.rules ?? []).find((r) => r.id === ruleId);
-    if (flatRule) {
-      setEnv(null);
-      setRuleModal({
-        i: -1,
-        environment: environments[0]?.id ?? "",
-        ruleId,
-        mode: "edit",
-      });
-      onPendingRuleEditHandled?.();
-      return;
-    }
-
-    console.warn(`[deep-link] rule "${ruleId}" not found in feature.rules`);
-    onPendingRuleEditHandled?.();
+    setEnv(projectedEnv || null);
+    setRuleModal({
+      i: flatIdx,
+      environment: projectedEnv,
+      ruleId,
+      mode: "edit",
+    });
+    handled();
   }, [pendingRuleEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ruleModal, setRuleModal] = useState<{
     i: number;
@@ -194,6 +186,122 @@ export default function FeatureRules({
     !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
   const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
 
+  // Tab-overflow tracking. We measure each trigger's natural width once and
+  // cache it; overflow set is computed from cumulative widths against the
+  // tabs-bar width. Caching avoids the oscillation loop you'd get from
+  // hiding-then-remeasuring.
+  const tabsBarRef = useRef<HTMLDivElement>(null);
+  const triggerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const widthsRef = useRef<Map<string, number>>(new Map());
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [measureTick, setMeasureTick] = useState(0);
+  // Cache each trigger's natural width on mount via a ref callback so the
+  // overflow calculation reads from a stable map. Bumping `measureTick`
+  // forces overflow recompute when a new width lands.
+  const setTriggerRef = useCallback(
+    (key: string) => (el: HTMLButtonElement | null) => {
+      if (!el) {
+        triggerRefs.current.delete(key);
+        return;
+      }
+      triggerRefs.current.set(key, el);
+      if (!widthsRef.current.has(key)) {
+        const w = el.getBoundingClientRect().width;
+        if (w > 0) {
+          widthsRef.current.set(key, w);
+          setMeasureTick((n) => n + 1);
+        }
+      }
+    },
+    [],
+  );
+  const tabKeysSig = [FEATURE_RULES_ALL_ENVS, ...envs].join("|");
+
+  // When the tab set changes, drop cached widths for tabs that are no longer
+  // present so the map doesn't accumulate. New tabs cache themselves on mount
+  // via setTriggerRef.
+  useEffect(() => {
+    const valid = new Set([FEATURE_RULES_ALL_ENVS, ...envs]);
+    let changed = false;
+    for (const key of widthsRef.current.keys()) {
+      if (!valid.has(key)) {
+        widthsRef.current.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) setMeasureTick((n) => n + 1);
+  }, [tabKeysSig, envs]);
+
+  useEffect(() => {
+    const root = tabsBarRef.current;
+    if (!root) return;
+    setContainerWidth(root.getBoundingClientRect().width);
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, []);
+
+  const computeOverflow = (order: string[]): Set<string> => {
+    const out = new Set<string>();
+    if (containerWidth <= 0 || widthsRef.current.size === 0) return out;
+    let cumulative = 0;
+    for (const key of order) {
+      const w = widthsRef.current.get(key);
+      if (w == null) continue;
+      cumulative += w;
+      if (cumulative > containerWidth) out.add(key);
+    }
+    return out;
+  };
+
+  // If the active env would naturally clip into the dropdown, hoist it to
+  // position 2 (right after All Environments) so the user's current view
+  // stays visible. The displaced tab takes its spot in the overflow.
+  const baseOrder = [FEATURE_RULES_ALL_ENVS, ...envs];
+  const naturalOverflow = computeOverflow(baseOrder);
+  const renderOrder =
+    env && naturalOverflow.has(env)
+      ? [FEATURE_RULES_ALL_ENVS, env, ...envs.filter((e) => e !== env)]
+      : baseOrder;
+  const overflowKeys = computeOverflow(renderOrder);
+  void measureTick;
+
+  const envById = new Map(environments.map((e) => [e.id, e]));
+  const orderedEnvIds = renderOrder.filter((k) => k !== FEATURE_RULES_ALL_ENVS);
+  const overflowLabels: Array<{ key: string; label: string; count: number }> =
+    [];
+  for (const key of renderOrder) {
+    if (!overflowKeys.has(key)) continue;
+    if (key === FEATURE_RULES_ALL_ENVS) {
+      overflowLabels.push({
+        key,
+        label: "All Environments",
+        count: feature.rules?.length ?? 0,
+      });
+      continue;
+    }
+    const e = envById.get(key);
+    if (!e) continue;
+    const count = holdout?.environmentSettings?.[e.id]?.enabled
+      ? rulesByEnv[e.id].length + 1
+      : rulesByEnv[e.id].length;
+    overflowLabels.push({ key: e.id, label: e.id, count });
+  }
+
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [overflowSearch, setOverflowSearch] = useState("");
+  useEffect(() => {
+    if (!moreOpen) setOverflowSearch("");
+  }, [moreOpen]);
+  const showOverflowSearch = overflowLabels.length >= 5;
+  const filteredOverflowLabels = showOverflowSearch
+    ? overflowLabels.filter((l) =>
+        l.label.toLowerCase().includes(overflowSearch.trim().toLowerCase()),
+      )
+    : overflowLabels;
+
   return (
     <>
       <Tabs
@@ -204,49 +312,158 @@ export default function FeatureRules({
         <Flex
           align="center"
           justify="between"
-          style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
+          style={{
+            boxShadow: "inset 0 -1px 0 0 var(--slate-a3)",
+            position: "relative",
+          }}
         >
-          <TabsList className="w-full" style={{ boxShadow: "none" }}>
-            <TabsTrigger value={FEATURE_RULES_ALL_ENVS}>
-              <Flex align="center" gap="2">
-                All Environments
-                <Badge
-                  label={String(feature.rules?.length ?? 0)}
-                  radius="full"
-                  variant="solid"
+          <Box
+            ref={tabsBarRef}
+            style={{
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            <TabsList style={{ boxShadow: "none", flexWrap: "nowrap" }}>
+              <TabsTrigger
+                value={FEATURE_RULES_ALL_ENVS}
+                ref={setTriggerRef(FEATURE_RULES_ALL_ENVS)}
+                style={
+                  overflowKeys.has(FEATURE_RULES_ALL_ENVS)
+                    ? { display: "none" }
+                    : undefined
+                }
+              >
+                <Flex align="center" gap="2">
+                  All Environments
+                  <Badge
+                    label={String(feature.rules?.length ?? 0)}
+                    radius="full"
+                    variant="soft"
+                    color="gray"
+                    size="sm"
+                    style={{ marginRight: -4 }}
+                  />
+                </Flex>
+              </TabsTrigger>
+              {orderedEnvIds.map((id) => {
+                const e = envById.get(id);
+                if (!e) return null;
+                const count = holdout?.environmentSettings?.[e.id]?.enabled
+                  ? rulesByEnv[e.id].length + 1
+                  : rulesByEnv[e.id].length;
+                return (
+                  <TabsTrigger
+                    key={e.id}
+                    value={e.id}
+                    ref={setTriggerRef(e.id)}
+                    style={
+                      overflowKeys.has(e.id) ? { display: "none" } : undefined
+                    }
+                  >
+                    <Flex align="center" gap="2">
+                      {e.id}
+                      <Badge
+                        label={String(count)}
+                        radius="full"
+                        variant="soft"
+                        color="gray"
+                        size="sm"
+                        style={{ marginRight: -4 }}
+                      />
+                    </Flex>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Box>
+          <Box
+            style={{
+              flexShrink: 0,
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              paddingLeft: 8,
+            }}
+          >
+            <DropdownMenu
+              menuPlacement="end"
+              color="violet"
+              variant="soft"
+              open={moreOpen}
+              onOpenChange={setMoreOpen}
+              trigger={
+                <Button
+                  variant="ghost"
                   color="violet"
-                  size="sm"
-                />
-              </Flex>
-            </TabsTrigger>
-            {environments.map((e) => {
-              const count = holdout?.environmentSettings?.[e.id]?.enabled
-                ? rulesByEnv[e.id].length + 1
-                : rulesByEnv[e.id].length;
-              return (
-                <TabsTrigger key={e.id} value={e.id}>
-                  <Flex align="center" gap="2">
-                    {e.id}
+                  icon={<PiFunnel />}
+                  iconPosition="left"
+                >
+                  {overflowLabels.length > 0
+                    ? `More (${overflowLabels.length})`
+                    : "More"}
+                </Button>
+              }
+            >
+              <Box px="3" py="2">
+                <Flex align="center" gap="2" justify="end">
+                  <Text size="small" color="text-low">
+                    Show inactive rules
+                  </Text>
+                  <Switch
+                    size="1"
+                    value={!hasInactiveRules ? false : !hideInactive}
+                    onChange={(v) => setHideInactive(!v)}
+                    disabled={!hasInactiveRules}
+                  />
+                </Flex>
+              </Box>
+              {overflowLabels.length > 0 && <DropdownMenuSeparator />}
+              {showOverflowSearch && (
+                <Box px="3" pt="1" pb="2">
+                  <TextField.Root
+                    size="2"
+                    placeholder="Search..."
+                    value={overflowSearch}
+                    onChange={(e) => setOverflowSearch(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                  >
+                    <TextField.Slot>
+                      <PiMagnifyingGlass />
+                    </TextField.Slot>
+                  </TextField.Root>
+                </Box>
+              )}
+              {filteredOverflowLabels.map(({ key, label, count }) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() =>
+                    setEnv(key === FEATURE_RULES_ALL_ENVS ? null : key)
+                  }
+                >
+                  <Flex align="center" justify="between" gap="3" width="100%">
+                    <span>{label}</span>
                     <Badge
                       label={String(count)}
                       radius="full"
-                      variant="solid"
-                      color="violet"
+                      variant="soft"
+                      color="gray"
                       size="sm"
                     />
                   </Flex>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          <Switch
-            size="1"
-            value={!hasInactiveRules ? false : !hideInactive}
-            onChange={(v) => setHideInactive(!v)}
-            disabled={!hasInactiveRules}
-            label="Show inactive"
-          />
+                </DropdownMenuItem>
+              ))}
+              {showOverflowSearch && filteredOverflowLabels.length === 0 && (
+                <Box px="3" py="2">
+                  <Text size="small" color="text-low">
+                    No matches
+                  </Text>
+                </Box>
+              )}
+            </DropdownMenu>
+          </Box>
         </Flex>
       </Tabs>
 
@@ -296,9 +513,8 @@ export default function FeatureRules({
                   strategy={verticalListSortingStrategy}
                 >
                   <Flex direction="column" gap="3">
-                    {allEnvItems.map((rule) => {
-                      // All-envs view addresses rules by id (works for
-                      // pending rules that don't project into any env).
+                    {allEnvItems.map((rule, allEnvIdx) => {
+                      // displayEnv is cosmetic; the modal addresses by rule.id.
                       const displayEnv =
                         rule.allEnvironments === true ||
                         !rule.environments?.length
@@ -313,8 +529,7 @@ export default function FeatureRules({
                           rule={rule}
                           feature={feature}
                           environment={displayEnv}
-                          i={-1}
-                          ruleId={rule.id}
+                          i={allEnvIdx}
                           mutate={mutate}
                           setRuleModal={setRuleModal}
                           unreachable={false}
@@ -348,13 +563,15 @@ export default function FeatureRules({
                         const rampSchedule = rampSchedules?.find((rs) =>
                           rs.targets.some((t) => t.ruleId === rule.id),
                         );
+                        const flatIdx = allEnvItems.findIndex(
+                          (r) => r.id === rule.id,
+                        );
                         return (
                           <Rule
                             rule={rule}
                             feature={feature}
                             environment={displayEnv}
-                            i={-1}
-                            ruleId={rule.id}
+                            i={flatIdx}
                             mutate={mutate}
                             setRuleModal={setRuleModal}
                             unreachable={false}
@@ -434,19 +651,15 @@ export default function FeatureRules({
             {canEditDrafts && !isLocked && (
               <>
                 <Flex pt="4" justify="between" align="center">
-                  <Text weight="bold" size="3">
+                  <Text weight="semibold" size="large">
                     Add rule to {activeEnv.id}
                   </Text>
                   <Button
                     onClick={() => {
                       setRuleModal({
                         environment: activeEnv.id,
-                        i: getRules(feature, activeEnv.id).length,
+                        i: (feature.rules ?? []).length,
                         mode: "create",
-                      });
-                      track("Viewed Rule Modal", {
-                        source: "add-rule",
-                        type: "force",
                       });
                     }}
                   >

@@ -87,11 +87,13 @@ export default function RuleList({
   const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
 
-  // Build a ruleId → ramp schedule map for this environment so Rule can look
-  // up its associated ramp schedule in O(1) without prop drilling the full array.
+  // Map ruleId → global flat index in feature.rules (env-independent).
+  const flatIdxById = new Map<string, number>();
+  (feature.rules ?? []).forEach((r, idx) => flatIdxById.set(r.id, idx));
+
+  // ruleId → ramp schedule for O(1) lookup, scoped to this env.
   const rampSchedulesMap = new Map<string, RampScheduleInterface>();
 
-  // First, add actual ramp schedules
   for (const rs of rampSchedules ?? []) {
     for (const target of rs.targets) {
       if (
@@ -276,7 +278,7 @@ export default function RuleList({
             <SortableRule
               key={i + rule.id}
               environment={environment}
-              i={i}
+              i={flatIdxById.get(rule.id) ?? -1}
               rule={rule}
               feature={feature}
               mutate={mutate}
@@ -298,7 +300,7 @@ export default function RuleList({
         <DragOverlay>
           {activeRule ? (
             <Rule
-              i={getRuleIndex(activeId as string)}
+              i={flatIdxById.get(activeId as string) ?? -1}
               environment={environment}
               rule={activeRule}
               feature={feature}
