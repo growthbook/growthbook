@@ -90,11 +90,10 @@ export interface Props {
   feature: FeatureInterface;
   setVersion: (version: number) => void;
   mutate: () => void;
-  // Global flat index into `feature.rules`. Used to position a new rule
-  // (mode: "create"); ignored for edit/duplicate which use `ruleId`.
+  // Global flat index in `feature.rules`. Positions new rules; ignored for edit/duplicate.
   i: number;
   environment: string;
-  // Stable rule locator. Required for edit/duplicate modes.
+  // Required for edit/duplicate.
   ruleId?: string;
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
@@ -145,8 +144,6 @@ export default function RuleModal({
 
   const attributeSchema = useAttributeSchema(false, feature.project);
 
-  // Resolve the rule by id (edit/duplicate). For create mode, no ruleId
-  // is supplied and `rule` stays undefined.
   const flatRules = feature.rules ?? [];
   const rule: FeatureRule | undefined = ruleId
     ? flatRules.find((r) => r.id === ruleId)
@@ -643,15 +640,13 @@ export default function RuleModal({
       values.scheduleRules = [];
     }
 
-    // For duplicate mode, assign the pre-generated id so the inline ramp
-    // payload (which uses pregenRuleId) targets the rule the backend creates.
-    // The backend preserves a truthy client-supplied id.
+    // Reuse pregenRuleId for duplicates so the inline ramp payload targets
+    // the rule the backend creates. (Backend preserves a truthy client id.)
     if (mode === "duplicate") {
       values.id = pregenRuleId;
     }
 
-    // Merge rule-level env scope from the modal state. Safe-rollout rules are
-    // pinned to a single env by the controller, so skip scope for them.
+    // Safe-rollout rules are pinned to one env by the controller; skip scope.
     if (values.type !== "safe-rollout") {
       if (scopeAllEnvs) {
         values = {
@@ -1019,8 +1014,6 @@ export default function RuleModal({
       let res: { version: number } | undefined;
 
       if (mode === "edit") {
-        // Edit-mode callers always supply ruleId; assert here so the rest
-        // of the branch can use it without optional chaining.
         if (!ruleId) throw new Error("Missing ruleId for edit");
         if (values.type === "safe-rollout") {
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {

@@ -246,8 +246,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         attributeMap,
       );
 
-    // Numbering is the rule's index in the global `feature.rules[]`; env
-    // tabs are filtered views of the same list. Falls back to `i` mid-drag.
+    // Number by global flat index; fall back to `i` mid-drag.
     const flatIdx =
       rule.id != null
         ? (feature.rules ?? []).findIndex((r) => r.id === rule.id)
@@ -971,7 +970,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     </Callout>
                   )}
                 <RuleEnvScopeBadges
-                  rule={rule}
+                  activeEnvironmentIds={
+                    rule.allEnvironments === true ||
+                    rule.environments === undefined
+                      ? "all"
+                      : rule.environments
+                  }
                   environments={environments}
                   currentEnvironment={environment}
                 />

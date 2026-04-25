@@ -7,8 +7,11 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { filterEnvironmentsByFeature } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
+import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -32,6 +35,9 @@ interface Props {
   ruleCount: number;
   isDeleted?: boolean;
   isLocked?: boolean;
+  // Per-env tab passes its env id so the badge sorts current env first;
+  // omitted in the All-Environments view.
+  currentEnvironment?: string;
 }
 
 // eslint-disable-next-line
@@ -46,6 +52,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       ruleCount,
       isDeleted = false,
       isLocked = false,
+      currentEnvironment,
       ...props
     },
     ref,
@@ -66,10 +73,21 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
 
     const permissionsUtil = usePermissionsUtil();
 
+    const allEnvironments = useEnvironments();
+    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+
     const holdout = data?.holdout;
     const holdoutExperiment = data?.experiment;
 
     if (!holdout || !holdoutExperiment) return null;
+
+    // Holdout env scope lives on the holdout itself (not the feature link).
+    // Show envs where the holdout is enabled as active, the rest as inactive.
+    const activeHoldoutEnvIds = Object.entries(
+      holdout.environmentSettings ?? {},
+    )
+      .filter(([, s]) => s?.enabled)
+      .map(([id]) => id);
 
     const hasCondition =
       (holdoutExperiment.phases[0].condition &&
@@ -213,6 +231,11 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                     )}
                   </Flex>
                 </Flex>
+                <RuleEnvScopeBadges
+                  activeEnvironmentIds={activeHoldoutEnvIds}
+                  environments={environments}
+                  currentEnvironment={currentEnvironment}
+                />
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
                   {isDeleted ? (
                     <Callout status="error" size="sm">

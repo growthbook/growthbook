@@ -1,28 +1,33 @@
 import { Flex } from "@radix-ui/themes";
-import { FeatureRule } from "shared/types/feature";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Environment } from "shared/types/organization";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 
-// Inactive envs beyond this threshold are collapsed into a "..." tooltip.
 const INACTIVE_COLLAPSE_THRESHOLD = 2;
 
-export default function RuleEnvScopeBadges({
-  rule,
-  environments,
-  currentEnvironment,
-}: {
-  rule: Pick<FeatureRule, "allEnvironments" | "environments">;
+// `activeEnvironmentIds`:
+//   "all"      → render a single "All Environments" pill (rule with allEnvironments / undefined)
+//   string[]   → render explicit active envs (violet) and remaining envs (gray)
+// Used by both feature rules (rule.environments / allEnvironments) and holdouts
+// (derived from holdout.environmentSettings[envId].enabled).
+type Props = {
+  activeEnvironmentIds: string[] | "all";
   environments: Environment[];
   currentEnvironment?: string;
-}) {
-  const isAllEnvs =
-    rule.allEnvironments === true || rule.environments === undefined;
+} & MarginProps;
 
-  if (isAllEnvs) {
+export default function RuleEnvScopeBadges({
+  activeEnvironmentIds,
+  environments,
+  currentEnvironment,
+  my = "3",
+  ...marginProps
+}: Props) {
+  if (activeEnvironmentIds === "all") {
     return (
-      <Flex gap="2" wrap="wrap" my="3">
+      <Flex gap="2" wrap="wrap" my={my} {...marginProps}>
         <Tooltip
           body="Rule is active in all environments"
           tipPosition="top"
@@ -40,9 +45,7 @@ export default function RuleEnvScopeBadges({
     );
   }
 
-  const activeSet = new Set(
-    Array.isArray(rule.environments) ? rule.environments : [],
-  );
+  const activeSet = new Set(activeEnvironmentIds);
 
   function sortedWithCurrentFirst(envs: Environment[]): Environment[] {
     if (!currentEnvironment) return envs;
@@ -63,7 +66,7 @@ export default function RuleEnvScopeBadges({
   const hiddenCount = inactive.length - visibleInactive.length;
 
   return (
-    <Flex gap="2" wrap="wrap" my="3">
+    <Flex gap="2" wrap="wrap" my={my} {...marginProps}>
       {active.map((env) => (
         <Badge
           key={env.id}

@@ -2864,8 +2864,7 @@ export async function putFeatureRule(
     // "clear" removes any pending ramp action for this rule without adding a new one
   }
 
-  // When merging produces `allEnvironments: true`, drop any stale
-  // `environments` list to avoid persisting a contradictory pair.
+  // Drop stale `environments` when merge produces `allEnvironments: true`.
   const { rules: nextRules } = updateRuleById(existingRules, ruleId, (e) => {
     const merged = {
       ...e,

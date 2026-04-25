@@ -52,6 +52,7 @@ import {
 import { useAuth } from "@/services/auth";
 import HoldoutValueModal from "./HoldoutValueModal";
 import { Rule, SortableRule } from "./Rule";
+import { HoldoutRule } from "./HoldoutRule";
 
 export default function FeatureRules({
   environments,
@@ -92,11 +93,9 @@ export default function FeatureRules({
 }) {
   const { apiCall } = useAuth();
   const envs = environments.map((e) => e.id);
-  // null env = "All environments" unfiltered view.
-  // `storedEnv` is persisted (localStorage / org preferredEnvironment);
-  // `env` below applies a transient fallback for rendering.
+  // null = "All environments" view.
   const [storedEnv, setEnv] = useFeatureRulesEnv();
-  // Optimistic local copy for the all-envs DnD view.
+  // Optimistic copy for the all-envs DnD view.
   const [allEnvItems, setAllEnvItems] = useState<FeatureRule[]>(
     feature.rules ?? [],
   );
@@ -118,9 +117,8 @@ export default function FeatureRules({
     isRuleInactive(r, experimentsMap),
   );
 
-  // Externally triggered rule open (e.g. ramp timeline CTA). Resolve to a
-  // global flat index; switch to the requested env tab when possible, else
-  // any env the rule projects into, else "All environments" for pending rules.
+  // Externally triggered rule open (e.g. ramp timeline CTA). Switch to the
+  // requested env if it projects there, else any env that has it.
   useEffect(() => {
     if (!pendingRuleEdit) return;
     const { environment, ruleId } = pendingRuleEdit;
@@ -160,9 +158,8 @@ export default function FeatureRules({
   } | null>(null);
   const [holdoutModal, setHoldoutModal] = useState<boolean>(false);
 
-  // If the stored env isn't in this org (renamed, removed, or different org),
-  // fall back to "All environments" for this render without persisting —
-  // a transient mismatch shouldn't wipe the user's saved choice.
+  // Stored env may be stale (renamed/removed/cross-org); fall back to All
+  // for this render without persisting.
   const env =
     storedEnv !== null && !envs.includes(storedEnv) ? null : storedEnv;
 
@@ -186,18 +183,23 @@ export default function FeatureRules({
     !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
   const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
 
-  // Tab-overflow tracking. We measure each trigger's natural width once and
-  // cache it; overflow set is computed from cumulative widths against the
-  // tabs-bar width. Caching avoids the oscillation loop you'd get from
-  // hiding-then-remeasuring.
+  // Show holdout in All-Envs whenever it's enabled in any env.
+  const holdoutEnabledAnyEnv =
+    !!holdout && envs.some((id) => holdout?.environmentSettings?.[id]?.enabled);
+  const liveHoldoutActiveAnyEnv = !!feature.holdout?.id && holdoutEnabledAnyEnv;
+  const draftDeletesHoldoutAnyEnv =
+    !feature.holdout?.id && !!baseFeature.holdout?.id && holdoutEnabledAnyEnv;
+  const includeHoldoutRuleAllEnvs =
+    liveHoldoutActiveAnyEnv || draftDeletesHoldoutAnyEnv;
+
+  // Tab overflow: cache each trigger's natural width once, then compute
+  // cumulative-width overflow against the tabs-bar. Caching avoids the
+  // hide-then-remeasure oscillation.
   const tabsBarRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const widthsRef = useRef<Map<string, number>>(new Map());
   const [containerWidth, setContainerWidth] = useState(0);
   const [measureTick, setMeasureTick] = useState(0);
-  // Cache each trigger's natural width on mount via a ref callback so the
-  // overflow calculation reads from a stable map. Bumping `measureTick`
-  // forces overflow recompute when a new width lands.
   const setTriggerRef = useCallback(
     (key: string) => (el: HTMLButtonElement | null) => {
       if (!el) {
@@ -217,9 +219,7 @@ export default function FeatureRules({
   );
   const tabKeysSig = [FEATURE_RULES_ALL_ENVS, ...envs].join("|");
 
-  // When the tab set changes, drop cached widths for tabs that are no longer
-  // present so the map doesn't accumulate. New tabs cache themselves on mount
-  // via setTriggerRef.
+  // Drop cached widths for tabs that no longer exist.
   useEffect(() => {
     const valid = new Set([FEATURE_RULES_ALL_ENVS, ...envs]);
     let changed = false;
@@ -256,9 +256,8 @@ export default function FeatureRules({
     return out;
   };
 
-  // If the active env would naturally clip into the dropdown, hoist it to
-  // position 2 (right after All Environments) so the user's current view
-  // stays visible. The displaced tab takes its spot in the overflow.
+  // If the active env would clip into overflow, hoist it to position 2 so
+  // the current view stays visible.
   const baseOrder = [FEATURE_RULES_ALL_ENVS, ...envs];
   const naturalOverflow = computeOverflow(baseOrder);
   const renderOrder =
@@ -266,7 +265,7 @@ export default function FeatureRules({
       ? [FEATURE_RULES_ALL_ENVS, env, ...envs.filter((e) => e !== env)]
       : baseOrder;
   const overflowKeys = computeOverflow(renderOrder);
-  void measureTick;
+  void measureTick; // re-render dep so overflow recomputes when widths cache
 
   const envById = new Map(environments.map((e) => [e.id, e]));
   const orderedEnvIds = renderOrder.filter((k) => k !== FEATURE_RULES_ALL_ENVS);
@@ -278,7 +277,8 @@ export default function FeatureRules({
       overflowLabels.push({
         key,
         label: "All Environments",
-        count: feature.rules?.length ?? 0,
+        count:
+          (feature.rules?.length ?? 0) + (includeHoldoutRuleAllEnvs ? 1 : 0),
       });
       continue;
     }
@@ -337,7 +337,10 @@ export default function FeatureRules({
                 <Flex align="center" gap="2">
                   All Environments
                   <Badge
-                    label={String(feature.rules?.length ?? 0)}
+                    label={String(
+                      (feature.rules?.length ?? 0) +
+                        (includeHoldoutRuleAllEnvs ? 1 : 0),
+                    )}
                     radius="full"
                     variant="soft"
                     color="gray"
@@ -467,54 +470,70 @@ export default function FeatureRules({
         </Flex>
       </Tabs>
 
-      {/* Single content area — filtered by active env, null = show all */}
       <div className="mt-2">
         {env === null ? (
           <>
-            {allEnvItems.length > 0 ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={({ active }) => {
-                  if (!canEditDrafts || isLocked) return;
-                  setAllEnvDragId(active.id as string);
-                }}
-                onDragEnd={async ({ active, over }) => {
-                  if (!canEditDrafts || isLocked) {
+            {allEnvItems.length > 0 || includeHoldoutRuleAllEnvs ? (
+              <Flex direction="column" gap="3">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={({ active }) => {
+                    if (!canEditDrafts || isLocked) return;
+                    setAllEnvDragId(active.id as string);
+                  }}
+                  onDragEnd={async ({ active, over }) => {
+                    if (!canEditDrafts || isLocked) {
+                      setAllEnvDragId(null);
+                      return;
+                    }
+                    if (over && active.id !== over.id) {
+                      const oldIndex = allEnvItems.findIndex(
+                        (r) => r.id === active.id,
+                      );
+                      const newIndex = allEnvItems.findIndex(
+                        (r) => r.id === over.id,
+                      );
+                      if (oldIndex === -1 || newIndex === -1) return;
+                      setAllEnvItems((prev) =>
+                        arrayMove(prev, oldIndex, newIndex),
+                      );
+                      const res = await apiCall<{ version: number }>(
+                        `/feature/${feature.id}/${currentVersion}/reorder`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify({
+                            from: oldIndex,
+                            to: newIndex,
+                          }),
+                        },
+                      );
+                      await mutate();
+                      if (res.version) setVersion(res.version);
+                    }
                     setAllEnvDragId(null);
-                    return;
-                  }
-                  if (over && active.id !== over.id) {
-                    const oldIndex = allEnvItems.findIndex(
-                      (r) => r.id === active.id,
-                    );
-                    const newIndex = allEnvItems.findIndex(
-                      (r) => r.id === over.id,
-                    );
-                    if (oldIndex === -1 || newIndex === -1) return;
-                    setAllEnvItems((prev) =>
-                      arrayMove(prev, oldIndex, newIndex),
-                    );
-                    const res = await apiCall<{ version: number }>(
-                      `/feature/${feature.id}/${currentVersion}/reorder`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({ from: oldIndex, to: newIndex }),
-                      },
-                    );
-                    await mutate();
-                    if (res.version) setVersion(res.version);
-                  }
-                  setAllEnvDragId(null);
-                }}
-              >
-                <SortableContext
-                  items={allEnvItems}
-                  strategy={verticalListSortingStrategy}
+                  }}
                 >
-                  <Flex direction="column" gap="3">
+                  {includeHoldoutRuleAllEnvs && (
+                    <HoldoutRule
+                      feature={
+                        draftDeletesHoldoutAnyEnv ? baseFeature : feature
+                      }
+                      isDeleted={draftDeletesHoldoutAnyEnv}
+                      setRuleModal={() => setHoldoutModal(true)}
+                      mutate={mutate}
+                      ruleCount={allEnvItems.length}
+                      revisionList={revisionList}
+                      setVersion={setVersion}
+                      isLocked={isLocked}
+                    />
+                  )}
+                  <SortableContext
+                    items={allEnvItems}
+                    strategy={verticalListSortingStrategy}
+                  >
                     {allEnvItems.map((rule, allEnvIdx) => {
-                      // displayEnv is cosmetic; the modal addresses by rule.id.
+                      // displayEnv is cosmetic; modal addresses by rule.id.
                       const displayEnv =
                         rule.allEnvironments === true ||
                         !rule.environments?.length
@@ -540,57 +559,61 @@ export default function FeatureRules({
                           hideInactive={hideInactive}
                           isDraft={isDraft}
                           safeRolloutsMap={safeRolloutsMap}
-                          holdout={undefined}
+                          holdout={
+                            liveHoldoutActiveAnyEnv ? holdout : undefined
+                          }
                           rampSchedule={rampSchedule}
                           draftRevision={draftRevision}
                         />
                       );
                     })}
-                  </Flex>
-                </SortableContext>
-                <DragOverlay>
-                  {allEnvDragId
-                    ? (() => {
-                        const rule = allEnvItems.find(
-                          (r) => r.id === allEnvDragId,
-                        );
-                        if (!rule) return null;
-                        const displayEnv =
-                          rule.allEnvironments === true ||
-                          !rule.environments?.length
-                            ? (environments[0]?.id ?? "")
-                            : rule.environments[0];
-                        const rampSchedule = rampSchedules?.find((rs) =>
-                          rs.targets.some((t) => t.ruleId === rule.id),
-                        );
-                        const flatIdx = allEnvItems.findIndex(
-                          (r) => r.id === rule.id,
-                        );
-                        return (
-                          <Rule
-                            rule={rule}
-                            feature={feature}
-                            environment={displayEnv}
-                            i={flatIdx}
-                            mutate={mutate}
-                            setRuleModal={setRuleModal}
-                            unreachable={false}
-                            version={currentVersion}
-                            setVersion={setVersion}
-                            locked={isLocked}
-                            experimentsMap={experimentsMap}
-                            hideInactive={hideInactive}
-                            isDraft={isDraft}
-                            safeRolloutsMap={safeRolloutsMap}
-                            holdout={undefined}
-                            rampSchedule={rampSchedule}
-                            draftRevision={draftRevision}
-                          />
-                        );
-                      })()
-                    : null}
-                </DragOverlay>
-              </DndContext>
+                  </SortableContext>
+                  <DragOverlay>
+                    {allEnvDragId
+                      ? (() => {
+                          const rule = allEnvItems.find(
+                            (r) => r.id === allEnvDragId,
+                          );
+                          if (!rule) return null;
+                          const displayEnv =
+                            rule.allEnvironments === true ||
+                            !rule.environments?.length
+                              ? (environments[0]?.id ?? "")
+                              : rule.environments[0];
+                          const rampSchedule = rampSchedules?.find((rs) =>
+                            rs.targets.some((t) => t.ruleId === rule.id),
+                          );
+                          const flatIdx = allEnvItems.findIndex(
+                            (r) => r.id === rule.id,
+                          );
+                          return (
+                            <Rule
+                              rule={rule}
+                              feature={feature}
+                              environment={displayEnv}
+                              i={flatIdx}
+                              mutate={mutate}
+                              setRuleModal={setRuleModal}
+                              unreachable={false}
+                              version={currentVersion}
+                              setVersion={setVersion}
+                              locked={isLocked}
+                              experimentsMap={experimentsMap}
+                              hideInactive={hideInactive}
+                              isDraft={isDraft}
+                              safeRolloutsMap={safeRolloutsMap}
+                              holdout={
+                                liveHoldoutActiveAnyEnv ? holdout : undefined
+                              }
+                              rampSchedule={rampSchedule}
+                              draftRevision={draftRevision}
+                            />
+                          );
+                        })()
+                      : null}
+                  </DragOverlay>
+                </DndContext>
+              </Flex>
             ) : (
               <Box py="4" className="text-muted">
                 <em>No rules have been added yet</em>
