@@ -129,7 +129,7 @@ if (
   });
 }
 
-const uuid = windowContext.uuid || dataContext.uuid;
+const uuid = dataContext.uuid || windowContext.uuid;
 const plugins: Plugin[] = [
   autoAttributesPlugin({
     uuid,
@@ -139,6 +139,21 @@ const plugins: Plugin[] = [
   }),
 ];
 
+const cwvSamplingRate = dataContext.cwvSamplingRate
+  ? parseFloat(dataContext.cwvSamplingRate)
+  : windowContext.cwvSamplingRate;
+const errorSamplingRate = dataContext.errorSamplingRate
+  ? parseFloat(dataContext.errorSamplingRate)
+  : windowContext.errorSamplingRate;
+const pageViewSamplingRate = dataContext.pageViewSamplingRate
+  ? parseFloat(dataContext.pageViewSamplingRate)
+  : windowContext.pageViewSamplingRate;
+const performanceEnabled = !!(
+  cwvSamplingRate ||
+  errorSamplingRate ||
+  pageViewSamplingRate
+);
+
 const tracking = dataContext.tracking || "gtag,gtm,segment";
 if (tracking !== "none") {
   const trackers = tracking
@@ -146,7 +161,8 @@ if (tracking !== "none") {
     .split(",")
     .map((t) => t.trim());
 
-  if (trackers.includes("growthbook")) {
+  // Performance events need an event logger; auto-include if not already on
+  if (trackers.includes("growthbook") || performanceEnabled) {
     plugins.push(
       growthbookTrackingPlugin({
         ingestorHost: dataContext.eventIngestorHost,
@@ -164,16 +180,7 @@ if (tracking !== "none") {
   }
 }
 
-const cwvSamplingRate = dataContext.cwvSamplingRate
-  ? parseFloat(dataContext.cwvSamplingRate)
-  : windowContext.cwvSamplingRate;
-const errorSamplingRate = dataContext.errorSamplingRate
-  ? parseFloat(dataContext.errorSamplingRate)
-  : windowContext.errorSamplingRate;
-const pageViewSamplingRate = dataContext.pageViewSamplingRate
-  ? parseFloat(dataContext.pageViewSamplingRate)
-  : windowContext.pageViewSamplingRate;
-if (cwvSamplingRate || errorSamplingRate || pageViewSamplingRate) {
+if (performanceEnabled) {
   plugins.push(
     browserPerformancePlugin({
       cwvSamplingRate,

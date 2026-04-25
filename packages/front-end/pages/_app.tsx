@@ -8,10 +8,7 @@ import { AppProps } from "next/app";
 import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
-import {
-  growthbookTrackingPlugin,
-  browserPerformancePlugin,
-} from "@growthbook/growthbook/plugins";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -27,7 +24,6 @@ import {
   getIngestorHost,
   initEnv,
   inTelemetryDebugMode,
-  isCloud,
   isTelemetryEnabled,
 } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -113,11 +109,6 @@ function App({
       },
       dedupeKeyAttributes: ["id", "organizationId"],
     })(growthbook);
-
-    // todo: enable for everybody after soft launch
-    if (isCloud()) {
-      browserPerformancePlugin()(growthbook);
-    }
   }, [ready]);
 
   useEffect(() => {

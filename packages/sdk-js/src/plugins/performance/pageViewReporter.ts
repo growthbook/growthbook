@@ -3,17 +3,23 @@ import type {
   GrowthBookClient,
   UserScopedGrowthBook,
 } from "../../GrowthBookClient";
-import { detectEnv, shouldSample } from "./util";
+import { detectEnv, shouldSample, syncGrowthBookUrl } from "./util";
+import { subscribeToUrlChanges } from "./urlChangeObserver";
 
 export type PageViewReporterSettings = {
   samplingRate?: number;
   hashAttribute?: string;
+  // Fire page_view on query-string changes too (default: pathname-only)
+  trackQueryStringChanges?: boolean;
+  enableUrlPolling?: boolean;
   growthbook: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
 };
 
 export function createPageViewReporter({
   samplingRate = 1,
   hashAttribute = "id",
+  trackQueryStringChanges = false,
+  enableUrlPolling = false,
   growthbook,
 }: PageViewReporterSettings) {
   if (samplingRate < 0 || samplingRate > 1) {
@@ -39,65 +45,34 @@ export function createPageViewReporter({
     return;
   }
 
-  let observing = true;
-  const stopObserving = () => {
-    observing = false;
-    urlPolling = false;
-  };
-
-  "onDestroy" in growthbook && growthbook.onDestroy(stopObserving);
-
-  let currentPath = window.location.origin + window.location.pathname;
+  let stopped = false;
+  let unsubscribe: (() => void) | null = null;
 
   const reportPageView = () => {
-    if (!observing) return;
+    if (stopped) return;
+    syncGrowthBookUrl(growthbook);
     growthbook.logEvent("page_view");
   };
 
-  const reportIfUrlChanged = (newPath: string) => {
-    if (newPath !== currentPath) {
-      currentPath = newPath;
-      reportPageView();
-    }
+  // bfcache restore — re-fire page_view on back/forward navigations
+  const onPageShow = (event: PageTransitionEvent) => {
+    event.persisted && reportPageView();
   };
+  window.addEventListener("pageshow", onPageShow);
 
+  growthbook.onDestroy(() => {
+    stopped = true;
+    unsubscribe?.();
+    unsubscribe = null;
+    window.removeEventListener("pageshow", onPageShow);
+  });
+
+  // Initial page view
   reportPageView();
 
-  // Track SPAs using navigation (new API, not widely supported yet)
-  if ("navigation" in window) {
-    // @ts-expect-error: Navigate API might be missing from types
-    window.navigation.addEventListener("navigate", (event) => {
-      if (event?.destination?.url) {
-        try {
-          const url = new URL(event.destination.url);
-          reportIfUrlChanged(url.origin + url.pathname);
-        } catch {
-          // Invalid URL, ignore
-        }
-      }
-    });
-  }
-
-  // Track using history changes
-  const methods = ["pushState", "replaceState"] as const;
-  methods.forEach((method) => {
-    const original = window.history[method];
-    window.history[method] = function (...args) {
-      const result = original.apply(this, args);
-      reportIfUrlChanged(window.location.origin + window.location.pathname);
-      return result;
-    };
+  // SPA navigations
+  unsubscribe = subscribeToUrlChanges(reportPageView, {
+    trackQueryString: trackQueryStringChanges,
+    enablePolling: enableUrlPolling,
   });
-  window.addEventListener("popstate", () => {
-    reportIfUrlChanged(window.location.origin + window.location.pathname);
-  });
-
-  // Track using legacy url-change polling strategy
-  let urlPolling = true;
-  const checkForUrlChanges = () => {
-    if (!urlPolling) return;
-    reportIfUrlChanged(window.location.origin + window.location.pathname);
-    setTimeout(checkForUrlChanges, 500);
-  };
-  checkForUrlChanges();
 }

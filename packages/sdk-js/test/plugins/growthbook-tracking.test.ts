@@ -346,6 +346,79 @@ describe("growthbookTrackingPlugin", () => {
     gb.destroy();
   });
 
+  it("flushes with keepalive: true on pagehide so the request survives unload", async () => {
+    const plugin = growthbookTrackingPlugin();
+
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: { id: "abc" },
+    });
+
+    gb.logEvent("event-during-pagehide");
+
+    // Don't wait for the queueFlushInterval — fire pagehide right away.
+    window.dispatchEvent(new Event("pagehide"));
+
+    // Yield once so the async flush() resolves the in-flight microtask
+    await sleep(0);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ keepalive: true });
+
+    gb.destroy();
+  });
+
+  it("does not permanently flip isUnloading on visibilitychange (tab-switch)", async () => {
+    // Ensure visibility starts "visible"
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+
+    const plugin = growthbookTrackingPlugin({ queueFlushInterval: 100 });
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: { id: "abc" },
+    });
+
+    // Tab goes to background -> flush, but isUnloading should NOT stick
+    gb.logEvent("before-hidden");
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await sleep(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ keepalive: true });
+
+    // Tab comes back
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // A new event should still go through the queue (not flush instantly)
+    gb.logEvent("after-visible-again");
+
+    // Right after logEvent, the queue timer hasn't elapsed yet — no new fetch
+    await sleep(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // After the queue interval, the second batch flushes (without keepalive,
+    // since we're not unloading)
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1].keepalive).toBeFalsy();
+
+    gb.destroy();
+  });
+
   it("works for GrowthBookClient and user-scoped instances", async () => {
     const plugin = growthbookTrackingPlugin({
       dedupeKeyAttributes: ["id"],

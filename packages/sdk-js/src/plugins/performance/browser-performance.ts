@@ -14,11 +14,17 @@ type BrowserPerformanceSettings = {
   hashAttribute?: string;
   trackFCP?: boolean;
   trackLCP?: boolean;
+  // FID is deprecated in favor of INP; off by default
   trackFID?: boolean;
+  trackINP?: boolean;
   trackCLS?: boolean;
   trackTTFB?: boolean;
   trackTBT?: boolean;
   debounceErrorTimeout?: number;
+  // Treat ?query changes as new "pages"; default off (pathname-only)
+  trackQueryStringChanges?: boolean;
+  // Opt-in setInterval fallback for URL changes; default off
+  enableUrlPolling?: boolean;
 };
 
 export function browserPerformancePlugin({
@@ -28,11 +34,14 @@ export function browserPerformancePlugin({
   hashAttribute = "id",
   trackFCP = true,
   trackLCP = true,
-  trackFID = true,
+  trackFID = false,
+  trackINP = true,
   trackCLS = true,
   trackTTFB = true,
   trackTBT = true,
   debounceErrorTimeout = 100,
+  trackQueryStringChanges = false,
+  enableUrlPolling = false,
 }: BrowserPerformanceSettings = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error("browserPerformancePlugin only works in the browser");
@@ -48,11 +57,14 @@ export function browserPerformancePlugin({
         trackFCP,
         trackLCP,
         trackFID,
+        trackINP,
         trackCLS,
         trackTTFB,
         trackTBT,
         samplingRate: cwvSamplingRate,
         hashAttribute,
+        trackQueryStringChanges,
+        enableUrlPolling,
         growthbook: gb,
       });
     }
@@ -70,6 +82,8 @@ export function browserPerformancePlugin({
       createPageViewReporter({
         samplingRate: pageViewSamplingRate,
         hashAttribute,
+        trackQueryStringChanges,
+        enableUrlPolling,
         growthbook: gb,
       });
     }

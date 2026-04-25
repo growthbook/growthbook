@@ -1,3 +1,4 @@
+import { GrowthBook } from "../../GrowthBook";
 import { hash, toString } from "../../util";
 import { Attributes } from "../../types/growthbook";
 
@@ -30,4 +31,21 @@ export function detectEnv(): "browser" | "node" | "unknown" {
     return "browser";
   if (typeof process !== "undefined" && process.versions?.node) return "node";
   return "unknown";
+}
+
+// Push the current URL into the GrowthBook instance so subsequent events are
+// attributed to the new page. Both calls are idempotent (setURL early-exits
+// on no change). The dispatch covers autoAttributesPlugin (UTM/title refresh);
+// setURL is the direct path that works without it.
+export function syncGrowthBookUrl(gb: GrowthBook) {
+  try {
+    document.dispatchEvent(new Event("growthbookrefresh"));
+  } catch {
+    // noop
+  }
+  try {
+    void gb.setURL(window.location.href);
+  } catch {
+    // noop
+  }
 }

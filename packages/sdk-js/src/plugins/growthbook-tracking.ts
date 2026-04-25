@@ -128,10 +128,14 @@ async function track({
   clientKey,
   ingestorHost,
   events,
+  keepalive = false,
 }: {
   events: EventPayload[];
   clientKey: string;
   ingestorHost?: string;
+  // keepalive prevents the browser from canceling the request on unload
+  // (capped at 64KB per request, well above a typical batch)
+  keepalive?: boolean;
 }) {
   if (!events.length) return;
 
@@ -153,6 +157,7 @@ async function track({
         "Content-Type": "text/plain",
       },
       credentials: "omit",
+      keepalive,
     });
   } catch (e) {
     console.error("Failed to track event", e);
@@ -190,15 +195,19 @@ export function growthbookTrackingPlugin({
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
       let isUnloading = false;
-      const flush = async () => {
+      let promise: Promise<void> | null = null;
+      const flush = async (keepalive = false) => {
         const events = _q;
         _q = [];
         timer && clearTimeout(timer);
         timer = null;
-        events.length && (await track({ clientKey, events, ingestorHost }));
+        // Reset so the next logEvent starts a fresh batch — otherwise a
+        // manual flush (e.g. on visibilitychange) leaves callers awaiting
+        // a promise whose setTimeout we just cleared
+        promise = null;
+        events.length &&
+          (await track({ clientKey, events, ingestorHost, keepalive }));
       };
-
-      let promise: Promise<void> | null = null;
       gb.setEventLogger(async (eventName, properties, userContext) => {
         const data: EventData = {
           eventName,
@@ -271,21 +280,37 @@ export function growthbookTrackingPlugin({
         }
       });
 
-      // Flush the queue on page unload
-      if (typeof document !== "undefined" && document.visibilityState) {
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "hidden") {
-            isUnloading = true;
-            flush().catch(console.error);
-          }
-        });
+      // Flush on unload (both events; web-vitals does the same):
+      //   visibilitychange → hidden: reliable on iOS Safari when backgrounding;
+      //     don't set isUnloading so a tab switch doesn't degrade batching
+      //   pagehide: actual unload signal (also fires for bfcache); set
+      //     isUnloading so further events skip the queue delay
+      // Both flush with keepalive so the request survives teardown.
+      let removeUnloadListener: (() => void) | null = null;
+      if (typeof window !== "undefined" && "addEventListener" in window) {
+        const onVisibilityChange = () => {
+          document.visibilityState === "hidden" &&
+            flush(true).catch(console.error);
+        };
+        const onPageHide = () => {
+          isUnloading = true;
+          flush(true).catch(console.error);
+        };
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        window.addEventListener("pagehide", onPageHide);
+        removeUnloadListener = () => {
+          document.removeEventListener("visibilitychange", onVisibilityChange);
+          window.removeEventListener("pagehide", onPageHide);
+        };
       }
 
       // Flush the queue when the growthbook instance is destroyed
       "onDestroy" in gb &&
         gb.onDestroy(() => {
           isUnloading = true;
-          flush().catch(console.error);
+          flush(true).catch(console.error);
+          removeUnloadListener?.();
+          removeUnloadListener = null;
         });
     }
 
