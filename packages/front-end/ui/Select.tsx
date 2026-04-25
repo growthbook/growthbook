@@ -1,10 +1,11 @@
-import { Select as RadixSelect, Text, Flex } from "@radix-ui/themes";
+import { Select as RadixSelect, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactNode } from "react";
 import clsx from "clsx";
 import HelperText from "./HelperText";
+import Text, { TextSizes, TextWeights } from "./Text";
 
-export type SelectSize = "sm" | "md" | "normal" | "lg";
+export type SelectSize = "sm" | "md" | "legacy" | "lg";
 
 function toRadixSize(size: SelectSize): "1" | "2" | "3" {
   switch (size) {
@@ -13,13 +14,22 @@ function toRadixSize(size: SelectSize): "1" | "2" | "3" {
     case "md":
       return "2";
     case "lg":
-    case "normal":
       return "3";
+    case "legacy":
+      return "2";
   }
+}
+
+function toLabelSize(size: SelectSize): TextSizes {
+  if (size === "lg") return "large";
+  if (size === "sm") return "small";
+  return "medium";
 }
 
 type SelectProps = {
   label?: ReactNode;
+  labelSize?: TextSizes;
+  labelWeight?: TextWeights;
   defaultValue?: string;
   disabled?: boolean;
   error?: string;
@@ -38,6 +48,8 @@ type SelectProps = {
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   {
     label,
+    labelSize,
+    labelWeight = "semibold",
     defaultValue,
     disabled = false,
     error,
@@ -45,7 +57,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     children,
     value,
     setValue,
-    size = "normal",
+    size = "legacy",
     placeholder,
     variant = "surface",
     triggerClassName,
@@ -62,7 +74,11 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       className={`gb-select--${size}`}
     >
       {typeof label === "string" ? (
-        <Text as="label" size="3" weight="medium">
+        <Text
+          as="label"
+          size={labelSize ?? toLabelSize(size)}
+          weight={labelWeight}
+        >
           {label}
         </Text>
       ) : label !== undefined ? (

@@ -23,7 +23,7 @@ export type SelectOptions =
     )[]
   | Record<string, string>;
 
-export type FieldSize = "sm" | "md" | "normal" | "lg";
+export type FieldSize = "sm" | "md" | "legacy" | "lg";
 
 export type BaseFieldProps = {
   label?: ReactNode;
@@ -123,7 +123,7 @@ const Field = forwardRef(
       initialOption,
       comboBox,
       customClassName: customClassNameProp,
-      size = "normal",
+      size = "legacy",
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -233,7 +233,11 @@ const Field = forwardRef(
       >
         <div className="d-flex flex-row justify-content-between">
           {label && (
-            <label htmlFor={fieldId} className={clsx(labelClassName)}>
+            <label
+              htmlFor={fieldId}
+              className={clsx(labelClassName)}
+              style={{ fontWeight: 600 }}
+            >
               {label}
               {markRequired && <span className="text-danger ml-1">*</span>}
             </label>

@@ -17,7 +17,7 @@ import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
 import { PiCaretDown } from "react-icons/pi";
-import Text from "@/ui/Text";
+import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/ui/HelperText";
 import Field, { FieldProps } from "./Field";
@@ -70,7 +70,9 @@ export type SelectFieldProps = Omit<
   containerStyles?: StylesConfig<SingleValue, boolean>;
   withRadixThemedPortal?: boolean;
   legacyLabelFormatting?: boolean;
-  size?: "sm" | "md" | "normal" | "lg";
+  labelSize?: TextSizes;
+  labelWeight?: TextWeights;
+  size?: "sm" | "md" | "legacy" | "lg";
   errorLevel?: "error" | "warning";
 };
 
@@ -237,7 +239,9 @@ const SelectField: FC<SelectFieldProps> = ({
   containerStyles = {},
   withRadixThemedPortal = false,
   legacyLabelFormatting = true,
-  size = "normal" as "sm" | "md" | "normal" | "lg",
+  labelSize,
+  labelWeight = "semibold",
+  size = "legacy" as "sm" | "md" | "legacy" | "lg",
   errorLevel = "error",
   ...otherProps
 }) => {
@@ -297,13 +301,13 @@ const SelectField: FC<SelectFieldProps> = ({
     const sizeMinHeight: Record<string, number> = {
       sm: 24,
       md: 32,
-      normal: 36,
+      legacy: 36,
       lg: 40,
     };
     const sizeVPadding: Record<string, number> = {
       sm: 0,
       md: 0,
-      normal: 2,
+      legacy: 2,
       lg: 4,
     };
     const prevControl = merged.control;
@@ -348,7 +352,12 @@ const SelectField: FC<SelectFieldProps> = ({
             {!legacyLabelFormatting &&
               label !== undefined &&
               (typeof label === "string" ? (
-                <Text as="label" htmlFor={id} size="large" weight="medium">
+                <Text
+                  as="label"
+                  htmlFor={id}
+                  size={labelSize ?? (size === "lg" ? "large" : "medium")}
+                  weight={labelWeight}
+                >
                   {label}
                 </Text>
               ) : (

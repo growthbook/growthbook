@@ -2,8 +2,8 @@ import { forwardRef } from "react";
 import { Text as RadixText } from "@radix-ui/themes";
 import type { TextProps as RadixTextProps } from "@radix-ui/themes";
 
-type TextSizes = "small" | "medium" | "large" | "x-large" | "inherit";
-type TextWeights = "regular" | "medium" | "semibold";
+export type TextSizes = "small" | "medium" | "large" | "x-large" | "inherit";
+export type TextWeights = "regular" | "medium" | "semibold";
 type TextAlign = "left" | "center" | "right";
 type TextOverflowWrap = "normal" | "anywhere" | "break-word";
 type TextWhiteSpace =

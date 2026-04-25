@@ -36,8 +36,8 @@ export default function SelectStories() {
         {ITEMS}
       </Select>
       <Select
-        label="Size normal (default)"
-        size="normal"
+        label="Size legacy (default)"
+        size="legacy"
         defaultValue="carrot"
         value={selectValue}
         setValue={setSelectValue}

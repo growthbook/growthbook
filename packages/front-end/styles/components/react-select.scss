@@ -4,12 +4,16 @@
 .gb-multi-select__control {
   border-color: var(--gray-a7) !important;
   background-color: var(--color-surface) !important;
-  border-radius: var(--radius-3) !important;
+  border-radius: var(--radius-2) !important;
   min-height: 36px !important;
 
   &--is-disabled {
     background-color: var(--gray-a2) !important;
   }
+}
+
+.gb-multi-select__input {
+  font-size: var(--font-size-2) !important;
 }
 
 .gb-multi-select--md {
@@ -37,25 +41,33 @@
 .gb-multi-select--lg {
   .gb-multi-select__control {
     min-height: 40px !important;
+    border-radius: var(--radius-3) !important;
   }
   .gb-multi-select__value-container {
     padding-top: 4px !important;
     padding-bottom: 4px !important;
   }
   .gb-multi-select__input {
-    font-size: var(--font-size-3) !important;
+    font-size: var(--font-size-2) !important;
+  }
+  .gb-multi-select__multi-value__label {
+    font-size: var(--font-size-2) !important;
   }
 }
 
 .gb-select__control {
   border-color: var(--gray-a7) !important;
   background-color: var(--color-surface) !important;
-  border-radius: var(--radius-3) !important;
+  border-radius: var(--radius-2) !important;
   min-height: 36px !important;
 
   &--is-disabled {
     background-color: var(--gray-a2) !important;
   }
+}
+
+.gb-select__input {
+  font-size: var(--font-size-2) !important;
 }
 
 .gb-select-wrapper--sm {
@@ -83,6 +95,9 @@
   .gb-select__input {
     font-size: var(--font-size-1) !important;
   }
+  .gb-select__single-value {
+    font-size: var(--font-size-1) !important;
+  }
 }
 
 .gb-select-wrapper--md {
@@ -102,6 +117,7 @@
 .gb-select-wrapper--lg {
   .gb-select__control {
     min-height: 40px !important;
+    border-radius: var(--radius-3) !important;
   }
   .gb-select__value-container {
     padding-top: 4px !important;
@@ -109,6 +125,9 @@
   }
   .gb-select__input {
     font-size: var(--font-size-3) !important;
+  }
+  .gb-select__single-value {
+    font-size: var(--font-size-2) !important;
   }
 }
 
@@ -218,7 +237,8 @@
 .gb-multi-select__multi-value__remove,
 .gb-multi-select__multi-value__label {
   // This one is dynamic. Style it in JS.
-  font-weight: 600;
+  font-weight: 500;
+  font-size: var(--font-size-1) !important;
 }
 
 .gb-multi-select__multi-value__remove,

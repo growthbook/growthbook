@@ -103,7 +103,7 @@ export default function PrerequisiteFeatureSelector({
       placeholder="Select feature"
       options={groupedFeatureOptions}
       value={value}
-      size="normal"
+      size="legacy"
       onChange={(v) => {
         const meta = featureOptions.find((o) => o.value === v)?.meta;
         if (meta?.disabled) return;

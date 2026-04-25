@@ -25,7 +25,7 @@ import { isDefined } from "shared/util";
 import clsx from "clsx";
 import { PiCaretDown, PiCopy, PiXBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
-import Text from "@/ui/Text";
+import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import {
   ReactSelectProps,
   SingleValue,
@@ -232,7 +232,9 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
-  size?: "md" | "normal" | "lg";
+  size?: "md" | "legacy" | "lg";
+  labelSize?: TextSizes;
+  labelWeight?: TextWeights;
   errorLevel?: "error" | "warning";
   legacyLabelFormatting?: boolean;
 };
@@ -258,7 +260,9 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
-  size = "normal" as "md" | "normal" | "lg",
+  size = "legacy" as "md" | "legacy" | "lg",
+  labelSize,
+  labelWeight = "semibold",
   errorLevel = "error",
   legacyLabelFormatting = true,
   ...otherProps
@@ -357,10 +361,10 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   const mergeStyles = useMemo(() => {
     const sizeMinHeight: Record<string, number> = {
       md: 32,
-      normal: 36,
+      legacy: 36,
       lg: 40,
     };
-    const sizeVPadding: Record<string, number> = { md: 0, normal: 2, lg: 4 };
+    const sizeVPadding: Record<string, number> = { md: 0, legacy: 2, lg: 4 };
     return {
       styles: {
         ...ReactSelectProps.styles,
@@ -396,7 +400,12 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             {!legacyLabelFormatting &&
               label !== undefined &&
               (typeof label === "string" ? (
-                <Text as="label" htmlFor={id} size="large" weight="medium">
+                <Text
+                  as="label"
+                  htmlFor={id}
+                  size={labelSize ?? (size === "lg" ? "large" : "medium")}
+                  weight={labelWeight}
+                >
                   {label}
                 </Text>
               ) : (
@@ -469,15 +478,16 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                             return (
                               <>
                                 <div
-                                  className="px-2 py-1"
                                   style={{
                                     fontWeight: 500,
-                                    fontSize: "85%",
+                                    fontSize: "var(--font-size-1)",
+                                    marginLeft: "var(--space-2)",
+                                    marginRight: "var(--space-2)",
+                                    marginTop: "var(--space-2)",
+                                    marginBottom: "var(--space-1)",
                                   }}
                                 >
-                                  <strong>
-                                    Select an option or create one
-                                  </strong>
+                                  Select an option or create one
                                 </div>
                                 <components.MenuList {...props} />
                               </>

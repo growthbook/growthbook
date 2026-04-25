@@ -65,8 +65,8 @@ function SizeStory() {
         onChange={setV2}
       />
       <SelectField
-        label="Size normal (default)"
-        size="normal"
+        label="Size legacy (default)"
+        size="legacy"
         value={v3}
         options={FRUIT_OPTIONS}
         onChange={setV3}

@@ -351,8 +351,9 @@
   }
 }
 
-.gb-select--normal .rt-SelectTrigger {
+.gb-select--legacy .rt-SelectTrigger {
   height: 36px;
+  border-radius: var(--radius-2);
 }
 
 .gb-select--md .rt-SelectTrigger {
