@@ -14,7 +14,8 @@ on:
 
 jobs:
   preview:
-    if: ${{ github.repository == 'growthbook/growthbook' }}
+    # Fly deploy secrets are not exposed to forked PRs and may be unavailable in some contexts.
+    if: ${{ github.repository == 'growthbook/growthbook' && !github.event.pull_request.head.repo.fork && secrets.FLY_API_TOKEN != '' }}
     runs-on: ubuntu-latest
     outputs:
       url: ${{ steps.deploy.outputs.url }}
