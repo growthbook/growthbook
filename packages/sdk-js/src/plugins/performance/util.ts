@@ -1,6 +1,6 @@
-import { GrowthBook } from "../../GrowthBook";
+import type { GrowthBook } from "../../GrowthBook";
 import { hash, toString } from "../../util";
-import { Attributes } from "../../types/growthbook";
+import type { Attributes } from "../../types/growthbook";
 
 export function shouldSample({
   rate,
@@ -33,10 +33,9 @@ export function detectEnv(): "browser" | "node" | "unknown" {
   return "unknown";
 }
 
-// Push the current URL into the GrowthBook instance so subsequent events are
-// attributed to the new page. Both calls are idempotent (setURL early-exits
-// on no change). The dispatch covers autoAttributesPlugin (UTM/title refresh);
-// setURL is the direct path that works without it.
+// Sync the current URL into GrowthBook so subsequent events are attributed
+// to the new page. Dispatch covers autoAttributesPlugin (UTM/title refresh);
+// setURL is the direct path that works without it. Both are idempotent.
 export function syncGrowthBookUrl(gb: GrowthBook) {
   try {
     document.dispatchEvent(new Event("growthbookrefresh"));

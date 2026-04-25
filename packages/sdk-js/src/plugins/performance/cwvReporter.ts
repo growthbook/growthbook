@@ -1,8 +1,4 @@
-import { GrowthBook } from "../../GrowthBook";
-import type {
-  GrowthBookClient,
-  UserScopedGrowthBook,
-} from "../../GrowthBookClient";
+import type { GrowthBook } from "../../GrowthBook";
 import { detectEnv, shouldSample, syncGrowthBookUrl } from "./util";
 import { subscribeToUrlChanges } from "./urlChangeObserver";
 
@@ -21,7 +17,8 @@ export type CWVReporterSettings = {
   // Also finalize CWV on query-string changes (default: pathname-only)
   trackQueryStringChanges?: boolean;
   enableUrlPolling?: boolean;
-  growthbook: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
+  // GrowthBook only — needs getAttributes + onDestroy
+  growthbook: GrowthBook;
 };
 
 // types are incomplete
@@ -71,7 +68,13 @@ export function createCWVReporter({
   if (env !== "browser") {
     throw new Error("CWV reporting only works in the browser");
   }
-  if (!(growthbook instanceof GrowthBook)) {
+  // Duck-type rather than instanceof so multi-bundle setups (CDN + npm) work
+  if (
+    !growthbook ||
+    typeof growthbook.getAttributes !== "function" ||
+    typeof growthbook.onDestroy !== "function" ||
+    typeof growthbook.logEvent !== "function"
+  ) {
     throw new Error("CWV reporting requires a GrowthBook instance");
   }
 

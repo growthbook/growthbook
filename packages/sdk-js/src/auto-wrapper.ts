@@ -155,29 +155,30 @@ const performanceEnabled = !!(
 );
 
 const tracking = dataContext.tracking || "gtag,gtm,segment";
-if (tracking !== "none") {
-  const trackers = tracking
-    .toLowerCase()
-    .split(",")
-    .map((t) => t.trim());
+const trackers =
+  tracking !== "none"
+    ? tracking
+        .toLowerCase()
+        .split(",")
+        .map((t) => t.trim())
+    : [];
 
-  // Performance events need an event logger; auto-include if not already on
-  if (trackers.includes("growthbook") || performanceEnabled) {
-    plugins.push(
-      growthbookTrackingPlugin({
-        ingestorHost: dataContext.eventIngestorHost,
-      }),
-    );
-  }
+// Perf events need a logger; include even when tracking="none"
+if (trackers.includes("growthbook") || performanceEnabled) {
+  plugins.push(
+    growthbookTrackingPlugin({
+      ingestorHost: dataContext.eventIngestorHost,
+    }),
+  );
+}
 
-  if (!windowContext.trackingCallback) {
-    plugins.push(
-      thirdPartyTrackingPlugin({
-        additionalCallback: windowContext.additionalTrackingCallback,
-        trackers: trackers as Trackers[],
-      }),
-    );
-  }
+if (tracking !== "none" && !windowContext.trackingCallback) {
+  plugins.push(
+    thirdPartyTrackingPlugin({
+      additionalCallback: windowContext.additionalTrackingCallback,
+      trackers: trackers as Trackers[],
+    }),
+  );
 }
 
 if (performanceEnabled) {

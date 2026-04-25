@@ -7,6 +7,13 @@ import { createErrorReporter } from "./errorReporter";
 import { createCWVReporter } from "./cwvReporter";
 import { createPageViewReporter } from "./pageViewReporter";
 
+// Narrows to `GrowthBook` for CWV + page-view; error reporter handles all 3
+function isFullGrowthBook(
+  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
+): gb is GrowthBook {
+  return "getAttributes" in gb && "onDestroy" in gb && "setURL" in gb;
+}
+
 type BrowserPerformanceSettings = {
   cwvSamplingRate?: number;
   errorSamplingRate?: number;
@@ -43,16 +50,23 @@ export function browserPerformancePlugin({
   trackQueryStringChanges = false,
   enableUrlPolling = false,
 }: BrowserPerformanceSettings = {}) {
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    throw new Error("browserPerformancePlugin only works in the browser");
-  }
-
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
+    // SSR no-op so this is safe to import from shared config
+    if (typeof window === "undefined" || typeof document === "undefined")
+      return;
+
     if (!gb.logEvent) {
       throw new Error("GrowthBook instance must have a logEvent method");
     }
 
-    if (cwvSamplingRate > 0) {
+    const fullGB = isFullGrowthBook(gb);
+    !fullGB &&
+      (cwvSamplingRate > 0 || pageViewSamplingRate > 0) &&
+      console.warn(
+        "browserPerformancePlugin: CWV / page-view need a GrowthBook instance, skipping",
+      );
+
+    if (cwvSamplingRate > 0 && fullGB) {
       createCWVReporter({
         trackFCP,
         trackLCP,
@@ -78,7 +92,7 @@ export function browserPerformancePlugin({
       });
     }
 
-    if (pageViewSamplingRate > 0) {
+    if (pageViewSamplingRate > 0 && fullGB) {
       createPageViewReporter({
         samplingRate: pageViewSamplingRate,
         hashAttribute,

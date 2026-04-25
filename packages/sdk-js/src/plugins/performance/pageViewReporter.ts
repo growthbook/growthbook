@@ -1,8 +1,4 @@
-import { GrowthBook } from "../../GrowthBook";
-import type {
-  GrowthBookClient,
-  UserScopedGrowthBook,
-} from "../../GrowthBookClient";
+import type { GrowthBook } from "../../GrowthBook";
 import { detectEnv, shouldSample, syncGrowthBookUrl } from "./util";
 import { subscribeToUrlChanges } from "./urlChangeObserver";
 
@@ -12,7 +8,8 @@ export type PageViewReporterSettings = {
   // Fire page_view on query-string changes too (default: pathname-only)
   trackQueryStringChanges?: boolean;
   enableUrlPolling?: boolean;
-  growthbook: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
+  // GrowthBook only — needs getAttributes + onDestroy
+  growthbook: GrowthBook;
 };
 
 export function createPageViewReporter({
@@ -30,7 +27,13 @@ export function createPageViewReporter({
   if (env !== "browser") {
     throw new Error("Page view tracking only works in the browser");
   }
-  if (!(growthbook instanceof GrowthBook)) {
+  // Duck-type rather than instanceof so multi-bundle setups (CDN + npm) work
+  if (
+    !growthbook ||
+    typeof growthbook.getAttributes !== "function" ||
+    typeof growthbook.onDestroy !== "function" ||
+    typeof growthbook.logEvent !== "function"
+  ) {
     throw new Error("Page view tracking requires a GrowthBook instance");
   }
 

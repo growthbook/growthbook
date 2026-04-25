@@ -1,4 +1,4 @@
-import { GrowthBook } from "../../GrowthBook";
+import type { GrowthBook } from "../../GrowthBook";
 import type {
   GrowthBookClient,
   UserScopedGrowthBook,

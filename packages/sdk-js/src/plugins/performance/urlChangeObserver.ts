@@ -1,33 +1,29 @@
-// Shared SPA URL-change observer. Multiple reporters subscribe to a single
-// observer so we don't double-wrap history methods or run multiple timers.
-//
-// Detection paths (in order of preference):
-//   1. `navigatesuccess` — fires after a Navigation API navigation commits
-//   2. pushState/replaceState monkey-patch + `popstate` — covers all current
-//      SPA routers (React Router, Next.js, Vue Router, etc.)
-//   3. setInterval polling — opt-in fallback, off by default
+// Shared SPA URL-change observer; one set of patches across reporters.
+// Detection: navigatesuccess > history pushState/replaceState + popstate > polling (opt-in)
 
 type UrlChangeListener = (newPath: string, oldPath: string | null) => void;
 
 type SubscribeOptions = {
-  // Treat query-string changes (?foo=bar) as URL changes. Default: pathname-only.
+  // Per-subscriber — does not leak across subscribers
   trackQueryString?: boolean;
-  // Run a setInterval polling fallback. Off by default.
+  // Module-level (shared timer); most-permissive-wins once on, stays on
   enablePolling?: boolean;
   pollIntervalMs?: number;
 };
 
-const subscribers = new Set<UrlChangeListener>();
-let initialized = false;
-let lastSeenPath: string | null = null;
-let pollTimer: ReturnType<typeof setTimeout> | null = null;
+type Subscriber = {
+  cb: UrlChangeListener;
+  trackQueryString: boolean;
+  lastPath: string | null;
+};
 
-// Most-permissive settings across all subscribers; once enabled, stay enabled.
-let trackQueryString = false;
+const subscribers = new Set<Subscriber>();
+let initialized = false;
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollingEnabled = false;
 let pollIntervalMs = 500;
 
-function getCurrentPath(): string {
+function getCurrentPath(trackQueryString: boolean): string {
   return (
     window.location.origin +
     window.location.pathname +
@@ -36,15 +32,16 @@ function getCurrentPath(): string {
 }
 
 function notifyIfChanged() {
-  const newPath = getCurrentPath();
-  if (newPath === lastSeenPath) return;
-  const oldPath = lastSeenPath;
-  lastSeenPath = newPath;
-  subscribers.forEach((cb) => {
+  // Each subscriber sees its own URL view (per-subscriber trackQueryString)
+  subscribers.forEach((sub) => {
+    const newPath = getCurrentPath(sub.trackQueryString);
+    if (newPath === sub.lastPath) return;
+    const oldPath = sub.lastPath;
+    sub.lastPath = newPath;
     try {
-      cb(newPath, oldPath);
+      sub.cb(newPath, oldPath);
     } catch {
-      // noop — don't let one subscriber break others
+      // noop
     }
   });
 }
@@ -66,7 +63,6 @@ function stopPolling() {
 function initialize() {
   if (initialized) return;
   initialized = true;
-  lastSeenPath = getCurrentPath();
 
   // Navigation API (Chromium); the older `navigate` event is unreliable
   const nav = (window as Window & { navigation?: EventTarget }).navigation;
@@ -74,7 +70,7 @@ function initialize() {
     typeof nav.addEventListener === "function" &&
     nav.addEventListener("navigatesuccess", notifyIfChanged);
 
-  // History API monkey-patch — done once globally so we don't double-wrap
+  // History monkey-patch — once globally so we don't double-wrap
   const methods = ["pushState", "replaceState"] as const;
   methods.forEach((method) => {
     const original = window.history[method];
@@ -90,15 +86,14 @@ function initialize() {
   pollingEnabled && startPolling();
 }
 
-// Subscribe to SPA URL changes; returns an unsubscribe function.
-// Options are most-permissive-wins across all subscribers.
+// Subscribe to SPA URL changes; returns unsubscribe.
+// trackQueryString is per-subscriber; polling is most-permissive-wins.
 export function subscribeToUrlChanges(
   cb: UrlChangeListener,
   options: SubscribeOptions = {},
 ): () => void {
   if (typeof window === "undefined") return () => undefined;
 
-  options.trackQueryString && (trackQueryString = true);
   options.pollIntervalMs &&
     options.pollIntervalMs > 0 &&
     (pollIntervalMs = options.pollIntervalMs);
@@ -108,24 +103,26 @@ export function subscribeToUrlChanges(
   }
 
   initialize();
-  // Refresh in case trackQueryString just toggled
-  lastSeenPath = getCurrentPath();
-  subscribers.add(cb);
+
+  const trackQueryString = !!options.trackQueryString;
+  const sub: Subscriber = {
+    cb,
+    trackQueryString,
+    lastPath: getCurrentPath(trackQueryString),
+  };
+  subscribers.add(sub);
 
   return () => {
-    subscribers.delete(cb);
-    // Stop the polling timer if no one is listening; the history patches
-    // stay in place since other code may have wrapped them since.
+    subscribers.delete(sub);
+    // No subs left → drop the timer; history patches stay (others may have wrapped them)
     subscribers.size === 0 && stopPolling();
   };
 }
 
-// Test-only helper to reset module state
+// test-only
 export function _resetUrlChangeObserverForTests() {
   subscribers.clear();
   initialized = false;
-  lastSeenPath = null;
-  trackQueryString = false;
   pollingEnabled = false;
   pollIntervalMs = 500;
   stopPolling();

@@ -2,7 +2,11 @@ import { GrowthBook } from "../../src";
 import { createCWVReporter } from "../../src/plugins/performance/cwvReporter";
 import { createPageViewReporter } from "../../src/plugins/performance/pageViewReporter";
 import { createErrorReporter } from "../../src/plugins/performance/errorReporter";
-import { _resetUrlChangeObserverForTests } from "../../src/plugins/performance/urlChangeObserver";
+import {
+  _resetUrlChangeObserverForTests,
+  subscribeToUrlChanges,
+} from "../../src/plugins/performance/urlChangeObserver";
+import { browserPerformancePlugin } from "../../src/plugins/performance/browser-performance";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -660,6 +664,137 @@ describe("Error reporter", () => {
     );
     expect(logEvent).toHaveBeenCalledTimes(2);
 
+    gb.destroy();
+  });
+});
+
+describe("subscribeToUrlChanges", () => {
+  beforeEach(() => {
+    _resetUrlChangeObserverForTests();
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("trackQueryString is per-subscriber and does not leak across subscribers", () => {
+    // Regression test for the previous module-level trackQueryString flag
+    const tracksQS = jest.fn();
+    const ignoresQS = jest.fn();
+
+    const unsubA = subscribeToUrlChanges(tracksQS, { trackQueryString: true });
+    const unsubB = subscribeToUrlChanges(ignoresQS, {
+      trackQueryString: false,
+    });
+
+    window.history.pushState({}, "", "/?filter=red");
+    expect(tracksQS).toHaveBeenCalledTimes(1);
+    expect(ignoresQS).toHaveBeenCalledTimes(0);
+
+    window.history.pushState({}, "", "/?filter=blue");
+    expect(tracksQS).toHaveBeenCalledTimes(2);
+    expect(ignoresQS).toHaveBeenCalledTimes(0);
+
+    // Pathname change fires both
+    window.history.pushState({}, "", "/products");
+    expect(tracksQS).toHaveBeenCalledTimes(3);
+    expect(ignoresQS).toHaveBeenCalledTimes(1);
+
+    unsubA();
+    unsubB();
+  });
+
+  it("a CWV-style reporter is not finalized prematurely by a page-view reporter that opted into query-string tracking", async () => {
+    // CWV observer must stay attached on ?qs-only nav when only page-view opted in
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createCWVReporter({
+      growthbook: gb,
+      trackQueryStringChanges: false,
+      trackFCP: false,
+      trackLCP: false,
+      trackFID: false,
+      trackINP: false,
+      trackCLS: false,
+      trackTTFB: false,
+      trackTBT: false,
+    });
+    createPageViewReporter({
+      growthbook: gb,
+      trackQueryStringChanges: true,
+    });
+
+    // Initial page_view
+    expect(logEvent).toHaveBeenCalledTimes(1);
+    logEvent.mockClear();
+
+    window.history.pushState({}, "", "/?qs=1");
+    await sleep(0);
+
+    // page-view fires; CWV does not (would have logged on finalize)
+    expect(logEvent).toHaveBeenCalledTimes(1);
+    expect(logEvent).toHaveBeenCalledWith("page_view");
+
+    gb.destroy();
+  });
+
+  it("stops the polling timer once the last subscriber unsubscribes", () => {
+    // jest will surface leaked timers; just need this to settle cleanly
+    const cb = jest.fn();
+    const unsub = subscribeToUrlChanges(cb, { enablePolling: true });
+    unsub();
+  });
+});
+
+describe("browserPerformancePlugin", () => {
+  beforeEach(() => {
+    _resetUrlChangeObserverForTests();
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("does not throw when constructed at module-eval time (SSR-safe)", () => {
+    // Env guard lives in the returned fn, not the factory — safe to import in shared config
+    expect(() =>
+      browserPerformancePlugin({ cwvSamplingRate: 1 }),
+    ).not.toThrow();
+  });
+
+  it("skips CWV and page-view reporters with a warn when given a non-GrowthBook instance", () => {
+    // Duck-typed client (logEvent only) — CWV/pageView skip with warn, error reporter still attaches
+    const fakeClient = { logEvent: jest.fn() };
+    const apply = browserPerformancePlugin({
+      cwvSamplingRate: 1,
+      pageViewSamplingRate: 1,
+      errorSamplingRate: 1,
+    });
+
+    expect(() => apply(fakeClient as never)).not.toThrow();
+
+    const warnMessages = consoleWarnSpy.mock.calls.map((c) => String(c[0]));
+    expect(
+      warnMessages.some((m) => m.includes("CWV / page-view need a GrowthBook")),
+    ).toBe(true);
+
+    window.dispatchEvent(
+      new ErrorEvent("error", {
+        message: "boom",
+        filename: "x.js",
+        lineno: 1,
+        colno: 1,
+      }),
+    );
+    expect(fakeClient.logEvent).toHaveBeenCalledWith(
+      "browser-error",
+      expect.objectContaining({ message: "boom" }),
+    );
+  });
+
+  it("does not require constructor identity (multi-bundle safe)", () => {
+    // Duck-typed guard path; cross-realm constructors take the same code path
+    const gb = new GrowthBook({ clientKey: "test" });
+    const apply = browserPerformancePlugin({
+      cwvSamplingRate: 1,
+      pageViewSamplingRate: 1,
+    });
+    expect(() => apply(gb)).not.toThrow();
     gb.destroy();
   });
 });
