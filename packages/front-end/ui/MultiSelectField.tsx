@@ -1,4 +1,12 @@
-import { FC, MouseEventHandler, ReactNode, useMemo, useState } from "react";
+import {
+  createContext,
+  FC,
+  MouseEventHandler,
+  ReactNode,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import ReactSelect, {
   components,
   GroupBase,
@@ -17,7 +25,6 @@ import {
   SortableContainerProps,
   SortableElement,
   SortEndHandler,
-  SortableHandle,
 } from "react-sortable-hoc";
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
@@ -37,27 +44,49 @@ import Field, { FieldProps } from "@/components/Forms/Field";
 import HelperText from "@/ui/HelperText";
 import { ColorOption } from "@/components/Tags/TagsInput";
 
+type MultiValueLabelStyle = {
+  fontSize: string;
+  fontWeight: number;
+  cursor: string | undefined;
+};
+const MultiValueLabelStyleContext = createContext<MultiValueLabelStyle>({
+  fontSize: "12px",
+  fontWeight: 500,
+  cursor: undefined,
+});
+
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue, true, GroupBase<SingleValue>>) => {
     // Hack to stop the dropdown from opening when the user starts dragging
     const onMouseDown: MouseEventHandler<HTMLDivElement> = (e) => {
       e.preventDefault();
-      e.stopPropagation();
     };
     const innerProps = { ...props.innerProps, onMouseDown };
     return <components.MultiValue {...props} innerProps={innerProps} />;
   },
 );
 
-const SortableMultiValueLabel = SortableHandle(
-  (
-    props: MultiValueGenericProps<SingleValue, true, GroupBase<SingleValue>>,
-  ) => {
-    const title = props.data?.tooltip || props.data?.label || "";
-    const innerProps = { ...props.innerProps, title };
-    return <components.MultiValueLabel {...props} innerProps={innerProps} />;
-  },
-);
+// Not a SortableHandle — the whole tag is the drag target (avoids useDragHandle
+// registration issues on first interaction). Cursor is set via context/CSS.
+const SortableMultiValueLabel = (
+  props: MultiValueGenericProps<SingleValue, true, GroupBase<SingleValue>>,
+) => {
+  const style = useContext(MultiValueLabelStyleContext);
+  const title = props.data?.tooltip || props.data?.label || "";
+  const innerProps = { ...props.innerProps, title };
+  return (
+    <span
+      style={{
+        display: "flex",
+        alignItems: "center",
+        alignSelf: "stretch",
+        ...style,
+      }}
+    >
+      <components.MultiValueLabel {...props} innerProps={innerProps} />
+    </span>
+  );
+};
 
 const OptionWithTitle = (
   props: OptionProps<SingleValue, true, GroupBase<SingleValue>>,
@@ -187,9 +216,21 @@ function CustomMultiValueRemove(
   props: React.ComponentProps<typeof components.MultiValueRemove>,
 ) {
   return (
-    <components.MultiValueRemove {...props}>
-      <PiXBold />
-    </components.MultiValueRemove>
+    <span style={{ display: "flex", alignSelf: "stretch" }}>
+      <components.MultiValueRemove
+        {...props}
+        innerProps={{
+          ...props.innerProps,
+          style: {
+            alignSelf: "stretch",
+            display: "flex",
+            alignItems: "center",
+          },
+        }}
+      >
+        <PiXBold size={14} />
+      </components.MultiValueRemove>
+    </span>
   );
 }
 
@@ -388,188 +429,204 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       },
     };
   }, [size, customStyles]);
+
+  const labelStyle = useMemo<MultiValueLabelStyle>(
+    () => ({
+      fontSize: size === "lg" ? "14px" : "12px",
+      fontWeight: 500,
+      cursor: sort ? "grab" : undefined,
+    }),
+    [size, sort],
+  );
   return (
-    <Field
-      {...fieldProps}
-      customClassName={clsx(customClassName, {
-        "cursor-disabled": disabled,
-      })}
-      render={(id, ref) => {
-        return (
-          <>
-            {!legacyLabelFormatting &&
-              label !== undefined &&
-              (typeof label === "string" ? (
-                <Text
-                  as="label"
-                  htmlFor={id}
-                  size={labelSize ?? (size === "lg" ? "large" : "medium")}
-                  weight={labelWeight}
-                >
-                  {label}
-                </Text>
-              ) : (
-                label
-              ))}
-            <div style={{ position: "relative" }}>
-              <Component
-                className={clsx(`gb-multi-select--${size}`, {
-                  error: !!error && errorLevel === "error",
-                  warning: !!error && errorLevel === "warning",
-                })}
-                onPaste={handlePaste}
-                showCopyButton={showCopyButton}
-                useDragHandle
-                classNamePrefix="gb-multi-select"
-                helperClass="multi-select-container"
-                axis="xy"
-                onSortEnd={(s, e) => {
-                  onSortEnd(s, e);
-                  // The following is a hack to clean up elements that might be
-                  // left in the dom after dragging. Hopefully we can remove this
-                  // if react-select and react-sortable fixes it.
-                  setTimeout(() => {
-                    const nodes = document.querySelectorAll(
-                      "body > .multi-select-container",
-                    );
-                    nodes.forEach((n) => {
-                      n.remove();
-                    });
-                  }, 100);
-                }}
-                distance={4}
-                getHelperDimensions={({ node }) => node.getBoundingClientRect()}
-                id={id}
-                ref={ref}
-                formatOptionLabel={formatOptionLabel}
-                formatGroupLabel={formatGroupLabel}
-                isDisabled={disabled || false}
-                options={sorted}
-                isMulti={true}
-                onChange={(selected) => {
-                  onChange(selected?.map((s) => s.value) ?? []);
-                }}
-                isValidNewOption={(value) => {
-                  if (!pattern) return !!value;
-                  return new RegExp(pattern).test(value);
-                }}
-                components={{
-                  MultiValue: SortableMultiValue,
-                  MultiValueLabel: SortableMultiValueLabel,
-                  MultiValueRemove: CustomMultiValueRemove,
-                  Option: OptionWithTitle,
-                  Input,
-                  ClearIndicator: CustomClearIndicator,
-                  GroupHeading,
-                  ...(showCopyButton
-                    ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
-                    : {}),
-                  ...(creatable && noMenu
-                    ? {
-                        Menu: () => null,
-                        DropdownIndicator: () => null,
-                        IndicatorSeparator: () => null,
-                      }
-                    : creatable
+    <MultiValueLabelStyleContext.Provider value={labelStyle}>
+      <Field
+        {...fieldProps}
+        customClassName={clsx(customClassName, {
+          "cursor-disabled": disabled,
+        })}
+        render={(id, ref) => {
+          return (
+            <>
+              {!legacyLabelFormatting &&
+                label !== undefined &&
+                (typeof label === "string" ? (
+                  <Text
+                    as="label"
+                    htmlFor={id}
+                    size={labelSize ?? (size === "lg" ? "large" : "medium")}
+                    weight={labelWeight}
+                  >
+                    {label}
+                  </Text>
+                ) : (
+                  label
+                ))}
+              <div style={{ position: "relative" }}>
+                <Component
+                  className={clsx(`gb-multi-select--${size}`, {
+                    error: !!error && errorLevel === "error",
+                    warning: !!error && errorLevel === "warning",
+                  })}
+                  onPaste={handlePaste}
+                  showCopyButton={showCopyButton}
+                  classNamePrefix="gb-multi-select"
+                  helperClass={`multi-select-container gb-multi-select--${size}`}
+                  axis="xy"
+                  shouldCancelStart={() => !sort}
+                  onSortEnd={(s, e) => {
+                    onSortEnd(s, e);
+                    // The following is a hack to clean up elements that might be
+                    // left in the dom after dragging. Hopefully we can remove this
+                    // if react-select and react-sortable fixes it.
+                    setTimeout(() => {
+                      const nodes = document.querySelectorAll(
+                        "body > .multi-select-container",
+                      );
+                      nodes.forEach((n) => {
+                        n.remove();
+                      });
+                    }, 100);
+                  }}
+                  distance={4}
+                  getHelperDimensions={({ node }) =>
+                    node.getBoundingClientRect()
+                  }
+                  id={id}
+                  ref={ref}
+                  formatOptionLabel={formatOptionLabel}
+                  formatGroupLabel={formatGroupLabel}
+                  isDisabled={disabled || false}
+                  options={sorted}
+                  isMulti={true}
+                  onChange={(selected) => {
+                    onChange(selected?.map((s) => s.value) ?? []);
+                  }}
+                  isValidNewOption={(value) => {
+                    if (!pattern) return !!value;
+                    return new RegExp(pattern).test(value);
+                  }}
+                  components={{
+                    MultiValue: SortableMultiValue,
+                    MultiValueLabel: SortableMultiValueLabel,
+                    MultiValueRemove: CustomMultiValueRemove,
+                    Option: OptionWithTitle,
+                    Input,
+                    ClearIndicator: CustomClearIndicator,
+                    GroupHeading,
+                    ...(showCopyButton
                       ? {
-                          DropdownIndicator: CustomDropdownIndicator,
-                          IndicatorSeparator: () => null,
-                          MenuList: (props) => {
-                            return (
-                              <>
-                                <div
-                                  style={{
-                                    fontWeight: 500,
-                                    fontSize: "var(--font-size-1)",
-                                    marginLeft: "var(--space-2)",
-                                    marginRight: "var(--space-2)",
-                                    marginTop: "var(--space-2)",
-                                    marginBottom: "var(--space-1)",
-                                  }}
-                                >
-                                  Select an option or create one
-                                </div>
-                                <components.MenuList {...props} />
-                              </>
-                            );
-                          },
+                          IndicatorsContainer:
+                            IndicatorsContainerWithCopyButton,
                         }
-                      : {
-                          DropdownIndicator: CustomDropdownIndicator,
+                      : {}),
+                    ...(creatable && noMenu
+                      ? {
+                          Menu: () => null,
+                          DropdownIndicator: () => null,
                           IndicatorSeparator: () => null,
-                        }),
-                }}
-                {...(creatable && noMenu
-                  ? {
-                      // Prevent multi-select from submitting if you type the same value twice
-                      onKeyDown: (e) => {
-                        const v = (e.target as HTMLInputElement).value;
-                        if (e.code === "Enter" && (!v || value.includes(v))) {
-                          e.preventDefault();
                         }
-                      },
-                    }
-                  : {})}
-                closeMenuOnSelect={closeMenuOnSelect}
-                autoFocus={autoFocus}
-                value={selected}
-                {...(creatable
-                  ? {
-                      formatCreateLabel: (input: string) => {
-                        return (
-                          <span>
-                            <span className="text-muted">Create</span>{" "}
-                            <span
-                              className="badge bg-purple-light-2"
-                              style={{
-                                fontWeight: 600,
-                                padding: "3px 6px",
-                                lineHeight: "1.5",
-                                borderRadius: "2px",
-                              }}
-                            >
-                              {input}
+                      : creatable
+                        ? {
+                            DropdownIndicator: CustomDropdownIndicator,
+                            IndicatorSeparator: () => null,
+                            MenuList: (props) => {
+                              return (
+                                <>
+                                  <div
+                                    style={{
+                                      fontWeight: 500,
+                                      fontSize: "var(--font-size-1)",
+                                      marginLeft: "var(--space-2)",
+                                      marginRight: "var(--space-2)",
+                                      marginTop: "var(--space-2)",
+                                      marginBottom: "var(--space-1)",
+                                    }}
+                                  >
+                                    Select an option or create one
+                                  </div>
+                                  <components.MenuList {...props} />
+                                </>
+                              );
+                            },
+                          }
+                        : {
+                            DropdownIndicator: CustomDropdownIndicator,
+                            IndicatorSeparator: () => null,
+                          }),
+                  }}
+                  {...(creatable && noMenu
+                    ? {
+                        // Prevent multi-select from submitting if you type the same value twice
+                        onKeyDown: (e) => {
+                          const v = (e.target as HTMLInputElement).value;
+                          if (e.code === "Enter" && (!v || value.includes(v))) {
+                            e.preventDefault();
+                          }
+                        },
+                      }
+                    : {})}
+                  closeMenuOnSelect={closeMenuOnSelect}
+                  autoFocus={autoFocus}
+                  value={selected}
+                  {...(creatable
+                    ? {
+                        formatCreateLabel: (input: string) => {
+                          return (
+                            <span>
+                              <span className="text-muted">Create</span>{" "}
+                              <span
+                                className="badge bg-purple-light-2"
+                                style={{
+                                  fontWeight: 600,
+                                  padding: "3px 6px",
+                                  lineHeight: "1.5",
+                                  borderRadius: "2px",
+                                }}
+                              >
+                                {input}
+                              </span>
                             </span>
-                          </span>
-                        );
-                      },
-                    }
-                  : {})}
-                placeholder={initialOption ?? placeholder}
-                isOptionDisabled={isOptionDisabled}
-                {...{ ...ReactSelectProps, ...mergeStyles }}
-              />
-              {required && (
-                <input
-                  tabIndex={-1}
-                  autoComplete="off"
-                  style={{
-                    opacity: 0,
-                    width: "100%",
-                    height: 0,
-                    position: "absolute",
-                    pointerEvents: "none",
-                  }}
-                  value={value.join(",")}
-                  onChange={() => {}}
-                  onFocus={() => {
-                    if (ref?.current) {
-                      ref.current.focus();
-                    }
-                  }}
-                  required
+                          );
+                        },
+                      }
+                    : {})}
+                  placeholder={initialOption ?? placeholder}
+                  isOptionDisabled={isOptionDisabled}
+                  {...{ ...ReactSelectProps, ...mergeStyles }}
                 />
+                {required && (
+                  <input
+                    tabIndex={-1}
+                    autoComplete="off"
+                    style={{
+                      opacity: 0,
+                      width: "100%",
+                      height: 0,
+                      position: "absolute",
+                      pointerEvents: "none",
+                    }}
+                    value={value.join(",")}
+                    onChange={() => {}}
+                    onFocus={() => {
+                      if (ref?.current) {
+                        ref.current.focus();
+                      }
+                    }}
+                    required
+                  />
+                )}
+              </div>
+              {error && (
+                <HelperText status={errorLevel} mt="1">
+                  {error}
+                </HelperText>
               )}
-            </div>
-            {error && (
-              <HelperText status={errorLevel} mt="1">
-                {error}
-              </HelperText>
-            )}
-          </>
-        );
-      }}
-    />
+            </>
+          );
+        }}
+      />
+    </MultiValueLabelStyleContext.Provider>
   );
 };
 

@@ -234,6 +234,13 @@
   // This one is dynamic. Style it in JS.
 }
 
+.gb-multi-select__multi-value.multi-select-container {
+  visibility: visible !important;
+  opacity: 1 !important;
+  box-shadow: 0 3px 4px -1px rgba(0, 0, 0, 0.12) !important;
+  transition: box-shadow 0.15s ease;
+}
+
 .gb-multi-select__multi-value__remove,
 .gb-multi-select__multi-value__label {
   // This one is dynamic. Style it in JS.
@@ -245,6 +252,7 @@
 .gb-select__multi-value__remove {
   opacity: 0.25;
   cursor: pointer;
+  flex-shrink: 0;
   transition:
     opacity 0.15s ease,
     background-color 0.15s ease;

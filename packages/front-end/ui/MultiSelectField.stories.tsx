@@ -179,6 +179,19 @@ function NoCopyButtonStory() {
   );
 }
 
+function NonSortableStory() {
+  const [value, setValue] = useState<string[]>(["apple", "banana", "mango"]);
+  return (
+    <MultiSelectField
+      label="Non-sortable"
+      value={value}
+      options={FRUIT_OPTIONS}
+      onChange={setValue}
+      sort={false}
+    />
+  );
+}
+
 export default function MultiSelectFieldStories() {
   return (
     <Flex direction="column" gap="4" maxWidth="420px">
@@ -188,6 +201,7 @@ export default function MultiSelectFieldStories() {
       <CreatableStory />
       <CreatableNoMenuStory />
       <NoCopyButtonStory />
+      <NonSortableStory />
       <DisabledStory />
       <WithErrorStory />
       <WithWarningStory />
