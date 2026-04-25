@@ -30,7 +30,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import clsx from "clsx";
-import { PiCaretDown, PiCopy, PiXBold } from "react-icons/pi";
+import { PiCaretDown, PiCopy, PiX } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import {
@@ -207,7 +207,7 @@ function IndicatorsContainerWithCopyButton(
 function CustomClearIndicator(props: ClearIndicatorProps<ColorOption, true>) {
   return (
     <components.ClearIndicator {...props}>
-      <PiXBold />
+      <PiX />
     </components.ClearIndicator>
   );
 }
@@ -228,7 +228,7 @@ function CustomMultiValueRemove(
           },
         }}
       >
-        <PiXBold size={14} />
+        <PiX size={14} />
       </components.MultiValueRemove>
     </span>
   );

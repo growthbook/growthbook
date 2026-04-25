@@ -234,6 +234,20 @@
   // This one is dynamic. Style it in JS.
 }
 
+.gb-multi-select--md .gb-multi-select__multi-value {
+  height: 22px;
+  border-radius: var(--radius-1);
+}
+.gb-multi-select--legacy .gb-multi-select__multi-value,
+.gb-multi-select__multi-value {
+  height: 24px;
+  border-radius: var(--radius-1);
+}
+.gb-multi-select--lg .gb-multi-select__multi-value {
+  height: 26px;
+  border-radius: var(--radius-2);
+}
+
 .gb-multi-select__multi-value.multi-select-container {
   visibility: visible !important;
   opacity: 1 !important;
@@ -246,6 +260,10 @@
   // This one is dynamic. Style it in JS.
   font-weight: 500;
   font-size: var(--font-size-1) !important;
+}
+
+.gb-multi-select__multi-value__label {
+  cursor: inherit !important;
 }
 
 .gb-multi-select__multi-value__remove,
