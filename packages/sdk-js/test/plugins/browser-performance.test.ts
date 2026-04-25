@@ -626,6 +626,76 @@ describe("Error reporter", () => {
     expect(logEvent).not.toHaveBeenCalled();
   });
 
+  it("preserves the rejection value across non-Error reasons (string/number/object)", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createErrorReporter({ growthbook: gb, debounceTimeout: 0 });
+
+    // PromiseRejectionEvent isn't always available in jsdom; the handler only
+    // reads `event.reason`, so a regular Event with reason attached is enough
+    const dispatch = (reason: unknown) => {
+      const evt = new Event("unhandledrejection") as Event & {
+        reason: unknown;
+      };
+      Object.defineProperty(evt, "reason", {
+        configurable: true,
+        get: () => reason,
+      });
+      window.dispatchEvent(evt);
+    };
+
+    // string rejection — Promise.reject("auth failed")
+    dispatch("auth failed");
+    expect(logEvent).toHaveBeenLastCalledWith(
+      "browser-error",
+      expect.objectContaining({ message: "auth failed", stack: "" }),
+    );
+
+    // number rejection
+    dispatch(42);
+    expect(logEvent).toHaveBeenLastCalledWith(
+      "browser-error",
+      expect.objectContaining({ message: "42" }),
+    );
+
+    // plain object without `.message` — JSON-stringified
+    dispatch({ code: 500, error: "internal" });
+    expect(logEvent).toHaveBeenLastCalledWith(
+      "browser-error",
+      expect.objectContaining({
+        message: JSON.stringify({ code: 500, error: "internal" }),
+      }),
+    );
+
+    // plain object with `.message` and `.stack`
+    dispatch({ message: "fetch failed", stack: "at line 1" });
+    expect(logEvent).toHaveBeenLastCalledWith(
+      "browser-error",
+      expect.objectContaining({
+        message: "fetch failed",
+        stack: "at line 1",
+      }),
+    );
+
+    // Error instance — message + stack preserved
+    const err = new Error("boom");
+    dispatch(err);
+    expect(logEvent).toHaveBeenLastCalledWith(
+      "browser-error",
+      expect.objectContaining({ message: "boom", stack: err.stack }),
+    );
+
+    // null / undefined rejection — falls back to generic message
+    dispatch(null);
+    expect(logEvent).toHaveBeenLastCalledWith(
+      "browser-error",
+      expect.objectContaining({ message: "Unhandled Promise rejection" }),
+    );
+
+    gb.destroy();
+  });
+
   it("does not collapse cross-origin errors that share message + empty stack", () => {
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");

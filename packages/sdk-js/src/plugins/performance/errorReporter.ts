@@ -127,9 +127,29 @@ export function createErrorReporter({
   };
 
   const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-    const reason = event.reason as { message?: string; stack?: string } | null;
-    const message = reason?.message || "Unhandled Promise rejection";
-    const stack = reason?.stack || "";
+    // event.reason can be anything: Error, plain object, string, number, etc.
+    // The previous cast silently dropped non-Error rejection values.
+    const reason: unknown = event.reason;
+    let message = "Unhandled Promise rejection";
+    let stack = "";
+    if (reason instanceof Error) {
+      message = reason.message || message;
+      stack = reason.stack || "";
+    } else if (reason && typeof reason === "object") {
+      const r = reason as { message?: unknown; stack?: unknown };
+      if (typeof r.message === "string") message = r.message;
+      else {
+        try {
+          message = JSON.stringify(reason);
+        } catch {
+          message = String(reason);
+        }
+      }
+      typeof r.stack === "string" && (stack = r.stack);
+    } else if (reason != null) {
+      // primitive (string, number, boolean) — Promise.reject("...") is common
+      message = String(reason);
+    }
     if (!shouldLogError(buildDedupeKey({ message, stack }))) return;
     logError(growthbook, { message, stack }, userContext);
   };
