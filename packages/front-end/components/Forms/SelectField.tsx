@@ -324,6 +324,7 @@ const SelectField: FC<SelectFieldProps> = ({
     return (
       <Field
         {...fieldProps}
+        error={error}
         ref={selectRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
