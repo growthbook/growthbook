@@ -1,9 +1,9 @@
-import { ListDimensionsResponse } from "shared/types/openapi";
 import { listDimensionsValidator } from "shared/validators";
 import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyFilter,
   applyPagination,
@@ -11,7 +11,7 @@ import {
 } from "back-end/src/util/handler";
 
 export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
-  async (req): Promise<ListDimensionsResponse> => {
+  async (req) => {
     const dimensions = await findDimensionsByOrganization(req.organization.id);
 
     // TODO: Move sorting/limiting to the database query for better performance
@@ -25,8 +25,9 @@ export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
     );
 
     return {
-      dimensions: filtered.map((dimension) =>
-        toDimensionApiInterface(dimension),
+      dimensions: await resolveOwnerEmails(
+        filtered.map((dimension) => toDimensionApiInterface(dimension)),
+        req.context,
       ),
       ...returnFields,
     };

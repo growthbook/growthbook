@@ -1,6 +1,6 @@
 import { Flex } from "@radix-ui/themes";
 import {
-  ExperimentReportVariationWithIndex,
+  ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
@@ -15,13 +15,13 @@ const variationA = {
   name: "Control",
   weight: 0.5,
   index: 0,
-} as ExperimentReportVariationWithIndex;
+} as ExperimentReportVariation;
 const variationB = {
   id: "v1",
   name: "Variation",
   weight: 0.5,
   index: 1,
-} as ExperimentReportVariationWithIndex;
+} as ExperimentReportVariation;
 
 const baselineMetric: SnapshotMetric = {
   value: 1000,
@@ -198,10 +198,10 @@ type ARPData = {
     dimension: string;
     levels: string[];
   }>;
-  variation: ExperimentReportVariationWithIndex;
+  variation: ExperimentReportVariation;
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
-  baselineVariation: ExperimentReportVariationWithIndex;
+  baselineVariation: ExperimentReportVariation;
   rowResults: RowResults;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -257,6 +257,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 data={makeData({
                   metric: metricBinomial,
@@ -276,6 +277,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 data={makeData({
                   metric: metricBinomial,
@@ -288,6 +290,7 @@ export default function AnalysisResultSummaryStories() {
             </Frame>
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 data={makeData({
                   metric: metricBinomial,
@@ -306,6 +309,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 data={makeData({
                   metric: metricBinomial,
@@ -324,6 +328,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="absolute"
                 data={makeData({
                   metric: metricWithDenominator,
@@ -342,6 +347,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="scaled"
                 data={makeData({
                   metric: metricBinomial,
@@ -360,6 +366,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 data={makeData({
                   metric: metricBinomial,
@@ -388,6 +395,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 data={makeData({
                   metric: metricInverse,
@@ -406,6 +414,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 data={makeData({
                   metric: factQuantileUnit,
@@ -424,6 +433,7 @@ export default function AnalysisResultSummaryStories() {
             </Frame>
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 data={makeData({
                   metric: factQuantileEvent,
@@ -448,6 +458,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 isBandit
                 data={makeData({
@@ -467,6 +478,7 @@ export default function AnalysisResultSummaryStories() {
           <Flex gap="3" mt="2">
             <Frame py="2" px="2">
               <AnalysisResultSummary
+                pValueThreshold={0.05}
                 differenceType="relative"
                 data={makeData({
                   metric: metricBinomial,

@@ -1,6 +1,7 @@
-import { ReactNode } from "react";
+import { ReactNode, ReactElement } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import isEqual from "lodash/isEqual";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import {
   FeatureRule,
@@ -10,6 +11,7 @@ import {
   FeatureInterface,
   FeatureEnvironment,
 } from "shared/types/feature";
+import { RevisionMetadata } from "shared/types/feature-revision";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import Text from "@/ui/Text";
@@ -17,15 +19,19 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import {
   ChangeField,
   toConditionString,
   GenericFieldChange,
   renderFallback,
   ProjectName,
+  OwnerName,
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
+import SortedTags from "@/components/Tags/SortedTags";
+import styles from "./FeatureDiffRenders.module.scss";
 
 // Resolves an experiment ID to its display name and renders it as a link.
 // Falls back to the raw ID if not found in the local SWR cache.
@@ -59,6 +65,9 @@ function ValueChangedField({
   post: string | null | undefined;
 }) {
   if (isEqual(pre, post)) return null;
+  // Treat null, undefined, and empty string as unset (matches GenericFieldChange precedent)
+  const displayVal = (v: string | null | undefined): ReactNode =>
+    v == null || v === "" ? <em>unset</em> : v;
   const isSimple = (v: string | null | undefined): boolean =>
     v == null || (!v.includes("\n") && v.length <= 80);
   if (isSimple(pre) && isSimple(post)) {
@@ -67,8 +76,8 @@ function ValueChangedField({
         <ChangeField
           label={label}
           changed
-          oldNode={pre != null ? pre : <em>None</em>}
-          newNode={post != null ? post : <em>None</em>}
+          oldNode={displayVal(pre)}
+          newNode={displayVal(post)}
         />
       );
     }
@@ -78,22 +87,26 @@ function ValueChangedField({
           <div className="text-center mr-2" style={{ width: 16 }}>
             Δ
           </div>
-          <div>{pre ?? <em>None</em>}</div>
+          <div>{displayVal(pre)}</div>
         </div>
         <div className="font-weight-bold text-success d-flex align-items-start ml-4">
           <div className="text-center mx-2" style={{ width: 16 }}>
             →
           </div>
-          <div>{post ?? <em>None</em>}</div>
+          <div>{displayVal(post)}</div>
         </div>
       </div>
     );
   }
   // Multi-line content (e.g. pretty-printed JSON) — use inline diff viewer.
+  // diff-wrapper applies theme-aware background/text (light/dark mode) from _bootstrap-theme-overrides.scss
   return (
     <div className="mb-2">
       {label && <div className="font-weight-bold mb-1">{label}</div>}
-      <div style={{ maxHeight: 250, overflowY: "auto" }}>
+      <div
+        className="diff-wrapper diff-wrapper-compact"
+        style={{ maxHeight: 250, overflowY: "auto" }}
+      >
         <ReactDiffViewer
           oldValue={pre ?? ""}
           newValue={post ?? ""}
@@ -160,8 +173,8 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
     detail = <ExperimentLink experimentId={rule.experimentId} />;
   }
   return (
-    <div className="mb-1">
-      <Text size="medium" color="text-low">
+    <div className="mb-2">
+      <Text size="medium" weight="semibold" color="text-high">
         Rule #{index} — {getRuleTypeLabel(rule.type)}
       </Text>
       {(detail || rule.description) && (
@@ -227,14 +240,14 @@ function RuleFieldDiffs({
           preCond && preCond !== "{}" ? (
             <ConditionDisplay condition={preCond} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
         newNode={
           postCond && postCond !== "{}" ? (
             <ConditionDisplay condition={postCond} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
       />,
@@ -253,14 +266,14 @@ function RuleFieldDiffs({
           preSG?.length ? (
             <SavedGroupTargetingDisplay savedGroups={preSG} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
         newNode={
           postSG?.length ? (
             <SavedGroupTargetingDisplay savedGroups={postSG} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
       />,
@@ -290,14 +303,14 @@ function RuleFieldDiffs({
           normPrereqs(prePrereqs)?.length ? (
             <ConditionDisplay prerequisites={normPrereqs(prePrereqs)} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
         newNode={
           normPrereqs(postPrereqs)?.length ? (
             <ConditionDisplay prerequisites={normPrereqs(postPrereqs)} />
           ) : (
-            <em>None</em>
+            <em>unset</em>
           )
         }
       />,
@@ -465,7 +478,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="cond"
         label="Targeting condition"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<ConditionDisplay condition={cond} />}
       />,
     );
@@ -477,7 +490,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="sg"
         label="Saved group targeting"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<SavedGroupTargetingDisplay savedGroups={sg} />}
       />,
     );
@@ -493,7 +506,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="prereq"
         label="Prerequisites"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<ConditionDisplay prerequisites={normPrereqs} />}
       />,
     );
@@ -516,7 +529,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="coverage"
         label="Coverage"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={percentFormatter.format(rule.coverage)}
       />,
       <ValueChangedField
@@ -551,7 +564,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="experimentId"
         label="Experiment"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode={<ExperimentLink experimentId={rule.experimentId} />}
       />,
     );
@@ -573,7 +586,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
         key="enabled"
         label="Enabled"
         changed
-        oldNode={<em>None</em>}
+        oldNode={<em>unset</em>}
         newNode="disabled"
       />,
     );
@@ -607,6 +620,7 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
   return <div className="ml-3">{rows}</div>;
 }
 
+// Label omitted — revision/draft summary cards already use the section title "Default value".
 export function renderFeatureDefaultValue(
   pre: string | null | undefined,
   post: string,
@@ -614,13 +628,7 @@ export function renderFeatureDefaultValue(
   if (pre === post) return null;
   const preFormatted = pre != null ? formatValue(pre) : null;
   const postFormatted = formatValue(post);
-  return (
-    <ValueChangedField
-      label="Default value"
-      pre={preFormatted}
-      post={postFormatted}
-    />
-  );
+  return <ValueChangedField pre={preFormatted} post={postFormatted} />;
 }
 
 export type RuleChangeSummary = {
@@ -645,11 +653,15 @@ export function analyzeRuleChanges(
     const prev = preById.get(r.id);
     return prev !== undefined && !isEqual(prev, r);
   });
-  const reordered =
-    added.length === 0 &&
-    removed.length === 0 &&
-    modified.length === 0 &&
-    !isEqual(preRules, postRules);
+  // Detect reordering independently of adds/removes/modifications:
+  // compare the relative order of rules that exist in both pre and post (unchanged).
+  const commonPreIds = preRules
+    .filter((r) => postById.has(r.id))
+    .map((r) => r.id);
+  const commonPostIds = postRules
+    .filter((r) => preById.has(r.id))
+    .map((r) => r.id);
+  const reordered = !isEqual(commonPreIds, commonPostIds);
 
   return { added, removed, modified, reordered };
 }
@@ -668,7 +680,10 @@ export function featureRuleChangeBadges(
   postRules: FeatureRule[],
   env: string,
 ): DiffBadge[] {
-  const { added, removed, modified } = analyzeRuleChanges(preRules, postRules);
+  const { added, removed, modified, reordered } = analyzeRuleChanges(
+    preRules,
+    postRules,
+  );
   const badges: DiffBadge[] = [];
   if (added.length)
     badges.push({
@@ -684,6 +699,11 @@ export function featureRuleChangeBadges(
     badges.push({
       label: `Edit rule in ${env}${modified.length > 1 ? ` ×${modified.length}` : ""}`,
       action: "edit rule",
+    });
+  if (reordered)
+    badges.push({
+      label: `Reorder rules in ${env}`,
+      action: "reorder rules",
     });
   return badges;
 }
@@ -701,19 +721,41 @@ export function renderFeatureRules(
   const preIndexById = new Map(preRules.map((r, i) => [r.id, i + 1]));
   const preById = new Map(preRules.map((r) => [r.id, r]));
 
-  if (reordered) {
-    return (
-      <div className="mt-1">
-        <Text size="medium" color="text-mid">
-          Rules reordered
-        </Text>
-      </div>
-    );
-  }
-
-  if (!added.length && !removed.length && !modified.length) return null;
+  if (!added.length && !removed.length && !modified.length && !reordered)
+    return null;
 
   const sections: ReactNode[] = [];
+
+  if (reordered) {
+    const movedRules = postRules
+      .map((r, newIdx) => ({
+        r,
+        newPos: newIdx + 1,
+        oldPos: preIndexById.get(r.id),
+      }))
+      .filter(
+        ({ oldPos, newPos }) => oldPos !== undefined && oldPos !== newPos,
+      );
+    if (movedRules.length > 0) {
+      sections.push(
+        <div key="reordered" className="mb-3">
+          <Text size="medium" weight="medium" color="text-mid" as="div" mb="2">
+            Reordered
+          </Text>
+          {movedRules.map(({ r, newPos, oldPos }) => (
+            <Box key={r.id} mb="2" className={styles.ruleSummaryBox}>
+              <Flex align="start" justify="between" gap="2">
+                <div style={{ flex: 1 }}>
+                  <RuleHeading rule={r} index={newPos} />
+                </div>
+                <Badge label={`was #${oldPos}`} color="amber" variant="soft" />
+              </Flex>
+            </Box>
+          ))}
+        </div>,
+      );
+    }
+  }
 
   if (added.length > 0) {
     sections.push(
@@ -724,10 +766,10 @@ export function renderFeatureRules(
         {added.map((r) => {
           const idx = postIndexById.get(r.id)!;
           return (
-            <div key={r.id} className="mb-3">
+            <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
               <RuleHeading rule={r} index={idx} />
               <NewRuleDetails rule={r} />
-            </div>
+            </Box>
           );
         })}
       </div>,
@@ -743,9 +785,9 @@ export function renderFeatureRules(
         {removed.map((r) => {
           const idx = preIndexById.get(r.id)!;
           return (
-            <div key={r.id} className="mb-1">
+            <Box key={r.id} mb="2" className={styles.ruleSummaryBox}>
               <RuleHeading rule={r} index={idx} />
-            </div>
+            </Box>
           );
         })}
       </div>,
@@ -762,10 +804,10 @@ export function renderFeatureRules(
           const prev = preById.get(r.id)!;
           const idx = postIndexById.get(r.id)!;
           return (
-            <div key={r.id} className="mb-3">
+            <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
               <RuleHeading rule={r} index={idx} />
               <RuleFieldDiffs pre={prev} post={r} />
-            </div>
+            </Box>
           );
         })}
       </div>,
@@ -854,18 +896,19 @@ type FeaturePartial = Partial<FeatureInterface> | null;
 
 // defaultValue may already be a parsed object after normalizeSnapshot, so re-stringify.
 // Label is omitted here because the section card header already says "Default value".
+// Treat undefined and "" as equal so we don't show a diff when there's no real change.
 export function renderFeatureDefaultValueSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
 ): ReactNode | null {
   const toStr = (v: unknown): string | null =>
     v == null ? null : typeof v === "string" ? v : JSON.stringify(v);
-  const preStr = toStr(pre?.defaultValue);
-  const postStr = toStr(post.defaultValue) ?? "";
+  const preStr = (toStr(pre?.defaultValue) ?? "").trim();
+  const postStr = (toStr(post.defaultValue) ?? "").trim();
   if (preStr === postStr) return null;
   return (
     <ValueChangedField
-      pre={preStr != null ? formatValue(preStr) : null}
+      pre={preStr ? formatValue(preStr) : null}
       post={formatValue(postStr)}
     />
   );
@@ -956,26 +999,29 @@ export function renderFeatureMetadataSection(
     );
   }
 
-  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
+  if ((pre?.owner || "") !== (post.owner || "") && post.owner !== undefined) {
     rows.push(
       <ChangeField
         key="owner"
         label="Owner"
         changed
-        oldNode={pre?.owner || <em>None</em>}
+        oldNode={pre?.owner || <em>unset</em>}
         newNode={post.owner}
       />,
     );
   }
 
-  if (!isEqual(pre?.project, post.project) && post.project !== undefined) {
+  if (
+    (pre?.project || "") !== (post.project || "") &&
+    post.project !== undefined
+  ) {
     rows.push(
       <ChangeField
         key="project"
         label="Project"
         changed
         oldNode={
-          pre?.project ? <ProjectName id={pre.project} /> : <em>None</em>
+          pre?.project ? <ProjectName id={pre.project} /> : <em>unset</em>
         }
         newNode={<ProjectName id={post.project} />}
       />,
@@ -1010,7 +1056,8 @@ export function renderFeatureMetadataSection(
 
   if (
     !isEqual(pre?.description, post.description) &&
-    post.description !== undefined
+    post.description !== undefined &&
+    (pre?.description || "") !== (post.description || "")
   ) {
     rows.push(
       <ValueChangedField
@@ -1037,17 +1084,27 @@ export function getFeatureMetadataBadges(
       action: "archive",
     });
   }
-  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
+  if ((pre?.owner || "") !== (post.owner || "") && post.owner !== undefined) {
     badges.push({ label: "Edit owner", action: "edit owner" });
   }
-  if (!isEqual(pre?.project, post.project) && post.project !== undefined) {
+  if (
+    (pre?.project || "") !== (post.project || "") &&
+    post.project !== undefined
+  ) {
     badges.push({ label: "Edit project", action: "edit project" });
   }
   if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined) {
-    badges.push({ label: "Edit tags", action: "edit tags" });
+    const preTags = pre?.tags ?? [];
+    const postTags = post.tags ?? [];
+    if (
+      postTags.some((t) => !preTags.includes(t)) ||
+      preTags.some((t) => !postTags.includes(t))
+    ) {
+      badges.push({ label: "Edit tags", action: "edit tags" });
+    }
   }
   if (
-    !isEqual(pre?.description, post.description) &&
+    (pre?.description || "") !== (post.description || "") &&
     post.description !== undefined
   ) {
     badges.push({ label: "Edit description", action: "edit description" });
@@ -1093,4 +1150,459 @@ export function getFeatureRulesBadges(
     );
     return badges;
   });
+}
+
+// ─── Prerequisite diff helpers ───────────────────────────────────────────────
+
+function analyzePrerequisiteChanges(
+  pre: FeaturePrerequisite[],
+  post: FeaturePrerequisite[],
+) {
+  const preById = new Map(pre.map((p) => [p.id, p]));
+  const postById = new Map(post.map((p) => [p.id, p]));
+  const added = post.filter((p) => !preById.has(p.id));
+  const removed = pre.filter((p) => !postById.has(p.id));
+  const modified = post.filter(
+    (p) => preById.has(p.id) && !isEqual(preById.get(p.id), p),
+  );
+  return { added, removed, modified };
+}
+
+function normPrereqsForDisplay(arr: FeaturePrerequisite[]) {
+  return arr.map((p) => ({
+    id: p.id,
+    condition: toConditionString(p.condition) ?? "{}",
+  }));
+}
+
+export function prerequisiteChangeBadges(
+  pre: FeaturePrerequisite[],
+  post: FeaturePrerequisite[],
+  label = "prerequisite",
+): DiffBadge[] {
+  const { added, removed, modified } = analyzePrerequisiteChanges(pre, post);
+  const badges: DiffBadge[] = [];
+  if (added.length)
+    badges.push({
+      label: `Add ${label}${added.length > 1 ? ` ×${added.length}` : ""}`,
+      action: "add prerequisite",
+    });
+  if (removed.length)
+    badges.push({
+      label: `Remove ${label}${removed.length > 1 ? ` ×${removed.length}` : ""}`,
+      action: "delete prerequisite",
+    });
+  if (modified.length)
+    badges.push({
+      label: `Edit ${label}${modified.length > 1 ? ` ×${modified.length}` : ""}`,
+      action: "edit prerequisite",
+    });
+  return badges;
+}
+
+function renderPrerequisiteList(
+  pre: FeaturePrerequisite[],
+  post: FeaturePrerequisite[],
+): ReactNode {
+  const { added, removed, modified } = analyzePrerequisiteChanges(pre, post);
+  const preById = new Map(pre.map((p) => [p.id, p]));
+
+  if (!added.length && !removed.length && !modified.length) return null;
+
+  const sections: ReactNode[] = [];
+
+  if (added.length > 0) {
+    sections.push(
+      <div key="added" className="mb-3">
+        {added.map((p) => (
+          <div key={p.id} className="mb-2">
+            <Text
+              size="medium"
+              weight="medium"
+              color="text-mid"
+              as="div"
+              mb="1"
+            >
+              Added{" "}
+              <Text weight="semibold" color="text-high">
+                {p.id}
+              </Text>
+            </Text>
+            <ConditionDisplay prerequisites={normPrereqsForDisplay([p])} />
+          </div>
+        ))}
+      </div>,
+    );
+  }
+
+  if (removed.length > 0) {
+    sections.push(
+      <div key="removed" className="mb-3">
+        {removed.map((p) => (
+          <div key={p.id} className="mb-1">
+            <Text size="medium" weight="medium" color="text-mid" as="div">
+              Removed{" "}
+              <Text weight="semibold" color="text-high">
+                {p.id}
+              </Text>
+            </Text>
+          </div>
+        ))}
+      </div>,
+    );
+  }
+
+  if (modified.length > 0) {
+    sections.push(
+      <div key="modified" className="mb-2">
+        {modified.map((p) => {
+          const prev = preById.get(p.id)!;
+          return (
+            <div key={p.id} className="mb-3">
+              <Text
+                size="medium"
+                weight="medium"
+                color="text-mid"
+                as="div"
+                mb="1"
+              >
+                Modified{" "}
+                <Text weight="semibold" color="text-high">
+                  {p.id}
+                </Text>
+              </Text>
+              <ChangeField
+                label="Condition"
+                changed
+                oldNode={
+                  <ConditionDisplay
+                    prerequisites={normPrereqsForDisplay([prev])}
+                  />
+                }
+                newNode={
+                  <ConditionDisplay
+                    prerequisites={normPrereqsForDisplay([p])}
+                  />
+                }
+              />
+            </div>
+          );
+        })}
+      </div>,
+    );
+  }
+
+  return sections.length ? <div className="mt-1">{sections}</div> : null;
+}
+
+export function renderEnvPrerequisites(
+  envId: string,
+  current: FeaturePrerequisite[],
+  draft: FeaturePrerequisite[],
+): ReactNode {
+  const result = renderPrerequisiteList(current, draft);
+  if (!result) return null;
+  return (
+    <div>
+      <Text size="small" color="text-low" as="div" mb="2">
+        {envId}
+      </Text>
+      {result}
+    </div>
+  );
+}
+
+export function renderPrerequisites(
+  current: FeaturePrerequisite[],
+  draft: FeaturePrerequisite[],
+): ReactNode {
+  return renderPrerequisiteList(current, draft);
+}
+
+export function renderEnvironmentsEnabled(
+  envId: string,
+  current: boolean | undefined,
+  draft: boolean | undefined,
+): ReactNode {
+  const toLabel = (v: boolean | undefined) =>
+    v === undefined ? null : v ? "enabled" : "disabled";
+  return <ValueChangedField pre={toLabel(current)} post={toLabel(draft)} />;
+}
+
+// Resolves a holdout ID to its display name and links to the holdout page.
+// Falls back to the raw ID, matching the ExperimentLink pattern.
+function HoldoutName({ id }: { id: string }): ReactElement {
+  const { holdoutsMap } = useHoldouts();
+  return (
+    <Link href={`/holdout/${id}`} target="_blank">
+      {holdoutsMap.get(id)?.name ?? id}
+      <PiArrowSquareOut style={{ marginLeft: 3, verticalAlign: "middle" }} />
+    </Link>
+  );
+}
+
+type HoldoutValue = { id: string; value: string } | null | undefined;
+
+export function renderFeatureHoldoutSection(
+  pre: Partial<FeatureInterface> | null,
+  post: Partial<FeatureInterface>,
+): ReactNode | null {
+  const preHoldout = (pre?.holdout ?? null) as HoldoutValue;
+  const postHoldout = (post.holdout ?? null) as HoldoutValue;
+
+  // Added to a holdout
+  if (!preHoldout && postHoldout) {
+    return (
+      <div>
+        <ChangeField
+          label="Holdout"
+          changed
+          oldNode={<em>none</em>}
+          newNode={<HoldoutName id={postHoldout.id} />}
+        />
+        <ValueChangedField
+          label="Value"
+          pre={null}
+          post={formatValue(postHoldout.value)}
+        />
+      </div>
+    );
+  }
+
+  // Removed from a holdout
+  if (preHoldout && !postHoldout) {
+    return (
+      <ChangeField
+        label="Holdout"
+        changed
+        oldNode={<HoldoutName id={preHoldout.id} />}
+        newNode={<em>none</em>}
+      />
+    );
+  }
+
+  if (!preHoldout || !postHoldout) return null;
+
+  const rows: ReactNode[] = [];
+
+  // Moved to a different holdout
+  if (preHoldout.id !== postHoldout.id) {
+    rows.push(
+      <ChangeField
+        key="holdout-id"
+        label="Holdout"
+        changed
+        oldNode={<HoldoutName id={preHoldout.id} />}
+        newNode={<HoldoutName id={postHoldout.id} />}
+      />,
+    );
+  }
+
+  if (preHoldout.value !== postHoldout.value) {
+    rows.push(
+      <ValueChangedField
+        key="holdout-value"
+        label="Value"
+        pre={formatValue(preHoldout.value)}
+        post={formatValue(postHoldout.value)}
+      />,
+    );
+  }
+
+  if (!rows.length) return null;
+
+  // Show which holdout this refers to as context above the changes.
+  return (
+    <div>
+      <div className="mb-2">
+        <HoldoutName id={postHoldout.id} />
+      </div>
+      {rows}
+    </div>
+  );
+}
+
+export function getFeatureHoldoutBadges(
+  pre: Partial<FeatureInterface> | null,
+  post: Partial<FeatureInterface>,
+): DiffBadge[] {
+  const preHoldout = (pre?.holdout ?? null) as HoldoutValue;
+  const postHoldout = (post.holdout ?? null) as HoldoutValue;
+
+  if (!isEqual(preHoldout, postHoldout)) {
+    if (!preHoldout && postHoldout)
+      return [{ label: "Added to holdout", action: "add holdout" }];
+    if (preHoldout && !postHoldout)
+      return [{ label: "Removed from holdout", action: "remove holdout" }];
+    if (preHoldout?.id !== postHoldout?.id)
+      return [{ label: "Changed holdout", action: "change holdout" }];
+    return [{ label: "Edit holdout value", action: "edit holdout value" }];
+  }
+  return [];
+}
+
+export function renderRevisionMetadata(
+  current: RevisionMetadata | undefined,
+  draft: RevisionMetadata,
+): ReactNode | null {
+  const rows: ReactNode[] = [];
+
+  const stringField = (
+    key: string,
+    label: string,
+    pre: string | undefined,
+    post: string | undefined,
+  ) => {
+    if ((pre || "") !== (post || "")) {
+      rows.push(
+        <ValueChangedField
+          key={key}
+          label={label}
+          pre={pre ?? null}
+          post={post ?? null}
+        />,
+      );
+    }
+  };
+
+  if (draft.description !== undefined) {
+    stringField(
+      "description",
+      "Description",
+      current?.description,
+      draft.description,
+    );
+  }
+
+  if (
+    (current?.owner || "") !== (draft.owner || "") &&
+    draft.owner !== undefined
+  ) {
+    rows.push(
+      <ChangeField
+        key="owner"
+        label="Owner"
+        changed
+        oldNode={
+          current?.owner ? <OwnerName id={current.owner} /> : <em>unset</em>
+        }
+        newNode={draft.owner ? <OwnerName id={draft.owner} /> : <em>unset</em>}
+      />,
+    );
+  }
+
+  if (
+    (current?.project || "") !== (draft.project || "") &&
+    draft.project !== undefined
+  ) {
+    rows.push(
+      <ChangeField
+        key="project"
+        label="Project"
+        changed
+        oldNode={
+          current?.project ? (
+            <ProjectName id={current.project} />
+          ) : (
+            <em>unset</em>
+          )
+        }
+        newNode={
+          draft.project ? <ProjectName id={draft.project} /> : <em>unset</em>
+        }
+      />,
+    );
+  }
+
+  if (!isEqual(current?.tags, draft.tags) && draft.tags !== undefined) {
+    const preTags = current?.tags ?? [];
+    const postTags = draft.tags ?? [];
+    const added = postTags.filter((t) => !preTags.includes(t));
+    const removed = preTags.filter((t) => !postTags.includes(t));
+    if (added.length || removed.length) {
+      rows.push(
+        <ChangeField
+          key="tags"
+          label="Tags"
+          changed
+          oldNode={
+            current?.tags?.length ? (
+              <SortedTags
+                tags={current.tags}
+                useFlex
+                shouldShowEllipsis={false}
+              />
+            ) : (
+              <em>unset</em>
+            )
+          }
+          newNode={
+            draft.tags?.length ? (
+              <SortedTags
+                tags={draft.tags}
+                useFlex
+                shouldShowEllipsis={false}
+              />
+            ) : (
+              <em>unset</em>
+            )
+          }
+        />,
+      );
+    }
+  }
+
+  if (
+    current?.neverStale !== draft.neverStale &&
+    draft.neverStale !== undefined
+  ) {
+    rows.push(
+      <ValueChangedField
+        key="neverStale"
+        label="Never Stale"
+        pre={
+          current?.neverStale !== undefined ? String(current.neverStale) : null
+        }
+        post={String(draft.neverStale)}
+      />,
+    );
+  }
+
+  if (
+    !isEqual(current?.jsonSchema, draft.jsonSchema) &&
+    draft.jsonSchema !== undefined
+  ) {
+    rows.push(
+      <ValueChangedField
+        key="jsonSchema"
+        label="JSON Schema"
+        pre={
+          current?.jsonSchema
+            ? JSON.stringify(current.jsonSchema, null, 2)
+            : null
+        }
+        post={JSON.stringify(draft.jsonSchema, null, 2)}
+      />,
+    );
+  }
+
+  if (
+    !isEqual(current?.customFields, draft.customFields) &&
+    draft.customFields !== undefined
+  ) {
+    rows.push(
+      <ValueChangedField
+        key="customFields"
+        label="Custom Fields"
+        pre={
+          current?.customFields
+            ? JSON.stringify(current.customFields, null, 2)
+            : null
+        }
+        post={JSON.stringify(draft.customFields, null, 2)}
+      />,
+    );
+  }
+
+  return rows.length ? <div>{rows}</div> : null;
 }

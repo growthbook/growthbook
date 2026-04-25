@@ -88,7 +88,6 @@ export type AppFeatures = {
   "safe-rollout-timeseries": boolean;
   insights: boolean;
   "global-organization-holdout-2025-05-27": string;
-  "sql-explorer": boolean;
   "pre-computed-dimensions": boolean;
   "ai-suggestions-temperature": number;
   asdf: boolean;

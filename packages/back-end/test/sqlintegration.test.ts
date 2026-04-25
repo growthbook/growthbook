@@ -370,7 +370,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')) OR ((country = 'UK')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND ((event_type = 'purchase')\nOR\n(country = 'UK'))\n" +
         "",
     );
 
@@ -485,7 +485,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (event_type = 'purchase')\n" +
         "",
     );
   });
@@ -564,7 +564,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')) OR ((event_type = 'session_start')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND ((event_type = 'purchase')\nOR\n(event_type = 'session_start'))\n" +
         "",
     );
   });
@@ -1251,4 +1251,44 @@ describe("full fact metric experiment query - bigquery", () => {
       getExposureQuerySpy.mockRestore();
     },
   );
+});
+
+describe("getFeatureEvalDiagnosticsQuery", () => {
+  beforeEach(() => {
+    jest.useFakeTimers("modern");
+    jest.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("replaces template variables in the feature usage query", () => {
+    const datasource = {
+      settings: {
+        queries: {
+          featureUsage: [
+            {
+              id: "fu1",
+              query: `SELECT ts AS timestamp, k AS feature_key FROM t WHERE ts BETWEEN '{{startDateISO}}' AND '{{endDateISO}}'`,
+            },
+          ],
+        },
+      },
+      params: "",
+    };
+    // @ts-expect-error -- context not needed for test
+    const bqIntegration = new BigQuery("", datasource);
+
+    const sql = bqIntegration.getFeatureEvalDiagnosticsQuery({
+      feature: "my-feature-key",
+    });
+
+    expect(sql).not.toContain("{{startDateISO}}");
+    expect(sql).not.toContain("{{endDateISO}}");
+    // compileSqlTemplate fills these with ISO-8601 timestamps
+    expect(sql).toMatch(
+      /BETWEEN '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' AND '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z'/,
+    );
+  });
 });

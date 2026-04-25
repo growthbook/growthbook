@@ -11,6 +11,8 @@ import {
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
+  isEventWebhookWildcard,
+  getWildcardPatternsForEvent,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -114,7 +116,17 @@ const eventWebHookSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator(value: unknown) {
-        const zodSchema = z.array(z.enum(zodNotificationEventNamesEnum)).min(1);
+        const zodSchema = z
+          .array(
+            z
+              .string()
+              .refine(
+                (val) =>
+                  zodNotificationEventNamesEnum.includes(val as never) ||
+                  isEventWebhookWildcard(val),
+              ),
+          )
+          .min(1);
 
         const result = zodSchema.safeParse(value);
 
@@ -412,6 +424,7 @@ const filterOptional = <T>(want: T[] = [], has: T[]) => {
  * @param eventName
  * @param enabled
  */
+
 export const getAllEventWebHooksForEvent = async ({
   organizationId,
   eventName,
@@ -427,7 +440,7 @@ export const getAllEventWebHooksForEvent = async ({
 }): Promise<EventWebHookInterface[]> => {
   const allDocs = await EventWebHookModel.find({
     organizationId,
-    events: eventName,
+    events: { $in: [eventName, ...getWildcardPatternsForEvent(eventName)] },
     enabled,
   });
 

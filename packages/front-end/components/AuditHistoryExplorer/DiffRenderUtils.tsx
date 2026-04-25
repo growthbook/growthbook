@@ -1,6 +1,7 @@
 import React, { ReactNode, ReactElement } from "react";
 import isEqual from "lodash/isEqual";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 
 // After normalizeSnapshot, `condition` may already be a parsed object.
@@ -102,7 +103,7 @@ export function TextChangedField({
           lineHeight: 1.5,
         }}
       >
-        {value || <em className="text-muted">None</em>}
+        {value || <em className="text-muted">unset</em>}
       </div>
     </div>
   );
@@ -120,6 +121,11 @@ export function TextChangedField({
   );
 }
 
+// Treat as "empty" for display; when both are empty we skip the row to avoid "unset → unset".
+function isEmptyDisplay(val: unknown): boolean {
+  return val === null || val === undefined || val === "";
+}
+
 // Before/after row for fields without a dedicated renderer.
 // Scalars shown as plain text; objects/arrays as compact JSON.
 export function GenericFieldChange({
@@ -132,8 +138,10 @@ export function GenericFieldChange({
   postVal: unknown;
 }) {
   if (isEqual(preVal, postVal)) return null;
+  // Skip when both would display as "unset" (e.g. undefined vs "" for rule description)
+  if (isEmptyDisplay(preVal) && isEmptyDisplay(postVal)) return null;
   const fmt = (v: unknown): ReactNode => {
-    if (v === null || v === undefined) return <em>unset</em>;
+    if (isEmptyDisplay(v)) return <em>unset</em>;
     if (typeof v === "boolean") return v ? "true" : "false";
     if (typeof v === "string" || typeof v === "number") return String(v);
     return (
@@ -174,4 +182,10 @@ export function renderFallback(
 export function ProjectName({ id }: { id: string }): ReactElement {
   const { getProjectById } = useDefinitions();
   return <>{getProjectById(id)?.name ?? id}</>;
+}
+
+// Resolves an owner ID/string to its display name. Falls back to the raw value.
+export function OwnerName({ id }: { id: string }): ReactElement {
+  const { getOwnerDisplay } = useUser();
+  return <>{getOwnerDisplay(id) || id}</>;
 }

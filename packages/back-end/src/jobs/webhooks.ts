@@ -164,6 +164,11 @@ export async function queueLegacySdkWebhooks(
       continue;
     }
 
+    // Skip disabled webhooks
+    if (webhook.disabled) {
+      continue;
+    }
+
     const job = agenda.create(WEBHOOK_JOB_NAME, {
       webhookId: webhook.id,
       retryCount: 0,

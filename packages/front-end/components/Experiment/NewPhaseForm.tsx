@@ -4,8 +4,13 @@ import {
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
+import {
+  getNamespaceRanges,
+  isMultiRangeNamespaceFormat,
+  NamespaceValue,
+  validateAndFixCondition,
+} from "shared/util";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
@@ -33,23 +38,45 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
+  const lastPhaseVariations = getLatestPhaseVariations(experiment);
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
       variationWeights:
         prevPhase.variationWeights ||
-        getEqualWeights(experiment.variations.length),
+        getEqualWeights(lastPhaseVariations.length),
+      variations:
+        prevPhase.variations ??
+        lastPhaseVariations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",
       savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
-      namespace: {
-        enabled: prevPhase.namespace?.enabled || false,
-        name: prevPhase.namespace?.name || "",
-        range: prevPhase.namespace?.range || [0, 0.5],
-      },
+      namespace: (() => {
+        const prevNs = prevPhase.namespace
+          ? (prevPhase.namespace as NamespaceValue)
+          : undefined;
+        return {
+          enabled: prevNs?.enabled || false,
+          name: prevNs?.name || "",
+          // Handle both old (single range) and new (multiple ranges) formats
+          ranges: prevNs
+            ? getNamespaceRanges(prevNs)
+            : ([[0, 0.5]] as [number, number][]),
+          // Preserve format and hashAttribute so submit is correct even if the
+          // user never re-interacts with the NamespaceSelector dropdown.
+          format: prevNs?.format,
+          hashAttribute:
+            prevNs && isMultiRangeNamespaceFormat(prevNs)
+              ? prevNs.hashAttribute
+              : undefined,
+        };
+      })(),
     },
   });
 
@@ -158,9 +185,8 @@ const NewPhaseForm: FC<{
         setWeight={(i, weight) =>
           form.setValue(`variationWeights.${i}`, weight)
         }
-        valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          getLatestPhaseVariations(experiment).map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,
@@ -177,6 +203,8 @@ const NewPhaseForm: FC<{
           form={form}
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
+          experimentHashAttribute={experiment.hashAttribute}
+          fallbackAttribute={experiment.fallbackAttribute}
         />
       )}
     </Modal>

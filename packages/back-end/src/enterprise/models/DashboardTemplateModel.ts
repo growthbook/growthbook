@@ -23,7 +23,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "dashboardTemplate.update",
     deleteEvent: "dashboardTemplate.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
 });
 
 export const toInterface: ToInterface<DashboardTemplateInterface> = (doc) => {

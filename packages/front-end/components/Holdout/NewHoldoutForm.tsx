@@ -11,7 +11,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Tooltip, Text } from "@radix-ui/themes";
+import { Tooltip, Text, Separator } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "shared/types/feature";
@@ -36,6 +36,10 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
@@ -316,8 +320,16 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const availableProjects: (SingleValue | GroupedValue)[] = projects
     .slice()
     .sort((a, b) => (a.name > b.name ? 1 : -1))
-    .filter((p) => permissionsUtils.canViewHoldoutModal([p.id]))
+    .filter((p) => permissionsUtils.canCreateHoldout({ projects: [p.id] }))
     .map((p) => ({ value: p.id, label: p.name }));
+
+  const selectedProjects = form.watch("projects") ?? [];
+  const canCreateWithoutProject = permissionsUtils.canCreateHoldout({
+    projects: [],
+  });
+  const hasProjectPermission =
+    canCreateWithoutProject ||
+    permissionsUtils.canCreateHoldout({ projects: selectedProjects });
 
   const exposureQueries = useMemo(() => {
     return datasource?.settings?.queries?.exposure || [];
@@ -382,7 +394,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         docSection="holdouts"
         submit={onSubmit}
         cta="Save"
-        ctaEnabled={hasSDKWithPrerequisites}
+        ctaEnabled={hasSDKWithPrerequisites && hasProjectPermission}
+        disabledMessage={
+          !hasProjectPermission
+            ? !selectedProjects.length && availableProjects.length > 0
+              ? "Select a project to continue."
+              : "You don't have permission to create holdouts."
+            : undefined
+        }
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -444,7 +463,11 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                       />
                     </>
                   }
-                  placeholder="All projects"
+                  placeholder={
+                    canCreateWithoutProject
+                      ? "All projects"
+                      : "Select projects..."
+                  }
                   value={form.watch("projects") || []}
                   options={availableProjects}
                   onChange={(v) => form.setValue("projects", v)}
@@ -498,14 +521,32 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             <div className="mb-4">
               <SelectField
+                withRadixThemedPortal
                 label="Assign Variation by Attribute"
                 containerClassName="flex-1"
                 options={attributeSchema
                   .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property }))}
+                  .map((s) => ({
+                    label: s.property,
+                    value: s.property,
+                    description: s.description,
+                    tags: s.tags,
+                    datatype: s.datatype,
+                    hashAttribute: s.hashAttribute,
+                  }))}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);
+                }}
+                formatOptionLabel={(o, meta) => {
+                  return (
+                    <AttributeOptionWithTooltip
+                      option={o as AttributeOptionForTooltip}
+                      context={meta.context}
+                    >
+                      {o.label}
+                    </AttributeOptionWithTooltip>
+                  );
                 }}
                 helpText={
                   "Will be hashed together with the Tracking Key to determine which variation to assign"
@@ -562,7 +603,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               }
               project={project || ""}
             />
-            <hr />
+            <Separator size="4" my="5" />
             <ConditionInput
               defaultValue={form.watch("phases.0.condition") || ""}
               onChange={(value) => form.setValue("phases.0.condition", value)}

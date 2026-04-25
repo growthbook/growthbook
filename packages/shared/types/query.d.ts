@@ -29,17 +29,35 @@ export type QueryStatistics = {
 
 export type QueryType =
   | ""
+
+  // ---
+  // Metadata queries used to power various GrowthBook features
+  // ---
+  // Query that scans for past experiments for the purpose of importing existing experiments
   | "pastExperiment"
-  | "metricAnalysis"
-  | "experimentMetric"
+  // Query run to update pre-specified slices for experiment dimensions
   | "dimensionSlices"
-  | "experimentUnits"
-  | "experimentDropUnitsTable"
-  | "experimentResults"
-  | "experimentTraffic"
-  | "experimentMultiMetric"
+  // Queries used by the power calculator
   | "populationMetric"
   | "populationMultiMetric"
+
+  // ---
+  // Experiment queries run for each experiment
+  // ---
+
+  // Standard experiment queries
+  // Queries for legacy metrics in an experiment update
+  | "experimentMetric"
+  // Queries for fact metrics in an experiment update (may only actually have one metric)
+  | "experimentMultiMetric"
+  // Query run to update the experiment traffic data for the health tab
+  | "experimentTraffic"
+
+  // 2 additional queries associated with having pipeline mode "ephemeral" enabled
+  | "experimentUnits"
+  | "experimentDropUnitsTable"
+
+  // Queries associated with an experiment update using incremental refresh
   | "experimentIncrementalRefreshCreateUnitsTable"
   | "experimentIncrementalRefreshDropUnitsTable"
   | "experimentIncrementalRefreshDropTempUnitsTable"
@@ -53,7 +71,36 @@ export type QueryType =
   | "experimentIncrementalRefreshCreateMetricsCovariateTable"
   | "experimentIncrementalRefreshInsertMetricsCovariateData"
   | "experimentIncrementalRefreshStatistics"
-  | "experimentIncrementalRefreshHealth";
+  | "experimentIncrementalRefreshHealth"
+
+  // ---
+  // Standalone analysis queries
+  // ---
+  // Standalone metric analysis query on legacy of fact metric page
+  | "metricAnalysis"
+  // Query used by the product analytics tool
+  | "productAnalyticsExploration"
+
+  // ---
+  // Non-persisted / utility queries (for cost attribution tracking)
+  // ---
+  // SQL explorer ad-hoc queries
+  | "freeFormQuery"
+  // Connection tests and validation queries
+  | "testQuery"
+  // Fact table column/SQL validation
+  | "factTableValidation"
+  // Pipeline write permission tests
+  | "pipelineValidation"
+  // User experiment exposures lookup
+  | "userExposure"
+  // Feature evaluation diagnostics
+  | "featureEvalDiagnostics"
+
+  // ---
+  // Legacy, should be deprecated
+  // ---
+  | "experimentResults";
 
 export type ExperimentQueryMetadata = {
   experimentProject?: string;

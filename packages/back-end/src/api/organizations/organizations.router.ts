@@ -1,14 +1,10 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { postOrganization } from "./postOrganization";
 import { listOrganizations } from "./listOrganizations";
 import { putOrganization } from "./putOrganization";
 
-const router = Router();
-
-// Organization Endpoints
-// Mounted at /api/v1/organizations
-router.get("/", listOrganizations);
-router.post("/", postOrganization);
-router.put("/:id", putOrganization);
-
-export default router;
+export const organizationsRoutes: OpenApiRoute[] = [
+  listOrganizations,
+  postOrganization,
+  putOrganization,
+];

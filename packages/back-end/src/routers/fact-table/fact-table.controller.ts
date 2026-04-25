@@ -16,7 +16,7 @@ import {
   FactTableColumnType,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
-import { CreateProps } from "shared/types/base-model";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { ReqContext } from "back-end/types/request";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -87,7 +87,11 @@ async function testFilterQuery(
   });
 
   try {
-    const results = await integration.runTestQuery(sql);
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "factTableValidation",
+    );
     return {
       sql,
       ...results,
@@ -188,7 +192,11 @@ export async function refreshColumns(
       limit: 0,
     });
 
-    const result = await integration.runTestQuery(sql, ["timestamp"]);
+    const result = await integration.runTestQuery(
+      sql,
+      ["timestamp"],
+      "factTableValidation",
+    );
 
     if (!result.columns?.length) {
       throw new Error("SQL did not return any columns");
@@ -733,7 +741,7 @@ export const postFactMetric = async (
 };
 
 export const putFactMetric = async (
-  req: AuthRequest<Partial<FactMetricInterface>, { id: string }>,
+  req: AuthRequest<UpdateProps<FactMetricInterface>, { id: string }>,
   res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);

@@ -1,10 +1,10 @@
 import React, { FC, useState } from "react";
 import { ExposureQuery } from "shared/types/datasource";
 import { DimensionSlicesInterface } from "shared/types/dimension";
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
-import Modal from "@/components/Modal";
-import Button from "@/ui/Button";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import Text from "@/ui/Text";
 import {
   CustomDimensionMetadata,
   DimensionSlicesRunner,
@@ -54,18 +54,6 @@ export const UpdateDimensionMetadataModal: FC<
     }) ?? [],
   );
 
-  const secondaryCTA = (
-    <Button
-      type="submit"
-      onClick={async () => {
-        await onSave(customDimensionMetadata, dimensionSlices);
-        close();
-      }}
-    >
-      Save Dimension Values
-    </Button>
-  );
-
   if (!exposureQuery) {
     console.error(
       "ImplementationError: exposureQuery is required for Edit mode",
@@ -75,22 +63,28 @@ export const UpdateDimensionMetadataModal: FC<
 
   return (
     <>
-      <Modal
+      <DialogLayout
         trackingEventModalType=""
         open={true}
         close={close}
-        secondaryCTA={secondaryCTA}
-        size="max"
+        cta="Save Dimension Values"
+        submit={async () => {
+          await onSave(customDimensionMetadata, dimensionSlices);
+          close();
+        }}
+        size="lg"
         header={"Configure Experiment Dimensions"}
       >
-        <Flex direction="column" gap="2">
-          <Text>
-            Experiment Dimensions are additional columns made available in the
-            Experiment Assignment Query. These columns can be used for
-            dimension-based analysis without additional joins. Dimension values
-            can be defined in this modal to ensure consistency, reliability, and
-            query performance.
-          </Text>
+        <Flex direction="column" gap="4">
+          <Box mb="2">
+            <Text color="text-mid">
+              Experiment Dimensions are additional columns made available in the
+              Experiment Assignment Query. These columns can be used for
+              dimension-based analysis without additional joins. Dimension
+              values can be defined in this modal to ensure consistency,
+              reliability, and query performance.
+            </Text>
+          </Box>
           <DimensionSlicesRunner
             exposureQueryId={exposureQuery.id}
             datasourceId={datasourceId}
@@ -101,7 +95,7 @@ export const UpdateDimensionMetadataModal: FC<
             setDimensionSlicesId={setDimensionSlicesId}
           />
         </Flex>
-      </Modal>
+      </DialogLayout>
     </>
   );
 };

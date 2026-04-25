@@ -6,7 +6,6 @@ import {
 } from "shared/types/audit";
 import { entityTypes } from "shared/constants";
 import { findAuditByEntityList } from "back-end/src/models/AuditModel";
-import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 
@@ -15,10 +14,11 @@ export function isValidAuditEntityType(type: string): type is EntityType {
 }
 
 export async function getRecentWatchedAudits(
+  context: ReqContext,
   userId: string,
-  organization: string,
 ) {
-  const userWatches = await getWatchedByUser(organization, userId);
+  const organization = context.org.id;
+  const userWatches = await context.models.watch.getWatchedByUser(userId);
 
   if (!userWatches) {
     return [];
@@ -117,17 +117,16 @@ export type AuditLogConfig<Entity extends EntityType> = {
 
 export function createModelAuditLogger<E extends EntityType>(
   config: AuditLogConfig<E>,
+  getIdFromDoc: (doc: object) => string = (doc) =>
+    (doc as { id: string; name?: string }).id,
 ) {
   return {
-    async logCreate(
-      context: ReqContext | ApiReqContext,
-      doc: { id: string; name?: string },
-    ) {
+    async logCreate(context: ReqContext | ApiReqContext, doc: object) {
       try {
         await context.auditLog({
           entity: {
             object: config.entity,
-            id: doc.id,
+            id: getIdFromDoc(doc),
             name:
               ("name" in doc && typeof doc.name === "string" && doc.name) || "",
           },
@@ -144,8 +143,8 @@ export function createModelAuditLogger<E extends EntityType>(
 
     async logUpdate(
       context: ReqContext | ApiReqContext,
-      doc: { id: string; name?: string },
-      newDoc: { id: string; name?: string },
+      doc: object,
+      newDoc: object,
       overrideEvent?: EventType,
     ) {
       const event = overrideEvent || config.updateEvent;
@@ -153,7 +152,7 @@ export function createModelAuditLogger<E extends EntityType>(
         await context.auditLog({
           entity: {
             object: config.entity,
-            id: doc.id,
+            id: getIdFromDoc(doc),
             name:
               ("name" in newDoc &&
                 typeof newDoc.name === "string" &&
@@ -168,15 +167,12 @@ export function createModelAuditLogger<E extends EntityType>(
       }
     },
 
-    async logDelete(
-      context: ReqContext | ApiReqContext,
-      doc: { id: string; name?: string },
-    ) {
+    async logDelete(context: ReqContext | ApiReqContext, doc: object) {
       try {
         await context.auditLog({
           entity: {
             object: config.entity,
-            id: doc.id,
+            id: getIdFromDoc(doc),
             name:
               ("name" in doc && typeof doc.name === "string" && doc.name) || "",
           },
@@ -191,16 +187,13 @@ export function createModelAuditLogger<E extends EntityType>(
       }
     },
 
-    async logAutocreate(
-      context: ReqContext | ApiReqContext,
-      doc: { id: string; name?: string },
-    ) {
+    async logAutocreate(context: ReqContext | ApiReqContext, doc: object) {
       if (!config.autocreateEvent) return;
       try {
         await context.auditLog({
           entity: {
             object: config.entity,
-            id: doc.id,
+            id: getIdFromDoc(doc),
             name:
               ("name" in doc && typeof doc.name === "string" && doc.name) || "",
           },

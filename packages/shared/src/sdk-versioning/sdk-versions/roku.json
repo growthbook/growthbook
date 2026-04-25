@@ -8,6 +8,7 @@
       "capabilities": [
         "prerequisites",
         "looseUnmarshalling",
+        "namespacesV2",
         "semverTargeting",
         "bucketingV2"
       ]

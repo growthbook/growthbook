@@ -72,7 +72,7 @@ export const postDimension = async (
   if (!context.permissions.canCreateDimension()) {
     context.permissions.throwPermissionError();
   }
-  const { org, userName } = context;
+  const { org, userId } = context;
   const { datasource, name, sql, userIdType, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
@@ -83,7 +83,7 @@ export const postDimension = async (
   const doc = await createDimension({
     datasource,
     userIdType,
-    owner: userName,
+    owner: userId,
     name,
     sql,
     id: uniqid("dim_"),

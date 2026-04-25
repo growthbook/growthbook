@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -59,6 +60,13 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
       },
       "proxyUpdate: Could not find sdk connection",
     );
+    return;
+  }
+
+  if (
+    (connection.proxy.consecutiveFailures || 0) >=
+    WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD
+  ) {
     return;
   }
 

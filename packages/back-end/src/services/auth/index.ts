@@ -84,7 +84,7 @@ async function getUserFromJWT(info: JWTInfo): Promise<null | UserInterface> {
 
   return user;
 }
-function getInitialDataFromJWT(user: IdToken): JWTInfo {
+export function getInitialDataFromJWT(user: IdToken): JWTInfo {
   // Vercel has special property names
   if ("iss" in user && user.iss === "https://marketplace.vercel.com") {
     return {
@@ -99,7 +99,7 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
     verified: user.email_verified || false,
     email: user.email || "",
-    name: user.given_name || user.name || "",
+    name: user.name || user.given_name || "",
     issuedAt: user.iat,
     sub: user.sub,
   };

@@ -321,7 +321,7 @@ export default function SetupTabOverview({
                   experiment
                 </span>
               ) : (
-                experiment.hypothesis
+                <Markdown>{experiment.hypothesis}</Markdown>
               )}
             </div>
 
@@ -333,7 +333,11 @@ export default function SetupTabOverview({
                 <span>Improve your hypothesis with AI. </span>
               </PremiumCallout>
             ) : aiEnabled && aiAgreedTo ? (
-              <Callout status="wizard" contentsAs="div">
+              <Callout
+                status="wizard"
+                dismissible
+                id="hypothesis-formatting-standards"
+              >
                 <span>
                   Set hypothesis formatting standards for the organization in
                   General Settings.{" "}

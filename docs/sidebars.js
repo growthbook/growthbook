@@ -29,6 +29,11 @@ export default {
       label: "Quick Start Guide",
     },
     {
+      type: "link",
+      label: "SDKs",
+      href: "/lib",
+    },
+    {
       type: "category",
       collapsed: true,
       label: "Feature Flags",
@@ -66,6 +71,7 @@ export default {
           collapsed: false,
           items: [
             "features/publishing-and-approval-flows", // Publishing & Approval Flows (NEW)
+            "features/json-schema-validation", // JSON Schema Validation
             "features/stale-detection", // Stale Feature Detection
             "features/code-references", // Code References
             "features/diagnostics", // Feature Diagnostics
@@ -79,6 +85,16 @@ export default {
       label: "Data & Metrics",
       collapsed: true,
       items: [
+        {
+          type: "doc",
+          id: "experimentation-analysis/choose-your-data-path",
+          label: "Choose Your Data Path",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/managed-warehouse",
+          label: "Managed Warehouse",
+        },
         {
           type: "category",
           label: "Connecting to Your Data Warehouse",
@@ -282,11 +298,6 @@ export default {
           type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/managed-warehouse",
-          label: "Managed Warehouse",
         },
         {
           type: "doc",
@@ -534,19 +545,16 @@ export default {
           type: "doc",
           id: "integrations/mcp",
           label: "MCP Server",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/vercel",
           label: "Vercel",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/framer",
           label: "Framer",
-          className: "pill-new",
         },
         {
           type: "doc",
@@ -587,19 +595,16 @@ export default {
           type: "doc",
           id: "integrations/clarity",
           label: "Microsoft Clarity (Heatmaps)",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/jira",
           label: "Jira",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/ai",
           label: "AI",
-          className: "pill-new",
         },
       ],
     },
@@ -1017,6 +1022,7 @@ export default {
         },
       ],
     },
+    { type: "doc", id: "lib/open-feature", label: "OpenFeature Providers" },
     { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
   ],
 };

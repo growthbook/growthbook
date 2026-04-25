@@ -1,6 +1,6 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import {
-  ExperimentReportVariationWithIndex,
+  ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
@@ -37,10 +37,10 @@ export interface TooltipData {
     dimension: string;
     levels: string[];
   }>;
-  variation: ExperimentReportVariationWithIndex;
+  variation: ExperimentReportVariation;
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
-  baselineVariation: ExperimentReportVariationWithIndex;
+  baselineVariation: ExperimentReportVariation;
   rowResults: RowResults;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -58,6 +58,7 @@ interface Props
   close: () => void;
   differenceType: DifferenceType;
   isBandit?: boolean;
+  pValueThreshold: number;
   ssrPolyfills?: SSRPolyfills;
   transitionClassName?: string;
 }
@@ -69,6 +70,7 @@ export default function ResultsTableTooltip({
   close,
   differenceType,
   isBandit,
+  pValueThreshold,
   ssrPolyfills,
   transitionClassName,
   ...otherProps
@@ -162,6 +164,7 @@ export default function ResultsTableTooltip({
           ssrPolyfills={ssrPolyfills}
           differenceType={differenceType}
           isBandit={isBandit}
+          pValueThreshold={pValueThreshold}
         />
       </div>
     </div>

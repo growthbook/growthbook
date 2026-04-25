@@ -203,6 +203,9 @@ const TemplateForm: FC<Props> = ({
     .map((p) => ({ value: p.id, label: p.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
+  const hasProjectPermission = selectedProject
+    ? permissionsUtils.canViewExperimentModal(selectedProject)
+    : allowAllProjects;
 
   const exposureQueryId = form.getValues("exposureQueryId");
 
@@ -237,7 +240,14 @@ const TemplateForm: FC<Props> = ({
         close={onClose}
         submit={onSubmit}
         cta={"Save"}
-        ctaEnabled={canSubmit}
+        ctaEnabled={canSubmit && hasProjectPermission}
+        disabledMessage={
+          !hasProjectPermission
+            ? !selectedProject && availableProjects.length > 0
+              ? "Select a project to continue."
+              : "You don't have permission to create experiment templates."
+            : undefined
+        }
         closeCta="Cancel"
         size="lg"
         step={step}

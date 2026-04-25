@@ -1,7 +1,11 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { FC, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { DifferenceType, StatsEngine } from "shared/types/stats";
+import {
+  DifferenceType,
+  SignificanceThresholds,
+  StatsEngine,
+} from "shared/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -10,10 +14,13 @@ import {
 import {
   isPrecomputedDimension,
   getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -88,6 +95,13 @@ const Results: FC<{
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
+  const bayesianConfidenceLevels = useConfidenceLevels(experiment.project);
+  const pValueThreshold = usePValueThreshold(experiment.project);
+  const significanceThresholds: SignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
+
   const {
     error,
     snapshot,
@@ -124,9 +138,10 @@ const Results: FC<{
     (Date.now() - getValidDate(phaseObj?.dateStarted ?? "").getTime()) /
     (1000 * 60);
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -195,7 +210,7 @@ const Results: FC<{
     experiment.guardrailMetrics.length > 0;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-
+  const hasQueries = queryStrings.length > 0;
   return (
     <>
       {!draftMode ? null : (
@@ -225,9 +240,18 @@ const Results: FC<{
 
       {status === "failed" && !hasData && !snapshotLoading ? (
         <Callout status="error" mx="3" my="4">
-          The most recent update failed.{" "}
-          <Link onClick={() => setQueriesModalOpen(true)}>View queries</Link> to
-          see what went wrong.
+          The most recent update failed.
+          {hasQueries ? (
+            <>
+              {" "}
+              <Link onClick={() => setQueriesModalOpen(true)}>
+                View queries
+              </Link>
+              {" to see what went wrong."}
+            </>
+          ) : (
+            ""
+          )}
         </Callout>
       ) : null}
 
@@ -290,7 +314,7 @@ const Results: FC<{
             await apiCall(`/experiment/${experiment.id}`, {
               method: "POST",
               body: JSON.stringify({
-                variations: experiment.variations.map((v, i) => {
+                variations: getLatestPhaseVariations(experiment).map((v, i) => {
                   return {
                     ...v,
                     key: ids[i] ?? v.key,
@@ -326,6 +350,7 @@ const Results: FC<{
       {analysis && (
         <MetricDrilldownProvider
           experimentId={experiment.id}
+          significanceThresholds={significanceThresholds}
           phase={phase}
           experimentStatus={experiment.status}
           analysis={analysis}
@@ -355,6 +380,7 @@ const Results: FC<{
         >
           {showDateResults ? (
             <DateResults
+              significanceThresholds={significanceThresholds}
               goalMetrics={experiment.goalMetrics}
               secondaryMetrics={experiment.secondaryMetrics}
               guardrailMetrics={experiment.guardrailMetrics}
@@ -369,6 +395,7 @@ const Results: FC<{
           ) : showBreakDownResults && snapshot ? (
             <BreakDownResults
               experimentId={experiment.id}
+              significanceThresholds={significanceThresholds}
               key={analysis?.settings?.dimensions?.[0] ?? snapshot.dimension}
               results={analysis?.results ?? []}
               queryStatusData={queryStatusData}
@@ -431,6 +458,7 @@ const Results: FC<{
           ) : showCompactResults ? (
             <CompactResults
               experimentId={experiment.id}
+              significanceThresholds={significanceThresholds}
               editMetrics={editMetrics}
               variations={variations}
               variationFilter={analysisBarSettings.variationFilter}
@@ -492,7 +520,7 @@ const Results: FC<{
           ) : null}
         </MetricDrilldownProvider>
       )}
-      {queriesModalOpen && queryStrings.length > 0 && (
+      {queriesModalOpen && hasQueries && (
         <AsyncQueriesModal
           close={() => setQueriesModalOpen(false)}
           queries={queryStrings}

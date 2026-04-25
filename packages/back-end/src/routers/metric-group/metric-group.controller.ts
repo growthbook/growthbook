@@ -3,6 +3,7 @@ import {
   CreateMetricGroupProps,
   MetricGroupInterface,
 } from "shared/types/metric-groups";
+import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -42,7 +43,7 @@ export const postMetricGroup = async (
     "id" | "organization" | "dateCreated" | "dateUpdated"
   > = {
     ...data,
-    owner: data.owner || "",
+    owner: data.owner || context.userId || "",
     description: data.description || "",
     tags: data.tags || [],
     projects: data.projects || [],
@@ -58,7 +59,7 @@ export const postMetricGroup = async (
 };
 
 export const putMetricGroup = async (
-  req: AuthRequest<CreateMetricGroupProps, { id: string }>,
+  req: AuthRequest<UpdateProps<MetricGroupInterface>, { id: string }>,
   res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;

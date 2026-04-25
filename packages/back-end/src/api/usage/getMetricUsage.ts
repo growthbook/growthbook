@@ -1,5 +1,8 @@
-import { ApiMetricUsage, GetMetricUsageResponse } from "shared/types/openapi";
-import { ExperimentStatus, getMetricUsageValidator } from "shared/validators";
+import {
+  ExperimentStatus,
+  getMetricUsageValidator,
+  ApiMetricUsage,
+} from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { getExperimentsUsingMetrics } from "back-end/src/models/ExperimentModel";
@@ -8,7 +11,7 @@ const METRIC_NOT_FOUND_OR_NO_PERMISSION =
   "Metric not found or no permission to read the metric.";
 
 export const getMetricUsage = createApiRequestHandler(getMetricUsageValidator)(
-  async (req): Promise<GetMetricUsageResponse> => {
+  async (req) => {
     const context = req.context;
 
     const metricIds = req.query.ids

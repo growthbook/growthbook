@@ -20,6 +20,7 @@ import {
   parseSliceMetricId,
   SliceLevelsData,
   getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
@@ -87,9 +88,10 @@ export function getReportVariations(
   experiment: ExperimentInterface,
   phase: ExperimentPhase,
 ): ExperimentReportVariation[] {
-  return experiment.variations.map((v, i) => {
+  return getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phase?.variationWeights?.[i] || 0,
     };
@@ -180,6 +182,7 @@ export function getAnalysisSettingsFromReportArgs(
     differenceType: args.differenceType ?? "relative",
     baselineVariationIndex: 0,
     numGoalMetrics: args.goalMetrics.length,
+    numGuardrailMetrics: args.guardrailMetrics.length,
   };
 }
 export function getSnapshotSettingsFromReportArgs(
@@ -224,6 +227,14 @@ export function getSnapshotSettingsFromReportArgs(
           settingsForSnapshotMetrics: args.settingsForSnapshotMetrics,
           metricOverrides: args.metricOverrides,
           decisionFrameworkSettings: args.decisionFrameworkSettings,
+          ...(experiment?.type === "multi-armed-bandit"
+            ? {
+                banditConversionWindowValue:
+                  experiment.banditConversionWindowValue ?? undefined,
+                banditConversionWindowUnit:
+                  experiment.banditConversionWindowUnit ?? undefined,
+              }
+            : {}),
         }),
       )
       .filter(isDefined),
@@ -274,7 +285,18 @@ function generateWindowSettings(
   metric: ExperimentMetricInterface,
   overrides?: MetricOverride,
   phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit },
+  banditConversionWindowValue?: number,
+  banditConversionWindowUnit?: "hours" | "days",
 ): MetricWindowSettings {
+  if (banditConversionWindowValue && banditConversionWindowUnit) {
+    return {
+      type: "conversion",
+      delayValue: 0,
+      delayUnit: "hours",
+      windowValue: banditConversionWindowValue,
+      windowUnit: banditConversionWindowUnit,
+    };
+  }
   if (phaseLookbackWindow) {
     // Convert metric window value to hours if it's a lookback window. Ignore if it's a conversion window.
     const metricWindowValueInHours =
@@ -340,6 +362,8 @@ export function getMetricForSnapshot({
   metricOverrides,
   decisionFrameworkSettings,
   phaseLookbackWindow,
+  banditConversionWindowValue,
+  banditConversionWindowUnit,
 }: {
   id: string | null | undefined;
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -347,6 +371,8 @@ export function getMetricForSnapshot({
   metricOverrides?: MetricOverride[];
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
   phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit };
+  banditConversionWindowValue?: number;
+  banditConversionWindowUnit?: "hours" | "days";
 }): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
@@ -380,6 +406,8 @@ export function getMetricForSnapshot({
         metric,
         overrides,
         phaseLookbackWindow,
+        banditConversionWindowValue,
+        banditConversionWindowUnit,
       ),
       properPrior: metricSnapshotSettings?.properPrior ?? false,
       properPriorMean: metricSnapshotSettings?.properPriorMean ?? 0,
@@ -433,6 +461,7 @@ export async function createReportSnapshot({
       );
     snapshotData =
       (await getLatestSnapshot({
+        context,
         experiment: experiment.id,
         phase: Math.max(experiment.phases.length - 1, 0),
         type: "standard",
@@ -509,6 +538,8 @@ export async function createReportSnapshot({
     regressionAdjustmentEnabled,
     postStratificationEnabled,
     dimension: report.experimentAnalysisSettings.dimension,
+    pValueThreshold: settings.pValueThreshold.value,
+    metricGroups,
   });
 
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
@@ -547,6 +578,8 @@ export async function createReportSnapshot({
     queries: [],
     unknownVariations: [],
     multipleExposures: 0,
+    hasChunkedAnalyses: false,
+    chunkedAnalysesMeta: [],
     analyses: snapshotData.analyses.map((analysis) => ({
       ...analysis,
       dateCreated: new Date(),
@@ -567,6 +600,7 @@ export async function createReportSnapshot({
   }
 
   const snapshot = await createExperimentSnapshotModel({
+    context,
     data: snapshotData,
   });
 
@@ -704,6 +738,14 @@ export function getReportSnapshotSettings({
         metricOverrides: report.experimentAnalysisSettings.metricOverrides,
         decisionFrameworkSettings:
           report.experimentAnalysisSettings.decisionFrameworkSettings,
+        ...(experiment?.type === "multi-armed-bandit"
+          ? {
+              banditConversionWindowValue:
+                experiment.banditConversionWindowValue ?? undefined,
+              banditConversionWindowUnit:
+                experiment.banditConversionWindowUnit ?? undefined,
+            }
+          : {}),
         phaseLookbackWindow,
       }),
     )

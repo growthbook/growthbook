@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { FeatureCodeRefsInterface } from "shared/types/code-refs";
-import { ApiCodeRef } from "shared/types/openapi";
+import { ApiCodeRef } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   ToInterface,
@@ -51,7 +51,9 @@ const COLLECTION = "featurecoderefs";
 const toInterface: ToInterface<FeatureCodeRefsInterface> = (doc) =>
   removeMongooseFields(doc);
 
-export function toApiInterface(doc: FeatureCodeRefsDocument): ApiCodeRef {
+export function toApiInterface(
+  doc: FeatureCodeRefsInterface | FeatureCodeRefsDocument,
+): ApiCodeRef {
   return {
     branch: doc.branch,
     dateUpdated: doc.dateUpdated?.toISOString(),

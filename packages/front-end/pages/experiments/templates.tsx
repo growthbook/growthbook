@@ -10,7 +10,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ExperimentTemplatesPage: React.FC = () => {
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
   const [openTemplateModal, setOpenTemplateModal] = useState<
     Partial<ExperimentTemplateInterface> | undefined
   >(undefined);
@@ -20,8 +20,10 @@ const ExperimentTemplatesPage: React.FC = () => {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const hasTemplatesFeature = hasCommercialFeature("templates");
-  const canAddTemplate =
-    permissionsUtil.canViewExperimentTemplateModal(project);
+  const canAddTemplate = permissionsUtil.canViewExperimentTemplateModal(
+    project,
+    projects,
+  );
 
   return (
     <>

@@ -15,6 +15,8 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
+import { getLatestPhaseVariations } from "shared/experiments";
+import { Box, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -25,7 +27,6 @@ import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
@@ -37,6 +38,8 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import Text from "@/ui/Text";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -47,6 +50,7 @@ import {
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
+import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const AnalysisForm: FC<{
@@ -145,7 +149,7 @@ const AnalysisForm: FC<{
       dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
         .toISOString()
         .substr(0, 16),
-      variations: experiment.variations || [],
+      variations: getLatestPhaseVariations(experiment) || [],
       phases: experiment.phases || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
@@ -193,11 +197,25 @@ const AnalysisForm: FC<{
         experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
       banditBurnInUnit:
         experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
+      banditConversionWindowValue: experiment.banditConversionWindowValue as
+        | number
+        | undefined,
+      banditConversionWindowUnit: (experiment.banditConversionWindowUnit ??
+        "hours") as "hours" | "days",
+      disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     },
   });
 
   const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
     useState(experiment.sequentialTestingEnabled === undefined);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(() => {
+      if (experiment.type !== "multi-armed-bandit") return false;
+      const hasOverride =
+        experiment.banditConversionWindowValue != null &&
+        experiment.banditConversionWindowUnit != null;
+      return !hasOverride;
+    });
   const setSequentialTestingToDefault = useCallback(
     (enable: boolean) => {
       if (enable) {
@@ -275,7 +293,7 @@ const AnalysisForm: FC<{
       hasMetrics);
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
       header={isHoldout ? "Analysis Settings" : "Experiment Settings"}
@@ -343,6 +361,17 @@ const AnalysisForm: FC<{
           if (banditScheduleHours < 0.25 || (body.banditBurnInValue ?? 0) < 0) {
             throw new Error("Invalid Bandit schedule");
           }
+          if (disableBanditConversionWindow) {
+            body.banditConversionWindowValue = null;
+            body.banditConversionWindowUnit = null;
+          } else if (
+            !body.banditConversionWindowValue ||
+            !body.banditConversionWindowUnit
+          ) {
+            throw new Error(
+              "Enter a conversion window override or disable the conversion window override",
+            );
+          }
         }
 
         await apiCall(`/experiment/${experiment.id}`, {
@@ -353,7 +382,7 @@ const AnalysisForm: FC<{
       })}
       cta="Save"
     >
-      <div className="mx-2">
+      <Box>
         {isBandit && (
           <FormProvider {...form}>
             <BanditSettings
@@ -615,14 +644,15 @@ const AnalysisForm: FC<{
           label={
             isBandit ? (
               <>
-                <div>Statistics Engine</div>
-                <div className="small text-muted">
-                  Only <strong>Bayesian</strong> is available for Bandit
-                  Experiments.
-                </div>
+                <Text weight="semibold">Statistics Engine</Text>
+                <Text size="small" color="text-mid">
+                  Only <Text weight="semibold">Bayesian</Text> is available for
+                  Bandit Experiments.
+                </Text>
               </>
             ) : undefined
           }
+          labelClassName="font-weight-bold"
           value={form.watch("statsEngine")}
           onChange={(v) => {
             form.setValue("statsEngine", v);
@@ -811,17 +841,34 @@ const AnalysisForm: FC<{
           )}
         {editMetrics && (
           <>
+            {isBandit && (
+              <>
+                <FormProvider {...form}>
+                  <BanditDecisionMetricSettings
+                    disableBanditConversionWindow={
+                      disableBanditConversionWindow
+                    }
+                    setDisableBanditConversionWindow={
+                      setDisableBanditConversionWindow
+                    }
+                    project={experiment.project}
+                  />
+                </FormProvider>
+                {experiment.status !== "draft" && <Separator my="5" size="4" />}
+              </>
+            )}
             <ExperimentMetricsSelector
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
-              excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
               project={experiment.project}
               goalMetrics={form.watch("goalMetrics")}
               secondaryMetrics={form.watch("secondaryMetrics")}
               guardrailMetrics={form.watch("guardrailMetrics")}
-              setGoalMetrics={(goalMetrics) =>
-                form.setValue("goalMetrics", goalMetrics)
+              setGoalMetrics={
+                !isBandit
+                  ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
+                  : undefined
               }
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue("secondaryMetrics", secondaryMetrics)
@@ -864,26 +911,27 @@ const AnalysisForm: FC<{
                   lazyRender={true}
                 >
                   <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-                    {datasourceProperties?.experimentSegments && (
-                      <div className="form-group mb-2">
-                        <SelectField
-                          label="Segment"
-                          labelClassName="font-weight-bold"
-                          value={form.watch("segment")}
-                          onChange={(value) =>
-                            form.setValue("segment", value || "")
-                          }
-                          initialOption="None (All Users)"
-                          options={filteredSegments.map((s) => {
-                            return {
-                              label: s.name,
-                              value: s.id,
-                            };
-                          })}
-                          helpText="Only users in this segment will be included"
-                        />
-                      </div>
-                    )}
+                    {datasourceProperties?.experimentSegments &&
+                      filteredSegments.length > 0 && (
+                        <div className="form-group mb-2">
+                          <SelectField
+                            label="Segment"
+                            labelClassName="font-weight-bold"
+                            value={form.watch("segment")}
+                            onChange={(value) =>
+                              form.setValue("segment", value || "")
+                            }
+                            initialOption="None (All Users)"
+                            options={filteredSegments.map((s) => {
+                              return {
+                                label: s.name,
+                                value: s.id,
+                              };
+                            })}
+                            helpText="Only users in this segment will be included"
+                          />
+                        </div>
+                      )}
                     {datasourceProperties?.separateExperimentResultQueries && (
                       <div className="form-group mb-2">
                         <Tooltip
@@ -1025,8 +1073,8 @@ const AnalysisForm: FC<{
             )}
           </>
         )}
-      </div>
-    </Modal>
+      </Box>
+    </DialogLayout>
   );
 };
 

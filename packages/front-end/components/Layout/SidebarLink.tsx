@@ -13,7 +13,19 @@ import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Badge from "@/ui/Badge";
 import styles from "./SidebarLink.module.scss";
+
+export type SidebarLinkFilterProps = {
+  permissionsUtils: Permissions;
+  segments: SegmentInterface[];
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  superAdmin: boolean;
+  isCloud: boolean;
+  isMultiOrg: boolean;
+  gb?: GrowthBook<AppFeatures>;
+  project?: string;
+};
 
 export type SidebarLinkProps = {
   name: string;
@@ -26,19 +38,31 @@ export type SidebarLinkProps = {
   className?: string;
   autoClose?: boolean;
   navigateOnExpand?: boolean;
-  filter?: (props: {
-    permissionsUtils: Permissions;
-    segments: SegmentInterface[];
-    permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-    superAdmin: boolean;
-    isCloud: boolean;
-    isMultiOrg: boolean;
-    gb?: GrowthBook<AppFeatures>;
-    project?: string;
-  }) => boolean;
+  filter?: (props: SidebarLinkFilterProps) => boolean;
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
 };
+
+/** Same inputs the sidebar uses for `filter` on nav links — use for Cmd+K / tests so visibility stays in sync. */
+export function buildSidebarLinkFilterProps(input: {
+  permissionsUtils: Permissions;
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  superAdmin: boolean | undefined;
+  gb: GrowthBook<AppFeatures> | undefined;
+  project: string | undefined;
+  segments: SegmentInterface[];
+}): SidebarLinkFilterProps {
+  return {
+    permissionsUtils: input.permissionsUtils,
+    permissions: input.permissions,
+    superAdmin: !!input.superAdmin,
+    isCloud: isCloud(),
+    isMultiOrg: isMultiOrg(),
+    gb: input.gb,
+    project: input.project,
+    segments: input.segments,
+  };
+}
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
@@ -62,16 +86,14 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     }
   }, [selected]);
 
-  const filterProps = {
+  const filterProps = buildSidebarLinkFilterProps({
     permissionsUtils,
     permissions,
-    superAdmin: !!superAdmin,
-    isCloud: isCloud(),
-    isMultiOrg: isMultiOrg(),
+    superAdmin,
     gb: growthbook,
     project,
     segments,
-  };
+  });
 
   if (props.filter && !props.filter(filterProps)) {
     return null;
@@ -189,7 +211,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                   )}
                   {l.name}
                   {l.beta && (
-                    <div className="badge badge-purple ml-2">beta</div>
+                    <Badge color="indigo" label="Beta" variant="solid" ml="2" />
                   )}
                 </Link>
               </li>

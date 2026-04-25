@@ -10,9 +10,14 @@ import {
 import {
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { getEffectiveLookbackOverride } from "shared/experiments";
+import {
+  getEffectiveLookbackOverride, getLatestPhaseVariations,
+} from "shared/experiments";
+import { SignificanceThresholds } from "shared/types/stats";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import DateResults from "@/components/Experiment/DateResults";
@@ -39,9 +44,10 @@ export default function PublicExperimentResults({
   const phase = phases.length - 1;
   const phaseObj = phases[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -75,6 +81,18 @@ export default function PublicExperimentResults({
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings?.()?.pValueCorrection ||
     _orgSettings?.pValueCorrection;
+
+  const _confidenceLevels = useConfidenceLevels(experiment.project);
+  const _pValueThreshold = usePValueThreshold(experiment.project);
+  const bayesianConfidenceLevels =
+    ssrPolyfills?.useConfidenceLevels?.(experiment.project) ||
+    _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
+  const significanceThresholds: SignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
@@ -123,6 +141,7 @@ export default function PublicExperimentResults({
         ) : (
           <MetricDrilldownProvider
             experimentId={experiment.id}
+            significanceThresholds={significanceThresholds}
             phase={phase}
             experimentStatus={experiment.status}
             analysis={analysis ?? null}
@@ -149,6 +168,7 @@ export default function PublicExperimentResults({
           >
             {showDateResults ? (
               <DateResults
+                significanceThresholds={significanceThresholds}
                 goalMetrics={experiment.goalMetrics}
                 secondaryMetrics={experiment.secondaryMetrics}
                 guardrailMetrics={experiment.guardrailMetrics}
@@ -162,6 +182,7 @@ export default function PublicExperimentResults({
             ) : showBreakDownResults ? (
               <BreakDownResults
                 experimentId={experiment.id}
+                significanceThresholds={significanceThresholds}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -189,6 +210,7 @@ export default function PublicExperimentResults({
             ) : showCompactResults ? (
               <CompactResults
                 experimentId={experiment.id}
+                significanceThresholds={significanceThresholds}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
