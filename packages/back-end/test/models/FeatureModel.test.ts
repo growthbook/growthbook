@@ -171,6 +171,53 @@ describe("buildFeatureInterface", () => {
     });
   });
 
+  // Org with no `settings.environments` configured: `getEnvironments` backfills
+  // to dev/production, otherwise `flattenV1ToV2Rules` would drop every rule
+  // because its `applicableEnvs` would be empty.
+  describe("empty org envs (legacy backfill)", () => {
+    it("v0 doc: rules survive when org has no envs configured", () => {
+      const v0: LegacyFeatureInterface = {
+        ...BASE_META,
+        rules: [v1Rule("r1") as FeatureRule],
+      } as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(v0, mockContext([]));
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].allEnvironments).toBe(true);
+    });
+
+    it("v0 doc: undefined org settings still backfills", () => {
+      const v0: LegacyFeatureInterface = {
+        ...BASE_META,
+        rules: [v1Rule("r1") as FeatureRule],
+      } as LegacyFeatureInterface;
+
+      const ctx = { org: {} } as unknown as ReqContext;
+      const out = buildFeatureInterface(v0, ctx);
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+    });
+
+    it("v1 doc: rules survive when org has no envs configured", () => {
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, rules: [v1Rule("r1") as FeatureRule] },
+          production: {
+            enabled: true,
+            rules: [v1Rule("r1") as FeatureRule],
+          },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(v1, mockContext([]));
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].allEnvironments).toBe(true);
+    });
+  });
+
   // ================= 3. v2 (envSettings has no rules key) =================
 
   describe("v2 documents (unified)", () => {

@@ -171,7 +171,9 @@ export function buildFeatureInterface(
   raw: LegacyFeatureInterface,
   context: ReqContext | ApiReqContext,
 ): FeatureInterface {
-  const orgEnvs = context.org.settings?.environments || [];
+  // `getEnvironments` backfills to dev/production when the org has no env
+  // config — without that, `flattenV1ToV2Rules` drops every rule on v0 docs.
+  const orgEnvs = getEnvironments(context.org);
 
   // v0 is identified by the absence of `environmentSettings`.
   const hasEnvSettings = !!raw.environmentSettings;

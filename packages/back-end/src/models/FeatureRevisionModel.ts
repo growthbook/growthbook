@@ -30,6 +30,7 @@ import {
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { upgradeFeatureRule } from "back-end/src/util/migrations";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
@@ -120,7 +121,9 @@ export function buildFeatureRevisionInterface(
         .revisionDate || revision.dateCreated;
   }
 
-  const orgEnvs = context.org.settings?.environments || [];
+  // Mirror `buildFeatureInterface`: backfill to dev/production so legacy
+  // revisions don't lose rules to `flattenV1ToV2Rules` w/ empty applicableEnvs.
+  const orgEnvs = getEnvironments(context.org);
   const rawRules = revision.rules as unknown;
 
   if (isV2RevisionRules(rawRules)) {
@@ -604,7 +607,7 @@ export async function createRevision({
   const rules: FeatureRule[] =
     changes && "rules" in changes && changes.rules !== undefined
       ? normalizeRulesInputToV2(changes.rules as unknown, {
-          orgEnvs: context.org.settings?.environments || [],
+          orgEnvs: getEnvironments(context.org),
           featureProject: feature.project,
         })
       : (feature.rules ?? []).map((r) => upgradeFeatureRule(r));
@@ -786,7 +789,7 @@ export async function updateRevision(
       ? {
           ...changes,
           rules: normalizeRulesInputToV2(changes.rules as unknown, {
-            orgEnvs: context.org.settings?.environments || [],
+            orgEnvs: getEnvironments(context.org),
             featureProject: feature.project,
           }),
         }

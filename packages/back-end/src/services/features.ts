@@ -106,6 +106,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
@@ -1726,7 +1727,7 @@ export function toApiRevision(
 ): z.infer<typeof apiFeatureRevisionValidator> {
   return revisionToApiInterface(
     rev,
-    ctx.org.settings?.environments ?? [],
+    getEnvironments(ctx.org),
     feature?.project,
   );
 }
