@@ -28,6 +28,7 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
+import { resolveScopeFromInput } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   putFeatureRevisionRuleV2Validator,

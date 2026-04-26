@@ -21,12 +21,12 @@ import {
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
-  RampScheduleForDisplay,
 } from "shared/validators";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
@@ -87,84 +87,19 @@ export default function RuleList({
   const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
 
-  // Map ruleId → global flat index in feature.rules (env-independent).
+  // ruleId → global flat index in feature.rules (env-independent).
   const flatIdxById = new Map<string, number>();
   (feature.rules ?? []).forEach((r, idx) => flatIdxById.set(r.id, idx));
 
-  // ruleId → ramp schedule for O(1) lookup, scoped to this env.
-  const rampSchedulesMap = new Map<string, RampScheduleInterface>();
+  // ruleId → ramp schedule (real or synthetic-pending), scoped to this env.
+  const rampSchedulesMap = buildRuleRampScheduleMap({
+    rampSchedules,
+    draftRevision,
+    environment,
+  });
 
-  for (const rs of rampSchedules ?? []) {
-    for (const target of rs.targets) {
-      if (
-        target.ruleId &&
-        (!target.environment || target.environment === environment)
-      ) {
-        if (!rampSchedulesMap.has(target.ruleId)) {
-          rampSchedulesMap.set(target.ruleId, rs);
-        }
-      }
-    }
-  }
-
-  // Then, add pending ramp schedules from draft actions
-  // These are fake/synthetic schedules just for UI display of pending state
-  if (draftRevision?.rampActions) {
-    for (const action of draftRevision.rampActions) {
-      if (
-        action.mode === "create" &&
-        (!action.environment || action.environment === environment)
-      ) {
-        // Only add if not already in map (real schedule takes precedence)
-        if (!rampSchedulesMap.has(action.ruleId)) {
-          // Create a synthetic pending ramp schedule for display
-          // This is just for UI - convert action dates (ISO strings) to Date objects
-          const pendingRamp: RampScheduleForDisplay = {
-            id: `pending-${action.ruleId}`,
-            name: action.name ?? "Pending ramp schedule",
-            targets: [
-              {
-                id: "t1",
-                entityType: "feature",
-                entityId: "",
-                ruleId: action.ruleId,
-                environment,
-                status: "active",
-              },
-            ],
-            steps: action.steps as RampScheduleForDisplay["steps"],
-            endActions:
-              action.endActions as RampScheduleForDisplay["endActions"],
-            startDate: action.startDate
-              ? new Date(action.startDate)
-              : undefined,
-            endCondition:
-              action.endCondition?.trigger?.type === "scheduled"
-                ? {
-                    trigger: {
-                      type: "scheduled",
-                      at: new Date(action.endCondition.trigger.at),
-                    },
-                  }
-                : undefined,
-            status: "pending",
-            dateCreated: new Date(),
-            dateUpdated: new Date(),
-          };
-          rampSchedulesMap.set(
-            action.ruleId,
-            pendingRamp as RampScheduleInterface,
-          );
-        }
-      }
-    }
-  }
-
-  // `getRules` projects `feature.rules` for the given env, returning a new
-  // array every call. Using the returned array as a deep dep churns the
-  // effect on every render. Key on the identity of the underlying rules
-  // array plus the env id instead — the projection is pure over those two
-  // inputs, so it's sufficient for change detection.
+  // `getRules` returns a fresh array every call, so depend on the underlying
+  // rules array identity + env id rather than the projection itself.
   useEffect(() => {
     setItems(getRules(feature, environment));
   }, [feature.rules, environment]);
@@ -219,12 +154,11 @@ export default function RuleList({
 
             if (oldIndex === -1 || newIndex === -1) return;
 
-            // Optimistic UI update uses env-projected indices.
+            // Optimistic update uses env-projected indices; the API call
+            // below translates to flat `feature.rules[]` indices.
             const newRules = arrayMove(items, oldIndex, newIndex);
             setItems(newRules);
 
-            // API uses flat indices — the backend always operates on
-            // feature.rules[] directly and doesn't need the env context.
             const flatRules = feature.rules ?? [];
             const flatOldIndex = flatRules.findIndex(
               (r) => r.id === (active.id as string),

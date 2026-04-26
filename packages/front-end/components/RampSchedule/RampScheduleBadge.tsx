@@ -48,7 +48,10 @@ export default function RampScheduleBadge({
   // Simple schedule: show only timing, no status prefix, no tooltip.
   if (simpleSchedule) {
     let label: string;
-    if (rs.status === "running") {
+    if (rs.status === "pending") {
+      // Awaiting publish of the activating revision.
+      label = "Schedule pending publish";
+    } else if (rs.status === "running") {
       label = "Running";
     } else if (futureStart) {
       label = `Starts ${abbreviateAgo(startAt)}`;
@@ -83,19 +86,18 @@ export default function RampScheduleBadge({
 
   const baseLabel = getRampStatusLabel(rs);
 
-  const prefix = simpleSchedule ? "Schedule" : "Ramp";
+  // simpleSchedule short-circuits above, so always treat as ramp here.
   const featureContextLabels: Partial<Record<string, string>> = {
-    pending: `${prefix} pending`,
-    ready: simpleSchedule ? "Scheduled" : "Ramp scheduled",
-    running: `${prefix} active`,
-    paused: `${prefix} paused`,
-    "pending-approval": `${prefix} needs approval`,
-    completed: `${prefix} complete`,
+    pending: "Ramp pending publish",
+    ready: "Ramp scheduled",
+    running: "Ramp active",
+    paused: "Ramp paused",
+    "pending-approval": "Ramp needs approval",
+    completed: "Ramp complete",
     "rolled-back": "Rolled Back",
   };
   const displayLabel = featureRuleContext
-    ? (featureContextLabels[rs.status] ??
-      `${prefix} ${baseLabel.toLowerCase()}`)
+    ? (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`)
     : baseLabel;
 
   const badge = (

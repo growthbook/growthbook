@@ -1,12 +1,15 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Namespaces } from "shared/types/organization";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 
@@ -51,6 +54,22 @@ function MultiRangeNamespaceModal({
     },
   });
   const { apiCall } = useAuth();
+  const isNewNamespace = !existing;
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasIncompatibleConnections = useMemo(
+    () =>
+      (sdkConnectionsData?.connections ?? []).some(
+        (c) => !getConnectionSDKCapabilities(c).includes("namespacesV2"),
+      ),
+    [sdkConnectionsData],
+  );
+  const [useLegacyFormat, setUseLegacyFormat] = useState(
+    () => existingNamespace?.format === "legacy" || false,
+  );
+  // Auto-select legacy format for new namespaces when any SDK connection lacks namespacesV2 support
+  useEffect(() => {
+    if (isNewNamespace && hasIncompatibleConnections) setUseLegacyFormat(true);
+  }, [isNewNamespace, hasIncompatibleConnections]);
   const selectedHashAttribute =
     (useWatch({
       control: form.control,
@@ -92,17 +111,13 @@ function MultiRangeNamespaceModal({
           label: value.label,
           description: value.description,
           status: value.status,
-          hashAttribute: value.hashAttribute,
-          format: "multiRange",
+          format: useLegacyFormat ? "legacy" : "multiRange",
+          ...(!useLegacyFormat && { hashAttribute: value.hashAttribute }),
         };
 
         if (existing) {
           await apiCall(
-            `/organization/namespaces/${
-              existingNamespace?.name
-                ? encodeURIComponent(existingNamespace.name)
-                : ""
-            }`,
+            `/organization/namespaces/${encodeURIComponent(existingNamespace!.name)}`,
             {
               method: "PUT",
               body: JSON.stringify(body),
@@ -127,24 +142,52 @@ function MultiRangeNamespaceModal({
       )}
       <Field label="Description" textarea {...form.register("description")} />
 
-      <SelectField
-        label="Hash Attribute"
-        required
-        disabled={hasExperiments}
-        options={hashAttributeOptions}
-        value={selectedHashAttribute}
-        onChange={(value) => {
-          form.setValue("hashAttribute", value);
-        }}
-      />
-      {hasExperiments ? (
-        <HelperText status="info" mt="1">
-          Cannot be changed while experiments are using this namespace.
-        </HelperText>
-      ) : (
-        <HelperText status="info" mt="1">
-          The user attribute used for namespace allocation.
-        </HelperText>
+      {isNewNamespace && (
+        <>
+          <Checkbox
+            label="Use legacy format"
+            description="For SDKs that don't support multi-range namespaces"
+            value={useLegacyFormat}
+            setValue={setUseLegacyFormat}
+            mb="3"
+          />
+          {hasIncompatibleConnections &&
+            (!useLegacyFormat ? (
+              <Callout status="warning" size="sm" mb="3">
+                Some of your SDK Connections may not support multi-range
+                namespaces.
+              </Callout>
+            ) : (
+              <HelperText status="warning" size="sm" mb="3">
+                Some of your SDK Connections may not support multi-range
+                namespaces.
+              </HelperText>
+            ))}
+        </>
+      )}
+
+      {!useLegacyFormat && (
+        <>
+          <SelectField
+            label="Hash Attribute"
+            required
+            disabled={hasExperiments}
+            options={hashAttributeOptions}
+            value={selectedHashAttribute}
+            onChange={(value) => {
+              form.setValue("hashAttribute", value);
+            }}
+          />
+          {hasExperiments ? (
+            <HelperText status="info" mt="1">
+              Cannot be changed while experiments are using this namespace.
+            </HelperText>
+          ) : (
+            <HelperText status="info" mt="1">
+              The user attribute used for namespace allocation.
+            </HelperText>
+          )}
+        </>
       )}
     </Modal>
   );

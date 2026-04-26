@@ -32,7 +32,12 @@ import {
   type FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
-import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import {
+  logBadgeColor,
+  CreatedRampScheduleBody,
+  createdRampScheduleTitle,
+  PendingPublishBadge,
+} from "@/components/Features/FeatureDiffRenders";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
@@ -181,6 +186,9 @@ export default function DraftModal({
                 },
               }
             : {}),
+          // Pending ramp create/detach actions live on the draft revision —
+          // pass through so the rules diff annotates affected rules.
+          rampActions: revision?.rampActions ?? undefined,
         }
       : currentRevisionData,
   });
@@ -201,6 +209,10 @@ export default function DraftModal({
           t.activatingRevisionVersion === revision?.version,
       ),
   );
+
+  // 1-based rule indices for resolving `Rule #N` references in pending action diffs.
+  const draftRules = Array.isArray(revision?.rules) ? revision!.rules : [];
+  const draftRuleIndexById = new Map(draftRules.map((r, i) => [r.id, i + 1]));
 
   // Build extra diff items so ramp changes appear in badges, custom renders, and JSON diffs.
   const rampDiffs: FeatureRevisionDiff[] = [
@@ -241,20 +253,23 @@ export default function DraftModal({
             steps: action.steps,
             endCondition: action.endCondition,
           };
+          const targetIdx = draftRuleIndexById.get(action.ruleId);
           return {
-            title: `Ramp Schedule – ${action.name} (pending creation)`,
+            title: createdRampScheduleTitle(action),
             a: "",
             b: JSON.stringify(rampConfig, null, 2),
             customRender: (
-              <p className="mb-0">
-                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
-                <code>{action.ruleId}</code> — {action.steps.length} step
-                {action.steps.length !== 1 ? "s" : ""}.
-              </p>
+              <CreatedRampScheduleBody
+                action={action}
+                targetRuleIndices={targetIdx ? [targetIdx] : []}
+              />
             ),
+            titleSuffix: <PendingPublishBadge />,
             badges: [
               {
-                label: `Create ramp: ${action.name}`,
+                label: action.name
+                  ? `Create ramp: ${action.name}`
+                  : "Create ramp schedule",
                 action: "create ramp",
               },
             ],
@@ -510,9 +525,12 @@ export default function DraftModal({
                                 : "1px solid var(--gray-5)",
                           }}
                         >
-                          <Text as="div" weight="semibold" mb="2">
-                            {d.title}
-                          </Text>
+                          <Flex align="center" gap="2" mb="2" wrap="wrap">
+                            <Text as="div" weight="semibold">
+                              {d.title}
+                            </Text>
+                            {d.titleSuffix}
+                          </Flex>
                           {d.customRender}
                         </Box>
                       ))}

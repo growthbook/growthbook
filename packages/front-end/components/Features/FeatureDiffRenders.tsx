@@ -13,6 +13,11 @@ import {
 } from "shared/types/feature";
 import { RevisionMetadata } from "shared/types/feature-revision";
 import { toV2FeatureSnapshot } from "shared/util";
+import { datetime } from "shared/dates";
+import type {
+  RevisionRampAction,
+  RevisionRampCreateAction,
+} from "shared/validators";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import Text from "@/ui/Text";
@@ -194,9 +199,156 @@ function RuleEnvScope({
   );
 }
 
+// ─── Ramp schedule diff helpers ──────────────────────────────────────────────
+// Shared between the top-level "Create Ramp Schedule" diff card and per-rule
+// pending-schedule blocks. A "simple schedule" has no steps — it just gates a
+// rule on/off at scheduled date(s).
+
+export function isSimpleRampAction(action: RevisionRampCreateAction): boolean {
+  return action.steps.length === 0;
+}
+
+function extractScheduledEndAt(
+  endCondition: RevisionRampCreateAction["endCondition"],
+): Date | string | null {
+  const trigger = endCondition?.trigger;
+  if (trigger && trigger.type === "scheduled") return trigger.at;
+  return null;
+}
+
+export function RampScheduleSummary({
+  startDate,
+  endAt,
+  stepCount,
+}: {
+  startDate?: string | Date | null;
+  endAt?: string | Date | null;
+  stepCount: number;
+}) {
+  const showStepRow = stepCount > 0;
+  if (!startDate && !endAt && !showStepRow) return null;
+  return (
+    <Flex direction="column" gap="1">
+      {startDate ? (
+        <Text size="small">
+          <strong>Enable:</strong> {datetime(startDate)}
+        </Text>
+      ) : null}
+      {endAt ? (
+        <Text size="small">
+          <strong>Disable:</strong> {datetime(endAt)}
+        </Text>
+      ) : null}
+      {showStepRow ? (
+        <Text size="small">
+          {stepCount} step{stepCount !== 1 ? "s" : ""}
+        </Text>
+      ) : null}
+    </Flex>
+  );
+}
+
+// Inline "pending publish" badge — used as the `titleSuffix` of standalone
+// ramp diff cards and inline with the per-rule "Ramp schedule" label.
+export function PendingPublishBadge() {
+  return (
+    <Badge
+      label="pending publish"
+      color="amber"
+      variant="soft"
+      radius="full"
+      size="sm"
+    />
+  );
+}
+
+// Shared body for ramp-schedule diff cards. The "pending publish" badge lives
+// on the heading (`titleSuffix` standalone / inline label per-rule), so this
+// body just renders the schedule summary + optional rule-target line.
+function RampActionBody({
+  action,
+  // 1-based rule indices (matching `Rule #N`) for the "Target(s)" line.
+  targetRuleIndices,
+}: {
+  action: RevisionRampCreateAction;
+  targetRuleIndices?: number[];
+}) {
+  const endAt = extractScheduledEndAt(action.endCondition);
+  const ruleCount = targetRuleIndices?.length;
+  return (
+    <Flex direction="column" gap="2">
+      <RampScheduleSummary
+        startDate={action.startDate ?? undefined}
+        endAt={endAt ?? undefined}
+        stepCount={action.steps.length}
+      />
+      {ruleCount ? (
+        <Text size="small" color="text-mid">
+          {ruleCount === 1 ? "Target" : "Targets"}: {ruleCount} feature rule
+          {ruleCount !== 1 ? "s" : ""} (
+          {targetRuleIndices!.map((i) => `Rule #${i}`).join(", ")})
+        </Text>
+      ) : null}
+    </Flex>
+  );
+}
+
+// Per-rule pending-schedule block. Uses the same label style as other rule
+// field rows so it slots in cleanly with the rest of the rule diff.
+export function PendingRampForRule({
+  action,
+}: {
+  action: RevisionRampCreateAction;
+}) {
+  const label = isSimpleRampAction(action) ? "Schedule" : "Ramp schedule";
+  return (
+    <div className="mb-2">
+      <Flex align="center" gap="2" mb="1" wrap="wrap">
+        <Text size="medium" weight="medium" color="text-mid">
+          {label}
+        </Text>
+        <PendingPublishBadge />
+      </Flex>
+      <RampActionBody action={action} />
+    </div>
+  );
+}
+
+// Top-level "Create (Ramp) Schedule" diff card body. The pending-publish
+// badge is supplied via `titleSuffix` so it sits inline with the heading
+// (matching the per-rule layout).
+export function CreatedRampScheduleBody({
+  action,
+  targetRuleIndices,
+}: {
+  action: RevisionRampCreateAction;
+  targetRuleIndices?: number[];
+}) {
+  return (
+    <RampActionBody action={action} targetRuleIndices={targetRuleIndices} />
+  );
+}
+
+export function createdRampScheduleTitle(
+  action: RevisionRampCreateAction,
+): string {
+  return isSimpleRampAction(action)
+    ? "Create Schedule"
+    : "Create Ramp Schedule";
+}
+
+export function findPendingRampForRule(
+  ruleId: string,
+  pendingRampActions: RevisionRampAction[] | undefined,
+): RevisionRampCreateAction | undefined {
+  return pendingRampActions?.find(
+    (a): a is RevisionRampCreateAction =>
+      a.mode === "create" && a.ruleId === ruleId,
+  );
+}
+
 // "Rule #3 — Force (value: xyz)" compact descriptor used as a sub-heading.
-// Includes the rule's environment scope inline so the rule diff (which is
-// NOT bucketed by env) still communicates where the rule applies.
+// Env scope is rendered inline since rule diffs aren't bucketed by env.
 function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
   let detail: ReactNode = "";
   if (rule.type === "force") {
@@ -233,14 +385,17 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
 function RuleFieldDiffs({
   pre,
   post,
+  pendingRampAction,
 }: {
   pre: FeatureRule;
   post: FeatureRule;
+  pendingRampAction?: RevisionRampCreateAction;
 }) {
-  if (isEqual(pre, post)) return null;
+  if (isEqual(pre, post) && !pendingRampAction) return null;
 
   const rows: ReactNode[] = [];
-  // id/type/scheduleRules are structural — intentionally suppressed from the render.
+  // id/type/scheduleRules are structural; allEnvironments+environments render
+  // together as a single "Environments" row below. The rest are explicit cases.
   const handled = new Set<string>([
     "id",
     "type",
@@ -255,13 +410,10 @@ function RuleFieldDiffs({
     "variations",
     "controlValue",
     "variationValue",
-    // Rendered together as a single "Environments" row below.
     "allEnvironments",
     "environments",
   ]);
 
-  // Combined env-scope row via `RuleEnvScope` so the diff matches rule-heading
-  // badges instead of falling through to raw `false → true` / JSON-array.
   const sortedEnvs = (r: FeatureRule): string[] =>
     Array.isArray(r.environments) ? [...r.environments].sort() : [];
   const envScopeChanged =
@@ -531,12 +683,38 @@ function RuleFieldDiffs({
     );
   }
 
+  if (pendingRampAction) {
+    rows.push(
+      <PendingRampForRule key="pendingRamp" action={pendingRampAction} />,
+    );
+  }
+
   if (!rows.length) return null;
   return <div className="mt-1 ml-3">{rows}</div>;
 }
 
-function NewRuleDetails({ rule }: { rule: FeatureRule }) {
+function NewRuleDetails({
+  rule,
+  pendingRampAction,
+}: {
+  rule: FeatureRule;
+  pendingRampAction?: RevisionRampCreateAction;
+}) {
   const rows: ReactNode[] = [];
+
+  // Combined env-scope row (matches `RuleFieldDiffs`); raw fields are
+  // suppressed via the `handled` set below.
+  if (rule.allEnvironments || Array.isArray(rule.environments)) {
+    rows.push(
+      <ChangeField
+        key="envScope"
+        label="Environments"
+        changed
+        oldNode={<em>unset</em>}
+        newNode={<RuleEnvScope rule={rule} size="sm" />}
+      />,
+    );
+  }
 
   const cond = toConditionString((rule as { condition?: unknown }).condition);
   const sg = (rule as { savedGroups?: SavedGroupTargeting[] }).savedGroups;
@@ -663,7 +841,8 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
     );
   }
 
-  // id/type/scheduleRules are structural; the other keys are explicitly rendered above.
+  // id/type/scheduleRules are structural; everything else is rendered
+  // explicitly above (env scope as a combined row).
   const handled = new Set([
     "id",
     "type",
@@ -678,6 +857,8 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
     "variationValue",
     "experimentId",
     "variations",
+    "allEnvironments",
+    "environments",
   ]);
   rows.push(
     ...renderFallback(
@@ -686,6 +867,12 @@ function NewRuleDetails({ rule }: { rule: FeatureRule }) {
       handled,
     ),
   );
+
+  if (pendingRampAction) {
+    rows.push(
+      <PendingRampForRule key="pendingRamp" action={pendingRampAction} />,
+    );
+  }
 
   if (!rows.length) return <></>;
   return <div className="ml-3">{rows}</div>;
@@ -783,6 +970,7 @@ export function featureRuleChangeBadges(
 export function renderFeatureRules(
   preRules: FeatureRule[],
   postRules: FeatureRule[],
+  options?: { pendingRampActions?: RevisionRampAction[] },
 ): ReactNode | null {
   const { added, removed, modified, reordered } = analyzeRuleChanges(
     preRules,
@@ -792,8 +980,27 @@ export function renderFeatureRules(
   const postIndexById = new Map(postRules.map((r, i) => [r.id, i + 1]));
   const preIndexById = new Map(preRules.map((r, i) => [r.id, i + 1]));
   const preById = new Map(preRules.map((r) => [r.id, r]));
+  const pendingRampActions = options?.pendingRampActions;
 
-  if (!added.length && !removed.length && !modified.length && !reordered)
+  // Rules that aren't add/modify/reorder but do have a pending ramp action —
+  // surface them as a "modified" entry so the user sees the per-rule pending
+  // schedule summary even when the rule's other fields are unchanged.
+  const addedIds = new Set(added.map((r) => r.id));
+  const modifiedIds = new Set(modified.map((r) => r.id));
+  const rampOnlyTouched: FeatureRule[] = pendingRampActions
+    ? postRules.filter((r) => {
+        if (addedIds.has(r.id) || modifiedIds.has(r.id)) return false;
+        return !!findPendingRampForRule(r.id, pendingRampActions);
+      })
+    : [];
+
+  if (
+    !added.length &&
+    !removed.length &&
+    !modified.length &&
+    !reordered &&
+    !rampOnlyTouched.length
+  )
     return null;
 
   const sections: ReactNode[] = [];
@@ -840,7 +1047,13 @@ export function renderFeatureRules(
           return (
             <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
               <RuleHeading rule={r} index={idx} />
-              <NewRuleDetails rule={r} />
+              <NewRuleDetails
+                rule={r}
+                pendingRampAction={findPendingRampForRule(
+                  r.id,
+                  pendingRampActions,
+                )}
+              />
             </Box>
           );
         })}
@@ -866,19 +1079,30 @@ export function renderFeatureRules(
     );
   }
 
-  if (modified.length > 0) {
+  // Combine "true" content modifications with rules touched only by a pending
+  // ramp action so the user sees a "Pending Ramp Schedule" summary on
+  // unchanged rules whose schedule is being created in this draft.
+  const modifiedAll = [...modified, ...rampOnlyTouched];
+  if (modifiedAll.length > 0) {
     sections.push(
       <div key="modified" className="mb-2">
         <Text size="medium" weight="medium" color="text-mid" as="div" mb="2">
           Modified
         </Text>
-        {modified.map((r) => {
+        {modifiedAll.map((r) => {
           const prev = preById.get(r.id)!;
           const idx = postIndexById.get(r.id)!;
           return (
             <Box key={r.id} mb="3" className={styles.ruleSummaryBox}>
               <RuleHeading rule={r} index={idx} />
-              <RuleFieldDiffs pre={prev} post={r} />
+              <RuleFieldDiffs
+                pre={prev ?? r}
+                post={r}
+                pendingRampAction={findPendingRampForRule(
+                  r.id,
+                  pendingRampActions,
+                )}
+              />
             </Box>
           );
         })}
@@ -935,10 +1159,9 @@ const FEATURE_JSON_KEYS = new Set([
   "variationValue",
 ]);
 
-// `normalizeSnapshot` for the audit diff config: recursively parses embedded
-// JSON strings and JIT-migrates pre-v2 snapshots (rules under
-// `environmentSettings[env].rules`) into the flat `feature.rules` shape so
-// historical audit logs still diff against current renderers.
+// Audit-diff snapshot normalizer: parses embedded JSON strings and migrates
+// pre-v2 snapshots (rules under `environmentSettings[env].rules`) to the flat
+// `feature.rules` shape so historical audit logs render with current renderers.
 export function normalizeFeatureSnapshot(
   snapshot: FeatureInterface,
 ): FeatureInterface {
@@ -965,13 +1188,12 @@ export function normalizeFeatureSnapshot(
   return walk(snapshot) as FeatureInterface;
 }
 
-// AuditDiffSection adapters — bridge Partial<FeatureInterface> to the render functions above.
+// AuditDiffSection adapters — bridge Partial<FeatureInterface> to the renderers above.
 
 type FeaturePartial = Partial<FeatureInterface> | null;
 
-// defaultValue may already be a parsed object after normalizeSnapshot, so re-stringify.
-// Label is omitted here because the section card header already says "Default value".
-// Treat undefined and "" as equal so we don't show a diff when there's no real change.
+// defaultValue may already be a parsed object after normalizeSnapshot, so
+// re-stringify. Label is omitted (section card header already says "Default value").
 export function renderFeatureDefaultValueSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
@@ -989,10 +1211,8 @@ export function renderFeatureDefaultValueSection(
   );
 }
 
-// The Rules section shows (1) per-env enabled-toggle rows and (2) a single
-// rules diff off the flat `feature.rules` array — each rule card carries its
-// env scope inline via `RuleEnvScope`. Set `suppressCardLabel: true` on the
-// parent section config to avoid a redundant outer heading.
+// Rules section: per-env enable-toggle rows + a single rules diff off the
+// flat `feature.rules` array. Each rule card carries its env scope inline.
 export function renderFeatureRulesSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,

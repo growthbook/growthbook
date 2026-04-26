@@ -50,6 +50,7 @@ export const featureToFeatureRevisionDiffInput = (
     environmentsEnabled,
     prerequisites: feature.prerequisites,
     holdout: feature.holdout ?? null,
+    rampActions: undefined,
     metadata: normalizeRevisionMetadata({
       description: feature.description,
       owner: feature.owner,
@@ -89,13 +90,20 @@ export type FeatureRevisionDiffInput = Pick<
   | "prerequisites"
   | "metadata"
   | "holdout"
->;
+> & {
+  // Optional pending ramp-schedule actions on the draft side. When set,
+  // rule diffs annotate affected rules with a "Pending Ramp Schedule" block.
+  rampActions?: FeatureRevisionInterface["rampActions"];
+};
 
 export type FeatureRevisionDiff = {
   title: string;
   a: string;
   b: string;
   customRender?: ReactNode;
+  // Rendered inline next to the title in the customRender section heading
+  // (e.g. a "[pending publish]" badge for ramp-schedule diffs).
+  titleSuffix?: ReactNode;
   badges?: DiffBadge[];
 };
 
@@ -260,12 +268,29 @@ export function useFeatureRevisionDiff({
     // per-env projection layout.
     const draftRulesArr = Array.isArray(draft.rules) ? draft.rules : [];
     const currentRulesArr = Array.isArray(current.rules) ? current.rules : [];
-    if (!isEqual(currentRulesArr, draftRulesArr)) {
+    const draftRampActions = draft.rampActions ?? undefined;
+    // Force the Rules section to render when an unchanged rule has a pending
+    // ramp create action queued — without this, a draft whose only change is
+    // "add ramp schedule to an existing rule" wouldn't surface in the diff.
+    const hasPendingRampOnUnchangedRule =
+      Array.isArray(draftRampActions) &&
+      draftRampActions.some(
+        (a) =>
+          a.mode === "create" &&
+          draftRulesArr.some((r) => r.id === a.ruleId) &&
+          currentRulesArr.some((r) => r.id === a.ruleId),
+      );
+    if (
+      !isEqual(currentRulesArr, draftRulesArr) ||
+      hasPendingRampOnUnchangedRule
+    ) {
       diffs.push({
         title: "Rules",
         a: JSON.stringify(normalizeFeatureRules(currentRulesArr), null, 2),
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
-        customRender: renderFeatureRules(currentRulesArr, draftRulesArr),
+        customRender: renderFeatureRules(currentRulesArr, draftRulesArr, {
+          pendingRampActions: draftRampActions,
+        }),
         badges: featureRuleChangeBadges(currentRulesArr, draftRulesArr),
       });
     }

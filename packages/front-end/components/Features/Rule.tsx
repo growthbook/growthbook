@@ -310,6 +310,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rampSchedule !== undefined &&
       ["completed", "rolled-back"].includes(rampSchedule.status);
     const isSimpleSchedule = !!rampSchedule && rampSchedule.steps.length === 0;
+    // Synthetic schedules (synthesized client-side from a pending draft create
+    // action) carry a placeholder id and have no server-side counterpart, so
+    // ramp action CTAs (Start/Resume/Approve) must be suppressed.
+    const isSyntheticRamp =
+      !!rampSchedule && rampSchedule.id.startsWith("pending-");
     const hasPendingDetach =
       isDraft &&
       draftRevision?.rampActions?.some(
@@ -336,7 +341,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !locked &&
       !rampIsTerminal &&
       !hasPendingDetach &&
-      !isSimpleSchedule
+      !isSimpleSchedule &&
+      !isSyntheticRamp
     ) {
       if (rampSchedule.status === "ready" && rampSchedule.targets.length > 0) {
         ruleCtas.push(
@@ -455,9 +461,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       {linkedExperiment.name}
                     </Link>
                     {linkedExperiment && (
-                      <ExperimentStatusIndicator
-                        experimentData={linkedExperiment}
-                      />
+                      <span style={{ verticalAlign: "1px" }}>
+                        <ExperimentStatusIndicator
+                          experimentData={linkedExperiment}
+                        />
+                      </span>
                     )}
                   </>
                 ) : rule.type === "safe-rollout" ? (
@@ -561,7 +569,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       {rule.enabled ? "Disable" : "Enable"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {rampSchedule && !isSimpleSchedule && (
+                  {rampSchedule && !isSimpleSchedule && !isSyntheticRamp && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup label="Ramp-up schedule">
@@ -986,7 +994,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                   {safeRollout?.startedAt && (
                     <Flex direction="column" mt="4" gap="4">
-                      <SafeRolloutDetails safeRollout={safeRollout} />
+                      <SafeRolloutDetails
+                        safeRollout={safeRollout}
+                        projectId={feature.project}
+                      />
                     </Flex>
                   )}
                   {!safeRollout?.startedAt && (

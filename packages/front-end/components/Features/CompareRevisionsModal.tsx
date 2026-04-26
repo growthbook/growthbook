@@ -60,7 +60,12 @@ import {
   normalizeRevisionMetadata,
   featureToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
-import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import {
+  logBadgeColor,
+  CreatedRampScheduleBody,
+  createdRampScheduleTitle,
+  PendingPublishBadge,
+} from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -98,6 +103,7 @@ function revisionToDiffInput(
     prerequisites: r.prerequisites,
     holdout: r.holdout ?? null,
     metadata: normalizeRevisionMetadata(r.metadata),
+    rampActions: r.rampActions ?? undefined,
   };
 }
 
@@ -426,9 +432,12 @@ function DiffContent({
             <Flex direction="column" gap="0">
               {withRender.map((d) => (
                 <Box key={d.title} p="3" my="3" className="rounded bg-light">
-                  <Heading as="h6" size="small" color="text-mid" mb="2">
-                    {formatSectionTitle(d.title)}
-                  </Heading>
+                  <Flex align="center" gap="2" mb="2" wrap="wrap">
+                    <Heading as="h6" size="small" color="text-mid" mb="0">
+                      {formatSectionTitle(d.title)}
+                    </Heading>
+                    {d.titleSuffix}
+                  </Flex>
                   {d.customRender}
                 </Box>
               ))}
@@ -496,7 +505,10 @@ function rampDiffsForRevision(
       continue;
     }
 
-    const alreadyStarted = ramp.status !== "pending";
+    // "ready" / "pending" are pre-start lifecycle states; everything else
+    // (running, paused, pending-approval, completed, rolled-back) means the
+    // ramp has already begun, so use past tense.
+    const alreadyStarted = ramp.status !== "pending" && ramp.status !== "ready";
     const startDescription = ramp.startDate
       ? alreadyStarted
         ? "Started at a scheduled date/time."
@@ -530,12 +542,19 @@ function rampDiffsForRevision(
     });
   }
 
+  // 1-based rule indices for resolving `Rule #N` references in pending action diffs.
+  const newerRules = Array.isArray(newerRevision.rules)
+    ? newerRevision.rules
+    : [];
+  const ruleIndexById = new Map(newerRules.map((r, i) => [r.id, i + 1]));
+
   // Pending ramp actions: display "create" and "detach" actions queued in the draft
   if (newerRevision.rampActions) {
     for (const action of newerRevision.rampActions) {
       if (action.mode === "create") {
+        const targetIdx = ruleIndexById.get(action.ruleId);
         diffs.push({
-          title: `Ramp Schedule – ${action.name} (pending creation)`,
+          title: createdRampScheduleTitle(action),
           a: "",
           b: JSON.stringify(
             {
@@ -550,15 +569,17 @@ function rampDiffsForRevision(
             2,
           ),
           customRender: (
-            <p className="mb-0">
-              Creates new ramp schedule <strong>{action.name}</strong> for rule{" "}
-              <code>{action.ruleId}</code> — {action.steps.length} step
-              {action.steps.length !== 1 ? "s" : ""}.
-            </p>
+            <CreatedRampScheduleBody
+              action={action}
+              targetRuleIndices={targetIdx ? [targetIdx] : []}
+            />
           ),
+          titleSuffix: <PendingPublishBadge />,
           badges: [
             {
-              label: `Create ramp: ${action.name}`,
+              label: action.name
+                ? `Create ramp: ${action.name}`
+                : "Create ramp schedule",
               action: "create ramp",
             },
           ],
