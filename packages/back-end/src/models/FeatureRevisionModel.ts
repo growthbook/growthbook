@@ -121,8 +121,8 @@ export function buildFeatureRevisionInterface(
         .revisionDate || revision.dateCreated;
   }
 
-  // Mirror `buildFeatureInterface`: backfill to dev/production so legacy
-  // revisions don't lose rules to `flattenV1ToV2Rules` w/ empty applicableEnvs.
+  // Backfill mirrors `buildFeatureInterface` so env-less orgs don't drop
+  // rules through `flattenV1ToV2Rules`'s applicableEnvs filter.
   const orgEnvs = getEnvironments(context.org);
   const rawRules = revision.rules as unknown;
 

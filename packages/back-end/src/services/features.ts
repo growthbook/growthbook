@@ -1969,7 +1969,9 @@ export function getApiFeatureObj({
   // each rule lands in every env its footprint covers. `featureProject` is
   // honored on the applicable env set so rules tagged `allEnvironments:
   // true` don't leak into envs that are project-excluded.
-  const orgEnvs = organization.settings?.environments ?? [];
+  // Backfill mirrors the read path so v0 rules on env-less orgs don't drop
+  // out of the v1 REST response.
+  const orgEnvs = getEnvironments(organization);
   const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
   const featureRulesByEnv: Record<string, ApiFeatureRule[]> = {};
   for (const env of environments) featureRulesByEnv[env] = [];

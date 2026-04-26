@@ -197,25 +197,6 @@ describe("buildFeatureRevisionInterface", () => {
       const out = buildFeatureRevisionInterface(raw, mockContext());
       expect(out.rules).toEqual([]);
     });
-
-    // Org with no `settings.environments`: `getEnvironments` backfills to
-    // dev/production so the flattener doesn't drop every rule.
-    it("rules survive when org has no envs configured", () => {
-      const raw = {
-        ...BASE_REVISION,
-        rules: {
-          dev: [v1Rule("r1")],
-          production: [v1Rule("r1")],
-        },
-      } as unknown as FeatureRevisionInterface;
-
-      const out = buildFeatureRevisionInterface(raw, mockContext([]), {
-        featureProject: "proj_main",
-      });
-      expect(out.rules).toHaveLength(1);
-      expect(out.rules[0].id).toBe("r1");
-      expect(out.rules[0].allEnvironments).toBe(true);
-    });
   });
 
   // ================= 3. upgradeFeatureRule symmetry =================

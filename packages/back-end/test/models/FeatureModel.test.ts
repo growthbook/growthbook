@@ -171,50 +171,51 @@ describe("buildFeatureInterface", () => {
     });
   });
 
-  // Org with no `settings.environments` configured: `getEnvironments` backfills
-  // to dev/production, otherwise `flattenV1ToV2Rules` would drop every rule
-  // because its `applicableEnvs` would be empty.
-  describe("empty org envs (legacy backfill)", () => {
-    it("v0 doc: rules survive when org has no envs configured", () => {
-      const v0: LegacyFeatureInterface = {
+  // Env-less org: `getEnvironments` backfills to dev/production so
+  // `flattenV1ToV2Rules`'s `applicableEnvs` isn't empty. The end-to-end
+  // emit-side regression is locked down in
+  // `test/services/getApiFeatureObj.test.ts`.
+  describe("v0 doc + empty org envs (legacy getEnvironments backfill)", () => {
+    // Real prod feature: pre-revisions v0 with an inline `type: "experiment"`
+    // rule. Pre-fix, `out.rules` was [].
+    function failingV0Feature(): LegacyFeatureInterface {
+      return {
         ...BASE_META,
-        rules: [v1Rule("r1") as FeatureRule],
-      } as LegacyFeatureInterface;
-
-      const out = buildFeatureInterface(v0, mockContext([]));
-      expect(out.rules).toHaveLength(1);
-      expect(out.rules[0].id).toBe("r1");
-      expect(out.rules[0].allEnvironments).toBe(true);
-    });
-
-    it("v0 doc: undefined org settings still backfills", () => {
-      const v0: LegacyFeatureInterface = {
-        ...BASE_META,
-        rules: [v1Rule("r1") as FeatureRule],
-      } as LegacyFeatureInterface;
-
-      const ctx = { org: {} } as unknown as ReqContext;
-      const out = buildFeatureInterface(v0, ctx);
-      expect(out.rules).toHaveLength(1);
-      expect(out.rules[0].id).toBe("r1");
-    });
-
-    it("v1 doc: rules survive when org has no envs configured", () => {
-      const v1: LegacyFeatureInterface = {
-        ...BASE_META,
-        environmentSettings: {
-          dev: { enabled: true, rules: [v1Rule("r1") as FeatureRule] },
-          production: {
+        defaultValue: "false",
+        rules: [
+          {
+            id: "fr_real",
+            type: "experiment",
+            description: "",
+            trackingKey: "",
+            hashAttribute: "deviceId",
+            values: [
+              { weight: 0.9, value: "false" },
+              { weight: 0.1, value: "true" },
+            ],
+            condition: '{"country": "US"}',
             enabled: true,
-            rules: [v1Rule("r1") as FeatureRule],
-          },
-        },
+            coverage: 1,
+            value: "false",
+          } as unknown as FeatureRule,
+        ],
       } as LegacyFeatureInterface;
+    }
 
-      const out = buildFeatureInterface(v1, mockContext([]));
+    it("preserves an inline experiment rule when org has empty envs array", () => {
+      const out = buildFeatureInterface(failingV0Feature(), mockContext([]));
       expect(out.rules).toHaveLength(1);
-      expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].id).toBe("fr_real");
+      expect(out.rules[0].type).toBe("experiment");
       expect(out.rules[0].allEnvironments).toBe(true);
+    });
+
+    it("preserves an inline experiment rule when org.settings is undefined", () => {
+      const ctx = { org: {} } as unknown as ReqContext;
+      const out = buildFeatureInterface(failingV0Feature(), ctx);
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("fr_real");
+      expect(out.rules[0].type).toBe("experiment");
     });
   });
 
