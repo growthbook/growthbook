@@ -1,4 +1,5 @@
-import { renderHook } from "@testing-library/react";
+import * as React from "react";
+import { render, renderHook } from "@testing-library/react";
 import {
   FeatureRevisionDiffInput,
   useFeatureRevisionDiff,
@@ -131,5 +132,105 @@ describe("useFeatureRevisionDiff", () => {
       (b) => b.action === "add rule",
     );
     expect(addBadge?.label).toBe("Add rule");
+  });
+
+  // Regression: missing keys in `environmentsEnabled` on the older revision
+  // used to flip to `enabled: true` via an "infer the opposite" fallback,
+  // producing phantom `enabled → disabled` toggle diffs.
+  it("does not emit phantom env-toggle diffs when older revision lacks keys", () => {
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [],
+      environmentsEnabled: { production: false },
+    };
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [],
+      environmentsEnabled: {
+        production: false,
+        staging: false,
+        dev: false,
+      },
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+
+    const toggleDiffs = result.current.filter((d) =>
+      d.title.startsWith("Environment Toggle"),
+    );
+    expect(toggleDiffs).toHaveLength(0);
+  });
+
+  // Regression: scope changes used to render as raw `allEnvironments` /
+  // JSON env-arrays via the generic fallback. The combined row uses the
+  // same badge style as rule headings and only shows active envs.
+  it("renders a combined Environments row with badges, not raw allEnvironments/environments", () => {
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [
+        {
+          id: "r1",
+          description: "",
+          type: "force",
+          value: "true",
+          allEnvironments: true,
+        },
+      ],
+    };
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [
+        {
+          id: "r1",
+          description: "",
+          type: "force",
+          value: "true",
+          allEnvironments: false,
+          environments: ["production", "dev"],
+        },
+      ],
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+    const rulesDiff = result.current.find((d) => d.title === "Rules");
+    expect(rulesDiff).toBeDefined();
+    const { container } = render(rulesDiff!.customRender as React.ReactElement);
+    const html = container.innerHTML;
+
+    expect(html).toContain("Environments");
+    expect(html).toContain("All Environments");
+    expect(html).toContain("production");
+    expect(html).toContain("dev");
+    expect(html).not.toContain("allEnvironments");
+    expect(html).not.toContain('["production","dev"]');
+  });
+
+  it("emits an env-toggle diff only for envs that actually changed", () => {
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [],
+      environmentsEnabled: { production: false, staging: false },
+    };
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [],
+      environmentsEnabled: { production: true, staging: false, dev: false },
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+
+    const toggleDiffs = result.current.filter((d) =>
+      d.title.startsWith("Environment Toggle"),
+    );
+    expect(toggleDiffs).toHaveLength(1);
+    expect(toggleDiffs[0].title).toBe("Environment Toggle - production");
+    expect(toggleDiffs[0].a).toBe("false");
+    expect(toggleDiffs[0].b).toBe("true");
   });
 });

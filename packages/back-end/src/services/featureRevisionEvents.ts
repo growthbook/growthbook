@@ -16,6 +16,7 @@ import {
 } from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { getEnvironments } from "back-end/src/util/organization.util";
 
 type RevisionChange = FeatureRevisionUpdatedPayload["change"];
 
@@ -104,7 +105,7 @@ export async function dispatchFeatureRevisionEvent<
     const environments = deriveRevisionEventEnvironments(
       feature,
       revision,
-      ctx.org.settings?.environments ?? [],
+      getEnvironments(ctx.org),
       opts.environments,
     );
 

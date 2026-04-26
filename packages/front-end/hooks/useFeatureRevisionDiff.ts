@@ -170,29 +170,19 @@ export function useFeatureRevisionDiff({
       }
     }
 
-    // 2. Environment toggles (kill switches)
+    // 2. Environment toggles (kill switches). Missing key ≡ false (disabled),
+    // so coalesce before comparing to avoid phantom diffs on older revisions.
     const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
     draftEnabledEnvs.forEach((envId) => {
-      const currentVal = current.environmentsEnabled?.[envId];
-      const draftVal = draft.environmentsEnabled?.[envId];
+      const currentVal = current.environmentsEnabled?.[envId] ?? false;
+      const draftVal = draft.environmentsEnabled?.[envId] ?? false;
       if (currentVal !== draftVal) {
-        // When the older revision didn't explicitly set this env, infer the
-        // previous state as the opposite of the new state. This is guaranteed
-        // correct here because currentVal !== draftVal already filtered out
-        // no-ops — if draftVal is false the env must have been true before,
-        // and vice versa.
-        const resolvedCurrentVal =
-          currentVal !== undefined ? currentVal : !draftVal;
         const direction = draftVal ? "on" : "off";
         diffs.push({
           title: `Environment Toggle - ${envId}`,
-          a: String(resolvedCurrentVal),
-          b: draftVal !== undefined ? String(draftVal) : "",
-          customRender: renderEnvironmentsEnabled(
-            envId,
-            resolvedCurrentVal,
-            draftVal,
-          ),
+          a: String(currentVal),
+          b: String(draftVal),
+          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
           badges: [
             {
               label: `Toggled ${envId} ${direction}`,

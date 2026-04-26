@@ -157,16 +157,21 @@ function formatValue(val: string | unknown): string {
   return JSON.stringify(val, null, 2);
 }
 
-// Inline summary of a rule's environment scope. Tri-state:
-//   allEnvironments:true           → "All environments"
-//   environments: [a, b, …]        → comma-joined list of envs
-//   environments: []               → "No environments (pending)"
-//   environments: undefined        → omitted (defensive fallback; callers
-//                                    shouldn't normally see this)
-function RuleEnvScope({ rule }: { rule: FeatureRule }) {
+// Badge summary of a rule's env scope. Tri-state:
+//   allEnvironments:true     → "All Environments"
+//   environments: [a, b, …]  → one badge per env
+//   environments: []         → "No environments (pending)"
+//   environments: undefined  → null (legacy audit fallback)
+function RuleEnvScope({
+  rule,
+  size = "xs",
+}: {
+  rule: FeatureRule;
+  size?: "xs" | "sm" | "md" | "lg";
+}) {
   if (rule.allEnvironments) {
     return (
-      <Badge label="All environments" color="gray" variant="soft" size="xs" />
+      <Badge label="All Environments" color="gray" variant="soft" size={size} />
     );
   }
   if (rule.environments === undefined) return null;
@@ -176,14 +181,14 @@ function RuleEnvScope({ rule }: { rule: FeatureRule }) {
         label="No environments (pending)"
         color="amber"
         variant="soft"
-        size="xs"
+        size={size}
       />
     );
   }
   return (
     <Flex gap="1" wrap="wrap">
       {rule.environments.map((env) => (
-        <Badge key={env} label={env} color="gray" variant="soft" size="xs" />
+        <Badge key={env} label={env} color="gray" variant="soft" size={size} />
       ))}
     </Flex>
   );
@@ -250,7 +255,35 @@ function RuleFieldDiffs({
     "variations",
     "controlValue",
     "variationValue",
+    // Rendered together as a single "Environments" row below.
+    "allEnvironments",
+    "environments",
   ]);
+
+  // Combined env-scope row via `RuleEnvScope` so the diff matches rule-heading
+  // badges instead of falling through to raw `false → true` / JSON-array.
+  const sortedEnvs = (r: FeatureRule): string[] =>
+    Array.isArray(r.environments) ? [...r.environments].sort() : [];
+  const envScopeChanged =
+    !!pre.allEnvironments !== !!post.allEnvironments ||
+    !isEqual(sortedEnvs(pre), sortedEnvs(post));
+  if (envScopeChanged) {
+    const renderScope = (r: FeatureRule): ReactNode =>
+      r.allEnvironments || Array.isArray(r.environments) ? (
+        <RuleEnvScope rule={r} size="sm" />
+      ) : (
+        <em>unset</em>
+      );
+    rows.push(
+      <ChangeField
+        key="envScope"
+        label="Environments"
+        changed
+        oldNode={renderScope(pre)}
+        newNode={renderScope(post)}
+      />,
+    );
+  }
 
   if (!isEqual(pre.enabled, post.enabled)) {
     rows.push(
