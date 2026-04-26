@@ -39,6 +39,7 @@ import {
   validateRuleReferences,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
+import { resolveScopeFromInput } from "./v2Shared";
 
 export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   postFeatureRevisionRuleAddV2Validator,
@@ -222,11 +223,13 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     }
 
     // V2: stamp scope from the rule's own allEnvironments/environments fields.
+    const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
+      resolveScopeFromInput(allEnvironments, environments);
     const baseRules = cloneDeep(revision.rules ?? []);
     const stampedRule: FeatureRule = {
       ...rule,
-      allEnvironments: allEnvironments ?? true,
-      environments: allEnvironments ? undefined : (environments ?? []),
+      allEnvironments: resolvedAllEnvs,
+      environments: resolvedEnvs,
     };
     const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
@@ -242,7 +245,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     }
 
     // Compute affected envs for review reset.
-    const affectedEnvs = allEnvironments
+    const affectedEnvs = resolvedAllEnvs
       ? Object.keys(feature.environmentSettings ?? {})
       : (environments ?? []);
 
@@ -254,7 +257,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       {
         user: req.context.auditUser,
         action: "add rule",
-        subject: allEnvironments
+        subject: resolvedAllEnvs
           ? "all environments"
           : `to ${(environments ?? []).join(", ")}`,
         value: JSON.stringify(rule),

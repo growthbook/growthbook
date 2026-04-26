@@ -7,10 +7,36 @@ import type { ApiFeatureEnvSettings } from "./postFeature";
 
 export type ApiRuleV2Input = z.infer<typeof postFeatureRuleV2>;
 
+// Resolve a v2 scope payload to a canonical `{ allEnvironments, environments }`
+// pair. Inference rules:
+//   - allEnvironments:true                        → all envs, drop environments[]
+//   - allEnvironments:false                       → single/multi-env list (default [])
+//   - undefined + environments:[...]              → infer allEnvironments:false
+//   - undefined + undefined                       → default to allEnvironments:true
+// The contradictory `{ allEnvironments:true, environments:[...] }` is normalized
+// in favor of allEnvironments:true (environments[] dropped).
+export function resolveScopeFromInput(
+  allEnvironments: boolean | undefined,
+  environments: string[] | undefined,
+): { allEnvironments: boolean; environments: string[] | undefined } {
+  if (allEnvironments === true) {
+    return { allEnvironments: true, environments: undefined };
+  }
+  if (allEnvironments === false) {
+    return { allEnvironments: false, environments: environments ?? [] };
+  }
+  if (Array.isArray(environments)) {
+    return { allEnvironments: false, environments };
+  }
+  return { allEnvironments: true, environments: undefined };
+}
+
 // Convert a v2 API rule input to the internal `FeatureRule` shape. New rules
 // leave `id` blank; `addIdsToFlatRules` fills it in downstream.
 export function mapV2ApiRuleToFeatureRule(r: ApiRuleV2Input): FeatureRule {
   const { allEnvironments, environments, ...ruleInput } = r;
+  const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
+    resolveScopeFromInput(allEnvironments, environments);
   const baseRule = {
     id: ruleInput.id ?? "",
     description: ruleInput.description ?? "",
@@ -21,8 +47,8 @@ export function mapV2ApiRuleToFeatureRule(r: ApiRuleV2Input): FeatureRule {
       ids: s.savedGroups,
     })),
     scheduleRules: ruleInput.scheduleRules,
-    allEnvironments: allEnvironments ?? true,
-    environments: allEnvironments ? undefined : (environments ?? []),
+    allEnvironments: resolvedAllEnvs,
+    environments: resolvedEnvs,
   };
 
   if (ruleInput.type === "experiment-ref") {

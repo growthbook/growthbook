@@ -1997,15 +1997,22 @@ export async function postFeatureRule(
     }
   }
 
-  // Prepare rule addition changes (v2: append a single rule scoped to the
-  // selected envs, preserving flat-array order).
+  // Honor a client-supplied `allEnvironments: true`; otherwise stamp the
+  // rule with the explicit env list. Without this, "All environments"
+  // selections were being saved as a discrete `environments[]` snapshot,
+  // freezing the rule against future env additions.
   const existingRules = cloneDeep(revision.rules ?? []);
-  const stampedRule = stampRuleForEnvs(rule, selectedEnvironments);
+  const stampedRule: FeatureRule =
+    rule.allEnvironments === true
+      ? ({
+          ...omit(rule, ["environments"]),
+          allEnvironments: true,
+        } as FeatureRule)
+      : stampRuleForEnvs(rule, selectedEnvironments);
   const ruleAdditionChanges = {
     rules: [...existingRules, stampedRule],
   };
 
-  // Combine rule addition and ramp changes into a single revision update
   const combinedChanges: Record<string, unknown> = ruleAdditionChanges;
   if (rampActionsUpdate) {
     const existingActions = revision.rampActions ?? [];
@@ -2019,7 +2026,10 @@ export async function postFeatureRule(
     combinedChanges.rampActions = [...filtered, rampActionsUpdate];
   }
 
-  // Single updateRevision call combines both rule addition and ramp changes atomically
+  const auditSubject =
+    rule.allEnvironments === true
+      ? "to all environments"
+      : `to ${selectedEnvironments.join(", ")}`;
   const updatedRevisionAfterRuleAdd = await updateRevision(
     context,
     feature,
@@ -2028,7 +2038,7 @@ export async function postFeatureRule(
     {
       user: res.locals.eventAudit,
       action: "add rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
-      subject: `to ${selectedEnvironments.join(", ")}`,
+      subject: auditSubject,
       value: JSON.stringify(rule),
     },
     resetReview,
@@ -2295,18 +2305,27 @@ export async function postFeatureExperimentRefRule(
     environmentSettings: feature.environmentSettings,
   };
 
-  // Preserve client-supplied scope (allEnvironments:true, or
-  // allEnvironments:false + environments:[]). Legacy callers that send
-  // neither default to every org env.
-  const clientProvidedScope =
-    rule.allEnvironments === true ||
-    (rule.allEnvironments === false && Array.isArray(rule.environments));
-  const scopedRule: FeatureRule = clientProvidedScope
-    ? ({ ...rule, id: generateRuleId() } as FeatureRule)
-    : stampRuleForEnvs(
-        { ...rule, id: generateRuleId() } as FeatureRule,
-        environments,
-      );
+  // Preserve client-supplied scope. allEnvironments:true strips any stale
+  // environments[] payload; allEnvironments:false + environments:[] passes
+  // through. Legacy callers that send neither default to every org env.
+  let scopedRule: FeatureRule;
+  if (rule.allEnvironments === true) {
+    scopedRule = {
+      ...omit(rule, ["environments"]),
+      id: generateRuleId(),
+      allEnvironments: true,
+    } as FeatureRule;
+  } else if (
+    rule.allEnvironments === false &&
+    Array.isArray(rule.environments)
+  ) {
+    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
+  } else {
+    scopedRule = stampRuleForEnvs(
+      { ...rule, id: generateRuleId() } as FeatureRule,
+      environments,
+    );
+  }
   const nextRules: FeatureRule[] = [...(feature.rules ?? []), scopedRule];
   const changes: Pick<FeatureRevisionInterface, "rules"> = {
     rules: nextRules,

@@ -470,11 +470,11 @@ export default function FeatureRules({
         </Flex>
       </Tabs>
 
-      <div className="mt-2">
+      <Box mt="4">
         {env === null ? (
           <>
             {allEnvItems.length > 0 || includeHoldoutRuleAllEnvs ? (
-              <Flex direction="column" gap="3">
+              <Flex direction="column" gap="4">
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
@@ -522,7 +522,6 @@ export default function FeatureRules({
                       isDeleted={draftDeletesHoldoutAnyEnv}
                       setRuleModal={() => setHoldoutModal(true)}
                       mutate={mutate}
-                      ruleCount={allEnvItems.length}
                       revisionList={revisionList}
                       setVersion={setVersion}
                       isLocked={isLocked}
@@ -693,7 +692,7 @@ export default function FeatureRules({
             )}
           </>
         ) : null}
-      </div>
+      </Box>
       {ruleModal !== null && (
         <RuleModal
           feature={feature}

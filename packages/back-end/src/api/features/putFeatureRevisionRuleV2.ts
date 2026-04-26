@@ -132,13 +132,18 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     const { allEnvironments, environments, ...basePatch } = patch;
     const updatedRule = applyPatch(oldRule, basePatch as RulePatchInput);
 
-    // Apply scope changes if present.
+    // Apply scope changes if present. When the client sends only
+    // `environments` (without `allEnvironments`), infer `allEnvironments:false`
+    // — the user explicitly listed envs, so they want single/multi-env scope
+    // even if the rule was previously `allEnvironments: true`.
     if (allEnvironments !== undefined || environments !== undefined) {
-      (updatedRule as FeatureRule).allEnvironments =
-        allEnvironments ?? oldRule.allEnvironments ?? true;
-      (updatedRule as FeatureRule).environments = allEnvironments
-        ? undefined
-        : (environments ?? oldRule.environments);
+      const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
+        resolveScopeFromInput(
+          allEnvironments,
+          environments ?? (oldRule.environments as string[] | undefined),
+        );
+      (updatedRule as FeatureRule).allEnvironments = resolvedAllEnvs;
+      (updatedRule as FeatureRule).environments = resolvedEnvs;
     }
 
     validateRuleConditions({

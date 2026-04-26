@@ -203,7 +203,7 @@ export default function RuleList({
     permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
-    <Flex direction="column" gap="3">
+    <Flex direction="column" gap="5">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -267,7 +267,6 @@ export default function RuleList({
             isDeleted={holdoutIsDeleted}
             setRuleModal={openHoldoutModal}
             mutate={mutate}
-            ruleCount={items.length}
             revisionList={revisionList}
             setVersion={setVersion}
             isLocked={locked}
