@@ -1026,12 +1026,6 @@ export default function CompareRevisionsModal({
     [revisionList, showDiscarded, showDrafts, showGenerated],
   );
 
-  const versionsDesc = useMemo(() => {
-    const list = [...filteredRevisionList];
-    list.sort((a, b) => b.version - a.version);
-    return list.map((r) => r.version);
-  }, [filteredRevisionList]);
-
   // Compute the default comparison target from the full list so that the
   // initial selection is correct regardless of which filters are active.
   const defaultAdjacentVersion = useMemo(() => {
@@ -1317,46 +1311,33 @@ export default function CompareRevisionsModal({
   const toggleVersion = (version: number) => {
     setPreviewDraftVersion(null);
     setSelectedVersions((prev) => {
-      const idx = versionsDesc.indexOf(version);
+      // Index universe is the sidebar list (filtered list + selected-but-
+      // filtered versions). Using `versionsDesc` here would drop a hidden
+      // selected endpoint — e.g. an initial-preview draft with "Show drafts"
+      // off — and bail the shrink branch, leaving the user unable to deselect.
+      const universe = sidebarVersionsDesc;
+      const idx = universe.indexOf(version);
       if (idx === -1) return prev;
 
-      // Find the current selection range as indices in versionsDesc (newest-first)
       const prevIndices = prev
-        .map((v) => versionsDesc.indexOf(v))
+        .map((v) => universe.indexOf(v))
         .filter((i) => i !== -1)
         .sort((a, b) => a - b);
 
       const startIdx = prevIndices[0] ?? -1; // newest selected (lowest display index)
       const endIdx = prevIndices[prevIndices.length - 1] ?? -1; // oldest selected
 
-      // Clicking an endpoint shrinks the range to the nearest visible item inward
+      // Clicking an endpoint shrinks the range one step inward.
       if (prev.includes(version)) {
         if (startIdx === -1 || endIdx === -1 || endIdx - startIdx <= 1)
           return prev;
-        const visibleVersions = new Set(
-          filteredRevisionList.map((r) => r.version),
-        );
         if (idx === startIdx) {
-          let newStart = startIdx + 1;
-          while (
-            newStart < endIdx &&
-            !visibleVersions.has(versionsDesc[newStart])
-          )
-            newStart++;
-          if (newStart >= endIdx) return prev; // no visible item found
-          return [versionsDesc[newStart], versionsDesc[endIdx]].sort(
+          return [universe[startIdx + 1], universe[endIdx]].sort(
             (a, b) => a - b,
           );
         }
         if (idx === endIdx) {
-          let newEnd = endIdx - 1;
-          while (
-            newEnd > startIdx &&
-            !visibleVersions.has(versionsDesc[newEnd])
-          )
-            newEnd--;
-          if (newEnd <= startIdx) return prev; // no visible item found
-          return [versionsDesc[startIdx], versionsDesc[newEnd]].sort(
+          return [universe[startIdx], universe[endIdx - 1]].sort(
             (a, b) => a - b,
           );
         }
@@ -1364,47 +1345,33 @@ export default function CompareRevisionsModal({
       }
 
       if (prevIndices.length > 0) {
-        // Count visible revisions strictly between two indices (exclusive of endpoints)
-        const visibleVersionSet = new Set(
-          filteredRevisionList.map((r) => r.version),
-        );
-        const visibleBetween = (a: number, b: number): number => {
-          const [lo, hi] = a < b ? [a, b] : [b, a];
-          let count = 0;
-          for (let i = lo + 1; i < hi; i++) {
-            if (visibleVersionSet.has(versionsDesc[i])) count++;
-          }
-          return count;
-        };
+        // Distance is in sidebar terms — items the user can see in the list.
+        const distance = (a: number, b: number) =>
+          Math.max(0, Math.abs(a - b) - 1);
 
         // Shorten range by moving the nearer endpoint; tiebreaker: move the newer one
         if (idx > startIdx && idx < endIdx) {
           const distToNewer = idx - startIdx;
           const distToOlder = endIdx - idx;
           if (distToNewer <= distToOlder) {
-            return [versionsDesc[idx], versionsDesc[endIdx]].sort(
-              (a, b) => a - b,
-            );
+            return [universe[idx], universe[endIdx]].sort((a, b) => a - b);
           } else {
-            return [versionsDesc[startIdx], versionsDesc[idx]].sort(
-              (a, b) => a - b,
-            );
+            return [universe[startIdx], universe[idx]].sort((a, b) => a - b);
           }
         }
 
-        // If 8+ visible items outside the range, pair with the adjacent item instead of expanding
+        // If 8+ items separate the click from the range, pair with the
+        // adjacent item instead of expanding into a giant range.
         if (
-          (idx < startIdx && visibleBetween(idx, startIdx) >= 8) ||
-          (idx > endIdx && visibleBetween(endIdx, idx) >= 8)
+          (idx < startIdx && distance(idx, startIdx) >= 8) ||
+          (idx > endIdx && distance(endIdx, idx) >= 8)
         ) {
-          if (idx < versionsDesc.length - 1) {
-            return [versionsDesc[idx + 1], versionsDesc[idx]].sort(
-              (a, b) => a - b,
-            );
+          if (idx < universe.length - 1) {
+            return [universe[idx + 1], universe[idx]].sort((a, b) => a - b);
           }
           // Clicked the very last (oldest) revision — round up to the two newest
-          if (versionsDesc.length >= 2) {
-            return [versionsDesc[1], versionsDesc[0]].sort((a, b) => a - b);
+          if (universe.length >= 2) {
+            return [universe[1], universe[0]].sort((a, b) => a - b);
           }
           return prev;
         }
