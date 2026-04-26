@@ -571,10 +571,10 @@ describe("buildFeatureInterface", () => {
   // ================= Env inheritance =================
 
   describe("env inheritance", () => {
-    // Env inheritance does NOT apply to rules — unified rules declare their own
-    // scope. Inheritance for non-rule env fields (enabled, prerequisites) still
-    // runs through the parent chain.
-    it("v1 path: does NOT propagate rules across inherited envs", () => {
+    // Legacy v1 docs may omit child envs that inherit from a parent. The v1
+    // path runs `applyEnvironmentInheritance` before flattening so those rules
+    // surface in the inheriting child too — matching pre-unification behavior.
+    it("v1 path: propagates rules across inherited envs", () => {
       const envsWithParent: Environment[] = [
         { id: "dev", description: "" },
         { id: "staging", description: "", parent: "dev" },
@@ -588,14 +588,16 @@ describe("buildFeatureInterface", () => {
             enabled: true,
             rules: [v1Rule("r1") as FeatureRule],
           },
+          // staging has no entry → inherits dev's rules.
         },
       } as LegacyFeatureInterface;
 
       const out = buildFeatureInterface(v1, mockContext(envsWithParent));
+      // r1 present in dev + production + inherited staging = all 3 applicable
+      // envs → collapses to allEnvironments=true.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
-      expect(out.rules[0].allEnvironments).toBe(false);
-      expect(out.rules[0].environments).toEqual(["dev", "production"]);
+      expect(out.rules[0].allEnvironments).toBe(true);
     });
 
     it("v1 path: still inherits non-rule envSettings fields (enabled) across parent chain", () => {

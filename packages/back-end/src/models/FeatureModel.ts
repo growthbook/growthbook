@@ -191,13 +191,13 @@ export function buildFeatureInterface(
   const envSettings = v1OrV2.environmentSettings || {};
 
   if (!isV2FeatureEnvSettings(envSettings)) {
-    // v1 path: flatten per-env rules into the v2 top-level array. Env
-    // inheritance is NOT applied to rules (would double-count v2 rules that
-    // already carry their own scope); legacy sparse-env docs that relied on
-    // it get normalized on the next write-through. Inheritance still applies
-    // to non-rule env fields (enabled, prerequisites).
+    // v1 path: apply env inheritance FIRST (parent → sparse child) so legacy
+    // docs preserve their pre-unification footprint, then flatten per-env
+    // rules into the v2 top-level array. Without this, a rule defined only
+    // in a parent env would silently drop out of inheriting children.
+    const inheritedSettings = applyEnvironmentInheritance(orgEnvs, envSettings);
     const rulesByEnv: V1RulesByEnv = {};
-    for (const [envId, envObj] of Object.entries(envSettings)) {
+    for (const [envId, envObj] of Object.entries(inheritedSettings)) {
       rulesByEnv[envId] = (envObj?.rules || []).map(
         (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
       );
@@ -208,11 +208,12 @@ export function buildFeatureInterface(
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
     });
-    // Strip per-env `rules` after inheritance so the returned shape matches
-    // the v2 `featureEnvironment` validator.
-    v2.environmentSettings = scrubEnvRules(
-      applyEnvironmentInheritance(orgEnvs, envSettings),
-    ) as Record<string, FeatureEnvironment>;
+    // Strip per-env `rules` so the returned shape matches the v2
+    // `featureEnvironment` validator.
+    v2.environmentSettings = scrubEnvRules(inheritedSettings) as Record<
+      string,
+      FeatureEnvironment
+    >;
     return v2;
   }
 
