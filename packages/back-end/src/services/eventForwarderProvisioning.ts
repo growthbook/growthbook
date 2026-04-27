@@ -1,6 +1,10 @@
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
 import { SDKAttributeSchema } from "shared/types/organization";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import {
+  BigQueryEventForwarderStoredConfig,
+  SnowflakeEventForwarderStoredConfig,
+} from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   postProvisionEventForwarderToLicenseServer,
@@ -19,55 +23,81 @@ import { ReqContext } from "back-end/types/request";
 export async function provisionEventForwarderThroughLicenseServer(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface | null,
-  bigqueryConnectionParams?: BigQueryConnectionParams,
+  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
 ): Promise<void> {
   if (!eventForwarderConfig) {
     return;
   }
 
-  if (eventForwarderConfig.sinkType !== "bigquery") {
+  if (eventForwarderConfig.sinkType === "databricks") {
     return;
   }
 
-  const projectId =
-    bigqueryConnectionParams?.defaultProject?.trim() ||
-    bigqueryConnectionParams?.projectId?.trim() ||
-    "";
-
-  if (!projectId) {
-    const message =
-      "Missing BigQuery connector project id for event forwarder provisioning";
-    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
-      status: "error",
-      lastProvisioningError: message,
-    });
-    throw new Error(message);
-  }
-
   try {
-    const resolvedTableName = await resolveBigQueryEventForwarderTableName(
-      eventForwarderConfig,
-      projectId,
-    );
+    const attributeSchema = context.org.settings?.attributeSchema ?? [];
+    let result: {
+      schemaId: number;
+      connectorName: string;
+      connectorId: string;
+    };
 
-    const decrypted =
-      decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
-        eventForwarderConfig,
+    if (eventForwarderConfig.sinkType === "bigquery") {
+      const bigqueryConnectionParams = datasourceParams as
+        | BigQueryConnectionParams
+        | undefined;
+      const projectId =
+        bigqueryConnectionParams?.defaultProject?.trim() ||
+        bigqueryConnectionParams?.projectId?.trim() ||
+        "";
+
+      if (!projectId) {
+        throw new Error(
+          "Missing BigQuery connector project id for event forwarder provisioning",
+        );
+      }
+
+      const resolvedTableName =
+        await resolveBigQueryEventForwarderTableName(eventForwarderConfig);
+
+      const decrypted =
+        decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+
+      result = await postProvisionEventForwarderToLicenseServer({
+        organizationId: context.org.id,
+        datasourceId: eventForwarderConfig.datasourceId,
+        topic: eventForwarderConfig.topic,
+        sinkType: "bigquery",
+        bigqueryProjectId: projectId,
+        resolvedTableName,
+        bigqueryDataset: decrypted.dataset.trim(),
+        serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
+        attributeSchema,
+        connectorName: eventForwarderConfig.connectorName?.trim() || undefined,
+        connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
+      });
+    } else if (eventForwarderConfig.sinkType === "snowflake") {
+      const decrypted =
+        decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+
+      result = await postProvisionEventForwarderToLicenseServer({
+        organizationId: context.org.id,
+        datasourceId: eventForwarderConfig.datasourceId,
+        topic: eventForwarderConfig.topic,
+        sinkType: "snowflake",
+        snowflake: decrypted,
+        attributeSchema,
+        connectorName: eventForwarderConfig.connectorName?.trim() || undefined,
+        connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
+      });
+    } else {
+      throw new Error(
+        `Unsupported event forwarder sink type for provisioning: ${eventForwarderConfig.sinkType}`,
       );
-
-    const result = await postProvisionEventForwarderToLicenseServer({
-      organizationId: context.org.id,
-      datasourceId: eventForwarderConfig.datasourceId,
-      topic: eventForwarderConfig.topic,
-      sinkType: "bigquery",
-      bigqueryProjectId: projectId,
-      resolvedTableName,
-      bigqueryDataset: decrypted.dataset.trim(),
-      serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
-      attributeSchema: context.org.settings?.attributeSchema ?? [],
-      connectorName: eventForwarderConfig.connectorName?.trim() || undefined,
-      connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
-    });
+    }
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
       schemaId: result.schemaId,
@@ -157,6 +187,7 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
 export async function teardownBigQueryEventForwarderInfrastructureRemote(snapshot: {
   organizationId: string;
   datasourceId: string;
+  sinkType?: "bigquery" | "snowflake" | "databricks";
   topic?: string;
   connectorName?: string;
   connectorId?: string;
@@ -164,7 +195,7 @@ export async function teardownBigQueryEventForwarderInfrastructureRemote(snapsho
   await postTeardownEventForwarderToLicenseServer({
     organizationId: snapshot.organizationId,
     datasourceId: snapshot.datasourceId,
-    sinkType: "bigquery",
+    sinkType: snapshot.sinkType ?? "bigquery",
     topic: snapshot.topic,
     connectorName: snapshot.connectorName,
     connectorId: snapshot.connectorId,

@@ -178,6 +178,8 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
           params={datasource?.params || {}}
+          eventForwarderConfig={datasource.eventForwarderConfig || null}
+          setEventForwarderConfig={setEventForwarderConfig}
         />
       );
       break;

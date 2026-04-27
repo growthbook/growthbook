@@ -1016,19 +1016,38 @@ function shouldLimitAccessDueToExpiredLicense(
 }
 
 /** Payload for central-license-server `POST .../event-forwarder/provision`. */
-export type EventForwarderLicenseProvisionParams = {
+type EventForwarderLicenseProvisionBaseParams = {
   organizationId: string;
   datasourceId: string;
   topic: string;
-  sinkType: "bigquery" | "snowflake" | "databricks";
-  bigqueryProjectId: string;
-  resolvedTableName: string;
-  bigqueryDataset: string;
-  serviceAccountKeyJson: string;
   attributeSchema: SDKAttributeSchema;
   connectorName?: string;
   connectorId?: string;
 };
+
+export type EventForwarderLicenseProvisionParams =
+  | (EventForwarderLicenseProvisionBaseParams & {
+      sinkType: "bigquery";
+      bigqueryProjectId: string;
+      resolvedTableName: string;
+      bigqueryDataset: string;
+      serviceAccountKeyJson: string;
+    })
+  | (EventForwarderLicenseProvisionBaseParams & {
+      sinkType: "snowflake";
+      snowflake: {
+        tableName: string;
+        account: string;
+        accessUrl?: string;
+        username: string;
+        database: string;
+        schema: string;
+        privateKey: string;
+        privateKeyPassword?: string;
+        role?: string;
+        warehouse?: string;
+      };
+    });
 
 export async function postProvisionEventForwarderToLicenseServer(
   params: EventForwarderLicenseProvisionParams,
