@@ -844,7 +844,7 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
   );
 
   // Allow `SELECT *` queries, but otherwise look for all required columns in the query
-  if (missingCols.length > 0 && !sql.match(/SELECT\s+\*/)) {
+  if (missingCols.length > 0 && !sql.match(/SELECT\s+\*/i)) {
     throw new Error(
       `Missing the following required columns: ${missingCols
         .map((col) => '"' + col + '"')
