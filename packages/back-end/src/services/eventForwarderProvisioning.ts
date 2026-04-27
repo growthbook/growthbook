@@ -1,9 +1,11 @@
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
+import { SDKAttributeSchema } from "shared/types/organization";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   postProvisionEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
+  postUpdateEventForwarderSchemaToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
 import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
@@ -92,6 +94,60 @@ export async function provisionEventForwarderThroughLicenseServer(
     });
 
     throw new Error(message);
+  }
+}
+
+/**
+ * Updates the Confluent Schema Registry schema for an event forwarder when the
+ * org's attribute schema changes (e.g. a new attribute is added). Skips configs
+ * that are not yet ready (no valid schemaId means provisioning hasn't completed).
+ * Records a "schema_update_error" status on failure but does not throw, so the
+ * caller's operation (attribute save) is never rolled back.
+ */
+export async function updateEventForwarderSchemaThroughLicenseServer(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+  attributeSchema: SDKAttributeSchema,
+): Promise<void> {
+  if (eventForwarderConfig.sinkType !== "bigquery") {
+    return;
+  }
+
+  if (eventForwarderConfig.status !== "ready") {
+    return;
+  }
+
+  try {
+    const result = await postUpdateEventForwarderSchemaToLicenseServer({
+      organizationId: context.org.id,
+      datasourceId: eventForwarderConfig.datasourceId,
+      topic: eventForwarderConfig.topic,
+      sinkType: eventForwarderConfig.sinkType,
+      schemaId: eventForwarderConfig.schemaId,
+      attributeSchema,
+      connectorName: eventForwarderConfig.connectorName,
+      connectorId: eventForwarderConfig.connectorId,
+    });
+
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      schemaId: result.schemaId,
+      lastProvisioningError: "",
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown schema update error";
+    logger.error(
+      {
+        eventForwarderConfigId: eventForwarderConfig.id,
+        organizationId: context.org.id,
+        error: message,
+      },
+      "Failed to update event forwarder schema via license server",
+    );
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      status: "schema_update_error",
+      lastProvisioningError: message,
+    });
   }
 }
 
