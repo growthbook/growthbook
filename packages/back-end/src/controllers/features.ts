@@ -218,6 +218,7 @@ async function createOrUpdateDraftWithChanges(
       context,
       organization: feature.organization,
       featureId: feature.id,
+      featureProject: feature.project,
       version: targetDraftVersion,
     });
   } else {
@@ -842,6 +843,7 @@ export async function postFeatureRebase(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -936,6 +938,7 @@ export async function postFeatureRebase(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   const finalRevision = rebased ?? revision;
@@ -990,6 +993,7 @@ export async function postFeatureRequestReview(
     context,
     organization: context.org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -1009,6 +1013,7 @@ export async function postFeatureRequestReview(
     context,
     organization: context.org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   const finalRevision = updatedRevision ?? revision;
@@ -1066,6 +1071,7 @@ export async function postFeatureReviewOrComment(
     context,
     organization: context.org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -1118,6 +1124,7 @@ export async function postFeatureReviewOrComment(
     context,
     organization: context.org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   const finalRevision = updatedRevision ?? revision;
@@ -1182,6 +1189,7 @@ export async function postFeaturePublish(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   const reviewStatuses = [
@@ -1358,6 +1366,7 @@ export async function postFeaturePublish(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   await dispatchFeatureRevisionEvent(
@@ -1412,6 +1421,7 @@ export async function postFeatureRevert(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -1634,6 +1644,7 @@ export async function postFeatureRevertDraft(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -1719,6 +1730,7 @@ export async function postFeatureFork(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -1766,6 +1778,7 @@ export async function postFeatureDiscard(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -1789,6 +1802,7 @@ export async function postFeatureDiscard(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   const finalRevision = discarded ?? revision;
@@ -2419,6 +2433,7 @@ export async function putRevisionComment(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -2475,6 +2490,7 @@ export async function putRevisionTitle(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -3039,6 +3055,7 @@ export async function postFeatureCreateDraft(
     context,
     organization: feature.organization,
     featureId: feature.id,
+    featureProject: feature.project,
     version: feature.version,
   });
 
@@ -3195,6 +3212,7 @@ export async function postFeatureToggle(
           context,
           organization: feature.organization,
           featureId: feature.id,
+          featureProject: feature.project,
           version: draftVersion,
         })
       : await getActiveDraft(context, feature);
@@ -3714,6 +3732,7 @@ export async function postFeatureEvaluate(
     context,
     organization: org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
   });
   if (!revision) {
@@ -3873,6 +3892,7 @@ export async function postFeatureArchive(
         context,
         organization: context.org.id,
         featureId: feature.id,
+        featureProject: feature.project,
         version: draft.version,
       })) ?? draft;
     await dispatchFeatureRevisionEvent(
@@ -3967,6 +3987,7 @@ export async function getFeatureRevisions(
     context,
     organization: org.id,
     featureId: id,
+    featureProject: feature.project,
     versions,
   });
 
@@ -3993,6 +4014,7 @@ export async function getRevisionLog(
     context,
     organization: context.org.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: parseInt(version),
     includeLog: true,
   });
@@ -4040,7 +4062,12 @@ export async function getFeatureById(
 
   const minimalRevisions = await getMinimalRevisions(context, org.id, id);
 
-  let fullRevisions = await getFeaturePageRevisions(context, org.id, id);
+  let fullRevisions = await getFeaturePageRevisions(
+    context,
+    org.id,
+    id,
+    feature.project,
+  );
 
   // The above only fetches the most recent revisions
   // If we're requesting a specific version that's older than that, fetch it directly
@@ -4051,6 +4078,7 @@ export async function getFeatureById(
         context,
         organization: org.id,
         featureId: id,
+        featureProject: feature.project,
         version,
       });
       if (revision) {
@@ -4065,6 +4093,7 @@ export async function getFeatureById(
       context,
       organization: org.id,
       featureId: id,
+      featureProject: feature.project,
       version: feature.version,
     });
     if (revision) {
@@ -4493,6 +4522,7 @@ async function resolvePrerequisiteBaseDraft(
       context,
       organization: feature.organization,
       featureId: feature.id,
+      featureProject: feature.project,
       version: targetDraftVersion,
     });
   }
@@ -4711,6 +4741,7 @@ export async function getPrerequisiteStates(
         context,
         organization: baseFeature.organization,
         featureId: baseFeature.id,
+        featureProject: baseFeature.project,
         version: versionNum,
       });
       if (revision) {
@@ -4817,6 +4848,7 @@ export async function postBatchPrerequisiteStates(
       context,
       organization: context.org.id,
       featureId: baseFeatureId,
+      featureProject: baseFeature.project,
       version: baseFeature.version,
     });
   }

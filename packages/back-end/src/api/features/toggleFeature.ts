@@ -82,6 +82,7 @@ export async function toggleFeatureCore(
       context,
       organization: feature.organization,
       featureId: feature.id,
+      featureProject: feature.project,
       version: feature.version,
     });
     return {
@@ -105,6 +106,7 @@ export async function toggleFeatureCore(
     context,
     organization: feature.organization,
     featureId: feature.id,
+    featureProject: feature.project,
     version: feature.version,
   });
   if (!liveRevision) {
@@ -173,6 +175,7 @@ export async function toggleFeatureCore(
     context,
     organization: updatedFeature.organization,
     featureId: updatedFeature.id,
+    featureProject: updatedFeature.project,
     version: updatedFeature.version,
   });
   return {

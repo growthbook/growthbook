@@ -34,6 +34,7 @@ async function loadFeatureForApiV2(
     context,
     organization: feature.organization,
     featureId: feature.id,
+    featureProject: feature.project,
     version: feature.version,
   });
   const revisions = fetchRevisions

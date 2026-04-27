@@ -94,6 +94,7 @@ export async function toggleRevisionEnvironment(
       context: context,
       organization: organization.id,
       featureId: feature.id,
+      featureProject: feature.project,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;

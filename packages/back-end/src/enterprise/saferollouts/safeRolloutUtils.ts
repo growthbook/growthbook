@@ -122,6 +122,7 @@ export async function checkAndRollbackSafeRollout({
       context,
       organization: updatedSafeRollout.organization,
       featureId: feature.id,
+      featureProject: feature.project,
       version: feature.version,
     });
     if (!live) {
@@ -135,6 +136,7 @@ export async function checkAndRollbackSafeRollout({
             context,
             organization: updatedSafeRollout.organization,
             featureId: feature.id,
+            featureProject: feature.project,
             version: revision.baseVersion,
           });
     if (!base) {

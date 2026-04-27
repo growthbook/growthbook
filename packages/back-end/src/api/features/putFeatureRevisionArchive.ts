@@ -77,6 +77,7 @@ export async function archiveRevision(
       context,
       organization: organization.id,
       featureId: feature.id,
+      featureProject: feature.project,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;

@@ -103,6 +103,7 @@ export async function resolveOrCreateRevision(
     context,
     organization: organizationId,
     featureId: feature.id,
+    featureProject: feature.project,
     version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");

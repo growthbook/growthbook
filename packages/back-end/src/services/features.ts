@@ -1486,6 +1486,7 @@ export async function evaluateAllFeatures({
         context,
         organization: context.org.id,
         featureId: feature.id,
+        featureProject: feature.project,
         version: parseInt(feature.version.toString()),
       });
       if (!revision) {
@@ -2717,6 +2718,7 @@ export async function getDraftRevision(
     context,
     organization: feature.organization,
     featureId: feature.id,
+    featureProject: feature.project,
     version,
   });
   if (!revision) {
@@ -2744,6 +2746,7 @@ export async function getLiveRevisionForFeature(
     context,
     organization: feature.organization,
     featureId: feature.id,
+    featureProject: feature.project,
     version: feature.version,
   });
   if (!live) {
@@ -2773,6 +2776,7 @@ export async function getLiveAndBaseRevisionsForFeature({
           context,
           organization: feature.organization,
           featureId: feature.id,
+          featureProject: feature.project,
           version: revision.baseVersion,
         });
   if (!base) {
@@ -2795,6 +2799,7 @@ export async function assertCanAutoPublish(
     context,
     organization: feature.organization,
     featureId: feature.id,
+    featureProject: feature.project,
     version: draft.baseVersion,
   });
   if (!baseRevision) return; // can't determine — allow (legacy/missing base)

@@ -60,6 +60,7 @@ export async function revertFeatureRevision(
     context,
     organization: organization.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: params.version,
   });
   if (!targetRevision)
@@ -276,6 +277,7 @@ export async function revertFeatureRevision(
       context,
       organization: feature.organization,
       featureId: feature.id,
+      featureProject: feature.project,
       version: feature.version,
     });
     if (!liveRevision)
@@ -338,6 +340,7 @@ export async function revertFeatureRevision(
     context,
     organization: organization.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: publishedRevision.version,
   });
   const finalRevision = updated ?? publishedRevision;

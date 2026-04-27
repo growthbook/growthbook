@@ -26,6 +26,7 @@ export const mergeStatusHandler = async (req: {
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");

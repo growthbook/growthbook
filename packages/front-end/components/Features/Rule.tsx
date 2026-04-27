@@ -943,12 +943,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             environments={environments}
             currentEnvironment={isAllEnvsView ? undefined : environment}
           />
-          <code>
-            {JSON.stringify({
-              envs: rule.environments,
-              all: rule.allEnvironments,
-            })}
-          </code>
           <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
             {rule.type === "safe-rollout" && safeRollout ? (
               <>

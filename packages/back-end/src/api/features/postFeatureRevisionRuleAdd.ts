@@ -346,6 +346,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       context: req.context,
       organization: req.organization.id,
       featureId: feature.id,
+      featureProject: feature.project,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;

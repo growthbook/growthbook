@@ -30,6 +30,7 @@ export async function discardFeatureRevision(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
@@ -44,6 +45,7 @@ export async function discardFeatureRevision(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    featureProject: feature.project,
     version: req.params.version,
   });
   const finalRevision = updated ?? revision;

@@ -64,7 +64,7 @@ export default function RuleEnvScopeBadges({
         >
           <Badge
             label="No environments"
-            color="red"
+            color="amber"
             variant="outline"
             radius="full"
             size="sm"

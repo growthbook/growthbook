@@ -128,7 +128,7 @@ describe("buildFeatureRevisionInterface", () => {
         ] as FeatureRule[],
       } as FeatureRevisionInterface;
 
-      const out = buildFeatureRevisionInterface(raw, mockContext());
+      const out = buildFeatureRevisionInterface(raw, mockContext(), undefined);
       expect(out.rules[0].id).toBe(suffixRuleId("r1", "dev"));
     });
   });
@@ -136,7 +136,7 @@ describe("buildFeatureRevisionInterface", () => {
   // ================= 2. v1 rules (Record<env, rules>) flatten =================
 
   describe("v1 rules (legacy env-keyed record)", () => {
-    it("flattens identical rules across envs to allEnvironments=true (with featureProject hint) and keeps bare id", () => {
+    it("flattens identical rules across envs to allEnvironments=true (with featureProject) and keeps bare id", () => {
       const raw = {
         ...BASE_REVISION,
         rules: {
@@ -145,15 +145,20 @@ describe("buildFeatureRevisionInterface", () => {
         },
       } as unknown as FeatureRevisionInterface;
 
-      const out = buildFeatureRevisionInterface(raw, mockContext(), {
-        featureProject: "proj_main",
-      });
+      const out = buildFeatureRevisionInterface(
+        raw,
+        mockContext(),
+        "proj_main",
+      );
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
       expect(out.rules[0].allEnvironments).toBe(true);
     });
 
-    it("emits explicit environments list when no featureProject hint is given", () => {
+    // Without a featureProject hint, every org env is treated as applicable
+    // (project-less feature). A rule covering all org envs still collapses
+    // to allEnvironments=true.
+    it("collapses to allEnvironments=true when project is undefined and rule covers every org env", () => {
       const raw = {
         ...BASE_REVISION,
         rules: {
@@ -162,11 +167,34 @@ describe("buildFeatureRevisionInterface", () => {
         },
       } as unknown as FeatureRevisionInterface;
 
-      const out = buildFeatureRevisionInterface(raw, mockContext());
+      const out = buildFeatureRevisionInterface(raw, mockContext(), undefined);
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
-      expect(out.rules[0].allEnvironments).toBe(false);
-      expect(out.rules[0].environments).toEqual(["dev", "production"]);
+      expect(out.rules[0].allEnvironments).toBe(true);
+    });
+
+    // Regression: a v1 rule scoped to an env that's been excluded from the
+    // feature's project must not materialize in the v2 shape.
+    it("drops rules whose only env is non-applicable to the feature project", () => {
+      const orgEnvsWithProject: Environment[] = [
+        { id: "dev", description: "", projects: ["other_proj"] },
+        { id: "production", description: "" },
+      ];
+      const raw = {
+        ...BASE_REVISION,
+        rules: {
+          dev: [v1Rule("r_dev_only")],
+          production: [v1Rule("r_prod_only")],
+        },
+      } as unknown as FeatureRevisionInterface;
+
+      const out = buildFeatureRevisionInterface(
+        raw,
+        mockContext(orgEnvsWithProject),
+        "proj_main",
+      );
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r_prod_only");
     });
 
     it("splits env-divergent rules into per-env suffixed ids", () => {
@@ -178,7 +206,7 @@ describe("buildFeatureRevisionInterface", () => {
         },
       } as unknown as FeatureRevisionInterface;
 
-      const out = buildFeatureRevisionInterface(raw, mockContext());
+      const out = buildFeatureRevisionInterface(raw, mockContext(), undefined);
       expect(out.rules).toHaveLength(2);
       const devRule = out.rules.find((r) => r.environments?.[0] === "dev");
       const prodRule = out.rules.find(
@@ -194,7 +222,7 @@ describe("buildFeatureRevisionInterface", () => {
         rules: { dev: [], production: [] },
       } as unknown as FeatureRevisionInterface;
 
-      const out = buildFeatureRevisionInterface(raw, mockContext());
+      const out = buildFeatureRevisionInterface(raw, mockContext(), undefined);
       expect(out.rules).toEqual([]);
     });
 

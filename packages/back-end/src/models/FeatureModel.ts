@@ -666,6 +666,7 @@ export const createFeatureEvent = async <
       context: eventData.context,
       organization: eventData.data.object.organization,
       featureId: eventData.data.object.id,
+      featureProject: eventData.data.object.project,
       version: eventData.data.object.version,
     });
 
@@ -701,6 +702,7 @@ export const createFeatureEvent = async <
       context: eventData.context,
       organization: eventData.data.previous_object.organization,
       featureId: eventData.data.previous_object.id,
+      featureProject: eventData.data.previous_object.project,
       version: eventData.data.previous_object.version,
     });
 
@@ -1934,6 +1936,7 @@ export async function createAndPublishRevision({
     context,
     organization: feature.organization,
     featureId: feature.id,
+    featureProject: feature.project,
     version: feature.version,
   });
   if (!liveRevision) throw new Error("Could not load live revision");
