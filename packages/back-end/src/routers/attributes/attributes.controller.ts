@@ -8,6 +8,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { updateEventForwarderSchemaThroughLicenseServer } from "back-end/src/services/eventForwarderProvisioning";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -36,12 +37,31 @@ export const postAttribute = async (
     ...(tags.length > 0 && { tags }),
   };
 
+  const updatedAttributeSchema = [...attributeSchema, newAttribute];
+
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      attributeSchema: [...attributeSchema, newAttribute],
+      attributeSchema: updatedAttributeSchema,
     },
   });
+
+  // Update the Confluent Schema Registry for any active event forwarders.
+  // Uses the updated schema so the new attribute is included in the registration.
+  // Errors are recorded on the EventForwarderConfig record and do not fail this request.
+  const allEventForwarderConfigs =
+    await context.models.eventForwarderConfigs.getAll();
+  if (allEventForwarderConfigs.length > 0) {
+    await Promise.all(
+      allEventForwarderConfigs.map((config) =>
+        updateEventForwarderSchemaThroughLicenseServer(
+          context,
+          config,
+          updatedAttributeSchema,
+        ),
+      ),
+    );
+  }
 
   await req.audit({
     event: "attribute.create",
@@ -51,11 +71,7 @@ export const postAttribute = async (
     },
     details: auditDetailsUpdate(
       { settings: { attributeSchema } },
-      {
-        settings: {
-          attributeSchema: [...attributeSchema, newAttribute],
-        },
-      },
+      { settings: { attributeSchema: updatedAttributeSchema } },
     ),
   });
   return res.status(200).json({
