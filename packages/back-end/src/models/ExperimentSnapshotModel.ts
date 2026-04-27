@@ -1068,14 +1068,17 @@ export const getDefaultAnalysisResults = (
   snapshot: ExperimentSnapshotDocument,
 ) => snapshot.analyses?.[0]?.results?.[0];
 
-// Resolve the analysisKey to use when writing `analysis` into `existing`.
-// A match by settings reuses the existing key so in-place updates stay on the
-// same sub-path; otherwise we mint a fresh key (or reuse the caller-supplied
-// one if present).
 function resolveAnalysisKey(
   existing: ExperimentSnapshotAnalysis[],
   analysis: ExperimentSnapshotAnalysis,
 ): string {
+  if (
+    analysis.analysisKey &&
+    existing.some((a) => a.analysisKey === analysis.analysisKey)
+  ) {
+    return analysis.analysisKey;
+  }
+
   const existingIndex = getAnalysisIndexBySettings(existing, analysis.settings);
   if (existingIndex !== -1) return existing[existingIndex].analysisKey;
   return analysis.analysisKey || buildAnalysisKey();

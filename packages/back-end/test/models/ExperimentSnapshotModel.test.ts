@@ -829,6 +829,63 @@ describe("ExperimentSnapshotModel", () => {
       ).toBe(15);
       expect(populateChunkedAnalysesSpy).not.toHaveBeenCalled();
     });
+
+    it("preserves distinct analysisKeys when multiple analyses share identical settings", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_shared_settings");
+      const sharedSettings = makeAnalysisSettings({ statsEngine: "bayesian" });
+      const firstKey = buildAnalysisKey();
+      const secondKey = buildAnalysisKey();
+      snapshot.analyses = [
+        {
+          analysisKey: firstKey,
+          dateCreated: new Date("2025-01-01T00:00:00Z"),
+          status: "running",
+          settings: sharedSettings,
+          results: [],
+        },
+        {
+          analysisKey: secondKey,
+          dateCreated: new Date("2025-01-01T00:00:00Z"),
+          status: "running",
+          settings: sharedSettings,
+          results: [],
+        },
+      ];
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const firstAnalysis = makeAnalysis({
+        settings: sharedSettings,
+        value: 10,
+      });
+      firstAnalysis.analysisKey = firstKey;
+      const secondAnalysis = makeAnalysis({
+        settings: sharedSettings,
+        value: 20,
+      });
+      secondAnalysis.analysisKey = secondKey;
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [firstAnalysis, secondAnalysis],
+        },
+      });
+
+      const stored = await findSnapshotById(context, snapshot.id);
+      expect(stored?.analyses).toHaveLength(2);
+      expect(stored?.analyses[0].analysisKey).toBe(firstKey);
+      expect(stored?.analyses[1].analysisKey).toBe(secondKey);
+      expect(
+        stored?.analyses[0].results[0].variations[0].metrics.met_1.value,
+      ).toBe(10);
+      expect(
+        stored?.analyses[1].results[0].variations[0].metrics.met_1.value,
+      ).toBe(20);
+    });
   });
 
   describe("chunked snapshot analysis updates", () => {
