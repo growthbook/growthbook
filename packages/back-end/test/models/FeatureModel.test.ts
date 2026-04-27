@@ -571,9 +571,8 @@ describe("buildFeatureInterface", () => {
   // ================= Env inheritance =================
 
   describe("env inheritance", () => {
-    // Legacy v1 docs may omit child envs that inherit from a parent. The v1
-    // path runs `applyEnvironmentInheritance` before flattening so those rules
-    // surface in the inheriting child too — matching pre-unification behavior.
+    // Sparse legacy docs whose child env relies on parent inheritance must
+    // still surface that rule in the child after unification.
     it("v1 path: propagates rules across inherited envs", () => {
       const envsWithParent: Environment[] = [
         { id: "dev", description: "" },
@@ -588,13 +587,12 @@ describe("buildFeatureInterface", () => {
             enabled: true,
             rules: [v1Rule("r1") as FeatureRule],
           },
-          // staging has no entry → inherits dev's rules.
+          // staging is sparse → inherits dev.
         },
       } as LegacyFeatureInterface;
 
       const out = buildFeatureInterface(v1, mockContext(envsWithParent));
-      // r1 present in dev + production + inherited staging = all 3 applicable
-      // envs → collapses to allEnvironments=true.
+      // r1 covers all 3 applicable envs → collapses to allEnvironments=true.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
       expect(out.rules[0].allEnvironments).toBe(true);

@@ -197,6 +197,33 @@ describe("buildFeatureRevisionInterface", () => {
       const out = buildFeatureRevisionInterface(raw, mockContext());
       expect(out.rules).toEqual([]);
     });
+
+    // Sparse legacy revisions must surface parent-env rules in inheriting
+    // children — symmetric with `buildFeatureInterface`'s v1 path.
+    it("propagates rules across inherited envs (sparse v1 record)", () => {
+      const envsWithParent: Environment[] = [
+        { id: "dev", description: "" },
+        { id: "staging", description: "", parent: "dev" },
+        { id: "production", description: "" },
+      ];
+      const raw = {
+        ...BASE_REVISION,
+        rules: {
+          dev: [v1Rule("r1")],
+          production: [v1Rule("r1")],
+          // staging is sparse → inherits dev.
+        },
+      } as unknown as FeatureRevisionInterface;
+
+      const out = buildFeatureRevisionInterface(
+        raw,
+        mockContext(envsWithParent),
+        { featureProject: "proj_main" },
+      );
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].allEnvironments).toBe(true);
+    });
   });
 
   // ================= 3. upgradeFeatureRule symmetry =================
@@ -381,6 +408,26 @@ describe("normalizeRulesInputToV2", () => {
 
   it("returns [] for an empty v2 array", () => {
     expect(normalizeRulesInputToV2([], { orgEnvs })).toEqual([]);
+  });
+
+  // Write-side mirror of the read-path inheritance fix: a sparse v1 input must
+  // persist a rule scoped to inherited child envs too.
+  it("propagates v1 rules across inherited envs (sparse input)", () => {
+    const envsWithParent: Environment[] = [
+      { id: "dev" } as Environment,
+      { id: "staging", parent: "dev" } as Environment,
+      { id: "production" } as Environment,
+    ];
+    const v1: V1RulesByEnv = {
+      dev: [v1Rule("fr_inh")] as unknown as V1RulesByEnv[string],
+      production: [v1Rule("fr_inh")] as unknown as V1RulesByEnv[string],
+    };
+
+    const out = normalizeRulesInputToV2(v1, { orgEnvs: envsWithParent });
+
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe("fr_inh");
+    expect(out[0].allEnvironments).toBe(true);
   });
 
   it("honors featureProject when collapsing to allEnvironments", () => {

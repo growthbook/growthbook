@@ -30,6 +30,7 @@ import {
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { upgradeFeatureRule } from "back-end/src/util/migrations";
+import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
@@ -127,19 +128,17 @@ export function buildFeatureRevisionInterface(
   const rawRules = revision.rules as unknown;
 
   if (isV2RevisionRules(rawRules)) {
-    // v2 pass-through; heal pre-coverage experiment rules symmetric with
-    // `buildFeatureInterface`.
+    // v2 pass-through; `upgradeFeatureRule` heals pre-coverage experiment rules.
     revision.rules = rawRules.map((r) => upgradeFeatureRule(r));
   } else {
-    // v1 legacy: `rules` is `Record<env, FeatureRule[]>`. Flatten to the v2
-    // unified array. We deliberately skip `applyEnvironmentInheritance` here:
-    // unified rules declare their own scope, so inheriting from a parent env
-    // would double-count. The first write-through via `applyRevisionChanges`
-    // normalizes sparse-env revisions to fully-scoped v2 rules on disk.
+    // v1 legacy `Record<env, FeatureRule[]>`. Inheritance must run BEFORE
+    // flattening so a sparse child env still surfaces its parent's rules
+    // (mirrors `buildFeatureInterface`'s v1 path).
     const v1Record =
       (rawRules as V1FeatureRevisionInterface["rules"] | undefined) || {};
+    const inheritedRecord = applyEnvironmentInheritance(orgEnvs, v1Record);
     const upgraded: V1RulesByEnv = {};
-    for (const [envId, envRules] of Object.entries(v1Record)) {
+    for (const [envId, envRules] of Object.entries(inheritedRecord)) {
       upgraded[envId] = (envRules || []).map(
         (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
       );
@@ -466,12 +465,12 @@ export async function getRevisionsByStatus(
 }
 
 /**
- * Normalize a `rules` input to the canonical v2 `FeatureRule[]` shape.
- * v2 arrays pass through with `upgradeFeatureRule`; v1 records are flattened,
- * seeding `applicableEnvs` from org envs + feature project so fully-covering
- * rules collapse to `allEnvironments: true`.
- *
- * Exported for unit testing.
+ * Normalize a `rules` input to the canonical v2 `FeatureRule[]` shape. v2
+ * arrays pass through; v1 records get env inheritance applied before
+ * flattening so a legacy caller's sparse `{dev: [r1]}` writes a rule scoped
+ * to dev and any envs that inherit from dev. `applicableEnvs` is seeded from
+ * org envs + feature project so fully-covering rules collapse to
+ * `allEnvironments: true`. Exported for unit testing.
  */
 export function normalizeRulesInputToV2(
   rulesInput: unknown,
@@ -482,8 +481,9 @@ export function normalizeRulesInputToV2(
     return rulesInput.map((r) => upgradeFeatureRule(r));
   }
   const record = rulesInput as Record<string, FeatureRule[] | undefined>;
+  const inheritedRecord = applyEnvironmentInheritance(opts.orgEnvs, record);
   const upgraded: V1RulesByEnv = {};
-  for (const [envId, envRules] of Object.entries(record)) {
+  for (const [envId, envRules] of Object.entries(inheritedRecord)) {
     upgraded[envId] = (envRules || []).map(
       (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
     );
