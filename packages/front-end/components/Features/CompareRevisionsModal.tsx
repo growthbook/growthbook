@@ -542,11 +542,16 @@ function rampDiffsForRevision(
     });
   }
 
-  // 1-based rule indices for resolving `Rule #N` references in pending action diffs.
+  // 1-based rule indices for resolving `Rule #N` references in pending action
+  // diffs. Holdout occupies #1 in the displayed numbering (matches Rule.tsx),
+  // so regular rules start at #2 when a holdout is present.
   const newerRules = Array.isArray(newerRevision.rules)
     ? newerRevision.rules
     : [];
-  const ruleIndexById = new Map(newerRules.map((r, i) => [r.id, i + 1]));
+  const ruleNumberOffset = newerRevision.holdout ? 2 : 1;
+  const ruleIndexById = new Map(
+    newerRules.map((r, i) => [r.id, i + ruleNumberOffset]),
+  );
 
   // Pending ramp actions: display "create" and "detach" actions queued in the draft
   if (newerRevision.rampActions) {

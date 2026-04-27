@@ -266,11 +266,17 @@ export function FeatureUsageContainer({
   // would never match any entry and get filtered out of the graph.
   const ruleLabelMapping = new Map<string, string>();
   const rules = Array.isArray(revision?.rules) ? revision.rules : [];
+  // Match the displayed numbering in Rule.tsx: when a holdout is present it
+  // takes slot #1, so regular rules start at #2.
+  const ruleNumberOffset = revision?.holdout ? 2 : 1;
   rules.forEach((rule, i) => {
     if (!rule.id) return;
     const stem = stemRuleId(rule.id);
     if (!ruleLabelMapping.has(stem)) {
-      ruleLabelMapping.set(stem, rule.description?.trim() || `Rule #${i + 1}`);
+      ruleLabelMapping.set(
+        stem,
+        rule.description?.trim() || `Rule #${i + ruleNumberOffset}`,
+      );
     }
   });
 

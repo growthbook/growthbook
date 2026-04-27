@@ -148,7 +148,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       context: req.context,
       organization: feature.organization,
       featureId: feature.id,
-      featureProject: feature.project,
+      feature,
       version: feature.version,
     });
 

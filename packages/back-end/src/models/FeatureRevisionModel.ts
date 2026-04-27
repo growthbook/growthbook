@@ -30,7 +30,11 @@ import {
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { upgradeFeatureRule } from "back-end/src/util/migrations";
-import { applyEnvironmentInheritance } from "back-end/src/util/features";
+import {
+  applyEnvironmentInheritance,
+  buildInheritedChildrenByAncestor,
+  expandRuleEnvsForInheritance,
+} from "back-end/src/util/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
@@ -87,21 +91,28 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   featureRevisionSchema,
 );
 
+// Project + env-settings the revision interface needs from the parent feature
+// to apply env applicability filtering and rule-env inheritance expansion.
+export type RevisionFeatureContext = Pick<
+  FeatureInterface,
+  "project" | "environmentSettings"
+>;
+
 /**
  * Pure JIT migration from a raw revision doc to a v2 `FeatureRevisionInterface`.
  * v1 `Record<env, FeatureRule[]>` is flattened via `flattenV1ToV2Rules`;
- * already-v2 arrays are filtered against the same `applicableEnvs` so
- * non-applicable envs are scrubbed from each rule's footprint.
+ * already-v2 arrays are filtered against the same `applicableEnvs` and
+ * expanded for env inheritance so a rule scoped to a parent env also surfaces
+ * in inheriting children.
  *
- * Callers must pass `featureProject` (the parent feature's project, or
- * `undefined` for project-less features). It drives the env applicability
- * filter that prevents dead rules from leaking into the v2 shape when an
- * env was scoped out of the feature's project.
+ * Callers should pass the parent `feature` (project + environmentSettings).
+ * `undefined` is allowed for legacy paths but disables both the project
+ * applicability filter and the inheritance expansion.
  */
 export function buildFeatureRevisionInterface(
   raw: FeatureRevisionInterface,
   context: ReqContext | ApiReqContext,
-  featureProject: string | undefined,
+  feature?: RevisionFeatureContext,
 ): FeatureRevisionInterface {
   const revision = { ...raw };
 
@@ -126,16 +137,25 @@ export function buildFeatureRevisionInterface(
   }
 
   const orgEnvs = getEnvironments(context.org);
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature?.project);
   const applicableSet = new Set(applicableEnvs);
+  // Mirrors `buildFeatureInterface`'s v2 inheritance gating: a child env with
+  // an explicit `environmentSettings` entry is treated as customized and does
+  // NOT inherit rules from its ancestor.
+  const childrenByAncestor = buildInheritedChildrenByAncestor(
+    orgEnvs,
+    feature?.environmentSettings || {},
+  );
   const rawRules = revision.rules as unknown;
 
   if (isV2RevisionRules(rawRules)) {
     // v2 pass-through. `upgradeFeatureRule` heals pre-coverage experiment
-    // rules; the env filter scrubs dev-style entries left over from a prior
-    // bad write so they self-heal on next read instead of persisting.
+    // rules; inheritance expansion adds any parent->child env propagation
+    // missed at write time; the env filter scrubs dev-style entries left
+    // over from a prior bad write so they self-heal on next read.
     revision.rules = rawRules
       .map((r) => upgradeFeatureRule(r))
+      .map((r) => expandRuleEnvsForInheritance(r, childrenByAncestor))
       .map((r) => narrowRuleToApplicableEnvs(r, applicableSet))
       .filter((r): r is FeatureRule => r !== null);
   } else {
@@ -185,19 +205,19 @@ function narrowRuleToApplicableEnvs(
 function toInterface(
   doc: FeatureRevisionDocument,
   context: ReqContext | ApiReqContext,
-  featureProject: string | undefined,
+  feature: RevisionFeatureContext | undefined,
 ): FeatureRevisionInterface {
   const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
-  return buildFeatureRevisionInterface(revision, context, featureProject);
+  return buildFeatureRevisionInterface(revision, context, feature);
 }
 
 // Convenience for call sites that already have the parent feature in scope.
 export function revisionToInterfaceWithFeature(
   doc: FeatureRevisionDocument,
   context: ReqContext | ApiReqContext,
-  feature: Pick<FeatureInterface, "project">,
+  feature: RevisionFeatureContext,
 ): FeatureRevisionInterface {
-  return toInterface(doc, context, feature.project);
+  return toInterface(doc, context, feature);
 }
 
 export async function countDocuments(
@@ -263,7 +283,7 @@ export async function getFeaturePageRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
-  featureProject: string | undefined,
+  feature: RevisionFeatureContext | undefined,
 ): Promise<FeatureRevisionInterface[]> {
   // Lean initial load: top-5 recent + all active drafts in parallel, then deduplicate.
   const [recentDocs, activeDraftDocs] = await Promise.all([
@@ -309,7 +329,7 @@ export async function getFeaturePageRevisions(
     }
   }
 
-  return merged.map((m) => toInterface(m, context, featureProject));
+  return merged.map((m) => toInterface(m, context, feature));
 }
 
 export async function hasDraft(
@@ -343,7 +363,7 @@ export async function getActiveDraft(
     .select("-log")
     .sort({ version: -1 });
 
-  return doc ? toInterface(doc, context, feature.project) : null;
+  return doc ? toInterface(doc, context, feature) : null;
 }
 
 export async function getFeatureRevisionsByStatus({
@@ -351,8 +371,8 @@ export async function getFeatureRevisionsByStatus({
   organization,
   featureId,
   featureIds,
-  featureProject,
-  featureProjectsByFeatureId,
+  feature,
+  featuresByFeatureId,
   status,
   author,
   involvedUserId,
@@ -365,11 +385,11 @@ export async function getFeatureRevisionsByStatus({
   organization: string;
   featureId?: string;
   featureIds?: string[];
-  // Project of the feature when querying by `featureId`. Required when using
-  // `featureId`; otherwise pass `featureProjectsByFeatureId` for multi-feature
-  // queries so each revision is filtered against its own feature's project.
-  featureProject?: string;
-  featureProjectsByFeatureId?: Record<string, string | undefined>;
+  // Parent feature when querying by `featureId`. Required when using
+  // `featureId`; otherwise pass `featuresByFeatureId` for multi-feature
+  // queries so each revision is filtered against its own feature.
+  feature?: RevisionFeatureContext;
+  featuresByFeatureId?: Record<string, RevisionFeatureContext | undefined>;
   status?: string | string[];
   author?: string;
   involvedUserId?: string;
@@ -399,10 +419,8 @@ export async function getFeatureRevisionsByStatus({
   }
   const docs = await query;
   return docs.map((m) => {
-    const project = featureProjectsByFeatureId
-      ? featureProjectsByFeatureId[m.featureId]
-      : featureProject;
-    return toInterface(m, context, project);
+    const f = featuresByFeatureId ? featuresByFeatureId[m.featureId] : feature;
+    return toInterface(m, context, f);
   });
 }
 
@@ -411,7 +429,7 @@ export async function getLatestActiveDraftForFeature(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
-  featureProject: string | undefined,
+  feature: RevisionFeatureContext | undefined,
   { involvedUserId }: { involvedUserId?: string } = {},
 ): Promise<FeatureRevisionInterface | null> {
   const filter: Record<string, unknown> = {
@@ -429,24 +447,24 @@ export async function getLatestActiveDraftForFeature(
     dateUpdated: -1,
   });
 
-  return doc ? toInterface(doc, context, featureProject) : null;
+  return doc ? toInterface(doc, context, feature) : null;
 }
 
 export async function getRevision({
   context,
   organization,
   featureId,
-  featureProject,
+  feature,
   version,
   includeLog = false,
 }: {
   context: ReqContext | ApiReqContext;
   organization: string;
   featureId: string;
-  // Project of the parent feature. Drives env applicability filtering so
-  // rules scoped to envs no longer in the feature's project are scrubbed
-  // on read instead of leaking through as `environments: ["dev"]`.
-  featureProject: string | undefined;
+  // Parent feature. Drives env applicability filtering and v2 inheritance
+  // expansion so rules scoped to envs no longer in the feature's project
+  // are scrubbed and rules on a parent env surface in inheriting children.
+  feature: RevisionFeatureContext | undefined;
   version: number;
   includeLog?: boolean;
 }) {
@@ -456,20 +474,20 @@ export async function getRevision({
     version,
   }).select(includeLog ? undefined : "-log");
 
-  return doc ? toInterface(doc, context, featureProject) : null;
+  return doc ? toInterface(doc, context, feature) : null;
 }
 
 export async function getRevisionsByVersions({
   context,
   organization,
   featureId,
-  featureProject,
+  feature,
   versions,
 }: {
   context: ReqContext | ApiReqContext;
   organization: string;
   featureId: string;
-  featureProject: string | undefined;
+  feature: RevisionFeatureContext | undefined;
   versions: number[];
 }) {
   const docs = await FeatureRevisionModel.find({
@@ -478,7 +496,7 @@ export async function getRevisionsByVersions({
     version: { $in: versions },
   }).select("-log");
 
-  return docs.map((doc) => toInterface(doc, context, featureProject));
+  return docs.map((doc) => toInterface(doc, context, feature));
 }
 
 // Fields excluded in sparse mode: large/unused payload for list-view callers.
@@ -501,14 +519,14 @@ export async function getRevisionsByStatus(
   statuses: string[],
   {
     sparse = false,
-    featureProjectsByFeatureId,
+    featuresByFeatureId,
   }: {
     sparse?: boolean;
-    // Map of featureId -> parent feature project. Required for non-sparse
-    // calls so each revision is filtered against its own feature's
-    // applicable envs. Optional in sparse mode since rules are stripped
-    // from the projection and env applicability is moot.
-    featureProjectsByFeatureId?: Record<string, string | undefined>;
+    // Map of featureId -> parent feature. Required for non-sparse calls so
+    // each revision is filtered against its own feature's applicable envs
+    // and inheritance. Optional in sparse mode since rules are stripped
+    // from the projection.
+    featuresByFeatureId?: Record<string, RevisionFeatureContext | undefined>;
   } = {},
 ) {
   const projection = sparse ? SPARSE_REVISION_PROJECTION : { log: 0 };
@@ -519,9 +537,7 @@ export async function getRevisionsByStatus(
 
   return revisions
     .filter((r) => !!r)
-    .map((r) =>
-      toInterface(r, context, featureProjectsByFeatureId?.[r.featureId]),
-    );
+    .map((r) => toInterface(r, context, featuresByFeatureId?.[r.featureId]));
 }
 
 /**
@@ -602,7 +618,7 @@ export async function createInitialRevision(
     },
   });
 
-  return toInterface(doc, context, feature.project);
+  return toInterface(doc, context, feature);
 }
 
 export async function createRevisionFromLegacyDraft(
@@ -611,7 +627,7 @@ export async function createRevisionFromLegacyDraft(
 ) {
   if (!feature.legacyDraft) return;
   const doc = await FeatureRevisionModel.create(feature.legacyDraft);
-  return toInterface(doc, context, feature.project);
+  return toInterface(doc, context, feature);
 }
 
 async function getLastRevision(
@@ -627,9 +643,7 @@ async function getLastRevision(
       .limit(1)
   )[0];
 
-  return lastRevision
-    ? toInterface(lastRevision, context, feature.project)
-    : null;
+  return lastRevision ? toInterface(lastRevision, context, feature) : null;
 }
 
 export async function createRevision({
@@ -720,7 +734,7 @@ export async function createRevision({
           context,
           organization: feature.organization,
           featureId: feature.id,
-          featureProject: feature.project,
+          feature,
           version: baseVersion,
         });
 
@@ -798,7 +812,7 @@ export async function createRevision({
       logger.error(e, "Error creating revisionlog");
     });
 
-  return toInterface(doc, context, feature.project);
+  return toInterface(doc, context, feature);
 }
 
 export async function updateRevision(
@@ -920,7 +934,7 @@ export async function updateRevision(
       logger.error(e, "Error creating revisionlog");
     });
 
-  return doc ? toInterface(doc, context, feature.project) : null;
+  return doc ? toInterface(doc, context, feature) : null;
 }
 
 export async function markRevisionAsPublished(
@@ -1109,10 +1123,10 @@ export async function getFeatureRevisionsByFeatureIds(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureIds: string[],
-  // Map of featureId -> parent feature project. Drives env-applicability
-  // filtering per revision so a feature scoped to a project that excludes
-  // some envs doesn't surface dead rules in those envs.
-  featureProjectsByFeatureId: Record<string, string | undefined>,
+  // Map of featureId -> parent feature. Drives env applicability filtering
+  // and v2 inheritance expansion per revision so a feature scoped to a
+  // project that excludes some envs doesn't surface dead rules in those envs.
+  featuresByFeatureId: Record<string, RevisionFeatureContext | undefined>,
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
   const revisionsByFeatureId: Record<string, FeatureRevisionInterface[]> = {};
 
@@ -1129,7 +1143,7 @@ export async function getFeatureRevisionsByFeatureIds(
       const featureId = revision.featureId;
       revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
       revisionsByFeatureId[featureId].push(
-        toInterface(revision, context, featureProjectsByFeatureId[featureId]),
+        toInterface(revision, context, featuresByFeatureId[featureId]),
       );
     });
   }
@@ -1217,11 +1231,10 @@ export async function getFeatureRevisionsByFeaturesCurrentVersion(
     })),
   }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
 
-  const projectByFeatureId: Record<string, string | undefined> =
-    Object.fromEntries(features.map((f) => [f.id, f.project]));
-  return docs.map((m) =>
-    toInterface(m, context, projectByFeatureId[m.featureId]),
+  const featureById: Record<string, FeatureInterface> = Object.fromEntries(
+    features.map((f) => [f.id, f]),
   );
+  return docs.map((m) => toInterface(m, context, featureById[m.featureId]));
 }
 
 // ---------------------------------------------------------------------------

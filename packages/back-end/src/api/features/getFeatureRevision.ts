@@ -19,7 +19,7 @@ export async function loadRevision(
     context,
     organization: organizationId,
     featureId: feature.id,
-    featureProject: feature.project,
+    feature,
     version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");

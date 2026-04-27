@@ -3953,13 +3953,14 @@ export async function getLinkedFeatureInfo(
 
   const features = await getFeaturesByIds(context, linkedFeatures);
 
-  const featureProjectsByFeatureId: Record<string, string | undefined> =
-    Object.fromEntries(features.map((f) => [f.id, f.project]));
+  const featuresByFeatureId = Object.fromEntries(
+    features.map((f) => [f.id, f]),
+  );
   const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
     context,
     context.org.id,
     linkedFeatures,
-    featureProjectsByFeatureId,
+    featuresByFeatureId,
   );
 
   const environments = getEnvironmentIdsFromOrg(context.org);

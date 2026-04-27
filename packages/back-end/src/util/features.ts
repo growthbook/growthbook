@@ -990,3 +990,67 @@ export function applyEnvironmentInheritance<T>(
   });
   return mutableClone;
 }
+
+// Map ancestor envId -> ordered list of inheriting child envIds whose own
+// entry is missing from `originalEnvSettings`. A child with explicit env
+// settings has been customized for the feature and should NOT inherit rules
+// from its ancestor (matches `applyEnvironmentInheritance`'s gating).
+// Children are returned in `orgEnvs` order so expansions are deterministic.
+export function buildInheritedChildrenByAncestor(
+  orgEnvs: Pick<Environment, "id" | "parent">[],
+  originalEnvSettings: Record<string, unknown>,
+): Map<string, string[]> {
+  const parentOf = new Map<string, string>();
+  for (const env of orgEnvs) {
+    if (env.parent) parentOf.set(env.id, env.parent);
+  }
+  const childrenByAncestor = new Map<string, string[]>();
+  for (const env of orgEnvs) {
+    if (originalEnvSettings[env.id]) continue;
+    let ancestor = parentOf.get(env.id);
+    // Bail out on cyclic parent chains as if no parent was set.
+    const visited = new Set<string>([env.id]);
+    while (ancestor && !originalEnvSettings[ancestor]) {
+      if (visited.has(ancestor)) {
+        ancestor = undefined;
+        break;
+      }
+      visited.add(ancestor);
+      ancestor = parentOf.get(ancestor);
+    }
+    if (!ancestor) continue;
+    const list = childrenByAncestor.get(ancestor);
+    if (list) list.push(env.id);
+    else childrenByAncestor.set(ancestor, [env.id]);
+  }
+  return childrenByAncestor;
+}
+
+// Append each ancestor's inheriting children to a rule's `environments`
+// (preserves original order; children are inserted right after their
+// ancestor). No-op for `allEnvironments: true` or empty-scope rules.
+export function expandRuleEnvsForInheritance(
+  rule: FeatureRule,
+  childrenByAncestor: Map<string, string[]>,
+): FeatureRule {
+  if (rule.allEnvironments) return rule;
+  if (childrenByAncestor.size === 0) return rule;
+  const envs = rule.environments || [];
+  if (envs.length === 0) return rule;
+  const seen = new Set<string>();
+  const expanded: string[] = [];
+  for (const e of envs) {
+    if (!seen.has(e)) {
+      seen.add(e);
+      expanded.push(e);
+    }
+    for (const child of childrenByAncestor.get(e) || []) {
+      if (!seen.has(child)) {
+        seen.add(child);
+        expanded.push(child);
+      }
+    }
+  }
+  if (expanded.length === envs.length) return rule;
+  return { ...rule, environments: expanded } as FeatureRule;
+}

@@ -57,7 +57,7 @@ export async function revertFeatureCore(
     context,
     organization: context.org.id,
     featureId: feature.id,
-    featureProject: feature.project,
+    feature,
     version: version,
   });
   if (!revision) {
@@ -198,7 +198,7 @@ export async function revertFeatureCore(
       context,
       organization: feature.organization,
       featureId: feature.id,
-      featureProject: feature.project,
+      feature,
       version: feature.version,
     });
     if (!liveRevision) {
@@ -249,7 +249,7 @@ export async function revertFeatureCore(
     context,
     organization: updatedFeature.organization,
     featureId: updatedFeature.id,
-    featureProject: updatedFeature.project,
+    feature: updatedFeature,
     version: updatedFeature.version,
   });
   const safeRolloutMap =

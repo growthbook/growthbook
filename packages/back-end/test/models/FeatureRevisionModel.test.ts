@@ -145,11 +145,9 @@ describe("buildFeatureRevisionInterface", () => {
         },
       } as unknown as FeatureRevisionInterface;
 
-      const out = buildFeatureRevisionInterface(
-        raw,
-        mockContext(),
-        "proj_main",
-      );
+      const out = buildFeatureRevisionInterface(raw, mockContext(), {
+        project: "proj_main",
+      });
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
       expect(out.rules[0].allEnvironments).toBe(true);
@@ -191,7 +189,7 @@ describe("buildFeatureRevisionInterface", () => {
       const out = buildFeatureRevisionInterface(
         raw,
         mockContext(orgEnvsWithProject),
-        "proj_main",
+        { project: "proj_main" },
       );
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r_prod_only");
@@ -246,7 +244,7 @@ describe("buildFeatureRevisionInterface", () => {
       const out = buildFeatureRevisionInterface(
         raw,
         mockContext(envsWithParent),
-        { featureProject: "proj_main" },
+        { project: "proj_main" },
       );
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");

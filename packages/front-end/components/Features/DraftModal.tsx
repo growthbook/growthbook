@@ -210,9 +210,14 @@ export default function DraftModal({
       ),
   );
 
-  // 1-based rule indices for resolving `Rule #N` references in pending action diffs.
+  // 1-based rule indices for resolving `Rule #N` references in pending action
+  // diffs. Holdout occupies #1 in the displayed numbering (matches Rule.tsx),
+  // so regular rules start at #2 when a holdout is present.
   const draftRules = Array.isArray(revision?.rules) ? revision!.rules : [];
-  const draftRuleIndexById = new Map(draftRules.map((r, i) => [r.id, i + 1]));
+  const draftRuleNumberOffset = revision?.holdout ? 2 : 1;
+  const draftRuleIndexById = new Map(
+    draftRules.map((r, i) => [r.id, i + draftRuleNumberOffset]),
+  );
 
   // Build extra diff items so ramp changes appear in badges, custom renders, and JSON diffs.
   const rampDiffs: FeatureRevisionDiff[] = [

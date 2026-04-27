@@ -17,6 +17,7 @@ import {
   getFeatureHoldoutBadges,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
+import { useEnvironments } from "@/services/features";
 
 // Helper
 // Normalize nullable metadata fields to canonical empty values so that
@@ -107,6 +108,34 @@ export type FeatureRevisionDiff = {
   badges?: DiffBadge[];
 };
 
+// Fills in missing entries by walking each env's parent chain until a defined
+// ancestor is found. Mirrors backend `applyEnvironmentInheritance` so the diff
+// of `environmentsEnabled` doesn't surface phantom toggles for inheriting envs
+// that have no explicit entry on either side.
+function fillEnabledByInheritance(
+  enabled: Record<string, boolean> | undefined,
+  envs: { id: string; parent?: string }[],
+): Record<string, boolean> {
+  const out: Record<string, boolean> = { ...(enabled || {}) };
+  const parentOf = new Map<string, string | undefined>();
+  for (const e of envs) parentOf.set(e.id, e.parent);
+  for (const e of envs) {
+    if (e.id in out) continue;
+    let ancestor = parentOf.get(e.id);
+    const visited = new Set<string>([e.id]);
+    while (ancestor && !(ancestor in out)) {
+      if (visited.has(ancestor)) {
+        ancestor = undefined;
+        break;
+      }
+      visited.add(ancestor);
+      ancestor = parentOf.get(ancestor);
+    }
+    if (ancestor) out[e.id] = out[ancestor];
+  }
+  return out;
+}
+
 export function useFeatureRevisionDiff({
   current,
   draft,
@@ -114,6 +143,7 @@ export function useFeatureRevisionDiff({
   current: FeatureRevisionDiffInput;
   draft: FeatureRevisionDiffInput;
 }): FeatureRevisionDiff[] {
+  const orgEnvs = useEnvironments();
   return useMemo(() => {
     const diffs: FeatureRevisionDiff[] = [];
 
@@ -178,12 +208,24 @@ export function useFeatureRevisionDiff({
       }
     }
 
-    // 2. Environment toggles (kill switches). Missing key ≡ false (disabled),
-    // so coalesce before comparing to avoid phantom diffs on older revisions.
+    // 2. Environment toggles (kill switches). Apply inheritance to both sides
+    // so an inheriting env (no explicit entry) compares against its ancestor's
+    // value rather than defaulting to `false` — otherwise a draft that doesn't
+    // touch toggles can still surface "disabled → enabled" for an env whose
+    // parent is enabled. Missing-on-both falls back to `false` to handle
+    // pre-inheritance / orphan envs.
+    const inheritedCurrent = fillEnabledByInheritance(
+      current.environmentsEnabled,
+      orgEnvs,
+    );
+    const inheritedDraft = fillEnabledByInheritance(
+      draft.environmentsEnabled,
+      orgEnvs,
+    );
     const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
     draftEnabledEnvs.forEach((envId) => {
-      const currentVal = current.environmentsEnabled?.[envId] ?? false;
-      const draftVal = draft.environmentsEnabled?.[envId] ?? false;
+      const currentVal = inheritedCurrent[envId] ?? false;
+      const draftVal = inheritedDraft[envId] ?? false;
       if (currentVal !== draftVal) {
         const direction = draftVal ? "on" : "off";
         diffs.push({
@@ -290,13 +332,15 @@ export function useFeatureRevisionDiff({
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
         customRender: renderFeatureRules(currentRulesArr, draftRulesArr, {
           pendingRampActions: draftRampActions,
+          preHasHoldout: !!current.holdout,
+          postHasHoldout: !!draft.holdout,
         }),
         badges: featureRuleChangeBadges(currentRulesArr, draftRulesArr),
       });
     }
 
     return diffs;
-  }, [current, draft]);
+  }, [current, draft, orgEnvs]);
 }
 
 /**

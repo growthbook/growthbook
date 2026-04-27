@@ -1004,7 +1004,7 @@ describe("multi-cycle v1/v2 conversion stability", () => {
       let current: FeatureRevisionInterface = raw;
       for (let i = 0; i < n; i++) {
         const v2 = buildFeatureRevisionInterface(current, mockContext(), {
-          featureProject,
+          project: featureProject,
         });
         snapshots.push(v2);
         current = toLegacyRevision(

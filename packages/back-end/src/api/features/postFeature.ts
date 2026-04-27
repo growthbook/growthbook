@@ -184,7 +184,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     context: req.context,
     organization: feature.organization,
     featureId: feature.id,
-    featureProject: feature.project,
+    feature,
     version: feature.version,
   });
   return {

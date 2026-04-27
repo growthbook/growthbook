@@ -27,7 +27,7 @@ export async function loadLatestDraft(
     context,
     organizationId,
     feature.id,
-    feature.project,
+    feature,
     { involvedUserId: mine ? context.userId : undefined },
   );
   if (!revision) {

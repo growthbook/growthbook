@@ -38,7 +38,7 @@ export async function submitRevisionReview(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
-    featureProject: feature.project,
+    feature,
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
@@ -98,7 +98,7 @@ export async function submitRevisionReview(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
-    featureProject: feature.project,
+    feature,
     version: req.params.version,
   });
   const finalRevision = updated ?? revision;

@@ -63,6 +63,8 @@ import {
 import { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
+  buildInheritedChildrenByAncestor,
+  expandRuleEnvsForInheritance,
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
@@ -243,69 +245,6 @@ export function buildFeatureInterface(
     FeatureEnvironment
   >;
   return v2;
-}
-
-// Map ancestor envId -> ordered list of inheriting child envIds whose own
-// entry is missing from `environmentSettings` (and therefore would have
-// inherited the ancestor's rule scope on origin/main). Children are
-// returned in `orgEnvs` order so expansions are deterministic.
-function buildInheritedChildrenByAncestor(
-  orgEnvs: { id: string; parent?: string }[],
-  originalEnvSettings: Record<string, unknown>,
-): Map<string, string[]> {
-  const parentOf = new Map<string, string>();
-  for (const env of orgEnvs) {
-    if (env.parent) parentOf.set(env.id, env.parent);
-  }
-  const childrenByAncestor = new Map<string, string[]>();
-  for (const env of orgEnvs) {
-    if (originalEnvSettings[env.id]) continue;
-    let ancestor = parentOf.get(env.id);
-    // Bail out on cyclic parent chains as if no parent was set.
-    const visited = new Set<string>([env.id]);
-    while (ancestor && !originalEnvSettings[ancestor]) {
-      if (visited.has(ancestor)) {
-        ancestor = undefined;
-        break;
-      }
-      visited.add(ancestor);
-      ancestor = parentOf.get(ancestor);
-    }
-    if (!ancestor) continue;
-    const list = childrenByAncestor.get(ancestor);
-    if (list) list.push(env.id);
-    else childrenByAncestor.set(ancestor, [env.id]);
-  }
-  return childrenByAncestor;
-}
-
-// Append each ancestor's inheriting children to a rule's `environments`
-// (preserves original order; children are inserted right after their
-// ancestor). No-op for `allEnvironments: true` or empty-scope rules.
-function expandRuleEnvsForInheritance(
-  rule: FeatureRule,
-  childrenByAncestor: Map<string, string[]>,
-): FeatureRule {
-  if (rule.allEnvironments) return rule;
-  if (childrenByAncestor.size === 0) return rule;
-  const envs = rule.environments || [];
-  if (envs.length === 0) return rule;
-  const seen = new Set<string>();
-  const expanded: string[] = [];
-  for (const e of envs) {
-    if (!seen.has(e)) {
-      seen.add(e);
-      expanded.push(e);
-    }
-    for (const child of childrenByAncestor.get(e) || []) {
-      if (!seen.has(child)) {
-        seen.add(child);
-        expanded.push(child);
-      }
-    }
-  }
-  if (expanded.length === envs.length) return rule;
-  return { ...rule, environments: expanded } as FeatureRule;
 }
 
 // Read-side mirror of `buildFeatureUpdate`'s scrub — keeps in-memory features
@@ -666,7 +605,7 @@ export const createFeatureEvent = async <
       context: eventData.context,
       organization: eventData.data.object.organization,
       featureId: eventData.data.object.id,
-      featureProject: eventData.data.object.project,
+      feature: eventData.data.object,
       version: eventData.data.object.version,
     });
 
@@ -702,7 +641,7 @@ export const createFeatureEvent = async <
       context: eventData.context,
       organization: eventData.data.previous_object.organization,
       featureId: eventData.data.previous_object.id,
-      featureProject: eventData.data.previous_object.project,
+      feature: eventData.data.previous_object,
       version: eventData.data.previous_object.version,
     });
 
@@ -1936,7 +1875,7 @@ export async function createAndPublishRevision({
     context,
     organization: feature.organization,
     featureId: feature.id,
-    featureProject: feature.project,
+    feature,
     version: feature.version,
   });
   if (!liveRevision) throw new Error("Could not load live revision");

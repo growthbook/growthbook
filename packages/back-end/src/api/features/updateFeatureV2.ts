@@ -286,7 +286,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     context: req.context,
     organization: updatedFeature.organization,
     featureId: updatedFeature.id,
-    featureProject: updatedFeature.project,
+    feature: updatedFeature,
     version: updatedFeature.version,
   });
   const safeRolloutMap =

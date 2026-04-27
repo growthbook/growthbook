@@ -149,7 +149,7 @@ export async function clearRuleRampSchedule(
       context,
       organization: organization.id,
       featureId: feature.id,
-      featureProject: feature.project,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;

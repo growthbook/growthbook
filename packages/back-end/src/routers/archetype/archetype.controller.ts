@@ -105,7 +105,7 @@ export const getArchetypeAndEval = async (
     context: context,
     organization: org.id,
     featureId: feature.id,
-    featureProject: feature.project,
+    feature,
     version: parseInt(version),
   });
   if (!revision) {

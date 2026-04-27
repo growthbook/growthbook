@@ -125,7 +125,7 @@ export const deleteFeatureRevisionRuleV2 = createApiRequestHandler(
       context: req.context,
       organization: req.organization.id,
       featureId: feature.id,
-      featureProject: feature.project,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;

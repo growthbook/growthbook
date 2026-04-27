@@ -55,7 +55,7 @@ export async function rebaseFeatureRevision(
     context,
     organization: organization.id,
     featureId: feature.id,
-    featureProject: feature.project,
+    feature,
     version: params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
@@ -166,7 +166,7 @@ export async function rebaseFeatureRevision(
     context,
     organization: organization.id,
     featureId: feature.id,
-    featureProject: feature.project,
+    feature,
     version: params.version,
   });
   const finalRevision = updated ?? revision;

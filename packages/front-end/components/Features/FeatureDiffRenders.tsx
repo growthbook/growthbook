@@ -26,6 +26,8 @@ import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import { useEnvironments } from "@/services/features";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   ChangeField,
   toConditionString,
@@ -167,6 +169,9 @@ function formatValue(val: string | unknown): string {
 //   environments: [a, b, …]  → one badge per env
 //   environments: []         → "No environments (pending)"
 //   environments: undefined  → null (legacy audit fallback)
+// Envs not present in the org's current environment list render in amber
+// with a tooltip — typically a revision still references an env that has
+// since been deleted from the org.
 function RuleEnvScope({
   rule,
   size = "xs",
@@ -174,6 +179,8 @@ function RuleEnvScope({
   rule: FeatureRule;
   size?: "xs" | "sm" | "md" | "lg";
 }) {
+  const environments = useEnvironments();
+  const liveEnvIds = new Set(environments.map((e) => e.id));
   if (rule.allEnvironments) {
     return (
       <Badge label="All Environments" color="gray" variant="soft" size={size} />
@@ -192,9 +199,29 @@ function RuleEnvScope({
   }
   return (
     <Flex gap="1" wrap="wrap">
-      {rule.environments.map((env) => (
-        <Badge key={env} label={env} color="gray" variant="soft" size={size} />
-      ))}
+      {rule.environments.map((env) => {
+        const deleted = !liveEnvIds.has(env);
+        const badge = (
+          <Badge
+            key={env}
+            label={env}
+            color={deleted ? "amber" : "gray"}
+            variant="soft"
+            size={size}
+          />
+        );
+        return deleted ? (
+          <Tooltip
+            key={env}
+            body="Environment no longer exists"
+            tipPosition="top"
+          >
+            {badge}
+          </Tooltip>
+        ) : (
+          badge
+        );
+      })}
     </Flex>
   );
 }
@@ -970,15 +997,27 @@ export function featureRuleChangeBadges(
 export function renderFeatureRules(
   preRules: FeatureRule[],
   postRules: FeatureRule[],
-  options?: { pendingRampActions?: RevisionRampAction[] },
+  options?: {
+    pendingRampActions?: RevisionRampAction[];
+    // Holdout shifts rule numbers by +1 (matches `Rule.tsx`: holdout sits at
+    // #1 and the first regular rule starts at #2). Pre/post are tracked
+    // separately so add/remove of a holdout in the diff still renders
+    // post-side rules with the correct numbering on each side.
+    preHasHoldout?: boolean;
+    postHasHoldout?: boolean;
+  },
 ): ReactNode | null {
   const { added, removed, modified, reordered } = analyzeRuleChanges(
     preRules,
     postRules,
   );
 
-  const postIndexById = new Map(postRules.map((r, i) => [r.id, i + 1]));
-  const preIndexById = new Map(preRules.map((r, i) => [r.id, i + 1]));
+  const postOffset = options?.postHasHoldout ? 2 : 1;
+  const preOffset = options?.preHasHoldout ? 2 : 1;
+  const postIndexById = new Map(
+    postRules.map((r, i) => [r.id, i + postOffset]),
+  );
+  const preIndexById = new Map(preRules.map((r, i) => [r.id, i + preOffset]));
   const preById = new Map(preRules.map((r) => [r.id, r]));
   const pendingRampActions = options?.pendingRampActions;
 
@@ -1009,7 +1048,7 @@ export function renderFeatureRules(
     const movedRules = postRules
       .map((r, newIdx) => ({
         r,
-        newPos: newIdx + 1,
+        newPos: newIdx + postOffset,
         oldPos: preIndexById.get(r.id),
       }))
       .filter(
@@ -1255,7 +1294,10 @@ export function renderFeatureRulesSection(
   const postRules = Array.isArray(post.rules) ? (post.rules ?? []) : [];
   const rulesChanged = !isEqual(preRules, postRules);
   const rulesRender = rulesChanged
-    ? renderFeatureRules(preRules, postRules)
+    ? renderFeatureRules(preRules, postRules, {
+        preHasHoldout: !!pre?.holdout,
+        postHasHoldout: !!post.holdout,
+      })
     : null;
 
   if (toggleRows.length === 0 && !rulesRender) return null;
