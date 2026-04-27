@@ -13,6 +13,7 @@ import {
   streamingChatCompletion,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   type ConversationBuffer,
   loadOrInitConversation,
@@ -168,13 +169,25 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     const requestModel = body.model;
     const canOverride = context.permissions.canManageOrgSettings();
+    const storedModel = buffer.getModel() as AIModel | undefined;
 
-    // Resolution: request (permitted) → conversation stored → org prompt override
-    const overrideModel =
-      (canOverride && requestModel) ||
-      (buffer.getModel() as AIModel | undefined) ||
-      dbOverrideModel ||
-      undefined;
+    // Pick the model override (if any). Anything that ends up `undefined`
+    // falls through to the org's `defaultAIModel` below — which on Cloud is
+    // the hardcoded model.
+    let overrideModel: AIModel | undefined;
+    if (IS_CLOUD) {
+      // Cloud: existing conversations keep their stored model; new ones
+      // (storedModel === undefined) fall through to the hardcoded default.
+      // `requestModel` and `dbOverrideModel` are deliberately ignored.
+      overrideModel = storedModel;
+    } else if (canOverride && requestModel) {
+      // Self-hosted: an admin's per-request choice wins over everything else.
+      overrideModel = requestModel;
+    } else {
+      // Self-hosted: stored model on the conversation, else org-level prompt
+      // default.
+      overrideModel = storedModel || dbOverrideModel;
+    }
 
     const { defaultAIModel } = getAISettingsForOrg(context, false);
     const resolvedModel = overrideModel || defaultAIModel;

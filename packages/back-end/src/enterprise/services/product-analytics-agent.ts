@@ -651,6 +651,15 @@ function normalizeConfigForExplorer(
     }
   }
 
+  const dateIdx = dims.findIndex((d) => d.dimensionType === "date");
+  if (dateIdx > 0) {
+    const dateDim = dims[dateIdx];
+    dims = [dateDim, ...dims.filter((_, i) => i !== dateIdx)];
+    warnings.push(
+      "Moved date dimension to the first position. Date dimensions must come before breakdown dimensions.",
+    );
+  }
+
   // bigNumber: no dimensions, single value
   if (config.chartType === "bigNumber") {
     if (dims.length > 0) {
