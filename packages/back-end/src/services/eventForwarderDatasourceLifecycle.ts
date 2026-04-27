@@ -8,7 +8,7 @@ import { ReqContext } from "back-end/types/request";
 
 /**
  * After removing a datasource: if a per-datasource event forwarder row exists for this id,
- * delete the Mongo row first, then tear down BigQuery Confluent resources via the license server.
+ * delete the Mongo row first, then tear down Confluent resources via the license server.
  */
 export async function syncEventForwarderAfterDatasourceDeleted(
   context: ReqContext | ApiReqContext,
@@ -87,18 +87,19 @@ export async function syncEventForwarderAfterDatasourceDeleted(
     existing,
   );
 
-  if (sinkType === "bigquery") {
+  if (sinkType === "bigquery" || sinkType === "snowflake") {
     logger.info(
       {
         organizationId: context.org.id,
         eventForwarderConfigId: snapshot.eventForwarderConfigId,
       },
-      "Event forwarder sync: invoking BigQuery Confluent teardown via license server",
+      "Event forwarder sync: invoking Confluent teardown via license server",
     );
     try {
       await teardownBigQueryEventForwarderInfrastructureRemote({
         organizationId: snapshot.organizationId,
         datasourceId: snapshot.datasourceId,
+        sinkType: snapshot.sinkType,
         topic: snapshot.topic,
         connectorName: snapshot.connectorName,
         connectorId: snapshot.connectorId,
@@ -157,7 +158,7 @@ export async function syncEventForwarderAfterDatasourceDeleted(
         sinkType,
         eventForwarderConfigId: snapshot.eventForwarderConfigId,
       },
-      "Event forwarder sync: skipping Confluent teardown (sink is not bigquery)",
+      "Event forwarder sync: skipping Confluent teardown for sink type",
     );
   }
 }
