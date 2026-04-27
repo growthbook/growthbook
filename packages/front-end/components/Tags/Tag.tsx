@@ -15,13 +15,15 @@ export const TAG_COLORS = [
   "gold",
 ] as const;
 
-type Props = {
+export type TagProps = {
   tag: string;
   color?: RadixColor;
   description?: string;
   skipMargin?: boolean;
   variant?: "badge" | "dot";
   maxWidth?: number;
+  // Overrides the default text label; LinkedTag uses this to inject a link.
+  label?: React.ReactElement | string;
 } & MarginProps;
 
 export default function Tag({
@@ -31,14 +33,15 @@ export default function Tag({
   skipMargin,
   variant = "badge",
   maxWidth = 200,
-}: Props) {
+  label,
+}: TagProps) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
   const desc = description ?? fullTag?.description ?? "";
-
-  const displayTitle = tag + (desc ? `\n\n${desc}` : "");
-
-  const tagColor = color ?? fullTag?.color ?? "blue";
+  // Suppressed when a label is provided so wrappers can own hover affordance.
+  const displayTitle = label ? undefined : tag + (desc ? `\n\n${desc}` : "");
+  const tagColor = (color ?? fullTag?.color ?? "blue") as RadixColor;
+  const content = label ?? tag;
 
   if (variant === "dot") {
     return (
@@ -67,7 +70,7 @@ export default function Tag({
             minWidth: 0,
           }}
         >
-          {tag}
+          {content}
         </div>
       </Flex>
     );
@@ -76,13 +79,13 @@ export default function Tag({
   return (
     <Badge
       title={displayTitle}
-      color={tagColor as RadixColor}
+      color={tagColor}
       variant="soft"
       className="text-ellipsis d-inline-block"
       style={{ maxWidth }}
       mr={skipMargin ? undefined : "2"}
       mb={skipMargin ? undefined : "1"}
-      label={tag}
+      label={content}
     />
   );
 }

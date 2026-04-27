@@ -152,7 +152,7 @@ import {
   MetricQuantileSettings,
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
-import { ExplorationConfig } from "shared/src/validators/product-analytics";
+import { ExplorationConfig } from "shared/validators";
 import {
   AdditionalQueryMetadata,
   QueryMetadata,
@@ -8271,9 +8271,28 @@ ORDER BY column_name, count DESC
 
     const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
+    const resolvedFactTableMap: FactTableMap = new Map(
+      Array.from(factTableMap.entries()).map(([id, ft]) => {
+        const templateVariables = getFactTableTemplateVariables(ft);
+        const hasTemplateVars = Object.values(templateVariables).some(Boolean);
+        if (!hasTemplateVars) return [id, ft];
+        return [
+          id,
+          {
+            ...ft,
+            sql: compileSqlTemplate(ft.sql, {
+              startDate: dateRange.startDate,
+              endDate: dateRange.endDate,
+              templateVariables,
+            }),
+          },
+        ];
+      }),
+    );
+
     const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
       config,
-      factTableMap,
+      resolvedFactTableMap,
       metricMap,
       sqlHelpers,
       this.datasource,

@@ -3,6 +3,12 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import clsx from "clsx";
+import {
+  calculateNamespaceCoverage,
+  getNamespaceRanges,
+  NamespaceValue,
+} from "shared/util";
+import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -33,6 +39,29 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function getNamespaceDisplayData(
+  namespace?: NamespaceValue,
+  namespacesList?: { name: string; label?: string }[],
+): { range: number; ranges: [number, number][]; name: string } {
+  if (!namespace || !namespace.enabled) {
+    return { range: 1, ranges: [], name: "" };
+  }
+  const range = calculateNamespaceCoverage(namespace);
+  // Mirror the merge that happens on save so the review accurately reflects
+  // what will be persisted. Without this, three discrete ranges like
+  // [0.2, 0.3], [0.6, 0.9], [0.9, 1] get collapsed into a single hull
+  // [0.2 - 1], hiding the gap between 0.3 and 0.6.
+  const ranges = mergeContiguousRanges(getNamespaceRanges(namespace));
+  const name =
+    namespacesList?.find((n) => n.name === namespace.name)?.label ||
+    namespace.name;
+  return { range, ranges, name };
+}
+
+function formatRanges(ranges: [number, number][]): string {
+  return ranges.map(([start, end]) => `[${start} - ${end}]`).join(" ");
+}
+
 export default function TargetingInfo({
   phaseIndex = null,
   experiment,
@@ -51,16 +80,13 @@ export default function TargetingInfo({
 
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
-  const namespaceRanges: [number, number] = hasNamespace
-    ? [phase.namespace!.range[1] || 0, phase.namespace!.range[0] || 0]
-    : [0, 1];
-  const namespaceName = hasNamespace
-    ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
-      phase.namespace!.name
-    : "";
+
+  // Calculate total namespace allocation
+  const {
+    range: namespaceRange,
+    ranges: namespaceRanges,
+    name: namespaceName,
+  } = getNamespaceDisplayData(phase.namespace, namespaces);
 
   const hasSavedGroupsChanges =
     showChanges &&
@@ -91,16 +117,11 @@ export default function TargetingInfo({
   );
 
   const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
-  const changesNamespaceRange = changes?.namespace
-    ? changes.namespace.range[1] - changes.namespace.range[0]
-    : 1;
-  const changesNamespaceRanges: [number, number] = changes?.namespace
-    ? [changes.namespace.range[1] || 0, changes.namespace.range[0] || 0]
-    : [0, 1];
-  const changesNamespaceName = changesHasNamespace
-    ? namespaces?.find((n) => n.name === changes.namespace!.name)?.label ||
-      changes.namespace!.name
-    : "";
+  const {
+    range: changesNamespaceRange,
+    ranges: changesNamespaceRanges,
+    name: changesNamespaceName,
+  } = getNamespaceDisplayData(changes?.namespace, namespaces);
 
   return (
     <div>
@@ -300,7 +321,7 @@ export default function TargetingInfo({
               <div className={clsx("mb-3", horizontalView && "mr-4")}>
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
-                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
+                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces">
                     <GBInfo />
                   </Tooltip>
                 </div>
@@ -323,11 +344,12 @@ export default function TargetingInfo({
                             <span className="text-muted">
                               ({percentFormatter.format(namespaceRange)})
                             </span>
-                            {showNamespaceRanges && (
-                              <span className="text-muted small ml-1">
-                                [{namespaceRanges[0]} - {namespaceRanges[1]}]
-                              </span>
-                            )}
+                            {showNamespaceRanges &&
+                              namespaceRanges.length > 0 && (
+                                <span className="text-muted small ml-1">
+                                  {formatRanges(namespaceRanges)}
+                                </span>
+                              )}
                           </>
                         ) : (
                           <em>Global (all users)</em>
@@ -347,12 +369,12 @@ export default function TargetingInfo({
                             <span className="text-muted">
                               ({percentFormatter.format(changesNamespaceRange)})
                             </span>
-                            {showNamespaceRanges && (
-                              <span className="text-muted small ml-1">
-                                [{changesNamespaceRanges[0]} -{" "}
-                                {changesNamespaceRanges[1]}]
-                              </span>
-                            )}
+                            {showNamespaceRanges &&
+                              changesNamespaceRanges.length > 0 && (
+                                <span className="text-muted small ml-1">
+                                  {formatRanges(changesNamespaceRanges)}
+                                </span>
+                              )}
                           </>
                         ) : (
                           <em>Global (all users)</em>

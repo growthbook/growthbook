@@ -12,6 +12,7 @@ import { ExperimentSnapshotAnalysis } from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import { formatDimensionValueForDisplay } from "shared/experiments";
@@ -33,6 +34,7 @@ export interface MetricDrilldownProviderProps {
 
   // Required experiment/analysis data
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   experimentStatus?: ExperimentStatus;
   analysis: ExperimentSnapshotAnalysis | null;
@@ -86,6 +88,7 @@ interface OpenModalInfo {
 export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
   children,
   experimentId,
+  significanceThresholds,
   phase,
   experimentStatus,
   analysis,
@@ -186,6 +189,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           baselineRow={baselineRow}
           variationFilter={variationFilter}
           experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
           phase={phase}
           experimentStatus={experimentStatus}
           variations={variations}

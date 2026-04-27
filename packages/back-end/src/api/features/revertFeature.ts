@@ -17,6 +17,7 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -248,16 +249,18 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
     });
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-
     return {
-      feature: getApiFeatureObj({
-        feature: updatedFeature,
-        organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision: latestRevision,
-        safeRolloutMap,
-      }),
+      feature: await resolveOwnerEmail(
+        getApiFeatureObj({
+          feature: updatedFeature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision: latestRevision,
+          safeRolloutMap,
+        }),
+        req.context,
+      ),
     };
   },
 );

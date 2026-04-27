@@ -1,5 +1,6 @@
 import { getArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import {
   getArchetypeById,
   toArchetypeApiInterface,
@@ -20,7 +21,10 @@ export const getArchetype = createApiRequestHandler(getArchetypeValidator)(
       req.context.permissions.throwPermissionError();
 
     return {
-      archetype: toArchetypeApiInterface(archetype),
+      archetype: await resolveOwnerEmail(
+        toArchetypeApiInterface(archetype),
+        req.context,
+      ),
     };
   },
 );

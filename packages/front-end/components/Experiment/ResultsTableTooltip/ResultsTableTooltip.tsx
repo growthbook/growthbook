@@ -58,6 +58,7 @@ interface Props
   close: () => void;
   differenceType: DifferenceType;
   isBandit?: boolean;
+  pValueThreshold: number;
   ssrPolyfills?: SSRPolyfills;
   transitionClassName?: string;
 }
@@ -69,6 +70,7 @@ export default function ResultsTableTooltip({
   close,
   differenceType,
   isBandit,
+  pValueThreshold,
   ssrPolyfills,
   transitionClassName,
   ...otherProps
@@ -162,6 +164,7 @@ export default function ResultsTableTooltip({
           ssrPolyfills={ssrPolyfills}
           differenceType={differenceType}
           isBandit={isBandit}
+          pValueThreshold={pValueThreshold}
         />
       </div>
     </div>

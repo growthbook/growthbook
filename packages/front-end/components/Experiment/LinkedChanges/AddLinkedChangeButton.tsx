@@ -179,6 +179,7 @@ const LinkedChangesDropdown = ({
           <PiCaretDownFill />
         </Button>
       }
+      variant="soft"
     >
       <LinkedChangeMenuItem
         type="feature-flag"

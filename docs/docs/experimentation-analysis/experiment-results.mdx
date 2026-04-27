@@ -137,6 +137,25 @@ Like the warning says, you shouldn't trust the results since they are likely mis
 
 Under the hood, we are conducting a standard chi-squared test for Sample Ratio Mismatch, which compares the distribution of observed units to the expected units and computes a p-value for the probability of observing this traffic split if the traffic split were truly unbiased.
 
+### Pre-Exposure Bias Check
+
+This alert indicates that there is a large difference between the pre-exposure mean of the baseline variation and the pre-exposure mean of a test variation. This means that the baseline and test groups were substantially different with respect to a goal or guardrail metric before the experiment started. While some degree of imbalance is expected, this alert is raised if the imbalance is statistically significant.
+
+This matters because large pre-exposure mean imbalances can bias results, leading to incorrect shipping decisions.
+
+If SRM or multiple exposures fails, then these should be investigated first. If the pre-exposure mean imbalance is not caused by SRM or multiple exposures, then potential causes include:
+
+1. outliers in the pre-exposure metrics: if a few extreme values are causing the imbalance, then consider [capping](/app/metrics#capped-value) your metric.
+2. incorrect timestamps for aggregated data: if you are using daily [pre-aggregated data](/app/metrics/examples#pre-aggregated-tables), please ensure your daily metric timestamps are at the end of the day, rather than the start. This ensures that metric data from the first day of exposure always comes after exposure timestamps.
+3. exposure latency: if there is a lag between when the exposure event happens and when it is recorded in the events table, then post-exposure metrics could be counted as pre-exposure. If your lag is large and cannot be reduced, then consider [metric delays](/app/metrics#metric-delays), which shift the pre-exposure window to exclude the lag period.
+4. mismatch between randomization unit and analysis unit causing unreliable inference: if you are randomizing on session_id but analyzing by user_id, then attribution of the metric outcomes to multiple sessions for the same user can imbalance results.
+
+We use the frequentist engine with sequential testing disabled to calculate the p-values for the pre-exposure mean imbalance, with a significance threshold of 0.001. We calculate the p-values for the pre-exposure mean imbalance using a two-sample t-test on the absolute difference in means.
+
+We adjust for testing multiple metrics using a Bonferroni correction including all goal and guardrail metric-variation pairs as standalone tests. We exclude secondary metrics from causing the overall health status to fail as well as from contributing to the Bonferroni-corrected threshold. This means if you have 3 arms (2 variation test arms), 2 goal metrics, 35 secondary metrics, and 2 guardrail metrics, we would correct for a total of (2 goal _ 2 arms + 2 guardrail _ 2 arms) = 8 total tests.
+
+Note: we exclude metric slices and quantile metrics from the pre-exposure bias check.
+
 ### Multiple Exposures
 
 This alert indicates that there a substantial number of users (or other unit) in your experiment that have been exposed to multiple variations. At its core, this means that your Experiment Assignment Query is returning data that has rows that look like the following:

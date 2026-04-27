@@ -1,4 +1,5 @@
 import { getFactMetricValidator } from "shared/validators";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
@@ -15,7 +16,10 @@ export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
     }
 
     return {
-      factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
+      factMetric: await resolveOwnerEmail(
+        req.context.models.factMetrics.toApiInterface(factMetric),
+        req.context,
+      ),
     };
   },
 );
