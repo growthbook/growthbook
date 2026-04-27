@@ -6,6 +6,10 @@ import type {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import {
+  calculateProductAnalyticsDateRange,
+  getDateGranularity,
+} from "shared/enterprise";
+import {
   shouldChartSectionShow,
   getEffectiveMetricValue,
   computeDimensionTotals,
@@ -45,6 +49,45 @@ function formatNumber(value: number): string {
     return `${(value / 1000).toFixed(1)}K`;
   }
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
+
+function formatDateByGranularity(
+  date: Date,
+  granularity: ResolvedGranularity,
+): string {
+  switch (granularity) {
+    case "year":
+      return date.toLocaleDateString(undefined, { year: "numeric" });
+    case "month":
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+      });
+    case "week":
+      return `Week of ${date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })}`;
+    case "hour":
+      return `${date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })} ${date.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    case "day":
+    default:
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+  }
 }
 
 function getSeriesTitle(
@@ -107,6 +150,17 @@ export default function ExplorerChart({
     )
       return null;
     const rows = exploration.result.rows;
+
+    // Resolve date granularity for tooltip formatting
+    const dateDimension = submittedExploreState.dimensions?.find(
+      (d) => d.dimensionType === "date",
+    );
+    const resolvedGranularity: ResolvedGranularity | null = dateDimension
+      ? getDateGranularity(
+          dateDimension.dateGranularity,
+          calculateProductAnalyticsDateRange(submittedExploreState.dateRange),
+        )
+      : null;
     const chartType = submittedExploreState.chartType;
     const isHorizontalBar =
       chartType === "horizontalBar" || chartType === "stackedHorizontalBar";
@@ -305,6 +359,42 @@ export default function ExplorerChart({
     const xAxis = isHorizontalBar ? valueAxis : categoryAxis;
     const yAxis = isHorizontalBar ? categoryAxis : valueAxis;
 
+    // Build a custom tooltip formatter that applies granularity-aware date formatting
+    const tooltipFormatter = resolvedGranularity
+      ? (params: unknown) => {
+          const items = (Array.isArray(params) ? params : [params]) as {
+            axisValue: string | number;
+            marker: string;
+            seriesName: string;
+            value: number | [number, number];
+          }[];
+          if (!items.length) return "";
+
+          // axisValue is a timestamp (ms) for time axis, raw string for category axis
+          const rawAxisValue = items[0].axisValue;
+          const date =
+            typeof rawAxisValue === "number"
+              ? new Date(rawAxisValue)
+              : new Date(String(rawAxisValue));
+          const header = formatDateByGranularity(date, resolvedGranularity);
+
+          const rows = items
+            .map((item) => {
+              const numValue = Array.isArray(item.value)
+                ? item.value[1]
+                : item.value;
+              const formatted =
+                typeof numValue === "number"
+                  ? formatNumber(numValue)
+                  : String(numValue);
+              return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
+            })
+            .join("");
+
+          return `<div><div style="margin-bottom:4px">${header}</div>${rows}</div>`;
+        }
+      : undefined;
+
     return {
       tooltip: {
         appendTo: "body",
@@ -322,6 +412,7 @@ export default function ExplorerChart({
             ? "shadow"
             : "cross",
         },
+        formatter: tooltipFormatter,
       },
       legend: {
         show: seriesConfigs.length > 1,
