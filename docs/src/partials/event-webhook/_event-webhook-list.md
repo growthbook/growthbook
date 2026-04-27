@@ -1489,6 +1489,7 @@ Triggered when an experiment is created
             tags: string[];
             /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
+            ownerEmail?: string | undefined;
             archived: boolean;
             status: string;
             autoRefresh: boolean;
@@ -1518,7 +1519,12 @@ Triggered when an experiment is created
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: number[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -1731,6 +1737,7 @@ Triggered when an experiment is updated
             tags: string[];
             /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
+            ownerEmail?: string | undefined;
             archived: boolean;
             status: string;
             autoRefresh: boolean;
@@ -1760,7 +1767,12 @@ Triggered when an experiment is updated
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: number[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -1934,6 +1946,7 @@ Triggered when an experiment is updated
             tags?: string[] | undefined;
             /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
+            ownerEmail?: string | undefined;
             archived?: boolean | undefined;
             status?: string | undefined;
             autoRefresh?: boolean | undefined;
@@ -1963,7 +1976,12 @@ Triggered when an experiment is updated
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: number[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {
@@ -2181,6 +2199,7 @@ Triggered when an experiment is deleted
             tags: string[];
             /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
+            ownerEmail?: string | undefined;
             archived: boolean;
             status: string;
             autoRefresh: boolean;
@@ -2210,7 +2229,12 @@ Triggered when an experiment is deleted
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: number[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
+                    ranges?: [
+                        number,
+                        number
+                    ][] | undefined;
                 } | undefined;
                 targetingCondition: string;
                 prerequisites?: {

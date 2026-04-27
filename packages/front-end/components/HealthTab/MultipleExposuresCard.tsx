@@ -68,7 +68,7 @@ export default function MultipleExposuresCard({
       <div className="row justify-content-start">
         <div className="ml-2 mr-2 mt-1 w-100">
           {health.status === "healthy" ? (
-            <Callout status="info" contentsAs="div">
+            <Callout status="success" contentsAs="div">
               {multipleExposures === 0 ? (
                 <b>Multiple exposures were not detected.</b>
               ) : (

@@ -1,4 +1,4 @@
-import { useForm, UseFormReturn } from "react-hook-form";
+import { useForm, UseFormReturn, useWatch } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { Flex, Box, Text, Separator } from "@radix-ui/themes";
+import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -33,12 +34,12 @@ import SelectField from "@/components//Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -110,11 +111,25 @@ export default function EditTargetingModal({
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,
-    namespace: lastPhase?.namespace || {
-      enabled: false,
-      name: "",
-      range: [0, 1],
-    },
+    namespace: (() => {
+      const saved = lastPhase?.namespace;
+      if (!saved) {
+        // Canonical blank shape; matches what NamespaceSelector writes so
+        // `isEqual(watched, defaults)` can't misfire from shape drift.
+        return {
+          enabled: false,
+          name: "",
+          format: "legacy" as const,
+          ranges: [] as [number, number][],
+        };
+      }
+      // Fold legacy `range` → `ranges` so defaults line up with the shape
+      // NamespaceSelector produces immediately on mount.
+      if ("range" in saved && !("ranges" in saved)) {
+        return { ...omit(saved, "range"), ranges: [saved.range] };
+      }
+      return saved;
+    })(),
     seed: lastPhase?.seed ?? "",
     trackingKey: experiment.trackingKey || "",
     variationWeights:
@@ -134,19 +149,16 @@ export default function EditTargetingModal({
     defaultValues,
   });
 
-  const _formValues = omit(form.getValues(), [
-    "newPhase",
-    "reseed",
-    "bucketVersion",
-    "minBucketVersion",
-  ]);
-  const _defaultValues = omit(defaultValues, [
-    "newPhase",
-    "reseed",
-    "bucketVersion",
-    "minBucketVersion",
-  ]);
-  const hasChanges = !isEqual(_formValues, _defaultValues);
+  // useWatch so that form.setValue calls from NamespaceSelector (a child)
+  // trigger a re-render here. Control flags are excluded because they're
+  // mutated programmatically by the change-type step, not by the user.
+  const watchedValues = useWatch({ control: form.control });
+  const pickForCompare = <T extends Record<string, unknown>>(v: T) =>
+    omit(v, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
+  const hasChanges = !isEqual(
+    pickForCompare(watchedValues),
+    pickForCompare(defaultValues),
+  );
 
   useEffect(() => {
     if (changeType !== "advanced") {
@@ -183,6 +195,17 @@ export default function EditTargetingModal({
       throw new Error("Prerequisite targeting issues must be resolved");
     }
 
+    // Collapse contiguous / overlapping namespace ranges on save so the
+    // persisted phase carries a clean shape (e.g. [0.6, 0.9] + [0.9, 1] →
+    // [0.6, 1]). We do this here rather than while the user is editing so
+    // ranges don't flicker and collapse mid-edit.
+    const ns = value.namespace as
+      | { enabled?: boolean; ranges?: [number, number][] }
+      | undefined;
+    if (ns?.enabled && ns.ranges && ns.ranges.length > 0) {
+      ns.ranges = mergeContiguousRanges(ns.ranges);
+    }
+
     await apiCall(`/experiment/${experiment.id}/targeting`, {
       method: "POST",
       body: JSON.stringify(value),
@@ -196,14 +219,13 @@ export default function EditTargetingModal({
 
   if (safeToEdit) {
     return (
-      <Modal
+      <DialogLayout
         trackingEventModalType=""
         open={true}
         close={close}
-        header={`Edit Targeting`}
+        header="Edit Targeting"
         ctaEnabled={canSubmit}
         submit={onSubmit}
-        cta="Save"
         size="lg"
       >
         <TargetingForm
@@ -213,7 +235,7 @@ export default function EditTargetingModal({
           conditionKey={conditionKey}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
-      </Modal>
+      </DialogLayout>
     );
   }
 
@@ -577,6 +599,8 @@ function TargetingForm({
             form={form}
             featureId={experiment.trackingKey}
             trackingKey={experiment.trackingKey}
+            experimentHashAttribute={form.watch("hashAttribute")}
+            fallbackAttribute={form.watch("fallbackAttribute")}
           />
           {["advanced"].includes(changeType) && <hr />}
         </>

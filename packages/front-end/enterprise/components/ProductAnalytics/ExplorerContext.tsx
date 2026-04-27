@@ -13,8 +13,8 @@ import {
   ExplorationConfig,
   ProductAnalyticsValue,
   DatasetType,
-} from "shared/src/validators/product-analytics";
-import { ProductAnalyticsExploration } from "shared/validators";
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";

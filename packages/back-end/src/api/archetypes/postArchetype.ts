@@ -1,5 +1,6 @@
 import { postArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import {
   createArchetype,
   toArchetypeApiInterface,
@@ -21,7 +22,10 @@ export const postArchetype = createApiRequestHandler(postArchetypeValidator)(
       details: auditDetailsCreate(archetype),
     });
     return {
-      archetype: toArchetypeApiInterface(archetype),
+      archetype: await resolveOwnerEmail(
+        toArchetypeApiInterface(archetype),
+        req.context,
+      ),
     };
   },
 );

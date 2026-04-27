@@ -3,6 +3,7 @@ import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyFilter,
   applyPagination,
@@ -24,8 +25,9 @@ export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
     );
 
     return {
-      dimensions: filtered.map((dimension) =>
-        toDimensionApiInterface(dimension),
+      dimensions: await resolveOwnerEmails(
+        filtered.map((dimension) => toDimensionApiInterface(dimension)),
+        req.context,
       ),
       ...returnFields,
     };

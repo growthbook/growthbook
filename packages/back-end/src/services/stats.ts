@@ -102,7 +102,9 @@ export function getAnalysisSettingsForStatsEngine(
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
+    num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
+    use_covariate_as_response: !!settings.useCovariateAsResponse,
     post_stratification_enabled: !!settings.postStratificationEnabled,
   };
 
