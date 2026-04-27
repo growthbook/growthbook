@@ -178,17 +178,19 @@ export function buildFeatureInterface(
   // v0 is identified by the absence of `environmentSettings`.
   const hasEnvSettings = !!raw.environmentSettings;
 
-  let v1OrV2: V1FeatureInterface;
+  // Post-v0-normalization doc; v1-vs-v2 classification is still pending and
+  // happens via `isV2FeatureEnvSettings` below.
+  let postV0Doc: V1FeatureInterface;
   if (!hasEnvSettings) {
-    v1OrV2 = upgradeV0Feature(raw);
+    postV0Doc = upgradeV0Feature(raw);
   } else {
     // Strip v0 `environments` crust; a v2 doc's top-level `rules` is kept.
     // Must NOT call upgradeV0Feature — it would clobber v2's top-level rules.
-    v1OrV2 = omit(raw, ["environments"]) as V1FeatureInterface;
-    applyNonRuleFeatureUpgrades(v1OrV2);
+    postV0Doc = omit(raw, ["environments"]) as V1FeatureInterface;
+    applyNonRuleFeatureUpgrades(postV0Doc);
   }
 
-  const envSettings = v1OrV2.environmentSettings || {};
+  const envSettings = postV0Doc.environmentSettings || {};
 
   if (!isV2FeatureEnvSettings(envSettings)) {
     // v1 path. Inheritance must run BEFORE flattening so a rule defined only
@@ -202,8 +204,8 @@ export function buildFeatureInterface(
         (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
       );
     }
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, v1OrV2.project);
-    const v2 = v1OrV2 as unknown as FeatureInterface;
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, postV0Doc.project);
+    const v2 = postV0Doc as unknown as FeatureInterface;
     v2.rules = flattenV1ToV2Rules(rulesByEnv, {
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
@@ -215,14 +217,88 @@ export function buildFeatureInterface(
     return v2;
   }
 
-  // v2 path. Top-level `rules` is authoritative; inheritance only mutates the
-  // non-rule env fields (enabled, prerequisites).
-  const v2 = v1OrV2 as unknown as FeatureInterface;
-  v2.rules = (v2.rules || []).map((r) => upgradeFeatureRule(r as FeatureRule));
-  v2.environmentSettings = scrubEnvRules(
-    applyEnvironmentInheritance(orgEnvs, v1OrV2.environmentSettings || {}),
-  ) as Record<string, FeatureEnvironment>;
+  // v2 path. Top-level `rules` is authoritative, but a sparse env that
+  // inherits from a parent must also pick up that parent's rule scope —
+  // origin/main copied parent's full FeatureEnvironment (rules included)
+  // into missing children, so post-unification we expand each rule's
+  // `environments` to mirror that. Rules already at allEnvironments=true
+  // or scoped to envs whose inheriting children are explicitly defined
+  // in environmentSettings are left untouched.
+  const v2 = postV0Doc as unknown as FeatureInterface;
+  const originalEnvSettings = postV0Doc.environmentSettings || {};
+  const inheritedEnvSettings = applyEnvironmentInheritance(
+    orgEnvs,
+    originalEnvSettings,
+  );
+  const childrenByAncestor = buildInheritedChildrenByAncestor(
+    orgEnvs,
+    originalEnvSettings,
+  );
+  v2.rules = (v2.rules || []).map((r) => {
+    const upgraded = upgradeFeatureRule(r as FeatureRule);
+    return expandRuleEnvsForInheritance(upgraded, childrenByAncestor);
+  });
+  v2.environmentSettings = scrubEnvRules(inheritedEnvSettings) as Record<
+    string,
+    FeatureEnvironment
+  >;
   return v2;
+}
+
+// Map ancestor envId -> ordered list of inheriting child envIds whose own
+// entry is missing from `environmentSettings` (and therefore would have
+// inherited the ancestor's rule scope on origin/main). Children are
+// returned in `orgEnvs` order so expansions are deterministic.
+function buildInheritedChildrenByAncestor(
+  orgEnvs: { id: string; parent?: string }[],
+  originalEnvSettings: Record<string, unknown>,
+): Map<string, string[]> {
+  const parentOf = new Map<string, string>();
+  for (const env of orgEnvs) {
+    if (env.parent) parentOf.set(env.id, env.parent);
+  }
+  const childrenByAncestor = new Map<string, string[]>();
+  for (const env of orgEnvs) {
+    if (originalEnvSettings[env.id]) continue;
+    let ancestor = parentOf.get(env.id);
+    while (ancestor && !originalEnvSettings[ancestor]) {
+      ancestor = parentOf.get(ancestor);
+    }
+    if (!ancestor) continue;
+    const list = childrenByAncestor.get(ancestor);
+    if (list) list.push(env.id);
+    else childrenByAncestor.set(ancestor, [env.id]);
+  }
+  return childrenByAncestor;
+}
+
+// Append each ancestor's inheriting children to a rule's `environments`
+// (preserves original order; children are inserted right after their
+// ancestor). No-op for `allEnvironments: true` or empty-scope rules.
+function expandRuleEnvsForInheritance(
+  rule: FeatureRule,
+  childrenByAncestor: Map<string, string[]>,
+): FeatureRule {
+  if (rule.allEnvironments) return rule;
+  if (childrenByAncestor.size === 0) return rule;
+  const envs = rule.environments || [];
+  if (envs.length === 0) return rule;
+  const seen = new Set<string>();
+  const expanded: string[] = [];
+  for (const e of envs) {
+    if (!seen.has(e)) {
+      seen.add(e);
+      expanded.push(e);
+    }
+    for (const child of childrenByAncestor.get(e) || []) {
+      if (!seen.has(child)) {
+        seen.add(child);
+        expanded.push(child);
+      }
+    }
+  }
+  if (expanded.length === envs.length) return rule;
+  return { ...rule, environments: expanded } as FeatureRule;
 }
 
 // Read-side mirror of `buildFeatureUpdate`'s scrub — keeps in-memory features
