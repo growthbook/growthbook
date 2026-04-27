@@ -573,7 +573,7 @@ describe("buildFeatureInterface", () => {
   describe("env inheritance", () => {
     // Sparse legacy docs whose child env relies on parent inheritance must
     // still surface that rule in the child after unification.
-    it("v1 path: propagates rules across inherited envs", () => {
+    it("v1 path: propagates rules across inherited envs -> allEnvironments=true", () => {
       const envsWithParent: Environment[] = [
         { id: "dev", description: "" },
         { id: "staging", description: "", parent: "dev" },
@@ -598,6 +598,62 @@ describe("buildFeatureInterface", () => {
       expect(out.rules[0].allEnvironments).toBe(true);
     });
 
+    // Legacy v1 docs may omit child envs that inherit from a parent. The v1
+    // path runs `applyEnvironmentInheritance` before flattening so those rules
+    // surface in the inheriting child too — matching pre-unification behavior.
+    it("v1 path: propagates rules across inherited envs -> allEnvironments=false", () => {
+      const envsWithParent: Environment[] = [
+        { id: "dev", description: "" },
+        { id: "staging", description: "", parent: "dev" },
+        { id: "production", description: "" },
+      ];
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, rules: [v1Rule("r1") as FeatureRule] },
+          production: {
+            enabled: true,
+            rules: [],
+          },
+          // staging has no entry → inherits dev's rules.
+        },
+      } as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(v1, mockContext(envsWithParent));
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].allEnvironments).toBe(false);
+      expect(out.rules[0].environments).toEqual(["dev", "staging"]);
+    });
+
+    // Legacy v1 docs may omit child envs that inherit from a parent. The v1
+    // path runs `applyEnvironmentInheritance` before flattening so those rules
+    // surface in the inheriting child too — matching pre-unification behavior.
+    it("v1 path: ignores inheritance when environmentSettings already has the env", () => {
+      const envsWithParent: Environment[] = [
+        { id: "dev", description: "" },
+        { id: "staging", description: "", parent: "dev" },
+        { id: "production", description: "" },
+      ];
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, rules: [v1Rule("r1") as FeatureRule] },
+          production: {
+            enabled: true,
+            rules: [],
+          },
+          staging: { enabled: true, rules: [] },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(v1, mockContext(envsWithParent));
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].allEnvironments).toBe(false);
+      expect(out.rules[0].environments).toEqual(["dev"]);
+    });
+
     it("v1 path: still inherits non-rule envSettings fields (enabled) across parent chain", () => {
       const envsWithParent: Environment[] = [
         { id: "dev", description: "" },
@@ -613,6 +669,61 @@ describe("buildFeatureInterface", () => {
       const out = buildFeatureInterface(v1, mockContext(envsWithParent));
       expect(out.environmentSettings.staging).toBeDefined();
       expect(out.environmentSettings.staging.enabled).toBe(true);
+    });
+
+    it("v2 path: updates environments array for missing envs with inheritance", () => {
+      const envsWithParent: Environment[] = [
+        { id: "dev", description: "" },
+        { id: "staging", description: "", parent: "dev" },
+        { id: "production", description: "" },
+      ];
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        rules: [
+          v2Rule("r1", {
+            allEnvironments: false,
+            environments: ["dev"],
+          }) as FeatureRule,
+        ],
+        environmentSettings: {
+          dev: { enabled: true },
+          production: { enabled: true },
+        },
+      } as unknown as FeatureInterface;
+      const out = buildFeatureInterface(v2, mockContext(envsWithParent));
+
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].allEnvironments).toBe(false);
+      expect(out.rules[0].environments).toEqual(["dev", "staging"]);
+    });
+
+    it("v2 path: ignores inheritance when environmentSettings already has the env", () => {
+      const envsWithParent: Environment[] = [
+        { id: "dev", description: "" },
+        { id: "staging", description: "", parent: "dev" },
+        { id: "production", description: "" },
+      ];
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        rules: [
+          v2Rule("r1", {
+            allEnvironments: false,
+            environments: ["dev"],
+          }) as FeatureRule,
+        ],
+        environmentSettings: {
+          dev: { enabled: true },
+          production: { enabled: true },
+          staging: { enabled: true },
+        },
+      } as unknown as FeatureInterface;
+      const out = buildFeatureInterface(v2, mockContext(envsWithParent));
+
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].allEnvironments).toBe(false);
+      expect(out.rules[0].environments).toEqual(["dev"]);
     });
   });
 
