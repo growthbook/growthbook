@@ -1664,6 +1664,9 @@ export default abstract class SqlIntegration
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - testDays);
 
+    if (timestampColumn && !/^[\w.]+$/.test(timestampColumn)) {
+      throw new Error(`Invalid timestamp column: ${timestampColumn}`);
+    }
     const tableWhereClause = timestampColumn
       ? `WHERE ${timestampColumn} >= ${this.toTimestamp(startDate)}`
       : "";
