@@ -279,10 +279,41 @@ const v2RuleExperimentRefBase = z.object({
   experimentId: z.string(),
 });
 
+// Preserve-only shape for safe-rollout rules. The bulk POST/PUT v2 endpoints
+// can't create new safe-rollouts (that requires SafeRollout entity creation,
+// datasource validation, premium checks, and compensation on failure — see
+// `POST /v2/features/:id/revisions/:version/rules`). But round-tripping
+// existing safe-rollout rules through GET → modify → PUT must work, so the
+// validator accepts the rule body with a required `safeRolloutId` pointing
+// at an existing safe-rollout on the same feature. The handler rejects any
+// safeRolloutId that isn't already on the feature.
+const v2RuleSafeRolloutBase = z.object({
+  description: z.string().optional(),
+  id: z.string().optional(),
+  enabled: z.boolean().optional(),
+  type: z.literal("safe-rollout"),
+  condition: z.string().optional(),
+  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
+  prerequisites: z.array(postFeaturePrerequisite).optional(),
+  scheduleRules: z.array(apiScheduleRule).optional(),
+  controlValue: z.string(),
+  variationValue: z.string(),
+  hashAttribute: z.string(),
+  trackingKey: z.string().optional(),
+  seed: z.string().optional(),
+  safeRolloutId: z
+    .string()
+    .describe(
+      "ID of an existing SafeRollout on this feature. Bulk POST/PUT cannot create new safe-rollouts; use POST /v2/features/:id/revisions/:version/rules to create one.",
+    ),
+  status: z.enum(["running", "released", "rolled-back", "stopped"]).optional(),
+});
+
 export const postFeatureRuleV2 = z.union([
   v2RuleForceBase.merge(v2RuleScopeInput),
   v2RuleRolloutBase.merge(v2RuleScopeInput),
   v2RuleExperimentRefBase.merge(v2RuleScopeInput),
+  v2RuleSafeRolloutBase.merge(v2RuleScopeInput),
 ]);
 
 const postFeatureEnvironmentV2 = z.object({
@@ -354,7 +385,7 @@ export const updateFeatureBodyV2 = z
     rules: z
       .array(postFeatureRuleV2)
       .describe(
-        "Replaces all feature rules. Each rule must include scope fields (`allEnvironments` / `environments`).",
+        "Replaces all feature rules atomically. Behavior differs from v1: v1 PUT applies per-environment patches, v2 PUT swaps the entire `rules` array in one revision. To preserve existing rules during a partial edit, GET the feature first, mutate the returned `rules` array, and PUT the full array back. Safe-rollout rules round-trip via their `safeRolloutId` (creation requires `POST /v2/features/:id/revisions/:version/rules`).",
       )
       .optional(),
     environments: z
@@ -470,7 +501,7 @@ export const updateFeatureV2Validator = {
   responseSchema: featureV2ResponseSchema,
   summary: "Partially update a feature",
   description:
-    "Updates any combination of a feature's metadata, default value, environment state, and rules. Provide a top-level `rules` array to replace all feature rules (each rule must include scope fields). Returns 403 if approval rules are enabled for an affected environment and the bypass setting is off.",
+    "Updates any combination of a feature's metadata, default value, environment state, and rules. Other top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array atomically in a single revision (v1 PUT applied per-environment patches; v2 swaps the full flat array). To preserve existing rules during a partial edit, GET the feature first, mutate the returned `rules` array, and PUT the full array back. Safe-rollout rules round-trip via their `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones. Returns 403 if approval rules are enabled for an affected environment and the bypass setting is off.",
   operationId: "updateFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,

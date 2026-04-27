@@ -127,7 +127,9 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
-    inboundFlatRules = req.body.rules.map(mapV2ApiRuleToFeatureRule);
+    inboundFlatRules = req.body.rules.map((rule) =>
+      mapV2ApiRuleToFeatureRule(rule, feature),
+    );
     addIdsToFlatRules(inboundFlatRules, feature.id);
   }
 
@@ -143,7 +145,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
-  const updates: Partial<FeatureInterface> = {
+  let updates: Partial<FeatureInterface> = {
     ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
     ...(archived != null ? { archived } : {}),
     ...(description != null ? { description } : {}),
@@ -183,7 +185,9 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   const newTagsForDiff = updates.tags;
 
-  const metadataChanges = extractRevisionMetadata(updates);
+  const { metadata: metadataChanges, remaining: updatesAfterMetadata } =
+    extractRevisionMetadata(updates);
+  updates = updatesAfterMetadata;
 
   const newPrerequisites = updates.prerequisites ?? null;
   if (newPrerequisites !== null) {

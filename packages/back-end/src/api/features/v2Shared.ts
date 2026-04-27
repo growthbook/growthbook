@@ -3,6 +3,7 @@ import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { postFeatureRuleV2 } from "shared/validators";
 import { validateScheduleRules } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
+import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
 export type ApiRuleV2Input = z.infer<typeof postFeatureRuleV2>;
@@ -33,7 +34,16 @@ export function resolveScopeFromInput(
 
 // Convert a v2 API rule input to the internal `FeatureRule` shape. New rules
 // leave `id` blank; `addIdsToFlatRules` fills it in downstream.
-export function mapV2ApiRuleToFeatureRule(r: ApiRuleV2Input): FeatureRule {
+//
+// Safe-rollout is preserve-only: the SafeRollout entity must already exist on
+// `existingFeature` under the same `safeRolloutId`. New safe-rollouts must
+// go through `POST /v2/features/:id/revisions/:version/rules` because they
+// require entity creation + datasource validation + compensation orchestration
+// outside the bulk-PUT path.
+export function mapV2ApiRuleToFeatureRule(
+  r: ApiRuleV2Input,
+  existingFeature?: FeatureInterface,
+): FeatureRule {
   const { allEnvironments, environments, ...ruleInput } = r;
   const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
     resolveScopeFromInput(allEnvironments, environments);
@@ -71,6 +81,33 @@ export function mapV2ApiRuleToFeatureRule(r: ApiRuleV2Input): FeatureRule {
       hashAttribute: ruleInput.hashAttribute ?? "",
     };
   }
+  if (ruleInput.type === "safe-rollout") {
+    const existing = (existingFeature?.rules ?? []).find(
+      (er) =>
+        er.type === "safe-rollout" &&
+        er.safeRolloutId === ruleInput.safeRolloutId,
+    );
+    if (!existing) {
+      throw new BadRequestError(
+        `safeRolloutId "${ruleInput.safeRolloutId}" does not match any existing safe-rollout rule on this feature. Bulk POST/PUT cannot create new safe-rollouts; use POST /v2/features/:id/revisions/:version/rules.`,
+      );
+    }
+    const existingSafeRollout = existing as Extract<
+      FeatureRule,
+      { type: "safe-rollout" }
+    >;
+    return {
+      ...baseRule,
+      type: "safe-rollout" as const,
+      controlValue: ruleInput.controlValue,
+      variationValue: ruleInput.variationValue,
+      hashAttribute: ruleInput.hashAttribute,
+      trackingKey: ruleInput.trackingKey ?? existingSafeRollout.trackingKey,
+      seed: ruleInput.seed ?? existingSafeRollout.seed,
+      safeRolloutId: ruleInput.safeRolloutId,
+      status: ruleInput.status ?? existingSafeRollout.status,
+    };
+  }
   return {
     ...baseRule,
     type: "force" as const,
@@ -88,19 +125,21 @@ const METADATA_FIELDS = [
   "jsonSchema",
 ] as const;
 
-// Split metadata-like fields out of `updates` and into a separate object.
-// Mutates `updates` to remove them.
-export function extractRevisionMetadata(
-  updates: Partial<FeatureInterface>,
-): Record<string, unknown> {
-  const metadataChanges: Record<string, unknown> = {};
+// Pure split of metadata-like fields from feature updates. Returns the
+// metadata subset and a copy of `updates` with those keys removed.
+export function extractRevisionMetadata(updates: Partial<FeatureInterface>): {
+  metadata: Record<string, unknown>;
+  remaining: Partial<FeatureInterface>;
+} {
+  const metadata: Record<string, unknown> = {};
+  const remaining: Partial<FeatureInterface> = { ...updates };
   for (const key of METADATA_FIELDS) {
-    if (key in updates && updates[key] !== undefined) {
-      metadataChanges[key] = updates[key];
-      delete (updates as Record<string, unknown>)[key];
+    if (key in remaining && remaining[key] !== undefined) {
+      metadata[key] = remaining[key];
+      delete (remaining as Record<string, unknown>)[key];
     }
   }
-  return metadataChanges;
+  return { metadata, remaining };
 }
 
 export async function assertValidProjectId(

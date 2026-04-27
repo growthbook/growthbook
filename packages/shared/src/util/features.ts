@@ -38,7 +38,7 @@ import {
   getMatchingRules,
   getRulesForEnvironment,
   includeExperimentInPayload,
-  normalizeRulesInput,
+  naiveFlattenV1Rules,
   recursiveWalk,
 } from ".";
 
@@ -121,7 +121,7 @@ export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
   }
   if (!sawV1Rules) return snapshot;
 
-  const flat = normalizeRulesInput(rulesByEnv);
+  const flat = naiveFlattenV1Rules(rulesByEnv);
 
   const strippedEnvSettings: Record<string, unknown> = {};
   for (const [env, setting] of Object.entries(envSettings)) {
@@ -154,7 +154,7 @@ export function mergeRevision(
   // A revision carries the full intended rule set; replace wholesale when
   // present. `undefined` means the revision didn't touch rules.
   if (revision.rules !== undefined) {
-    newFeature.rules = normalizeRulesInput(revision.rules);
+    newFeature.rules = naiveFlattenV1Rules(revision.rules);
   }
 
   const envSettings = newFeature.environmentSettings;
@@ -487,7 +487,7 @@ function buildEnvResults(
     }
 
     // Fall back to v1 `environmentSettings[env].rules` for test fixtures
-    // that skip `buildFeatureInterface`'s JIT upgrade.
+    // that skip `migrateRawFeatureToV2`'s JIT upgrade.
     const v2RulesForEnv = getRulesForEnvironment(feature.rules, envId);
     const legacyRules = Array.isArray(feature.rules)
       ? []
@@ -862,8 +862,8 @@ export function draftDiffersFromLive(
   // Whole-array diff is the canonical "did rules change" check; per-env
   // projection is only needed for UX/gating (see `getDraftAffectedEnvironments`).
   if (
-    JSON.stringify(normalizeRulesInput(draft.rules)) !==
-    JSON.stringify(normalizeRulesInput(filledLive.rules))
+    JSON.stringify(naiveFlattenV1Rules(draft.rules)) !==
+    JSON.stringify(naiveFlattenV1Rules(filledLive.rules))
   )
     return true;
   if (
@@ -1057,9 +1057,9 @@ export function autoMerge(
   // Normalize all three sides up front. Pre-migration audit logs / draft
   // revisions may still arrive in v1 shape (Record<env, FeatureRule[]>);
   // normalize to a canonical v2 FeatureRule[] before any merge reasoning.
-  const liveRules = normalizeRulesInput(live.rules);
-  const baseRules = normalizeRulesInput(base.rules);
-  const revRules = normalizeRulesInput(revision.rules);
+  const liveRules = naiveFlattenV1Rules(live.rules);
+  const baseRules = naiveFlattenV1Rules(base.rules);
+  const revRules = naiveFlattenV1Rules(revision.rules);
   // `environments` is retained in the signature for call-site compatibility
   // and for the environmentsEnabled / override paths below, but rule merging
   // now operates on the flat v2 array — not a per-env projection.
@@ -1458,7 +1458,7 @@ export function isFeatureCyclic(
   if (revision && revision.rules !== undefined) {
     // v2: overlay the revision's top-level rules onto the feature. Per-env
     // filtering happens downstream via `getRulesForEnvironment`.
-    newFeature.rules = normalizeRulesInput(revision.rules);
+    newFeature.rules = naiveFlattenV1Rules(revision.rules);
   }
   if (!envs) {
     envs = Object.keys(newFeature.environmentSettings || {});
@@ -1785,8 +1785,8 @@ export function getDraftAffectedEnvironments(
   // "affected envs" semantic used by the review-gating UI: a rule with
   // `allEnvironments: true` counts as touching every allowed env; a v2 rule
   // with `environments: ["prod"]` counts only as touching prod.
-  const revRulesAll = normalizeRulesInput(revision.rules);
-  const baseRulesAll = normalizeRulesInput(baseRevision.rules);
+  const revRulesAll = naiveFlattenV1Rules(revision.rules);
+  const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
   const envs = new Set<string>();
   for (const env of allEnvironments) {
     const revRules = getRulesForEnvironment(revRulesAll, env).map(
@@ -1855,8 +1855,8 @@ export function checkIfRevisionNeedsReview({
   // Rules/values always require approval; kill switches only when
   // `featureRequireEnvironmentReview` is true (default when unset).
   // Project rules per-env to account for `allEnvironments` / `environments` scopes.
-  const revRulesAll = normalizeRulesInput(revision.rules);
-  const baseRulesAll = normalizeRulesInput(baseRevision.rules);
+  const revRulesAll = naiveFlattenV1Rules(revision.rules);
+  const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
   const envsWithRuleChanges = affected.filter((env) => {
     const revRules = getRulesForEnvironment(revRulesAll, env).map(
       normalizeRuleForDiff,

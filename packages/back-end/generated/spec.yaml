@@ -5244,6 +5244,110 @@ paths:
                           - variations
                           - experimentId
                         additionalProperties: false
+                      - type: object
+                        properties:
+                          description:
+                            type: string
+                          id:
+                            type: string
+                          enabled:
+                            type: boolean
+                          type:
+                            type: string
+                            const: safe-rollout
+                          condition:
+                            type: string
+                          savedGroupTargeting:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  description: Feature ID
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          scheduleRules:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                timestamp:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                enabled:
+                                  type: boolean
+                              required:
+                                - timestamp
+                                - enabled
+                              additionalProperties: false
+                          controlValue:
+                            type: string
+                          variationValue:
+                            type: string
+                          hashAttribute:
+                            type: string
+                          trackingKey:
+                            type: string
+                          seed:
+                            type: string
+                          safeRolloutId:
+                            description: >-
+                              ID of an existing SafeRollout on this feature.
+                              Bulk POST/PUT cannot create new safe-rollouts; use
+                              POST /v2/features/:id/revisions/:version/rules to
+                              create one.
+                            type: string
+                          status:
+                            type: string
+                            enum:
+                              - running
+                              - released
+                              - rolled-back
+                              - stopped
+                          allEnvironments:
+                            description: >-
+                              When true the rule applies to all environments
+                              (default).
+                            type: boolean
+                          environments:
+                            description: >-
+                              Specific environment IDs this rule applies to.
+                              Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - type
+                          - controlValue
+                          - variationValue
+                          - hashAttribute
+                          - safeRolloutId
+                        additionalProperties: false
                 environments:
                   description: >-
                     Per-environment enabled state. V2 rules are specified on the
@@ -5327,8 +5431,14 @@ paths:
       summary: Partially update a feature
       description: >-
         Updates any combination of a feature's metadata, default value,
-        environment state, and rules. Provide a top-level `rules` array to
-        replace all feature rules (each rule must include scope fields). Returns
+        environment state, and rules. Other top-level fields are patch-merged:
+        omit a field to leave it unchanged. The `rules` field, when supplied,
+        replaces the entire `rules` array atomically in a single revision (v1
+        PUT applied per-environment patches; v2 swaps the full flat array). To
+        preserve existing rules during a partial edit, GET the feature first,
+        mutate the returned `rules` array, and PUT the full array back.
+        Safe-rollout rules round-trip via their `safeRolloutId`; use `POST
+        /v2/features/:id/revisions/:version/rules` to create new ones. Returns
         403 if approval rules are enabled for an affected environment and the
         bypass setting is off.
       tags:
@@ -5368,8 +5478,14 @@ paths:
                     type: string
                 rules:
                   description: >-
-                    Replaces all feature rules. Each rule must include scope
-                    fields (`allEnvironments` / `environments`).
+                    Replaces all feature rules atomically. Behavior differs from
+                    v1: v1 PUT applies per-environment patches, v2 PUT swaps the
+                    entire `rules` array in one revision. To preserve existing
+                    rules during a partial edit, GET the feature first, mutate
+                    the returned `rules` array, and PUT the full array back.
+                    Safe-rollout rules round-trip via their `safeRolloutId`
+                    (creation requires `POST
+                    /v2/features/:id/revisions/:version/rules`).
                   type: array
                   items:
                     anyOf:
@@ -5629,6 +5745,110 @@ paths:
                           - type
                           - variations
                           - experimentId
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          description:
+                            type: string
+                          id:
+                            type: string
+                          enabled:
+                            type: boolean
+                          type:
+                            type: string
+                            const: safe-rollout
+                          condition:
+                            type: string
+                          savedGroupTargeting:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                matchType:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - any
+                                    - none
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - matchType
+                                - savedGroups
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  description: Feature ID
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          scheduleRules:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                timestamp:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                enabled:
+                                  type: boolean
+                              required:
+                                - timestamp
+                                - enabled
+                              additionalProperties: false
+                          controlValue:
+                            type: string
+                          variationValue:
+                            type: string
+                          hashAttribute:
+                            type: string
+                          trackingKey:
+                            type: string
+                          seed:
+                            type: string
+                          safeRolloutId:
+                            description: >-
+                              ID of an existing SafeRollout on this feature.
+                              Bulk POST/PUT cannot create new safe-rollouts; use
+                              POST /v2/features/:id/revisions/:version/rules to
+                              create one.
+                            type: string
+                          status:
+                            type: string
+                            enum:
+                              - running
+                              - released
+                              - rolled-back
+                              - stopped
+                          allEnvironments:
+                            description: >-
+                              When true the rule applies to all environments
+                              (default).
+                            type: boolean
+                          environments:
+                            description: >-
+                              Specific environment IDs this rule applies to.
+                              Required when allEnvironments is false.
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - type
+                          - controlValue
+                          - variationValue
+                          - hashAttribute
+                          - safeRolloutId
                         additionalProperties: false
                 environments:
                   description: >-

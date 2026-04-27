@@ -758,7 +758,7 @@ export async function postFeatures(
   // v1-shape (per-env) input is normalized through `normalizeRulesInputToV2`
   // so content-identical rules across envs merge into a single v2 rule with
   // `environments: [...envs]` (or `allEnvironments: true` when applicable),
-  // matching the read-path JIT migration. The naive shared `normalizeRulesInput`
+  // matching the read-path JIT migration. The naive shared `naiveFlattenV1Rules`
   // would split the same rule id across envs, forcing `ensureUniqueRuleIds`
   // to suffix and breaking v1 round-trip semantics.
   const flattenedInbound = normalizeRulesInputToV2(inboundEnvRules, {

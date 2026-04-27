@@ -4,14 +4,14 @@ import { Environment } from "shared/types/organization";
 import { suffixRuleId } from "shared/util";
 import {
   FeatureModel,
-  buildFeatureInterface,
+  migrateRawFeatureToV2,
   buildFeatureUpdate,
   toInterface,
 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 
 // ---------------------------------------------------------------------------
-// buildFeatureInterface is the pure-function core of FeatureModel.toInterface.
+// migrateRawFeatureToV2 is the pure-function core of FeatureModel.toInterface.
 // It accepts a raw document (already stripped of Mongoose metadata) and a
 // minimal ReqContext, and emits a v2 FeatureInterface via JIT migration.
 //
@@ -83,7 +83,7 @@ const BASE_META = {
   tags: [],
 };
 
-describe("buildFeatureInterface", () => {
+describe("migrateRawFeatureToV2", () => {
   // ================= 1. v0 (no environmentSettings) =================
 
   describe("v0 documents (no environmentSettings)", () => {
@@ -94,7 +94,7 @@ describe("buildFeatureInterface", () => {
         rules: [v1Rule("r1") as FeatureRule],
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v0, mockContext());
+      const out = migrateRawFeatureToV2(v0, mockContext());
       // Same rule in both envs after v0 upgrade → merges to allEnvironments=true.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
@@ -106,7 +106,7 @@ describe("buildFeatureInterface", () => {
         ...BASE_META,
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v0, mockContext());
+      const out = migrateRawFeatureToV2(v0, mockContext());
       expect(out.rules).toEqual([]);
     });
   });
@@ -126,7 +126,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext());
+      const out = migrateRawFeatureToV2(v1, mockContext());
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
       expect(out.rules[0].allEnvironments).toBe(true);
@@ -147,7 +147,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext());
+      const out = migrateRawFeatureToV2(v1, mockContext());
       expect(out.rules).toHaveLength(2);
       const devRule = out.rules.find((r) => r.environments?.[0] === "dev");
       const prodRule = out.rules.find(
@@ -166,7 +166,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext());
+      const out = migrateRawFeatureToV2(v1, mockContext());
       expect(out.rules).toEqual([]);
     });
   });
@@ -203,7 +203,7 @@ describe("buildFeatureInterface", () => {
     }
 
     it("preserves an inline experiment rule when org has empty envs array", () => {
-      const out = buildFeatureInterface(failingV0Feature(), mockContext([]));
+      const out = migrateRawFeatureToV2(failingV0Feature(), mockContext([]));
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("fr_real");
       expect(out.rules[0].type).toBe("experiment");
@@ -212,7 +212,7 @@ describe("buildFeatureInterface", () => {
 
     it("preserves an inline experiment rule when org.settings is undefined", () => {
       const ctx = { org: {} } as unknown as ReqContext;
-      const out = buildFeatureInterface(failingV0Feature(), ctx);
+      const out = migrateRawFeatureToV2(failingV0Feature(), ctx);
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("fr_real");
       expect(out.rules[0].type).toBe("experiment");
@@ -233,7 +233,7 @@ describe("buildFeatureInterface", () => {
         prerequisites: [],
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(
+      const out = migrateRawFeatureToV2(
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
@@ -242,7 +242,7 @@ describe("buildFeatureInterface", () => {
       expect(out.rules[0].allEnvironments).toBe(true);
     });
 
-    it("is idempotent: calling buildFeatureInterface twice produces identical output", () => {
+    it("is idempotent: calling migrateRawFeatureToV2 twice produces identical output", () => {
       const v2: FeatureInterface = {
         ...BASE_META,
         environmentSettings: {
@@ -259,11 +259,11 @@ describe("buildFeatureInterface", () => {
         prerequisites: [],
       } as unknown as FeatureInterface;
 
-      const first = buildFeatureInterface(
+      const first = migrateRawFeatureToV2(
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
-      const second = buildFeatureInterface(
+      const second = migrateRawFeatureToV2(
         first as unknown as LegacyFeatureInterface,
         mockContext(),
       );
@@ -298,7 +298,7 @@ describe("buildFeatureInterface", () => {
         prerequisites: [],
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(
+      const out = migrateRawFeatureToV2(
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
@@ -386,8 +386,8 @@ describe("buildFeatureInterface", () => {
         prerequisites: [],
       } as unknown as FeatureInterface;
 
-      const fromV1 = buildFeatureInterface(v1, mockContext());
-      const fromV2 = buildFeatureInterface(
+      const fromV1 = migrateRawFeatureToV2(v1, mockContext());
+      const fromV2 = migrateRawFeatureToV2(
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
@@ -421,7 +421,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1WithCrust, mockContext());
+      const out = migrateRawFeatureToV2(v1WithCrust, mockContext());
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r_real");
       expect(out.rules.find((r) => r.id === "r_stale")).toBeUndefined();
@@ -430,7 +430,7 @@ describe("buildFeatureInterface", () => {
 
   // ================= 4b. env.rules scrub on output =================
   //
-  // `buildFeatureInterface` must never expose the legacy
+  // `migrateRawFeatureToV2` must never expose the legacy
   // `environmentSettings[env].rules` key on its output (v1 or v2 path).
   // Downstream consumers read exclusively from the top-level `feature.rules`
   // array; leaving the legacy key populated would silently disagree with it.
@@ -448,7 +448,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext());
+      const out = migrateRawFeatureToV2(v1, mockContext());
       expect(out.rules).toHaveLength(1); // sanity: data still flows to feature.rules
       for (const envId of Object.keys(out.environmentSettings ?? {})) {
         expect(out.environmentSettings?.[envId]).toBeDefined();
@@ -482,7 +482,7 @@ describe("buildFeatureInterface", () => {
         prerequisites: [],
       } as unknown as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(hybrid, mockContext());
+      const out = migrateRawFeatureToV2(hybrid, mockContext());
       for (const envId of Object.keys(out.environmentSettings ?? {})) {
         expect("rules" in (out.environmentSettings?.[envId] as object)).toBe(
           false,
@@ -505,7 +505,7 @@ describe("buildFeatureInterface", () => {
         prerequisites: [],
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(
+      const out = migrateRawFeatureToV2(
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
@@ -523,7 +523,7 @@ describe("buildFeatureInterface", () => {
         prerequisites: [],
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(
+      const out = migrateRawFeatureToV2(
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
@@ -559,7 +559,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1PartialMigration, mockContext());
+      const out = migrateRawFeatureToV2(v1PartialMigration, mockContext());
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r_from_env");
       expect(
@@ -591,7 +591,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext(envsWithParent));
+      const out = migrateRawFeatureToV2(v1, mockContext(envsWithParent));
       // r1 covers all 3 applicable envs → collapses to allEnvironments=true.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
@@ -619,7 +619,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext(envsWithParent));
+      const out = migrateRawFeatureToV2(v1, mockContext(envsWithParent));
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
       expect(out.rules[0].allEnvironments).toBe(false);
@@ -647,7 +647,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext(envsWithParent));
+      const out = migrateRawFeatureToV2(v1, mockContext(envsWithParent));
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
       expect(out.rules[0].allEnvironments).toBe(false);
@@ -666,7 +666,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext(envsWithParent));
+      const out = migrateRawFeatureToV2(v1, mockContext(envsWithParent));
       expect(out.environmentSettings.staging).toBeDefined();
       expect(out.environmentSettings.staging.enabled).toBe(true);
     });
@@ -690,7 +690,7 @@ describe("buildFeatureInterface", () => {
           production: { enabled: true },
         },
       } as unknown as FeatureInterface;
-      const out = buildFeatureInterface(v2, mockContext(envsWithParent));
+      const out = migrateRawFeatureToV2(v2, mockContext(envsWithParent));
 
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
@@ -718,7 +718,7 @@ describe("buildFeatureInterface", () => {
           staging: { enabled: true },
         },
       } as unknown as FeatureInterface;
-      const out = buildFeatureInterface(v2, mockContext(envsWithParent));
+      const out = migrateRawFeatureToV2(v2, mockContext(envsWithParent));
 
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
@@ -751,7 +751,7 @@ describe("buildFeatureInterface", () => {
         },
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(v2, mockContext(envsCycle));
+      const out = migrateRawFeatureToV2(v2, mockContext(envsCycle));
       // No expansion into cyclic envs; rule footprint stays as-is.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].environments).toEqual(["production"]);
@@ -775,7 +775,7 @@ describe("buildFeatureInterface", () => {
         },
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(v2, mockContext(envsSelfLoop));
+      const out = migrateRawFeatureToV2(v2, mockContext(envsSelfLoop));
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].environments).toEqual(["production"]);
     });
@@ -801,7 +801,7 @@ describe("buildFeatureInterface", () => {
         },
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(v2, mockContext(envsMixed));
+      const out = migrateRawFeatureToV2(v2, mockContext(envsMixed));
       // r1 expanded into a and b via c (the only defined env in the cycle).
       // The v2 path expands `environments` but does not re-collapse to
       // allEnvironments=true.
@@ -830,7 +830,7 @@ describe("buildFeatureInterface", () => {
         },
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(v2, mockContext(envsBadParent));
+      const out = migrateRawFeatureToV2(v2, mockContext(envsBadParent));
       // staging's parent doesn't exist → no inheritance, rule stays scoped
       // to production only.
       expect(out.rules).toHaveLength(1);
@@ -853,7 +853,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext(envsCycle));
+      const out = migrateRawFeatureToV2(v1, mockContext(envsCycle));
       // Rule scoped to production only — cyclic envs gain nothing.
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r1");
@@ -875,7 +875,7 @@ describe("buildFeatureInterface", () => {
         rules: [],
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(
+      const out = migrateRawFeatureToV2(
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
@@ -897,7 +897,7 @@ describe("buildFeatureInterface", () => {
         },
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(
+      const out = migrateRawFeatureToV2(
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
@@ -919,7 +919,7 @@ describe("buildFeatureInterface", () => {
         rules: [],
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(
+      const out = migrateRawFeatureToV2(
         v2 as unknown as LegacyFeatureInterface,
         mockContext(),
       );
@@ -950,7 +950,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext(envs));
+      const out = migrateRawFeatureToV2(v1, mockContext(envs));
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].allEnvironments).toBe(true);
     });
@@ -961,7 +961,7 @@ describe("buildFeatureInterface", () => {
   // Both paths preserve rules whose only env(s) are non-applicable: the v1
   // path collapses to no-env "pending" via `shapeRule`; the v2 path leaves
   // the on-disk rule untouched (no `narrowRuleToApplicableEnvs` filter at
-  // `buildFeatureInterface` — the revision-read path narrows instead).
+  // `migrateRawFeatureToV2` — the revision-read path narrows instead).
   // Either way no rule body is silently dropped on read.
 
   describe("removed/orphaned envs in feature data", () => {
@@ -982,14 +982,14 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext(orgEnvs));
+      const out = migrateRawFeatureToV2(v1, mockContext(orgEnvs));
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r_staging_only");
       expect(out.rules[0].allEnvironments).toBe(false);
       expect(out.rules[0].environments).toEqual([]);
     });
 
-    it("v2 path: preserves rule scoped to a removed env as-is (no narrow at buildFeatureInterface)", () => {
+    it("v2 path: preserves rule scoped to a removed env as-is (no narrow at migrateRawFeatureToV2)", () => {
       // The v2 read path does NOT filter rules by applicableEnvs at this
       // layer (the revision read path does); orphan-env references survive
       // on the live feature unchanged.
@@ -1008,7 +1008,7 @@ describe("buildFeatureInterface", () => {
         },
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(v2, mockContext(orgEnvs));
+      const out = migrateRawFeatureToV2(v2, mockContext(orgEnvs));
       expect(out.rules).toHaveLength(2);
       expect(out.rules.map((r) => r.id).sort()).toEqual([
         "r_active",
@@ -1019,7 +1019,7 @@ describe("buildFeatureInterface", () => {
     });
 
     it("v2 path: preserves orphan entries in mixed-env rule footprint", () => {
-      // `buildFeatureInterface` does not narrow v2 rule footprints to
+      // `migrateRawFeatureToV2` does not narrow v2 rule footprints to
       // applicableEnvs. The rule's env list is left intact even if some
       // entries no longer exist in the org; the revision read path is the
       // narrow chokepoint.
@@ -1037,7 +1037,7 @@ describe("buildFeatureInterface", () => {
         },
       } as unknown as FeatureInterface;
 
-      const out = buildFeatureInterface(v2, mockContext(orgEnvs));
+      const out = migrateRawFeatureToV2(v2, mockContext(orgEnvs));
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].allEnvironments).toBe(false);
       expect(out.rules[0].environments).toEqual(["staging", "production"]);
@@ -1057,7 +1057,7 @@ describe("buildFeatureInterface", () => {
         },
       } as LegacyFeatureInterface;
 
-      const out = buildFeatureInterface(v1, mockContext(orgEnvs));
+      const out = migrateRawFeatureToV2(v1, mockContext(orgEnvs));
       expect(out.rules).toHaveLength(0);
       // Production survives.
       expect(out.environmentSettings.production).toBeDefined();
@@ -1176,12 +1176,12 @@ describe("buildFeatureUpdate", () => {
 // toInterface round-trip integration tests. Verify that a document
 // constructed via `new FeatureModel({...})` (as Mongoose hydrates on read)
 // round-trips to the same v2 `FeatureInterface` as calling
-// `buildFeatureInterface` directly on the raw payload.
+// `migrateRawFeatureToV2` directly on the raw payload.
 // ---------------------------------------------------------------------------
 
 describe("toInterface round-trip", () => {
   const runRoundTrip = (raw: Record<string, unknown>) => {
-    const direct = buildFeatureInterface(
+    const direct = migrateRawFeatureToV2(
       raw as unknown as LegacyFeatureInterface,
       mockContext(),
     );
@@ -1190,7 +1190,7 @@ describe("toInterface round-trip", () => {
     return { direct, viaDoc };
   };
 
-  it("v1 hydrated via Mongoose flattens to the same v2 shape as buildFeatureInterface", () => {
+  it("v1 hydrated via Mongoose flattens to the same v2 shape as migrateRawFeatureToV2", () => {
     const raw = {
       ...BASE_META,
       environmentSettings: {

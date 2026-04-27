@@ -8,7 +8,7 @@ import {
   toLegacyRevision,
   toLegacyRule,
 } from "back-end/src/util/toLegacy";
-import { buildFeatureInterface } from "back-end/src/models/FeatureModel";
+import { migrateRawFeatureToV2 } from "back-end/src/models/FeatureModel";
 import { buildFeatureRevisionInterface } from "back-end/src/models/FeatureRevisionModel";
 import { ReqContext } from "back-end/types/request";
 
@@ -630,14 +630,14 @@ describe("toLegacyRevision", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Round-trip stability: buildFeatureInterface(toLegacyFeature(x)) should
+// Round-trip stability: migrateRawFeatureToV2(toLegacyFeature(x)) should
 // produce a doc whose rules align with x on shape (ids, allEnvironments,
 // environments). With uid retired, the contract simplifies — we just need
 // rule.id to be stable modulo the deterministic __<env> suffixing the
 // flattener applies on legacy data.
 // ---------------------------------------------------------------------------
 
-describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
+describe("toLegacyFeature -> migrateRawFeatureToV2 shape round-trip", () => {
   it("preserves rule ids and allEnvironments=true flag through the round-trip", () => {
     const v2: FeatureInterface = {
       ...BASE_FEATURE,
@@ -650,7 +650,7 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
     } as unknown as FeatureInterface;
 
     const v1 = toLegacyFeature(v2, ORG_ENVS);
-    const roundTripped = buildFeatureInterface(
+    const roundTripped = migrateRawFeatureToV2(
       v1 as unknown as V1FeatureInterface,
       mockContext(),
     );
@@ -693,7 +693,7 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
       expect(env.rules.find((r) => r.id === "r_pending")).toBeUndefined();
     }
 
-    const roundTripped = buildFeatureInterface(
+    const roundTripped = migrateRawFeatureToV2(
       v1 as unknown as V1FeatureInterface,
       mockContext(),
     );
@@ -730,7 +730,7 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
     } as unknown as FeatureInterface;
 
     const v1 = toLegacyFeature(v2, ORG_ENVS);
-    const roundTripped = buildFeatureInterface(
+    const roundTripped = migrateRawFeatureToV2(
       v1 as unknown as V1FeatureInterface,
       mockContext(),
     );
@@ -773,7 +773,7 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
 // ---------------------------------------------------------------------------
 
 describe("multi-cycle v1/v2 conversion stability", () => {
-  // Helper: run buildFeatureInterface -> toLegacyFeature N times and return
+  // Helper: run migrateRawFeatureToV2 -> toLegacyFeature N times and return
   // the v2 snapshots from each cycle. snapshots[0] = after first flatten.
   function cycleFeature(
     raw: V1FeatureInterface,
@@ -782,7 +782,7 @@ describe("multi-cycle v1/v2 conversion stability", () => {
     const snapshots: FeatureInterface[] = [];
     let current: V1FeatureInterface = raw;
     for (let i = 0; i < n; i++) {
-      const v2 = buildFeatureInterface(current, mockContext());
+      const v2 = migrateRawFeatureToV2(current, mockContext());
       snapshots.push(v2);
       current = toLegacyFeature(v2, ORG_ENVS) as unknown as V1FeatureInterface;
     }

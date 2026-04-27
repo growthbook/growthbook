@@ -97,7 +97,9 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       (req.body.environments ?? {}) as ApiFeatureEnvSettings,
     );
 
-    feature.rules = (req.body.rules ?? []).map(mapV2ApiRuleToFeatureRule);
+    feature.rules = (req.body.rules ?? []).map((rule) =>
+      mapV2ApiRuleToFeatureRule(rule),
+    );
 
     const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
     feature.jsonSchema = jsonSchema;

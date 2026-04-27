@@ -5,7 +5,7 @@ import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
-  isV2FeatureEnvSettings,
+  hasNoV1EnvRules,
   isV2RevisionRules,
   narrowRuleForEnvRemoval,
   ruleFootprint,
@@ -813,16 +813,16 @@ describe("isV2RevisionRules", () => {
   });
 });
 
-// ================= isV2FeatureEnvSettings =================
+// ================= hasNoV1EnvRules =================
 
-describe("isV2FeatureEnvSettings", () => {
+describe("hasNoV1EnvRules", () => {
   it("returns true for empty env settings map", () => {
-    expect(isV2FeatureEnvSettings({})).toBe(true);
+    expect(hasNoV1EnvRules({})).toBe(true);
   });
 
   it("returns true when no env has a rules key", () => {
     expect(
-      isV2FeatureEnvSettings({
+      hasNoV1EnvRules({
         dev: { enabled: true },
         prod: { enabled: false },
       }),
@@ -831,13 +831,13 @@ describe("isV2FeatureEnvSettings", () => {
 
   it("treats rules: [] and rules: undefined as v2 (pre-scrub write artifact)", () => {
     expect(
-      isV2FeatureEnvSettings({
+      hasNoV1EnvRules({
         dev: { enabled: true, rules: [] },
         prod: { enabled: false },
       }),
     ).toBe(true);
     expect(
-      isV2FeatureEnvSettings({
+      hasNoV1EnvRules({
         dev: { enabled: true, rules: undefined },
         prod: { enabled: false },
       }),
@@ -846,7 +846,7 @@ describe("isV2FeatureEnvSettings", () => {
 
   it("returns false when any env has a populated rules array (legacy v1)", () => {
     expect(
-      isV2FeatureEnvSettings({
+      hasNoV1EnvRules({
         dev: { enabled: true, rules: [{ id: "r1" }] },
         prod: { enabled: false, rules: [] },
       }),

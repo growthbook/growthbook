@@ -12,7 +12,7 @@ import {
   JSONSchemaDef,
   revisionStatusSchema,
   featureRule,
-  FEATURE_V1_DEPRECATION_DATE,
+  FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
 
@@ -108,7 +108,7 @@ export const getFeatureRevisionValidator = {
   description:
     "**Deprecated.** Use `GET /v2/features/:id/revisions/:version` instead.\n\nReturns the revision at the specified version for this feature. Use `GET /features/{id}/revisions/latest` for the most recent active draft.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
@@ -134,7 +134,7 @@ export const getFeatureRevisionLatestValidator = {
   description:
     "**Deprecated.** Use `GET /v2/features/:id/revisions/latest` instead.\n\nReturns the most recently updated draft revision for the feature. Returns 404 if there is no active draft. Pass `mine=true` to return the most recent draft authored by or contributed to by the calling user (requires a user-scoped API key).",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: idParams,
   bodySchema: z.never(),
@@ -156,7 +156,7 @@ export const postFeatureRevisionValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions` instead.\n\nCreates a new draft revision branched from the current live revision. A feature can have multiple concurrent drafts; use this to start an isolated line of edits.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: idParams,
   bodySchema: z
@@ -177,7 +177,7 @@ export const postFeatureRevisionDiscardValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions/:version/discard` instead.\n\nPermanently discards a draft revision. Only drafts (never published revisions) can be discarded. Any pending ramp actions staged on the draft are dropped.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),
@@ -193,7 +193,7 @@ export const postFeatureRevisionPublishValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions/:version/publish` instead.\n\nImmediately publishes a draft revision, making it the live version of the feature. Blocked if the org requires approvals and `bypassApprovalChecks` is off.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -213,7 +213,7 @@ export const postFeatureRevisionRevertValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions/:version/revert` instead.\n\nCreates a new draft (or immediately publishes) whose content matches the specified historical revision.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -235,7 +235,7 @@ export const getFeatureRevisionMergeStatusValidator = {
   description:
     "**Deprecated.** Use `GET /v2/features/:id/revisions/:version/merge-status` instead.\n\nRuns a dry-run merge of the draft against the current live revision and returns any conflicts. Use this before publishing to preview changes and detect conflicting edits.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
@@ -255,7 +255,7 @@ export const postFeatureRevisionRebaseValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions/:version/rebase` instead.\n\nUpdates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields (keyed by `envName.ruleId` or `defaultValue`).",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -277,7 +277,7 @@ export const postFeatureRevisionRequestReviewValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions/:version/request-review` instead.\n\nMoves the draft into the `pending-review` state and notifies reviewers.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -297,7 +297,7 @@ export const postFeatureRevisionSubmitReviewValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions/:version/submit-review` instead.\n\nSubmits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts, but may submit comments or request changes.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -412,7 +412,7 @@ export const postFeatureRevisionRuleAddValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions/:version/rules` instead, which accepts rules with unified `allEnvironments`/`environments` scope fields instead of a per-environment `environment` parameter.\n\nAppends a new rule to the end of the rule list for the given environment. A `rule.type` of `force`, `rollout`, `experiment-ref`, or `safe-rollout` determines the accepted shape. Use `rampSchedule` for ramp configuration or `schedule` for a simple start/end window; if both are provided, `rampSchedule` wins.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -436,7 +436,7 @@ export const postFeatureRevisionRulesReorderValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions/:version/rules/reorder` instead, which reorders the global flat rule array without an `environment` parameter.\n\nReplaces the rule order for the environment. `ruleIds` must contain **exactly** the set of existing rule IDs in that environment — no additions, omissions, or duplicates.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -485,7 +485,7 @@ export const putFeatureRevisionRuleValidator = {
   description:
     "**Deprecated.** Use `PUT /v2/features/:id/revisions/:version/rules/:ruleId` instead, which locates rules by `ruleId` in the flat array without an `environment` parameter.\n\nPatches fields on an existing rule. The rule `type` cannot be changed — to convert types, delete and re-add. Fields that don't apply to the current rule type are rejected.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
   bodySchema: z
@@ -509,7 +509,7 @@ export const deleteFeatureRevisionRuleValidator = {
   description:
     "**Deprecated.** Use `DELETE /v2/features/:id/revisions/:version/rules/:ruleId` instead, which removes the rule from the flat array without an `environment` parameter.\n\nRemoves the rule from the specified environment. Any pending ramp actions on the draft for this rule are also cleared.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
   bodySchema: z
@@ -530,7 +530,7 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
   description:
     "**Deprecated.** Use `PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` instead.\n\nAttaches (or replaces) a ramp schedule for the rule. Rejects if the rule already has a live ramp schedule — update that directly via PUT /ramp-schedules/{id}. The schedule is created at publish time.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
   bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
@@ -546,7 +546,7 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
   description:
     "**Deprecated.** Use `DELETE /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` instead.\n\nRemoves a pending ramp schedule attached by the draft. If the rule currently has a live ramp schedule, a detach action is queued and applied at publish time.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
   bodySchema: z
@@ -569,7 +569,7 @@ export const postFeatureRevisionToggleValidator = {
   description:
     "**Deprecated.** Use `POST /v2/features/:id/revisions/:version/toggle` instead.\n\nSets whether the feature is enabled in the given environment as part of the draft. Takes effect on publish.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -591,7 +591,7 @@ export const putFeatureRevisionDefaultValueValidator = {
   description:
     "**Deprecated.** Use `PUT /v2/features/:id/revisions/:version/default-value` instead.\n\nReplaces the feature's default value for this revision. The value must be a string representation matching the feature's value type (e.g. `\"true\"` for booleans, `42` for numbers, a JSON string for JSON features).",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -609,7 +609,7 @@ export const putFeatureRevisionPrerequisitesValidator = {
   description:
     "**Deprecated.** Use `PUT /v2/features/:id/revisions/:version/prerequisites` instead.\n\nReplaces the feature's prerequisite list for this revision. Each prerequisite condition is evaluated against `{ value: <prereq-flag-value> }` at SDK eval time — use `value` as the condition key.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -630,7 +630,7 @@ export const putFeatureRevisionMetadataValidator = {
   description:
     "**Deprecated.** Use `PUT /v2/features/:id/revisions/:version/metadata` instead.\n\nUpdates draft-level metadata (`comment`, `title`) and/or feature-level metadata (owner, project, tags, customFields, jsonSchema, etc.). Merge semantics: omitted fields are left unchanged; any provided field replaces the current value (pass an empty string/array/object to clear). Feature metadata changes are staged on the revision and applied to the feature on publish. Changing `project` requires publish permission on both the old and new project.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -658,7 +658,7 @@ export const putFeatureRevisionArchiveValidator = {
   description:
     "**Deprecated.** Use `PUT /v2/features/:id/revisions/:version/archive` instead.\n\nSets whether the feature is archived. Archived features are excluded from SDK payloads on publish.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -676,7 +676,7 @@ export const putFeatureRevisionHoldoutValidator = {
   description:
     "**Deprecated.** Use `PUT /v2/features/:id/revisions/:version/holdout` instead.\n\nSets (or clears, via `holdout: null`) the holdout experiment bound to the feature. Holdout linkage side-effects (updating the holdout's linked feature list) are applied on publish.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -700,7 +700,7 @@ export const listRevisionsValidator = {
   description:
     "**Deprecated.** Use `GET /v2/revisions` instead.\n\nReturns a paginated list of feature revisions across all features in the organization. Optionally filtered by feature, status, author, and/or the calling user's involvement. Results are sorted newest-first.",
   deprecated: true,
-  deprecationDate: FEATURE_V1_DEPRECATION_DATE,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: z.never(),
   bodySchema: z.never(),

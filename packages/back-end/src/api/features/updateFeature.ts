@@ -146,7 +146,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
         : null;
 
-    const updates: Partial<FeatureInterface> = {
+    let updates: Partial<FeatureInterface> = {
       ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
       ...(archived != null ? { archived } : {}),
       ...(description != null ? { description } : {}),
@@ -292,7 +292,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // 3. metadata
-    const metadataChanges = extractRevisionMetadata(updates);
+    const { metadata: metadataChanges, remaining: updatesAfterMetadata } =
+      extractRevisionMetadata(updates);
+    updates = updatesAfterMetadata;
 
     // 4. prerequisites
     const newPrerequisites = updates.prerequisites ?? null;

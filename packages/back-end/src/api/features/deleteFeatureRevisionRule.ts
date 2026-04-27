@@ -40,6 +40,19 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
   const { environment } = req.body;
   assertValidEnvironment(req.context, environment);
 
+  // Reject envs scoped out of the feature's project. Without this, a delete
+  // request for a non-applicable env produces a phantom narrow (e.g.
+  // `allEnvironments: true` → explicit list of applicable envs with the
+  // same effective coverage) — looks like success but doesn't change
+  // anything the user can observe.
+  const orgEnvs = getEnvironments(req.organization);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  if (!applicableEnvs.includes(environment)) {
+    throw new BadRequestError(
+      `Environment "${environment}" is not applicable to this feature's project`,
+    );
+  }
+
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
     req.organization.id,
@@ -75,8 +88,6 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
-    const orgEnvs = getEnvironments(req.organization);
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
     // `narrowRuleForEnvRemoval` encapsulates the narrow-vs-delete decision:
     //   - `allEnvironments: true` expands to the full applicable set before
     //     narrowing, so we emit an explicit list of every other env.

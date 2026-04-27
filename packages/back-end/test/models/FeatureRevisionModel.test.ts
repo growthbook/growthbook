@@ -1,7 +1,7 @@
 import { FeatureRule } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { suffixRuleId } from "shared/util";
+import { naiveFlattenV1Rules, suffixRuleId } from "shared/util";
 import {
   buildFeatureRevisionInterface,
   normalizeRulesInputToV2,
@@ -232,7 +232,7 @@ describe("buildFeatureRevisionInterface", () => {
     });
 
     // Sparse legacy revisions must surface parent-env rules in inheriting
-    // children — symmetric with `buildFeatureInterface`'s v1 path.
+    // children — symmetric with `migrateRawFeatureToV2`'s v1 path.
     it("propagates rules across inherited envs (sparse v1 record)", () => {
       const envsWithParent: Environment[] = [
         { id: "dev", description: "" },
@@ -549,5 +549,103 @@ describe("normalizeRulesInputToV2", () => {
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe("fr_cov");
     expect(out[0].allEnvironments).toBe(true);
+  });
+
+  // Living documentation: shared `naiveFlattenV1Rules` (UI/diff path) vs
+  // back-end `normalizeRulesInputToV2` (persistence path). Same inputs, very
+  // different outputs — the shared helper duplicates ids across envs; the
+  // back-end version dedupes, collapses to `allEnvironments: true`, and
+  // suffixes id collisions. Swapping the shared helper onto a write path
+  // would persist duplicate rule ids and break v1 round-trip.
+  describe("vs shared naiveFlattenV1Rules", () => {
+    it("identical rule across envs: shared duplicates per env, back-end merges into one allEnvironments rule", () => {
+      const v1: V1RulesByEnv = {
+        dev: [v1Rule("fr_same")] as unknown as V1RulesByEnv[string],
+        production: [v1Rule("fr_same")] as unknown as V1RulesByEnv[string],
+      };
+
+      const naive = naiveFlattenV1Rules(v1);
+      expect(naive).toHaveLength(2);
+      expect(naive.every((r) => r.id === "fr_same")).toBe(true);
+      expect(new Set(naive.map((r) => r.id)).size).toBe(1);
+      expect(naive.map((r) => r.environments)).toEqual([
+        ["dev"],
+        ["production"],
+      ]);
+
+      const persisted = normalizeRulesInputToV2(v1, { orgEnvs: ORG_ENVS });
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].id).toBe("fr_same");
+      expect(persisted[0].allEnvironments).toBe(true);
+    });
+
+    it("diverging rule across envs: shared keeps colliding ids, back-end suffixes them", () => {
+      const v1: V1RulesByEnv = {
+        dev: [
+          v1Rule("fr_split", { value: "A" }),
+        ] as unknown as V1RulesByEnv[string],
+        production: [
+          v1Rule("fr_split", { value: "B" }),
+        ] as unknown as V1RulesByEnv[string],
+      };
+
+      const naive = naiveFlattenV1Rules(v1);
+      expect(naive).toHaveLength(2);
+      // Shared helper persists colliding ids — unsafe on write paths.
+      expect(new Set(naive.map((r) => r.id)).size).toBe(1);
+
+      const persisted = normalizeRulesInputToV2(v1, { orgEnvs: ORG_ENVS });
+      expect(persisted).toHaveLength(2);
+      // Back-end version suffixes to keep ids unique.
+      expect(new Set(persisted.map((r) => r.id)).size).toBe(2);
+      expect(persisted.map((r) => r.id).sort()).toEqual([
+        suffixRuleId("fr_split", "dev"),
+        suffixRuleId("fr_split", "production"),
+      ]);
+    });
+
+    it("v2 array input: shared returns the array unchanged; back-end clones (and would dedup if needed)", () => {
+      const v2 = [
+        {
+          id: "fr_v2",
+          type: "force" as const,
+          description: "",
+          enabled: true,
+          value: "true",
+          allEnvironments: true,
+        } as unknown as FeatureRule,
+      ];
+      expect(naiveFlattenV1Rules(v2)).toBe(v2);
+      const persisted = normalizeRulesInputToV2(v2, { orgEnvs: ORG_ENVS });
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].id).toBe("fr_v2");
+      expect(persisted[0].allEnvironments).toBe(true);
+    });
+
+    it("v2 array with colliding ids: back-end suffixes the duplicate", () => {
+      const v2 = [
+        {
+          id: "fr_dup",
+          type: "force",
+          description: "",
+          enabled: true,
+          value: "A",
+          environments: ["dev"],
+          allEnvironments: false,
+        },
+        {
+          id: "fr_dup",
+          type: "force",
+          description: "",
+          enabled: true,
+          value: "B",
+          environments: ["production"],
+          allEnvironments: false,
+        },
+      ] as unknown as FeatureRule[];
+      const persisted = normalizeRulesInputToV2(v2, { orgEnvs: ORG_ENVS });
+      expect(persisted).toHaveLength(2);
+      expect(new Set(persisted.map((r) => r.id)).size).toBe(2);
+    });
   });
 });

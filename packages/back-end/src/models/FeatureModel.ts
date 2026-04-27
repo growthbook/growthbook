@@ -57,7 +57,7 @@ import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
-  isV2FeatureEnvSettings,
+  hasNoV1EnvRules,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
@@ -169,7 +169,7 @@ export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
  *
  * Pure over `(raw, context)` so it's unit-testable without a live DB.
  */
-export function buildFeatureInterface(
+export function migrateRawFeatureToV2(
   raw: LegacyFeatureInterface,
   context: ReqContext | ApiReqContext,
 ): FeatureInterface {
@@ -181,7 +181,7 @@ export function buildFeatureInterface(
   const hasEnvSettings = !!raw.environmentSettings;
 
   // Post-v0-normalization doc; v1-vs-v2 classification is still pending and
-  // happens via `isV2FeatureEnvSettings` below.
+  // happens via `hasNoV1EnvRules` below.
   let postV0Doc: V1FeatureInterface;
   if (!hasEnvSettings) {
     postV0Doc = upgradeV0Feature(raw);
@@ -194,7 +194,7 @@ export function buildFeatureInterface(
 
   const envSettings = postV0Doc.environmentSettings || {};
 
-  if (!isV2FeatureEnvSettings(envSettings)) {
+  if (!hasNoV1EnvRules(envSettings)) {
     // v1 path. Inheritance must run BEFORE flattening so a rule defined only
     // on a parent env reaches inheriting children — otherwise sparse legacy
     // docs silently lose rules in child envs (origin/main applied inheritance
@@ -267,7 +267,7 @@ export const toInterface = (
   context: ReqContext | ApiReqContext,
 ): FeatureInterface => {
   const raw = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
-  return buildFeatureInterface(raw, context);
+  return migrateRawFeatureToV2(raw, context);
 };
 
 // ---------------------------------------------------------------------------

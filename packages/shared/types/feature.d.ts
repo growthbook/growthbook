@@ -65,13 +65,13 @@ export interface JSONSchemaDef {
 //      (boolean) and an optional `environments` list. Each env in
 //      `environmentSettings` is `{ enabled, prerequisites }` with NO `rules`
 //      key — the absence of that key is the structural signal a document is
-//      already v2 (see `isV2FeatureEnvSettings`). New writes go through
+//      already v2 (see `hasNoV1EnvRules`). New writes go through
 //      `buildFeatureUpdate`, which replaces each env wholesale to scrub the
 //      legacy `rules` key off disk.
 // ---------------------------------------------------------------------------
 
 // v1 feature document on disk. Discriminate v1 vs v2 with
-// `isV2FeatureEnvSettings` on the envSettings map.
+// `hasNoV1EnvRules` on the envSettings map.
 export type V1FeatureInterface = Omit<
   FeatureInterface,
   "rules" | "environmentSettings"

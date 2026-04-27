@@ -139,7 +139,7 @@ export function buildFeatureRevisionInterface(
   const orgEnvs = getEnvironments(context.org);
   const applicableEnvs = getApplicableEnvIds(orgEnvs, feature?.project);
   const applicableSet = new Set(applicableEnvs);
-  // Mirrors `buildFeatureInterface`'s v2 inheritance gating: a child env with
+  // Mirrors `migrateRawFeatureToV2`'s v2 inheritance gating: a child env with
   // an explicit `environmentSettings` entry is treated as customized and does
   // NOT inherit rules from its ancestor.
   const childrenByAncestor = buildInheritedChildrenByAncestor(
@@ -161,7 +161,7 @@ export function buildFeatureRevisionInterface(
   } else {
     // v1 legacy `Record<env, FeatureRule[]>`. Inheritance must run BEFORE
     // flattening so a sparse child env still surfaces its parent's rules
-    // (mirrors `buildFeatureInterface`'s v1 path).
+    // (mirrors `migrateRawFeatureToV2`'s v1 path).
     const v1Record =
       (rawRules as V1FeatureRevisionInterface["rules"] | undefined) || {};
     const inheritedRecord = applyEnvironmentInheritance(orgEnvs, v1Record);
@@ -556,29 +556,50 @@ export async function getRevisionsByStatus(
  * flattening so a legacy caller's sparse `{dev: [r1]}` writes a rule scoped
  * to dev and any envs that inherit from dev. `applicableEnvs` is seeded from
  * org envs + feature project so fully-covering rules collapse to
- * `allEnvironments: true`. Exported for unit testing.
+ * `allEnvironments: true`. Always runs `ensureUniqueRuleIds` on the way out
+ * so a buggy v2 caller passing duplicate ids can't smuggle them onto disk.
+ * Exported for unit testing.
  */
 export function normalizeRulesInputToV2(
   rulesInput: unknown,
   opts: { orgEnvs: Environment[]; featureProject?: string },
 ): FeatureRule[] {
   if (rulesInput === undefined || rulesInput === null) return [];
+
+  let flat: FeatureRule[];
   if (isV2RevisionRules(rulesInput)) {
-    return rulesInput.map((r) => upgradeFeatureRule(r));
+    flat = rulesInput.map((r) => upgradeFeatureRule(r));
+  } else {
+    const record = rulesInput as Record<string, FeatureRule[] | undefined>;
+    const inheritedRecord = applyEnvironmentInheritance(opts.orgEnvs, record);
+    const upgraded: V1RulesByEnv = {};
+    for (const [envId, envRules] of Object.entries(inheritedRecord)) {
+      upgraded[envId] = (envRules || []).map(
+        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
+      );
+    }
+    const applicableEnvs = getApplicableEnvIds(
+      opts.orgEnvs,
+      opts.featureProject,
+    );
+    flat = flattenV1ToV2Rules(upgraded, {
+      envOrder: opts.orgEnvs.map((e) => e.id),
+      applicableEnvs,
+    });
   }
-  const record = rulesInput as Record<string, FeatureRule[] | undefined>;
-  const inheritedRecord = applyEnvironmentInheritance(opts.orgEnvs, record);
-  const upgraded: V1RulesByEnv = {};
-  for (const [envId, envRules] of Object.entries(inheritedRecord)) {
-    upgraded[envId] = (envRules || []).map(
-      (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
+
+  // Persistence-safe: dedupe ids so the v2 array pass-through can't persist
+  // a colliding-id payload from a buggy upstream caller. `flattenV1ToV2Rules`
+  // already produces unique ids on the v1 record path, so this is a no-op
+  // there.
+  const { rules: deduped, collisions } = ensureUniqueRuleIds(flat);
+  if (collisions.length > 0) {
+    logger.warn(
+      { featureProject: opts.featureProject, collisions },
+      "Duplicate rule ids auto-suffixed in normalizeRulesInputToV2",
     );
   }
-  const applicableEnvs = getApplicableEnvIds(opts.orgEnvs, opts.featureProject);
-  return flattenV1ToV2Rules(upgraded, {
-    envOrder: opts.orgEnvs.map((e) => e.id),
-    applicableEnvs,
-  });
+  return deduped;
 }
 
 export async function createInitialRevision(
@@ -868,9 +889,8 @@ export async function updateRevision(
     status = "pending-review";
   }
 
-  // Belt-and-suspenders: `changes` historically tolerated v1 inputs. Route
-  // any `rules` through `normalizeRulesInputToV2` so a regressed caller
-  // can't persist a legacy per-env shape. No-op on already-v2 arrays.
+  // Persistence chokepoint: rules go through `normalizeRulesInputToV2`
+  // (also dedups ids and logs collisions). No-op on already-v2 arrays.
   const normalizedChanges: RevisionChanges =
     "rules" in changes && changes.rules !== undefined
       ? {
@@ -881,23 +901,6 @@ export async function updateRevision(
           }),
         }
       : changes;
-
-  if (Array.isArray(normalizedChanges.rules)) {
-    const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
-      normalizedChanges.rules as FeatureRule[],
-    );
-    if (collisions.length > 0) {
-      logger.warn(
-        {
-          featureId: revision.featureId,
-          version: revision.version,
-          collisions,
-        },
-        "Duplicate rule ids auto-suffixed on revision update",
-      );
-      normalizedChanges.rules = dedupedRules;
-    }
-  }
 
   await runValidateFeatureRevisionHooks({
     context,

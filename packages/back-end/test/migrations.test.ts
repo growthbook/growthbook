@@ -1176,7 +1176,7 @@ describe("Datasource Migration", () => {
 // old `draft` field into `legacyDraft`, and backfilling version/jsonSchema.
 // Note: the "doesn't overwrite new feature objects" test below demonstrates
 // that the upgrader is a no-op on v1 inputs. In production the 3-way branch
-// in FeatureModel.buildFeatureInterface never invokes this function on v1 or
+// in FeatureModel.migrateRawFeatureToV2 never invokes this function on v1 or
 // v2 documents — v0 is identified by the absence of `environmentSettings`.
 describe("v0 Feature Migration", () => {
   it("updates old feature objects", () => {
@@ -1505,15 +1505,15 @@ describe("v0 Feature Migration", () => {
 // in isolation and assert its v1 intermediate contract (legacy top-level
 // `rules` redistributed into `environmentSettings[env].rules`). In production,
 // that v1 intermediate is immediately flattened to the v2 unified top-level
-// `rules` array by `flattenV1ToV2Rules` inside `buildFeatureInterface`.
+// `rules` array by `flattenV1ToV2Rules` inside `migrateRawFeatureToV2`.
 // This block composes those two steps and asserts the end-to-end "new shape"
 // that callers actually see, documenting the composition the production code
 // relies on. Fine-grained v1 -> v2 flattening semantics are covered in
 // `test/util/flattenRules.test.ts`; see `test/models/FeatureModel.test.ts`
-// for the full pipeline via `buildFeatureInterface`.
+// for the full pipeline via `migrateRawFeatureToV2`.
 describe("v0 -> v2 Feature Migration Pipeline", () => {
   // Helper: run the two stateless halves of the migration pipeline the same
-  // way `buildFeatureInterface` does on the v0 branch.
+  // way `migrateRawFeatureToV2` does on the v0 branch.
   const runV0ToV2 = (
     raw: LegacyFeatureInterface,
     envOrder: string[],

@@ -45,6 +45,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { logger } from "back-end/src/util/logger";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export type MetadataOptions = {
@@ -246,7 +247,7 @@ export function getEnabledEnvironments(
       .filter((e) => {
         if (!ruleFilter) return true;
         // Fallback to v1 `settings[e].rules` for test fixtures that skip the
-        // JIT upgrade in `buildFeatureInterface`.
+        // JIT upgrade in `migrateRawFeatureToV2`.
         let envRules: FeatureRule[] = getRulesForEnvironment(feature.rules, e);
         if (envRules.length === 0 && !Array.isArray(feature.rules)) {
           envRules =
@@ -530,7 +531,7 @@ export function getFeatureDefinition({
 
   // Rule source: the revision's unified array (draft/published) or the
   // feature's (live), projected per env. Legacy `settings.rules` fallback
-  // is test-only — production readers flow through `buildFeatureInterface`.
+  // is test-only — production readers flow through `migrateRawFeatureToV2`.
   const v2Rules = revision?.rules ?? feature.rules;
   const rules: FeatureRule[] = Array.isArray(v2Rules)
     ? getRulesForEnvironment(v2Rules, environment)
@@ -977,6 +978,10 @@ export function applyEnvironmentInheritance<T>(
     const visited = new Set<string>([env]);
     while (baseEnv && typeof mutableClone[baseEnv] === "undefined") {
       if (visited.has(baseEnv)) {
+        logger.warn(
+          { env, cycle: [...visited, baseEnv] },
+          "Cycle detected in environment parent chain; skipping inheritance",
+        );
         baseEnv = undefined;
         break;
       }
@@ -1012,6 +1017,10 @@ export function buildInheritedChildrenByAncestor(
     const visited = new Set<string>([env.id]);
     while (ancestor && !originalEnvSettings[ancestor]) {
       if (visited.has(ancestor)) {
+        logger.warn(
+          { env: env.id, cycle: [...visited, ancestor] },
+          "Cycle detected in environment parent chain; skipping inheritance",
+        );
         ancestor = undefined;
         break;
       }

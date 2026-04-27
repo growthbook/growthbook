@@ -1737,6 +1737,12 @@ export function toApiRevision(
 // v1 REST response shape: per-env `rules: Record<env, ApiFeatureRule[]>`.
 // Each internal flat rule is bucketed into the envs it applies to via
 // `ruleFootprint`. Pass `featureProject` to restrict the bucket set.
+//
+// TODO: this and `getApiFeatureObj` below duplicate the env-bucketing logic in
+// `toLegacyRevision` / `toLegacyFeature` (in `util/toLegacy.ts`). The internal
+// vs. API-normalized rule shapes diverge per-rule, but the env loop is
+// identical. Consolidate via a shared `bucketRulesByEnv<T>(rules, applicable,
+// transform)` helper once the shape work settles.
 export function revisionToApiInterface(
   rev: FeatureRevisionInterface,
   orgEnvs: Environment[],

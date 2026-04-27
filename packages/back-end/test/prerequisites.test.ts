@@ -5,7 +5,7 @@ import { generateFeaturesPayload } from "back-end/src/services/features";
 
 // Test-local normalizer: these fixtures were authored in the v1 shape
 // (rules under environmentSettings[env].rules). The production JIT
-// migration (`buildFeatureInterface`) handles this on read, but these
+// migration (`migrateRawFeatureToV2`) handles this on read, but these
 // tests feed fixtures directly into generateFeaturesPayload. This helper
 // flattens v1 fixtures into v2 (`feature.rules` with per-env scope) so
 // the existing fixtures don't need a line-by-line rewrite.

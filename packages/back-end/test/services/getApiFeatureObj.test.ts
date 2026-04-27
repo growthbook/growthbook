@@ -4,7 +4,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { GroupMap } from "shared/types/saved-group";
 import { getApiFeatureObj } from "back-end/src/services/features";
-import { buildFeatureInterface } from "back-end/src/models/FeatureModel";
+import { migrateRawFeatureToV2 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 
 // Regression: env-less org → v1 REST emit dropped every rule because
@@ -42,7 +42,7 @@ function failingV0Feature(): LegacyFeatureInterface {
         enabled: true,
         coverage: 1,
         value: "false",
-      } as unknown as Parameters<typeof buildFeatureInterface>[0]["rules"][0],
+      } as unknown as Parameters<typeof migrateRawFeatureToV2>[0]["rules"][0],
     ],
   } as LegacyFeatureInterface;
 }
@@ -52,7 +52,7 @@ describe("getApiFeatureObj: env-less org backfill", () => {
     const organization = { id: "org_test" } as unknown as OrganizationInterface;
     const ctx = { org: organization } as unknown as ReqContext;
 
-    const feature: FeatureInterface = buildFeatureInterface(
+    const feature: FeatureInterface = migrateRawFeatureToV2(
       failingV0Feature(),
       ctx,
     );

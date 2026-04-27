@@ -20,10 +20,12 @@ export function isV2RevisionRules(rules: unknown): rules is FeatureRule[] {
   return Array.isArray(rules);
 }
 
-// v2 has no populated `env.rules`. Relies on `buildFeatureUpdate` scrubbing
-// `env.rules` from every $set payload — any new write path that touches
-// `environmentSettings` MUST route through it.
-export function isV2FeatureEnvSettings(
+// True when no env carries a populated legacy `rules` array — the structural
+// signal a document is v2. `rules: undefined` and `rules: []` count as scrubbed
+// (pre-write artifacts left by `buildFeatureUpdate`). Any new write path that
+// touches `environmentSettings` MUST route through `buildFeatureUpdate` to
+// keep this check accurate.
+export function hasNoV1EnvRules(
   envSettings: Record<string, { rules?: unknown } | undefined>,
 ): boolean {
   for (const env of Object.values(envSettings)) {

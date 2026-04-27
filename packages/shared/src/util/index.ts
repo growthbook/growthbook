@@ -374,13 +374,16 @@ export function ruleFootprint(
   return rule.environments.filter((e) => applicableSet.has(e));
 }
 
-// Input shim for shared diff/merge helpers fed a rules blob of ambiguous shape:
+// Naive v1→v2 flattener for diff/merge/preview paths. Coerces an ambiguous
+// rules blob into a flat FeatureRule[] without dedup or id-collision repair:
 //   FeatureRule[]                → pass-through
 //   Record<env, FeatureRule[]>   → flatten, stamping `environments: [env]`
 //   nullish / other              → []
-// NOT for persistence — that path must use `normalizeRulesInputToV2` on the
-// back-end, which also does upgrade cleanup and id-collision suffixing.
-export function normalizeRulesInput(input: unknown): FeatureRule[] {
+// NOT for persistence — content-identical rules across envs come out as
+// duplicate ids. Persistence paths must use `normalizeRulesInputToV2` on the
+// back-end, which dedupes by id, collapses to allEnvironments, and suffixes
+// collisions.
+export function naiveFlattenV1Rules(input: unknown): FeatureRule[] {
   if (input == null) return [];
   if (Array.isArray(input)) return input as FeatureRule[];
   if (typeof input === "object") {
