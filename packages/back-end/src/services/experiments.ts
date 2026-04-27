@@ -2352,13 +2352,11 @@ export async function toExperimentApiInterface(
   return apiExperiment;
 }
 
-// The smallest positive normal IEEE 754 double. Values below this magnitude
-// are subnormal and can break many real-world JSON parsers, so we flush them to 0.
-const SMALLEST_NORMAL_FLOAT = 2.2250738585072014e-308;
-
+// Round to 10 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
+// that break many real-world JSON parsers.
 function safeFloat(n: number | undefined, fallback = 0): number {
   if (n == null || !isFinite(n)) return fallback;
-  return Math.abs(n) < SMALLEST_NORMAL_FLOAT ? fallback : n;
+  return parseFloat(n.toFixed(10));
 }
 
 export function toSnapshotApiInterface(
