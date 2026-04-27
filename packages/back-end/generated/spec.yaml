@@ -4875,6 +4875,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/trackingKey'
         - $ref: '#/components/parameters/experimentId'
         - name: status
           in: query
@@ -19786,12 +19787,28 @@ components:
       schema:
         description: Filter by Data Source
         type: string
+    trackingKey:
+      name: trackingKey
+      in: query
+      description: Filter by experiment tracking key
+      schema:
+        description: Filter by experiment tracking key
+        type: string
     experimentId:
       name: experimentId
       in: query
-      description: Filter the returned list by the experiment tracking key (id)
+      description: >-
+        Filter the returned list by the experiment tracking key (not the
+        internal experiment ID). Note, this was deprecated to help reduce
+        confusion, consider using `trackingKey` instead, which is functionally
+        identical. You cannot use both params at the same time.
       schema:
-        description: Filter the returned list by the experiment tracking key (id)
+        deprecated: true
+        description: >-
+          Filter the returned list by the experiment tracking key (not the
+          internal experiment ID). Note, this was deprecated to help reduce
+          confusion, consider using `trackingKey` instead, which is functionally
+          identical. You cannot use both params at the same time.
         type: string
     phase:
       name: phase
