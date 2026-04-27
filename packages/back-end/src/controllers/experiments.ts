@@ -2737,6 +2737,8 @@ export async function postExperimentPhase(
     context,
     { condition: data.condition },
     "experiment phase",
+    undefined,
+    experiment.project,
   );
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();

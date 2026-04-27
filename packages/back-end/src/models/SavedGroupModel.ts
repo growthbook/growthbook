@@ -77,13 +77,16 @@ export class SavedGroupModel extends BaseClass {
     return SavedGroupModel.migrateSavedGroup(legacyDoc);
   }
 
-  protected async customValidation(doc: SavedGroupInterface) {
+  protected async customValidation(
+    doc: SavedGroupInterface,
+    previousDoc?: SavedGroupInterface,
+  ) {
     if (doc.type === "condition" && doc.condition) {
       assertRegisteredAttributes(
         this.context,
         { condition: doc.condition },
         "saved group",
-        undefined,
+        previousDoc ? { condition: previousDoc.condition } : undefined,
         doc.projects,
       );
     }
