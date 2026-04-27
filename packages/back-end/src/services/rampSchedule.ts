@@ -19,7 +19,11 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
-import { resolveRampTargets } from "back-end/src/util/flattenRules";
+import {
+  resolveRampTargets,
+  ruleFootprint,
+  getApplicableEnvIds,
+} from "back-end/src/util/flattenRules";
 
 // Applies actions for one entity: computes a fresh patch against live state and publishes immediately.
 interface EntityHandler {
@@ -637,21 +641,31 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
       if (feature) {
         projects = feature.project ? [feature.project] : [];
         tags = feature.tags ?? [];
-        // Targets with a specific environment use that; targets with environment=null
-        // (multi-env ramps) fall back to all environments the feature is active in.
-        //
-        // TODO: target.environment is wrong information for a v2 unified rule
-        // that spans envs. Resolve each target via
-        // `resolveRampTarget(target, feature.rules)` and read
-        // `rule.environments` / `rule.allEnvironments` instead; fall back to
-        // `target.environment` only if resolution fails (orphaned target).
-        // No data migration needed.
-        const specificEnvs = schedule.targets
-          .map((t) => t.environment)
-          .filter((e): e is string => !!e);
+        // Resolve each target to its v2 rule(s) and union their footprints.
+        // For unified rules that span multiple envs (`environments: [...]` or
+        // `allEnvironments: true`), this yields the full set rather than the
+        // legacy single `target.environment`. Orphaned targets (rule id no
+        // longer present) fall back to `target.environment`.
+        const orgEnvIds = getApplicableEnvIds(
+          getEnvironments(ctx.org),
+          feature.project,
+        );
+        const collected = new Set<string>();
+        for (const target of schedule.targets) {
+          const matches = resolveRampTargets(target, feature.rules ?? []);
+          if (matches.length === 0) {
+            if (target.environment) collected.add(target.environment);
+            continue;
+          }
+          for (const rule of matches) {
+            for (const env of ruleFootprint(rule, orgEnvIds)) {
+              collected.add(env);
+            }
+          }
+        }
         environments =
-          specificEnvs.length > 0
-            ? [...new Set(specificEnvs)]
+          collected.size > 0
+            ? [...collected]
             : Object.keys(feature.environmentSettings ?? {});
       }
     }

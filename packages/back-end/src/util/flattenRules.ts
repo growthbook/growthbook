@@ -268,8 +268,11 @@ type Occurrence = {
  * via `suffixRuleId`.
  *
  * Pass `opts.applicableEnvs` to enable `allEnvironments: true` collapse for
- * rules that cover every applicable env (occurrences in non-applicable envs
- * are dropped). Without it, `allEnvironments: true` is never emitted.
+ * rules that cover every applicable env. Occurrences in non-applicable envs
+ * are stripped from the footprint; rules left with no applicable envs are
+ * preserved as `environments: []` (no-env "pending" state) instead of
+ * dropped, so a publish during the orphaned period doesn't lose data.
+ * Without `applicableEnvs`, `allEnvironments: true` is never emitted.
  *
  * Deterministic: same input → byte-identical output.
  */
@@ -342,8 +345,8 @@ export function flattenV1ToV2Rules(
   );
 
   // 4. Emit. Merged rules emit once with the full footprint; non-merged emit
-  //    once per env with a suffixed id. `shapeRule` returns null when filtered
-  //    to an empty footprint.
+  //    once per env with a suffixed id. `shapeRule` collapses to the no-env
+  //    pending state when every source env is non-applicable.
   const applicable = opts?.applicableEnvs;
   const applicableSet = applicable ? new Set(applicable) : null;
 
@@ -362,14 +365,15 @@ export function flattenV1ToV2Rules(
     rule: V1FeatureRule,
     id: string,
     rawEnvList: string[],
-  ): FeatureRule | null {
+  ): FeatureRule {
     const filtered = applicableSet
       ? rawEnvList.filter((e) => applicableSet.has(e))
       : rawEnvList;
-    if (filtered.length === 0) return null;
 
     const coversAllApplicable =
-      applicableSet !== null && filtered.length === applicableSet.size;
+      applicableSet !== null &&
+      filtered.length > 0 &&
+      filtered.length === applicableSet.size;
 
     const base = {
       ...(rule as unknown as FeatureRule),
@@ -381,6 +385,9 @@ export function flattenV1ToV2Rules(
       delete (out as { environments?: string[] }).environments;
       return out;
     }
+    // Preserve the rule body even when every source env is non-applicable —
+    // collapse to the no-env "pending" state instead of dropping, so a
+    // publish during the orphaned period doesn't silently delete it.
     return {
       ...base,
       allEnvironments: false,
@@ -400,15 +407,13 @@ export function flattenV1ToV2Rules(
         const occs = groups.get(legacyId) ?? [];
         const occEnvSet = new Set(occs.map((o) => o.env));
         const envList = envs.filter((e) => occEnvSet.has(e));
-        const shaped = shapeRule(rule, legacyId, envList);
-        if (shaped) output.push(shaped);
+        output.push(shapeRule(rule, legacyId, envList));
       } else {
         // Lone occurrences keep their bare legacy id; suffix only on collision.
         const occs = groups.get(legacyId) ?? [];
         const needsSuffix = occs.length > 1 || dupInEnvIds.has(legacyId);
         const id = needsSuffix ? nextEnvSpecificId(legacyId, env) : legacyId;
-        const shaped = shapeRule(rule, id, [env]);
-        if (shaped) output.push(shaped);
+        output.push(shapeRule(rule, id, [env]));
       }
     }
   }

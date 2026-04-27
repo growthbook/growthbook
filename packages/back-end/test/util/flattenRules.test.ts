@@ -189,7 +189,7 @@ describe("flattenV1ToV2Rules", () => {
       expect(out[0]).not.toHaveProperty("environments");
     });
 
-    it("drops occurrences in envs NOT in applicableEnvs (orphan project-reassignment data)", () => {
+    it("strips occurrences in envs NOT in applicableEnvs (orphan project-reassignment data)", () => {
       const r = forceRule("r1");
       const out = flattenV1ToV2Rules(
         {
@@ -204,12 +204,15 @@ describe("flattenV1ToV2Rules", () => {
       expect(out[0]).not.toHaveProperty("environments");
     });
 
-    it("env-specific rule in a non-applicable env is dropped entirely", () => {
+    it("env-specific rule in a non-applicable env is preserved as no-env pending", () => {
       const out = flattenV1ToV2Rules(
         { legacyReadOnly: [forceRule("orphan")] },
         { applicableEnvs: ["dev", "prod"] },
       );
-      expect(out).toEqual([]);
+      expect(out).toHaveLength(1);
+      expect(out[0].id).toBe("orphan");
+      expect(out[0].allEnvironments).toBe(false);
+      expect(out[0].environments).toEqual([]);
     });
 
     it("partial-merge rule whose applicable subset is fully covered still collapses to allEnvironments=true", () => {
@@ -265,12 +268,15 @@ describe("flattenV1ToV2Rules", () => {
       expect(stems).toEqual(["A", "A", "B", "B"]);
     });
 
-    it("empty applicableEnvs (feature has no applicable envs) yields empty output", () => {
+    it("empty applicableEnvs preserves rules as no-env pending (no silent drop)", () => {
       const out = flattenV1ToV2Rules(
         { dev: [forceRule("r1")] },
         { applicableEnvs: [] },
       );
-      expect(out).toEqual([]);
+      expect(out).toHaveLength(1);
+      expect(out[0].id).toBe("r1");
+      expect(out[0].allEnvironments).toBe(false);
+      expect(out[0].environments).toEqual([]);
     });
   });
 

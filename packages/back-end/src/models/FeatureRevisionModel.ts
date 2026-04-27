@@ -151,13 +151,13 @@ export function buildFeatureRevisionInterface(
   if (isV2RevisionRules(rawRules)) {
     // v2 pass-through. `upgradeFeatureRule` heals pre-coverage experiment
     // rules; inheritance expansion adds any parent->child env propagation
-    // missed at write time; the env filter scrubs dev-style entries left
-    // over from a prior bad write so they self-heal on next read.
+    // missed at write time; `narrowRuleToApplicableEnvs` strips
+    // non-applicable envs and collapses fully-orphaned rules to the no-env
+    // pending state instead of dropping them.
     revision.rules = rawRules
       .map((r) => upgradeFeatureRule(r))
       .map((r) => expandRuleEnvsForInheritance(r, childrenByAncestor))
-      .map((r) => narrowRuleToApplicableEnvs(r, applicableSet))
-      .filter((r): r is FeatureRule => r !== null);
+      .map((r) => narrowRuleToApplicableEnvs(r, applicableSet));
   } else {
     // v1 legacy `Record<env, FeatureRule[]>`. Inheritance must run BEFORE
     // flattening so a sparse child env still surfaces its parent's rules
@@ -179,25 +179,35 @@ export function buildFeatureRevisionInterface(
   return revision;
 }
 
-// Drop a v2 rule's non-applicable envs. Returns null when the resulting
-// footprint is empty (rule would be unreachable everywhere).
+// Strip a v2 rule's non-applicable envs. When every env is non-applicable
+// (env removed from project, env deleted from org), collapse to the
+// no-env "pending" state (`environments: []`, `allEnvironments: false`)
+// rather than dropping the rule — preserves the rule body so a publish
+// during the orphaned period doesn't silently delete it. The UI surfaces
+// these as a red "No environments" badge.
 function narrowRuleToApplicableEnvs(
   rule: FeatureRule,
   applicableSet: Set<string>,
-): FeatureRule | null {
+): FeatureRule {
   if (rule.allEnvironments) {
-    if (applicableSet.size === 0) return null;
+    if (applicableSet.size === 0) {
+      return {
+        ...rule,
+        allEnvironments: false,
+        environments: [],
+      } as FeatureRule;
+    }
     return rule;
   }
   if (rule.environments === undefined) {
-    if (applicableSet.size === 0) return null;
+    if (applicableSet.size === 0) {
+      return { ...rule, environments: [] } as FeatureRule;
+    }
     return rule;
   }
-  // Empty environments[] is a valid "pending" state (no-env rule); preserve.
   if (rule.environments.length === 0) return rule;
   const filtered = rule.environments.filter((e) => applicableSet.has(e));
   if (filtered.length === rule.environments.length) return rule;
-  if (filtered.length === 0) return null;
   return { ...rule, environments: filtered } as FeatureRule;
 }
 

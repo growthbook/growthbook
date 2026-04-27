@@ -11,7 +11,6 @@ import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel"
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
-  addIdsToRules,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObjV2,
   getSavedGroupMap,
@@ -92,18 +91,10 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       customFields: req.body.customFields,
     };
 
-    const envSettings: Record<string, { enabled?: boolean }> =
-      req.body.environments ?? {};
-    const v1EnvSettings: ApiFeatureEnvSettings = Object.fromEntries(
-      Object.entries(envSettings).map(([env, s]) => [
-        env,
-        { enabled: s.enabled ?? false, rules: [] },
-      ]),
-    ) as ApiFeatureEnvSettings;
     feature.environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
       feature,
       orgEnvs,
-      v1EnvSettings,
+      (req.body.environments ?? {}) as ApiFeatureEnvSettings,
     );
 
     feature.rules = (req.body.rules ?? []).map(mapV2ApiRuleToFeatureRule);
@@ -126,7 +117,6 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       req.context.permissions.throwPermissionError();
     }
 
-    addIdsToRules(feature.environmentSettings, feature.id);
     addIdsToFlatRules(feature.rules, feature.id);
 
     await createFeature(req.context, feature);

@@ -958,19 +958,18 @@ describe("buildFeatureInterface", () => {
 
   // ================= Removed/orphaned envs =================
   //
-  // KNOWN ASYMMETRY (revisit): the v1 read path silently drops rules whose
-  // footprint ∩ applicableEnvs is empty (via `shapeRule`), while the v2 read
-  // path preserves them unchanged. This divergence is unintentional and was
-  // flagged in the PR review (Risk #2 + #5: no warn on drop, no
-  // env-deletion cascade). The tests below pin the *current* behavior so a
-  // future fix is intentional, not accidental — they should be updated when
-  // the two paths are aligned (e.g., both warn + preserve, or both filter
-  // with a log).
+  // Both paths preserve rules whose only env(s) are non-applicable: the v1
+  // path collapses to no-env "pending" via `shapeRule`; the v2 path leaves
+  // the on-disk rule untouched (no `narrowRuleToApplicableEnvs` filter at
+  // `buildFeatureInterface` — the revision-read path narrows instead).
+  // Either way no rule body is silently dropped on read.
 
-  describe("removed/orphaned envs in feature data (asymmetric — revisit)", () => {
-    it("v1 path: silently drops rule scoped only to a removed env (lossy — revisit)", () => {
+  describe("removed/orphaned envs in feature data", () => {
+    it("v1 path: preserves rule scoped only to a removed env as no-env pending", () => {
       // Org has only `production`. The on-disk doc still has a `staging`
-      // entry from before staging was removed.
+      // entry from before staging was removed. The v1→v2 flatten preserves
+      // the rule body with environments:[] so a later publish doesn't drop
+      // it silently.
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v1: LegacyFeatureInterface = {
         ...BASE_META,
@@ -984,16 +983,16 @@ describe("buildFeatureInterface", () => {
       } as LegacyFeatureInterface;
 
       const out = buildFeatureInterface(v1, mockContext(orgEnvs));
-      // Rule disappears — its only env is no longer applicable.
-      expect(out.rules).toHaveLength(0);
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r_staging_only");
+      expect(out.rules[0].allEnvironments).toBe(false);
+      expect(out.rules[0].environments).toEqual([]);
     });
 
-    it("v2 path: preserves rule scoped to a removed env (asymmetric with v1 path — revisit)", () => {
-      // The v2 read path does NOT filter rules by applicableEnvs, so an
-      // orphan-env reference survives on disk and round-trips on read.
-      // Diverges from the v1 path's silent-drop behavior — likely
-      // unintentional. Downstream consumers (SDK payload, UI) currently
-      // have to defend against orphan env references on their own.
+    it("v2 path: preserves rule scoped to a removed env as-is (no narrow at buildFeatureInterface)", () => {
+      // The v2 read path does NOT filter rules by applicableEnvs at this
+      // layer (the revision read path does); orphan-env references survive
+      // on the live feature unchanged.
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v2: FeatureInterface = {
         ...BASE_META,
@@ -1019,11 +1018,11 @@ describe("buildFeatureInterface", () => {
       expect(orphan?.environments).toEqual(["staging"]);
     });
 
-    it("v2 path: preserves orphan entries in mixed-env rule footprint (asymmetric — revisit)", () => {
-      // The v2 read path does not narrow rule footprints to applicableEnvs.
-      // The rule's env list is left intact even if some entries no longer
-      // exist in the org. Asymmetric with the v1 path (which would narrow
-      // via shapeRule). See "asymmetric — revisit" note above.
+    it("v2 path: preserves orphan entries in mixed-env rule footprint", () => {
+      // `buildFeatureInterface` does not narrow v2 rule footprints to
+      // applicableEnvs. The rule's env list is left intact even if some
+      // entries no longer exist in the org; the revision read path is the
+      // narrow chokepoint.
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v2: FeatureInterface = {
         ...BASE_META,

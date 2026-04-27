@@ -171,9 +171,10 @@ describe("buildFeatureRevisionInterface", () => {
       expect(out.rules[0].allEnvironments).toBe(true);
     });
 
-    // Regression: a v1 rule scoped to an env that's been excluded from the
-    // feature's project must not materialize in the v2 shape.
-    it("drops rules whose only env is non-applicable to the feature project", () => {
+    // Regression: a v1 rule scoped to an env excluded from the feature's
+    // project must collapse to a no-env "pending" rule (preserving the body
+    // so a publish doesn't silently drop it) rather than disappear.
+    it("preserves rules whose only env is non-applicable as no-env pending", () => {
       const orgEnvsWithProject: Environment[] = [
         { id: "dev", description: "", projects: ["other_proj"] },
         { id: "production", description: "" },
@@ -191,8 +192,14 @@ describe("buildFeatureRevisionInterface", () => {
         mockContext(orgEnvsWithProject),
         { project: "proj_main" },
       );
-      expect(out.rules).toHaveLength(1);
-      expect(out.rules[0].id).toBe("r_prod_only");
+      expect(out.rules).toHaveLength(2);
+      const devOnly = out.rules.find((r) => r.id === "r_dev_only");
+      const prodOnly = out.rules.find((r) => r.id === "r_prod_only");
+      expect(devOnly?.environments).toEqual([]);
+      expect(devOnly?.allEnvironments).toBe(false);
+      // r_prod_only covers the only applicable env, so it collapses to
+      // allEnvironments=true (environments stripped).
+      expect(prodOnly?.allEnvironments).toBe(true);
     });
 
     it("splits env-divergent rules into per-env suffixed ids", () => {

@@ -11,7 +11,7 @@ const MAX_VISIBLE_BADGES = 8;
 //   "all"      → rule applies to every applicable env (allEnvironments / undefined).
 //                Expanded inline to violet badges for each env in `environments`.
 //   string[]   → explicit env footprint. Envs in this list render violet,
-//                envs absent render muted gray. Empty array → red
+//                envs absent render muted gray. Empty array → amber
 //                "No environments" pill (rule does not apply anywhere).
 //
 // Order: natural order of `environments`, with `currentEnvironment` promoted
