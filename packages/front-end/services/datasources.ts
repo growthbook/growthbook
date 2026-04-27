@@ -306,7 +306,7 @@ const SegmentSchema: SchemaInterface = {
   (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
+    WHEN context_user_agent LIKE '% Edg%' THEN 'Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -344,7 +344,7 @@ FROM
   (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
+    WHEN context_user_agent LIKE '% Edg%' THEN 'Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -383,7 +383,7 @@ const RudderstackSchema: SchemaInterface = {
   (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
+    WHEN context_user_agent LIKE '% Edg%' THEN 'Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -409,7 +409,7 @@ WHERE
   (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
+    WHEN context_user_agent LIKE '% Edg%' THEN 'Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -582,7 +582,7 @@ const HeapSchema: SchemaInterface = {
   variation_id,
   platform as os,
   device_type as platform,
-  country
+  country,
   utm_source as source,
   utm_medium as medium,
   utm_campaign as campaign,
@@ -635,7 +635,7 @@ SELECT
 FROM
   ${tablePrefix}\`events_*\`,
   UNNEST(event_properties) AS exp_event_properties,
-  UNNEST(exp_event_properties.event_properties) AS experiment_id_param
+  UNNEST(exp_event_properties.event_properties) AS experiment_id_param,
   UNNEST(exp_event_properties.event_properties) AS variation_id_param
 WHERE
   _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
@@ -668,8 +668,8 @@ WHERE
   TIMESTAMP_MICROS(event_time) as timestamp${
     type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
   }
-  FROM
-    ${tablePrefix}{{snakecase eventName}}`;
+FROM
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
