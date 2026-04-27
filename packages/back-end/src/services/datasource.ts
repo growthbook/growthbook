@@ -14,6 +14,7 @@ import {
 } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryStatistics } from "shared/types/query";
+import { formatQueryExecutionErrorForApi } from "shared/util";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
@@ -211,7 +212,7 @@ export async function runFreeFormQuery(
     };
   } catch (e) {
     return {
-      error: e.message,
+      error: formatQueryExecutionErrorForApi(e),
       sql,
     };
   }
@@ -259,7 +260,7 @@ export async function runUserExposureQuery(
     };
   } catch (e) {
     return {
-      error: e.message,
+      error: formatQueryExecutionErrorForApi(e),
       sql,
     };
   }
@@ -349,7 +350,7 @@ export async function testQuery(
     };
   } catch (e) {
     return {
-      error: e.message,
+      error: formatQueryExecutionErrorForApi(e),
       sql,
     };
   }

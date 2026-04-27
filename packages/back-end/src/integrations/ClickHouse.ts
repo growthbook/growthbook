@@ -6,6 +6,10 @@ import {
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  ManagedWarehousePendingError,
+} from "shared/util";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
@@ -35,7 +39,17 @@ export default class ClickHouse extends SqlIntegration {
     return "clickhouse";
   }
 
+  async testConnection(): Promise<boolean> {
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      return true;
+    }
+    return super.testConnection();
+  }
+
   async runQuery(sql: string): Promise<QueryResponse> {
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      throw new ManagedWarehousePendingError();
+    }
     const client = createClient({
       url: getHost(this.params.url, this.params.port),
       username: this.params.username,

@@ -2,6 +2,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { PiArrowLineDownThin, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import { Flex, Separator } from "@radix-ui/themes";
 import { useRef, useState } from "react";
+import { isManagedWarehousePendingQueryError } from "shared/util";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { convertToCSV, downloadCSVFile } from "@/services/sql";
@@ -10,6 +11,7 @@ import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 import { floatRound } from "@/services/utils";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 
 export type HeaderStructure = {
   row1: { label: string; colSpan?: number; rowSpan?: number }[];
@@ -64,7 +66,9 @@ export default function DisplayTestQueryResults({
   // Match the line number from the error message that
   // either has "line <line number>" in it,
   // or ends with "[<line number>:<col number>]"
-  const errorLineMatch = error.match(/line\s+(\d+)|\[(\d+):\d+\]$/i);
+  const errorLineMatch =
+    !isManagedWarehousePendingQueryError(error) &&
+    error.match(/line\s+(\d+)|\[(\d+):\d+\]$/i);
   const errorLine = errorLineMatch
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
@@ -282,7 +286,13 @@ export default function DisplayTestQueryResults({
             className="mt-3"
           >
             {error ? (
-              <div className="alert alert-danger mr-auto">{error}</div>
+              isManagedWarehousePendingQueryError(error) ? (
+                <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
+                  <ManagedWarehouseNoEventsCallout />
+                </div>
+              ) : (
+                <div className="alert alert-danger mr-auto">{error}</div>
+              )
             ) : (
               showNoRowsWarning &&
               !results.length && (

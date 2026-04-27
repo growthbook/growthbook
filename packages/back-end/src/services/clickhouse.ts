@@ -3,6 +3,10 @@ import { createClient as createClickhouseClient } from "@clickhouse/client";
 import generator from "generate-password";
 import { AIPromptType } from "shared/ai";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  parseIntWithDefault,
+} from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   GrowthbookClickhouseDataSource,
@@ -11,7 +15,6 @@ import {
 } from "shared/types/datasource";
 import { DailyUsage } from "shared/types/organization";
 import { FactTableColumnType } from "shared/types/fact-table";
-import { parseIntWithDefault } from "shared/util";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -380,10 +383,7 @@ export async function createClickhouseUser(
   materializedColumns: MaterializedColumn[] = [],
 ): Promise<DataSourceParams> {
   if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
-    return createClickhouseUserViaLicenseServer(
-      context.org.id,
-      materializedColumns,
-    );
+    return createClickhouseUserViaLicenseServer(context.org.id);
   }
 
   const client = createAdminClickhouseClient();
@@ -479,16 +479,12 @@ export async function _dangerousRecreateClickhouseTables(
 ): Promise<void> {
   const orgId = context.org.id;
 
-  // Backfilling data can take a while, so lock the datasource for 30 minutes
-  await lockDataSource(context, datasource, 1800);
-
-  try {
-    if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
-      await dangerousRecreateClickhouseTablesViaLicenseServer(
-        orgId,
-        datasource.settings.materializedColumns || [],
-      );
-    } else {
+  if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+    await dangerousRecreateClickhouseTablesViaLicenseServer(orgId);
+  } else {
+    // Backfilling data can take a while, so lock the datasource for 30 minutes
+    await lockDataSource(context, datasource, 1800);
+    try {
       const client = createAdminClickhouseClient();
       const user = clickhouseUserId(orgId);
       const database = user;
@@ -505,9 +501,9 @@ export async function _dangerousRecreateClickhouseTables(
         orgId,
         datasource.settings.materializedColumns || [],
       );
+    } finally {
+      await unlockDataSource(context, datasource);
     }
-  } finally {
-    await unlockDataSource(context, datasource);
   }
 }
 
@@ -727,23 +723,25 @@ export async function updateMaterializedColumns({
   finalColumns: MaterializedColumn[];
   originalColumns: MaterializedColumn[];
 }) {
-  // We can only process one materialized column update at a time
-  // This should be quick, but lock it 5 minutes just in case
-  await lockDataSource(context, datasource, 300);
+  if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+    return;
+  }
+  const orgId = datasource.organization;
 
-  try {
-    const orgId = datasource.organization;
-
-    if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
-      await updateMaterializedColumnsInClickhouseViaLicenseServer({
-        orgId,
-        columnsToAdd,
-        columnsToDelete,
-        columnsToRename,
-        finalColumns,
-        originalColumns,
-      });
-    } else {
+  if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+    await updateMaterializedColumnsInClickhouseViaLicenseServer({
+      orgId,
+      columnsToAdd,
+      columnsToDelete,
+      columnsToRename,
+      finalColumns,
+      originalColumns,
+    });
+  } else {
+    // We can only process one materialized column update at a time.
+    // This should be quick, but lock it 5 minutes just in case.
+    await lockDataSource(context, datasource, 300);
+    try {
       const client = createAdminClickhouseClient();
 
       const addClauses = columnsToAdd
@@ -820,81 +818,79 @@ export async function updateMaterializedColumns({
       if (err) {
         throw err;
       }
+    } finally {
+      await unlockDataSource(context, datasource);
     }
+  }
 
-    // Update the main events fact table with the new columns
-    const factTables = await getFactTablesForDatasource(context, datasource.id);
-    const ft = factTables.find(
-      (ft) => ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-    );
-    if (ft) {
-      const newColumns = [...ft.columns];
-      newColumns.forEach((col) => {
-        if (col.numberFormat === undefined) {
-          col.numberFormat = "";
-        }
-      });
+  // Update the main events fact table with the new columns
+  const factTables = await getFactTablesForDatasource(context, datasource.id);
+  const ft = factTables.find(
+    (ft) => ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  );
+  if (ft) {
+    const newColumns = [...ft.columns];
+    newColumns.forEach((col) => {
+      if (col.numberFormat === undefined) {
+        col.numberFormat = "";
+      }
+    });
 
-      columnsToAdd.forEach((col) => {
-        const existingCol = newColumns.find((c) => c.column === col.columnName);
-        if (!existingCol) {
-          newColumns.push({
-            column: col.columnName,
-            name: col.columnName,
-            datatype: col.datatype,
-            dateCreated: new Date(),
-            dateUpdated: new Date(),
-            deleted: false,
-            description: "",
-            numberFormat: "",
-          });
-        } else {
-          // If the column already exists but was previously removed, restore it.
-          existingCol.deleted = false;
-          existingCol.dateUpdated = new Date();
-        }
-      });
-      columnsToRename.forEach(({ from, to }) => {
-        const col = newColumns.find((c) => c.column === from);
-        if (col) {
-          const existingDestinationCol = newColumns.find(
-            (c) => c.column === to,
-          );
-          // Destination already exists
-          if (existingDestinationCol) {
-            // Restore destination if it had been previously removed.
-            existingDestinationCol.deleted = false;
-            existingDestinationCol.dateUpdated = new Date();
-            // Mark the old column as deleted.
-            col.deleted = true;
-            col.dateUpdated = new Date();
-          } else {
-            // Otherwise, rename in place
-            col.column = to;
-            col.name = to;
-            col.dateUpdated = new Date();
-          }
-        }
-      });
-      columnsToDelete.forEach((name) => {
-        const col = newColumns.find((c) => c.column === name);
-        if (col) {
+    columnsToAdd.forEach((col) => {
+      const existingCol = newColumns.find((c) => c.column === col.columnName);
+      if (!existingCol) {
+        newColumns.push({
+          column: col.columnName,
+          name: col.columnName,
+          datatype: col.datatype,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          deleted: false,
+          description: "",
+          numberFormat: "",
+        });
+      } else {
+        // If the column already exists but was previously removed, restore it.
+        existingCol.deleted = false;
+        existingCol.dateUpdated = new Date();
+      }
+    });
+    columnsToRename.forEach(({ from, to }) => {
+      const col = newColumns.find((c) => c.column === from);
+      if (col) {
+        const existingDestinationCol = newColumns.find((c) => c.column === to);
+        // Destination already exists
+        if (existingDestinationCol) {
+          // Restore destination if it had been previously removed.
+          existingDestinationCol.deleted = false;
+          existingDestinationCol.dateUpdated = new Date();
+          // Mark the old column as deleted.
           col.deleted = true;
           col.dateUpdated = new Date();
+        } else {
+          // Otherwise, rename in place
+          col.column = to;
+          col.name = to;
+          col.dateUpdated = new Date();
         }
-      });
+      }
+    });
+    columnsToDelete.forEach((name) => {
+      const col = newColumns.find((c) => c.column === name);
+      if (col) {
+        col.deleted = true;
+        col.dateUpdated = new Date();
+      }
+    });
 
-      const newIdentifierTypes = finalColumns
-        .filter((col) => col.type === "identifier")
-        .map((col) => col.columnName);
+    const newIdentifierTypes = finalColumns
+      .filter((col) => col.type === "identifier")
+      .map((col) => col.columnName);
 
-      await updateFactTableColumns(
-        ft,
-        { columns: newColumns, userIdTypes: newIdentifierTypes },
-        context,
-      );
-    }
-  } finally {
-    await unlockDataSource(context, datasource);
+    await updateFactTableColumns(
+      ft,
+      { columns: newColumns, userIdTypes: newIdentifierTypes },
+      context,
+    );
   }
 }

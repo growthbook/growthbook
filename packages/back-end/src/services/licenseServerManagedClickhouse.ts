@@ -109,22 +109,18 @@ async function postManagedClickhouse(
 
 export async function createClickhouseUserViaLicenseServer(
   orgId: string,
-  materializedColumns: MaterializedColumn[] = [],
 ): Promise<DataSourceParams> {
   const res = await postManagedClickhouse("provision", {
     orgId,
-    materializedColumns,
   });
   return (await res.json()) as DataSourceParams;
 }
 
 export async function dangerousRecreateClickhouseTablesViaLicenseServer(
   orgId: string,
-  materializedColumns: MaterializedColumn[] = [],
 ): Promise<void> {
   await postManagedClickhouse("recreate-tables", {
     orgId,
-    materializedColumns,
   });
 }
 
