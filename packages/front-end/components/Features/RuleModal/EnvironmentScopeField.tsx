@@ -2,6 +2,7 @@ import { Box } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Environment } from "shared/types/organization";
 import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Text from "@/ui/Text";
 
@@ -40,8 +41,8 @@ export default function RuleEnvironmentScopeField({
         }}
         gap="0"
         options={[
-          { value: "all", label: "All environments" },
-          { value: "specific", label: "Specific environments" },
+          { value: "all", label: "All Environments" },
+          { value: "specific", label: "Specific Environments" },
         ]}
       />
       {!allEnvironments && (
@@ -55,6 +56,12 @@ export default function RuleEnvironmentScopeField({
             showCopyButton={false}
             containerClassName="w-full"
           />
+          {selectedEnvironments.length === 0 && (
+            <Callout status="warning" size="sm" mt="2">
+              This rule will not apply in any environment until at least one is
+              selected.
+            </Callout>
+          )}
         </Box>
       )}
     </Box>

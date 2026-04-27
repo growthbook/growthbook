@@ -10,6 +10,8 @@ const INACTIVE_COLLAPSE_THRESHOLD = 2;
 // `activeEnvironmentIds`:
 //   "all"      → render a single "All Environments" pill (rule with allEnvironments / undefined)
 //   string[]   → render explicit active envs (violet) and remaining envs (gray)
+//   []         → render a single red "No environments" pill (rule is scoped to
+//                no envs and won't apply anywhere until edited)
 // Used by both feature rules (rule.environments / allEnvironments) and holdouts
 // (derived from holdout.environmentSettings[envId].enabled).
 type Props = {
@@ -36,6 +38,26 @@ export default function RuleEnvScopeBadges({
           <Badge
             label="All Environments"
             color="violet"
+            variant="outline"
+            radius="full"
+            size="sm"
+          />
+        </Tooltip>
+      </Flex>
+    );
+  }
+
+  if (activeEnvironmentIds.length === 0) {
+    return (
+      <Flex gap="2" wrap="wrap" my={my} {...marginProps}>
+        <Tooltip
+          body="Rule is not scoped to any environment and will not apply anywhere"
+          tipPosition="top"
+          innerClassName="p-2"
+        >
+          <Badge
+            label="No environments"
+            color="red"
             variant="outline"
             radius="full"
             size="sm"

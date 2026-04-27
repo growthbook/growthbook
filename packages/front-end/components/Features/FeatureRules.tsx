@@ -29,12 +29,14 @@ import {
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { Box, Flex, TextField } from "@radix-ui/themes";
+import { ruleFootprint } from "shared/util";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import track from "@/services/track";
 import {
   getRules,
+  getUnreachableRuleIndex,
   isRuleInactive,
   useFeatureRulesEnv,
   FEATURE_RULES_ALL_ENVS,
@@ -481,6 +483,32 @@ export default function FeatureRules({
               rampSchedules,
               draftRevision,
             });
+            // Roll up per-env unreachability into a single set: a rule is
+            // unreachable in the all-envs view iff it's unreachable in *every*
+            // env it applies to. Rules with no env footprint
+            // (allEnvironments:false, environments:[]) never apply anywhere
+            // and are surfaced via the "No environments" badge instead, so
+            // they're skipped here rather than marked unreachable.
+            const unreachableIdxByEnv = new Map<string, number>();
+            for (const e of environments) {
+              unreachableIdxByEnv.set(
+                e.id,
+                getUnreachableRuleIndex(rulesByEnv[e.id] ?? [], experimentsMap),
+              );
+            }
+            const unreachableRuleIds = new Set<string>();
+            for (const rule of allEnvItems) {
+              const applicable = ruleFootprint(rule, envs);
+              if (applicable.length === 0) continue;
+              const blockedEverywhere = applicable.every((envId) => {
+                const envRules = rulesByEnv[envId] ?? [];
+                const idx = envRules.findIndex((r) => r.id === rule.id);
+                if (idx === -1) return false;
+                const unreachableIdx = unreachableIdxByEnv.get(envId) ?? 0;
+                return unreachableIdx > 0 && idx >= unreachableIdx;
+              });
+              if (blockedEverywhere) unreachableRuleIds.add(rule.id);
+            }
             return (
               <>
                 {allEnvItems.length > 0 || includeHoldoutRuleAllEnvs ? (
@@ -558,7 +586,7 @@ export default function FeatureRules({
                               i={allEnvIdx}
                               mutate={mutate}
                               setRuleModal={setRuleModal}
-                              unreachable={false}
+                              unreachable={unreachableRuleIds.has(rule.id)}
                               version={currentVersion}
                               setVersion={setVersion}
                               locked={isLocked}
@@ -599,7 +627,7 @@ export default function FeatureRules({
                                   i={flatIdx}
                                   mutate={mutate}
                                   setRuleModal={setRuleModal}
-                                  unreachable={false}
+                                  unreachable={unreachableRuleIds.has(rule.id)}
                                   version={currentVersion}
                                   setVersion={setVersion}
                                   locked={isLocked}

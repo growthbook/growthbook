@@ -406,16 +406,28 @@ export default function RuleModal({
               : ruleType === "safe-rollout"
                 ? "Safe Rollout Rule"
                 : "Rule";
-    text +=
-      ruleType === "safe-rollout"
-        ? ` in ${environment}`
-        : ` in ${selectedEnvironments[0]}${
-            selectedEnvironments.length > 1
-              ? ` + ${selectedEnvironments.length - 1} more`
-              : ""
-          }`;
+    if (ruleType === "safe-rollout") {
+      if (environment) text += ` in ${environment}`;
+    } else if (scopeAllEnvs) {
+      text += ` in All Environments`;
+    } else if (selectedEnvironments.length === 0) {
+      text += ` (no environments)`;
+    } else {
+      text += ` in ${selectedEnvironments[0]}${
+        selectedEnvironments.length > 1
+          ? ` + ${selectedEnvironments.length - 1} more`
+          : ""
+      }`;
+    }
     return text;
-  }, [ruleType, experimentType, mode, environment, selectedEnvironments]);
+  }, [
+    ruleType,
+    experimentType,
+    mode,
+    environment,
+    scopeAllEnvs,
+    selectedEnvironments,
+  ]);
 
   const trackingEventModalType = useMemo(
     () => kebabCase(headerText),
