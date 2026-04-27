@@ -266,8 +266,7 @@ export function FeatureUsageContainer({
   // would never match any entry and get filtered out of the graph.
   const ruleLabelMapping = new Map<string, string>();
   const rules = Array.isArray(revision?.rules) ? revision.rules : [];
-  // Match the displayed numbering in Rule.tsx: when a holdout is present it
-  // takes slot #1, so regular rules start at #2.
+  // Holdout occupies rule slot #1 (matches Rule.tsx).
   const ruleNumberOffset = revision?.holdout ? 2 : 1;
   rules.forEach((rule, i) => {
     if (!rule.id) return;

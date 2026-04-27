@@ -210,9 +210,7 @@ export default function DraftModal({
       ),
   );
 
-  // 1-based rule indices for resolving `Rule #N` references in pending action
-  // diffs. Holdout occupies #1 in the displayed numbering (matches Rule.tsx),
-  // so regular rules start at #2 when a holdout is present.
+  // 1-based rule indices for `Rule #N` refs. Holdout occupies #1 (Rule.tsx).
   const draftRules = Array.isArray(revision?.rules) ? revision!.rules : [];
   const draftRuleNumberOffset = revision?.holdout ? 2 : 1;
   const draftRuleIndexById = new Map(

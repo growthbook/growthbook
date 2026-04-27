@@ -108,10 +108,9 @@ export type FeatureRevisionDiff = {
   badges?: DiffBadge[];
 };
 
-// Fills in missing entries by walking each env's parent chain until a defined
-// ancestor is found. Mirrors backend `applyEnvironmentInheritance` so the diff
-// of `environmentsEnabled` doesn't surface phantom toggles for inheriting envs
-// that have no explicit entry on either side.
+// Mirrors backend `applyEnvironmentInheritance`: fill missing env entries by
+// walking each env's parent chain. Avoids phantom toggle diffs on inheriting
+// envs that have no explicit entry on either side.
 function fillEnabledByInheritance(
   enabled: Record<string, boolean> | undefined,
   envs: { id: string; parent?: string }[],
@@ -209,11 +208,8 @@ export function useFeatureRevisionDiff({
     }
 
     // 2. Environment toggles (kill switches). Apply inheritance to both sides
-    // so an inheriting env (no explicit entry) compares against its ancestor's
-    // value rather than defaulting to `false` — otherwise a draft that doesn't
-    // touch toggles can still surface "disabled → enabled" for an env whose
-    // parent is enabled. Missing-on-both falls back to `false` to handle
-    // pre-inheritance / orphan envs.
+    // so a missing entry compares against its ancestor's value (avoids phantom
+    // "disabled → enabled" diffs). Orphan envs fall back to `false`.
     const inheritedCurrent = fillEnabledByInheritance(
       current.environmentsEnabled,
       orgEnvs,

@@ -169,9 +169,7 @@ function formatValue(val: string | unknown): string {
 //   environments: [a, b, …]  → one badge per env
 //   environments: []         → "No environments (pending)"
 //   environments: undefined  → null (legacy audit fallback)
-// Envs not present in the org's current environment list render in amber
-// with a tooltip — typically a revision still references an env that has
-// since been deleted from the org.
+// Envs missing from the org list render in amber (deleted env tooltip).
 function RuleEnvScope({
   rule,
   size = "xs",
@@ -999,10 +997,9 @@ export function renderFeatureRules(
   postRules: FeatureRule[],
   options?: {
     pendingRampActions?: RevisionRampAction[];
-    // Holdout shifts rule numbers by +1 (matches `Rule.tsx`: holdout sits at
-    // #1 and the first regular rule starts at #2). Pre/post are tracked
-    // separately so add/remove of a holdout in the diff still renders
-    // post-side rules with the correct numbering on each side.
+    // Holdout occupies rule slot #1 (matches Rule.tsx); regular rules then
+    // start at #2. Tracked per side so a holdout add/remove still renders
+    // each side with its own correct numbering.
     preHasHoldout?: boolean;
     postHasHoldout?: boolean;
   },
