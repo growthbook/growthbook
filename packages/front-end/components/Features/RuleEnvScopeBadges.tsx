@@ -5,20 +5,44 @@ import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 
-const INACTIVE_COLLAPSE_THRESHOLD = 2;
+const MAX_VISIBLE_BADGES = 8;
 
 // `activeEnvironmentIds`:
-//   "all"      → render a single "All Environments" pill (rule with allEnvironments / undefined)
-//   string[]   → render explicit active envs (violet) and remaining envs (gray)
-//   []         → render a single red "No environments" pill (rule is scoped to
-//                no envs and won't apply anywhere until edited)
-// Used by both feature rules (rule.environments / allEnvironments) and holdouts
+//   "all"      → rule applies to every applicable env (allEnvironments / undefined).
+//                Expanded inline to violet badges for each env in `environments`.
+//   string[]   → explicit env footprint. Envs in this list render violet,
+//                envs absent render muted gray. Empty array → red
+//                "No environments" pill (rule does not apply anywhere).
+//
+// Order: natural order of `environments`, with `currentEnvironment` promoted
+// to position #2 when set (i.e., the env tab the user is viewing surfaces
+// near the front so it isn't lost to truncation). Truncates after
+// `MAX_VISIBLE_BADGES`; the overflow is rendered (in order) inside a
+// tooltip on the trailing "...".
+//
+// Used by feature rules (rule.environments / allEnvironments) and holdouts
 // (derived from holdout.environmentSettings[envId].enabled).
 type Props = {
   activeEnvironmentIds: string[] | "all";
   environments: Environment[];
   currentEnvironment?: string;
 } & MarginProps;
+
+function envBadge(envId: string, active: boolean) {
+  return (
+    <Badge
+      key={envId}
+      label={envId}
+      color={active ? "violet" : "gray"}
+      variant="outline"
+      radius="full"
+      size="sm"
+      style={
+        active ? undefined : { opacity: 0.3, backgroundColor: "var(--gray-a2)" }
+      }
+    />
+  );
+}
 
 export default function RuleEnvScopeBadges({
   activeEnvironmentIds,
@@ -27,27 +51,10 @@ export default function RuleEnvScopeBadges({
   my = "3",
   ...marginProps
 }: Props) {
-  if (activeEnvironmentIds === "all") {
-    return (
-      <Flex gap="2" wrap="wrap" my={my} {...marginProps}>
-        <Tooltip
-          body="Rule is active in all environments"
-          tipPosition="top"
-          innerClassName="p-2"
-        >
-          <Badge
-            label="All Environments"
-            color="violet"
-            variant="outline"
-            radius="full"
-            size="sm"
-          />
-        </Tooltip>
-      </Flex>
-    );
-  }
-
-  if (activeEnvironmentIds.length === 0) {
+  if (
+    Array.isArray(activeEnvironmentIds) &&
+    activeEnvironmentIds.length === 0
+  ) {
     return (
       <Flex gap="2" wrap="wrap" my={my} {...marginProps}>
         <Tooltip
@@ -67,50 +74,29 @@ export default function RuleEnvScopeBadges({
     );
   }
 
-  const activeSet = new Set(activeEnvironmentIds);
+  const activeSet =
+    activeEnvironmentIds === "all"
+      ? new Set(environments.map((e) => e.id))
+      : new Set(activeEnvironmentIds);
 
-  function sortedWithCurrentFirst(envs: Environment[]): Environment[] {
-    if (!currentEnvironment) return envs;
-    return [
-      ...envs.filter((e) => e.id === currentEnvironment),
-      ...envs.filter((e) => e.id !== currentEnvironment),
-    ];
+  // Promote the current env tab to position #2 (index 1) when present and
+  // not already in position #1 or #2.
+  const ordered = [...environments];
+  if (currentEnvironment) {
+    const idx = ordered.findIndex((e) => e.id === currentEnvironment);
+    if (idx > 1) {
+      const [item] = ordered.splice(idx, 1);
+      ordered.splice(1, 0, item);
+    }
   }
 
-  const active = sortedWithCurrentFirst(
-    environments.filter((e) => activeSet.has(e.id)),
-  );
-  const inactive = sortedWithCurrentFirst(
-    environments.filter((e) => !activeSet.has(e.id)),
-  );
-
-  const visibleInactive = inactive.slice(0, INACTIVE_COLLAPSE_THRESHOLD);
-  const hiddenCount = inactive.length - visibleInactive.length;
+  const visible = ordered.slice(0, MAX_VISIBLE_BADGES);
+  const overflow = ordered.slice(MAX_VISIBLE_BADGES);
 
   return (
     <Flex gap="2" wrap="wrap" my={my} {...marginProps}>
-      {active.map((env) => (
-        <Badge
-          key={env.id}
-          label={env.id}
-          color="violet"
-          variant="outline"
-          radius="full"
-          size="sm"
-        />
-      ))}
-      {visibleInactive.map((env) => (
-        <Badge
-          key={env.id}
-          label={env.id}
-          color="gray"
-          variant="outline"
-          radius="full"
-          size="sm"
-          style={{ opacity: 0.3, backgroundColor: "var(--gray-a2)" }}
-        />
-      ))}
-      {hiddenCount > 0 && (
+      {visible.map((env) => envBadge(env.id, activeSet.has(env.id)))}
+      {overflow.length > 0 && (
         <Tooltip
           flipTheme={false}
           body={
@@ -122,20 +108,11 @@ export default function RuleEnvScopeBadges({
                 size="small"
                 color="text-low"
               >
-                Other inactive environments
+                {overflow.length} more environment
+                {overflow.length === 1 ? "" : "s"}
               </Text>
               <Flex gap="1" wrap="wrap">
-                {inactive.slice(INACTIVE_COLLAPSE_THRESHOLD).map((env) => (
-                  <Badge
-                    key={env.id}
-                    label={env.id}
-                    color="gray"
-                    variant="outline"
-                    radius="full"
-                    size="sm"
-                    style={{ opacity: 0.3, backgroundColor: "var(--gray-a2)" }}
-                  />
-                ))}
+                {overflow.map((env) => envBadge(env.id, activeSet.has(env.id)))}
               </Flex>
             </>
           }

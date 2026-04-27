@@ -165,6 +165,10 @@ interface SortableProps {
   holdout: HoldoutInterface | undefined;
   rampSchedule?: RampScheduleInterface;
   draftRevision?: FeatureRevisionInterface | null;
+  // True when rendered under the all-environments view. The `environment`
+  // prop is then a cosmetic placeholder and must NOT promote a "current env"
+  // in the env-scope badges.
+  isAllEnvsView?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -225,6 +229,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       holdout,
       rampSchedule,
       draftRevision,
+      isAllEnvsView,
       ...props
     },
     ref,
@@ -936,8 +941,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 : rule.environments
             }
             environments={environments}
-            currentEnvironment={environment}
+            currentEnvironment={isAllEnvsView ? undefined : environment}
           />
+          <code>
+            {JSON.stringify({
+              envs: rule.environments,
+              all: rule.allEnvironments,
+            })}
+          </code>
           <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
             {rule.type === "safe-rollout" && safeRollout ? (
               <>

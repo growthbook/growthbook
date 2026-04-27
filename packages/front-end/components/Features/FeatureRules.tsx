@@ -599,6 +599,7 @@ export default function FeatureRules({
                               }
                               rampSchedule={rampSchedule}
                               draftRevision={draftRevision}
+                              isAllEnvsView
                             />
                           );
                         })}
@@ -642,6 +643,7 @@ export default function FeatureRules({
                                   }
                                   rampSchedule={rampSchedule}
                                   draftRevision={draftRevision}
+                                  isAllEnvsView
                                 />
                               );
                             })()
