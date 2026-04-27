@@ -7,6 +7,7 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -74,6 +75,16 @@ export class SavedGroupModel extends BaseClass {
 
   protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
     return SavedGroupModel.migrateSavedGroup(legacyDoc);
+  }
+
+  protected async customValidation(doc: SavedGroupInterface) {
+    if (doc.type === "condition" && doc.condition) {
+      assertRegisteredAttributes(
+        this.context,
+        { condition: doc.condition },
+        "saved group",
+      );
+    }
   }
 
   protected async beforeCreate(doc: SavedGroupInterface) {

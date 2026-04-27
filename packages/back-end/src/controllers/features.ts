@@ -1381,6 +1381,10 @@ export async function postFeatureRevert(
     context.permissions.throwPermissionError();
   }
 
+  // Intentionally no assertRegisteredAttributes() call here — reverting
+  // restores a previously-published state as-is, which may reference
+  // attributes that have since been archived or removed.
+
   // Compute the diff (what actually changes on the feature doc) and check publish permissions per-change.
   const mergeChanges: MergeResultChanges = {};
   const allEnabledEnvs = Array.from(
