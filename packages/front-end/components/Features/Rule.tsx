@@ -18,6 +18,8 @@ import {
   PiArrowUUpLeft,
   PiArrowUUpRight,
   PiTrash,
+  PiCaretUp,
+  PiCaretDown,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
@@ -169,6 +171,12 @@ interface SortableProps {
   // prop is then a cosmetic placeholder and must NOT promote a "current env"
   // in the env-scope badges.
   isAllEnvsView?: boolean;
+  // Provided by RuleList to support keyboard/menu reordering. Each callback
+  // moves the rule by one position in the current visible projection and
+  // posts the equivalent flat-index reorder to the API. Undefined when the
+  // rule cannot move in that direction.
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 type RuleProps = SortableProps &
@@ -230,6 +238,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rampSchedule,
       draftRevision,
       isAllEnvsView,
+      onMoveUp,
+      onMoveDown,
       ...props
     },
     ref,
@@ -574,6 +584,35 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       {rule.enabled ? "Disable" : "Enable"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
+                  {(onMoveUp || onMoveDown) && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          disabled={!onMoveUp}
+                          onClick={() => {
+                            if (onMoveUp) {
+                              onMoveUp();
+                              setDropdownOpen(false);
+                            }
+                          }}
+                        >
+                          <PiCaretUp /> Move up
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={!onMoveDown}
+                          onClick={() => {
+                            if (onMoveDown) {
+                              onMoveDown();
+                              setDropdownOpen(false);
+                            }
+                          }}
+                        >
+                          <PiCaretDown /> Move down
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </>
+                  )}
                   {rampSchedule && !isSimpleSchedule && !isSyntheticRamp && (
                     <>
                       <DropdownMenuSeparator />

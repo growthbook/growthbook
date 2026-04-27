@@ -223,6 +223,29 @@ export default function RuleList(props: RuleListProps) {
     permissionsUtil.canViewFeatureModal(feature.project) &&
     permissionsUtil.canManageFeatureDrafts(feature);
 
+  // Optimistic reorder + flat-index API call. Used by both DnD onDragEnd and
+  // the per-rule "Move up/down" menu items, so they share the same translation
+  // logic between projection-relative and feature.rules-flat indices.
+  async function reorderByRuleId(activeRuleId: string, overRuleId: string) {
+    const oldIndex = getRuleIndex(activeRuleId);
+    const newIndex = getRuleIndex(overRuleId);
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+    const newRules = arrayMove(items, oldIndex, newIndex);
+    setItems(newRules);
+    const flatOldIndex = flatIndexOf(activeRuleId, oldIndex);
+    const flatNewIndex = flatIndexOf(overRuleId, newIndex);
+    if (flatOldIndex === -1 || flatNewIndex === -1) return;
+    const res = await apiCall<{ version: number }>(
+      `/feature/${feature.id}/${version}/reorder`,
+      {
+        method: "POST",
+        body: JSON.stringify({ from: flatOldIndex, to: flatNewIndex }),
+      },
+    );
+    await mutate();
+    if (res.version) setVersion(res.version);
+  }
+
   return (
     <Flex direction="column" gap="4">
       <DndContext
@@ -233,32 +256,8 @@ export default function RuleList(props: RuleListProps) {
             setActiveId(null);
             return;
           }
-
           if (over && active.id !== over.id) {
-            const oldIndex = getRuleIndex(active.id);
-            const newIndex = getRuleIndex(over.id);
-
-            if (oldIndex === -1 || newIndex === -1) return;
-
-            const newRules = arrayMove(items, oldIndex, newIndex);
-            setItems(newRules);
-
-            const flatOldIndex = flatIndexOf(active.id as string, oldIndex);
-            const flatNewIndex = flatIndexOf(over.id as string, newIndex);
-            if (flatOldIndex === -1 || flatNewIndex === -1) return;
-
-            const res = await apiCall<{ version: number }>(
-              `/feature/${feature.id}/${version}/reorder`,
-              {
-                method: "POST",
-                body: JSON.stringify({
-                  from: flatOldIndex,
-                  to: flatNewIndex,
-                }),
-              },
-            );
-            await mutate();
-            res.version && setVersion(res.version);
+            await reorderByRuleId(active.id as string, over.id as string);
           }
           setActiveId(null);
         }}
@@ -287,29 +286,43 @@ export default function RuleList(props: RuleListProps) {
           />
         )}
         <SortableContext items={items} strategy={verticalListSortingStrategy}>
-          {items.map((rule, i) => (
-            <SortableRule
-              key={rule.id || i}
-              environment={displayEnvForRule(rule)}
-              i={flatIndexOf(rule.id, i)}
-              rule={rule}
-              feature={feature}
-              mutate={mutate}
-              setRuleModal={setRuleModal}
-              unreachable={isUnreachable(i, rule.id)}
-              version={version}
-              setVersion={setVersion}
-              locked={locked}
-              experimentsMap={experimentsMap}
-              hideInactive={hideInactive}
-              isDraft={isDraft}
-              safeRolloutsMap={safeRolloutsMap}
-              holdout={holdout}
-              rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
-              draftRevision={draftRevision}
-              isAllEnvsView={allEnvsView}
-            />
-          ))}
+          {items.map((rule, i) => {
+            const prevId = i > 0 ? items[i - 1].id : null;
+            const nextId = i < items.length - 1 ? items[i + 1].id : null;
+            return (
+              <SortableRule
+                key={rule.id || i}
+                environment={displayEnvForRule(rule)}
+                i={flatIndexOf(rule.id, i)}
+                rule={rule}
+                feature={feature}
+                mutate={mutate}
+                setRuleModal={setRuleModal}
+                unreachable={isUnreachable(i, rule.id)}
+                version={version}
+                setVersion={setVersion}
+                locked={locked}
+                experimentsMap={experimentsMap}
+                hideInactive={hideInactive}
+                isDraft={isDraft}
+                safeRolloutsMap={safeRolloutsMap}
+                holdout={holdout}
+                rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
+                draftRevision={draftRevision}
+                isAllEnvsView={allEnvsView}
+                onMoveUp={
+                  canEdit && prevId
+                    ? () => reorderByRuleId(rule.id, prevId)
+                    : undefined
+                }
+                onMoveDown={
+                  canEdit && nextId
+                    ? () => reorderByRuleId(rule.id, nextId)
+                    : undefined
+                }
+              />
+            );
+          })}
         </SortableContext>
         <DragOverlay>
           {activeRule ? (

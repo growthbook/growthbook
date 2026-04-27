@@ -59,11 +59,11 @@ export default function RuleCard({
               title="Drag and drop to re-order rules"
               style={{ cursor: "grab" }}
             >
-              <RiDraggable />
+              <RiDraggable size={16} />
             </div>
           ) : (
             <Box aria-hidden style={{ opacity: 0.25 }}>
-              <RiDraggable />
+              <RiDraggable size={16} />
             </Box>
           )}
         </Box>
