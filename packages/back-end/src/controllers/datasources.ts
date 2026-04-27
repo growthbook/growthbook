@@ -29,6 +29,7 @@ import {
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -86,6 +87,25 @@ import {
 } from "back-end/src/services/clickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
+
+type EventForwarderDatasourceParams =
+  | BigQueryConnectionParams
+  | SnowflakeConnectionParams
+  | undefined;
+
+function getEventForwarderDatasourceParams(
+  datasourceType: DataSourceType,
+  params: DataSourceParams | undefined,
+): EventForwarderDatasourceParams {
+  switch (datasourceType) {
+    case "bigquery":
+      return params as BigQueryConnectionParams;
+    case "snowflake":
+      return params as SnowflakeConnectionParams;
+    default:
+      return undefined;
+  }
+}
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -262,23 +282,22 @@ export async function postDataSources(
       description,
       projects,
     );
+    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+      datasource.type,
+      params,
+    );
 
     const syncedEventForwarderConfig =
       await syncEventForwarderConfigFromDatasource({
         context,
         datasource,
         draft: eventForwarderConfig,
-        datasourceParams:
-          datasource.type === "bigquery"
-            ? (params as BigQueryConnectionParams)
-            : undefined,
+        datasourceParams: eventForwarderDatasourceParams,
       });
     await provisionEventForwarderThroughLicenseServer(
       context,
       syncedEventForwarderConfig,
-      datasource.type === "bigquery"
-        ? (params as BigQueryConnectionParams)
-        : undefined,
+      eventForwarderDatasourceParams,
     );
     const integration = getSourceIntegrationObject(context, datasource);
 
@@ -546,22 +565,21 @@ export async function putDataSource(
       ...updates,
     };
     const integration = getSourceIntegrationObject(context, updatedDatasource);
+    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+      updatedDatasource.type,
+      integration.params,
+    );
     const syncedEventForwarderConfig =
       await syncEventForwarderConfigFromDatasource({
         context,
         datasource: updatedDatasource,
         draft: eventForwarderConfig,
-        datasourceParams:
-          updatedDatasource.type === "bigquery"
-            ? (integration.params as BigQueryConnectionParams)
-            : undefined,
+        datasourceParams: eventForwarderDatasourceParams,
       });
     await provisionEventForwarderThroughLicenseServer(
       context,
       syncedEventForwarderConfig,
-      updatedDatasource.type === "bigquery"
-        ? (integration.params as BigQueryConnectionParams)
-        : undefined,
+      eventForwarderDatasourceParams,
     );
 
     res.status(200).json({
