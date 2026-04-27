@@ -633,7 +633,7 @@ SELECT
   variation_id_param.value.int_value AS variation_id,
   source_type as source
 FROM
-  ${tablePrefix}\`events_ *\`,
+  ${tablePrefix}\`events_*\`,
   UNNEST(event_properties) AS exp_event_properties,
   UNNEST(exp_event_properties.event_properties) AS experiment_id_param
   UNNEST(exp_event_properties.event_properties) AS variation_id_param
@@ -657,7 +657,7 @@ WHERE
   event_type,
   source_type as source
 FROM
-  ${tablePrefix}\`events_ *\`
+  ${tablePrefix}\`events_*\`
 WHERE
   _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
 `;

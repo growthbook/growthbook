@@ -142,7 +142,7 @@ export async function runRefreshColumnsQuery(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
+    "sql" | "eventName" | "columns" | "userIdTypes"
   >,
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
