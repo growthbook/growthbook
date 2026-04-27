@@ -22,7 +22,7 @@ export function getDimensionValuePerUnit(
   if (dimension.type === "experiment") {
     return `SUBSTRING(
         MIN(
-          CONCAT(SUBSTRING(${dialect.castToString("e.timestamp")}, 1, 19),
+          CONCAT(SUBSTRING(${dialect.formatDateTimeString("e.timestamp")}, 1, 19),
             coalesce(${dialect.castToString(
               `e.${experimentDimensionPrefix ?? "dim_"}${dimension.id}`,
             )}, ${dialect.castToString(`'${NULL_DIMENSION_VALUE}'`)})
