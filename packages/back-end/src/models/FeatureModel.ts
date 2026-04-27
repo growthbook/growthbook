@@ -261,7 +261,14 @@ function buildInheritedChildrenByAncestor(
   for (const env of orgEnvs) {
     if (originalEnvSettings[env.id]) continue;
     let ancestor = parentOf.get(env.id);
+    // Bail out on cyclic parent chains as if no parent was set.
+    const visited = new Set<string>([env.id]);
     while (ancestor && !originalEnvSettings[ancestor]) {
+      if (visited.has(ancestor)) {
+        ancestor = undefined;
+        break;
+      }
+      visited.add(ancestor);
       ancestor = parentOf.get(ancestor);
     }
     if (!ancestor) continue;

@@ -971,9 +971,16 @@ export function applyEnvironmentInheritance<T>(
   const mutableClone = cloneDeep(environmentRecord || {});
   Object.keys(environmentParents).forEach((env) => {
     if (mutableClone[env]) return;
-    // If no definition for the environment exists, recursively inherit from the parent environments
+    // If no definition for the environment exists, recursively inherit from the parent environments.
+    // A `visited` set bails out on cyclic parent chains as if no parent was set.
     let baseEnv = environmentParents[env];
+    const visited = new Set<string>([env]);
     while (baseEnv && typeof mutableClone[baseEnv] === "undefined") {
+      if (visited.has(baseEnv)) {
+        baseEnv = undefined;
+        break;
+      }
+      visited.add(baseEnv);
       baseEnv = environmentParents[baseEnv];
     }
     // If a valid parent was found, copy its value in the record

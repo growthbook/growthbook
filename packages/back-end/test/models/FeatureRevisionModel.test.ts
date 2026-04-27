@@ -430,6 +430,69 @@ describe("normalizeRulesInputToV2", () => {
     expect(out[0].allEnvironments).toBe(true);
   });
 
+  // Duplicate-id v1 input on create: the v1 controller surface still accepts
+  // `Record<env, V1FeatureRule[]>` payloads. If a buggy / older v1 client
+  // posts the same rule id under multiple envs (the natural v1 shape), the
+  // write must converge to canonical v2 without persisting duplicate ids.
+  // - Identical content across envs → one rule with allEnvironments=true.
+  // - Diverging content across envs → suffixed `__<env>` ids, all unique.
+  describe("duplicate-id v1 input on create (collision handling)", () => {
+    it("merges identical-content duplicate ids across envs into one allEnvironments rule", () => {
+      const v1: V1RulesByEnv = {
+        dev: [v1Rule("fr_dup")] as unknown as V1RulesByEnv[string],
+        production: [v1Rule("fr_dup")] as unknown as V1RulesByEnv[string],
+      };
+
+      const out = normalizeRulesInputToV2(v1, { orgEnvs: ORG_ENVS });
+
+      expect(out).toHaveLength(1);
+      expect(out[0].id).toBe("fr_dup");
+      expect(out[0].allEnvironments).toBe(true);
+    });
+
+    it("splits diverging-content duplicate ids into per-env suffixed ids (no collision)", () => {
+      const v1: V1RulesByEnv = {
+        dev: [
+          v1Rule("fr_dup", { value: "A" }),
+        ] as unknown as V1RulesByEnv[string],
+        production: [
+          v1Rule("fr_dup", { value: "B" }),
+        ] as unknown as V1RulesByEnv[string],
+      };
+
+      const out = normalizeRulesInputToV2(v1, { orgEnvs: ORG_ENVS });
+
+      expect(out).toHaveLength(2);
+      const ids = out.map((r) => r.id).sort();
+      expect(ids).toEqual([
+        suffixRuleId("fr_dup", "dev"),
+        suffixRuleId("fr_dup", "production"),
+      ]);
+      // All ids must be unique after normalization (no duplicate-id persist).
+      expect(new Set(out.map((r) => r.id)).size).toBe(out.length);
+    });
+
+    it("disambiguates duplicate ids within the same env (`__<env>__N`)", () => {
+      const v1: V1RulesByEnv = {
+        dev: [
+          v1Rule("fr_dup", { value: "first" }),
+          v1Rule("fr_dup", { value: "second" }),
+        ] as unknown as V1RulesByEnv[string],
+      };
+
+      const out = normalizeRulesInputToV2(v1, { orgEnvs: ORG_ENVS });
+
+      expect(out).toHaveLength(2);
+      // Both rules must have distinct ids.
+      expect(new Set(out.map((r) => r.id)).size).toBe(2);
+      // Stems unify back to the legacy id.
+      expect(out.map((r) => r.id)).toEqual([
+        suffixRuleId("fr_dup", "dev"),
+        suffixRuleId("fr_dup", "dev", 2),
+      ]);
+    });
+  });
+
   it("honors featureProject when collapsing to allEnvironments", () => {
     // One restricted env + one unrestricted. Under featureProject="p1" both
     // are applicable, so a rule present in both collapses to

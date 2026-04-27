@@ -725,6 +725,140 @@ describe("buildFeatureInterface", () => {
       expect(out.rules[0].allEnvironments).toBe(false);
       expect(out.rules[0].environments).toEqual(["dev"]);
     });
+
+    // The following cycle tests pin the cycle-detection guards in
+    // `applyEnvironmentInheritance` and `buildInheritedChildrenByAncestor`.
+    // Without those guards, a cyclic parent chain would loop forever on read.
+    // Behavior on cycle: stop walking (as if no parent was set) — silent
+    // no-op rather than throw.
+
+    it("v2 path: 2-cycle parent chain (a<->b) with sparse envSettings is silently ignored", () => {
+      const envsCycle: Environment[] = [
+        { id: "a", description: "", parent: "b" },
+        { id: "b", description: "", parent: "a" },
+        { id: "production", description: "" },
+      ];
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        rules: [
+          v2Rule("r1", {
+            allEnvironments: false,
+            environments: ["production"],
+          }) as FeatureRule,
+        ],
+        environmentSettings: {
+          production: { enabled: true },
+        },
+      } as unknown as FeatureInterface;
+
+      const out = buildFeatureInterface(v2, mockContext(envsCycle));
+      // No expansion into cyclic envs; rule footprint stays as-is.
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].environments).toEqual(["production"]);
+    });
+
+    it("v2 path: self-loop parent (a.parent=a) is silently ignored", () => {
+      const envsSelfLoop: Environment[] = [
+        { id: "a", description: "", parent: "a" },
+        { id: "production", description: "" },
+      ];
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        rules: [
+          v2Rule("r1", {
+            allEnvironments: false,
+            environments: ["production"],
+          }) as FeatureRule,
+        ],
+        environmentSettings: {
+          production: { enabled: true },
+        },
+      } as unknown as FeatureInterface;
+
+      const out = buildFeatureInterface(v2, mockContext(envsSelfLoop));
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].environments).toEqual(["production"]);
+    });
+
+    it("v2 path: cycle with one defined env in the chain still inherits from the defined env", () => {
+      // a -> b -> c -> a, but `c` has envSettings. Walks from `a` and `b`
+      // both reach `c` before re-entering the cycle and inherit from it.
+      const envsMixed: Environment[] = [
+        { id: "a", description: "", parent: "b" },
+        { id: "b", description: "", parent: "c" },
+        { id: "c", description: "", parent: "a" },
+      ];
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        rules: [
+          v2Rule("r1", {
+            allEnvironments: false,
+            environments: ["c"],
+          }) as FeatureRule,
+        ],
+        environmentSettings: {
+          c: { enabled: true },
+        },
+      } as unknown as FeatureInterface;
+
+      const out = buildFeatureInterface(v2, mockContext(envsMixed));
+      // r1 expanded into a and b via c (the only defined env in the cycle).
+      // The v2 path expands `environments` but does not re-collapse to
+      // allEnvironments=true.
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+      expect(new Set(out.rules[0].environments)).toEqual(
+        new Set(["a", "b", "c"]),
+      );
+    });
+
+    it("v2 path: non-existent parent id silently no-ops", () => {
+      const envsBadParent: Environment[] = [
+        { id: "production", description: "" },
+        { id: "staging", description: "", parent: "deleted-env-id" },
+      ];
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        rules: [
+          v2Rule("r1", {
+            allEnvironments: false,
+            environments: ["production"],
+          }) as FeatureRule,
+        ],
+        environmentSettings: {
+          production: { enabled: true },
+        },
+      } as unknown as FeatureInterface;
+
+      const out = buildFeatureInterface(v2, mockContext(envsBadParent));
+      // staging's parent doesn't exist → no inheritance, rule stays scoped
+      // to production only.
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].environments).toEqual(["production"]);
+    });
+
+    it("v1 path: 2-cycle parent chain does not hang and does not synthesize rules", () => {
+      const envsCycle: Environment[] = [
+        { id: "a", description: "", parent: "b" },
+        { id: "b", description: "", parent: "a" },
+        { id: "production", description: "" },
+      ];
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [v1Rule("r1") as FeatureRule],
+          },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(v1, mockContext(envsCycle));
+      // Rule scoped to production only — cyclic envs gain nothing.
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("r1");
+      expect(out.rules[0].environments).toEqual(["production"]);
+    });
   });
 
   // ================= Non-rule upgrades + envSettings preservation =================
@@ -819,6 +953,115 @@ describe("buildFeatureInterface", () => {
       const out = buildFeatureInterface(v1, mockContext(envs));
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].allEnvironments).toBe(true);
+    });
+  });
+
+  // ================= Removed/orphaned envs =================
+  //
+  // KNOWN ASYMMETRY (revisit): the v1 read path silently drops rules whose
+  // footprint ∩ applicableEnvs is empty (via `shapeRule`), while the v2 read
+  // path preserves them unchanged. This divergence is unintentional and was
+  // flagged in the PR review (Risk #2 + #5: no warn on drop, no
+  // env-deletion cascade). The tests below pin the *current* behavior so a
+  // future fix is intentional, not accidental — they should be updated when
+  // the two paths are aligned (e.g., both warn + preserve, or both filter
+  // with a log).
+
+  describe("removed/orphaned envs in feature data (asymmetric — revisit)", () => {
+    it("v1 path: silently drops rule scoped only to a removed env (lossy — revisit)", () => {
+      // Org has only `production`. The on-disk doc still has a `staging`
+      // entry from before staging was removed.
+      const orgEnvs: Environment[] = [{ id: "production", description: "" }];
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+          staging: {
+            enabled: true,
+            rules: [v1Rule("r_staging_only") as FeatureRule],
+          },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(v1, mockContext(orgEnvs));
+      // Rule disappears — its only env is no longer applicable.
+      expect(out.rules).toHaveLength(0);
+    });
+
+    it("v2 path: preserves rule scoped to a removed env (asymmetric with v1 path — revisit)", () => {
+      // The v2 read path does NOT filter rules by applicableEnvs, so an
+      // orphan-env reference survives on disk and round-trips on read.
+      // Diverges from the v1 path's silent-drop behavior — likely
+      // unintentional. Downstream consumers (SDK payload, UI) currently
+      // have to defend against orphan env references on their own.
+      const orgEnvs: Environment[] = [{ id: "production", description: "" }];
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        rules: [
+          v2Rule("r_active", { allEnvironments: true }) as FeatureRule,
+          v2Rule("r_orphan", {
+            allEnvironments: false,
+            environments: ["staging"],
+          }) as FeatureRule,
+        ],
+        environmentSettings: {
+          production: { enabled: true },
+        },
+      } as unknown as FeatureInterface;
+
+      const out = buildFeatureInterface(v2, mockContext(orgEnvs));
+      expect(out.rules).toHaveLength(2);
+      expect(out.rules.map((r) => r.id).sort()).toEqual([
+        "r_active",
+        "r_orphan",
+      ]);
+      const orphan = out.rules.find((r) => r.id === "r_orphan");
+      expect(orphan?.environments).toEqual(["staging"]);
+    });
+
+    it("v2 path: preserves orphan entries in mixed-env rule footprint (asymmetric — revisit)", () => {
+      // The v2 read path does not narrow rule footprints to applicableEnvs.
+      // The rule's env list is left intact even if some entries no longer
+      // exist in the org. Asymmetric with the v1 path (which would narrow
+      // via shapeRule). See "asymmetric — revisit" note above.
+      const orgEnvs: Environment[] = [{ id: "production", description: "" }];
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        rules: [
+          v2Rule("r_mixed", {
+            allEnvironments: false,
+            environments: ["staging", "production"],
+          }) as FeatureRule,
+        ],
+        environmentSettings: {
+          production: { enabled: true },
+        },
+      } as unknown as FeatureInterface;
+
+      const out = buildFeatureInterface(v2, mockContext(orgEnvs));
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].allEnvironments).toBe(false);
+      expect(out.rules[0].environments).toEqual(["staging", "production"]);
+    });
+
+    it("v1 path: stale envSettings for a removed env is not pruned (no env-deletion cascade — revisit)", () => {
+      // No active cascade on env deletion: stale envSettings entries linger
+      // on disk indefinitely (PR review Risk #5). Reads remain correct
+      // because applicableEnvs filters rules, but disk grows without bound,
+      // and re-adding the same env id later resurrects the stale data.
+      const orgEnvs: Environment[] = [{ id: "production", description: "" }];
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+          staging: { enabled: false, rules: [] },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = buildFeatureInterface(v1, mockContext(orgEnvs));
+      expect(out.rules).toHaveLength(0);
+      // Production survives.
+      expect(out.environmentSettings.production).toBeDefined();
     });
   });
 });

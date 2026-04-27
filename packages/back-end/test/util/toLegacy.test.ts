@@ -659,6 +659,52 @@ describe("toLegacyFeature -> buildFeatureInterface shape round-trip", () => {
     expect(roundTripped.rules[0].allEnvironments).toBe(true);
   });
 
+  // Pending v2 rules carry an empty `environments: []` footprint — the user
+  // is staging the rule but hasn't targeted any env yet. v1 has no concept of
+  // a "pending" rule, so toLegacyFeature drops them. This test pins the lossy
+  // behavior: after a v2 -> v1 -> v2 cycle, the pending rule disappears.
+  // Documented v1 limitation; v1 callers doing GET-modify-PUT will lose
+  // pending rules silently.
+  // KNOWN LOSSY: v1 has no representation for a "pending" rule, so
+  // toLegacyFeature silently drops them. v1 GET-modify-PUT loses pending
+  // rules with no warning. Pinned to catch accidental change of semantics —
+  // not because silent loss is the desired long-term behavior. Future fix
+  // candidates: warn-log, release-note, or a v1 extension field.
+  it("v2 -> v1 -> v2 round-trip silently drops pending rules (lossy by design — revisit)", () => {
+    const v2: FeatureInterface = {
+      ...BASE_FEATURE,
+      environmentSettings: {
+        dev: { enabled: true },
+        production: { enabled: true },
+      },
+      rules: [
+        v2Rule("r_active", { allEnvironments: true }),
+        v2Rule("r_pending", {
+          allEnvironments: false,
+          environments: [],
+        } as Partial<FeatureRule>),
+      ],
+      prerequisites: [],
+    } as unknown as FeatureInterface;
+
+    const v1 = toLegacyFeature(v2, ORG_ENVS);
+    // Pending rule has zero footprint → not present in any v1 env.
+    for (const env of Object.values(v1.environmentSettings)) {
+      expect(env.rules.find((r) => r.id === "r_pending")).toBeUndefined();
+    }
+
+    const roundTripped = buildFeatureInterface(
+      v1 as unknown as V1FeatureInterface,
+      mockContext(),
+    );
+    // Only the active rule survives the round-trip.
+    expect(roundTripped.rules).toHaveLength(1);
+    expect(roundTripped.rules[0].id).toBe("r_active");
+    expect(
+      roundTripped.rules.find((r) => r.id === "r_pending"),
+    ).toBeUndefined();
+  });
+
   it("preserves split rules through the round-trip (with __<env> suffixes)", () => {
     // Two non-mergeable rules with the same stem id, different values per env.
     // After a down-then-up cycle, the flattener will re-suffix them.
