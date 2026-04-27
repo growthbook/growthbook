@@ -22,6 +22,7 @@ import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
 import {
   OrganizationInterface,
   OrgMemberInfo,
+  type SDKAttributeSchema,
 } from "shared/types/organization";
 import { fetch } from "back-end/src/util/http.util";
 import { LicenseServerError } from "back-end/src/util/errors";
@@ -1014,4 +1015,50 @@ function shouldLimitAccessDueToExpiredLicense(
 
   // The license is not expired
   return false;
+}
+
+/** Payload for central-license-server `POST .../event-forwarder/provision`. */
+export type EventForwarderLicenseProvisionParams = {
+  organizationId: string;
+  datasourceId: string;
+  topic: string;
+  sinkType: "bigquery" | "snowflake" | "databricks";
+  bigqueryProjectId: string;
+  resolvedTableName: string;
+  bigqueryDataset: string;
+  serviceAccountKeyJson: string;
+  attributeSchema: SDKAttributeSchema;
+  connectorName?: string;
+  connectorId?: string;
+};
+
+export async function postProvisionEventForwarderToLicenseServer(
+  params: EventForwarderLicenseProvisionParams,
+): Promise<{ schemaId: number; connectorName: string; connectorId: string }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/provision`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function postTeardownEventForwarderToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  sinkType: "bigquery" | "snowflake" | "databricks";
+  topic?: string;
+  connectorName?: string;
+  connectorId?: string;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/teardown`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
 }
