@@ -245,6 +245,40 @@ const toInterface = (
     omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"]),
   );
 
+async function prepareSnapshotForAnalysisWrite({
+  organization,
+  id,
+  doc,
+}: {
+  organization: string;
+  id: string;
+  doc: ExperimentSnapshotDocument;
+}): Promise<ExperimentSnapshotInterface> {
+  const legacySnapshot = omit(doc.toJSON<ExperimentSnapshotDocument>(), [
+    "__v",
+    "_id",
+  ]) as LegacyExperimentSnapshotInterface;
+  // `migrateSnapshot` adds missing analysisKeys by mutating the analysis
+  // objects, so capture the raw on-disk legacy state before calling it.
+  const keylessAnalysisPositions = getKeylessAnalysisPositions(
+    legacySnapshot.analyses,
+  );
+  const legacyChunkedAnalysesMeta = getLegacyChunkedAnalysesMeta(
+    legacySnapshot.chunkedAnalysesMeta,
+  );
+  const snapshot = migrateSnapshot(legacySnapshot);
+
+  await persistLegacyAnalysisMigration({
+    organization,
+    id,
+    snapshot,
+    legacyChunkedAnalysesMeta,
+    keylessAnalysisPositions,
+  });
+
+  return snapshot;
+}
+
 function getAnalysisIndexBySettings(
   analyses: ExperimentSnapshotAnalysis[],
   settings: ExperimentSnapshotAnalysis["settings"],
@@ -570,7 +604,11 @@ export async function addOrUpdateSnapshotAnalysis(
   if (!existing) {
     throw "Cannot update snapshot analysis that does not exist.";
   }
-  const existingInterface = toInterface(existing);
+  const existingInterface = await prepareSnapshotForAnalysisWrite({
+    organization,
+    id,
+    doc: existing,
+  });
 
   const existingIndex = getAnalysisIndexBySettings(
     existingInterface.analyses,
@@ -584,12 +622,6 @@ export async function addOrUpdateSnapshotAnalysis(
     ...analysis,
     analysisKey,
   };
-
-  await normalizeLegacyChunkedAnalysesMeta({
-    organization,
-    id,
-    migratedMeta: existingInterface.chunkedAnalysesMeta ?? {},
-  });
 
   // Write the analysis's chunk sub-path atomically. Scoped to
   // `data.<analysisKey>` so concurrent writers for other analyses never
@@ -649,8 +681,6 @@ export async function addOrUpdateSnapshotAnalysis(
         id,
         analysisKey,
       );
-      // Delegate to the update path — it re-reads the snapshot and resolves
-      // the winning key by settings match.
       await updateSnapshotAnalysis({ context, id, analysis });
     }
     return;
@@ -691,7 +721,11 @@ export async function updateSnapshotAnalysis({
 
   const existing = await ExperimentSnapshotModel.findOne({ organization, id });
   if (!existing) return;
-  const existingInterface = toInterface(existing);
+  const existingInterface = await prepareSnapshotForAnalysisWrite({
+    organization,
+    id,
+    doc: existing,
+  });
 
   const existingIndex = getAnalysisIndexBySettings(
     existingInterface.analyses,
@@ -704,12 +738,6 @@ export async function updateSnapshotAnalysis({
     ...analysis,
     analysisKey,
   };
-
-  await normalizeLegacyChunkedAnalysesMeta({
-    organization,
-    id,
-    migratedMeta: existingInterface.chunkedAnalysesMeta ?? {},
-  });
 
   const hasResults = keyedAnalysis.results.length > 0;
   const { metaEntry } =
@@ -1101,25 +1129,73 @@ function isLastPopulatedAnalysis(
   return true;
 }
 
-async function normalizeLegacyChunkedAnalysesMeta({
+function getLegacyChunkedAnalysesMeta(
+  chunkedAnalysesMeta: unknown,
+): unknown[] | Record<string, unknown> | undefined {
+  const NUMBER_REGEX = /^\d+$/;
+  if (Array.isArray(chunkedAnalysesMeta)) return chunkedAnalysesMeta;
+  if (
+    chunkedAnalysesMeta != undefined &&
+    typeof chunkedAnalysesMeta === "object" &&
+    Object.keys(chunkedAnalysesMeta).length > 0 &&
+    Object.keys(chunkedAnalysesMeta).every((k) => NUMBER_REGEX.test(k))
+  ) {
+    return chunkedAnalysesMeta as Record<string, unknown>;
+  }
+}
+
+function getKeylessAnalysisPositions(analyses: unknown): number[] {
+  if (!Array.isArray(analyses)) return [];
+
+  return analyses.flatMap((analysis, position) => {
+    if (!analysis || typeof analysis !== "object") return [position];
+    const analysisKey = (analysis as { analysisKey?: unknown }).analysisKey;
+    return typeof analysisKey === "string" && analysisKey ? [] : [position];
+  });
+}
+
+async function persistLegacyAnalysisMigration({
   organization,
   id,
-  migratedMeta,
+  snapshot,
+  legacyChunkedAnalysesMeta,
+  keylessAnalysisPositions,
 }: {
   organization: string;
   id: string;
-  migratedMeta: Record<AnalysisKeyType, AnalysisMetaEntry>;
+  snapshot: ExperimentSnapshotInterface;
+  legacyChunkedAnalysesMeta?: unknown[] | Record<string, unknown>;
+  keylessAnalysisPositions: number[];
 }) {
-  await ExperimentSnapshotModel.collection.updateOne(
-    {
-      organization,
-      id,
-      chunkedAnalysesMeta: { $type: "array" },
-    },
-    {
-      $set: { chunkedAnalysesMeta: migratedMeta },
-    },
-  );
+  const setOps: Record<string, unknown> = {};
+
+  if (legacyChunkedAnalysesMeta !== undefined) {
+    setOps.chunkedAnalysesMeta = snapshot.chunkedAnalysesMeta ?? {};
+  }
+
+  for (const position of keylessAnalysisPositions) {
+    const analysis = snapshot.analyses[position];
+    if (analysis?.analysisKey) {
+      setOps[`analyses.${position}.analysisKey`] = analysis.analysisKey;
+    }
+  }
+
+  if (!Object.keys(setOps).length) return;
+
+  const filter: Record<string, unknown> = {
+    organization,
+    id,
+  };
+  if (legacyChunkedAnalysesMeta !== undefined) {
+    filter.$or = [
+      { chunkedAnalysesMeta: { $type: "array" } },
+      { chunkedAnalysesMeta: legacyChunkedAnalysesMeta },
+    ];
+  }
+
+  await ExperimentSnapshotModel.collection.updateOne(filter, {
+    $set: setOps,
+  });
 }
 
 // Build the meta mutation operators for a single-analysis write. The meta

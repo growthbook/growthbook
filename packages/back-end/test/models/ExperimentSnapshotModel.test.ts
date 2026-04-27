@@ -2250,6 +2250,10 @@ describe("ExperimentSnapshotModel", () => {
       expect(appendedAnalysis).toBeTruthy();
 
       // Pre-existing legacy data must still be visible.
+      expect(legacyAnalysis!.results[0].srm).toBe(0.95);
+      expect(legacyAnalysis!.results[0].variations.map((v) => v.users)).toEqual(
+        [100, 120],
+      );
       expect(legacyAnalysis!.results[0].variations[0].metrics.met_1.value).toBe(
         10,
       );
@@ -2264,6 +2268,21 @@ describe("ExperimentSnapshotModel", () => {
       expect(
         appendedAnalysis!.results[0].variations[1].metrics.met_1.value,
       ).toBe(104);
+
+      const stored = (await snapshotsCollection.findOne({
+        id: legacySnapshotId,
+      })) as {
+        analyses?: { analysisKey?: string }[];
+        chunkedAnalysesMeta?: Record<string, unknown>;
+      } | null;
+      const storedKeys =
+        stored?.analyses?.map((analysis) => analysis.analysisKey) ?? [];
+      expect(storedKeys.every((key) => typeof key === "string" && !!key)).toBe(
+        true,
+      );
+      expect(Object.keys(stored?.chunkedAnalysesMeta ?? {}).sort()).toEqual(
+        [...storedKeys].sort(),
+      );
     });
 
     it("preserves legacy inline analyses when updateSnapshotAnalysis writes to a snapshot from main", async () => {
@@ -2608,9 +2627,25 @@ describe("ExperimentSnapshotModel", () => {
       const result = await findSnapshotById(context, legacySnapshotId);
       expect(result?.analyses).toHaveLength(3);
 
+      const bayesian = result!.analyses.find(
+        (analysis) => analysis.settings.statsEngine === "bayesian",
+      );
+      const frequentist = result!.analyses.find(
+        (analysis) =>
+          analysis.settings.statsEngine === "frequentist" &&
+          analysis.settings.differenceType === "relative",
+      );
       const appended = result!.analyses.find(
         (analysis) => analysis.settings.differenceType === "absolute",
       );
+      expect(bayesian?.results[0].srm).toBe(0.95);
+      expect(bayesian?.results[0].variations.map((v) => v.users)).toEqual([
+        100, 120,
+      ]);
+      expect(frequentist?.results[0].srm).toBe(0.9);
+      expect(frequentist?.results[0].variations.map((v) => v.users)).toEqual([
+        100, 120,
+      ]);
       expect(appended?.results[0].variations[0].metrics.met_1.value).toBe(33);
       expect(appended?.results[0].variations[1].metrics.met_1.value).toBe(38);
 
@@ -2618,9 +2653,20 @@ describe("ExperimentSnapshotModel", () => {
       // form on disk so subsequent partial $sets on string keys work.
       const stored = (await snapshotsCollection.findOne({
         id: legacySnapshotId,
-      })) as { chunkedAnalysesMeta?: unknown } | null;
+      })) as {
+        analyses?: { analysisKey?: string }[];
+        chunkedAnalysesMeta?: Record<string, unknown>;
+      } | null;
       expect(Array.isArray(stored?.chunkedAnalysesMeta)).toBe(false);
       expect(typeof stored?.chunkedAnalysesMeta).toBe("object");
+      const storedKeys =
+        stored?.analyses?.map((analysis) => analysis.analysisKey) ?? [];
+      expect(storedKeys.every((key) => typeof key === "string" && !!key)).toBe(
+        true,
+      );
+      expect(Object.keys(stored?.chunkedAnalysesMeta ?? {}).sort()).toEqual(
+        [...storedKeys].sort(),
+      );
     });
 
     it("updates an existing analysis when chunkedAnalysesMeta is stored as an array on disk", async () => {
