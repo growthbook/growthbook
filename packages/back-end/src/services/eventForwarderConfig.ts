@@ -161,6 +161,8 @@ function buildSnowflakeStoredConfigFromDraft(
     draft.tableName?.trim() ||
     existingStored?.tableName?.trim() ||
     DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME;
+  const accessUrl =
+    draft.accessUrl?.trim() || existingStored?.accessUrl?.trim() || "";
 
   const authMethod = datasourceParams?.authMethod ?? "password";
   if (authMethod !== "key-pair") {
@@ -175,10 +177,7 @@ function buildSnowflakeStoredConfigFromDraft(
       datasourceParams?.account?.trim() ||
       existingStored?.account?.trim() ||
       "",
-    accessUrl:
-      datasourceParams?.accessUrl?.trim() ||
-      existingStored?.accessUrl?.trim() ||
-      undefined,
+    accessUrl: accessUrl || undefined,
     username:
       datasourceParams?.username?.trim() ||
       existingStored?.username?.trim() ||
@@ -261,6 +260,7 @@ export function toEventForwarderConfigDraft(
       config: {
         tableName:
           decrypted.tableName || DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+        accessUrl: decrypted.accessUrl || "",
       },
     };
   }
@@ -355,10 +355,11 @@ export async function syncEventForwarderConfigFromDatasource({
       !snowflake.database ||
       !snowflake.schema ||
       !snowflake.tableName ||
+      !snowflake.accessUrl ||
       !snowflake.privateKey
     ) {
       throw new Error(
-        "Snowflake event forwarder requires account, username, database, schema, table name, and private key credentials",
+        "Snowflake event forwarder requires account, username, database, schema, table name, event forwarder access URL, and private key credentials",
       );
     }
   }

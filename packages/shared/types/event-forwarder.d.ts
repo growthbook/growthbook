@@ -17,6 +17,7 @@ export interface BigQueryEventForwarderStoredConfig {
 
 export interface SnowflakeEventForwarderConfigDraft {
   tableName: string;
+  accessUrl?: string;
 }
 
 /** Encrypted payload saved for provisioning; credentials are copied from datasource params at sync time. */

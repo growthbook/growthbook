@@ -97,7 +97,7 @@ const SnowflakeForm: FC<{
         </div>
       ) : null}
 
-      {authMethod === "key-pair" ? (
+      {authMethod === "key-pair" && (
         <>
           <div className="form-group col-md-12">
             <label>Private Key File</label>
@@ -143,8 +143,81 @@ const SnowflakeForm: FC<{
               }
             />
           </div>
+          <div className="form-group col-md-12">
+            <Checkbox
+              id="enableSnowflakeEventForwarder"
+              label="Enable Event Forwarder"
+              value={!!eventForwarderConfig}
+              disabled={!canEnableEventForwarder}
+              disabledMessage="Snowflake event forwarding uses Confluent Snowflake Sink, which requires key-pair authentication."
+              setValue={(value) => {
+                if (!value) {
+                  setEventForwarderConfig(null);
+                  return;
+                }
+
+                setEventForwarderConfig({
+                  sinkType: "snowflake",
+                  config: {
+                    tableName: DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+                    accessUrl: "",
+                  },
+                });
+              }}
+            />
+            <div>
+              <span className="text-muted small">
+                Enriched events are written to the configured Snowflake database
+                and schema on this page.
+              </span>
+            </div>
+          </div>
+          {eventForwarderConfig && (
+            <>
+              <div className="form-group col-md-12">
+                <EventForwarderTableNameField
+                  value={eventForwarderConfig.config.tableName}
+                  onChange={(tableName) =>
+                    setEventForwarderConfig({
+                      sinkType: "snowflake",
+                      config: {
+                        ...eventForwarderConfig.config,
+                        tableName,
+                      },
+                    })
+                  }
+                  placeholder={DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME}
+                  tooltip="Defaults to GB_EVENTS. GrowthBook maps the Kafka topic to this Snowflake table."
+                  helpText="Letters, numbers, underscores, and dollar signs. Hyphens and spaces are normalized to underscores when saving."
+                />
+              </div>
+              <div className="form-group col-md-12">
+                <label>
+                  Event Forwarder Access URL{" "}
+                  <Tooltip body="Full Snowflake URL for Confluent Snowflake Sink, including the region, for example https://abcd12345.us-east-1.snowflakecomputing.com:443" />
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  name="eventForwarderAccessUrl"
+                  required
+                  placeholder="https://abcd12345.us-east-1.snowflakecomputing.com:443"
+                  value={eventForwarderConfig.config.accessUrl || ""}
+                  onChange={(e) =>
+                    setEventForwarderConfig({
+                      sinkType: "snowflake",
+                      config: {
+                        ...eventForwarderConfig.config,
+                        accessUrl: e.target.value,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </>
+          )}
         </>
-      ) : null}
+      )}
 
       <div className="form-group col-md-12">
         <label>Database</label>
@@ -207,7 +280,7 @@ const SnowflakeForm: FC<{
           />
         </div>
       </div>
-      {useAccessUrl ? (
+      {useAccessUrl && (
         <div className="form-group col-md-12">
           <label>
             Access URL{" "}
@@ -220,53 +293,6 @@ const SnowflakeForm: FC<{
             required
             value={params.accessUrl || ""}
             onChange={onParamChange}
-          />
-        </div>
-      ) : null}
-      <div className="form-group col-md-12">
-        <Checkbox
-          id="enableSnowflakeEventForwarder"
-          label="Enable Event Forwarder"
-          value={!!eventForwarderConfig}
-          disabled={!canEnableEventForwarder}
-          disabledMessage="Snowflake event forwarding uses Confluent Snowflake Sink, which requires key-pair authentication."
-          setValue={(value) => {
-            if (!value) {
-              setEventForwarderConfig(null);
-              return;
-            }
-
-            setEventForwarderConfig({
-              sinkType: "snowflake",
-              config: {
-                tableName: DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
-              },
-            });
-          }}
-        />
-        <div>
-          <span className="text-muted small">
-            Enriched events are written to the configured Snowflake database and
-            schema on this page.
-          </span>
-        </div>
-      </div>
-      {eventForwarderConfig?.sinkType === "snowflake" && (
-        <div className="form-group col-md-12">
-          <EventForwarderTableNameField
-            value={eventForwarderConfig.config.tableName}
-            onChange={(tableName) =>
-              setEventForwarderConfig({
-                sinkType: "snowflake",
-                config: {
-                  ...eventForwarderConfig.config,
-                  tableName,
-                },
-              })
-            }
-            placeholder={DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME}
-            tooltip="Defaults to GB_EVENTS. GrowthBook maps the Kafka topic to this Snowflake table."
-            helpText="Letters, numbers, underscores, and dollar signs. Hyphens and spaces are normalized to underscores when saving."
           />
         </div>
       )}
