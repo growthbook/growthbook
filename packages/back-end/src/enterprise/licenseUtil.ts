@@ -1056,3 +1056,28 @@ export async function postTeardownEventForwarderToLicenseServer(params: {
     }),
   });
 }
+
+export type EventForwarderSchemaUpdateParams = {
+  organizationId: string;
+  datasourceId: string;
+  topic: string;
+  sinkType: "bigquery" | "snowflake" | "databricks";
+  /** The schemaId currently stored on the EventForwarderConfig record. May be 0 if unknown; the license server will fall back to the latest registered schema. */
+  schemaId: number;
+  attributeSchema: SDKAttributeSchema;
+  connectorName?: string;
+  connectorId?: string;
+};
+
+export async function postUpdateEventForwarderSchemaToLicenseServer(
+  params: EventForwarderSchemaUpdateParams,
+): Promise<{ schemaId: number }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/update-schema`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}

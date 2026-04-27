@@ -6,7 +6,12 @@ const eventForwarderSinkTypeValidator = z.enum([
   "snowflake",
   "databricks",
 ]);
-const eventForwarderStatusValidator = z.enum(["pending", "ready", "error"]);
+const eventForwarderStatusValidator = z.enum([
+  "pending",
+  "ready",
+  "error",
+  "schema_update_error",
+]);
 
 export const eventForwarderConfigValidator = baseSchema
   .extend({
