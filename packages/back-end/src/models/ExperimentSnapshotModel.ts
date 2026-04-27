@@ -585,6 +585,12 @@ export async function addOrUpdateSnapshotAnalysis(
     analysisKey,
   };
 
+  await normalizeLegacyChunkedAnalysesMeta({
+    organization,
+    id,
+    migratedMeta: existingInterface.chunkedAnalysesMeta ?? {},
+  });
+
   // Write the analysis's chunk sub-path atomically. Scoped to
   // `data.<analysisKey>` so concurrent writers for other analyses never
   // contend on the same MongoDB field.
@@ -698,6 +704,12 @@ export async function updateSnapshotAnalysis({
     ...analysis,
     analysisKey,
   };
+
+  await normalizeLegacyChunkedAnalysesMeta({
+    organization,
+    id,
+    migratedMeta: existingInterface.chunkedAnalysesMeta ?? {},
+  });
 
   const hasResults = keyedAnalysis.results.length > 0;
   const { metaEntry } =
@@ -1084,6 +1096,27 @@ function isLastPopulatedAnalysis(
     if (entry?.dimensions?.length) return false;
   }
   return true;
+}
+
+async function normalizeLegacyChunkedAnalysesMeta({
+  organization,
+  id,
+  migratedMeta,
+}: {
+  organization: string;
+  id: string;
+  migratedMeta: Record<AnalysisKeyType, AnalysisMetaEntry>;
+}) {
+  await ExperimentSnapshotModel.collection.updateOne(
+    {
+      organization,
+      id,
+      chunkedAnalysesMeta: { $type: "array" },
+    },
+    {
+      $set: { chunkedAnalysesMeta: migratedMeta },
+    },
+  );
 }
 
 // Build the meta mutation operators for a single-analysis write. The meta

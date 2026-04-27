@@ -2453,5 +2453,201 @@ describe("ExperimentSnapshotModel", () => {
         baselineOneAbsolute!.results[0].variations[1].metrics.met_1.value,
       ).toBe(38);
     });
+
+    it("appends a new analysis when chunkedAnalysesMeta is stored as an array on disk", async () => {
+      // Reproduces the production error:
+      //   MongoServerError: Cannot create field 'an_xxx' in element
+      //   {chunkedAnalysesMeta: [...]}
+      // when addOrUpdateSnapshotAnalysis appends an analysis to a snapshot
+      // whose chunkedAnalysesMeta was persisted in the legacy array shape.
+      const context = getSnapshotUpdateContext();
+      const legacySnapshotId = "snp_array_meta_append";
+      const experimentId = "exp_array_meta_append";
+      const bayesianSettings = makeAnalysisSettings({
+        statsEngine: "bayesian",
+      });
+      const frequentistSettings = makeAnalysisSettings({
+        statsEngine: "frequentist",
+      });
+
+      const legacyChunkCollection = mongoose.connection.db!.collection(
+        "experimentsnapshotanalysischunks",
+      );
+      await legacyChunkCollection.insertOne({
+        id: "snpac_array_meta_append",
+        organization: "org_1",
+        snapshotId: legacySnapshotId,
+        experimentId,
+        metricId: "met_1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        numRows: 4,
+        data: {
+          a: [0, 0, 1, 1],
+          d: ["", "", "", ""],
+          v: [0, 1, 0, 1],
+          value: [10, 15, 20, 25],
+          cr: [0.1, 0.125, 0.2, 0.208],
+          users: [100, 120, 100, 120],
+        },
+      });
+
+      const snapshotsCollection = mongoose.connection.db!.collection(
+        "experimentsnapshots",
+      );
+      await snapshotsCollection.insertOne({
+        id: legacySnapshotId,
+        organization: "org_1",
+        experiment: experimentId,
+        phase: 0,
+        dimension: null,
+        dateCreated: new Date(),
+        runStarted: null,
+        status: "success",
+        queries: [],
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasChunkedAnalyses: true,
+        // Array form on disk — the bug-trigger condition.
+        chunkedAnalysesMeta: [
+          {
+            dimensions: [{ name: "", srm: 0.95, variationUsers: [100, 120] }],
+          },
+          {
+            dimensions: [{ name: "", srm: 0.9, variationUsers: [100, 120] }],
+          },
+        ],
+        analyses: [
+          {
+            dateCreated: new Date(),
+            status: "success",
+            settings: bayesianSettings,
+            results: [],
+          },
+          {
+            dateCreated: new Date(),
+            status: "success",
+            settings: frequentistSettings,
+            results: [],
+          },
+        ],
+        settings: makeLegacyInlineSnapshotSettings(experimentId),
+      });
+
+      // The new analysis must succeed without MongoDB rejecting the
+      // string-keyed sub-path write against the array meta field.
+      await addOrUpdateSnapshotAnalysis({
+        context,
+        id: legacySnapshotId,
+        analysis: makeAnalysis({
+          settings: makeAnalysisSettings({
+            statsEngine: "frequentist",
+            differenceType: "absolute",
+          }),
+          value: 33,
+        }),
+      });
+
+      const result = await findSnapshotById(context, legacySnapshotId);
+      expect(result?.analyses).toHaveLength(3);
+
+      const appended = result!.analyses.find(
+        (analysis) => analysis.settings.differenceType === "absolute",
+      );
+      expect(appended?.results[0].variations[0].metrics.met_1.value).toBe(33);
+      expect(appended?.results[0].variations[1].metrics.met_1.value).toBe(38);
+
+      // The previously-array meta must have been normalized to a Record
+      // form on disk so subsequent partial $sets on string keys work.
+      const stored = (await snapshotsCollection.findOne({
+        id: legacySnapshotId,
+      })) as { chunkedAnalysesMeta?: unknown } | null;
+      expect(Array.isArray(stored?.chunkedAnalysesMeta)).toBe(false);
+      expect(typeof stored?.chunkedAnalysesMeta).toBe("object");
+    });
+
+    it("updates an existing analysis when chunkedAnalysesMeta is stored as an array on disk", async () => {
+      const context = getSnapshotUpdateContext();
+      const legacySnapshotId = "snp_array_meta_update";
+      const experimentId = "exp_array_meta_update";
+      const bayesianSettings = makeAnalysisSettings({
+        statsEngine: "bayesian",
+      });
+
+      const legacyChunkCollection = mongoose.connection.db!.collection(
+        "experimentsnapshotanalysischunks",
+      );
+      await legacyChunkCollection.insertOne({
+        id: "snpac_array_meta_update",
+        organization: "org_1",
+        snapshotId: legacySnapshotId,
+        experimentId,
+        metricId: "met_1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        numRows: 2,
+        data: {
+          a: [0, 0],
+          d: ["", ""],
+          v: [0, 1],
+          value: [10, 15],
+          cr: [0.1, 0.125],
+          users: [100, 120],
+        },
+      });
+
+      const snapshotsCollection = mongoose.connection.db!.collection(
+        "experimentsnapshots",
+      );
+      await snapshotsCollection.insertOne({
+        id: legacySnapshotId,
+        organization: "org_1",
+        experiment: experimentId,
+        phase: 0,
+        dimension: null,
+        dateCreated: new Date(),
+        runStarted: null,
+        status: "success",
+        queries: [],
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasChunkedAnalyses: true,
+        chunkedAnalysesMeta: [
+          {
+            dimensions: [{ name: "", srm: 0.95, variationUsers: [100, 120] }],
+          },
+        ],
+        analyses: [
+          {
+            dateCreated: new Date(),
+            status: "success",
+            settings: bayesianSettings,
+            results: [],
+          },
+        ],
+        settings: makeLegacyInlineSnapshotSettings(experimentId),
+      });
+
+      await updateSnapshotAnalysis({
+        context,
+        id: legacySnapshotId,
+        analysis: makeAnalysis({
+          settings: bayesianSettings,
+          value: 99,
+        }),
+      });
+
+      const result = await findSnapshotById(context, legacySnapshotId);
+      expect(result?.analyses).toHaveLength(1);
+      expect(
+        result?.analyses[0].results[0].variations[0].metrics.met_1.value,
+      ).toBe(99);
+
+      const stored = (await snapshotsCollection.findOne({
+        id: legacySnapshotId,
+      })) as { chunkedAnalysesMeta?: unknown } | null;
+      expect(Array.isArray(stored?.chunkedAnalysesMeta)).toBe(false);
+      expect(typeof stored?.chunkedAnalysesMeta).toBe("object");
+    });
   });
 });
