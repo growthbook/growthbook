@@ -31,6 +31,10 @@ const SnowflakeForm: FC<{
   // Convenience variable for the auth method to handle undefined
   const authMethod = params.authMethod ?? "password";
   const canEnableEventForwarder = authMethod === "key-pair";
+  const snowflakeEventForwarderConfig =
+    eventForwarderConfig?.sinkType === "snowflake"
+      ? eventForwarderConfig
+      : null;
 
   return (
     <div className="row">
@@ -147,7 +151,7 @@ const SnowflakeForm: FC<{
             <Checkbox
               id="enableSnowflakeEventForwarder"
               label="Enable Event Forwarder"
-              value={!!eventForwarderConfig}
+              value={!!snowflakeEventForwarderConfig}
               disabled={!canEnableEventForwarder}
               disabledMessage="Snowflake event forwarding uses Confluent Snowflake Sink, which requires key-pair authentication."
               setValue={(value) => {
@@ -172,16 +176,16 @@ const SnowflakeForm: FC<{
               </span>
             </div>
           </div>
-          {eventForwarderConfig && (
+          {snowflakeEventForwarderConfig && (
             <>
               <div className="form-group col-md-12">
                 <EventForwarderTableNameField
-                  value={eventForwarderConfig.config.tableName}
+                  value={snowflakeEventForwarderConfig.config.tableName}
                   onChange={(tableName) =>
                     setEventForwarderConfig({
                       sinkType: "snowflake",
                       config: {
-                        ...eventForwarderConfig.config,
+                        ...snowflakeEventForwarderConfig.config,
                         tableName,
                       },
                     })
@@ -202,12 +206,12 @@ const SnowflakeForm: FC<{
                   name="eventForwarderAccessUrl"
                   required
                   placeholder="https://abcd12345.us-east-1.snowflakecomputing.com:443"
-                  value={eventForwarderConfig.config.accessUrl || ""}
+                  value={snowflakeEventForwarderConfig.config.accessUrl || ""}
                   onChange={(e) =>
                     setEventForwarderConfig({
                       sinkType: "snowflake",
                       config: {
-                        ...eventForwarderConfig.config,
+                        ...snowflakeEventForwarderConfig.config,
                         accessUrl: e.target.value,
                       },
                     })
