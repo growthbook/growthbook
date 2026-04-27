@@ -14,13 +14,12 @@ import {
   ruleFootprint,
 } from "back-end/src/util/flattenRules";
 
-// v2 -> v1 down-conversion for the /api/v1 REST surface. Mirrors the
-// v1 -> v2 JIT chokepoints. Rule ids are preserved verbatim (including any
-// `__<env>` suffix) so clients can round-trip them back on PUT/DELETE;
-// reverse conversion flows through `flattenV1ToV2Rules`, which merges/splits
-// by content so the cycle is byte-stable.
+// v2 -> v1 down-conversion for the /api/v1 REST surface. Rule ids round-trip
+// verbatim (including `__<env>` migration suffixes); the reverse flows
+// through `flattenV1ToV2Rules`, which merges by content for a byte-stable
+// cycle.
 
-// Strip v2-only scope fields. Preserves id verbatim (see file header).
+// Strip v2-only scope fields; id is preserved verbatim.
 export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
   return omit(rule, [
     "allEnvironments",
@@ -28,10 +27,45 @@ export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
   ]) as unknown as V1FeatureRule;
 }
 
-// v2 → v1 feature projection: top-level rules move back into
-// `environmentSettings[env].rules`. Per-env order preserves v2's global order.
-// Entries emit for (applicableEnvs ∪ existing envSettings keys) so
-// disabled/archived envs round-trip cleanly.
+/**
+ * Bucket a flat v2 rules array into the per-env `Record<env, T[]>` shape v1
+ * surfaces expect. Each rule lands in every env in its
+ * `ruleFootprint(rule, applicableEnvs)`; empty-footprint rules (pending
+ * no-env rules, or rules whose envs are all non-applicable) are dropped.
+ *
+ * `seedEnvs` (default: `applicableEnvs`) is the env key set guaranteed to
+ * appear in the output. Pass an explicit union when extra envs (e.g.
+ * disabled/archived ones the doc still tracks) must be emitted with empty
+ * rule arrays.
+ *
+ * Shared chokepoint for every v2→v1 bucketing call site (`toLegacyFeature`,
+ * `toLegacyRevision`, `revisionToApiInterface`, `getApiFeatureObj`); the
+ * only variation across callers is the per-rule transform.
+ */
+export function bucketRulesByEnv<T>(
+  rules: FeatureRule[] | undefined,
+  applicableEnvs: string[],
+  transform: (rule: FeatureRule) => T,
+  seedEnvs?: Iterable<string>,
+): Record<string, T[]> {
+  const out: Record<string, T[]> = {};
+  for (const env of seedEnvs ?? applicableEnvs) out[env] = [];
+  if (!rules) return out;
+  for (const rule of rules) {
+    const envs = ruleFootprint(rule, applicableEnvs);
+    if (envs.length === 0) continue;
+    const transformed = transform(rule);
+    for (const env of envs) {
+      if (!out[env]) out[env] = [];
+      out[env].push(transformed);
+    }
+  }
+  return out;
+}
+
+// v2 → v1 feature projection: rules fan back out into
+// `environmentSettings[env].rules`. envSettings entries emit for
+// `applicableEnvs ∪ existing keys` so disabled/archived envs round-trip.
 export function toLegacyFeature(
   feature: FeatureInterface,
   orgEnvs: Environment[],
@@ -39,18 +73,11 @@ export function toLegacyFeature(
   const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
   const existing = feature.environmentSettings || {};
 
-  const rulesByEnv: Record<string, V1FeatureRule[]> = {};
-  for (const env of applicableEnvs) rulesByEnv[env] = [];
-
-  for (const rule of feature.rules || []) {
-    const envs = ruleFootprint(rule, applicableEnvs);
-    if (envs.length === 0) continue;
-    const v1Rule = toLegacyRule(rule);
-    for (const env of envs) {
-      if (!rulesByEnv[env]) rulesByEnv[env] = [];
-      rulesByEnv[env].push(v1Rule);
-    }
-  }
+  const rulesByEnv = bucketRulesByEnv(
+    feature.rules,
+    applicableEnvs,
+    toLegacyRule,
+  );
 
   const envSettings: Record<string, V1FeatureEnvironment> = {};
   const allEnvIds = new Set<string>([
@@ -74,8 +101,8 @@ export function toLegacyFeature(
   } as V1FeatureInterface;
 }
 
-// v2 → v1 revision projection: rules become `Record<env, V1FeatureRule[]>`.
-// Omit `featureProject` for a safe superset (every org env).
+// v2 → v1 revision projection. Omit `featureProject` for a safe superset
+// (every org env).
 export function toLegacyRevision(
   revision: FeatureRevisionInterface,
   orgEnvs: Environment[],
@@ -83,26 +110,20 @@ export function toLegacyRevision(
 ): V1FeatureRevisionInterface {
   const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
 
-  // Union with `environmentsEnabled` keys so v1 clients iterating
-  // `Object.keys(revision.rules)` see disabled/archived envs the revision
-  // still tracks. `ruleFootprint` limits rule assignment to applicable envs.
-  const envIds = new Set<string>([
+  // Seed with `applicableEnvs ∪ environmentsEnabled` keys so v1 clients
+  // iterating `Object.keys(rules)` see disabled/archived envs the revision
+  // still tracks. Assignment itself stays gated on `applicableEnvs`.
+  const seedEnvs = new Set<string>([
     ...applicableEnvs,
     ...Object.keys(revision.environmentsEnabled ?? {}),
   ]);
 
-  const rulesByEnv: Record<string, V1FeatureRule[]> = {};
-  for (const env of envIds) rulesByEnv[env] = [];
-
-  for (const rule of revision.rules || []) {
-    const envs = ruleFootprint(rule, applicableEnvs);
-    if (envs.length === 0) continue;
-    const v1Rule = toLegacyRule(rule);
-    for (const env of envs) {
-      if (!rulesByEnv[env]) rulesByEnv[env] = [];
-      rulesByEnv[env].push(v1Rule);
-    }
-  }
+  const rulesByEnv = bucketRulesByEnv(
+    revision.rules,
+    applicableEnvs,
+    toLegacyRule,
+    seedEnvs,
+  );
 
   return {
     ...omit(revision, ["rules"]),

@@ -4,6 +4,7 @@ import { FeatureInterface, V1FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import {
+  bucketRulesByEnv,
   toLegacyFeature,
   toLegacyRevision,
   toLegacyRule,
@@ -132,6 +133,92 @@ describe("toLegacyRule", () => {
     const snapshot = JSON.parse(JSON.stringify(v2));
     toLegacyRule(v2);
     expect(v2).toEqual(snapshot);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shared chokepoint for every v2→v1 env-bucketing surface. Pins the contract:
+// fan rules over their footprint, drop empty footprints, seed a guaranteed
+// env key set, and run the caller-supplied per-rule transform exactly once.
+// ---------------------------------------------------------------------------
+describe("bucketRulesByEnv", () => {
+  it("seeds the output with applicableEnvs by default", () => {
+    const out = bucketRulesByEnv([], ["dev", "production"], (r) => r);
+    expect(Object.keys(out).sort()).toEqual(["dev", "production"]);
+    expect(out.dev).toEqual([]);
+    expect(out.production).toEqual([]);
+  });
+
+  it("uses seedEnvs when provided", () => {
+    const out = bucketRulesByEnv([], ["dev"], (r) => r, [
+      "dev",
+      "production",
+      "staging",
+    ]);
+    expect(Object.keys(out).sort()).toEqual(["dev", "production", "staging"]);
+  });
+
+  it("explodes allEnvironments=true rules into every applicable env", () => {
+    const rule = v2Rule("r1", { allEnvironments: true });
+    const out = bucketRulesByEnv([rule], ["dev", "production"], (r) => r);
+    expect(out.dev).toHaveLength(1);
+    expect(out.production).toHaveLength(1);
+    expect(out.dev[0]).toBe(rule);
+  });
+
+  it("limits explicit-env rules to their declared envs", () => {
+    const rule = v2Rule("r1", {
+      allEnvironments: false,
+      environments: ["dev"],
+    });
+    const out = bucketRulesByEnv([rule], ["dev", "production"], (r) => r);
+    expect(out.dev).toHaveLength(1);
+    expect(out.production).toEqual([]);
+  });
+
+  it("drops rules whose footprint is empty (pending no-env, all-non-applicable)", () => {
+    const pending = v2Rule("pending", {
+      allEnvironments: false,
+      environments: [],
+    });
+    const nonApplicable = v2Rule("scoped_out", {
+      allEnvironments: false,
+      environments: ["staging"],
+    });
+    const out = bucketRulesByEnv(
+      [pending, nonApplicable],
+      ["dev", "production"],
+      (r) => r,
+    );
+    expect(out.dev).toEqual([]);
+    expect(out.production).toEqual([]);
+  });
+
+  it("applies the per-rule transform once per rule, not once per env", () => {
+    const transform = jest.fn((r: FeatureRule) => ({ id: r.id }));
+    const rule = v2Rule("r1", { allEnvironments: true });
+    bucketRulesByEnv([rule], ["dev", "production", "staging"], transform);
+    expect(transform).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves global rule order within each env bucket", () => {
+    const a = v2Rule("a", { allEnvironments: true });
+    const b = v2Rule("b", { allEnvironments: true });
+    const c = v2Rule("c", { allEnvironments: true });
+    const out = bucketRulesByEnv([a, b, c], ["dev"], (r) => r);
+    expect(out.dev.map((r) => r.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("handles undefined rules input by returning seeded empty buckets", () => {
+    const out = bucketRulesByEnv(undefined, ["dev", "production"], (r) => r);
+    expect(out).toEqual({ dev: [], production: [] });
+  });
+
+  it("does not mutate input rules", () => {
+    const rule = v2Rule("r1", { allEnvironments: true });
+    const snapshot = JSON.parse(JSON.stringify(rule));
+    bucketRulesByEnv([rule], ["dev", "production"], (r) => r);
+    expect(JSON.parse(JSON.stringify(rule))).toEqual(snapshot);
   });
 });
 
