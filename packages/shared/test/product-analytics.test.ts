@@ -1,7 +1,7 @@
+import { generateProductAnalyticsSQL } from "shared/enterprise";
 import { format } from "shared/sql";
 import { ExplorationConfig } from "shared/validators";
 import { SqlHelpers } from "shared/types/sql";
-import { generateProductAnalyticsSQL } from "shared/src/enterprise/product-analytics/sql";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -430,7 +430,7 @@ describe("productAnalytics", () => {
             SELECT user_id, anonymous_id, timestamp, revenue FROM orders
           ) t
           WHERE timestamp >= ${helpers.toTimestamp(startTimestamp)} AND timestamp <= ${helpers.toTimestamp(now)}
-          AND ( ((revenue > 100)) OR ((revenue > 200)) )
+          AND ( (revenue > 100) OR (revenue > 200) )
         ),
         _factTable0_rows AS (
           SELECT
@@ -564,7 +564,7 @@ describe("productAnalytics", () => {
             SELECT user_id, anonymous_id, timestamp, revenue FROM orders
           ) t
           WHERE timestamp >= ${helpers.toTimestamp(startTimestamp)} AND timestamp <= ${helpers.toTimestamp(now)}
-          AND ( ((revenue > 100)) )
+          AND ( revenue > 100 )
         ),
         _factTable0_rows AS (
           SELECT

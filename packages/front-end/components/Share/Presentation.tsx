@@ -9,13 +9,20 @@ import {
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import clsx from "clsx";
-import { expandMetricGroups } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getAllVariations,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Markdown from "@/components/Markdown/Markdown";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useSignificanceThresholdsByProject from "@/hooks/useSignificanceThresholdsByProject";
 import CompactResults from "@/components/Experiment/CompactResults";
 import AuthorizedImage from "@/components/AuthorizedImage";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 import {
   PresentationDeck,
@@ -63,6 +70,20 @@ const Presentation = ({
     customTheme?.logoUrl ?? (presentation as { logoUrl?: string })?.logoUrl;
   const { getExperimentMetricById, metricGroups } = useDefinitions();
   const orgSettings = useOrgSettings();
+
+  // Note: presentations render slides for many experiments (potentially across
+  // projects), so we resolve significance thresholds once at org-level as a
+  // fallback.
+  const bayesianConfidenceLevels = useConfidenceLevels(undefined);
+  const pValueThreshold = usePValueThreshold(undefined);
+  const defaultSignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
+  // Presentations render slides for many experiments across projects. Resolve
+  // project-scoped significance thresholds up front for every project in the
+  // org so we can look them up per-experiment without calling hooks in a loop.
+  const significanceThresholdsByProject = useSignificanceThresholdsByProject();
 
   const [imageCache] = React.useState<
     Record<string, { url: string; expiresAt: string }>
@@ -187,12 +208,11 @@ const Presentation = ({
     const e = em.get(eid);
     const variationExtra: JSX.Element[] = [];
     let sideExtra = <></>;
+    const expVariations = e?.experiment ? getAllVariations(e.experiment) : [];
     const variationsPlural =
-      (e?.experiment?.variations?.length || 0) !== 1
-        ? "variations"
-        : "variation";
+      (expVariations?.length || 0) !== 1 ? "variations" : "variation";
 
-    e?.experiment?.variations?.forEach((_, i) => {
+    expVariations?.forEach((v, i) => {
       variationExtra[i] = <Fragment key={`f-${i}`}></Fragment>;
     });
     let resultsText = "";
@@ -216,11 +236,11 @@ const Presentation = ({
             <Appear index={0}>{winnerEl}</Appear>
           );
           resultsText =
-            (e?.experiment?.variations[winningVar]?.name ?? "") +
+            (expVariations[winningVar]?.name ?? "") +
             " beat the control and won";
         } else if (e.experiment.results === "lost") {
           resultsText = `The ${variationsPlural} did not improve over the control`;
-          if (e.experiment.variations.length === 2) {
+          if (expVariations.length === 2) {
             const lostEl = (
               <div className="result variation-result result-lost text-center p-2 m-0">
                 Lost!
@@ -337,10 +357,10 @@ const Presentation = ({
           </p>
 
           <div className="row variations justify-content-center">
-            {e?.experiment?.variations.map((v: Variation, j: number) => (
+            {expVariations.map((v: Variation, j: number) => (
               <div
                 className={`col m-0 p-0 px-2 col-${
-                  12 / (e?.experiment?.variations?.length || 1)
+                  12 / (expVariations.length || 1)
                 } presentationcol text-center`}
                 key={`v-${j}`}
                 style={{
@@ -453,11 +473,19 @@ const Presentation = ({
             >
               <CompactResults
                 experimentId={experiment.id}
-                variations={experiment.variations.map((v, i) => ({
-                  id: v.key || i + "",
-                  name: v.name,
-                  weight: phase?.variationWeights?.[i] || 0,
-                }))}
+                significanceThresholds={
+                  significanceThresholdsByProject.get(
+                    experiment.project || "",
+                  ) ?? defaultSignificanceThresholds
+                }
+                variations={getLatestPhaseVariations(experiment).map(
+                  (v, i) => ({
+                    id: v.key || v.index + "",
+                    index: v.index,
+                    name: v.name,
+                    weight: phase?.variationWeights?.[i] || 0,
+                  }),
+                )}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={snapshot?.analyses?.[0]?.results?.[0]}
                 reportDate={snapshot.dateCreated}

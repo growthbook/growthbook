@@ -7,6 +7,7 @@ import {
 import { MetricSnapshotSettings } from "shared/types/report";
 import {
   getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
   isPrecomputedDimension,
 } from "shared/experiments";
 import {
@@ -14,7 +15,10 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { isString } from "shared/util";
+import { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -52,8 +56,21 @@ export default function ExperimentDimensionBlock({
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
 
-  const variations = experiment.variations.map((v, i) => ({
-    id: v.key || i + "",
+  const _confidenceLevels = useConfidenceLevels(experiment.project);
+  const _pValueThreshold = usePValueThreshold(experiment.project);
+  const bayesianConfidenceLevels =
+    ssrPolyfills?.useConfidenceLevels?.(experiment.project) ||
+    _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
+  const significanceThresholds: SignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
+
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => ({
+    id: v.key || v.index + "",
+    index: v.index,
     name: v.name,
     weight:
       experiment.phases[experiment.phases.length - 1]?.variationWeights?.[i] ||
@@ -106,6 +123,7 @@ export default function ExperimentDimensionBlock({
   return (
     <MetricDrilldownProvider
       experimentId={experiment.id}
+      significanceThresholds={significanceThresholds}
       phase={experiment.phases.length - 1}
       experimentStatus={experiment.status}
       analysis={analysis}
@@ -132,6 +150,7 @@ export default function ExperimentDimensionBlock({
     >
       <BreakDownResults
         experimentId={experiment.id}
+        significanceThresholds={significanceThresholds}
         noStickyHeader
         idPrefix={blockId}
         key={snapshot.dimension}

@@ -1,4 +1,3 @@
-import { PostAttributeResponse } from "shared/types/openapi";
 import { postAttributeValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -8,7 +7,7 @@ import { addTags } from "back-end/src/models/TagModel";
 import { validatePayload } from "./validations";
 
 export const postAttribute = createApiRequestHandler(postAttributeValidator)(
-  async (req): Promise<PostAttributeResponse> => {
+  async (req) => {
     const attribute = {
       ...req.body,
       ...(await validatePayload(req.context, req.body)),

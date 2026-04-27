@@ -1,32 +1,58 @@
 import { FeatureInterface } from "shared/types/feature";
-import React, { forwardRef } from "react";
+import React, { forwardRef, useState } from "react";
 import Link from "next/link";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { PiArrowBendRightDown, PiArrowSquareOut } from "react-icons/pi";
-import { useAuth } from "@/services/auth";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { PiArrowBendRightDown } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import RemoveFromHoldoutModal from "./RemoveFromHoldoutModal";
+import AddToHoldoutModal from "./AddToHoldoutModal";
 import HoldoutSummary from "./HoldoutSummary";
 
 interface Props {
   feature: FeatureInterface;
+  revisionList: MinimalFeatureRevisionInterface[];
   mutate: () => void;
   setRuleModal: () => void;
+  setVersion: (version: number) => void;
   ruleCount: number;
+  isDeleted?: boolean;
+  isLocked?: boolean;
 }
 
 // eslint-disable-next-line
 export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
-  ({ feature, setRuleModal, mutate, ruleCount, ...props }, ref) => {
-    const { apiCall } = useAuth();
+  (
+    {
+      feature,
+      revisionList,
+      setRuleModal,
+      mutate,
+      setVersion,
+      ruleCount,
+      isDeleted = false,
+      isLocked = false,
+      ...props
+    },
+    ref,
+  ) => {
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [removeModal, setRemoveModal] = useState(false);
+    const [reEnableModal, setReEnableModal] = useState(false);
 
     const { data } = useApi<{
       holdout: HoldoutInterface;
@@ -34,7 +60,9 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       linkedFeatures: FeatureInterface[];
       linkedExperiments: ExperimentInterfaceStringDates[];
       envs: string[];
-    }>(`/holdout/${feature.holdout?.id}`);
+    }>(`/holdout/${feature.holdout?.id}`, {
+      shouldRun: () => !!feature.holdout?.id,
+    });
 
     const permissionsUtil = usePermissionsUtil();
 
@@ -54,7 +82,8 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       permissionsUtil.canManageFeatureDrafts(feature);
 
     const isInactive =
-      holdoutExperiment.status === "stopped" || holdoutExperiment.archived;
+      !isDeleted &&
+      (holdoutExperiment.status === "stopped" || holdoutExperiment.archived);
 
     return (
       <Box {...props} ref={ref}>
@@ -67,9 +96,11 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 top: 0,
                 bottom: 0,
                 width: "4px",
-                backgroundColor: isInactive
-                  ? "var(--amber-7)"
-                  : "var(--green-9)",
+                backgroundColor: isDeleted
+                  ? "var(--red-7)"
+                  : isInactive
+                    ? "var(--amber-7)"
+                    : "var(--green-9)",
               }}
             ></div>
             <Flex align="start" justify="between" gap="3" p="1" px="2">
@@ -78,26 +109,37 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 <Badge label={<>1</>} radius="full" color="gray" />
               </Box>
               <Box flexGrow="1" pr="2">
-                <Flex align="center" justify="between" mb="3" flexGrow="1">
+                <Flex
+                  justify="between"
+                  align="start"
+                  mb="3"
+                  gap="3"
+                  style={{ maxWidth: "100%" }}
+                >
                   <Flex
-                    flexGrow="1"
-                    gap="3"
-                    justify="between"
-                    mr="3"
                     align="center"
+                    gap="2"
+                    style={{ flex: "0 1 auto", flexWrap: "wrap" }}
                   >
                     <Heading as="h4" size="3" weight="medium" mb="0">
-                      <Flex gap="3" align="center">
-                        <div>Holdout: </div>
-                        <Link href={`/holdout/${feature.holdout?.id}`}>
+                      <>
+                        Holdout:{" "}
+                        <Link
+                          href={`/holdout/${feature.holdout?.id}`}
+                          style={{ marginRight: "var(--space-2)" }}
+                        >
                           {holdout.name}
-                          <PiArrowSquareOut className="ml-1" />
                         </Link>
-                        <ExperimentStatusIndicator
-                          experimentData={holdoutExperiment}
-                        />
-                      </Flex>
+                      </>
                     </Heading>
+                    {!isDeleted && (
+                      <ExperimentStatusIndicator
+                        experimentData={holdoutExperiment}
+                      />
+                    )}
+                  </Flex>
+
+                  <Flex align="center" gap="2" flexShrink="0">
                     {isInactive && (
                       <Badge
                         color="amber"
@@ -109,51 +151,78 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                         }
                       />
                     )}
+
+                    {canEdit && !isLocked && (
+                      <DropdownMenu
+                        trigger={
+                          <IconButton
+                            variant="ghost"
+                            color="gray"
+                            radius="full"
+                            size="2"
+                            highContrast
+                          >
+                            <BsThreeDotsVertical size={18} />
+                          </IconButton>
+                        }
+                        open={dropdownOpen}
+                        onOpenChange={setDropdownOpen}
+                        menuPlacement="end"
+                        variant="soft"
+                      >
+                        <DropdownMenuGroup>
+                          {isDeleted ? (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setDropdownOpen(false);
+                                setReEnableModal(true);
+                              }}
+                            >
+                              Re-enable holdout
+                            </DropdownMenuItem>
+                          ) : (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setRuleModal();
+                                  setDropdownOpen(false);
+                                }}
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                color="red"
+                                onClick={() => {
+                                  setDropdownOpen(false);
+                                  setRemoveModal(true);
+                                }}
+                              >
+                                Remove from holdout
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuGroup>
+                      </DropdownMenu>
+                    )}
                   </Flex>
-                  {canEdit && (
-                    <Flex>
-                      <MoreMenu useRadix={true} size={14}>
-                        <a
-                          href="#"
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setRuleModal();
-                          }}
-                        >
-                          Edit
-                        </a>
-                        {/* Do we want to delete holdouts? Do we want a confirmation modal? */}
-                        <DeleteButton
-                          className="dropdown-item"
-                          displayName="Rule"
-                          useIcon={false}
-                          text="Delete"
-                          onClick={async () => {
-                            await apiCall(
-                              `/holdout/${feature.holdout?.id}/feature/${feature.id}`,
-                              {
-                                method: "DELETE",
-                              },
-                            );
-                            await mutate();
-                          }}
-                        />
-                      </MoreMenu>
-                    </Flex>
-                  )}
                 </Flex>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
-                  {holdoutExperiment.status === "stopped" && (
+                  {isDeleted ? (
+                    <Callout status="error" size="sm">
+                      This feature has been removed from the holdout in the
+                      current draft. Publish or discard the draft to resolve.
+                    </Callout>
+                  ) : holdoutExperiment.status === "stopped" ? (
                     <Callout status="info">
                       This Holdout is stopped and this rule will be skipped.{" "}
                       <Link href={`/holdout/${holdout.id}#results`}>
                         View Results
                       </Link>
                     </Callout>
-                  )}
+                  ) : null}
                 </Box>
-                {!isInactive && (
+                {!isInactive && !isDeleted && (
                   <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                     {hasCondition && (
                       <Flex align="center" justify="start" gap="3">
@@ -197,6 +266,24 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
             </Flex>
           </Card>
         </Box>
+        {removeModal && (
+          <RemoveFromHoldoutModal
+            feature={feature}
+            revisionList={revisionList}
+            close={() => setRemoveModal(false)}
+            mutate={mutate}
+            setVersion={setVersion}
+          />
+        )}
+        {reEnableModal && (
+          <AddToHoldoutModal
+            feature={feature}
+            revisionList={revisionList}
+            close={() => setReEnableModal(false)}
+            mutate={mutate}
+            setVersion={setVersion}
+          />
+        )}
       </Box>
     );
   },

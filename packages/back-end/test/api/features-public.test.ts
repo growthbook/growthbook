@@ -71,7 +71,7 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
 }));
 
 jest.mock("back-end/src/models/ApiKeyModel", () => ({
-  lookupOrganizationByApiKey: jest.fn(),
+  dangerousLookupOrganizationByApiKey: jest.fn(),
 }));
 
 describe("getFeaturesPublic test holdout", () => {

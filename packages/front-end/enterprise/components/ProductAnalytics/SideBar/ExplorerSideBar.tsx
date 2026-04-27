@@ -41,6 +41,7 @@ export default function ExplorerSideBar({
   const {
     draftExploreState,
     setDraftExploreState,
+    exploration,
     loading,
     handleSubmit,
     isSubmittable,
@@ -88,6 +89,8 @@ export default function ExplorerSideBar({
       {showSaveToDashboardModal && (
         <SaveToDashboardModal
           close={() => setShowSaveToDashboardModal(false)}
+          config={draftExploreState}
+          exploration={exploration}
         />
       )}
       {showUpgradeModal && (
@@ -142,7 +145,7 @@ export default function ExplorerSideBar({
                   !draftExploreState?.dataset?.values?.length ||
                   !isSubmittable
                 }
-                onClick={() => handleSubmit({ force: true })}
+                onClick={() => handleSubmit({ force: isStale })}
               >
                 <Flex align="center" gap="2">
                   <PiArrowsClockwise />
@@ -186,10 +189,14 @@ export default function ExplorerSideBar({
               <Text weight="medium">Date Range</Text>
               <DateRangePicker shouldWrap />
             </Flex>
-            <Flex direction="column" gap="2">
-              <Text weight="medium">Date Granularity</Text>
-              <GranularitySelector />
-            </Flex>
+            {["line", "area", "timeseries-table"].includes(
+              draftExploreState.chartType,
+            ) && (
+              <Flex direction="column" gap="2">
+                <Text weight="medium">Date Granularity</Text>
+                <GranularitySelector />
+              </Flex>
+            )}
           </Flex>
         </Flex>
       )}

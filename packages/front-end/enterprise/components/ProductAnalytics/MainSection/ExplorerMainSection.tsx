@@ -19,6 +19,7 @@ export default function ExplorerMainSection() {
     loading,
     error,
     isStale,
+    query,
     draftExploreState,
     handleSubmit,
     isSubmittable,
@@ -98,7 +99,15 @@ export default function ExplorerMainSection() {
               defaultSize={showChartSection ? 40 : 100}
               minSize={20}
             >
-              <ExplorerDataTable hasChart={showChartSection} />
+              <ExplorerDataTable
+                exploration={exploration}
+                error={error}
+                submittedExploreState={submittedExploreState}
+                loading={loading}
+                hasChart={showChartSection}
+                isStale={isStale}
+                query={query}
+              />
             </Panel>
           </PanelGroup>
         ) : (

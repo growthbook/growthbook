@@ -17,6 +17,7 @@ import ExperimentResultTooltipContent from "./ExperimentResultTooltipContent/Exp
 interface ResultPopoverData {
   stats: SnapshotMetric;
   metric: ExperimentMetricInterface;
+  pValueThreshold: number;
   significant: boolean;
   resultsStatus: RowResults["resultsStatus"];
   differenceType: DifferenceType;
@@ -29,6 +30,7 @@ interface ResultPopoverData {
   minPercentChange: number;
   currentMetricTotal: number;
   timeRemainingMs?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 interface UseResultPopoverOptions {
@@ -112,6 +114,7 @@ export function useResultPopover({
         <ExperimentResultTooltipContent
           stats={data.stats}
           metric={data.metric}
+          pValueThreshold={data.pValueThreshold}
           significant={data.significant}
           resultsStatus={data.resultsStatus}
           differenceType={data.differenceType}
@@ -124,6 +127,7 @@ export function useResultPopover({
           minPercentChange={data.minPercentChange}
           currentMetricTotal={data.currentMetricTotal}
           timeRemainingMs={data.timeRemainingMs}
+          pValueAdjustmentEnabled={data.pValueAdjustmentEnabled}
         />
       </PopoverContent>,
     );

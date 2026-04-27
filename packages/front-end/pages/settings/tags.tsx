@@ -1,8 +1,6 @@
 import React, { useState, FC } from "react";
-import { FaPencilAlt } from "react-icons/fa";
 import { TagInterface } from "shared/types/tag";
-import { Box, Flex, Heading } from "@radix-ui/themes";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsModal from "@/components/Tags/TagsModal";
@@ -11,6 +9,8 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import TagRowMenu from "@/components/Tags/TagRowMenu";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -18,21 +18,26 @@ const TagsPage: FC = () => {
   const [modalOpen, setModalOpen] = useState<Partial<TagInterface> | null>(
     null,
   );
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: tags || [],
-    localStorageKey: "tags",
-    defaultSortField: "id",
-    searchFields: ["id", "description"],
-  });
 
   const permissionsUtil = usePermissionsUtil();
+  const canCreateAndUpdate = permissionsUtil.canCreateAndUpdateTag();
+  const canDelete = permissionsUtil.canDeleteTag();
+  const canManageTags = canCreateAndUpdate || canDelete;
 
-  const canManageTags =
-    permissionsUtil.canCreateAndUpdateTag() || permissionsUtil.canDeleteTag();
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: tags || [],
+      localStorageKey: "tags",
+      defaultSortField: "id",
+      defaultSortDir: 1,
+      searchFields: ["id^2", "description"],
+      pageSize: 50,
+      updateSearchQueryOnChange: true,
+    });
 
   if (!canManageTags) {
     return (
-      <div className="container pagecontents">
+      <div className="container-fluid pagecontents">
         <div className="alert alert-danger">
           You do not have access to view this page.
         </div>
@@ -41,89 +46,106 @@ const TagsPage: FC = () => {
   }
 
   return (
-    <Box className="container-fluid pagecontents">
-      <Box mb="6">
-        {modalOpen && (
-          <TagsModal
-            existing={modalOpen}
-            close={() => setModalOpen(null)}
-            onSuccess={() => mutateDefinitions()}
-          />
-        )}
-        <Flex justify="between" align="start">
-          <Heading as="h1">Tags</Heading>
-          {permissionsUtil.canCreateAndUpdateTag() ? (
-            <Button onClick={() => setModalOpen({})}>Add Tag</Button>
-          ) : null}
-        </Flex>
-        <p>Organize features, experiments, metrics, and more with tags.</p>
-        {tags?.length > 0 && (
+    <div className="container-fluid pagecontents">
+      {modalOpen && (
+        <TagsModal
+          existing={modalOpen}
+          close={() => setModalOpen(null)}
+          onSuccess={() => mutateDefinitions()}
+        />
+      )}
+
+      <Box mt="4" mb="5">
+        <div className="row align-items-center mb-1">
+          <div className="col-auto">
+            <h2 className="mb-0">Tags</h2>
+          </div>
+          <div className="flex-1" />
+          <div className="col-auto">
+            <Tooltip
+              body="You don't have permission to add tags"
+              shouldDisplay={!canCreateAndUpdate}
+            >
+              <Button
+                disabled={!canCreateAndUpdate}
+                onClick={() => setModalOpen({})}
+              >
+                Add Tag
+              </Button>
+            </Tooltip>
+          </div>
+        </div>
+        <p className="text-gray mb-4">
+          Organize features, experiments, metrics, and more with{" "}
+          <strong>tags</strong>.
+        </p>
+
+        {tags && tags.length > 0 ? (
           <>
-            <div className="row mb-2 align-items-center">
-              <div className="col-auto">
-                <Field
-                  placeholder="Search..."
-                  type="search"
-                  {...searchInputProps}
-                />
-              </div>
-            </div>
-            <table className="table appbox gbtable table-hover">
+            <Box className="relative" width="40%" mb="4">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </Box>
+            <table
+              className="table appbox gbtable table-valign-top"
+              style={{ tableLayout: "fixed", width: "100%" }}
+            >
               <thead>
                 <tr>
-                  <SortableTH field="id">Tag name</SortableTH>
+                  <SortableTH field="id" style={{ width: "30%" }}>
+                    Tag name
+                  </SortableTH>
+                  <th style={{ width: "30%" }}>Preview</th>
                   <SortableTH field="description">Description</SortableTH>
-                  <th>Preview</th>
-                  <th style={{ width: 140 }}></th>
+                  <th style={{ width: 40, minWidth: 40 }} />
                 </tr>
               </thead>
               <tbody>
-                {items?.map((t, i) => {
-                  return (
-                    <tr key={i}>
-                      <td
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setModalOpen(t);
+                {items?.map((t) => (
+                  <tr key={t.id}>
+                    <td className="text-gray">
+                      {canCreateAndUpdate ? (
+                        <a
+                          href="#"
+                          className="link-purple"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setModalOpen(t);
+                          }}
+                        >
+                          {t.id}
+                        </a>
+                      ) : (
+                        <span>{t.id}</span>
+                      )}
+                    </td>
+                    <td className="text-gray">
+                      <Tag tag={t.id} skipMargin={true} />
+                    </td>
+                    <td className="text-gray">
+                      {t.description && t.description.length > 80
+                        ? t.description.substring(0, 80).trim() + "..."
+                        : (t.description ?? "")}
+                    </td>
+                    <td>
+                      <TagRowMenu
+                        canEdit={canCreateAndUpdate}
+                        canDelete={canDelete}
+                        onEdit={() => setModalOpen(t)}
+                        onDelete={async () => {
+                          await apiCall(`/tag/`, {
+                            method: "DELETE",
+                            body: JSON.stringify({ id: t.id }),
+                          });
+                          mutateDefinitions();
                         }}
-                        className="cursor-pointer"
-                      >
-                        {t.id}
-                      </td>
-                      <td>{t.description}</td>
-                      <td>
-                        <Tag tag={t.id} skipMargin={true} />
-                      </td>
-                      <td>
-                        {permissionsUtil.canCreateAndUpdateTag() ? (
-                          <button
-                            className="btn btn-outline-primary tr-hover mr-2"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setModalOpen(t);
-                            }}
-                          >
-                            <FaPencilAlt />
-                          </button>
-                        ) : null}
-                        {permissionsUtil.canDeleteTag() ? (
-                          <DeleteButton
-                            deleteMessage="Are you sure? Deleting a tag will remove it from all features, metrics, and experiments."
-                            className="tr-hover"
-                            displayName="Tag"
-                            onClick={async () => {
-                              await apiCall(`/tag/`, {
-                                method: "DELETE",
-                                body: JSON.stringify({ id: t.id }),
-                              });
-                              mutateDefinitions();
-                            }}
-                          />
-                        ) : null}
-                      </td>
-                    </tr>
-                  );
-                })}
+                      />
+                    </td>
+                  </tr>
+                ))}
                 {!items.length && isFiltered && (
                   <tr>
                     <td colSpan={4} align={"center"}>
@@ -133,10 +155,15 @@ const TagsPage: FC = () => {
                 )}
               </tbody>
             </table>
+            {pagination}
           </>
+        ) : (
+          <p className="text-gray">
+            Click the button above to create your first tag.
+          </p>
         )}
       </Box>
-    </Box>
+    </div>
   );
 };
 export default TagsPage;

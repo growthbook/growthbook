@@ -30,7 +30,7 @@
     "build": "pnpm build:clean && npm-run-all --parallel build:types build:bundles",
     "test": "jest",
     "clean": "rimraf node_modules",
-    "type-check": "tsc --pretty --noEmit",
+    "type-check": "tsgo --pretty --noEmit",
     "size": "cat ./dist/esm/index.js ../sdk-js/dist/bundles/index.min.js | terser | gzip-size --include-original"
   },
   "author": "Jeremy Dorn",
@@ -41,6 +41,7 @@
     "@growthbook/growthbook": "^1.6.5"
   },
   "devDependencies": {
+    "@typescript/native-preview": "7.0.0-dev.20260309.1",
     "@babel/cli": "^7.28.3",
     "@babel/core": "^7.28.5",
     "@babel/preset-react": "^7.28.5",

@@ -1,11 +1,11 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
-import { PostSavedGroupResponse } from "shared/types/openapi";
 import { postSavedGroupValidator } from "shared/validators";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
-  async (req): Promise<PostSavedGroupResponse> => {
+  async (req) => {
     const { name, attributeKey, values, condition, owner, projects } = req.body;
 
     if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
@@ -88,7 +88,10 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     });
 
     return {
-      savedGroup: req.context.models.savedGroups.toApiInterface(savedGroup),
+      savedGroup: await resolveOwnerEmail(
+        req.context.models.savedGroups.toApiInterface(savedGroup),
+        req.context,
+      ),
     };
   },
 );

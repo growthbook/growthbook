@@ -25,7 +25,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
+import { Namespaces, OrganizationInterface } from "shared/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
@@ -408,10 +408,6 @@ export function upgradeFeatureInterface(
     }
   }
 
-  if (newFeature.legacyDraft && !newFeature.legacyDraftMigrated) {
-    newFeature.hasDrafts = true;
-  }
-
   if (newFeature.jsonSchema) {
     newFeature.jsonSchema.schemaType =
       newFeature.jsonSchema.schemaType || "schema";
@@ -482,6 +478,13 @@ export function upgradeOrganizationDoc(
     org.settings.statsEngine = DEFAULT_STATS_ENGINE;
   }
 
+  // Backfill restApiBypassesReviews=true for orgs created before this field existed.
+  // New orgs have it set explicitly to false at creation time; only old orgs without
+  // the field should inherit the original "always bypass" behaviour.
+  if (org.settings.restApiBypassesReviews === undefined) {
+    org.settings.restApiBypassesReviews = true;
+  }
+
   // Migrate Arroval Flow Settings
   if (
     org.settings?.requireReviews === true ||
@@ -507,12 +510,21 @@ export function upgradeOrganizationDoc(
     }
   });
 
-  // Make sure namespaces have labels- if it's missing, use the name
+  // Make sure namespaces have labels, seeds, and format flags - if missing, use deterministic defaults.
+  // Note: do NOT use uuidv4() here. This function runs on every DB read and is never
+  // persisted, so a random seed would change on every request. Use ns.name as a stable fallback.
   if (org?.settings?.namespaces?.length) {
-    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
-      ...ns,
-      label: ns.label || ns.name,
-    }));
+    org.settings.namespaces = org.settings.namespaces.map((ns) => {
+      const hashAttribute =
+        "hashAttribute" in ns ? ns.hashAttribute : undefined;
+      const seed = "seed" in ns ? ns.seed : undefined;
+      return {
+        ...ns,
+        label: ns.label || ns.name,
+        seed: seed || ns.name,
+        format: ns.format || (hashAttribute ? "multiRange" : "legacy"), // Set format based on hashAttribute presence
+      } as Namespaces;
+    });
   }
 
   // Migrate postStratificationDisabled to postStratificationEnabled
@@ -577,7 +589,7 @@ export function upgradeExperimentDoc(
       };
       // Some experiments have a namespace with only `enabled` set, no idea why
       // This breaks namespaces, so add default values if missing
-      if (!phase.namespace.range) {
+      if (!("range" in phase.namespace) && !("ranges" in phase.namespace)) {
         phase.namespace = {
           enabled: false,
           name: "",
@@ -595,6 +607,25 @@ export function upgradeExperimentDoc(
                 srm: event.banditResult.srm,
               },
             }),
+        }));
+      }
+    });
+  }
+
+  // Populate phase-level variation status from top-level variations
+  if (experiment.phases) {
+    experiment.phases.forEach((phase) => {
+      if (!phase.variations) {
+        phase.variations = experiment.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        }));
+      }
+      if (phase.variations && phase.variations.length === 0) {
+        // catch case where variations is an empty array
+        phase.variations = experiment.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
         }));
       }
     });
@@ -778,6 +809,7 @@ export function migrateSnapshot(
               sequentialTestingTuningParameter ||
               DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
             numGoalMetrics: goalMetrics.length,
+            numGuardrailMetrics: 0,
           },
           results,
         },

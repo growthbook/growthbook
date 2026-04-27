@@ -9,10 +9,7 @@ import React, {
   useState,
 } from "react";
 import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
-import {
-  ExperimentReportVariation,
-  ExperimentReportVariationWithIndex,
-} from "shared/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import { ExperimentStatus } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -22,6 +19,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
@@ -46,8 +44,6 @@ import {
   useDomain,
 } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
@@ -73,6 +69,7 @@ import VariationChooserColumnLabel from "./VariationChooserColumnLabel";
 export type ResultsTableProps = {
   id: string;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -157,6 +154,7 @@ export enum RowError {
 export default function ResultsTable({
   id,
   experimentId,
+  significanceThresholds,
   isLatestPhase,
   phase,
   status,
@@ -302,15 +300,11 @@ export default function ResultsTable({
     ssrPolyfills?.useOrganizationMetricDefaults?.() ||
     _useOrganizationMetricDefaults;
 
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
   const _displayCurrency = useCurrency();
   const _orgSettings = useOrgSettings();
 
-  const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
   const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
 
@@ -391,23 +385,20 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive, columnsFilter]);
 
-  const orderedVariations: ExperimentReportVariationWithIndex[] =
-    useMemo(() => {
-      const sorted = variations
-        .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-        .sort((a, b) => {
-          if (a.index === baselineRow) return -1;
-          return a.index - b.index;
-        });
-      // fix browser .sort() quirks. manually move the control row to top:
-      const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
-      if (baselineIndex > -1) {
-        const baseline = sorted[baselineIndex];
-        sorted.splice(baselineIndex, 1);
-        sorted.unshift(baseline);
-      }
-      return sorted;
-    }, [variations, baselineRow]);
+  const orderedVariations: ExperimentReportVariation[] = useMemo(() => {
+    const sorted = [...variations].sort((a, b) => {
+      if (a.index === baselineRow) return -1;
+      return a.index - b.index;
+    });
+    // fix browser .sort() quirks. manually move the control row to top:
+    const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
+    if (baselineIndex > -1) {
+      const baseline = sorted[baselineIndex];
+      sorted.splice(baselineIndex, 1);
+      sorted.unshift(baseline);
+    }
+    return sorted;
+  }, [variations, baselineRow]);
 
   const showVariations = orderedVariations.map(
     (v) => !variationFilter?.includes(v.index),
@@ -1105,6 +1096,7 @@ export default function ResultsTable({
                                                 resultsHighlightClassname,
                                               )}
                                               metric={row.metric}
+                                              pValueThreshold={pValueThreshold}
                                               differenceType={differenceType}
                                               statsEngine={statsEngine}
                                               ssrPolyfills={ssrPolyfills}
@@ -1134,12 +1126,16 @@ export default function ResultsTable({
                                                 resultsHighlightClassname,
                                               )}
                                               metric={row.metric}
+                                              pValueThreshold={pValueThreshold}
                                               differenceType={differenceType}
                                               statsEngine={statsEngine}
                                               ssrPolyfills={ssrPolyfills}
                                               minSampleSize={getMinSampleSizeForMetric(
                                                 row.metric,
                                               )}
+                                              pValueAdjustmentEnabled={
+                                                !!appliedPValueCorrection
+                                              }
                                             />
                                           )
                                         ) : (
@@ -1151,6 +1147,9 @@ export default function ResultsTable({
                                       <td className="graph-cell">
                                         {j > 0 ? (
                                           <PercentGraph
+                                            significanceThresholds={
+                                              significanceThresholds
+                                            }
                                             barType={
                                               statsEngine === "frequentist"
                                                 ? "pill"
@@ -1209,6 +1208,9 @@ export default function ResultsTable({
                                             currentMetricTotal={
                                               rowResults.currentMetricTotal
                                             }
+                                            pValueAdjustmentEnabled={
+                                              !!appliedPValueCorrection
+                                            }
                                           />
                                         ) : (
                                           <AlignedGraph
@@ -1232,6 +1234,7 @@ export default function ResultsTable({
                                         {j > 0 ? (
                                           <ChangeColumn
                                             metric={row.metric}
+                                            pValueThreshold={pValueThreshold}
                                             stats={stats}
                                             rowResults={rowResults}
                                             differenceType={differenceType}
@@ -1249,6 +1252,9 @@ export default function ResultsTable({
                                             minSampleSize={getMinSampleSizeForMetric(
                                               row.metric,
                                             )}
+                                            pValueAdjustmentEnabled={
+                                              !!appliedPValueCorrection
+                                            }
                                           />
                                         ) : (
                                           <td></td>
@@ -1284,17 +1290,15 @@ export default function ResultsTable({
                                       <div className={styles.timeSeriesCell}>
                                         <ExperimentMetricTimeSeriesGraphWrapper
                                           experimentId={experimentId}
+                                          pValueThreshold={pValueThreshold}
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}
-                                          variationNames={orderedVariations.map(
-                                            (v) => v.name,
-                                          )}
+                                          variations={orderedVariations}
                                           showVariations={showVariations}
                                           statsEngine={statsEngine}
                                           pValueAdjustmentEnabled={
-                                            !!appliedPValueCorrection &&
-                                            rows.length > 1
+                                            !!appliedPValueCorrection
                                           }
                                           firstDateToRender={getValidDate(
                                             startDate,

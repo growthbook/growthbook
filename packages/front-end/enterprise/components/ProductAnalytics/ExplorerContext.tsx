@@ -13,8 +13,8 @@ import {
   ExplorationConfig,
   ProductAnalyticsValue,
   DatasetType,
-} from "shared/src/validators/product-analytics";
-import { ProductAnalyticsExploration } from "shared/validators";
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -27,6 +27,7 @@ import {
   isSubmittableConfig,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 type SetDraftStateAction =
@@ -43,12 +44,17 @@ export interface ExplorerContextValue {
   error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
   isStale: boolean;
+  needsFetch: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
-  handleSubmit: (options?: { force?: boolean }) => Promise<void>;
+  handleSubmit: (options?: {
+    force?: boolean;
+    config?: ExplorationConfig;
+    setDraft?: boolean;
+  }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
@@ -57,6 +63,24 @@ export interface ExplorerContextValue {
   clearAllDatasets: (newDatasourceId?: string) => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
+
+export const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
+  "product-analytics:explorer:datasource" as const;
+
+export function useDefaultDataSourceId(): string | undefined {
+  const { datasources } = useDefinitions();
+
+  const [defaultDataSourceId] = useLocalStorage<string | undefined>(
+    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
+    datasources[0]?.id ?? "",
+  );
+
+  return useMemo(() => {
+    return datasources.some((d) => d.id === defaultDataSourceId)
+      ? defaultDataSourceId
+      : (datasources[0]?.id ?? "");
+  }, [datasources, defaultDataSourceId]);
+}
 
 interface ExplorerProviderProps {
   children: ReactNode;
@@ -72,8 +96,12 @@ export function ExplorerProvider({
   onRunComplete,
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
-
   const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
+
+  const [, setDefaultDataSourceId] = useLocalStorage<string>(
+    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
+    datasources[0]?.id ?? "",
+  );
 
   const [explorerState, setExplorerState] = useState<{
     draftState: ExplorationConfig;
@@ -90,6 +118,8 @@ export function ExplorerProvider({
   });
   const [isStale, setIsStale] = useState(false);
   const hasEverFetchedRef = useRef(false);
+  const skipNextAutoSubmitRef = useRef(false);
+  const submitRequestIdRef = useRef(0);
 
   const draftExploreState: ExplorationConfig = explorerState.draftState;
 
@@ -160,8 +190,11 @@ export function ExplorerProvider({
   }, [cleanedDraftExploreState]);
 
   const doSubmit = useCallback(
-    async (options?: { cache?: CacheOption }) => {
-      if (!isSubmittable) return;
+    async (options?: { cache?: CacheOption; config?: ExplorationConfig }) => {
+      const configToSubmit = cleanConfigForSubmission(
+        options?.config ?? draftExploreState,
+      );
+      if (!isSubmittableConfig(configToSubmit)) return;
 
       let cache: CacheOption;
       if (options?.cache) {
@@ -175,13 +208,17 @@ export function ExplorerProvider({
         cache = "required";
       }
       hasEverFetchedRef.current = true;
+      const requestId = ++submitRequestIdRef.current;
 
       // Do the fetch (we keep previous exploration/submitted state visible until result arrives)
       const {
         data: fetchResult,
         query,
         error: fetchError,
-      } = await fetchData(cleanedDraftExploreState, { cache });
+      } = await fetchData(configToSubmit, { cache });
+
+      // Ignore out-of-order responses from older in-flight requests.
+      if (requestId !== submitRequestIdRef.current) return;
 
       // Cache miss when cache=required
       if (cache === "required" && fetchResult === null && !fetchError) {
@@ -192,12 +229,12 @@ export function ExplorerProvider({
       // Clear staleness when there is an error
       if (fetchError) {
         setIsStale(false);
-        setSubmittedExploreState(cleanedDraftExploreState);
+        setSubmittedExploreState(configToSubmit);
       }
 
       // Set staleness to false and update submitted state when there is a result
       if (fetchResult) {
-        setSubmittedExploreState(cleanedDraftExploreState);
+        setSubmittedExploreState(configToSubmit);
         setIsStale(false);
       }
 
@@ -210,29 +247,41 @@ export function ExplorerProvider({
       if (fetchResult) onRunComplete?.(fetchResult);
     },
     [
+      draftExploreState,
       setSubmittedExploreState,
       fetchData,
-      isSubmittable,
-      cleanedDraftExploreState,
       onRunComplete,
       isManagedWarehouse,
     ],
   );
 
   const handleSubmit = useCallback(
-    async (submitOptions?: { force?: boolean }) => {
+    async (submitOptions?: {
+      force?: boolean;
+      config?: ExplorationConfig;
+      setDraft?: boolean;
+    }) => {
+      if (submitOptions?.setDraft && submitOptions.config) {
+        skipNextAutoSubmitRef.current = true;
+        setDraftExploreState(submitOptions.config);
+      }
+
       if (submitOptions?.force) {
-        await doSubmit({ cache: "never" });
+        await doSubmit({ cache: "never", config: submitOptions?.config });
       } else {
-        await doSubmit();
+        await doSubmit({ config: submitOptions?.config });
       }
     },
-    [doSubmit],
+    [doSubmit, setDraftExploreState],
   );
 
   /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
     if (!isSubmittable) return;
+    if (skipNextAutoSubmitRef.current) {
+      skipNextAutoSubmitRef.current = false;
+      return;
+    }
     if (needsFetch) {
       doSubmit();
     } else if (needsUpdate && !needsFetch) {
@@ -386,8 +435,11 @@ export function ExplorerProvider({
 
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
-      const datasourceId = newDatasourceId ?? datasources[0]?.id ?? "";
+      const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
+      if (datasourceId) {
+        setDefaultDataSourceId(datasourceId);
+      }
 
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
@@ -407,7 +459,7 @@ export function ExplorerProvider({
         };
       });
     },
-    [createDefaultValue, datasources, initialConfig],
+    [createDefaultValue, datasources, initialConfig, setDefaultDataSourceId],
   );
 
   const value = useMemo<ExplorerContextValue>(
@@ -426,6 +478,7 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isStale,
+      needsFetch,
       needsUpdate,
       isSubmittable,
       clearAllDatasets,
@@ -446,6 +499,7 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isStale,
+      needsFetch,
       needsUpdate,
       isSubmittable,
       clearAllDatasets,

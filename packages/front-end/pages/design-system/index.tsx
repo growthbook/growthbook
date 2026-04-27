@@ -20,6 +20,7 @@ import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
 import LinkStories from "@/ui/Link.stories";
 import MetadataStories from "@/ui/Metadata.stories";
+import PaginationStories from "@/ui/Pagination.stories";
 import PopoverStories from "@/ui/Popover.stories";
 import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
@@ -28,8 +29,11 @@ import SelectStories from "@/ui/Select.stories";
 import SliderStories from "@/ui/Slider.stories";
 import StepperStories from "@/ui/Stepper.stories";
 import SwitchStories from "@/ui/Switch.stories";
+import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
+import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
+import DialogStories from "@/ui/Dialog/Dialog.stories";
 
 type StoryEntry = {
   name: string;
@@ -66,11 +70,13 @@ export default function DesignSystemPage() {
       name: "ExperimentStatusIndicator",
       Stories: ExperimentStatusIndicatorStories,
     },
+    { name: "VariationStatsTable", Stories: VariationStatsTableStories },
     { name: "Text", Stories: TextStories },
     { name: "Heading", Stories: HeadingStories },
     { name: "HelperText", Stories: HelperTextStories },
     { name: "Link", Stories: LinkStories },
     { name: "Metadata", Stories: MetadataStories },
+    { name: "Pagination", Stories: PaginationStories },
     { name: "Popover", Stories: PopoverStories },
     { name: "PremiumCallout", Stories: PremiumCalloutStories },
     { name: "ProgressBar", Stories: ProgressBarStories },
@@ -80,7 +86,9 @@ export default function DesignSystemPage() {
     { name: "Slider", Stories: SliderStories },
     { name: "Stepper", Stories: StepperStories },
     { name: "Switch", Stories: SwitchStories },
+    { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
+    { name: "Dialog", Stories: DialogStories },
   ] satisfies StoryEntry[];
 
   const entries = useMemo(

@@ -1,4 +1,3 @@
-import { PostFactMetricAnalysisResponse } from "shared/types/openapi";
 import { postFactMetricAnalysisValidator } from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -8,7 +7,7 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 export const postFactMetricAnalysis = createApiRequestHandler(
   postFactMetricAnalysisValidator,
-)(async (req): Promise<PostFactMetricAnalysisResponse> => {
+)(async (req) => {
   const context = req.context;
   const id = req.params.id;
 
@@ -20,7 +19,7 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     useCache,
     additionalNumeratorFilters,
     additionalDenominatorFilters,
-  } = req.body;
+  } = req.body ?? {};
 
   const factMetric = await context.models.factMetrics.getById(id);
 

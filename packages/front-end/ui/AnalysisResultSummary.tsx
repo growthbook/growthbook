@@ -2,7 +2,7 @@ import React, { ReactNode } from "react";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { upperFirst } from "lodash";
 import {
-  ExperimentReportVariationWithIndex,
+  ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import {
@@ -24,7 +24,6 @@ import {
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import FlagCard from "@/components/FlagCard/FlagCard";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
 import Callout from "@/ui/Callout";
@@ -41,10 +40,10 @@ export interface AnalysisResultSummaryProps {
       dimension: string;
       levels: string[];
     }>;
-    variation: ExperimentReportVariationWithIndex;
+    variation: ExperimentReportVariation;
     stats: SnapshotMetric;
     baseline: SnapshotMetric;
-    baselineVariation: ExperimentReportVariationWithIndex;
+    baselineVariation: ExperimentReportVariation;
     rowResults: RowResults;
     statsEngine: StatsEngine;
     pValueCorrection?: PValueCorrection;
@@ -52,6 +51,7 @@ export interface AnalysisResultSummaryProps {
   };
   differenceType: DifferenceType;
   isBandit?: boolean;
+  pValueThreshold: number;
   ssrPolyfills?: SSRPolyfills;
 }
 
@@ -59,16 +59,13 @@ export default function AnalysisResultSummary({
   data,
   differenceType,
   isBandit,
+  pValueThreshold,
   ssrPolyfills,
 }: AnalysisResultSummaryProps) {
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
 
   const { getFactTableById } = useDefinitions();
-
-  const _pValueThreshold = usePValueThreshold();
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
 
   if (!data) return null;
 

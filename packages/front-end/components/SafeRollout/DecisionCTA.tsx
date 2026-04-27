@@ -73,10 +73,8 @@ const DecisionCTA = ({
       type="button"
       onClick={openStatusModal}
       variant={variant}
-      size="sm"
+      size="xs"
       color={color}
-      style={{ marginTop: -4 }}
-      ml="2"
     >
       {buttonCopy}
     </Button>

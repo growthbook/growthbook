@@ -164,10 +164,10 @@ export default function TrafficCard({
               <th className="border-top-0" style={{ paddingLeft: "32px" }}>
                 {dimensionWithIssues?.label}
               </th>
-              {variations.map((v, i) => (
+              {variations.map((v) => (
                 <th
-                  className={`border-top-0 variation with-variation-label variation${i}`}
-                  key={i}
+                  className={`border-top-0 variation with-variation-label variation${v.index}`}
+                  key={v.id}
                 >
                   <span
                     className="label"
@@ -176,7 +176,7 @@ export default function TrafficCard({
                       height: 20,
                     }}
                   >
-                    {i}
+                    {v.index}
                   </span>
                   {v.name}
                 </th>
@@ -251,7 +251,7 @@ export default function TrafficCard({
         <div className="mt-2 mb-2">
           <ExperimentDateGraph
             yaxis="users"
-            variationNames={variations.map((v) => v.name)}
+            variations={variations}
             label="Units"
             datapoints={usersPerDate}
             formatter={formatNumber}

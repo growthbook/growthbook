@@ -15,16 +15,19 @@ import { useExperimentSearch } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 
 export default function ExperimentList({
   num,
   status,
   experiments,
+  localStorageKey,
   as = "list",
 }: {
   num: number;
   status: ExperimentStatus;
   experiments: ExperimentInterfaceStringDates[];
+  localStorageKey: string;
   as?: "list" | "table";
 }): React.ReactElement {
   const filterResults = useCallback(
@@ -41,6 +44,7 @@ export default function ExperimentList({
   const { items, SortableTH } = useExperimentSearch({
     allExperiments: experiments,
     filterResults,
+    localStorageKey,
   });
 
   if (as === "table") {
@@ -96,7 +100,11 @@ export default function ExperimentList({
                   </Flex>
                 </td>
                 <td>
-                  <SortedTags tags={Object.values(test.tags)} useFlex={true} />
+                  <SortedTags
+                    tags={Object.values(test.tags)}
+                    useFlex={true}
+                    {...tagLinkProps("experiments")}
+                  />
                 </td>
                 <td title={datetime(test.date)}>{date(test.date)}</td>
                 <td>{test.ownerName}</td>

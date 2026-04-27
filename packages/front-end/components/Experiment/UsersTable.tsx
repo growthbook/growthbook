@@ -59,15 +59,15 @@ const UsersTable: FC<{
             <th className="border-top-0 pt-1" style={{ minWidth: 150 }}>
               {dimension}
             </th>
-            {variations.map((v, i) => (
+            {variations.map((v) => (
               <th
-                key={i}
-                className={`border-top-0 pt-1 variation with-variation-label variation${i}`}
+                key={v.id}
+                className={`border-top-0 pt-1 variation with-variation-label variation${v.index}`}
                 style={{ minWidth: 150 }}
               >
                 <div className="d-flex align-items-center">
                   <span className="label" style={{ width: 20, height: 20 }}>
-                    {i}
+                    {v.index}
                   </span>{" "}
                   <span
                     className="d-inline-block text-ellipsis"

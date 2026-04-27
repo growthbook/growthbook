@@ -11,7 +11,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "agreement.update",
     deleteEvent: "agreement.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [
     {
       fields: {

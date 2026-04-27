@@ -36,6 +36,7 @@
       "version": "0.1.11",
       "capabilities": [
         "looseUnmarshalling",
+        "namespacesV2",
         "encryption",
         "streaming",
         "bucketingV2",

@@ -6,7 +6,7 @@ const BaseClass = MakeModelClass({
   schema: presentationThemeValidator,
   collectionName: "presentationthemes",
   idPrefix: "pt_",
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [{ fields: { organization: 1, dateUpdated: -1 } }],
   defaultValues: {
     customTheme: {

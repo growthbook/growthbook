@@ -257,7 +257,7 @@ const SavedGroupForm: FC<{
           key={conditionKey}
           project={""}
           emptyText="No conditions specified."
-          title="Include all users who match the following"
+          label="Include all users who match the following"
           require
           allowNestedSavedGroups={true}
           excludeSavedGroupId={current.id}

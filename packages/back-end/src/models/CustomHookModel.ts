@@ -3,6 +3,7 @@ import {
   CustomHookType,
   customHookValidator,
 } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -15,7 +16,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "customHook.update",
     deleteEvent: "customHook.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
 });
 
 export class CustomHookModel extends BaseClass {
@@ -27,9 +28,10 @@ export class CustomHookModel extends BaseClass {
   }
   protected canUpdate(
     existing: CustomHookInterface,
-    updates: CustomHookInterface,
+    _updates: UpdateProps<CustomHookInterface>,
+    newDoc: CustomHookInterface,
   ): boolean {
-    return this.context.permissions.canUpdateCustomHook(existing, updates);
+    return this.context.permissions.canUpdateCustomHook(existing, newDoc);
   }
   protected canDelete(doc: CustomHookInterface): boolean {
     return this.context.permissions.canDeleteCustomHook(doc);

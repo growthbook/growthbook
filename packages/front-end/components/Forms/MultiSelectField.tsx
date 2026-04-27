@@ -1,6 +1,7 @@
 import { FC, MouseEventHandler, ReactNode, useState } from "react";
 import ReactSelect, {
   components,
+  GroupBase,
   MultiValueGenericProps,
   MultiValueProps,
   InputProps,
@@ -34,29 +35,30 @@ import Field, { FieldProps } from "@/components/Forms/Field";
 import { ColorOption } from "@/components/Tags/TagsInput";
 
 const SortableMultiValue = SortableElement(
-  (props: MultiValueProps<SingleValue>) => {
+  (props: MultiValueProps<SingleValue, true, GroupBase<SingleValue>>) => {
     // Hack to stop the dropdown from opening when the user starts dragging
     const onMouseDown: MouseEventHandler<HTMLDivElement> = (e) => {
       e.preventDefault();
       e.stopPropagation();
     };
     const innerProps = { ...props.innerProps, onMouseDown };
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ innerProps: { onMouseDown: MouseEventHandl... Remove this comment to see the full error message
     return <components.MultiValue {...props} innerProps={innerProps} />;
   },
 );
 
-// eslint-disable-next-line
-const SortableMultiValueLabel = SortableHandle<any>(
-  (props: MultiValueGenericProps) => {
+const SortableMultiValueLabel = SortableHandle(
+  (
+    props: MultiValueGenericProps<SingleValue, true, GroupBase<SingleValue>>,
+  ) => {
     const title = props.data?.tooltip || props.data?.label || "";
     const innerProps = { ...props.innerProps, title };
     return <components.MultiValueLabel {...props} innerProps={innerProps} />;
   },
 );
 
-const OptionWithTitle = (props: OptionProps<SingleValue>) => {
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ children: ReactNode; innerRef: (instance: ... Remove this comment to see the full error message
+const OptionWithTitle = (
+  props: OptionProps<SingleValue, true, GroupBase<SingleValue>>,
+) => {
   const option = <components.Option {...props} />;
   return <div title={props.data?.tooltip}>{option}</div>;
 };
@@ -74,6 +76,39 @@ const Input = (props: InputProps) => {
   const { onPaste } = props.selectProps;
   return <components.Input onPaste={onPaste} {...props} />;
 };
+
+// Hide heading only for the first *visible* group when its label is empty.
+// If the first group has all options selected (group hidden), the second group
+// becomes the first visible one and should not show an empty heading either.
+function GroupHeading(
+  props: React.ComponentProps<typeof components.GroupHeading>,
+) {
+  const group = props.data as GroupedValue;
+  const label = group?.label;
+  const selectProps = props.selectProps as {
+    options?: GroupedValue[];
+    value?: SingleValue[];
+  };
+  const options = selectProps?.options ?? [];
+  const selectedSet = new Set(
+    (selectProps?.value ?? []).map((v) => v?.value).filter(Boolean),
+  );
+  const firstVisibleGroup = options.find((g) =>
+    (g?.options ?? []).some((opt) => opt.value && !selectedSet.has(opt.value)),
+  );
+  const isFirstVisibleGroup = firstVisibleGroup === group;
+  const hasLabel = label && label !== "";
+  if (isFirstVisibleGroup && !hasLabel) return null;
+  return (
+    <components.GroupHeading
+      {...props}
+      className={clsx(
+        props.className,
+        !hasLabel && "gb-select__group-heading--empty",
+      )}
+    />
+  );
+}
 
 function CopyButton({ value }: { value: string[] }) {
   const [copied, setCopied] = useState(false);
@@ -206,8 +241,18 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
   const selected = value.map((v) => map.get(v)).filter(isDefined);
 
-  // eslint-disable-next-line
-  const fieldProps = otherProps as any;
+  const { ref: _ref, ...fieldPropsRest } = otherProps;
+  const fieldProps = fieldPropsRest as Omit<
+    FieldProps,
+    | "value"
+    | "onChange"
+    | "options"
+    | "multi"
+    | "initialOption"
+    | "placeholder"
+    | "render"
+    | "ref"
+  >;
 
   const Component = creatable ? SortableCreatableSelect : SortableSelect;
 
@@ -340,6 +385,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                 Option: OptionWithTitle,
                 Input,
                 ClearIndicator: CustomClearIndicator,
+                GroupHeading,
                 ...(showCopyButton
                   ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
                   : {}),

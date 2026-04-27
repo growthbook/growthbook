@@ -1,4 +1,4 @@
-import { useForm, UseFormReturn } from "react-hook-form";
+import { useForm, UseFormReturn, useWatch } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -8,8 +8,9 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
-import { Flex, Box, Text } from "@radix-ui/themes";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
+import { Flex, Box, Text, Separator } from "@radix-ui/themes";
+import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -19,6 +20,10 @@ import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
@@ -29,12 +34,12 @@ import SelectField from "@/components//Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -93,6 +98,8 @@ export default function EditTargetingModal({
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
+  const lastPhaseVariations = getLatestPhaseVariations(experiment);
+
   const defaultValues = {
     condition: lastPhase?.condition ?? "",
     savedGroups: lastPhase?.savedGroups ?? [],
@@ -104,16 +111,36 @@ export default function EditTargetingModal({
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,
-    namespace: lastPhase?.namespace || {
-      enabled: false,
-      name: "",
-      range: [0, 1],
-    },
+    namespace: (() => {
+      const saved = lastPhase?.namespace;
+      if (!saved) {
+        // Canonical blank shape; matches what NamespaceSelector writes so
+        // `isEqual(watched, defaults)` can't misfire from shape drift.
+        return {
+          enabled: false,
+          name: "",
+          format: "legacy" as const,
+          ranges: [] as [number, number][],
+        };
+      }
+      // Fold legacy `range` → `ranges` so defaults line up with the shape
+      // NamespaceSelector produces immediately on mount.
+      if ("range" in saved && !("ranges" in saved)) {
+        return { ...omit(saved, "range"), ranges: [saved.range] };
+      }
+      return saved;
+    })(),
     seed: lastPhase?.seed ?? "",
     trackingKey: experiment.trackingKey || "",
     variationWeights:
       lastPhase?.variationWeights ??
-      getEqualWeights(experiment.variations.length, 4),
+      getEqualWeights(lastPhaseVariations.length, 4),
+    variations:
+      lastPhase?.variations ??
+      lastPhaseVariations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
     newPhase: false,
     reseed: true,
   };
@@ -122,19 +149,16 @@ export default function EditTargetingModal({
     defaultValues,
   });
 
-  const _formValues = omit(form.getValues(), [
-    "newPhase",
-    "reseed",
-    "bucketVersion",
-    "minBucketVersion",
-  ]);
-  const _defaultValues = omit(defaultValues, [
-    "newPhase",
-    "reseed",
-    "bucketVersion",
-    "minBucketVersion",
-  ]);
-  const hasChanges = !isEqual(_formValues, _defaultValues);
+  // useWatch so that form.setValue calls from NamespaceSelector (a child)
+  // trigger a re-render here. Control flags are excluded because they're
+  // mutated programmatically by the change-type step, not by the user.
+  const watchedValues = useWatch({ control: form.control });
+  const pickForCompare = <T extends Record<string, unknown>>(v: T) =>
+    omit(v, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
+  const hasChanges = !isEqual(
+    pickForCompare(watchedValues),
+    pickForCompare(defaultValues),
+  );
 
   useEffect(() => {
     if (changeType !== "advanced") {
@@ -171,6 +195,17 @@ export default function EditTargetingModal({
       throw new Error("Prerequisite targeting issues must be resolved");
     }
 
+    // Collapse contiguous / overlapping namespace ranges on save so the
+    // persisted phase carries a clean shape (e.g. [0.6, 0.9] + [0.9, 1] →
+    // [0.6, 1]). We do this here rather than while the user is editing so
+    // ranges don't flicker and collapse mid-edit.
+    const ns = value.namespace as
+      | { enabled?: boolean; ranges?: [number, number][] }
+      | undefined;
+    if (ns?.enabled && ns.ranges && ns.ranges.length > 0) {
+      ns.ranges = mergeContiguousRanges(ns.ranges);
+    }
+
     await apiCall(`/experiment/${experiment.id}/targeting`, {
       method: "POST",
       body: JSON.stringify(value),
@@ -184,14 +219,13 @@ export default function EditTargetingModal({
 
   if (safeToEdit) {
     return (
-      <Modal
+      <DialogLayout
         trackingEventModalType=""
         open={true}
         close={close}
-        header={`Edit Targeting`}
+        header="Edit Targeting"
         ctaEnabled={canSubmit}
         submit={onSubmit}
-        cta="Save"
         size="lg"
       >
         <TargetingForm
@@ -201,7 +235,7 @@ export default function EditTargetingModal({
           conditionKey={conditionKey}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
-      </Modal>
+      </DialogLayout>
     );
   }
 
@@ -411,9 +445,16 @@ function TargetingForm({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const hashAttributeOptions = attributeSchema
+  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
     .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map((s) => ({ label: s.property, value: s.property }));
+    .map((s) => ({
+      label: s.property,
+      value: s.property,
+      description: s.description,
+      tags: s.tags,
+      datatype: s.datatype,
+      hashAttribute: s.hashAttribute,
+    }));
 
   // If the current hashAttribute isn't in the list, add it for backwards compatibility
   // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was creaetd
@@ -466,6 +507,7 @@ function TargetingForm({
             }
           />
           <SelectField
+            withRadixThemedPortal
             containerClassName="flex-1"
             label="Assign variation based on attribute"
             labelClassName="font-weight-bold"
@@ -474,6 +516,16 @@ function TargetingForm({
             value={form.watch("hashAttribute")}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
+            }}
+            formatOptionLabel={(o, meta) => {
+              return (
+                <AttributeOptionWithTooltip
+                  option={o as AttributeOptionForTooltip}
+                  context={meta.context}
+                >
+                  {o.label}
+                </AttributeOptionWithTooltip>
+              );
             }}
             helpText={"The globally unique tracking key for the experiment"}
           />
@@ -518,14 +570,14 @@ function TargetingForm({
             setValue={(v) => form.setValue("savedGroups", v)}
             project={experiment.project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <ConditionInput
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
             project={experiment.project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <PrerequisiteInput
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
@@ -547,6 +599,8 @@ function TargetingForm({
             form={form}
             featureId={experiment.trackingKey}
             trackingKey={experiment.trackingKey}
+            experimentHashAttribute={form.watch("hashAttribute")}
+            fallbackAttribute={form.watch("fallbackAttribute")}
           />
           {["advanced"].includes(changeType) && <hr />}
         </>
@@ -560,9 +614,8 @@ function TargetingForm({
           setWeight={(i, weight) =>
             form.setValue(`variationWeights.${i}`, weight)
           }
-          valueAsId={true}
           variations={
-            experiment.variations.map((v, i) => {
+            getLatestPhaseVariations(experiment).map((v, i) => {
               return {
                 value: v.key || i + "",
                 name: v.name,

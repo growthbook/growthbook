@@ -1,4 +1,5 @@
 import { analyzeExperimentPower } from "shared/enterprise";
+import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
@@ -60,6 +61,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -153,8 +155,11 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery =
-    snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
+  const runTrafficQuery = shouldRunHealthTrafficQuery({
+    snapshotType,
+    snapshotDimensions: snapshotSettings.dimensions,
+    runHealthTrafficQuery: org.settings?.runHealthTrafficQuery,
+  });
 
   const { eligibleDimensionsWithSlices: dimensionsForTraffic } = exposureQuery
     ? getExposureQueryEligibleDimensions({
@@ -189,8 +194,12 @@ export const startExperimentResultQueries = async (
       name: queryParentId,
       query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runExperimentUnitsQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runExperimentUnitsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentUnits",
     });
     queries.push(unitQuery);
@@ -236,8 +245,12 @@ export const startExperimentResultQueries = async (
         name: m.id,
         query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId) =>
-          integration.runExperimentMetricQuery(query, setExternalId),
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentMetricQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
         queryType: "experimentMetric",
       }),
     );
@@ -272,10 +285,11 @@ export const startExperimentResultQueries = async (
         name: `group_${i}`,
         query: integration.getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId) =>
+        run: (query, setExternalId, queryMetadata) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
             query,
             setExternalId,
+            queryMetadata,
           ),
         queryType: "experimentMultiMetric",
       }),
@@ -309,8 +323,12 @@ export const startExperimentResultQueries = async (
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
-      run: (query, setExternalId) =>
-        integration.runExperimentAggregateUnitsQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runExperimentAggregateUnitsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
@@ -328,8 +346,8 @@ export const startExperimentResultQueries = async (
       dependencies: [],
       // all other queries in model must succeed or fail first
       runAtEnd: true,
-      run: (query, setExternalId) =>
-        integration.runDropTableQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runDropTableQuery(query, setExternalId, queryMetadata),
       queryType: "experimentDropUnitsTable",
     });
     queries.push(dropUnitsTableQuery);
@@ -451,13 +469,26 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           variationsSettings: this.model.settings.variations,
         });
       }
+      const analysisForCovariateImbalance = this.model.analyses.find(
+        (a) => a.settings.useCovariateAsResponse === true,
+      );
+      const isEligibleForCovariateImbalanceAnalysis =
+        !!analysisForCovariateImbalance;
+      if (isEligibleForCovariateImbalanceAnalysis) {
+        result.health.covariateImbalance = tabulateCovariateImbalance(
+          analysisForCovariateImbalance,
+          this.model.settings.goalMetrics,
+          this.model.settings.guardrailMetrics,
+          this.model.settings.secondaryMetrics,
+          this.model.settings.metricSettings,
+        );
+      }
     }
-
     return result;
   }
 
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
-    const obj = await findSnapshotById(this.model.organization, this.model.id);
+    const obj = await findSnapshotById(this.context, this.model.id);
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
@@ -489,10 +520,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             : "success",
     };
     await updateSnapshot({
-      organization: this.model.organization,
+      context: this.context,
       id: this.model.id,
       updates,
-      context: this.context,
     });
     if (
       this.model.report &&

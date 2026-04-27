@@ -8,14 +8,14 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   getExperimentValidator,
 } from "shared/validators";
-import { GetExperimentResponse } from "shared/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 
 export const getExperiment = createApiRequestHandler(getExperimentValidator)(
-  async (req): Promise<GetExperimentResponse> => {
+  async (req) => {
     const experiment = await getExperimentById(req.context, req.params.id);
     if (!experiment) {
       throw new Error("Could not find experiment with that id");
@@ -50,9 +50,12 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
     );
     const enhancedStatus = { status, detailedStatus };
 
-    const apiExperiment = await toExperimentApiInterface(
+    const apiExperiment = await resolveOwnerEmail(
+      await toExperimentApiInterface(
+        req.context,
+        experiment as ExperimentInterfaceExcludingHoldouts,
+      ),
       req.context,
-      experiment as ExperimentInterfaceExcludingHoldouts,
     );
     return {
       experiment: { ...apiExperiment, enhancedStatus },
