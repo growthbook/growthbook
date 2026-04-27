@@ -297,7 +297,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       changedAttributes.hashAttribute = patch.hashAttribute;
     }
     if (Object.keys(changedAttributes).length > 0) {
-      validateRuleAttributes(changedAttributes, req.context);
+      validateRuleAttributes(changedAttributes, req.context, feature.project);
     }
     if (
       patch.condition !== undefined ||

@@ -542,26 +542,33 @@ function formatUnknownAttributesError(
   );
 }
 
+type AttributeParts = {
+  hashAttribute?: string;
+  fallbackAttribute?: string;
+  condition?: string;
+};
+
 export function validateUnregisteredAttributes(
-  parts: {
-    hashAttribute?: string;
-    fallbackAttribute?: string;
-    condition?: string;
-  },
+  parts: AttributeParts,
   label: string,
   options: {
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: boolean;
+    project?: string;
   },
+  existingParts?: AttributeParts,
 ): void {
   if (!options.requireRegisteredAttributes) return;
 
+  const changed = (field: keyof AttributeParts): boolean =>
+    !!parts[field] && (!existingParts || parts[field] !== existingParts[field]);
+
   const keys: string[] = [];
-  if (parts.hashAttribute) keys.push(parts.hashAttribute);
-  if (parts.fallbackAttribute) keys.push(parts.fallbackAttribute);
-  if (parts.condition && parts.condition !== "{}") {
+  if (changed("hashAttribute")) keys.push(parts.hashAttribute!);
+  if (changed("fallbackAttribute")) keys.push(parts.fallbackAttribute!);
+  if (changed("condition") && parts.condition !== "{}") {
     try {
-      keys.push(...extractConditionAttributeKeys(JSON.parse(parts.condition)));
+      keys.push(...extractConditionAttributeKeys(JSON.parse(parts.condition!)));
     } catch {
       // Unparseable condition — `validateAndFixCondition` / `validateCondition`
       // elsewhere will surface JSON errors.
@@ -569,7 +576,11 @@ export function validateUnregisteredAttributes(
     }
   }
   if (!keys.length) return;
-  const unknown = findUnregisteredAttributes(keys, options.attributeSchema);
+  const unknown = findUnregisteredAttributes(
+    keys,
+    options.attributeSchema,
+    options.project,
+  );
   if (unknown.length) {
     throw new Error(formatUnknownAttributesError(label, unknown));
   }
@@ -582,6 +593,7 @@ export function validateFeatureRule(
     attributeSchema?: SDKAttributeSchema;
     requireRegisteredAttributes?: boolean;
   } = {},
+  existingRule?: FeatureRule,
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -600,9 +612,9 @@ export function validateFeatureRule(
   }
 
   // Opt-in client-side pre-flight — same rules as the back-end, same error
-  // wording. Keeps the user from burning a round-trip on a typo. Uses the
-  // potentially-repaired condition from above (ruleCopy) so the preview
-  // matches what will actually be saved.
+  // wording. Keeps the user from burning a round-trip on a typo. Only validates
+  // fields that changed from existingRule so pre-existing violations don't
+  // block unrelated edits.
   validateUnregisteredAttributes(
     {
       hashAttribute: (ruleCopy as { hashAttribute?: string }).hashAttribute,
@@ -612,6 +624,15 @@ export function validateFeatureRule(
     },
     "rule",
     options,
+    existingRule
+      ? {
+          hashAttribute: (existingRule as { hashAttribute?: string })
+            .hashAttribute,
+          fallbackAttribute: (existingRule as { fallbackAttribute?: string })
+            .fallbackAttribute,
+          condition: existingRule.condition,
+        }
+      : undefined,
   );
   if (rule.prerequisites) {
     if (rule.prerequisites.some((p) => !p.id)) {

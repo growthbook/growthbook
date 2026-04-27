@@ -83,6 +83,8 @@ export class SavedGroupModel extends BaseClass {
         this.context,
         { condition: doc.condition },
         "saved group",
+        undefined,
+        doc.projects,
       );
     }
   }

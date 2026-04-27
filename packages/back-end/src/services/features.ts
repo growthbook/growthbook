@@ -2114,6 +2114,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   context: ReqContext,
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
+  existingRules?: FeatureRule[],
 ): FeatureInterface["environmentSettings"][string]["rules"] =>
   rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
@@ -2123,13 +2124,16 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       );
     }
 
-    // Opt-in attribute registration check (org-level setting). Covers every
-    // rule created via the REST feature payload (postFeature / updateFeature).
+    // Opt-in attribute registration check (org-level setting). Only validate
+    // fields that changed so pre-existing violations don't block unrelated edits.
     const ruleWithAttrs = r as {
       hashAttribute?: string;
       fallbackAttribute?: string;
       condition?: string;
     };
+    const existingRule = r.id
+      ? existingRules?.find((er) => er.id === r.id)
+      : undefined;
     assertRegisteredAttributes(
       context,
       {
@@ -2138,6 +2142,16 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         condition: ruleWithAttrs.condition,
       },
       "rule",
+      existingRule
+        ? {
+            hashAttribute: (existingRule as { hashAttribute?: string })
+              .hashAttribute,
+            fallbackAttribute: (existingRule as { fallbackAttribute?: string })
+              .fallbackAttribute,
+            condition: existingRule.condition,
+          }
+        : undefined,
+      feature.project,
     );
 
     switch (r.type) {
@@ -2265,6 +2279,7 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
               context,
               feature,
               incomingEnvs[k].rules,
+              existing[k]?.rules,
             )
           : (existing[k]?.rules ?? []),
       },

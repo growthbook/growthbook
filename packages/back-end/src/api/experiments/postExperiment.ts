@@ -266,12 +266,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         fallbackAttribute: payload.fallbackAttribute,
       },
       "experiment",
+      undefined,
+      payload.project,
     );
     for (const phase of payload.phases ?? []) {
       assertRegisteredAttributes(
         req.context,
         { condition: phase.condition },
         "experiment phase",
+        undefined,
+        payload.project,
       );
     }
 

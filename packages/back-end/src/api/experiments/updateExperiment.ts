@@ -236,12 +236,16 @@ export const updateExperiment = createApiRequestHandler(
       fallbackAttribute: req.body.fallbackAttribute,
     },
     "experiment",
+    undefined,
+    experiment.project,
   );
   for (const phase of req.body.phases ?? []) {
     assertRegisteredAttributes(
       req.context,
       { condition: phase.condition },
       "experiment phase",
+      undefined,
+      experiment.project,
     );
   }
 

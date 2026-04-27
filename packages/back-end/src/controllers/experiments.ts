@@ -1109,12 +1109,16 @@ export async function postExperiments(
       fallbackAttribute: data.fallbackAttribute,
     },
     "experiment",
+    undefined,
+    data.project,
   );
   for (const phase of data.phases ?? []) {
     assertRegisteredAttributes(
       context,
       { condition: phase.condition },
       "experiment phase",
+      undefined,
+      data.project,
     );
   }
 
@@ -1404,12 +1408,16 @@ export async function postExperiment(
       fallbackAttribute: data.fallbackAttribute,
     },
     "experiment",
+    undefined,
+    experiment.project,
   );
   for (const phase of data.phases ?? []) {
     assertRegisteredAttributes(
       context,
       { condition: phase.condition },
       "experiment phase",
+      undefined,
+      experiment.project,
     );
   }
 
@@ -2446,6 +2454,8 @@ export async function putExperimentPhase(
     context,
     { condition: phase.condition },
     "experiment phase",
+    undefined,
+    experiment.project,
   );
 
   phase.dateStarted = phase.dateStarted
@@ -2568,6 +2578,8 @@ export async function postExperimentTargeting(
       condition,
     },
     "experiment",
+    undefined,
+    experiment.project,
   );
 
   const phases = [...experiment.phases];

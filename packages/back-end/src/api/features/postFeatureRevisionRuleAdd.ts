@@ -238,7 +238,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Validate condition JSON and references before any DB writes.
     validateRuleConditions(rule);
-    validateRuleAttributes(rule, req.context);
+    validateRuleAttributes(rule, req.context, feature.project);
     await validateRuleReferences(rule, req.context);
 
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {

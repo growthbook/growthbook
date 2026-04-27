@@ -313,6 +313,7 @@ export function validateRuleAttributes(
     fallbackAttribute?: string;
   },
   context: ApiReqContext,
+  project?: string,
 ): void {
   assertRegisteredAttributes(
     context,
@@ -322,6 +323,8 @@ export function validateRuleAttributes(
       condition: rule.condition,
     },
     "rule",
+    undefined,
+    project,
   );
 }
 

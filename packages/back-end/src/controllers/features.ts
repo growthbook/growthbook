@@ -1851,6 +1851,8 @@ export async function postFeatureRule(
       condition: rule.condition,
     },
     "rule",
+    undefined,
+    feature.project,
   );
 
   if (rule.type === "safe-rollout") {
@@ -2705,19 +2707,6 @@ export async function putFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check on edits too — typos can be
-  // introduced on updates just as easily as on creates.
-  assertRegisteredAttributes(
-    context,
-    {
-      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
-      fallbackAttribute: (rule as { fallbackAttribute?: string })
-        .fallbackAttribute,
-      condition: rule.condition,
-    },
-    "rule",
-  );
-
   if (rule.type === "safe-rollout") {
     if (!rule.safeRolloutId) {
       throw new Error("Safe Rollout rule must have a safeRolloutId");
@@ -2774,6 +2763,30 @@ export async function putFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
+
+  // Opt-in attribute registration check — only validate fields that actually
+  // changed from the revision so pre-existing violations don't block unrelated edits.
+  const revisionRule = revision.rules?.[environment]?.[i];
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (rule as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+    revisionRule
+      ? {
+          hashAttribute: (revisionRule as { hashAttribute?: string })
+            .hashAttribute,
+          fallbackAttribute: (revisionRule as { fallbackAttribute?: string })
+            .fallbackAttribute,
+          condition: revisionRule.condition,
+        }
+      : undefined,
+    feature.project,
+  );
 
   // Capture the existing rule ID before editing (used for ramp schedule operations).
   const existingRuleId: string | undefined =

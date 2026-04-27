@@ -1408,15 +1408,25 @@ export function extractConditionAttributeKeys(condition: unknown): string[] {
 
 // Returns the subset of `keys` that are NOT declared as active attributes in
 // `attributeSchema`. An attribute is "registered" when it appears in the
-// schema with `archived !== true`. Dot-notation keys are checked against
+// schema with `archived !== true` and is either org-wide (no projects) or
+// scoped to the given `project`. Dot-notation keys are checked against
 // their root segment, matching how attribute schema is declared.
 export function findUnregisteredAttributes(
   keys: string[],
   attributeSchema: SDKAttributeSchema | undefined,
+  project?: string | string[],
 ): string[] {
+  const projects = Array.isArray(project) ? project : project ? [project] : [];
   const registered = new Set<string>();
   for (const attr of attributeSchema ?? []) {
     if (attr.archived) continue;
+    if (
+      projects.length &&
+      attr.projects?.length &&
+      !projects.some((p) => attr.projects!.includes(p))
+    ) {
+      continue;
+    }
     registered.add(attr.property);
   }
   const missing: string[] = [];

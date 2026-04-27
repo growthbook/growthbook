@@ -38,26 +38,37 @@ export async function removeTagInAttribute(
 // `condition` must be a raw JSON string — this helper does not validate JSON
 // shape (that's `validateCondition`'s job); it only scans field names after
 // parsing and silently returns if parsing fails.
+type AttributeParts = {
+  hashAttribute?: string | null;
+  fallbackAttribute?: string | null;
+  condition?: string | null;
+};
+
+// When `existingParts` is provided, only validates fields that actually
+// changed — so pre-existing violations don't block unrelated edits.
+// When `project` is provided, attributes scoped to other projects are
+// treated as unregistered (matches the frontend dropdown filtering).
 export function assertRegisteredAttributes(
   context: ReqContext,
-  parts: {
-    hashAttribute?: string | null;
-    fallbackAttribute?: string | null;
-    condition?: string | null;
-  },
+  parts: AttributeParts,
   label: string,
+  existingParts?: AttributeParts,
+  project?: string | string[],
 ): void {
   if (!context.org.settings?.requireRegisteredAttributes) return;
 
   const attributeSchema = context.org.settings.attributeSchema || [];
   const keys: string[] = [];
 
-  if (parts.hashAttribute) keys.push(parts.hashAttribute);
-  if (parts.fallbackAttribute) keys.push(parts.fallbackAttribute);
+  const changed = (field: keyof AttributeParts): boolean =>
+    !!parts[field] && (!existingParts || parts[field] !== existingParts[field]);
 
-  if (parts.condition && parts.condition !== "{}") {
+  if (changed("hashAttribute")) keys.push(parts.hashAttribute!);
+  if (changed("fallbackAttribute")) keys.push(parts.fallbackAttribute!);
+
+  if (changed("condition") && parts.condition !== "{}") {
     try {
-      const parsed = JSON.parse(parts.condition);
+      const parsed = JSON.parse(parts.condition!);
       keys.push(...extractConditionAttributeKeys(parsed));
     } catch {
       // Unparseable condition — `validateCondition` elsewhere will surface
@@ -67,7 +78,7 @@ export function assertRegisteredAttributes(
 
   if (!keys.length) return;
 
-  const unknown = findUnregisteredAttributes(keys, attributeSchema);
+  const unknown = findUnregisteredAttributes(keys, attributeSchema, project);
   if (!unknown.length) return;
 
   const quoted = unknown.map((k) => `"${k}"`).join(", ");
