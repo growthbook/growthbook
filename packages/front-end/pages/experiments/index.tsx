@@ -103,6 +103,7 @@ const ExperimentsPage = (): React.ReactElement => {
   } = useExperimentSearch({
     allExperiments,
     watchedExperimentIds: watchedExperiments,
+    localStorageKey: "experiments-page",
   });
 
   const tabCounts = useMemo(() => {
