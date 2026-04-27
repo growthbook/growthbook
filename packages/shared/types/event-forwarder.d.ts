@@ -15,6 +15,25 @@ export interface BigQueryEventForwarderStoredConfig {
   serviceAccountKey?: string;
 }
 
+export interface SnowflakeEventForwarderConfigDraft {
+  tableName: string;
+  accessUrl?: string;
+}
+
+/** Encrypted payload saved for provisioning; credentials are copied from datasource params at sync time. */
+export interface SnowflakeEventForwarderStoredConfig {
+  tableName: string;
+  account: string;
+  accessUrl?: string;
+  username: string;
+  database: string;
+  schema: string;
+  privateKey: string;
+  privateKeyPassword?: string;
+  role?: string;
+  warehouse?: string;
+}
+
 export type EventForwarderConfigDraft =
   | {
       sinkType: "bigquery";
@@ -22,7 +41,7 @@ export type EventForwarderConfigDraft =
     }
   | {
       sinkType: "snowflake";
-      config: Record<string, string>;
+      config: SnowflakeEventForwarderConfigDraft;
     }
   | {
       sinkType: "databricks";

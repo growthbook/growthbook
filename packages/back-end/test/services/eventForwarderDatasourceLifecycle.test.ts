@@ -80,6 +80,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
       organizationId: "org1",
       datasourceId: "ds_a",
+      sinkType: "bigquery",
       topic: "topic-a",
       connectorName: undefined,
       connectorId: undefined,
@@ -112,7 +113,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     expect(deleteForDatasourceCascade).not.toHaveBeenCalled();
   });
 
-  it("deletes the row without Confluent teardown for non-BigQuery sinks", async () => {
+  it("cascade-deletes the row before license-server Snowflake teardown", async () => {
     const existing: EventForwarderConfigInterface = {
       id: "efc_s",
       organization: "org1",
@@ -153,8 +154,15 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       snowflakeDs,
     );
 
-    expect(mockedTeardownRemote).not.toHaveBeenCalled();
     expect(deleteForDatasourceCascade).toHaveBeenCalledWith(existing);
+    expect(mockedTeardownRemote).toHaveBeenCalledWith({
+      organizationId: "org1",
+      datasourceId: "ds_s",
+      sinkType: "snowflake",
+      topic: "topic-s",
+      connectorName: undefined,
+      connectorId: undefined,
+    });
   });
 
   it("invokes teardown only for the forwarder tied to the deleted datasource id", async () => {
@@ -206,6 +214,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
       organizationId: "org1",
       datasourceId: "ds_a",
+      sinkType: "bigquery",
       topic: "topic-a",
       connectorName: undefined,
       connectorId: undefined,
@@ -224,6 +233,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
       organizationId: "org1",
       datasourceId: "ds_b",
+      sinkType: "bigquery",
       topic: "topic-b",
       connectorName: undefined,
       connectorId: undefined,
