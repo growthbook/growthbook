@@ -1,20 +1,36 @@
 import { FC, ChangeEventHandler, useState } from "react";
+import { DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME } from "shared/util";
+import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
+import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
 import FileInput from "@/components/FileInput";
+import EventForwarderTableNameField from "./EventForwarderTableNameField";
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;
+  eventForwarderConfig: EventForwarderConfigDraft | null;
   existing: boolean;
+  setEventForwarderConfig: (
+    eventForwarderConfig: EventForwarderConfigDraft | null,
+  ) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   onManualParamChange: (name: string, value: string) => void;
-}> = ({ params, existing, onParamChange, onManualParamChange }) => {
+}> = ({
+  params,
+  eventForwarderConfig,
+  setEventForwarderConfig,
+  existing,
+  onParamChange,
+  onManualParamChange,
+}) => {
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
   const [originalAuthMethod] = useState(params.authMethod);
   // Convenience variable for the auth method to handle undefined
   const authMethod = params.authMethod ?? "password";
+  const canEnableEventForwarder = authMethod === "key-pair";
 
   return (
     <div className="row">
@@ -49,7 +65,12 @@ const SnowflakeForm: FC<{
           autoComplete="off"
           name="authMethod"
           value={params.authMethod ?? "password"}
-          onChange={(e) => onManualParamChange("authMethod", e.target.value)}
+          onChange={(e) => {
+            onManualParamChange("authMethod", e.target.value);
+            if (e.target.value !== "key-pair" && eventForwarderConfig) {
+              setEventForwarderConfig(null);
+            }
+          }}
         >
           <option value="password">Password</option>
           <option value="key-pair">Key Pair</option>
@@ -202,6 +223,53 @@ const SnowflakeForm: FC<{
           />
         </div>
       ) : null}
+      <div className="form-group col-md-12">
+        <Checkbox
+          id="enableSnowflakeEventForwarder"
+          label="Enable Event Forwarder"
+          value={!!eventForwarderConfig}
+          disabled={!canEnableEventForwarder}
+          disabledMessage="Snowflake event forwarding uses Confluent Snowflake Sink, which requires key-pair authentication."
+          setValue={(value) => {
+            if (!value) {
+              setEventForwarderConfig(null);
+              return;
+            }
+
+            setEventForwarderConfig({
+              sinkType: "snowflake",
+              config: {
+                tableName: DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+              },
+            });
+          }}
+        />
+        <div>
+          <span className="text-muted small">
+            Enriched events are written to the configured Snowflake database and
+            schema on this page.
+          </span>
+        </div>
+      </div>
+      {eventForwarderConfig?.sinkType === "snowflake" && (
+        <div className="form-group col-md-12">
+          <EventForwarderTableNameField
+            value={eventForwarderConfig.config.tableName}
+            onChange={(tableName) =>
+              setEventForwarderConfig({
+                sinkType: "snowflake",
+                config: {
+                  ...eventForwarderConfig.config,
+                  tableName,
+                },
+              })
+            }
+            placeholder={DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME}
+            tooltip="Defaults to GB_EVENTS. GrowthBook maps the Kafka topic to this Snowflake table."
+            helpText="Letters, numbers, underscores, and dollar signs. Hyphens and spaces are normalized to underscores when saving."
+          />
+        </div>
+      )}
     </div>
   );
 };

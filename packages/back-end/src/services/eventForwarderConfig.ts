@@ -1,21 +1,34 @@
 import { AES, enc } from "crypto-js";
 import { DataSourceInterface } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   BigQueryEventForwarderConfigDraft,
   BigQueryEventForwarderStoredConfig,
   EventForwarderConfigDraft,
   EventForwarderSinkType,
+  SnowflakeEventForwarderConfigDraft,
+  SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+  DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
   normalizeBigQueryTableNameForEventForwarder,
+  normalizeSnowflakeTableNameForEventForwarder,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 
-type SinkConfig = BigQueryEventForwarderStoredConfig | Record<string, string>;
+type SinkConfig =
+  | BigQueryEventForwarderStoredConfig
+  | SnowflakeEventForwarderStoredConfig
+  | Record<string, string>;
+
+type EventForwarderDatasourceParams =
+  | BigQueryConnectionParams
+  | SnowflakeConnectionParams
+  | undefined;
 
 function sanitizeKafkaName(value: string): string {
   return value
@@ -132,15 +145,86 @@ function buildBigQueryStoredConfigFromDraft(
   };
 }
 
+function buildSnowflakeStoredConfigFromDraft(
+  draft: SnowflakeEventForwarderConfigDraft,
+  datasourceParams: SnowflakeConnectionParams | undefined,
+  existingModel: EventForwarderConfigInterface | null,
+): SnowflakeEventForwarderStoredConfig {
+  const existingStored =
+    existingModel?.sinkType === "snowflake"
+      ? decryptSinkConfig<SnowflakeEventForwarderStoredConfig>(
+          existingModel.config,
+        )
+      : null;
+
+  const rawTableName =
+    draft.tableName?.trim() ||
+    existingStored?.tableName?.trim() ||
+    DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME;
+
+  const authMethod = datasourceParams?.authMethod ?? "password";
+  if (authMethod !== "key-pair") {
+    throw new Error(
+      "Snowflake event forwarder requires key-pair authentication. Password authentication is supported for Snowflake queries, but Confluent Snowflake Sink provisioning requires a private key.",
+    );
+  }
+
+  return {
+    tableName: normalizeSnowflakeTableNameForEventForwarder(rawTableName),
+    account:
+      datasourceParams?.account?.trim() ||
+      existingStored?.account?.trim() ||
+      "",
+    accessUrl:
+      datasourceParams?.accessUrl?.trim() ||
+      existingStored?.accessUrl?.trim() ||
+      undefined,
+    username:
+      datasourceParams?.username?.trim() ||
+      existingStored?.username?.trim() ||
+      "",
+    database:
+      datasourceParams?.database?.trim() ||
+      existingStored?.database?.trim() ||
+      "",
+    schema:
+      datasourceParams?.schema?.trim() || existingStored?.schema?.trim() || "",
+    privateKey:
+      datasourceParams?.privateKey?.trim() ||
+      existingStored?.privateKey?.trim() ||
+      "",
+    privateKeyPassword:
+      datasourceParams?.privateKeyPassword?.trim() ||
+      existingStored?.privateKeyPassword?.trim() ||
+      undefined,
+    role:
+      datasourceParams?.role?.trim() ||
+      existingStored?.role?.trim() ||
+      undefined,
+    warehouse:
+      datasourceParams?.warehouse?.trim() ||
+      existingStored?.warehouse?.trim() ||
+      undefined,
+  };
+}
+
 function buildNormalizedSinkPayload(
   draft: EventForwarderConfigDraft,
-  datasourceParams: BigQueryConnectionParams | undefined,
+  datasourceParams: EventForwarderDatasourceParams,
   existingModel: EventForwarderConfigInterface | null,
 ): SinkConfig {
   if (draft.sinkType === "bigquery") {
     return buildBigQueryStoredConfigFromDraft(
       draft.config,
-      datasourceParams,
+      datasourceParams as BigQueryConnectionParams | undefined,
+      existingModel,
+    );
+  }
+
+  if (draft.sinkType === "snowflake") {
+    return buildSnowflakeStoredConfigFromDraft(
+      draft.config,
+      datasourceParams as SnowflakeConnectionParams | undefined,
       existingModel,
     );
   }
@@ -164,6 +248,19 @@ export function toEventForwarderConfigDraft(
         tableName:
           rest.tableName || DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
         serviceAccountKey: "",
+      },
+    };
+  }
+
+  if (config.sinkType === "snowflake") {
+    const decrypted = decryptSinkConfig<SnowflakeEventForwarderStoredConfig>(
+      config.config,
+    );
+    return {
+      sinkType: "snowflake",
+      config: {
+        tableName:
+          decrypted.tableName || DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
       },
     };
   }
@@ -200,7 +297,7 @@ export async function syncEventForwarderConfigFromDatasource({
     "id" | "organization" | "projects" | "type"
   >;
   draft?: EventForwarderConfigDraft | null;
-  datasourceParams?: BigQueryConnectionParams;
+  datasourceParams?: EventForwarderDatasourceParams;
 }): Promise<EventForwarderConfigInterface | null> {
   const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
 
@@ -229,11 +326,14 @@ export async function syncEventForwarderConfigFromDatasource({
   );
 
   if (draft.sinkType === "bigquery") {
+    const bigQueryParams = datasourceParams as
+      | BigQueryConnectionParams
+      | undefined;
     const bqProject =
-      datasourceParams?.defaultProject?.trim() ||
-      datasourceParams?.projectId?.trim() ||
+      bigQueryParams?.defaultProject?.trim() ||
+      bigQueryParams?.projectId?.trim() ||
       "";
-    const defaultDataset = datasourceParams?.defaultDataset?.trim() || "";
+    const defaultDataset = bigQueryParams?.defaultDataset?.trim() || "";
     const bq = normalizedPayload as BigQueryEventForwarderStoredConfig;
     if (
       !bqProject ||
@@ -243,6 +343,22 @@ export async function syncEventForwarderConfigFromDatasource({
     ) {
       throw new Error(
         "BigQuery event forwarder requires connector project (BigQuery Project ID), default dataset, table name, and service account credentials",
+      );
+    }
+  }
+
+  if (draft.sinkType === "snowflake") {
+    const snowflake = normalizedPayload as SnowflakeEventForwarderStoredConfig;
+    if (
+      !snowflake.account ||
+      !snowflake.username ||
+      !snowflake.database ||
+      !snowflake.schema ||
+      !snowflake.tableName ||
+      !snowflake.privateKey
+    ) {
+      throw new Error(
+        "Snowflake event forwarder requires account, username, database, schema, table name, and private key credentials",
       );
     }
   }

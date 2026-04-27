@@ -27,6 +27,7 @@ import { featureHasEnvironment } from "./features";
 
 export * from "./strings";
 export * from "./bigquery-table-name";
+export * from "./snowflake-table-name";
 export * from "./features";
 export * from "./saved-groups";
 export * from "./metric-time-series";
