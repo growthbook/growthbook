@@ -11748,7 +11748,7 @@ paths:
                   description: The description of the new environment
                   type: string
                 toggleOnList:
-                  description: Show toggle on feature list
+                  description: Show on feature list page
                   type: boolean
                 defaultState:
                   description: Default state for new features
@@ -11803,7 +11803,7 @@ paths:
                   description: The description of the new environment
                   type: string
                 toggleOnList:
-                  description: Show toggle on feature list
+                  description: Show on feature list page
                   type: boolean
                 defaultState:
                   description: Default state for new features
