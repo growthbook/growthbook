@@ -25,7 +25,6 @@ import {
   liveRevisionFromFeature,
   fillRevisionFromFeature,
   getReviewSetting,
-  normalizeRulesInput,
   namespacesToMap,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
@@ -140,6 +139,7 @@ import {
   getFeaturePageRevisions,
   getRevisionsByStatus,
   markRevisionAsReviewRequested,
+  normalizeRulesInputToV2,
   ReviewSubmittedType,
   submitReviewAndComments,
   updateRevision,
@@ -754,7 +754,16 @@ export async function postFeatures(
         "Use one shape or the other — the v1 per-env shape is for v1 clients; the v2 flat `rules` array is for v2 clients.",
     );
   }
-  const flattenedInbound = normalizeRulesInput(inboundEnvRules);
+  // v1-shape (per-env) input is normalized through `normalizeRulesInputToV2`
+  // so content-identical rules across envs merge into a single v2 rule with
+  // `environments: [...envs]` (or `allEnvironments: true` when applicable),
+  // matching the read-path JIT migration. The naive shared `normalizeRulesInput`
+  // would split the same rule id across envs, forcing `ensureUniqueRuleIds`
+  // to suffix and breaking v1 round-trip semantics.
+  const flattenedInbound = normalizeRulesInputToV2(inboundEnvRules, {
+    orgEnvs: getEnvironments(org),
+    featureProject: feature.project,
+  });
   if (flattenedInbound.length > 0) {
     feature.rules = [...(feature.rules ?? []), ...flattenedInbound];
   }

@@ -2127,7 +2127,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
     ];
     const rules = buildFeatureRulesFromApiEnvSettings(
       baseFeature,
-      [{ id: "production" }],
+      [{ id: "production" }, { id: "dev" }],
       {
         production: {
           enabled: true,
@@ -2172,7 +2172,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
   it("omits prerequisites when not provided", () => {
     const rules = buildFeatureRulesFromApiEnvSettings(
       baseFeature,
-      [{ id: "production" }],
+      [{ id: "production" }, { id: "dev" }],
       {
         production: {
           enabled: true,
@@ -2181,6 +2181,77 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
       },
     );
     expect(rules[0]).not.toHaveProperty("prerequisites");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Content-identical rules across envs must merge into ONE v2 rule with a
+  // multi-env footprint — not two split rules with the second id suffixed by
+  // `ensureUniqueRuleIds`. The naive per-env stamping path used to produce
+  // duplicate ids; this is the regression guard for that fix.
+  // ---------------------------------------------------------------------------
+
+  it("merges content-identical rules across envs (matched by id) into one v2 rule with a multi-env footprint", () => {
+    const sharedRule = {
+      id: "fr_shared",
+      type: "force" as const,
+      value: "true",
+      description: "shared across envs",
+    };
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      baseFeature,
+      [{ id: "production" }, { id: "dev" }, { id: "staging" }],
+      {
+        production: { enabled: true, rules: [sharedRule] },
+        dev: { enabled: true, rules: [sharedRule] },
+      },
+    );
+    expect(rules).toHaveLength(1);
+    expect(rules[0].id).toBe("fr_shared");
+    expect(rules[0].allEnvironments).toBe(false);
+    expect(rules[0].environments).toEqual(["production", "dev"]);
+  });
+
+  it("collapses to allEnvironments:true when an id-matched rule covers every applicable env", () => {
+    const sharedRule = {
+      id: "fr_universal",
+      type: "force" as const,
+      value: "true",
+    };
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      baseFeature,
+      [{ id: "production" }, { id: "dev" }],
+      {
+        production: { enabled: true, rules: [sharedRule] },
+        dev: { enabled: true, rules: [sharedRule] },
+      },
+    );
+    expect(rules).toHaveLength(1);
+    expect(rules[0].id).toBe("fr_universal");
+    expect(rules[0].allEnvironments).toBe(true);
+    expect(rules[0].environments).toBeUndefined();
+  });
+
+  it("does not merge when only content (not id) matches — matching is by id, distinct ids stay split", () => {
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      baseFeature,
+      [{ id: "production" }, { id: "dev" }],
+      {
+        production: {
+          enabled: true,
+          rules: [{ id: "fr_a", type: "force", value: "true" }],
+        },
+        dev: {
+          enabled: true,
+          rules: [{ id: "fr_b", type: "force", value: "true" }],
+        },
+      },
+    );
+    expect(rules).toHaveLength(2);
+    expect(rules.map((r) => r.id).sort()).toEqual(["fr_a", "fr_b"]);
+    rules.forEach((r) => {
+      expect(r.allEnvironments).toBe(false);
+      expect(r.environments?.length).toBe(1);
+    });
   });
 });
 

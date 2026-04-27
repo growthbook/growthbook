@@ -15,6 +15,7 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
+  addIdsToFlatRules,
   addIdsToRules,
   fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
@@ -22,12 +23,17 @@ import {
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
-import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  getRevision,
+  normalizeRulesInputToV2,
+} from "back-end/src/models/FeatureRevisionModel";
+import {
+  getEnvironments,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
@@ -220,23 +226,35 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // 2. rules / defaultValue
-    // v2: rules live on feature.rules (flat). Convert any inbound per-env
-    // rules into a flat array with single-env scope, then union with existing
-    // rules for envs the caller didn't touch so we don't lose them on partial
-    // updates.
+    // v2: rules live on feature.rules (flat). Normalize inbound per-env rules
+    // through `normalizeRulesInputToV2` so content-identical rules across envs
+    // collapse to a single v2 rule with `environments: [...envs]` (or
+    // `allEnvironments: true` when applicable) — matches the read-path JIT
+    // and preserves v1 round-trip semantics for clients that send the same
+    // rule id across envs. Then union with existing rules for envs the caller
+    // didn't touch so we don't lose them on partial updates.
     const incomingEnvs = req.body.environments ?? {};
     const touchedEnvs = new Set(Object.keys(incomingEnvs));
-    const inboundFlatRules: FeatureRule[] = [];
+    const inboundRulesByEnv: Record<string, FeatureRule[]> = {};
     for (const [env, envSettings] of Object.entries(incomingEnvs)) {
       if (!envSettings.rules) continue;
-      const envRules = fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+      const converted = fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
         feature,
         envSettings.rules,
       );
-      envRules.forEach((r) =>
-        inboundFlatRules.push(stampRuleForEnvs(r, [env])),
-      );
+      // Stamp ids before flattening — `flattenV1ToV2Rules` groups by id and
+      // drops id-less rules. Without this, v1 clients that omit ids would
+      // lose those rules on PUT.
+      addIdsToFlatRules(converted, feature.id);
+      inboundRulesByEnv[env] = converted;
     }
+    const inboundFlatRules: FeatureRule[] =
+      Object.keys(inboundRulesByEnv).length > 0
+        ? normalizeRulesInputToV2(inboundRulesByEnv, {
+            orgEnvs: getEnvironments(req.context.org),
+            featureProject: effectiveProject,
+          })
+        : [];
     // Carry through untouched-env rules from the existing feature.
     const preservedRules: FeatureRule[] = (feature.rules ?? []).filter((r) => {
       if (r.allEnvironments) {

@@ -38,6 +38,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevision: jest.fn(),
+  normalizeRulesInputToV2: jest.fn(() => []),
   registerRevisionPublishedHook: jest.fn(),
 }));
 

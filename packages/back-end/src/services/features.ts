@@ -117,6 +117,7 @@ import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   createRevision,
   getRevision,
+  normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
@@ -2466,15 +2467,22 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
   }, existing);
 };
 
-// Build the v2 flat `feature.rules` from the API's per-env payload. Stamps
-// each rule with `allEnvironments: false` + `environments: [env]` to retain
-// its original scope after unification.
+// Build the v2 flat `feature.rules` from the API's per-env payload. Routes the
+// per-env record through `normalizeRulesInputToV2` so content-identical rules
+// (matched by id) across envs collapse into a single v2 rule with
+// `environments: [...envs]` (or `allEnvironments: true` when applicable). The
+// naive "stamp each as `environments: [env]`" path forced `ensureUniqueRuleIds`
+// to suffix shared ids, breaking v1 round-trip semantics for clients that
+// legitimately use the same rule id across envs.
+//
+// Rules without an id are stamped here (per env) before flattening, since
+// `flattenV1ToV2Rules` skips id-less rules (they have no group key).
 export const buildFeatureRulesFromApiEnvSettings = (
   feature: FeatureInterface,
   baseEnvs: Environment[],
   incomingEnvs: ApiFeatureEnvSettings,
 ): FeatureRule[] => {
-  const result: FeatureRule[] = [];
+  const rulesByEnv: Record<string, FeatureRule[]> = {};
   baseEnvs.forEach((e) => {
     const apiRules = incomingEnvs?.[e.id]?.rules;
     if (!apiRules) return;
@@ -2482,15 +2490,14 @@ export const buildFeatureRulesFromApiEnvSettings = (
       feature,
       apiRules,
     );
-    converted.forEach((r) =>
-      result.push({
-        ...r,
-        allEnvironments: false,
-        environments: [e.id],
-      } as FeatureRule),
-    );
+    addIdsToFlatRules(converted, feature.id);
+    rulesByEnv[e.id] = converted;
   });
-  return result;
+  if (Object.keys(rulesByEnv).length === 0) return [];
+  return normalizeRulesInputToV2(rulesByEnv, {
+    orgEnvs: baseEnvs,
+    featureProject: feature.project,
+  });
 };
 
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
