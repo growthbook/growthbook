@@ -167,27 +167,23 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       config.agentType,
     );
 
-    const requestModel = body.model;
-    const canOverride = context.permissions.canManageOrgSettings();
     const storedModel = buffer.getModel() as AIModel | undefined;
 
-    // Pick the model override (if any). Anything that ends up `undefined`
-    // falls through to the org's `defaultAIModel` below — which on Cloud is
-    // the hardcoded model.
-    let overrideModel: AIModel | undefined;
-    if (IS_CLOUD) {
-      // Cloud: existing conversations keep their stored model; new ones
-      // (storedModel === undefined) fall through to the hardcoded default.
-      // `requestModel` and `dbOverrideModel` are deliberately ignored.
-      overrideModel = storedModel;
-    } else if (canOverride && requestModel) {
-      // Self-hosted: an admin's per-request choice wins over everything else.
-      overrideModel = requestModel;
-    } else {
-      // Self-hosted: stored model on the conversation, else org-level prompt
-      // default.
-      overrideModel = storedModel || dbOverrideModel;
-    }
+    // Resolve the model override. `undefined` falls through to the org's
+    // `defaultAIModel` below — which on Cloud is always the hardcoded model.
+    //
+    // Cloud: continued conversations keep their stored model; new ones fall
+    // through to the hardcoded default. `body.model` and `dbOverrideModel`
+    // are deliberately ignored — Cloud users cannot pick a model.
+    //
+    // Self-hosted: continued conversations keep their stored model; on the
+    // first turn we honor the user's per-request choice, else the org-level
+    // prompt override, else the org default. The model selector is disabled
+    // in the UI after the first turn, so `body.model` won't be set on
+    // follow-ups in normal usage.
+    const overrideModel: AIModel | undefined = IS_CLOUD
+      ? storedModel
+      : storedModel || body.model || dbOverrideModel;
 
     const { defaultAIModel } = getAISettingsForOrg(context, false);
     const resolvedModel = overrideModel || defaultAIModel;
