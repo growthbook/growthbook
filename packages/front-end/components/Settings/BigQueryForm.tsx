@@ -10,6 +10,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
+import EventForwarderTableNameField from "./EventForwarderTableNameField";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
@@ -245,32 +246,21 @@ const BigQueryForm: FC<{
                 gap="3"
                 className="form-group col-md-12 mt-3 px-0"
               >
-                <Flex direction="column" gap="1">
-                  <label className="mb-0">
-                    <Flex align="center" gap="1">
-                      <span>Event Forwarder Table Name</span>
-                      <Tooltip body="Defaults to gb_events. If that table already exists, GrowthBook will provision a connector using a suffixed fallback table name instead." />
-                    </Flex>
-                  </label>
-                  <Field
-                    type="text"
-                    className="form-control"
-                    name="eventForwarderTableName"
-                    value={eventForwarderConfig.config.tableName}
-                    onChange={(e) =>
-                      setEventForwarderConfig({
-                        sinkType: "bigquery",
-                        config: {
-                          ...eventForwarderConfig.config,
-                          tableName: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="gb_events"
-                    helpText="Letters, numbers, and underscores (Unicode allowed). Hyphens and spaces are normalized to underscores when saving."
-                    required
-                  />
-                </Flex>
+                <EventForwarderTableNameField
+                  value={eventForwarderConfig.config.tableName}
+                  onChange={(tableName) =>
+                    setEventForwarderConfig({
+                      sinkType: "bigquery",
+                      config: {
+                        ...eventForwarderConfig.config,
+                        tableName,
+                      },
+                    })
+                  }
+                  placeholder="gb_events"
+                  tooltip="Defaults to gb_events. If that table already exists, GrowthBook will reuse it for the event forwarder."
+                  helpText="Letters, numbers, and underscores (Unicode allowed). Hyphens and spaces are normalized to underscores when saving."
+                />
               </Flex>
             )}
           </div>
