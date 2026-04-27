@@ -147,7 +147,7 @@ export default function MetricTabContent() {
                     getMetricMixClass(metric.metricType) !== lockedClass;
                   if (isDisabledInMenu) {
                     return (
-                      <Tooltip body={disabledTooltip}>
+                      <Tooltip body={disabledTooltip} usePortal>
                         <span>{label}</span>
                       </Tooltip>
                     );
