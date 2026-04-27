@@ -10,7 +10,8 @@
         "semverTargeting",
         "bucketingV2",
         "encryption",
-        "looseUnmarshalling"
+        "looseUnmarshalling",
+        "namespacesV2"
       ]
     }
   ]

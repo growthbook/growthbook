@@ -16,6 +16,7 @@ const openApiTags = [
   "fact-metrics",
   "metrics",
   "experiments",
+  "namespaces",
   "snapshots",
   "dimensions",
   "segments",
@@ -80,6 +81,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   experiments: {
     display: "Experiments",
     description: "Experiments (A/B Tests)",
+  },
+  namespaces: {
+    display: "Namespaces",
+    description:
+      "Namespaces partition your user population into buckets so that experiments using the same hash attribute do not overlap unintentionally. Each namespace defines a 0–1 range and individual experiments claim sub-ranges within it.",
   },
   snapshots: {
     display: "Experiment Snapshots",

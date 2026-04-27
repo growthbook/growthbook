@@ -824,11 +824,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/project/[pid].tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/pages/saved-groups/[sgid].tsx": {
     "no-restricted-imports": {
       "count": 2

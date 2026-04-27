@@ -1519,7 +1519,8 @@ Triggered when an experiment is created
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: number[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
                     ranges?: [
                         number,
                         number
@@ -1766,7 +1767,8 @@ Triggered when an experiment is updated
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: number[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
                     ranges?: [
                         number,
                         number
@@ -1974,7 +1976,8 @@ Triggered when an experiment is updated
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: number[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
                     ranges?: [
                         number,
                         number
@@ -2226,7 +2229,8 @@ Triggered when an experiment is deleted
                 }[];
                 namespace?: {
                     namespaceId: string;
-                    range: number[];
+                    enabled?: boolean | undefined;
+                    range?: number[] | undefined;
                     ranges?: [
                         number,
                         number
