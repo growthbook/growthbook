@@ -77,7 +77,7 @@ export async function provisionEventForwarderThroughLicenseServer(
         connectorName: eventForwarderConfig.connectorName?.trim() || undefined,
         connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
       });
-    } else {
+    } else if (eventForwarderConfig.sinkType === "snowflake") {
       const decrypted =
         decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
           eventForwarderConfig,
@@ -93,6 +93,10 @@ export async function provisionEventForwarderThroughLicenseServer(
         connectorName: eventForwarderConfig.connectorName?.trim() || undefined,
         connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
       });
+    } else {
+      throw new Error(
+        `Unsupported event forwarder sink type for provisioning: ${eventForwarderConfig.sinkType}`,
+      );
     }
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
