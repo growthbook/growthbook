@@ -310,6 +310,10 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      covariateImbalance: {
+        _id: false,
+        isImbalanced: Boolean,
+      },
       power: {
         _id: false,
         type: { type: String, enum: ["error", "success"] },
@@ -1198,7 +1202,7 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }

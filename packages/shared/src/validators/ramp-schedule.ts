@@ -44,14 +44,14 @@ export const rampTarget = z.object({
 export type RampTarget = z.infer<typeof rampTarget>;
 
 export const rampEndTrigger = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("scheduled"), at: z.date() }),
+  z.object({ type: z.literal("scheduled"), at: z.coerce.date() }),
 ]);
 export type RampEndTrigger = z.infer<typeof rampEndTrigger>;
 
 export const rampTrigger = z.discriminatedUnion("type", [
   z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
   z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.date() }),
+  z.object({ type: z.literal("scheduled"), at: z.coerce.date() }),
 ]);
 export type RampTrigger = z.infer<typeof rampTrigger>;
 

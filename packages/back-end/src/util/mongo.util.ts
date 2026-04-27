@@ -218,15 +218,11 @@ export async function dbSafeBulkWrite(
   return promiseAllChunks(
     ops.map((op) => async () => {
       if ("updateOne" in op) {
-        if (options) {
-          return collection.updateOne(
-            op.updateOne.filter,
-            op.updateOne.update,
-            options,
-          );
-        } else {
-          return collection.updateOne(op.updateOne.filter, op.updateOne.update);
-        }
+        const { filter, update, ...updateOptions } = op.updateOne;
+        return collection.updateOne(filter, update, {
+          ...options,
+          ...updateOptions,
+        });
       } else if ("insertOne" in op) {
         if (options) {
           return collection.insertOne(op.insertOne.document, options);

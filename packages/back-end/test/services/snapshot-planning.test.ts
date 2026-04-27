@@ -114,6 +114,9 @@ function makeAnalysisSettings(
   return {
     dimensions: [],
     statsEngine: "bayesian",
+    numGoalMetrics: 1,
+    numGuardrailMetrics: 0,
+    differenceType: "relative",
     ...overrides,
   } as ExperimentSnapshotAnalysisSettings;
 }
@@ -144,6 +147,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });
@@ -159,6 +163,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental");
   });
@@ -174,6 +179,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "exploratory",
         hasSnapshotDimensions: true,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental-exploratory");
   });
@@ -189,6 +195,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "exploratory",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental");
   });
@@ -206,6 +213,7 @@ describe("snapshot planning", () => {
         experiment,
         snapshotType: "standard",
         hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });

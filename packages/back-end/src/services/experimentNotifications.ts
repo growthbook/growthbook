@@ -25,23 +25,19 @@ import {
   ExperimentNotification,
   ExperimentResultStatusData,
 } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  ExperimentSnapshotDocument,
-  getLatestSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
-  getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
-  getPValueCorrectionForOrg,
-  getPValueThresholdForOrg,
+  getSignificanceSettingsForProject,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 
@@ -276,7 +272,7 @@ export const computeExperimentChanges = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
 }): Promise<ExperimentSignificanceChange[]> => {
   const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
   if (!currentAnalysis?.results?.[0]?.variations) {
@@ -284,6 +280,7 @@ export const computeExperimentChanges = async ({
   }
 
   const lastSnapshot = await getLatestSnapshot({
+    context,
     experiment: experiment.id,
     phase: experiment.phases.length - 1,
     beforeSnapshot: currentSnapshot,
@@ -295,10 +292,10 @@ export const computeExperimentChanges = async ({
   // TODO refactor to only do once per update
   // get the org level settings for significance:
   const statsEngine = currentAnalysis.settings.statsEngine;
-  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const projectId = experiment.project;
+  const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
+    await getSignificanceSettingsForProject(context, projectId);
   const metricDefaults = getMetricDefaultsForOrg(context);
-  const pValueThreshold = getPValueThresholdForOrg(context);
-  const pValueCorrection = getPValueCorrectionForOrg(context);
 
   // Apply p-value correction to match what the UI and analysisSummary use,
   // so notifications don't fire for metrics that appear non-significant to users
@@ -421,7 +418,7 @@ export const notifySignificance = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
 }) => {
   const experimentChanges = await computeExperimentChanges({
     context,
@@ -537,7 +534,7 @@ export const notifyExperimentChange = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
   previousAnalysisSummary?: ExperimentAnalysisSummary;
 }) => {
   const notificationsTriggered: string[] = [];

@@ -7,6 +7,7 @@ import { getValidDate } from "shared/dates";
 import { getLatestPhaseVariations } from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
@@ -34,6 +35,10 @@ export default function ExperimentTimeSeriesBlock({
   const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
+
+  const _pValueThreshold = usePValueThreshold(experiment.project);
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
 
   const result = analysis.results[0];
 
@@ -96,6 +101,7 @@ export default function ExperimentTimeSeriesBlock({
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds
         : undefined,
+    pValueThreshold,
   });
 
   // Filter rows based on expansion state when there's no slice filter
@@ -190,6 +196,7 @@ export default function ExperimentTimeSeriesBlock({
                       <ExperimentMetricTimeSeriesGraphWrapper
                         key={metric.id}
                         experimentId={experiment.id}
+                        pValueThreshold={pValueThreshold}
                         phase={snapshot.phase}
                         metric={metric}
                         differenceType={
@@ -235,6 +242,7 @@ export default function ExperimentTimeSeriesBlock({
                           </div>
                           <ExperimentMetricTimeSeriesGraphWrapper
                             experimentId={experiment.id}
+                            pValueThreshold={pValueThreshold}
                             phase={snapshot.phase}
                             metric={sliceRow.metric}
                             differenceType={

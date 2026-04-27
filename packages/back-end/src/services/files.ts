@@ -1,6 +1,13 @@
 import path from "path";
 import fs from "fs";
-import AWS from "aws-sdk";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
+import { fromTemporaryCredentials } from "@aws-sdk/credential-providers";
 import { Storage } from "@google-cloud/storage";
 import {
   S3_BUCKET,
@@ -12,63 +19,26 @@ import {
   AWS_ASSUME_ROLE,
 } from "back-end/src/util/secrets";
 
-let s3: AWS.S3;
-let awsTempCredentials: AWS.TemporaryCredentials | null = null;
+let s3Client: S3Client | null = null;
 
-function shouldRefreshCredentials(): boolean {
-  if (!awsTempCredentials) return false;
+function getS3Client(): S3Client {
+  if (!s3Client) {
+    const clientConfig: ConstructorParameters<typeof S3Client>[0] = {
+      region: S3_REGION,
+    };
 
-  // Check if credentials need refresh using the SDK's built-in method
-  if (awsTempCredentials.needsRefresh()) return true;
-
-  // Additional safety check: if expireTime is not set, credentials may not have been loaded
-  if (!awsTempCredentials.expireTime) return true;
-
-  // Proactively refresh if credentials expire within 5 minutes to avoid edge cases
-  const bufferMs = 5 * 60 * 1000; // 5 minutes
-  return awsTempCredentials.expireTime.getTime() - Date.now() < bufferMs;
-}
-
-async function refreshCredentials(): Promise<void> {
-  if (!awsTempCredentials) return;
-  return new Promise<void>((resolve, reject) => {
-    awsTempCredentials!.refresh((err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-}
-
-async function getS3(): Promise<AWS.S3> {
-  if (!s3) {
-    AWS.config.update({ region: S3_REGION });
     if (AWS_ASSUME_ROLE) {
-      // Use TemporaryCredentials so the SDK will automatically refresh
-      // STS credentials when they expire instead of fetching them once.
-      awsTempCredentials = new AWS.TemporaryCredentials({
-        RoleArn: AWS_ASSUME_ROLE,
-        RoleSessionName: "growthbook-uploads",
+      clientConfig.credentials = fromTemporaryCredentials({
+        params: {
+          RoleArn: AWS_ASSUME_ROLE,
+          RoleSessionName: "growthbook-uploads",
+        },
       });
-
-      // Eagerly load credentials for the first time so that masterCredentials
-      // is populated before any synchronous SDK operations (e.g. getSignedUrl,
-      // createPresignedPost) attempt to access it.
-      await refreshCredentials();
-
-      s3 = new AWS.S3({
-        signatureVersion: "v4",
-        credentials: awsTempCredentials,
-      });
-    } else {
-      s3 = new AWS.S3({ signatureVersion: "v4" });
     }
+
+    s3Client = new S3Client(clientConfig);
   }
-  // Eagerly refresh expired/expiring credentials before returning the client.
-  // This ensures even synchronous operations like getSignedUrl use valid creds.
-  if (shouldRefreshCredentials()) {
-    await refreshCredentials();
-  }
-  return s3;
+  return s3Client;
 }
 
 export function getUploadsDir() {
@@ -88,14 +58,15 @@ export async function uploadFile(
   let fileURL = "";
 
   if (UPLOAD_METHOD === "s3") {
-    const params = {
-      Bucket: S3_BUCKET,
-      Key: filePath,
-      Body: contents,
-      ContentType: contentType,
-    };
-    const s3Client = await getS3();
-    await s3Client.upload(params).promise();
+    const client = getS3Client();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: filePath,
+        Body: contents,
+        ContentType: contentType,
+      }),
+    );
     fileURL = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
@@ -174,14 +145,15 @@ export async function getSignedImageUrl(
   }
 
   if (UPLOAD_METHOD === "s3") {
-    const params = {
-      Bucket: S3_BUCKET,
-      Key: objectKey,
-      Expires: expiresInMinutes * 60, // Convert to seconds
-    };
-
-    const s3Client = await getS3();
-    return s3Client.getSignedUrl("getObject", params);
+    const client = getS3Client();
+    return getSignedUrl(
+      client,
+      new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: objectKey,
+      }),
+      { expiresIn: expiresInMinutes * 60 },
+    );
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
     const bucket = storage.bucket(GCS_BUCKET_NAME);
@@ -215,39 +187,27 @@ export async function getSignedUploadUrl(
   }
 
   if (UPLOAD_METHOD === "s3") {
-    const s3Client = await getS3();
-
-    // Use createPresignedPost for uploads
-    const params = {
+    const client = getS3Client();
+    const { url, fields } = await createPresignedPost(client, {
       Bucket: S3_BUCKET,
+      Key: filePath,
+      Conditions: [
+        ["eq", "$Content-Type", contentType],
+        ["eq", "$key", filePath],
+      ],
       Fields: {
         key: filePath,
         "Content-Type": contentType,
       },
-      Expires: expiresInMinutes * 60, // Convert to seconds
-      Conditions: [
-        // ["content-length-range", 0, 5242880], // Max 5MB file size
-        ["eq", "$Content-Type", contentType], // Enforce exact content-type match
-        ["eq", "$key", filePath], // Enforce exact key match
-      ],
-    };
-
-    const postData = await new Promise<{
-      url: string;
-      fields: Record<string, string>;
-    }>((resolve, reject) => {
-      s3Client.createPresignedPost(params, (err, data) => {
-        if (err) reject(err);
-        else resolve(data);
-      });
+      Expires: expiresInMinutes * 60,
     });
 
     const fileUrl = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
 
     return {
-      signedUrl: postData.url,
+      signedUrl: url,
       fileUrl,
-      fields: postData.fields,
+      fields: fields as Record<string, string>,
     };
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();

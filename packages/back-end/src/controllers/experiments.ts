@@ -51,6 +51,7 @@ import {
   createSnapshotAnalysis,
   determineNextBanditSchedule,
   getChangesToStartExperiment,
+  getLinkedChangeEnvironmentStates,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
@@ -244,6 +245,7 @@ export async function postAIExperimentAnalysis(
   const phase = experiment.phases.length - 1;
   const snapshot =
     (await getLatestSnapshot({
+      context,
       experiment: experiment.id,
       phase,
       type: "standard",
@@ -762,6 +764,11 @@ export async function getExperiment(
     linkedFeatures,
   });
 
+  const { visualChangesetEnvStates, urlRedirectEnvStates } =
+    visualChangesets.length > 0 || urlRedirects.length > 0
+      ? await getLinkedChangeEnvironmentStates(context, experiment)
+      : { visualChangesetEnvStates: {}, urlRedirectEnvStates: {} };
+
   res.status(200).json({
     status: 200,
     experiment,
@@ -770,6 +777,8 @@ export async function getExperiment(
     linkedFeatures: linkedFeatureInfo,
     envs,
     idea,
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   });
 }
 
@@ -821,6 +830,7 @@ export async function getExperimentPublic(
 
   const snapshot =
     (await getLatestSnapshot({
+      context,
       experiment: experiment.id,
       phase,
       type: "standard",
@@ -886,6 +896,7 @@ async function _getSnapshot({
   }
 
   return await getLatestSnapshot({
+    context,
     experiment: experimentObj.id,
     phase: parseInt(phase),
     dimension,
@@ -971,11 +982,10 @@ export async function getSnapshotById(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const { id } = req.params;
 
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -1487,19 +1497,34 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
+  const experimentHasLinkedChanges =
+    experiment.hasURLRedirects ||
+    experiment.hasVisualChangesets ||
+    (experiment.linkedFeatures && experiment.linkedFeatures.length > 0);
   if (
+    // Holdout change
     data.holdoutId &&
     data.holdoutId !== experiment.holdoutId &&
     experiment.holdoutId
   ) {
-    if (
-      experiment.status !== "draft" ||
-      experiment.hasURLRedirects ||
-      experiment.hasVisualChangesets ||
-      (experiment.linkedFeatures && experiment.linkedFeatures.length > 0)
-    ) {
+    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
       throw new Error(
         "Cannot change holdout after experiment has been run or linked changes have been added",
+      );
+    }
+    await context.models.holdout.removeExperimentFromHoldout(
+      experiment.holdoutId,
+      experiment.id,
+    );
+  } else if (
+    // Holdout removal
+    data.holdoutId == "" &&
+    data.holdoutId !== experiment.holdoutId &&
+    experiment.holdoutId
+  ) {
+    if (experiment.status !== "draft" || experimentHasLinkedChanges) {
+      throw new Error(
+        "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
       );
     }
     await context.models.holdout.removeExperimentFromHoldout(
@@ -2311,7 +2336,7 @@ export async function deleteExperimentPhase(
     changes,
   });
 
-  await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
+  await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
 
   // Add audit entry
   await req.audit({
@@ -2808,9 +2833,8 @@ export async function cancelSnapshot(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -2838,7 +2862,7 @@ export async function cancelSnapshot(
     integration,
   );
   await queryRunner.cancelQueries();
-  await deleteSnapshotById(org.id, snapshot.id);
+  await deleteSnapshotById(context, snapshot.id);
 
   // Release the incremental refresh lock if this snapshot held it.
   await context.models.incrementalRefresh
@@ -2939,10 +2963,9 @@ export async function postSnapshotAnalysis(
   res: Response<{ status: 200 } | PrivateApiErrorResponse>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     res.status(404).json({
       status: 404,
@@ -2968,10 +2991,9 @@ export async function postSnapshotAnalysis(
       experiment.phases[phaseIndex ?? latestPhase].coverage;
     // JIT migrate snapshots to have
     await updateSnapshot({
-      organization: org.id,
+      context,
       id,
       updates: { settings: snapshot.settings },
-      context,
     });
   }
 
@@ -2991,7 +3013,6 @@ export async function postSnapshotAnalysis(
   try {
     await createSnapshotAnalysis(context, {
       experiment: experiment,
-      organization: org,
       analysisSettings: analysisSettings,
       metricMap: metricMap,
       snapshot: snapshot,
@@ -3134,7 +3155,6 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   res: Response<{ status: 200 } | PrivateApiErrorResponse>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { experiments } = req.body;
   if (!experiments.length) {
     res.status(200).json({
@@ -3167,7 +3187,6 @@ export async function postSnapshotsWithScaledImpactAnalysis(
 
     snapshotAnalysesToCreate.push({
       experiment: experiment,
-      organization: org,
       analysisSettings: scaledImpactAnalysisSettings,
       metricMap: metricMap,
       snapshot: s,

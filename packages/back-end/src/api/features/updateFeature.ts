@@ -4,7 +4,10 @@ import { updateFeatureValidator, RevisionRules } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
@@ -405,14 +408,17 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
-      feature: getApiFeatureObj({
-        feature: updatedFeature,
-        organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision,
-        safeRolloutMap,
-      }),
+      feature: await resolveOwnerEmail(
+        getApiFeatureObj({
+          feature: updatedFeature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision,
+          safeRolloutMap,
+        }),
+        req.context,
+      ),
     };
   },
 );

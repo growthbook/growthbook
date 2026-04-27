@@ -17,7 +17,10 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   assertExperimentPayloadCommercialFeatures,
@@ -277,9 +280,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       });
     }
 
-    const apiExperiment = await toExperimentApiInterface(
+    const apiExperiment = await resolveOwnerEmail(
+      await toExperimentApiInterface(
+        req.context,
+        experiment as ExperimentInterfaceExcludingHoldouts,
+      ),
       req.context,
-      experiment as ExperimentInterfaceExcludingHoldouts,
     );
     return {
       experiment: apiExperiment,
