@@ -49,7 +49,7 @@ import {
   getEventForwarderConfigDraftForDatasource,
   syncEventForwarderConfigFromDatasource,
 } from "back-end/src/services/eventForwarderConfig";
-import { maybeProvisionEventForwarderConfig } from "back-end/src/services/eventForwarderProvisioning";
+import { provisionEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarderProvisioning";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
@@ -227,7 +227,6 @@ export async function postDataSources(
         status: 200;
         id: string;
         datasource: DataSourceInterfaceWithParams;
-        eventForwarderProvisioningError?: string;
       }
     | {
         status: 400;
@@ -274,7 +273,7 @@ export async function postDataSources(
             ? (params as BigQueryConnectionParams)
             : undefined,
       });
-    const provisioningResult = await maybeProvisionEventForwarderConfig(
+    await provisionEventForwarderThroughLicenseServer(
       context,
       syncedEventForwarderConfig,
       datasource.type === "bigquery"
@@ -287,11 +286,6 @@ export async function postDataSources(
       status: 200,
       id: datasource.id,
       datasource: await getDataSourceWithParams(context, integration),
-      ...(provisioningResult.error
-        ? {
-            eventForwarderProvisioningError: provisioningResult.error,
-          }
-        : {}),
     });
   } catch (e) {
     req.log.error(e, "Failed to create data source");
@@ -418,7 +412,6 @@ export async function putDataSource(
     | {
         status: 200;
         datasource: DataSourceInterfaceWithParams;
-        eventForwarderProvisioningError?: string;
       }
     | {
         status: 400 | 403 | 404;
@@ -568,7 +561,7 @@ export async function putDataSource(
             ? (integration.params as BigQueryConnectionParams)
             : undefined,
       });
-    const provisioningResult = await maybeProvisionEventForwarderConfig(
+    await provisionEventForwarderThroughLicenseServer(
       context,
       syncedEventForwarderConfig,
       updatedDatasource.type === "bigquery"
@@ -579,11 +572,6 @@ export async function putDataSource(
     res.status(200).json({
       status: 200,
       datasource: await getDataSourceWithParams(context, integration),
-      ...(provisioningResult.error
-        ? {
-            eventForwarderProvisioningError: provisioningResult.error,
-          }
-        : {}),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");

@@ -13,10 +13,7 @@ import {
   normalizeBigQueryTableNameForEventForwarder,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
-import {
-  CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX,
-  ENCRYPTION_KEY,
-} from "back-end/src/util/secrets";
+import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 
 type SinkConfig = BigQueryEventForwarderStoredConfig | Record<string, string>;
 
@@ -32,9 +29,7 @@ export function getEventForwarderTopicName(
   orgId: string,
   datasourceId: string,
 ): string {
-  return sanitizeKafkaName(
-    `${CONFLUENT_EVENT_FORWARDER_TOPIC_PREFIX}-${orgId}-${datasourceId}`,
-  );
+  return sanitizeKafkaName(`gb-events-${orgId}-${datasourceId}`);
 }
 
 function encryptSinkConfig(config: SinkConfig): string {
