@@ -10,11 +10,28 @@ type AnyEndpointSpec = ApiEndpointSpec<
   ZodTypeAny
 >;
 
-type ArgsFor<T extends AnyEndpointSpec> = {
-  params?: z.infer<T["paramsSchema"]>;
-  body?: z.infer<T["bodySchema"]>;
-  query?: z.infer<T["querySchema"]>;
-};
+// Endpoints opt out of a request part by setting its schema to `z.never()`,
+// which makes `z.infer<...>` resolve to `never`. ArgEntry uses that to omit
+// the corresponding key entirely; otherwise the key is required, unless the
+// inferred object has only optional fields (in which case the key is optional).
+type ArgEntry<K extends PropertyKey, V> = [V] extends [never]
+  ? unknown
+  : Record<string, never> extends V
+    ? { [P in K]?: V }
+    : { [P in K]: V };
+
+type ArgsFor<T extends AnyEndpointSpec> = ArgEntry<
+  "params",
+  z.infer<T["paramsSchema"]>
+> &
+  ArgEntry<"body", z.infer<T["bodySchema"]>> &
+  ArgEntry<"query", z.infer<T["querySchema"]>>;
+
+// Make the second positional arg itself optional when no key is required.
+type CallArgs<T extends AnyEndpointSpec> =
+  Record<string, never> extends ArgsFor<T>
+    ? [args?: ArgsFor<T>]
+    : [args: ArgsFor<T>];
 
 /**
  * Typed helper for calling the public REST API (`/api/v1/*`) from the
@@ -30,25 +47,30 @@ export function useRestApiCall() {
   return useCallback(
     async <T extends AnyEndpointSpec>(
       spec: T,
-      { params, body, query }: ArgsFor<T> = {},
+      ...rest: CallArgs<T>
     ): Promise<z.infer<T["responseSchema"]>> => {
+      const { params, body, query } = (rest[0] ?? {}) as {
+        params?: Record<string, unknown>;
+        body?: unknown;
+        query?: Record<string, unknown>;
+      };
       const paramsObj = params
         ? Object.fromEntries(
-            Object.entries(params as Record<string, unknown>).map(([k, v]) => [
-              k,
-              String(v),
-            ]),
+            Object.entries(params).map(([k, v]) => [k, String(v)]),
           )
         : {};
 
-      let url = `/api/v1${spec.path.replace(
-        /:(\w+)/g,
-        (_, p) => paramsObj[p] ?? "",
-      )}`;
+      let url = `/api/v1${spec.path.replace(/:(\w+)/g, (_, p) => {
+        const value = paramsObj[p];
+        if (value === undefined || value === "") {
+          throw new Error(`Missing required path parameter: ${p}`);
+        }
+        return value;
+      })}`;
 
       if (query && Object.keys(query).length > 0) {
         const queryObj = Object.fromEntries(
-          Object.entries(query as Record<string, unknown>)
+          Object.entries(query)
             .filter(([, v]) => v !== undefined && v !== null)
             .map(([k, v]) => [k, String(v)]),
         );
@@ -61,12 +83,18 @@ export function useRestApiCall() {
         body: body ? JSON.stringify(body) : undefined,
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        throw new Error(responseData?.message || "There was an error");
+        let message = "There was an error";
+        try {
+          const errData = await response.json();
+          message = errData?.message || message;
+        } catch {
+          // non-JSON error body; keep default message
+        }
+        throw new Error(message);
       }
 
+      const responseData = await response.json();
       return responseData as z.infer<T["responseSchema"]>;
     },
     [fetchRaw],

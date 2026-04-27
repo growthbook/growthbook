@@ -81,9 +81,14 @@ function authenticateWithJwt(
   const reqAsExpress = req as Request;
 
   runMiddleware(jwtMiddleware, reqAsExpress, res)
-    .then(() =>
-      runMiddleware(processJWT as unknown as RequestHandler, reqAsExpress, res),
-    )
+    .then(() => {
+      if (res.headersSent) return;
+      return runMiddleware(
+        processJWT as unknown as RequestHandler,
+        reqAsExpress,
+        res,
+      );
+    })
     .then(async () => {
       // processJWT may have responded (e.g. 403 for missing org access) —
       // skip the rest of the pipeline in that case.
@@ -169,10 +174,22 @@ function runMiddleware(
   res: Response,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    middleware(req, res, (err) => {
+    let settled = false;
+    const settle = (err?: unknown) => {
+      if (settled) return;
+      settled = true;
       if (err) reject(err);
       else resolve();
-    });
+    };
+
+    // Some middlewares respond and return without calling next (e.g. processJWT
+    // sending a 403 for org-membership failures). Settle on response lifecycle
+    // events too, so the promise — and the req/res/next closures it captures —
+    // doesn't dangle.
+    res.once("finish", () => settle());
+    res.once("close", () => settle());
+
+    middleware(req, res, (err) => settle(err));
   });
 }
 
