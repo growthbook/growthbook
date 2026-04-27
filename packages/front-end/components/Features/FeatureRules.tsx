@@ -3,40 +3,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  FeatureRule,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
 } from "shared/validators";
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { Box, Flex, TextField } from "@radix-ui/themes";
-import { ruleFootprint } from "shared/util";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
-import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import track from "@/services/track";
 import {
   getRules,
-  getUnreachableRuleIndex,
   isRuleInactive,
   useFeatureRulesEnv,
   FEATURE_RULES_ALL_ENVS,
@@ -52,10 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
-import { useAuth } from "@/services/auth";
 import HoldoutValueModal from "./HoldoutValueModal";
-import { Rule, SortableRule } from "./Rule";
-import { HoldoutRule } from "./HoldoutRule";
 
 export default function FeatureRules({
   environments,
@@ -94,24 +72,9 @@ export default function FeatureRules({
   pendingRuleEdit?: { environment: string; ruleId: string } | null;
   onPendingRuleEditHandled?: () => void;
 }) {
-  const { apiCall } = useAuth();
   const envs = environments.map((e) => e.id);
   // null = "All environments" view.
   const [storedEnv, setEnv] = useFeatureRulesEnv();
-  // Optimistic copy for the all-envs DnD view.
-  const [allEnvItems, setAllEnvItems] = useState<FeatureRule[]>(
-    feature.rules ?? [],
-  );
-  const [allEnvDragId, setAllEnvDragId] = useState<string | null>(null);
-  useEffect(() => {
-    setAllEnvItems(feature.rules ?? []);
-  }, [feature.rules]);
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
   const [hideInactive, setHideInactive] = useLocalStorage(
     "hide-disabled-rules",
     false,
@@ -475,213 +438,56 @@ export default function FeatureRules({
 
       <Box mt="4">
         {env === null ? (
-          (() => {
-            // Merged real + pending-from-draft schedules; the "all envs" view
-            // mirrors what RuleList builds per-env so pending publish badges
-            // surface on rules whose only change is a queued ramp action.
-            const allEnvsRampMap = buildRuleRampScheduleMap({
-              rampSchedules,
-              draftRevision,
-            });
-            // Roll up per-env unreachability into a single set: a rule is
-            // unreachable in the all-envs view iff it's unreachable in *every*
-            // env it applies to. Rules with no env footprint
-            // (allEnvironments:false, environments:[]) never apply anywhere
-            // and are surfaced via the "No environments" badge instead, so
-            // they're skipped here rather than marked unreachable.
-            const unreachableIdxByEnv = new Map<string, number>();
-            for (const e of environments) {
-              unreachableIdxByEnv.set(
-                e.id,
-                getUnreachableRuleIndex(rulesByEnv[e.id] ?? [], experimentsMap),
-              );
-            }
-            const unreachableRuleIds = new Set<string>();
-            for (const rule of allEnvItems) {
-              const applicable = ruleFootprint(rule, envs);
-              if (applicable.length === 0) continue;
-              const blockedEverywhere = applicable.every((envId) => {
-                const envRules = rulesByEnv[envId] ?? [];
-                const idx = envRules.findIndex((r) => r.id === rule.id);
-                if (idx === -1) return false;
-                const unreachableIdx = unreachableIdxByEnv.get(envId) ?? 0;
-                return unreachableIdx > 0 && idx >= unreachableIdx;
-              });
-              if (blockedEverywhere) unreachableRuleIds.add(rule.id);
-            }
-            return (
-              <>
-                {allEnvItems.length > 0 || includeHoldoutRuleAllEnvs ? (
-                  <Flex direction="column" gap="4">
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragStart={({ active }) => {
-                        if (!canEditDrafts || isLocked) return;
-                        setAllEnvDragId(active.id as string);
-                      }}
-                      onDragEnd={async ({ active, over }) => {
-                        if (!canEditDrafts || isLocked) {
-                          setAllEnvDragId(null);
-                          return;
-                        }
-                        if (over && active.id !== over.id) {
-                          const oldIndex = allEnvItems.findIndex(
-                            (r) => r.id === active.id,
-                          );
-                          const newIndex = allEnvItems.findIndex(
-                            (r) => r.id === over.id,
-                          );
-                          if (oldIndex === -1 || newIndex === -1) return;
-                          setAllEnvItems((prev) =>
-                            arrayMove(prev, oldIndex, newIndex),
-                          );
-                          const res = await apiCall<{ version: number }>(
-                            `/feature/${feature.id}/${currentVersion}/reorder`,
-                            {
-                              method: "POST",
-                              body: JSON.stringify({
-                                from: oldIndex,
-                                to: newIndex,
-                              }),
-                            },
-                          );
-                          await mutate();
-                          if (res.version) setVersion(res.version);
-                        }
-                        setAllEnvDragId(null);
-                      }}
-                    >
-                      {includeHoldoutRuleAllEnvs && (
-                        <HoldoutRule
-                          feature={
-                            draftDeletesHoldoutAnyEnv ? baseFeature : feature
-                          }
-                          isDeleted={draftDeletesHoldoutAnyEnv}
-                          setRuleModal={() => setHoldoutModal(true)}
-                          mutate={mutate}
-                          revisionList={revisionList}
-                          setVersion={setVersion}
-                          isLocked={isLocked}
-                        />
-                      )}
-                      <SortableContext
-                        items={allEnvItems}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        {allEnvItems.map((rule, allEnvIdx) => {
-                          // displayEnv is cosmetic; modal addresses by rule.id.
-                          const displayEnv =
-                            rule.allEnvironments === true ||
-                            !rule.environments?.length
-                              ? (environments[0]?.id ?? "")
-                              : rule.environments[0];
-                          const rampSchedule = allEnvsRampMap.get(rule.id);
-                          return (
-                            <SortableRule
-                              key={rule.id}
-                              rule={rule}
-                              feature={feature}
-                              environment={displayEnv}
-                              i={allEnvIdx}
-                              mutate={mutate}
-                              setRuleModal={setRuleModal}
-                              unreachable={unreachableRuleIds.has(rule.id)}
-                              version={currentVersion}
-                              setVersion={setVersion}
-                              locked={isLocked}
-                              experimentsMap={experimentsMap}
-                              hideInactive={hideInactive}
-                              isDraft={isDraft}
-                              safeRolloutsMap={safeRolloutsMap}
-                              holdout={
-                                liveHoldoutActiveAnyEnv ? holdout : undefined
-                              }
-                              rampSchedule={rampSchedule}
-                              draftRevision={draftRevision}
-                              isAllEnvsView
-                            />
-                          );
-                        })}
-                      </SortableContext>
-                      <DragOverlay>
-                        {allEnvDragId
-                          ? (() => {
-                              const rule = allEnvItems.find(
-                                (r) => r.id === allEnvDragId,
-                              );
-                              if (!rule) return null;
-                              const displayEnv =
-                                rule.allEnvironments === true ||
-                                !rule.environments?.length
-                                  ? (environments[0]?.id ?? "")
-                                  : rule.environments[0];
-                              const rampSchedule = allEnvsRampMap.get(rule.id);
-                              const flatIdx = allEnvItems.findIndex(
-                                (r) => r.id === rule.id,
-                              );
-                              return (
-                                <Rule
-                                  rule={rule}
-                                  feature={feature}
-                                  environment={displayEnv}
-                                  i={flatIdx}
-                                  mutate={mutate}
-                                  setRuleModal={setRuleModal}
-                                  unreachable={unreachableRuleIds.has(rule.id)}
-                                  version={currentVersion}
-                                  setVersion={setVersion}
-                                  locked={isLocked}
-                                  experimentsMap={experimentsMap}
-                                  hideInactive={hideInactive}
-                                  isDraft={isDraft}
-                                  safeRolloutsMap={safeRolloutsMap}
-                                  holdout={
-                                    liveHoldoutActiveAnyEnv
-                                      ? holdout
-                                      : undefined
-                                  }
-                                  rampSchedule={rampSchedule}
-                                  draftRevision={draftRevision}
-                                  isAllEnvsView
-                                />
-                              );
-                            })()
-                          : null}
-                      </DragOverlay>
-                    </DndContext>
-                  </Flex>
-                ) : (
-                  <Box py="4" className="text-muted">
-                    <em>No rules have been added yet</em>
-                  </Box>
-                )}
-                {canEditDrafts && !isLocked && (
-                  <>
-                    <Flex mt="5" mb="1" justify="end">
-                      <Button
-                        onClick={() => {
-                          // environment="" → rule modal defaults to allEnvironments scope
-                          setRuleModal({
-                            environment: "",
-                            i: (feature.rules ?? []).length,
-                            mode: "create",
-                          });
-                          track("Viewed Rule Modal", {
-                            source: "add-rule",
-                            type: "force",
-                          });
-                        }}
-                        icon={<PiPlusBold />}
-                      >
-                        Add Rule
-                      </Button>
-                    </Flex>
-                  </>
-                )}
-              </>
-            );
-          })()
+          <>
+            {(feature.rules ?? []).length > 0 || includeHoldoutRuleAllEnvs ? (
+              <RuleList
+                allEnvsView
+                environments={environments}
+                feature={feature}
+                baseFeature={baseFeature}
+                mutate={mutate}
+                setRuleModal={setRuleModal}
+                version={currentVersion}
+                setVersion={setVersion}
+                locked={isLocked}
+                experimentsMap={experimentsMap}
+                hideInactive={hideInactive}
+                isDraft={isDraft}
+                safeRolloutsMap={safeRolloutsMap}
+                holdout={liveHoldoutActiveAnyEnv ? holdout : undefined}
+                holdoutIsDeleted={draftDeletesHoldoutAnyEnv}
+                openHoldoutModal={() => setHoldoutModal(true)}
+                revisionList={revisionList}
+                rampSchedules={rampSchedules}
+                draftRevision={draftRevision}
+              />
+            ) : (
+              <Box py="4" className="text-muted">
+                <em>No rules have been added yet</em>
+              </Box>
+            )}
+            {canEditDrafts && !isLocked && (
+              <Flex mt="5" mb="1" justify="end">
+                <Button
+                  onClick={() => {
+                    // environment="" → rule modal defaults to allEnvironments scope
+                    setRuleModal({
+                      environment: "",
+                      i: (feature.rules ?? []).length,
+                      mode: "create",
+                    });
+                    track("Viewed Rule Modal", {
+                      source: "add-rule",
+                      type: "force",
+                    });
+                  }}
+                  icon={<PiPlusBold />}
+                >
+                  Add Rule
+                </Button>
+              </Flex>
+            )}
+          </>
         ) : activeEnv ? (
           <>
             {rulesByEnv[activeEnv.id]?.length > 0 || includeHoldoutRule ? (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  FeatureRule,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
@@ -26,6 +27,8 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import { Environment } from "shared/types/organization";
+import { ruleFootprint } from "shared/util";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
 import {
@@ -37,29 +40,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Rule, SortableRule } from "./Rule";
 import { HoldoutRule } from "./HoldoutRule";
 
-export default function RuleList({
-  feature,
-  baseFeature,
-  mutate,
-  environment,
-  setRuleModal,
-  version,
-  setVersion,
-  locked,
-  experimentsMap,
-  hideInactive,
-  isDraft,
-  safeRolloutsMap,
-  holdout,
-  holdoutIsDeleted,
-  openHoldoutModal,
-  revisionList,
-  rampSchedules,
-  draftRevision,
-}: {
+type CommonProps = {
   feature: FeatureInterface;
   baseFeature: FeatureInterface;
-  environment: string;
   mutate: () => void;
   setRuleModal: (args: {
     environment: string;
@@ -81,28 +64,65 @@ export default function RuleList({
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
   draftRevision?: FeatureRevisionInterface | null;
-}) {
-  const { apiCall } = useAuth();
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [items, setItems] = useState(getRules(feature, environment));
-  const permissionsUtil = usePermissionsUtil();
+};
 
-  // ruleId → global flat index in feature.rules (env-independent).
-  const flatIdxById = new Map<string, number>();
-  (feature.rules ?? []).forEach((r, idx) => flatIdxById.set(r.id, idx));
+type RuleListProps = CommonProps &
+  (
+    | {
+        allEnvsView: true;
+        environments: Environment[];
+        environment?: undefined;
+      }
+    | {
+        allEnvsView?: false;
+        environment: string;
+        environments?: undefined;
+      }
+  );
 
-  // ruleId → ramp schedule (real or synthetic-pending), scoped to this env.
-  const rampSchedulesMap = buildRuleRampScheduleMap({
+export default function RuleList(props: RuleListProps) {
+  const {
+    feature,
+    baseFeature,
+    mutate,
+    setRuleModal,
+    version,
+    setVersion,
+    locked,
+    experimentsMap,
+    hideInactive,
+    isDraft,
+    safeRolloutsMap,
+    holdout,
+    holdoutIsDeleted,
+    openHoldoutModal,
+    revisionList,
     rampSchedules,
     draftRevision,
-    environment,
-  });
+    allEnvsView,
+  } = props;
+
+  const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  // In allEnvsView the visible items are the flat `feature.rules` array. In
+  // single-env mode we project rules through `getRules(feature, env)` to honor
+  // env applicability + inheritance.
+  const initialItems: FeatureRule[] = allEnvsView
+    ? (feature.rules ?? [])
+    : getRules(feature, props.environment);
+  const [items, setItems] = useState<FeatureRule[]>(initialItems);
 
   // `getRules` returns a fresh array every call, so depend on the underlying
-  // rules array identity + env id rather than the projection itself.
+  // rules array identity + view selector rather than the projection itself.
   useEffect(() => {
-    setItems(getRules(feature, environment));
-  }, [feature.rules, environment]);
+    setItems(
+      allEnvsView
+        ? (feature.rules ?? [])
+        : getRules(feature, props.environment),
+    );
+  }, [feature.rules, allEnvsView, allEnvsView ? null : props.environment]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -110,6 +130,53 @@ export default function RuleList({
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  // Ramp schedules: in single-env mode filter to that env so only rules
+  // visible in this projection get pending-publish badges. In all-envs mode
+  // we want every pending schedule, regardless of env.
+  const rampSchedulesMap = buildRuleRampScheduleMap({
+    rampSchedules,
+    draftRevision,
+    environment: allEnvsView ? undefined : props.environment,
+  });
+
+  // Unreachable detection
+  //   single-env: threshold index — every rule at/after `unreachableIndex`
+  //     is blocked by an earlier 100% rule.
+  //   all-envs: a rule is unreachable iff it's blocked in *every* env it
+  //     applies to. Rules with no env footprint (allEnvironments:false,
+  //     environments:[]) never apply anywhere, so they're surfaced via the
+  //     "No environments" badge instead and skipped here.
+  const unreachableIndex = allEnvsView
+    ? 0
+    : getUnreachableRuleIndex(items, experimentsMap);
+
+  const unreachableRuleIds = useMemo<Set<string>>(() => {
+    if (!allEnvsView) return new Set();
+    const envIds = props.environments.map((e) => e.id);
+    const unreachableIdxByEnv = new Map<string, number>();
+    for (const e of props.environments) {
+      const envRules = getRules(feature, e.id);
+      unreachableIdxByEnv.set(
+        e.id,
+        getUnreachableRuleIndex(envRules, experimentsMap),
+      );
+    }
+    const out = new Set<string>();
+    for (const rule of items) {
+      const applicable = ruleFootprint(rule, envIds);
+      if (applicable.length === 0) continue;
+      const blockedEverywhere = applicable.every((envId) => {
+        const envRules = getRules(feature, envId);
+        const idx = envRules.findIndex((r) => r.id === rule.id);
+        if (idx === -1) return false;
+        const threshold = unreachableIdxByEnv.get(envId) ?? 0;
+        return threshold > 0 && idx >= threshold;
+      });
+      if (blockedEverywhere) out.add(rule.id);
+    }
+    return out;
+  }, [allEnvsView, items, feature, experimentsMap, props.environments]);
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
@@ -128,8 +195,27 @@ export default function RuleList({
     return -1;
   }
 
-  // detect unreachable rules, and get the first rule that is at 100%.
-  const unreachableIndex = getUnreachableRuleIndex(items, experimentsMap);
+  // Cosmetic only; the rule modal addresses by rule.id. Single-env passes
+  // the active env; all-envs derives a representative env per rule.
+  function displayEnvForRule(rule: FeatureRule): string {
+    if (!allEnvsView) return props.environment;
+    if (rule.allEnvironments === true || !rule.environments?.length) {
+      return props.environments[0]?.id ?? "";
+    }
+    return rule.environments[0];
+  }
+
+  // In all-envs mode item indices match `feature.rules` indices already.
+  function flatIndexOf(ruleId: string, fallback: number) {
+    if (allEnvsView) return fallback;
+    const flat = feature.rules ?? [];
+    return flat.findIndex((r) => r.id === ruleId);
+  }
+
+  function isUnreachable(idx: number, ruleId: string): boolean {
+    if (allEnvsView) return unreachableRuleIds.has(ruleId);
+    return !!unreachableIndex && idx >= unreachableIndex;
+  }
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
@@ -138,7 +224,7 @@ export default function RuleList({
     permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
-    <Flex direction="column" gap="5">
+    <Flex direction="column" gap="4">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -154,18 +240,11 @@ export default function RuleList({
 
             if (oldIndex === -1 || newIndex === -1) return;
 
-            // Optimistic update uses env-projected indices; the API call
-            // below translates to flat `feature.rules[]` indices.
             const newRules = arrayMove(items, oldIndex, newIndex);
             setItems(newRules);
 
-            const flatRules = feature.rules ?? [];
-            const flatOldIndex = flatRules.findIndex(
-              (r) => r.id === (active.id as string),
-            );
-            const flatNewIndex = flatRules.findIndex(
-              (r) => r.id === (over.id as string),
-            );
+            const flatOldIndex = flatIndexOf(active.id as string, oldIndex);
+            const flatNewIndex = flatIndexOf(over.id as string, newIndex);
             if (flatOldIndex === -1 || flatNewIndex === -1) return;
 
             const res = await apiCall<{ version: number }>(
@@ -204,20 +283,20 @@ export default function RuleList({
             revisionList={revisionList}
             setVersion={setVersion}
             isLocked={locked}
-            currentEnvironment={environment}
+            currentEnvironment={allEnvsView ? undefined : props.environment}
           />
         )}
         <SortableContext items={items} strategy={verticalListSortingStrategy}>
           {items.map((rule, i) => (
             <SortableRule
-              key={i + rule.id}
-              environment={environment}
-              i={flatIdxById.get(rule.id) ?? -1}
+              key={rule.id || i}
+              environment={displayEnvForRule(rule)}
+              i={flatIndexOf(rule.id, i)}
               rule={rule}
               feature={feature}
               mutate={mutate}
               setRuleModal={setRuleModal}
-              unreachable={!!unreachableIndex && i >= unreachableIndex}
+              unreachable={isUnreachable(i, rule.id)}
               version={version}
               setVersion={setVersion}
               locked={locked}
@@ -228,14 +307,18 @@ export default function RuleList({
               holdout={holdout}
               rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
               draftRevision={draftRevision}
+              isAllEnvsView={allEnvsView}
             />
           ))}
         </SortableContext>
         <DragOverlay>
           {activeRule ? (
             <Rule
-              i={flatIdxById.get(activeId as string) ?? -1}
-              environment={environment}
+              i={flatIndexOf(
+                activeId as string,
+                getRuleIndex(activeId as string),
+              )}
+              environment={displayEnvForRule(activeRule)}
               rule={activeRule}
               feature={feature}
               mutate={mutate}
@@ -245,15 +328,16 @@ export default function RuleList({
               locked={locked}
               experimentsMap={experimentsMap}
               hideInactive={hideInactive}
-              unreachable={
-                !!unreachableIndex &&
-                getRuleIndex(activeId as string) >= unreachableIndex
-              }
+              unreachable={isUnreachable(
+                getRuleIndex(activeId as string),
+                activeId as string,
+              )}
               isDraft={isDraft}
               safeRolloutsMap={safeRolloutsMap}
               holdout={holdout}
               rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
               draftRevision={draftRevision}
+              isAllEnvsView={allEnvsView}
             />
           ) : null}
         </DragOverlay>

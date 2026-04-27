@@ -109,7 +109,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
         : "active";
 
     return (
-      <Box {...props} ref={ref}>
+      <Box {...props} ref={ref} style={{ margin: -1 }}>
         <RuleCard index={1} sideColor={sideColor}>
           <Flex
             justify="between"
