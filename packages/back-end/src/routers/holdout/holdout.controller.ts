@@ -4,6 +4,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
 import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
+import { UpdateProps } from "shared/types/base-model";
 import {
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
@@ -39,12 +40,9 @@ import {
 import { logger } from "back-end/src/util/logger";
 import {
   createExperimentSnapshot,
-  SNAPSHOT_TIMEOUT,
-  validateVariationIds,
-} from "back-end/src/controllers/experiments";
-import {
   getChangesToStartExperiment,
   validateExperimentData,
+  validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { PrivateApiErrorResponse } from "back-end/types/api";
@@ -250,6 +248,7 @@ export const createHoldout = async (
       experimentId: experiment.id,
       projects: data.projects || [],
       name: experiment.name,
+      skipAsDefaultHoldout: data.skipAsDefaultHoldout,
       environmentSettings: data.environmentSettings || {},
       linkedFeatures: {},
       linkedExperiments: {},
@@ -260,10 +259,6 @@ export const createHoldout = async (
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
-      // This is doing an expensive analytics SQL query, so may take a long time
-      // Set timeout to 30 minutes
-      req.setTimeout(SNAPSHOT_TIMEOUT);
-
       try {
         await createExperimentSnapshot({
           context,
@@ -357,7 +352,7 @@ export const getHoldouts = async (
 // region PUT /holdout/:id
 
 export const updateHoldout = async (
-  req: AuthRequest<Partial<HoldoutInterface>, { id: string }>,
+  req: AuthRequest<UpdateProps<HoldoutInterface>, { id: string }>,
   res: Response<
     | { status: 200; holdout?: HoldoutInterface }
     | { status: 404; message?: string }

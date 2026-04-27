@@ -9,7 +9,6 @@ import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { RowResults } from "@/services/experiments";
 import {
   formatPercent,
@@ -22,6 +21,7 @@ import styles from "./ExperimentResultTooltipContent.module.scss";
 interface ExperimentResultTooltipContentProps {
   stats: SnapshotMetric;
   metric: ExperimentMetricInterface;
+  pValueThreshold: number;
   significant: boolean;
   resultsStatus: RowResults["resultsStatus"];
   differenceType: DifferenceType;
@@ -34,11 +34,22 @@ interface ExperimentResultTooltipContentProps {
   minPercentChange: number;
   currentMetricTotal: number;
   timeRemainingMs?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
+
+const numberFormatter = Intl.NumberFormat(undefined, {
+  maximumFractionDigits: 1,
+});
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 export default function ExperimentResultTooltipContent({
   stats,
   metric,
+  pValueThreshold,
   significant,
   resultsStatus,
   differenceType,
@@ -51,16 +62,13 @@ export default function ExperimentResultTooltipContent({
   minPercentChange,
   currentMetricTotal,
   timeRemainingMs,
+  pValueAdjustmentEnabled,
 }: ExperimentResultTooltipContentProps) {
   const _displayCurrency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
   const { getFactTableById: _getFactTableById } = useDefinitions();
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
-
-  const _confidenceLevels = useConfidenceLevels();
-  const { ciUpperDisplay } =
-    ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
 
   const ci = stats?.ciAdjusted ?? stats?.ci;
 
@@ -78,20 +86,19 @@ export default function ExperimentResultTooltipContent({
     ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
-
-  const percentFormatter = new Intl.NumberFormat(undefined, {
-    style: "percent",
-    maximumFractionDigits: 2,
-  });
-
   // Formatter for numerator values (minSampleSize, currentMetricTotal)
   // Uses metric-specific formatting (e.g., currency for revenue metrics)
   const numeratorFormatter = isFactMetric(metric)
     ? getColumnRefFormatter(metric.numerator, getFactTableById)
     : getMetricFormatter(metric.type === "binomial" ? "count" : metric.type);
 
+  const frequentistCIWidthDisplay =
+    numberFormatter.format(100 * (1 - pValueThreshold)) + "%";
+
   const ciLabel =
-    statsEngine === "bayesian" ? "95% CI" : `${ciUpperDisplay} CI`;
+    statsEngine === "bayesian"
+      ? "95% CI"
+      : `${frequentistCIWidthDisplay} CI${pValueAdjustmentEnabled ? " (adj.)" : ""}`;
 
   const isWon = significant && resultsStatus === "won";
   const isLost = significant && resultsStatus === "lost";

@@ -1,4 +1,5 @@
 import { HoldoutInterface, holdoutValidator } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
@@ -17,6 +18,9 @@ const BaseClass = MakeModelClass({
     deleteEvent: "holdout.delete",
   },
   globallyUniquePrimaryKeys: false,
+  defaultValues: {
+    skipAsDefaultHoldout: false,
+  } as Partial<HoldoutInterface>,
   additionalIndexes: [
     {
       fields: { "nextScheduledStatusUpdate.date": 1 },
@@ -34,9 +38,10 @@ export class HoldoutModel extends BaseClass {
   }
   protected canUpdate(
     existing: HoldoutInterface,
-    updates: HoldoutInterface,
+    _updates: UpdateProps<HoldoutInterface>,
+    newDoc: HoldoutInterface,
   ): boolean {
-    return this.context.permissions.canUpdateHoldout(existing, updates);
+    return this.context.permissions.canUpdateHoldout(existing, newDoc);
   }
   protected canDelete(doc: HoldoutInterface): boolean {
     return this.context.permissions.canDeleteHoldout(doc);
@@ -164,16 +169,19 @@ export class HoldoutModel extends BaseClass {
   public async getAllPayloadHoldouts(
     environment?: string,
   ): Promise<
-    Map<string, { holdout: HoldoutInterface; experiment: ExperimentInterface }>
+    Map<
+      string,
+      { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
+    >
   > {
     const holdouts = await this._find({});
     const holdoutsWithExperiments = await Promise.all(
       holdouts.map(async (h) => {
-        const experiment = await getExperimentById(
+        const holdoutExperiment = await getExperimentById(
           this.context,
           h.experimentId,
         );
-        return { holdout: h, experiment };
+        return { holdout: h, holdoutExperiment };
       }),
     );
 
@@ -182,11 +190,11 @@ export class HoldoutModel extends BaseClass {
         h,
       ): h is {
         holdout: HoldoutInterface;
-        experiment: ExperimentInterface;
+        holdoutExperiment: ExperimentInterface;
       } => {
-        if (!h.experiment) return false;
-        if (h.experiment.archived) return false;
-        if (h.experiment.status !== "running") return false;
+        if (!h.holdoutExperiment) return false;
+        if (h.holdoutExperiment.archived) return false;
+        if (h.holdoutExperiment.status !== "running") return false;
 
         if (
           Object.keys(h.holdout.linkedExperiments).length === 0 &&

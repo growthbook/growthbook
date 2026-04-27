@@ -56,10 +56,11 @@ export const AGGREGATE_JS_FUNCTIONS = {
 };
 
 export function getAggregateFunctions() {
-  return Object.keys(AGGREGATE_JS_FUNCTIONS)
-    .map(
-      (k: keyof typeof AGGREGATE_JS_FUNCTIONS) =>
-        `const ${k} = ${AGGREGATE_JS_FUNCTIONS[k]};`,
-    )
+  return (
+    Object.keys(
+      AGGREGATE_JS_FUNCTIONS,
+    ) as (keyof typeof AGGREGATE_JS_FUNCTIONS)[]
+  )
+    .map((k) => `const ${k} = ${AGGREGATE_JS_FUNCTIONS[k]};`)
     .join("\n");
 }

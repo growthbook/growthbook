@@ -165,6 +165,8 @@ describe("factMetricRowFilterValidation", () => {
       expect(timestampColumn).toBe("timestamp");
       expect(runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM __table LIMIT 0",
+        undefined,
+        "factTableValidation",
       );
     });
 

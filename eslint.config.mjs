@@ -28,6 +28,8 @@ export default defineConfig([
     "**/.next",
     "**/dist",
     "**/coverage",
+    "**/.venv",
+    "**/node_modules",
     "docs/.docusaurus",
     "docs/docusaurus.config.js",
     "docs/build",
@@ -201,6 +203,7 @@ export default defineConfig([
                 "Callout",
                 "Checkbox",
                 "DataList",
+                "Dialog",
                 "DropdownMenu",
                 "Heading",
                 "Link",
@@ -222,6 +225,11 @@ export default defineConfig([
             {
               group: ["*back-end*", "**/sdk-{js,react}*"],
               message: "front-end can only import from shared or itself.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
             },
           ],
         },
@@ -335,6 +343,64 @@ export default defineConfig([
               group: ["*front-end*", "**/sdk-{js,react}*"],
               message: "back-end can only import from shared or itself.",
             },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "./packages/back-end/src/controllers/**/*.ts",
+      "./packages/back-end/src/routers/**/*.controller.ts",
+      "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+    ],
+
+    rules: {
+      "import/no-restricted-paths": [
+        "error",
+        {
+          zones: [
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
           ],
         },
       ],
@@ -351,6 +417,11 @@ export default defineConfig([
             {
               group: ["*back-end*", "*front-end*"],
               message: "shared cannot import from back-end or front-end.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Within shared, use relative paths or import from shared without /src/",
             },
           ],
         },
@@ -385,6 +456,12 @@ export default defineConfig([
             "CallExpression[callee.type='MemberExpression'][callee.property.name='default']",
           message:
             "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead.",
+        },
+        {
+          selector:
+            "Property[key.name='owner'] CallExpression[callee.type='MemberExpression'][callee.object.name='z'][callee.property.name='string']",
+          message:
+            "Use ownerField or ownerInputField from 'shared/validators' instead of a bare z.string() for owner properties to ensure consistent API documentation.",
         },
       ],
     },

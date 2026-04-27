@@ -54,11 +54,14 @@ export default function ExplorerChart({
   error,
   submittedExploreState,
   loading,
+  animate = true,
 }: {
   exploration: ProductAnalyticsExploration | null;
   error: string | null;
   submittedExploreState: ExplorationConfig;
   loading: boolean;
+  /** When false, ECharts entry animations are disabled (e.g. for already-seen charts). */
+  animate?: boolean;
 }) {
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
@@ -216,8 +219,8 @@ export default function ExplorerChart({
           data,
           color: seriesColor(idx),
           type: "line" as const,
-          animation: true,
-          animationDuration: 300,
+          animation: animate,
+          animationDuration: animate ? 300 : 0,
           animationEasing: "linear" as const,
           symbol: "circle" as const,
           symbolSize: 4,
@@ -301,6 +304,7 @@ export default function ExplorerChart({
     textColor,
     gridLineColor,
     tooltipBackgroundColor,
+    animate,
   ]);
 
   const hasEmptyData = useMemo(() => {
@@ -373,6 +377,7 @@ export default function ExplorerChart({
             key={JSON.stringify(chartConfig)}
             option={{
               ...chartConfig,
+              ...(animate ? {} : { animation: false }),
               padding: [0, 0, 0, 0],
               grid: {
                 left:

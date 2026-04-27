@@ -62,6 +62,8 @@ describe("testQueryValidity", () => {
       ).toHaveBeenCalledWith(query.query, undefined, undefined, "timestamp");
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
+        undefined,
+        "testQuery",
       );
     });
 
@@ -98,6 +100,8 @@ describe("testQueryValidity", () => {
       ).toHaveBeenCalledWith(query.query, undefined, undefined, "timestamp");
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
+        undefined,
+        "testQuery",
       );
     });
 
@@ -136,6 +140,8 @@ describe("testQueryValidity", () => {
       ).toHaveBeenCalledWith(query.query, undefined, undefined, "timestamp");
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
+        undefined,
+        "testQuery",
       );
     });
   });
@@ -252,6 +258,8 @@ describe("testQueryValidity", () => {
     );
     expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
       "SELECT * FROM experiments",
+      undefined,
+      "testQuery",
     );
   });
 });

@@ -3,8 +3,10 @@ import { EntityEvents } from "shared/types/audit";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
+export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 export const DEFAULT_P_VALUE_CORRECTION = null;
+export const DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE = 0.001;
 export const DEFAULT_GUARDRAIL_ALPHA = 0.05; //used for early stopping for safe
 // Metric defaults
 export const DEFAULT_METRIC_WINDOW = "conversion";
@@ -101,11 +103,13 @@ export const SAFE_ROLLOUT_VARIATIONS = [
     id: "0",
     name: "Control",
     weight: 0.5,
+    index: 0,
   },
   {
     id: "1",
     name: "Rollout Value",
     weight: 0.5,
+    index: 1,
   },
 ];
 
@@ -186,12 +190,23 @@ export const entityEvents = {
   environment: ["create", "update", "delete"],
   feature: [
     "create",
+    // "revision.publish" and "revision.revert" are intentionally absent here:
+    // those lifecycle actions reuse the top-level "feature.publish" / "feature.revert"
+    // audit events below rather than emitting a separate revision.* entry.
     "publish",
     "revert",
     "update",
     "toggle",
     "archive",
     "delete",
+    "revision.create",
+    "revision.update",
+    "revision.requestReview",
+    "revision.approve",
+    "revision.requestChanges",
+    "revision.comment",
+    "revision.discard",
+    "revision.rebase",
   ],
   featureRevisionLog: ["create", "update", "delete"],
   urlRedirect: ["create", "update", "delete"],
@@ -225,6 +240,8 @@ export const entityEvents = {
   customHook: ["create", "update", "delete"],
   ssoConnection: ["create", "update", "delete"],
   sqlResultChunk: ["create", "update", "delete"],
+  rampSchedule: ["create", "update", "delete"],
+  rampScheduleTemplate: ["create", "update", "delete"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

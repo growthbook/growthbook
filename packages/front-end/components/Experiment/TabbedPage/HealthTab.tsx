@@ -1,9 +1,11 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import SRMCard from "@/components/HealthTab/SRMCard";
+import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -46,6 +48,7 @@ export default function HealthTab({
     mutateSnapshot,
     setAnalysisSettings,
   } = useSnapshot();
+
   const {
     runHealthTrafficQuery,
     decisionFrameworkEnabled,
@@ -99,8 +102,11 @@ export default function HealthTab({
   const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
       setHealthIssues((prev) => {
-        const issueSet: Set<IssueValue> = new Set([...prev, issue]);
-        return [...issueSet];
+        const issuesByValue = new Map(
+          prev.map((existing) => [existing.value, existing]),
+        );
+        issuesByValue.set(issue.value, issue);
+        return [...issuesByValue.values()];
       });
       onHealthNotify();
     },
@@ -259,9 +265,10 @@ export default function HealthTab({
 
   const phaseObj = experiment.phases?.[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -296,20 +303,23 @@ export default function HealthTab({
           />
         )}
       </div>
-
+      {!isBandit && (
+        <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+          <CovariateImbalanceCard
+            experiment={experiment}
+            variations={variations}
+            snapshot={snapshot}
+            onNotify={handleHealthNotification}
+          />
+        </div>
+      )}
       {showMultipleExposures && (
-        <div className="row">
-          <div
-            className={!isBandit ? "col-8" : "col-12"}
-            id="multipleExposures"
-            style={{ scrollMarginTop: "100px" }}
-          >
-            <MultipleExposuresCard
-              totalUsers={totalUsers}
-              onNotify={handleHealthNotification}
-              snapshot={snapshot}
-            />
-          </div>
+        <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+          <MultipleExposuresCard
+            totalUsers={totalUsers}
+            onNotify={handleHealthNotification}
+            snapshot={snapshot}
+          />
         </div>
       )}
 

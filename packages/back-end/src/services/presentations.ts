@@ -39,6 +39,7 @@ export async function getPresentationSnapshots(
     // get best phase to show:
     const phase = experiment.phases.length - 1;
     const snapshot = await getLatestSnapshot({
+      context,
       experiment: experiment.id,
       phase,
     });

@@ -1,5 +1,5 @@
-import { ListFeaturesResponse } from "shared/types/openapi";
-import { listFeaturesValidator } from "shared/validators";
+import { listFeaturesValidator, ListFeaturesResponse } from "shared/validators";
+import { stringToBoolean } from "shared/util";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import {
@@ -11,6 +11,7 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import {
   applyPagination,
@@ -34,14 +35,16 @@ const emptyListResponse = (
 });
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
-  async (req): Promise<ListFeaturesResponse> => {
+  async (req) => {
     const projectId = req.query.projectId;
-    if (req.query.skipPagination && !API_ALLOW_SKIP_PAGINATION) {
+    const skipPagination = stringToBoolean(
+      req.query.skipPagination?.toString(),
+    );
+    if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
       throw new Error(
         "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
       );
     }
-    const skipPagination = !!req.query.skipPagination;
     let limit: number;
     let offset: number;
     if (skipPagination) {
@@ -165,26 +168,29 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     );
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-
     const hasMore = skipPagination ? false : offset + limit < total;
     const nextOffset = hasMore ? offset + limit : null;
     const outLimit = skipPagination ? total : limit;
     const outOffset = skipPagination ? 0 : offset;
     return {
-      features: filtered.map((feature) => {
-        const revision =
-          revisions?.find(
-            (r) => r.featureId === feature.id && r.version === feature.version,
-          ) || null;
-        return getApiFeatureObj({
-          feature,
-          organization: req.organization,
-          groupMap,
-          experimentMap,
-          revision,
-          safeRolloutMap,
-        });
-      }),
+      features: await resolveOwnerEmails(
+        filtered.map((feature) => {
+          const revision =
+            revisions?.find(
+              (r) =>
+                r.featureId === feature.id && r.version === feature.version,
+            ) || null;
+          return getApiFeatureObj({
+            feature,
+            organization: req.organization,
+            groupMap,
+            experimentMap,
+            revision,
+            safeRolloutMap,
+          });
+        }),
+        req.context,
+      ),
       limit: outLimit,
       offset: outOffset,
       count: filtered.length,

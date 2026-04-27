@@ -1,4 +1,3 @@
-import { DeleteEnvironmentResponse } from "shared/types/openapi";
 import { deleteEnvironmentValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -7,7 +6,7 @@ import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteEnvironment = createApiRequestHandler(
   deleteEnvironmentValidator,
-)(async (req): Promise<DeleteEnvironmentResponse> => {
+)(async (req) => {
   const id = req.params.id;
   const org = req.context.org;
   const environments = org.settings?.environments || [];

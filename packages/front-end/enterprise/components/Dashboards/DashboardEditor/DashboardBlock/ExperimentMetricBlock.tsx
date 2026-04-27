@@ -8,8 +8,14 @@ import { isString } from "shared/util";
 import { groupBy } from "lodash";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { getEffectiveLookbackOverride } from "shared/experiments";
+import {
+  getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
+} from "shared/experiments";
+import { SignificanceThresholds } from "shared/types/stats";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -53,6 +59,18 @@ export default function ExperimentMetricBlock({
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
   const sequentialTestingEnabled = analysis?.settings?.sequentialTesting;
 
+  const _confidenceLevels = useConfidenceLevels(experiment.project);
+  const _pValueThreshold = usePValueThreshold(experiment.project);
+  const bayesianConfidenceLevels =
+    ssrPolyfills?.useConfidenceLevels?.(experiment.project) ||
+    _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
+  const significanceThresholds: SignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
+
   const queryStatusData = getQueryStatus(
     snapshot.queries || [],
     snapshot.error,
@@ -79,8 +97,9 @@ export default function ExperimentMetricBlock({
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
-  const variations = experiment.variations.map((v, i) => ({
-    id: v.key || i + "",
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => ({
+    id: v.key || v.index + "",
+    index: v.index,
     name: v.name,
     weight:
       experiment.phases[experiment.phases.length - 1]?.variationWeights?.[i] ||
@@ -124,6 +143,7 @@ export default function ExperimentMetricBlock({
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds
         : undefined,
+    pValueThreshold,
   });
 
   // Filter rows based on expansion state when there's no slice filter
@@ -151,6 +171,7 @@ export default function ExperimentMetricBlock({
   return (
     <MetricDrilldownProvider
       experimentId={experiment.id}
+      significanceThresholds={significanceThresholds}
       phase={lastPhaseIndex}
       experimentStatus={experiment.status}
       analysis={analysis}
@@ -184,6 +205,7 @@ export default function ExperimentMetricBlock({
               key={resultGroup}
               id={blockId}
               experimentId={experiment.id}
+              significanceThresholds={significanceThresholds}
               phase={experiment.phases.length - 1}
               variations={variations}
               variationFilter={variationFilter}

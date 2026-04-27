@@ -60,7 +60,7 @@ export function mergeParams(
   newParams: Partial<DataSourceParams>,
 ) {
   const secretKeys = integration.getSensitiveParamKeys();
-  Object.keys(newParams).forEach((k: keyof DataSourceParams) => {
+  (Object.keys(newParams) as (keyof DataSourceParams)[]).forEach((k) => {
     // If a secret value is left empty, keep the original value
     if (secretKeys.includes(k) && !newParams[k]) return;
     integration.params[k] = newParams[k];
@@ -178,9 +178,11 @@ export async function runFreeFormQuery(
 
   const sql = integration.getFreeFormQuery(query, limit);
   try {
-    const { results, duration, columns } = await integration.runTestQuery(sql, [
-      "timestamp",
-    ]);
+    const { results, duration, columns } = await integration.runTestQuery(
+      sql,
+      ["timestamp"],
+      "freeFormQuery",
+    );
 
     // Build a type map from SQL engine metadata
     const typeMap = new Map<string, FactTableColumnType>();
@@ -340,6 +342,7 @@ export async function testQuery(
     const { results, duration } = await integration.runTestQuery(
       sql,
       timestampColumn ? [timestampColumn] : ["timestamp"],
+      "testQuery",
     );
     return {
       results,
@@ -381,7 +384,7 @@ export async function testQueryValidity(
     "timestamp",
   );
   try {
-    const results = await integration.runTestQuery(sql);
+    const results = await integration.runTestQuery(sql, undefined, "testQuery");
 
     let columns: Set<string>;
 

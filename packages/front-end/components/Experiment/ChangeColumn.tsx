@@ -21,6 +21,7 @@ interface Props
     HTMLTableCellElement
   > {
   metric: ExperimentMetricInterface;
+  pValueThreshold: number;
   stats: SnapshotMetric;
   rowResults: Pick<
     RowResults,
@@ -42,20 +43,23 @@ interface Props
   ssrPolyfills?: SSRPolyfills;
   additionalButton?: React.ReactNode;
   minSampleSize?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 export default function ChangeColumn({
   metric,
+  pValueThreshold,
   stats,
   rowResults,
   statsEngine,
-  showPlusMinus = true,
+  showPlusMinus = false,
   showCI = false,
   differenceType,
   className,
   ssrPolyfills,
   additionalButton,
   minSampleSize = 0,
+  pValueAdjustmentEnabled,
   ...otherProps
 }: Props) {
   const _displayCurrency = useCurrency();
@@ -89,6 +93,7 @@ export default function ChangeColumn({
     data: {
       stats,
       metric,
+      pValueThreshold,
       significant: rowResults.significant,
       resultsStatus: rowResults.resultsStatus,
       differenceType,
@@ -100,6 +105,7 @@ export default function ChangeColumn({
       minSampleSize,
       minPercentChange: rowResults.minPercentChange,
       currentMetricTotal: rowResults.currentMetricTotal,
+      pValueAdjustmentEnabled,
     },
   });
 

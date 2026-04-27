@@ -3,7 +3,11 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
-import { AISuggestionType, computeAIUsageData } from "shared/ai";
+import {
+  AISuggestionType,
+  computeAIUsageData,
+  formatAIRateLimitRetryMessage,
+} from "shared/ai";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
@@ -15,7 +19,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import OptInModal from "@/components/License/OptInModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 
@@ -77,12 +81,7 @@ export default function EditHypothesisModal({
           },
           (responseData) => {
             if (responseData.status === 429) {
-              const retryAfter = parseInt(responseData.retryAfter);
-              const hours = Math.floor(retryAfter / 3600);
-              const minutes = Math.floor((retryAfter % 3600) / 60);
-              setError(
-                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
-              );
+              setError(formatAIRateLimitRetryMessage(responseData.retryAfter));
             } else if (responseData.message) {
               setError(responseData.message);
             } else {
@@ -108,7 +107,7 @@ export default function EditHypothesisModal({
 
   return (
     <>
-      <Modal
+      <DialogLayout
         trackingEventModalType="edit-hypothesis-modal"
         trackingEventModalSource={source}
         header={"Edit Hypothesis"}
@@ -132,7 +131,6 @@ export default function EditHypothesisModal({
           });
           mutate();
         })}
-        cta="Save"
         ctaEnabled={initialValue !== form.watch("hypothesis")}
       >
         <MarkdownInput
@@ -251,7 +249,7 @@ export default function EditHypothesisModal({
             </Box>
           )}
         </Box>
-      </Modal>
+      </DialogLayout>
       {aiAgreementModal && (
         <OptInModal
           agreement="ai"

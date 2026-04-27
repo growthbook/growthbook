@@ -118,7 +118,7 @@ export interface SchemaFormatConfig {
     eventName: string;
     schema?: string;
   }) => string;
-  getEventFilterWhereClause: (metricName?: string) => string;
+  getEventFilterWhereClause: (metricName: string) => string;
   getDateLimitClause: (dates?: { start: Date; end: Date }) => string;
   displayNameColumn?: string;
 }
@@ -144,6 +144,7 @@ export interface DataSourceProperties {
   hasEfficientPercentiles?: boolean;
   canGroupPercentileCappedMetrics?: boolean;
   hasCountDistinctHLL?: boolean;
+  hasQuantileKLL?: boolean;
   hasIncrementalRefresh?: boolean;
   maxColumns: number;
 }

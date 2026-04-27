@@ -167,7 +167,11 @@ export async function runRefreshColumnsQuery(
     timestampColumn,
   });
 
-  const result = await integration.runTestQuery(sql, [timestampColumn]);
+  const result = await integration.runTestQuery(
+    sql,
+    [timestampColumn],
+    "factTableValidation",
+  );
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();

@@ -125,6 +125,7 @@ export default function ReportPage(props: ReportPageProps) {
           />
           <ReportResults
             report={report}
+            experiment={experiment ?? undefined}
             snapshot={snapshot ?? undefined}
             snapshotError={
               !snapshot

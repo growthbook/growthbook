@@ -1,6 +1,7 @@
 import { FC, MouseEventHandler, ReactNode, useState } from "react";
 import ReactSelect, {
   components,
+  GroupBase,
   MultiValueGenericProps,
   MultiValueProps,
   InputProps,
@@ -34,29 +35,30 @@ import Field, { FieldProps } from "@/components/Forms/Field";
 import { ColorOption } from "@/components/Tags/TagsInput";
 
 const SortableMultiValue = SortableElement(
-  (props: MultiValueProps<SingleValue>) => {
+  (props: MultiValueProps<SingleValue, true, GroupBase<SingleValue>>) => {
     // Hack to stop the dropdown from opening when the user starts dragging
     const onMouseDown: MouseEventHandler<HTMLDivElement> = (e) => {
       e.preventDefault();
       e.stopPropagation();
     };
     const innerProps = { ...props.innerProps, onMouseDown };
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ innerProps: { onMouseDown: MouseEventHandl... Remove this comment to see the full error message
     return <components.MultiValue {...props} innerProps={innerProps} />;
   },
 );
 
-// eslint-disable-next-line
-const SortableMultiValueLabel = SortableHandle<any>(
-  (props: MultiValueGenericProps) => {
+const SortableMultiValueLabel = SortableHandle(
+  (
+    props: MultiValueGenericProps<SingleValue, true, GroupBase<SingleValue>>,
+  ) => {
     const title = props.data?.tooltip || props.data?.label || "";
     const innerProps = { ...props.innerProps, title };
     return <components.MultiValueLabel {...props} innerProps={innerProps} />;
   },
 );
 
-const OptionWithTitle = (props: OptionProps<SingleValue>) => {
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ children: ReactNode; innerRef: (instance: ... Remove this comment to see the full error message
+const OptionWithTitle = (
+  props: OptionProps<SingleValue, true, GroupBase<SingleValue>>,
+) => {
   const option = <components.Option {...props} />;
   return <div title={props.data?.tooltip}>{option}</div>;
 };
@@ -239,8 +241,18 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
   const selected = value.map((v) => map.get(v)).filter(isDefined);
 
-  // eslint-disable-next-line
-  const fieldProps = otherProps as any;
+  const { ref: _ref, ...fieldPropsRest } = otherProps;
+  const fieldProps = fieldPropsRest as Omit<
+    FieldProps,
+    | "value"
+    | "onChange"
+    | "options"
+    | "multi"
+    | "initialOption"
+    | "placeholder"
+    | "render"
+    | "ref"
+  >;
 
   const Component = creatable ? SortableCreatableSelect : SortableSelect;
 

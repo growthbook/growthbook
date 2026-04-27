@@ -7,7 +7,7 @@ import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: watchSchema,
-  pKey: ["userId", "organization"],
+  pKey: ["userId", "organization"] as const,
   collectionName: "watches",
   idPrefix: "watch_",
   readonlyFields: [],
@@ -49,6 +49,14 @@ export class WatchModel extends BaseClass {
     return (
       await this._find({
         experiments: experimentId,
+      })
+    ).map((watcher) => watcher.userId);
+  }
+
+  public async getFeatureWatchers(featureId: string): Promise<string[]> {
+    return (
+      await this._find({
+        features: featureId,
       })
     ).map((watcher) => watcher.userId);
   }

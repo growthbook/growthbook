@@ -72,10 +72,27 @@ export class NotFoundError extends Error {
   }
 }
 
+export class ConflictError extends Error {
+  status = 409;
+  conflicts?: unknown[];
+  constructor(message: string, conflicts?: unknown[]) {
+    super(message);
+    this.name = "ConflictError";
+    this.conflicts = conflicts;
+  }
+}
+
 export class InternalServerError extends Error {
   status = 500;
   constructor(message: string) {
     super(message);
     this.name = "InternalServerError";
+  }
+}
+
+export class ConcurrentIncrementalRefreshError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConcurrentIncrementalRefreshError";
   }
 }

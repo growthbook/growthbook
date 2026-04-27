@@ -1,18 +1,26 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef } from "react";
+import { RampScheduleInterface } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
+  fillRevisionFromFeature,
+  liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
+  getReviewSetting,
 } from "shared/util";
 import { useForm } from "react-hook-form";
-import { EventUserLoggedIn } from "shared/types/events/event-types";
+import {
+  EventUserLoggedIn,
+  EventUserApiKey,
+} from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
-import { getCurrentUser } from "@/services/UserContext";
+import EventUser from "@/components/Avatar/EventUser";
+import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
   useEnvironments,
@@ -23,12 +31,16 @@ import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
+  mergeResultToDiffInput,
+  type FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
+import HelperText from "@/ui/HelperText";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
@@ -43,6 +55,7 @@ export interface Props {
   mutate: () => void;
   onPublish?: () => void;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  rampSchedules?: RampScheduleInterface[];
 }
 type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -53,6 +66,8 @@ export default function RequestReviewModal({
   close,
   mutate,
   experimentsMap,
+  rampSchedules,
+  onPublish,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -63,13 +78,26 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
+  const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
     revision?.status === "changes-requested";
-  const createdBy = revision?.createdBy as EventUserLoggedIn;
+  const createdBy = revision?.createdBy as
+    | EventUserLoggedIn
+    | EventUserApiKey
+    | undefined;
+  const requireReviews = organization?.settings?.requireReviews;
+  const reviewSetting = Array.isArray(requireReviews)
+    ? getReviewSetting(requireReviews, feature)
+    : undefined;
+  const isBlockedContributor =
+    reviewSetting?.blockSelfApproval &&
+    (revision?.contributors ?? []).some(
+      (c) => c != null && "id" in c && c.id === user?.id,
+    );
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
@@ -80,16 +108,18 @@ export default function RequestReviewModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
+  const envIds = environments.map((e) => e.id);
+
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
-      liveRevision,
-      baseRevision,
+      liveRevisionFromFeature(liveRevision, feature),
+      fillRevisionFromFeature(baseRevision, feature),
       revision,
-      environments.map((e) => e.id),
+      envIds,
       {},
     );
-  }, [revision, baseRevision, liveRevision, environments]);
+  }, [revision, baseRevision, liveRevision, envIds, feature]);
 
   const [comment, setComment] = useState("");
 
@@ -105,16 +135,12 @@ export default function RequestReviewModal({
   const [experimentsStep, setExperimentsStep] = useState(false);
 
   const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const draftDiffInput = mergeResult?.success
+    ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
+    : currentRevisionData;
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
-    draft: mergeResult?.success
-      ? {
-          // Use current values as fallback when merge result doesn't have changes
-          defaultValue:
-            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
-          rules: mergeResult.result.rules ?? currentRevisionData.rules,
-        }
-      : currentRevisionData,
+    draft: draftDiffInput,
   });
 
   // Exclude no-op diffs (e.g. semantic equality but different raw strings)
@@ -176,6 +202,7 @@ export default function RequestReviewModal({
         throw e;
       }
       await mutate();
+      onPublish && onPublish();
       close();
     } else if (canReview) {
       setShowSumbmitReview(true);
@@ -184,9 +211,113 @@ export default function RequestReviewModal({
     }
   };
 
-  if (!revision || !mergeResult) return null;
+  // Activating ramps: pending ramps where this revision's publication triggers the start lifecycle.
+  const activatingRamps = (rampSchedules ?? []).filter(
+    (r) =>
+      r.status === "pending" &&
+      r.targets.some(
+        (t) =>
+          t.entityId === feature.id &&
+          t.activatingRevisionVersion === revision?.version,
+      ),
+  );
 
-  const hasChanges = mergeResultHasChanges(mergeResult);
+  const rampDiffs: FeatureRevisionDiff[] = [
+    ...activatingRamps.map((ramp) => {
+      const rampConfig = {
+        name: ramp.name,
+        targets: ramp.targets,
+        startDate: ramp.startDate,
+        steps: ramp.steps,
+        endCondition: ramp.endCondition,
+      };
+      const startDescription = ramp.startDate
+        ? "Starts at a scheduled date/time."
+        : "Starts automatically on publish.";
+      return {
+        title: `Ramp Schedule – ${ramp.name}`,
+        a: "",
+        b: JSON.stringify(rampConfig, null, 2),
+        customRender: (
+          <p className="mb-0">
+            Activates ramp schedule <strong>{ramp.name}</strong> —{" "}
+            {ramp.steps.length} step{ramp.steps.length !== 1 ? "s" : ""}.{" "}
+            {startDescription}
+          </p>
+        ),
+        badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+      } as FeatureRevisionDiff;
+    }),
+    // Pending ramp actions: create/detach actions queued in the draft
+    ...(revision?.rampActions ?? [])
+      .map((action) => {
+        if (action.mode === "create") {
+          const rampConfig = {
+            name: action.name,
+            environment: action.environment,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            endCondition: action.endCondition,
+          };
+          return {
+            title: `Ramp Schedule – ${action.name} (pending creation)`,
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0">
+                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
+                <code>{action.ruleId}</code> — {action.steps.length} step
+                {action.steps.length !== 1 ? "s" : ""}.
+              </p>
+            ),
+            badges: [
+              {
+                label: `Create ramp: ${action.name}`,
+                action: "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "detach") {
+          return {
+            title: `Remove from Ramp Schedule (pending)`,
+            a: "",
+            b: JSON.stringify(
+              {
+                rampScheduleId: action.rampScheduleId,
+                ruleId: action.ruleId,
+              },
+              null,
+              2,
+            ),
+            customRender: (
+              <p className="mb-0">
+                This rule will be removed from its ramp schedule
+                {action.deleteScheduleWhenEmpty &&
+                  " and the schedule will be deleted if empty"}
+                .
+              </p>
+            ),
+            badges: [
+              {
+                label: "Remove from ramp schedule",
+                action: "remove ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        }
+        return null as unknown as FeatureRevisionDiff;
+      })
+      .filter(Boolean),
+  ];
+
+  const linkedRamps = [
+    ...activatingRamps.map((ramp) => ({ ramp, role: "activating" as const })),
+  ];
+
+  if (!revision || !mergeResult) return null;
+  const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
+  const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
   let ctaCopy = "Request Review";
   if (approved && !hasNextStep) {
     ctaCopy = "Publish";
@@ -242,6 +373,14 @@ export default function RequestReviewModal({
           </Callout>
         )}
 
+        {linkedRamps.map(({ ramp }) => (
+          <Callout key={ramp.id} status="info" mb="3">
+            Publishing this draft will activate ramp schedule{" "}
+            <strong>{ramp.name}</strong>. The ramp will begin once this revision
+            is live.
+          </Callout>
+        ))}
+
         {!hasChanges && !mergeResult.conflicts.length && (
           <Callout status="info">
             There are no changes to publish. Either discard the draft or add
@@ -252,6 +391,41 @@ export default function RequestReviewModal({
         {mergeResult.success && hasChanges && (
           <div>
             <div className="mb-2">{showRevisionStatus()}</div>
+            {revision.contributors && revision.contributors.length > 0 && (
+              <div className="mb-3">
+                <strong style={{ fontSize: "0.85rem" }}>Contributors</strong>
+                <Flex align="center" gap="2" wrap="wrap" mt="1">
+                  {[revision.createdBy, ...revision.contributors]
+                    .filter(
+                      (u): u is EventUserLoggedIn | EventUserApiKey =>
+                        u != null &&
+                        (u.type === "dashboard" || u.type === "api_key"),
+                    )
+                    .filter(
+                      (u, idx, arr) =>
+                        arr.findIndex(
+                          (x) => "id" in x && "id" in u && x.id === u.id,
+                        ) === idx,
+                    )
+                    .map((lu) => {
+                      return (
+                        <Flex
+                          key={"id" in lu ? lu.id : lu.apiKey}
+                          align="center"
+                          gap="1"
+                          wrap="wrap"
+                        >
+                          <EventUser
+                            user={lu}
+                            display="avatar-name-email"
+                            size="sm"
+                          />
+                        </Flex>
+                      );
+                    })}
+                </Flex>
+              </div>
+            )}
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
                 <Checkbox
@@ -312,13 +486,13 @@ export default function RequestReviewModal({
                     ))}
                   </div>
                 ) : null}
-                {resultDiffsWithChanges.length > 0 && (
+                {allDiffsWithChanges.length > 0 && (
                   <>
                     <h4 className="mb-3">Summary of changes</h4>
-                    {resultDiffsWithChanges.flatMap((d) => d.badges ?? [])
-                      .length > 0 && (
+                    {allDiffsWithChanges.flatMap((d) => d.badges ?? []).length >
+                      0 && (
                       <Flex wrap="wrap" gap="2" className="mb-3">
-                        {resultDiffsWithChanges
+                        {allDiffsWithChanges
                           .flatMap((d) => d.badges ?? [])
                           .map(({ label, action }) => (
                             <Badge
@@ -330,15 +504,12 @@ export default function RequestReviewModal({
                           ))}
                       </Flex>
                     )}
-                    {resultDiffsWithChanges.some((d) => d.customRender) && (
+                    {allDiffsWithChanges.some((d) => d.customRender) && (
                       <div className="list-group mb-4">
-                        {resultDiffsWithChanges
+                        {allDiffsWithChanges
                           .filter((d) => d.customRender)
                           .map((d) => (
-                            <div
-                              key={d.title}
-                              className="list-group-item list-group-item-light pb-3"
-                            >
+                            <div key={d.title} className="appbox bg-light p-3">
                               <strong className="d-block mb-2">
                                 {d.title}
                               </strong>
@@ -351,22 +522,45 @@ export default function RequestReviewModal({
                 )}
                 <h4 className="mb-3">Change details</h4>
                 <div className="list-group mb-4">
-                  {resultDiffsWithChanges.map((diff) => (
-                    <ExpandableDiff
-                      key={diff.title}
-                      title={diff.title}
-                      a={diff.a}
-                      b={diff.b}
-                      styles={COMPACT_DIFF_STYLES}
-                    />
-                  ))}
+                  {allDiffsWithChanges.length > 0 ? (
+                    allDiffsWithChanges.map((diff) => (
+                      <ExpandableDiff
+                        key={diff.title}
+                        title={diff.title}
+                        a={diff.a}
+                        b={diff.b}
+                        styles={COMPACT_DIFF_STYLES}
+                      />
+                    ))
+                  ) : (
+                    <HelperText status="info">
+                      No material changes detected
+                    </HelperText>
+                  )}
                 </div>
-                <h4 className="mb-3"> Change Request Log</h4>
-                <Revisionlog
-                  feature={feature}
-                  revision={revision}
-                  ref={revisionLogRef}
-                />
+                {(isPendingReview || revision.status === "approved") && (
+                  <div className="mb-4">
+                    <Tabs defaultValue="review">
+                      <TabsList size="2" mb="2">
+                        <TabsTrigger value="review">
+                          Review Activity
+                        </TabsTrigger>
+                        <TabsTrigger value="full">Change Log</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="review">
+                        <Revisionlog
+                          feature={feature}
+                          revision={revision}
+                          ref={revisionLogRef}
+                          reviewOnly
+                        />
+                      </TabsContent>
+                      <TabsContent value="full">
+                        <Revisionlog feature={feature} revision={revision} />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                )}
                 {(!canReview || approved) && (
                   <div className="mt-3" id="comment-section">
                     <Field
@@ -485,7 +679,10 @@ export default function RequestReviewModal({
               {
                 value: "Approved",
                 label: "Approve",
-                description: "Submit feedback and approve for publishing.",
+                description: isBlockedContributor
+                  ? "You contributed to this draft and cannot approve it."
+                  : "Submit feedback and approve for publishing.",
+                disabled: isBlockedContributor,
               },
             ]}
           />

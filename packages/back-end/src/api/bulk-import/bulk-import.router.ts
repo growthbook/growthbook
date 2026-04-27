@@ -1,10 +1,4 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { postBulkImportFacts } from "./postBulkImportFacts";
 
-const router = Router();
-
-// Dimension Endpoints
-// Mounted at /api/v1/bulk-import
-router.post("/facts", postBulkImportFacts);
-
-export default router;
+export const bulkImportRoutes: OpenApiRoute[] = [postBulkImportFacts];

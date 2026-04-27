@@ -152,6 +152,7 @@ export default function ReportPage() {
 
       <ReportResults
         report={report}
+        experiment={experiment ?? undefined}
         snapshot={snapshot}
         snapshotError={
           snapshotError

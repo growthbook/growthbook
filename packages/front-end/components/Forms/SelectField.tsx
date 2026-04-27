@@ -26,7 +26,12 @@ export const RadixThemeMenuPortal = (
   </RadixTheme>
 );
 
-export type SingleValue = { label: string; value: string; tooltip?: string };
+export type SingleValue = {
+  label: string;
+  value: string;
+  tooltip?: string;
+  isDisabled?: boolean;
+};
 export type GroupedValue = { label: string; options: SingleValue[] };
 export type Option = SingleValue | GroupedValue;
 export function isSingleValue(option: Option): option is SingleValue {

@@ -1,14 +1,4 @@
-import {
-  apiAddTeamMembersValidator,
-  apiCreateTeamBody,
-  apiDeleteTeamValidator,
-  apiDeleteTeamReturn,
-  apiRemoveTeamMemberValidator,
-  apiTeamValidator,
-  apiUpdateTeamBody,
-  teamSchema,
-  ApiDeleteTeamReturn,
-} from "shared/validators";
+import { teamSchema, ApiDeleteTeamReturn } from "shared/validators";
 import { ApiTeamInterface, TeamInterface } from "shared/types/team";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import { stringToBoolean } from "shared/util";
@@ -23,7 +13,12 @@ import {
   getMembersOfTeam,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
-import { statusCodeReturn } from "back-end/src/util/handler";
+import {
+  teamApiSpec,
+  addTeamMembersEndpoint,
+  removeTeamMemberEndpoint,
+  deleteTeamEndpoint,
+} from "back-end/src/api/specs/team.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION = "teams";
@@ -42,29 +37,14 @@ const BaseClass = MakeModelClass({
   },
   apiConfig: {
     modelKey: "teams",
-    modelSingular: "team",
-    modelPlural: "teams",
-    apiInterface: apiTeamValidator,
-    schemas: {
-      createBody: apiCreateTeamBody,
-      updateBody: apiUpdateTeamBody,
-    },
-    pathBase: "/teams",
-    crudActions: ["get", "create", "list", "update"],
+    openApiSpec: teamApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        pathFragment: "/:teamId/members",
-        verb: "post",
-        operationId: "addTeamMembers",
-        validator: apiAddTeamMembersValidator,
-        zodReturnObject: statusCodeReturn,
-        summary: "Add members to team",
+        ...addTeamMembersEndpoint,
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
-          const team = await req.context.models.teams.getById(
-            req.params.teamId,
-          );
+          const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
           await addMembersToTeam({
             organization: req.context.org,
@@ -77,18 +57,11 @@ const BaseClass = MakeModelClass({
         },
       }),
       defineCustomApiHandler({
-        pathFragment: "/:teamId/members",
-        verb: "delete",
-        operationId: "removeTeamMember",
-        validator: apiRemoveTeamMemberValidator,
-        zodReturnObject: statusCodeReturn,
-        summary: "Remove members from team",
+        ...removeTeamMemberEndpoint,
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
-          const team = await req.context.models.teams.getById(
-            req.params.teamId,
-          );
+          const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
           await removeMembersFromTeam({
             organization: req.context.org,
@@ -101,18 +74,11 @@ const BaseClass = MakeModelClass({
         },
       }),
       defineCustomApiHandler({
-        pathFragment: "/:teamId/",
-        verb: "delete",
-        operationId: "deleteTeam",
-        validator: apiDeleteTeamValidator,
-        zodReturnObject: apiDeleteTeamReturn,
-        summary: "Delete a single team",
+        ...deleteTeamEndpoint,
         reqHandler: async (req): Promise<ApiDeleteTeamReturn> => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
-          const team = await req.context.models.teams.getById(
-            req.params.teamId,
-          );
+          const team = await req.context.models.teams.getById(req.params.id);
           if (!team) return req.context.throwNotFoundError();
           if (stringToBoolean(req.query.deleteMembers)) {
             await removeMembersFromTeam({

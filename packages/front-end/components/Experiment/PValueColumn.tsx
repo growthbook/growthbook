@@ -31,10 +31,12 @@ interface Props
   hideScaledImpact?: boolean;
   // Props for popover
   metric?: ExperimentMetricInterface;
+  pValueThreshold: number;
   differenceType?: DifferenceType;
   statsEngine?: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
   minSampleSize?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 export default function PValueColumn({
@@ -49,10 +51,12 @@ export default function PValueColumn({
   className,
   hideScaledImpact = false,
   metric,
+  pValueThreshold,
   differenceType,
   statsEngine,
   ssrPolyfills,
   minSampleSize = 0,
+  pValueAdjustmentEnabled,
   ...otherProps
 }: Props) {
   let pValText = (
@@ -73,11 +77,13 @@ export default function PValueColumn({
     stats,
     rowResults,
     metric,
+    pValueThreshold,
     differenceType,
     statsEngine,
     ssrPolyfills,
     minSampleSize,
     showSuspicious,
+    pValueAdjustmentEnabled,
   });
 
   const renderContent = () => {

@@ -36,7 +36,8 @@ export type DataType =
   | "boolean"
   | "date"
   | "timestamp"
-  | "hll";
+  | "hll"
+  | "kll";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 

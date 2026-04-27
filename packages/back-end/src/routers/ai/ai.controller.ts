@@ -9,6 +9,28 @@ import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
+
+type GetTokenUsageResponse = {
+  status: 200;
+  tokenUsage: {
+    numTokensUsed: number;
+    dailyLimit: number;
+    nextResetAt: number;
+  };
+};
+
+export async function getTokenUsage(
+  req: AuthRequest,
+  res: Response<GetTokenUsageResponse>,
+) {
+  const { org } = getContextFromReq(req);
+  const tokenUsage = await getTokensUsedByOrganization(org);
+  return res.status(200).json({
+    status: 200,
+    tokenUsage,
+  });
+}
 
 type GetAIPromptResponse = {
   status: 200;

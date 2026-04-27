@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import md5 from "md5";
 import { LicenseUserCodes } from "shared/enterprise";
-import { DefaultMemberRole, OrgMemberInfo } from "shared/types/organization";
+import { MemberRole, OrgMemberInfo } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
 import { getInstallation } from "back-end/src/models/InstallationModel";
@@ -86,7 +86,7 @@ export async function getLicenseMetaData() {
   };
 }
 
-function isReadOnlyRole(role: DefaultMemberRole): boolean {
+function isReadOnlyRole(role: MemberRole): boolean {
   return role === "readonly" || role === "noaccess";
 }
 
@@ -96,8 +96,8 @@ function getMemberRoles(
   teamIdToTeamMap: {
     [key: string]: TeamInterface;
   },
-) {
-  const roles: string[] = [];
+): MemberRole[] {
+  const roles: MemberRole[] = [];
 
   orgs.forEach((org) => {
     const member = org.members.find((m) => m.id === memberId);

@@ -3,6 +3,7 @@ import uniqid from "uniqid";
 import md5 from "md5";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { WebhookInterface } from "shared/types/webhook";
+import { UpdateProps } from "shared/types/base-model";
 import { webhookSchema } from "shared/validators";
 import {
   getCollection,
@@ -111,7 +112,7 @@ export class SdkWebhookModel extends BaseClass {
   ) {
     if (error) {
       const consecutiveFailures = (webhook.consecutiveFailures || 0) + 1;
-      const updates: Partial<WebhookInterface> = {
+      const updates: UpdateProps<WebhookInterface> = {
         error,
         consecutiveFailures,
       };

@@ -114,6 +114,9 @@ function makeAnalysisSettings(
   return {
     dimensions: [],
     statsEngine: "bayesian",
+    numGoalMetrics: 1,
+    numGuardrailMetrics: 0,
+    differenceType: "relative",
     ...overrides,
   } as ExperimentSnapshotAnalysisSettings;
 }
@@ -143,6 +146,8 @@ describe("snapshot planning", () => {
         datasource: incrementalDatasource,
         experiment,
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });
@@ -157,6 +162,8 @@ describe("snapshot planning", () => {
         datasource: incrementalDatasource,
         experiment,
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental");
   });
@@ -171,8 +178,26 @@ describe("snapshot planning", () => {
         datasource: incrementalDatasource,
         experiment,
         snapshotType: "exploratory",
+        hasSnapshotDimensions: true,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental-exploratory");
+  });
+
+  it("uses the incremental runner for exploratory snapshots with no dimensions", () => {
+    const experiment = { type: "standard" } as unknown as ExperimentInterface;
+
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource: incrementalDatasource,
+        experiment,
+        snapshotType: "exploratory",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toBe("incremental");
   });
 
   it("falls back to the standard results runner for unsupported experiment types", () => {
@@ -187,6 +212,8 @@ describe("snapshot planning", () => {
         datasource: incrementalDatasource,
         experiment,
         snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
       }),
     ).toBe("results");
   });

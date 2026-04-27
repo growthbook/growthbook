@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiRequest, ApiRequestValidator } from "back-end/src/util/handler";
+import { ApiRequest, RequestSchemas } from "back-end/src/util/handler";
 
 export const crudActions = [
   "get",
@@ -29,7 +29,7 @@ export type CustomApiHandler<
   pathFragment: string;
   verb: HttpVerb;
   operationId: string;
-  validator: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema>;
+  validator: RequestSchemas<ParamsSchema, BodySchema, QuerySchema>;
   zodReturnObject: ReturnShape;
   summary: string; // For generating docs, e.g. "Get all dashboards for an experiment"
   reqHandler: (
