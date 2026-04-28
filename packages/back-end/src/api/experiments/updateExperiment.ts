@@ -23,6 +23,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -243,6 +244,10 @@ export const updateExperiment = createApiRequestHandler(
 
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
+  }
+
+  if (experiment.status === "draft" && updatedExperiment.status === "running") {
+    await publishPendingFeatureDraftsForExperiment(req.context, experiment);
   }
 
   await req.audit({

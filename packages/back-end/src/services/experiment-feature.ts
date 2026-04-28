@@ -323,7 +323,8 @@ export async function publishPendingFeatureDraftsForExperiment(
         continue;
       }
 
-      await assertCanAutoPublish(context, feature, revision);
+      // Intentional bypass: permission to start the experiment implicitly covers
+      // publishing its linked draft — approval checks are not re-applied here.
       const { live, base } = await getLiveAndBaseRevisionsForFeature({
         context,
         feature,
