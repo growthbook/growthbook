@@ -287,10 +287,10 @@ export function getAISettingsForOrg(
     mistralAPIKey: includeKey ? mistralKey : "",
     googleAPIKey: includeKey ? googleKey : "",
     defaultAIModel: IS_CLOUD
-      ? "gpt-5.4-mini"
+      ? "claude-haiku-4-5-20251001"
       : context.org.settings?.defaultAIModel ||
         context.org.settings?.openAIDefaultModel ||
-        "gpt-5.4-mini",
+        "claude-haiku-4-5-20251001",
     embeddingModel:
       context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };
