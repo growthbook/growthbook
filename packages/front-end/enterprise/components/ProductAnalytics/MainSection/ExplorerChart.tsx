@@ -319,6 +319,16 @@ export default function ExplorerChart({
       }
     });
 
+    const axisPointerLabelFormatter = resolvedGranularity
+      ? (params: { value: string | number }) => {
+          const date =
+            typeof params.value === "number"
+              ? new Date(params.value)
+              : new Date(String(params.value));
+          return formatDateByGranularity(date, resolvedGranularity);
+        }
+      : undefined;
+
     // Define the category axis (shows the dimension labels)
     const categoryAxis = {
       type: chartType === "line" || chartType === "area" ? "time" : "category",
@@ -335,6 +345,9 @@ export default function ExplorerChart({
         rotate: isHorizontalBar ? 0 : -45,
         hideOverlap: true,
       },
+      axisPointer: axisPointerLabelFormatter
+        ? { label: { formatter: axisPointerLabelFormatter } }
+        : undefined,
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
