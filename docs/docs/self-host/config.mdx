@@ -50,7 +50,7 @@ datasources:
               - country
         identityJoins:
           - ids: ["user_id", "anonymous_id"]
-            query: SELECT user_id, anonymous_id FROM identifies
+            query: SELECT user_id, anonymous_id FROM identifiers
 ```
 
 ### Data Source Connection Params
@@ -213,7 +213,7 @@ settings:
     # These optional queries map between different types of identifiers
     identityJoins:
       - ids: ["user_id", "anonymous_id"]
-        query: SELECT user_id, anonymous_id FROM identifies
+        query: SELECT user_id, anonymous_id FROM identifiers
   # Used when exporting experiment results to a Jupyter notebook
   # Define a `runQuery(sql)` function that returns a pandas data frame
   notebookRunQuery: >
