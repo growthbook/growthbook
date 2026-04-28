@@ -473,7 +473,8 @@ paths:
       operationId: listFeatures
       summary: Get all features
       description: >
-        **Deprecated.** Use `GET /v2/features` instead.
+        **Deprecated.** Use [GET /v2/features](#operation/listFeaturesV2)
+        instead.
 
 
         Returns features with pagination. The skipPagination query parameter is
@@ -513,7 +514,9 @@ paths:
     post:
       operationId: postFeature
       summary: Create a single feature
-      description: '**Deprecated.** Use `POST /v2/features` instead.'
+      description: >-
+        **Deprecated.** Use [POST /v2/features](#operation/postFeatureV2)
+        instead.
       deprecated: true
       tags:
         - features
@@ -1251,7 +1254,9 @@ paths:
     get:
       operationId: getFeature
       summary: Get a single feature
-      description: '**Deprecated.** Use `GET /v2/features/:id` instead.'
+      description: >-
+        **Deprecated.** Use [GET /v2/features/:id](#operation/getFeatureV2)
+        instead.
       deprecated: true
       tags:
         - features
@@ -1279,7 +1284,8 @@ paths:
       operationId: updateFeature
       summary: Partially update a feature
       description: >
-        **Deprecated.** Use `POST /v2/features/:id` instead.
+        **Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2)
+        instead.
 
 
         Updates any combination of a feature's metadata (description, owner,
@@ -2027,7 +2033,8 @@ paths:
       operationId: deleteFeature
       summary: Deletes a single feature
       description: >
-        **Deprecated.** Use `DELETE /v2/features/:id` instead.
+        **Deprecated.** Use [DELETE
+        /v2/features/:id](#operation/deleteFeatureV2) instead.
 
 
         Permanently deletes a feature and all of its revisions.
@@ -2066,7 +2073,8 @@ paths:
       operationId: toggleFeature
       summary: Toggle a feature in one or more environments
       description: >
-        **Deprecated.** Use `POST /v2/features/:id/toggle` instead.
+        **Deprecated.** Use [POST
+        /v2/features/:id/toggle](#operation/toggleFeatureV2) instead.
 
 
         Enables or disables a feature in one or more environments
@@ -2143,7 +2151,8 @@ paths:
       operationId: revertFeature
       summary: Revert a feature to a specific revision
       description: >
-        **Deprecated.** Use `POST /v2/features/:id/revert` instead.
+        **Deprecated.** Use [POST
+        /v2/features/:id/revert](#operation/revertFeatureV2) instead.
 
 
         Creates a new revision whose rules and values match a
@@ -2197,7 +2206,9 @@ paths:
     get:
       operationId: getFeatureKeys
       summary: Get list of feature keys
-      description: '**Deprecated.** Use `GET /v2/feature-keys` instead.'
+      description: >-
+        **Deprecated.** Use [GET /v2/feature-keys](#operation/getFeatureKeysV2)
+        instead.
       deprecated: true
       tags:
         - features
@@ -2220,7 +2231,9 @@ paths:
     get:
       operationId: getFeatureStale
       summary: Get stale status for one or more features
-      description: '**Deprecated.** Use `GET /v2/stale-features` instead.'
+      description: >-
+        **Deprecated.** Use [GET
+        /v2/stale-features](#operation/getFeatureStaleV2) instead.
       deprecated: true
       tags:
         - features
@@ -2248,7 +2261,8 @@ paths:
       operationId: listRevisions
       summary: List feature revisions
       description: >-
-        **Deprecated.** Use `GET /v2/revisions` instead.
+        **Deprecated.** Use [GET /v2/revisions](#operation/listRevisionsV2)
+        instead.
 
 
         Returns a paginated list of feature revisions across all features in the
@@ -2309,7 +2323,8 @@ paths:
       operationId: getFeatureRevisions
       summary: List revisions for a feature
       description: >-
-        **Deprecated.** Use `GET /v2/features/:id/revisions` instead.
+        **Deprecated.** Use [GET
+        /v2/features/:id/revisions](#operation/getFeatureRevisionsV2) instead.
 
 
         Returns a paginated list of revisions for this feature, sorted
@@ -2368,7 +2383,8 @@ paths:
       operationId: postFeatureRevision
       summary: Create a draft revision
       description: >-
-        **Deprecated.** Use `POST /v2/features/:id/revisions` instead.
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions](#operation/postFeatureRevisionV2) instead.
 
 
         Creates a new draft revision branched from the current live revision. A
@@ -2419,7 +2435,9 @@ paths:
       operationId: getFeatureRevisionLatest
       summary: Get the most recent active draft revision
       description: >-
-        **Deprecated.** Use `GET /v2/features/:id/revisions/latest` instead.
+        **Deprecated.** Use [GET
+        /v2/features/:id/revisions/latest](#operation/getFeatureRevisionLatestV2)
+        instead.
 
 
         Returns the most recently updated draft revision for the feature.
@@ -2479,7 +2497,9 @@ paths:
       operationId: getFeatureRevision
       summary: Get a single feature revision
       description: >-
-        **Deprecated.** Use `GET /v2/features/:id/revisions/:version` instead.
+        **Deprecated.** Use [GET
+        /v2/features/:id/revisions/:version](#operation/getFeatureRevisionV2)
+        instead.
 
 
         Returns the revision at the specified version for this feature. Use `GET
@@ -2519,7 +2539,8 @@ paths:
       operationId: putFeatureRevisionMetadata
       summary: Update revision metadata (comment, title, feature metadata)
       description: >-
-        **Deprecated.** Use `PUT /v2/features/:id/revisions/:version/metadata`
+        **Deprecated.** Use [PUT
+        /v2/features/:id/revisions/:version/metadata](#operation/putFeatureRevisionMetadataV2)
         instead.
 
 
@@ -2684,8 +2705,9 @@ paths:
       operationId: putFeatureRevisionDefaultValue
       summary: Set the default value in a draft revision
       description: >-
-        **Deprecated.** Use `PUT
-        /v2/features/:id/revisions/:version/default-value` instead.
+        **Deprecated.** Use [PUT
+        /v2/features/:id/revisions/:version/default-value](#operation/putFeatureRevisionDefaultValueV2)
+        instead.
 
 
         Replaces the feature's default value for this revision. The value must
@@ -2751,8 +2773,9 @@ paths:
       operationId: putFeatureRevisionPrerequisites
       summary: Set feature-level prerequisites in a draft revision
       description: >-
-        **Deprecated.** Use `PUT
-        /v2/features/:id/revisions/:version/prerequisites` instead.
+        **Deprecated.** Use [PUT
+        /v2/features/:id/revisions/:version/prerequisites](#operation/putFeatureRevisionPrerequisitesV2)
+        instead.
 
 
         Replaces the feature's prerequisite list for this revision. Each
@@ -2829,7 +2852,8 @@ paths:
       operationId: putFeatureRevisionHoldout
       summary: Set holdout in a draft revision
       description: >-
-        **Deprecated.** Use `PUT /v2/features/:id/revisions/:version/holdout`
+        **Deprecated.** Use [PUT
+        /v2/features/:id/revisions/:version/holdout](#operation/putFeatureRevisionHoldoutV2)
         instead.
 
 
@@ -2906,7 +2930,8 @@ paths:
       operationId: putFeatureRevisionArchive
       summary: Set archived state in a draft revision
       description: >-
-        **Deprecated.** Use `PUT /v2/features/:id/revisions/:version/archive`
+        **Deprecated.** Use [PUT
+        /v2/features/:id/revisions/:version/archive](#operation/putFeatureRevisionArchiveV2)
         instead.
 
 
@@ -2971,7 +2996,8 @@ paths:
       operationId: postFeatureRevisionToggle
       summary: Toggle an environment on/off in a draft revision
       description: >-
-        **Deprecated.** Use `POST /v2/features/:id/revisions/:version/toggle`
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions/:version/toggle](#operation/postFeatureRevisionToggleV2)
         instead.
 
 
@@ -3039,7 +3065,8 @@ paths:
       operationId: postFeatureRevisionRuleAdd
       summary: Add a rule to a draft revision
       description: >-
-        **Deprecated.** Use `POST /v2/features/:id/revisions/:version/rules`
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions/:version/rules](#operation/postFeatureRevisionRuleAddV2)
         instead, which accepts rules with unified
         `allEnvironments`/`environments` scope fields instead of a
         per-environment `environment` parameter.
@@ -3638,10 +3665,10 @@ paths:
       operationId: putFeatureRevisionRule
       summary: Update a rule in a draft revision
       description: >-
-        **Deprecated.** Use `PUT
-        /v2/features/:id/revisions/:version/rules/:ruleId` instead, which
-        locates rules by `ruleId` in the flat array without an `environment`
-        parameter.
+        **Deprecated.** Use [PUT
+        /v2/features/:id/revisions/:version/rules/:ruleId](#operation/putFeatureRevisionRuleV2)
+        instead, which locates rules by `ruleId` in the flat array without an
+        `environment` parameter.
 
 
         Patches fields on an existing rule. The rule `type` cannot be changed —
@@ -4036,9 +4063,10 @@ paths:
       operationId: deleteFeatureRevisionRule
       summary: Delete a rule from a draft revision
       description: >-
-        **Deprecated.** Use `DELETE
-        /v2/features/:id/revisions/:version/rules/:ruleId` instead, which
-        removes the rule from the flat array without an `environment` parameter.
+        **Deprecated.** Use [DELETE
+        /v2/features/:id/revisions/:version/rules/:ruleId](#operation/deleteFeatureRevisionRuleV2)
+        instead, which removes the rule from the flat array without an
+        `environment` parameter.
 
 
         Removes the rule from the specified environment. Any pending ramp
@@ -4103,9 +4131,10 @@ paths:
       operationId: postFeatureRevisionRulesReorder
       summary: Reorder rules in an environment
       description: >-
-        **Deprecated.** Use `POST
-        /v2/features/:id/revisions/:version/rules/reorder` instead, which
-        reorders the global flat rule array without an `environment` parameter.
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions/:version/rules/reorder](#operation/postFeatureRevisionRulesReorderV2)
+        instead, which reorders the global flat rule array without an
+        `environment` parameter.
 
 
         Replaces the rule order for the environment. `ruleIds` must contain
@@ -4175,8 +4204,8 @@ paths:
       operationId: putFeatureRevisionRuleRampSchedule
       summary: Set ramp schedule for a rule
       description: >-
-        **Deprecated.** Use `PUT
-        /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule`
+        **Deprecated.** Use [PUT
+        /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2)
         instead.
 
 
@@ -4451,8 +4480,8 @@ paths:
       operationId: deleteFeatureRevisionRuleRampSchedule
       summary: Remove ramp schedule from a rule
       description: >-
-        **Deprecated.** Use `DELETE
-        /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule`
+        **Deprecated.** Use [DELETE
+        /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule](#operation/deleteFeatureRevisionRuleRampScheduleV2)
         instead.
 
 
@@ -4518,8 +4547,9 @@ paths:
       operationId: postFeatureRevisionRequestReview
       summary: Request review for a draft revision
       description: >-
-        **Deprecated.** Use `POST
-        /v2/features/:id/revisions/:version/request-review` instead.
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions/:version/request-review](#operation/postFeatureRevisionRequestReviewV2)
+        instead.
 
 
         Moves the draft into the `pending-review` state and notifies reviewers.
@@ -4568,8 +4598,9 @@ paths:
       operationId: postFeatureRevisionSubmitReview
       summary: Submit a review on a draft revision
       description: >-
-        **Deprecated.** Use `POST
-        /v2/features/:id/revisions/:version/submit-review` instead.
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2)
+        instead.
 
 
         Submits an `approve`, `request-changes`, or `comment` review on the
@@ -4626,8 +4657,9 @@ paths:
       operationId: getFeatureRevisionMergeStatus
       summary: Get merge status for a draft revision
       description: >-
-        **Deprecated.** Use `GET
-        /v2/features/:id/revisions/:version/merge-status` instead.
+        **Deprecated.** Use [GET
+        /v2/features/:id/revisions/:version/merge-status](#operation/getFeatureRevisionMergeStatusV2)
+        instead.
 
 
         Runs a dry-run merge of the draft against the current live revision and
@@ -4675,14 +4707,21 @@ paths:
       operationId: postFeatureRevisionRebase
       summary: Rebase a draft revision onto the current live version
       description: >-
-        **Deprecated.** Use `POST /v2/features/:id/revisions/:version/rebase`
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions/:version/rebase](#operation/postFeatureRevisionRebaseV2)
         instead.
 
 
         Updates the draft's base revision to match the currently-live revision,
         applying the draft's changes on top. Supply `conflictResolutions` to
-        resolve any conflicting fields (keyed by `envName.ruleId` or
-        `defaultValue`).
+        resolve any conflicting fields.
+
+
+        **Conflict key format changed for v1 clients.** Rules now merge as a
+        single flat array, so the per-rule `envName.ruleId` keys used by older
+        clients are no longer recognized. Valid keys: `defaultValue`, `rules`,
+        `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`.
+        Unrecognized keys are ignored; unresolved conflicts respond with `409`.
       deprecated: true
       tags:
         - feature-revisions
@@ -4735,7 +4774,8 @@ paths:
       operationId: postFeatureRevisionPublish
       summary: Publish a draft revision
       description: >-
-        **Deprecated.** Use `POST /v2/features/:id/revisions/:version/publish`
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions/:version/publish](#operation/postFeatureRevisionPublishV2)
         instead.
 
 
@@ -4787,7 +4827,8 @@ paths:
       operationId: postFeatureRevisionDiscard
       summary: Discard a draft revision
       description: >-
-        **Deprecated.** Use `POST /v2/features/:id/revisions/:version/discard`
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions/:version/discard](#operation/postFeatureRevisionDiscardV2)
         instead.
 
 
@@ -4837,7 +4878,8 @@ paths:
       operationId: postFeatureRevisionRevert
       summary: Revert the feature to a prior revision
       description: >-
-        **Deprecated.** Use `POST /v2/features/:id/revisions/:version/revert`
+        **Deprecated.** Use [POST
+        /v2/features/:id/revisions/:version/revert](#operation/postFeatureRevisionRevertV2)
         instead.
 
 
@@ -8533,6 +8575,12 @@ paths:
     post:
       operationId: postFeatureRevisionRebaseV2
       summary: Rebase a draft revision onto the current live version
+      description: >-
+        Updates the draft's base revision to match the currently-live revision,
+        applying the draft's changes on top. Supply `conflictResolutions` to
+        resolve any conflicting fields. Valid keys: `defaultValue`, `rules`,
+        `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`.
+        Unresolved conflicts respond with `409`.
       tags:
         - feature-revisions-v2
       parameters:

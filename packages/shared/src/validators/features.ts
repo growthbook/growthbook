@@ -1203,7 +1203,7 @@ export const listFeaturesValidator = {
   ),
   summary: "Get all features",
   description:
-    "**Deprecated.** Use `GET /v2/features` instead.\n\nReturns features with pagination. The skipPagination query parameter is\nhonored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).\n",
+    "**Deprecated.** Use [GET /v2/features](#operation/listFeaturesV2) instead.\n\nReturns features with pagination. The skipPagination query parameter is\nhonored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).\n",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "listFeatures",
@@ -1218,7 +1218,8 @@ export const postFeatureValidator = {
   paramsSchema: z.never(),
   responseSchema: featureResponseSchema,
   summary: "Create a single feature",
-  description: "**Deprecated.** Use `POST /v2/features` instead.",
+  description:
+    "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "postFeature",
@@ -1246,7 +1247,8 @@ export const getFeatureValidator = {
     })
     .strict(),
   summary: "Get a single feature",
-  description: "**Deprecated.** Use `GET /v2/features/:id` instead.",
+  description:
+    "**Deprecated.** Use [GET /v2/features/:id](#operation/getFeatureV2) instead.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "getFeature",
@@ -1263,7 +1265,7 @@ export const updateFeatureValidator = {
   responseSchema: featureResponseSchema,
   summary: "Partially update a feature",
   description:
-    '**Deprecated.** Use `POST /v2/features/:id` instead.\n\nUpdates any combination of a feature\'s metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    '**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates any combination of a feature\'s metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "updateFeature",
@@ -1286,7 +1288,7 @@ export const deleteFeatureValidator = {
     .strict(),
   summary: "Deletes a single feature",
   description:
-    '**Deprecated.** Use `DELETE /v2/features/:id` instead.\n\nPermanently deletes a feature and all of its revisions.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.\n',
+    '**Deprecated.** Use [DELETE /v2/features/:id](#operation/deleteFeatureV2) instead.\n\nPermanently deletes a feature and all of its revisions.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.\n',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "deleteFeature",
@@ -1321,7 +1323,7 @@ export const toggleFeatureValidator = {
   responseSchema: featureResponseSchema,
   summary: "Toggle a feature in one or more environments",
   description:
-    '**Deprecated.** Use `POST /v2/features/:id/toggle` instead.\n\nEnables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    '**Deprecated.** Use [POST /v2/features/:id/toggle](#operation/toggleFeatureV2) instead.\n\nEnables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "toggleFeature",
@@ -1348,7 +1350,7 @@ export const revertFeatureValidator = {
   responseSchema: featureResponseSchema,
   summary: "Revert a feature to a specific revision",
   description:
-    '**Deprecated.** Use `POST /v2/features/:id/revert` instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "revertFeature",
@@ -1376,7 +1378,7 @@ export const getFeatureRevisionsValidator = {
     .extend(apiPaginationFieldsValidator.shape),
   summary: "List revisions for a feature",
   description:
-    "**Deprecated.** Use `GET /v2/features/:id/revisions` instead.\n\nReturns a paginated list of revisions for this feature, sorted newest-first. Optionally filtered by status and/or author.",
+    "**Deprecated.** Use [GET /v2/features/:id/revisions](#operation/getFeatureRevisionsV2) instead.\n\nReturns a paginated list of revisions for this feature, sorted newest-first. Optionally filtered by status and/or author.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "getFeatureRevisions",
@@ -1475,7 +1477,8 @@ export const getFeatureStaleValidator = {
     })
     .strict(),
   summary: "Get stale status for one or more features",
-  description: "**Deprecated.** Use `GET /v2/stale-features` instead.",
+  description:
+    "**Deprecated.** Use [GET /v2/stale-features](#operation/getFeatureStaleV2) instead.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "getFeatureStale",
@@ -1494,7 +1497,8 @@ export const getFeatureKeysValidator = {
   paramsSchema: z.never(),
   responseSchema: z.array(z.string()),
   summary: "Get list of feature keys",
-  description: "**Deprecated.** Use `GET /v2/feature-keys` instead.",
+  description:
+    "**Deprecated.** Use [GET /v2/feature-keys](#operation/getFeatureKeysV2) instead.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "getFeatureKeys",

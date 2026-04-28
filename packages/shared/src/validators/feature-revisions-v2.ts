@@ -343,6 +343,8 @@ export const postFeatureRevisionRebaseV2Validator = {
   path: "/features/:id/revisions/:version/rebase",
   operationId: "postFeatureRevisionRebaseV2",
   summary: "Rebase a draft revision onto the current live version",
+  description:
+    "Updates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields. Valid keys: `defaultValue`, `rules`, `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`. Unresolved conflicts respond with `409`.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
