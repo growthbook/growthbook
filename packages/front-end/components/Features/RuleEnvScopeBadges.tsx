@@ -8,20 +8,13 @@ import Text from "@/ui/Text";
 const MAX_VISIBLE_BADGES = 8;
 
 // `activeEnvironmentIds`:
-//   "all"      → rule applies to every applicable env (allEnvironments / undefined).
-//                Expanded inline to violet badges for each env in `environments`.
-//   string[]   → explicit env footprint. Envs in this list render violet,
-//                envs absent render muted gray. Empty array → amber
-//                "No environments" pill (rule does not apply anywhere).
-//
-// Order: natural order of `environments`, with `currentEnvironment` promoted
-// to position #2 when set (i.e., the env tab the user is viewing surfaces
-// near the front so it isn't lost to truncation). Truncates after
-// `MAX_VISIBLE_BADGES`; the overflow is rendered (in order) inside a
-// tooltip on the trailing "...".
-//
-// Used by feature rules (rule.environments / allEnvironments) and holdouts
-// (derived from holdout.environmentSettings[envId].enabled).
+//   "all"    → violet badge per env in `environments`.
+//   string[] → entries in `environments` render violet (active) or gray
+//              (inactive). Entries NOT in `environments` are "disallowed"
+//              and render as struck-through amber pills. Empty (or all-
+//              disallowed) → amber "No environments" pill.
+// `currentEnvironment` (when set) is promoted to position #2 so the active
+// tab isn't lost to the `MAX_VISIBLE_BADGES` truncation.
 type Props = {
   activeEnvironmentIds: string[] | "all";
   environments: Environment[];
@@ -44,6 +37,25 @@ function envBadge(envId: string, active: boolean) {
   );
 }
 
+function disallowedEnvBadge(envId: string) {
+  return (
+    <Tooltip
+      key={`disallowed-${envId}`}
+      body="This environment is not available for this feature. The rule will not apply here."
+      tipPosition="top"
+      innerClassName="p-2"
+    >
+      <Badge
+        label={<span style={{ textDecoration: "line-through" }}>{envId}</span>}
+        color="amber"
+        variant="outline"
+        radius="full"
+        size="sm"
+      />
+    </Tooltip>
+  );
+}
+
 export default function RuleEnvScopeBadges({
   activeEnvironmentIds,
   environments,
@@ -51,36 +63,22 @@ export default function RuleEnvScopeBadges({
   my = "3",
   ...marginProps
 }: Props) {
-  if (
+  const knownEnvIds = new Set(environments.map((e) => e.id));
+  const disallowedEnvIds =
+    activeEnvironmentIds === "all"
+      ? []
+      : activeEnvironmentIds.filter((e) => !knownEnvIds.has(e));
+
+  // No applicable footprint: empty list, or every entry is disallowed.
+  const noActiveEnvs =
     Array.isArray(activeEnvironmentIds) &&
-    activeEnvironmentIds.length === 0
-  ) {
-    return (
-      <Flex gap="2" wrap="wrap" my={my} {...marginProps}>
-        <Tooltip
-          body="Rule is not scoped to any environment and will not apply anywhere"
-          tipPosition="top"
-          innerClassName="p-2"
-        >
-          <Badge
-            label="No environments"
-            color="amber"
-            variant="outline"
-            radius="full"
-            size="sm"
-          />
-        </Tooltip>
-      </Flex>
-    );
-  }
+    activeEnvironmentIds.every((e) => !knownEnvIds.has(e));
 
   const activeSet =
     activeEnvironmentIds === "all"
       ? new Set(environments.map((e) => e.id))
       : new Set(activeEnvironmentIds);
 
-  // Promote the current env tab to position #2 (index 1) when present and
-  // not already in position #1 or #2.
   const ordered = [...environments];
   if (currentEnvironment) {
     const idx = ordered.findIndex((e) => e.id === currentEnvironment);
@@ -95,8 +93,25 @@ export default function RuleEnvScopeBadges({
 
   return (
     <Flex gap="2" wrap="wrap" my={my} {...marginProps}>
-      {visible.map((env) => envBadge(env.id, activeSet.has(env.id)))}
-      {overflow.length > 0 && (
+      {noActiveEnvs ? (
+        <Tooltip
+          body="Rule is not scoped to any environment and will not apply anywhere"
+          tipPosition="top"
+          innerClassName="p-2"
+        >
+          <Badge
+            label="No environments"
+            color="amber"
+            variant="outline"
+            radius="full"
+            size="sm"
+          />
+        </Tooltip>
+      ) : (
+        visible.map((env) => envBadge(env.id, activeSet.has(env.id)))
+      )}
+      {disallowedEnvIds.map((envId) => disallowedEnvBadge(envId))}
+      {!noActiveEnvs && overflow.length > 0 && (
         <Tooltip
           flipTheme={false}
           body={

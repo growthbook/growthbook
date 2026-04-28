@@ -1049,11 +1049,11 @@ describe("migrateRawFeatureToV2", () => {
   // Either way no rule body is silently dropped on read.
 
   describe("removed/orphaned envs in feature data", () => {
-    it("v1 path: preserves rule scoped only to a removed env as no-env pending", () => {
+    it("v1 path: preserves rule scoped only to a removed env with the orphan env retained", () => {
       // Org has only `production`. The on-disk doc still has a `staging`
       // entry from before staging was removed. The v1→v2 flatten preserves
-      // the rule body with environments:[] so a later publish doesn't drop
-      // it silently.
+      // the rule body AND the orphan env label so the UI can flag it and
+      // a later publish doesn't drop it silently.
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v1: LegacyFeatureInterface = {
         ...BASE_META,
@@ -1070,7 +1070,7 @@ describe("migrateRawFeatureToV2", () => {
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r_staging_only");
       expect(out.rules[0].allEnvironments).toBe(false);
-      expect(out.rules[0].environments).toEqual([]);
+      expect(out.rules[0].environments).toEqual(["staging"]);
     });
 
     it("v2 path: preserves rule scoped to a removed env as-is (no narrow at migrateRawFeatureToV2)", () => {

@@ -392,8 +392,9 @@ export function flattenV1ToV2Rules(
   );
 
   // 4. Emit. Merged rules emit once with the full footprint; non-merged emit
-  //    once per env with a suffixed id. `shapeRule` collapses to the no-env
-  //    pending state when every source env is non-applicable.
+  //    once per env with a suffixed id. `shapeRule` preserves orphan envs
+  //    (env IDs in raw v1 buckets that aren't currently applicable) so the
+  //    UI can flag them; consumers must filter via `ruleFootprint`.
   const applicable = opts?.applicableEnvs;
   const applicableSet = applicable ? new Set(applicable) : null;
 
@@ -413,14 +414,21 @@ export function flattenV1ToV2Rules(
     id: string,
     rawEnvList: string[],
   ): FeatureRule {
-    const filtered = applicableSet
+    const applicableSubset = applicableSet
       ? rawEnvList.filter((e) => applicableSet.has(e))
       : rawEnvList;
+    const hasOrphans = applicableSet
+      ? rawEnvList.length !== applicableSubset.length
+      : false;
 
+    // Collapse to allEnvironments only when the rule covers exactly the
+    // applicable set with no orphans; orphans must round-trip so the UI can
+    // surface them and an admin can decide whether to clean them up.
     const coversAllApplicable =
       applicableSet !== null &&
-      filtered.length > 0 &&
-      filtered.length === applicableSet.size;
+      !hasOrphans &&
+      applicableSubset.length > 0 &&
+      applicableSubset.length === applicableSet.size;
 
     const base = {
       ...(rule as unknown as FeatureRule),
@@ -432,13 +440,10 @@ export function flattenV1ToV2Rules(
       delete (out as { environments?: string[] }).environments;
       return out;
     }
-    // Preserve the rule body even when every source env is non-applicable —
-    // collapse to the no-env "pending" state instead of dropping, so a
-    // publish during the orphaned period doesn't silently delete it.
     return {
       ...base,
       allEnvironments: false,
-      environments: filtered,
+      environments: rawEnvList,
     } as FeatureRule;
   }
 

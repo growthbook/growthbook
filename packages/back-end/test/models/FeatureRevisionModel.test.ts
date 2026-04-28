@@ -172,9 +172,9 @@ describe("buildFeatureRevisionInterface", () => {
     });
 
     // Regression: a v1 rule scoped to an env excluded from the feature's
-    // project must collapse to a no-env "pending" rule (preserving the body
-    // so a publish doesn't silently drop it) rather than disappear.
-    it("preserves rules whose only env is non-applicable as no-env pending", () => {
+    // project must keep the orphan env label (so the UI can flag it) rather
+    // than disappear or silently widen.
+    it("preserves rules whose only env is non-applicable with the orphan label retained", () => {
       const orgEnvsWithProject: Environment[] = [
         { id: "dev", description: "", projects: ["other_proj"] },
         { id: "production", description: "" },
@@ -195,7 +195,7 @@ describe("buildFeatureRevisionInterface", () => {
       expect(out.rules).toHaveLength(2);
       const devOnly = out.rules.find((r) => r.id === "r_dev_only");
       const prodOnly = out.rules.find((r) => r.id === "r_prod_only");
-      expect(devOnly?.environments).toEqual([]);
+      expect(devOnly?.environments).toEqual(["dev"]);
       expect(devOnly?.allEnvironments).toBe(false);
       // r_prod_only covers the only applicable env, so it collapses to
       // allEnvironments=true (environments stripped).

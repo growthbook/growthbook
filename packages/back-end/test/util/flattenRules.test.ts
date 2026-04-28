@@ -189,7 +189,10 @@ describe("flattenV1ToV2Rules", () => {
       expect(out[0]).not.toHaveProperty("environments");
     });
 
-    it("strips occurrences in envs NOT in applicableEnvs (orphan project-reassignment data)", () => {
+    it("preserves orphan envs in `environments` rather than collapsing to allEnvironments=true", () => {
+      // Rule lives in dev/prod (applicable) and legacyReadOnly (orphan).
+      // We do NOT collapse to allEnvironments because that would silently
+      // erase the orphan; the UI surfaces it as a disallowed-env badge.
       const r = forceRule("r1");
       const out = flattenV1ToV2Rules(
         {
@@ -200,11 +203,11 @@ describe("flattenV1ToV2Rules", () => {
         { applicableEnvs: ["dev", "prod"] },
       );
       expect(out).toHaveLength(1);
-      expect(out[0].allEnvironments).toBe(true);
-      expect(out[0]).not.toHaveProperty("environments");
+      expect(out[0].allEnvironments).toBe(false);
+      expect(out[0].environments).toEqual(["dev", "legacyReadOnly", "prod"]);
     });
 
-    it("env-specific rule in a non-applicable env is preserved as no-env pending", () => {
+    it("env-specific rule in a non-applicable env preserves the orphan label", () => {
       const out = flattenV1ToV2Rules(
         { legacyReadOnly: [forceRule("orphan")] },
         { applicableEnvs: ["dev", "prod"] },
@@ -212,20 +215,7 @@ describe("flattenV1ToV2Rules", () => {
       expect(out).toHaveLength(1);
       expect(out[0].id).toBe("orphan");
       expect(out[0].allEnvironments).toBe(false);
-      expect(out[0].environments).toEqual([]);
-    });
-
-    it("partial-merge rule whose applicable subset is fully covered still collapses to allEnvironments=true", () => {
-      const r = forceRule("r1");
-      const out = flattenV1ToV2Rules(
-        {
-          dev: [{ ...r }],
-          prod: [{ ...r }],
-          legacyReadOnly: [{ ...r }],
-        },
-        { applicableEnvs: ["dev", "prod"] },
-      );
-      expect(out[0].allEnvironments).toBe(true);
+      expect(out[0].environments).toEqual(["legacyReadOnly"]);
     });
 
     it("content-diverged rules do not collapse to allEnvironments=true even if they span applicable set", () => {
@@ -279,7 +269,7 @@ describe("flattenV1ToV2Rules", () => {
       expect(bucketBy("prod")).toEqual(["B", "A"]);
     });
 
-    it("empty applicableEnvs preserves rules as no-env pending (no silent drop)", () => {
+    it("empty applicableEnvs preserves rule with raw envs labeled as orphans (no silent drop)", () => {
       const out = flattenV1ToV2Rules(
         { dev: [forceRule("r1")] },
         { applicableEnvs: [] },
@@ -287,7 +277,7 @@ describe("flattenV1ToV2Rules", () => {
       expect(out).toHaveLength(1);
       expect(out[0].id).toBe("r1");
       expect(out[0].allEnvironments).toBe(false);
-      expect(out[0].environments).toEqual([]);
+      expect(out[0].environments).toEqual(["dev"]);
     });
   });
 
