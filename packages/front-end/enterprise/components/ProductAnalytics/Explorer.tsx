@@ -183,7 +183,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
           </AlertDialog.Content>
         </AlertDialog.Root>
       )}
-      <ExplorerProvider key={type} initialConfig={initialConfig}>
+      <ExplorerProvider
+        key={type}
+        initialConfig={initialConfig}
+        trackingSource="manual-explorer"
+      >
         <ExplorerUrlSync setUrlConfig={setUrlConfig} />
         <ExplorerContent />
       </ExplorerProvider>
