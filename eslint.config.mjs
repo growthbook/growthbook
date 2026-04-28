@@ -203,6 +203,7 @@ export default defineConfig([
                 "Callout",
                 "Checkbox",
                 "DataList",
+                "Dialog",
                 "DropdownMenu",
                 "Heading",
                 "Link",

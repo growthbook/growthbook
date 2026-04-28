@@ -1,12 +1,14 @@
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
-import Link from "next/link";
+import NextLink from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft } from "@/components/Icons";
@@ -21,6 +23,8 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -29,6 +33,14 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useApi from "@/hooks/useApi";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import Metadata from "@/ui/Metadata";
+import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
+import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
+
+function emptyStringToUndefined(v: unknown): number | undefined {
+  if (v === "" || v === null || v === undefined) return undefined;
+  const num = Number(v);
+  return Number.isNaN(num) ? undefined : num;
+}
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -63,7 +75,7 @@ const ProjectPage: FC = () => {
   // todo: should this also be project scoped?
   const canManageTeam = permissionsUtil.canManageTeam();
 
-  const form = useForm<ProjectSettings>();
+  const form = useForm<ProjectSettings>({ mode: "onChange" });
 
   const { data, mutate } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
@@ -77,18 +89,26 @@ const ProjectPage: FC = () => {
       Object.keys(settings).forEach((k) => {
         newVal[k] = settings?.[k] || newVal[k];
       });
+      if (typeof newVal.confidenceLevel === "number") {
+        newVal.confidenceLevel = newVal.confidenceLevel * 100;
+      }
       form.reset(newVal);
       setOriginalValue(newVal);
     }
   }, [form, settings]);
 
-  const ctaEnabled = hasChanges(form.getValues(), originalValue);
+  const isValid = form.formState.isValid;
+  const ctaEnabled = hasChanges(form.getValues(), originalValue) && isValid;
 
   const saveSettings = form.handleSubmit(async (value) => {
+    const payload: ProjectSettings = { ...value };
+    if (typeof payload.confidenceLevel === "number") {
+      payload.confidenceLevel = payload.confidenceLevel / 100;
+    }
     await apiCall(`/projects/${pid}/settings`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: value,
+        settings: payload,
       }),
     });
 
@@ -157,7 +177,7 @@ const ProjectPage: FC = () => {
         ) : null}
         <Flex align="center" justify="between" width="100%">
           <Flex align="start" direction="column">
-            <Heading size="7" as="h1">
+            <Heading size="2x-large" as="h1">
               {p.name}
             </Heading>
             <Flex gap="6" mb="4">
@@ -190,7 +210,7 @@ const ProjectPage: FC = () => {
           </Box>
         ) : (
           <Box>
-            <Link
+            <NextLink
               href="#"
               onClick={(e) => {
                 e.preventDefault();
@@ -198,7 +218,7 @@ const ProjectPage: FC = () => {
               }}
             >
               Add a description
-            </Link>
+            </NextLink>
           </Box>
         )}
 
@@ -213,7 +233,7 @@ const ProjectPage: FC = () => {
                 <Frame>
                   <Flex gap="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="4">
+                      <Heading as="h4" size="medium">
                         Experiment Analysis
                       </Heading>
                     </Box>
@@ -222,17 +242,94 @@ const ProjectPage: FC = () => {
                         className="form-group align-items-start"
                         width="100%"
                       >
-                        <Heading as="h5" size="3">
+                        <Heading as="h5" size="small">
                           Stats Engine Settings
                         </Heading>
+                        <Box mb="3">
+                          Experiments use your organization settings by default.
+                          Leave the fields blank to use the organization
+                          default.
+                        </Box>
                         <StatsEngineSelect
                           value={form.watch("statsEngine")}
                           onChange={(v) => {
                             form.setValue("statsEngine", v || undefined);
                           }}
-                          label="By default, experiments use your organization's default statistics engine, however, you can override this for experiments in this project."
                           parentSettings={parentSettings}
                         />
+
+                        <Box mt="3">
+                          <Tabs defaultValue="bayesian">
+                            <TabsList>
+                              <TabsTrigger value="bayesian">
+                                Bayesian
+                              </TabsTrigger>
+                              <TabsTrigger value="frequentist">
+                                Frequentist
+                              </TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="bayesian" forceMount>
+                              <Box mt="4">
+                                <h4 className="mb-4 text-purple">
+                                  Bayesian Settings
+                                </h4>
+                                <div className="form-group mb-2 mr-2 form-inline">
+                                  <ChanceToWinThresholdField
+                                    form={form}
+                                    name="confidenceLevel"
+                                    value={form.watch("confidenceLevel")}
+                                    defaultValue={
+                                      (parentSettings.confidenceLevel.value ??
+                                        DEFAULT_CONFIDENCE_LEVEL) * 100
+                                    }
+                                    helpTextAppend={
+                                      <span className="ml-2">
+                                        (
+                                        {Math.round(
+                                          (parentSettings.confidenceLevel
+                                            .value ?? 0.95) * 100,
+                                        )}
+                                        % is your organization default)
+                                      </span>
+                                    }
+                                    rules={{
+                                      setValueAs: emptyStringToUndefined,
+                                    }}
+                                  />
+                                </div>
+                              </Box>
+                            </TabsContent>
+                            <TabsContent value="frequentist" forceMount>
+                              <Box mt="4">
+                                <h4 className="mb-4 text-purple">
+                                  Frequentist Settings
+                                </h4>
+                                <div className="form-group mb-2 mr-2 form-inline">
+                                  <PValueThresholdField
+                                    form={form}
+                                    name="pValueThreshold"
+                                    value={form.watch("pValueThreshold")}
+                                    defaultValue={
+                                      parentSettings.pValueThreshold.value ??
+                                      0.05
+                                    }
+                                    helpTextAppend={
+                                      <span className="ml-2">
+                                        (
+                                        {parentSettings.pValueThreshold.value ??
+                                          0.05}{" "}
+                                        is your organization default)
+                                      </span>
+                                    }
+                                    rules={{
+                                      setValueAs: emptyStringToUndefined,
+                                    }}
+                                  />
+                                </div>
+                              </Box>
+                            </TabsContent>
+                          </Tabs>
+                        </Box>
                       </Box>
                     </Flex>
                   </Flex>
@@ -240,7 +337,7 @@ const ProjectPage: FC = () => {
                 <Frame>
                   <Flex gap="4" mb="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="4">
+                      <Heading as="h4" size="medium">
                         Experiment Settings
                       </Heading>
                     </Box>
@@ -251,7 +348,7 @@ const ProjectPage: FC = () => {
                             commercialFeature="custom-launch-checklist"
                             premiumText="Custom pre-launch checklists are available to Enterprise customers"
                           >
-                            <Heading as="h5" size="3">
+                            <Heading as="h5" size="small">
                               Experiment Pre-Launch Checklist
                             </Heading>
                           </PremiumTooltip>

@@ -1,0 +1,23 @@
+// Non-last breadcrumb items are hidden on small screens
+.ancestor {
+  display: none;
+
+  @media (min-width: 992px) {
+    // display: contents collapses the span from the flex layout,
+    // letting the inner Text/Link participate directly as flex children.
+    // This preserves correct gap spacing without a wrapper box.
+    display: contents;
+  }
+}
+
+// Separator icons are hidden on small screens (even for the last item's
+// separator, since its preceding ancestors are hidden and a floating ">"
+// would appear before the current page name)
+.separator {
+  display: none;
+
+  @media (min-width: 992px) {
+    display: inline-flex;
+    align-items: center;
+  }
+}

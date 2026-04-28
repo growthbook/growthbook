@@ -2,10 +2,11 @@ import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import Link from "next/link";
+import NextLink from "next/link";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -219,12 +220,12 @@ const DataSourcePage: FC = () => {
                   View SQL Explorer
                 </a>
               )}
-              <Link
+              <NextLink
                 href={`/datasources/queries/${did}`}
                 className="dropdown-item"
               >
                 View Queries
-              </Link>
+              </NextLink>
               {canDelete && (
                 <>
                   <hr className="m-2" />

@@ -638,7 +638,10 @@ const apiExperimentPhase = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
-      range: z.array(z.number()).min(2).max(2),
+      enabled: z.boolean().optional(),
+      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+      range: z.array(z.number()).min(2).max(2).optional(),
+      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
   targetingCondition: z.string(),
@@ -919,8 +922,10 @@ const apiPhaseInput = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
-      range: z.array(z.number()).min(2).max(2),
       enabled: z.boolean().optional(),
+      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+      range: z.array(z.number()).min(2).max(2).optional(),
+      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
   targetingCondition: z.string().optional(),
@@ -1277,12 +1282,18 @@ export const listExperimentsValidator = {
       ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       datasourceId: z.string().describe("Filter by Data Source").optional(),
+      trackingKey: z
+        .string()
+        .describe("Filter by experiment tracking key")
+        .optional(),
       experimentId: z
         .string()
         .describe(
-          "Filter the returned list by the experiment tracking key (id)",
+          "Filter the returned list by the experiment tracking key (not the internal experiment ID). Note, this was deprecated to help reduce confusion, consider using `trackingKey` instead, which is functionally identical. You cannot use both params at the same time.",
         )
-        .optional(),
+        .optional()
+        .meta({ deprecated: true }),
+
       status: z.enum(experimentStatus).optional(),
     })
     .strict(),

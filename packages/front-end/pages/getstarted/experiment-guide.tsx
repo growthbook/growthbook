@@ -1,10 +1,11 @@
 import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
+import Link from "@/ui/Link";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -167,7 +168,7 @@ const ExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/sdks"
                   style={{
                     fontSize: "17px",
@@ -184,7 +185,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   }
                 >
                   Integrate the GrowthBook SDK into your app
-                </Link>
+                </NextLink>
                 <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
                 <Separator size="4" my="4" />
               </div>
@@ -217,7 +218,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   )}
                 </div>
                 <div className="col">
-                  <Link
+                  <NextLink
                     href={`/experiment/${generatedHypothesis.experiment}`}
                     style={{
                       fontSize: "17px",
@@ -238,7 +239,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     }
                   >
                     Configure Your Auto-generated Experiment
-                  </Link>
+                  </NextLink>
                   <p className="mt-2">
                     Define any additional settings, rules and targeting as
                     desired. Then, click “Run experiment.”
@@ -272,7 +273,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   )}
                 </div>
                 <div className="col">
-                  <Link
+                  <NextLink
                     href="/experiments"
                     style={{
                       fontSize: "17px",
@@ -292,7 +293,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     {project
                       ? "Design the First Experiment for this Project"
                       : "Design Your Organization’s First Experiment"}
-                  </Link>
+                  </NextLink>
                   <Box mt="2">
                     Create an experiment and change variations. Choose from
                     Feature Flags, URL Redirects, or the Visual Editor (Pro).
@@ -329,7 +330,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   )}
                 </div>
                 <div className="col">
-                  <Link
+                  <NextLink
                     href="/experiments"
                     style={{
                       fontSize: "17px",
@@ -370,7 +371,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     >
                       Start the Test
                     </Tooltip>
-                  </Link>
+                  </NextLink>
                   <Box mt="2">
                     Define any additional settings, rules and targeting as
                     desired. Then, click “Run experiment.”
@@ -406,7 +407,7 @@ const ExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/datasources"
                   style={{
                     fontSize: "17px",
@@ -423,7 +424,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   }
                 >
                   Connect to Your Data Warehouse
-                </Link>
+                </NextLink>
                 <Box mt="2">
                   Allow GrowthBook to query your warehouse to compute traffic
                   totals and metric results.

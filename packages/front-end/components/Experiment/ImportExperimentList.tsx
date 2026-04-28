@@ -1,4 +1,3 @@
-import Link from "next/link";
 import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -8,6 +7,7 @@ import {
   parseIntWithDefault,
   parseOptionalInt,
 } from "shared/util";
+import Link from "@/ui/Link";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";

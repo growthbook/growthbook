@@ -25,7 +25,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
+import { Namespaces, OrganizationInterface } from "shared/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
@@ -35,11 +35,17 @@ import {
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
+import {
+  AnalysisKeyType,
+  AnalysisMetaEntry,
+  buildAnalysisKey,
+} from "shared/snapshot-analysis-chunks";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
+import { logger } from "back-end/src/util/logger";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -510,12 +516,21 @@ export function upgradeOrganizationDoc(
     }
   });
 
-  // Make sure namespaces have labels- if it's missing, use the name
+  // Make sure namespaces have labels, seeds, and format flags - if missing, use deterministic defaults.
+  // Note: do NOT use uuidv4() here. This function runs on every DB read and is never
+  // persisted, so a random seed would change on every request. Use ns.name as a stable fallback.
   if (org?.settings?.namespaces?.length) {
-    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
-      ...ns,
-      label: ns.label || ns.name,
-    }));
+    org.settings.namespaces = org.settings.namespaces.map((ns) => {
+      const hashAttribute =
+        "hashAttribute" in ns ? ns.hashAttribute : undefined;
+      const seed = "seed" in ns ? ns.seed : undefined;
+      return {
+        ...ns,
+        label: ns.label || ns.name,
+        seed: seed || ns.name,
+        format: ns.format || (hashAttribute ? "multiRange" : "legacy"), // Set format based on hashAttribute presence
+      } as Namespaces;
+    });
   }
 
   // Migrate postStratificationDisabled to postStratificationEnabled
@@ -580,7 +595,7 @@ export function upgradeExperimentDoc(
       };
       // Some experiments have a namespace with only `enabled` set, no idea why
       // This breaks namespaces, so add default values if missing
-      if (!phase.namespace.range) {
+      if (!("range" in phase.namespace) && !("ranges" in phase.namespace)) {
         phase.namespace = {
           enabled: false,
           name: "",
@@ -787,6 +802,7 @@ export function migrateSnapshot(
 
       snapshot.analyses = [
         {
+          analysisKey: buildAnalysisKey(),
           dateCreated: snapshot.dateCreated,
           status: snapshot.error ? "error" : "success",
           settings: {
@@ -946,6 +962,65 @@ export function migrateSnapshot(
   }
   if (!snapshot.runStarted) {
     snapshot.runStarted = null;
+  }
+
+  // Ensure all analyses have a unique analysisKey
+  snapshot.analyses.forEach((analysis) => {
+    if (!analysis.analysisKey) {
+      analysis.analysisKey = buildAnalysisKey();
+    }
+  });
+
+  // Legacy meta was stored as `AnalysisMetaEntry[]`, where positions
+  // matched the same index of `snapshot.analyses`.
+  // The updated shape makes Mongoose produce a Map keyed by number
+  // instead of an array. So we need to check they key values as well
+  // to determine if we need to migrate the data.
+  const chunkedAnalysesMeta = snapshot.chunkedAnalysesMeta as unknown;
+  const NUMBER_REGEX = /^\d+$/;
+  const isChunkedAnalysesInLegacyFormat =
+    Array.isArray(chunkedAnalysesMeta) ||
+    (chunkedAnalysesMeta != undefined &&
+      typeof chunkedAnalysesMeta === "object" &&
+      Object.keys(chunkedAnalysesMeta).length > 0 &&
+      Object.keys(chunkedAnalysesMeta).every((k) => NUMBER_REGEX.test(k)));
+
+  if (isChunkedAnalysesInLegacyFormat) {
+    const newChunkedAnalysesMeta: Record<AnalysisKeyType, AnalysisMetaEntry> =
+      {};
+
+    const legacyEntries = Array.isArray(chunkedAnalysesMeta)
+      ? chunkedAnalysesMeta
+      : Object.values(chunkedAnalysesMeta);
+
+    legacyEntries.forEach((entry, position) => {
+      const key = snapshot.analyses[position]?.analysisKey;
+      if (!key) {
+        // legacy meta had more entries than the current analyses
+        // array. It is unexpected, so we drop it rather than crash
+        logger.error(
+          { snapshotId: snapshot.id, position },
+          "migrateSnapshot: dropping orphan legacy chunkedAnalysesMeta entry",
+        );
+        return;
+      }
+      newChunkedAnalysesMeta[key] = entry;
+    });
+
+    snapshot.chunkedAnalysesMeta = newChunkedAnalysesMeta;
+  }
+
+  // Derive `hasChunkedAnalyses` from meta at read time for snapshots that
+  // ever touched chunked storage: single-analysis writes can race and leave
+  // the on-disk flag stale-false while meta still has entries (see
+  // `buildMetaOpsForAnalysisWrite` in ExperimentSnapshotModel). Downstream
+  // readers gate chunk loading on this flag, so re-deriving keeps populated
+  // snapshots from being silently skipped. Leave pre-chunked-storage
+  // snapshots (no flag, no meta) untouched.
+  const meta = snapshot.chunkedAnalysesMeta ?? {};
+  const metaHasEntries = Object.keys(meta).length > 0;
+  if (metaHasEntries || snapshot.hasChunkedAnalyses) {
+    snapshot.hasChunkedAnalyses = metaHasEntries;
   }
 
   return snapshot;

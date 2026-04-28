@@ -21,6 +21,7 @@ interface Props
     HTMLTableCellElement
   > {
   metric: ExperimentMetricInterface;
+  pValueThreshold: number;
   stats: SnapshotMetric;
   rowResults: Pick<
     RowResults,
@@ -47,6 +48,7 @@ interface Props
 
 export default function ChangeColumn({
   metric,
+  pValueThreshold,
   stats,
   rowResults,
   statsEngine,
@@ -91,6 +93,7 @@ export default function ChangeColumn({
     data: {
       stats,
       metric,
+      pValueThreshold,
       significant: rowResults.significant,
       resultsStatus: rowResults.resultsStatus,
       differenceType,
