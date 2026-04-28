@@ -25,6 +25,8 @@ export const baseDialect: SqlDialect = {
   toTimestamp: (date: Date) =>
     `'${date.toISOString().substr(0, 19).replace("T", " ")}'`,
 
+  // Important: If overriding `castToFloat` in a dialect, you must also override
+  // `jsonExtract` since it references this method
   castToFloat: (col: string) => col,
 
   castToString: (col: string) => `cast(${col} as varchar)`,
