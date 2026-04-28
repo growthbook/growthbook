@@ -78,7 +78,7 @@ export default function FactTableModal({
   useEffect(() => {
     if (!selectedDataSource || existing) return;
 
-    const [userIdTypes, sql] = getInitialFactTableQuery(selectedDataSource);
+    const { userIdTypes, sql } = getInitialFactTableQuery(selectedDataSource);
 
     form.setValue("userIdTypes", userIdTypes);
     form.setValue("sql", sql);

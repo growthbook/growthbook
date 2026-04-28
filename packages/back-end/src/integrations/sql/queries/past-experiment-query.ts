@@ -104,12 +104,9 @@ export function getPastExperimentQuery(
           d.exposure_query, d.experiment_id, d.variation_id
       )
     ${dialect.selectStarLimit(
-      `
-      __variations
-    ORDER BY
-      start_date DESC, experiment_id ASC, variation_id ASC
-      `,
+      `__variations`,
       MAX_ROWS_PAST_EXPERIMENTS_QUERY,
+      `ORDER BY start_date DESC, experiment_id ASC, variation_id ASC`,
     )}`,
     dialect.formatDialect,
   );

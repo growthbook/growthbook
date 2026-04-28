@@ -719,7 +719,7 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      ${dialect.selectStarLimit(`__table ${tableWhereClause}`, limit)}`,
+      ${dialect.selectStarLimit("__table", limit, tableWhereClause)}`,
       {
         startDate,
         templateVariables,

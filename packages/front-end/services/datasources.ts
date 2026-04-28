@@ -809,21 +809,21 @@ export function getInitialMetricQuery(
 
 export function getInitialFactTableQuery(
   datasource: DataSourceInterfaceWithParams,
-): [string[], string] {
+): { userIdTypes: string[]; sql: string } {
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
 
   const userIdTypes = datasource.settings?.userIdTypes?.map(
     (ut) => ut.userIdType,
   ) || ["user_id"];
 
-  return [
+  return {
     userIdTypes,
-    schema.getFactTableSQL(
+    sql: schema.getFactTableSQL(
       getTablePrefix(datasource.params),
       userIdTypes,
       datasource.settings?.schemaOptions,
     ),
-  ];
+  };
 }
 
 export function validateSQL(sql: string, requiredColumns: string[]): void {
