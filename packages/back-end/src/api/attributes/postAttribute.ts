@@ -1,7 +1,6 @@
 import { postAttributeValidator } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { updateAttributeSchema } from "back-end/src/services/attributes";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { addTags } from "back-end/src/models/TagModel";
 import { validatePayload } from "./validations";
@@ -33,14 +32,9 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
       await addTags(org.id, tags);
     }
 
-    const updates: Partial<OrganizationInterface> = {
-      settings: {
-        ...org.settings,
-        attributeSchema: [...(org.settings?.attributeSchema || []), attribute],
-      },
-    };
-
-    await updateOrganization(org.id, updates);
+    await updateAttributeSchema(req.context, {
+      newAttributeSchema: [...(org.settings?.attributeSchema || []), attribute],
+    });
 
     await req.audit({
       event: "attribute.create",

@@ -6,9 +6,9 @@ import { DataSourceInterface } from "shared/types/datasource";
  * declared identifier types with the fact table's active (non-deleted) columns.
  *
  * All datasource types store their identifier types in
- * datasource.settings.userIdTypes (growthbook_clickhouse syncs its
- * materializedColumns with type === "identifier" into this field on every
- * settings save).
+ * `datasource.settings.userIdTypes`. For `growthbook_clickhouse`, the license
+ * server regenerates that list from the org's attributeSchema on every
+ * sync.
  */
 export function deriveUserIdTypesFromColumns(
   datasource: DataSourceInterface,

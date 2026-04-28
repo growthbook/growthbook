@@ -34,7 +34,6 @@ import {
 } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
@@ -423,12 +422,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     </Text>
                   </Frame>
                   <Frame>
-                    <ClickhouseMaterializedColumns
-                      dataSource={d}
-                      onCancel={() => undefined}
-                      canEdit={canUpdateDataSourceSettings}
-                      mutate={mutateDefinitions}
-                    />
+                    <Heading as="h3" size="medium" mb="2">
+                      Key Attributes
+                    </Heading>
+                    <Text>
+                      Managed Warehouse columns are now driven by your{" "}
+                      <Link href="/attributes">organization attributes</Link>.
+                      Add or edit attributes there and they will automatically
+                      be available as identifiers and dimensions here.
+                    </Text>
                   </Frame>
                 </>
               )

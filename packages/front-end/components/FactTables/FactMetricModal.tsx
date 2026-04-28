@@ -30,7 +30,9 @@ import {
 } from "shared/experiments";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { SDKAttributeSchema } from "shared/types/organization";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAttributeSchema } from "@/services/features";
 import {
   formatNumber,
   getDefaultFactMetricProps,
@@ -169,6 +171,7 @@ function getNumericColumns(
 function getColumnOptions({
   factTable,
   datasource,
+  attributeSchema = [],
   includeCount = true,
   includeCountDistinct = false,
   includeDistinctDates = false,
@@ -182,6 +185,7 @@ function getColumnOptions({
 }: {
   factTable: FactTableInterface | null;
   datasource: DataSourceInterfaceWithParams | null;
+  attributeSchema?: SDKAttributeSchema;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
   includeDistinctDates?: boolean;
@@ -248,14 +252,12 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
-    const excludedAttributeFields = new Set<string>();
-    if (datasource && datasource.type === "growthbook_clickhouse") {
-      // When an attribute has been materialized to the top-level,
-      // we want people to use the top-level column and not a JSON field
-      datasource.settings.materializedColumns?.forEach((col) => {
-        excludedAttributeFields.add(col.sourceField);
-      });
-    }
+    // When an attribute has been materialized to the top-level,
+    // we want people to use the top-level column and not a JSON field
+    const excludedAttributeFields =
+      datasource?.type === "growthbook_clickhouse"
+        ? new Set(attributeSchema.map((attr) => attr.property))
+        : new Set<string>();
 
     const jsonColumns = factTable.columns.filter(
       (col) => col.datatype === "json" && !col.deleted,
@@ -424,6 +426,7 @@ function ColumnRefSelector({
   allowChangingDatasource?: boolean;
 }) {
   const { getFactTableById, factTables } = useDefinitions();
+  const attributeSchema = useAttributeSchema();
 
   let factTable = getFactTableById(value.factTableId);
   if (factTable?.datasource !== datasource.id) factTable = null;
@@ -431,6 +434,7 @@ function ColumnRefSelector({
   const columnOptions = getColumnOptions({
     factTable,
     datasource,
+    attributeSchema,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
     includeDistinctDates: includeDistinctDates && aggregationType === "unit",
     includeCount: aggregationType === "unit",

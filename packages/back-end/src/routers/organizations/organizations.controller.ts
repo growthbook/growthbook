@@ -101,6 +101,7 @@ import {
   activateRoleById,
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
+import { updateAttributeSchema } from "back-end/src/services/attributes";
 import { ConfigFile } from "back-end/src/init/config";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
@@ -1737,7 +1738,14 @@ export const autoAddGroupsAttribute = async (
 
     added = true;
 
-    await updateOrganization(org.id, updates);
+    await updateAttributeSchema(context, {
+      newAttributeSchema,
+      // `$groups` isn't a valid ClickHouse identifier; skip the Managed
+      // Warehouse name check so system-triggered auto-add always succeeds.
+      // The attribute is still created for SDK / saved-group purposes,
+      // and the sync layer silently skips it from materialization.
+      skipManagedWarehouseNameValidation: true,
+    });
 
     await req.audit({
       event: "organization.update",

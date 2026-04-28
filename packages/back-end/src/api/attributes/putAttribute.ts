@@ -1,7 +1,6 @@
 import { putAttributeValidator } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { updateAttributeSchema } from "back-end/src/services/attributes";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { validatePayload } from "./validations";
@@ -34,16 +33,11 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       await addTagsDiff(org.id, attribute.tags || [], bodyTags);
     }
 
-    const updates: Partial<OrganizationInterface> = {
-      settings: {
-        ...org.settings,
-        attributeSchema: attributes.map((attr) =>
-          attr.property === property ? updatedAttribute : attr,
-        ),
-      },
-    };
-
-    await updateOrganization(org.id, updates);
+    await updateAttributeSchema(req.context, {
+      newAttributeSchema: attributes.map((attr) =>
+        attr.property === property ? updatedAttribute : attr,
+      ),
+    });
 
     await req.audit({
       event: "attribute.update",
