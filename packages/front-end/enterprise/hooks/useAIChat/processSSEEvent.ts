@@ -27,6 +27,11 @@ function extractExplorationResultData(
   const data: Record<string, unknown> = {};
   if (typeof o.snapshotId === "string") data.snapshotId = o.snapshotId;
   if (o.exploration !== undefined) data.exploration = o.exploration;
+  // Include the top-level normalized config so the active-turn chart renders
+  // with the same config as the final persisted message. The exploration's
+  // embedded config can be stale (e.g. a cached exploration keeps its
+  // original showAs) — the top-level config reflects the current request.
+  if (o.config !== undefined) data.config = o.config;
   return data;
 }
 

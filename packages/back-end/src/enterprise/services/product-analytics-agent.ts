@@ -14,6 +14,13 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import {
+  clearInapplicableShowAs,
+  getEffectiveShowAs,
+  getIsRatioByIndex,
+  buildExplorationColumns,
+  getExplorationCellValue,
+} from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -76,9 +83,27 @@ For cumulative charts, include 0 dimensions by default — just show the total.
 Always follow the unitNote returned by getAvailableColumns:
 - fact_table valueType "unit_count": set unit to userIdTypes[0] (e.g. "user_id") unless user specifies otherwise.
 - fact_table valueType "count" or "sum": unit must be null.
-- metric: set unit for proportion, retention, dailyParticipation, and ratio-distinct metrics using userIdTypes[0]; null for all others.
+- metric: always set unit to userIdTypes[0] for standard metric types (mean, proportion, retention, dailyParticipation). The backend requires a unit to emit the denominator needed for per-unit rendering. For ratio and quantile metrics, leave unit null (they handle units internally).
 - denominatorUnit: always null.
+
+If you omit unit on a standard metric, the backend will fill in userIdTypes[0] automatically and return a configNormalized warning. Prefer setting it explicitly.
 </unit_rules>
+
+<show_as_rules>
+showAs is an optional top-level field that toggles how numeric values are rendered: "total" shows the raw numerator, "per_unit" divides by the unit count (e.g. avg per user).
+
+DEFAULT: Omit showAs in almost all cases. The UI infers a sensible default from the selected metrics — totals for most datasets, per-unit only for mean metrics whose aggregation makes totals incoherent (max, count distinct).
+
+SET showAs explicitly ONLY when the user's request clearly asks for one view:
+- "per user", "per device", "average per X", "rate" → "per_unit"
+- "total X", "sum of X", "how much X did we have" → "total"
+
+showAs has no effect on these dataset types — do not set it:
+- fact_table / data_source datasets (always renders as the raw value)
+- metric datasets where every value is a proportion, retention, dailyParticipation, ratio, or quantile metric (the toggle is hidden in the UI because per-unit is either degenerate or self-contained)
+
+Set showAs only when at least one value is a mean metric.
+</show_as_rules>
 
 <value_column_rules>
 For fact_table values:
@@ -115,6 +140,11 @@ CRITICAL search strategy:
 <tool_notes>
 runExploration returns resultCsv, config, snapshotId, and rowCount. Use resultCsv for analysis and insights. The chart is displayed automatically — do not embed config JSON in your text.
 getSnapshot retrieves config and CSV for older/compacted snapshots by snapshotId. Prefer the runExploration return value for the current run.
+
+resultCsv column conventions (so you describe the same numbers the user sees on the chart):
+- Standard metric columns: one value column per metric. The header tells you the mode — "<name>" means raw totals, "<name> per <unit>" means per-unit averages (the value is numerator/denominator). Report the numbers in the header's mode.
+- Ratio metric columns: three columns — "<name> Numerator", "<name> Denominator", "<name> Value" (= N/D). Ratio metrics always render as N/D.
+- The column headers reflect the effective showAs (explicit if you set it, otherwise the UI-inferred default). Never assume a different mode than what the header says.
 </tool_notes>
 
 <response_style>
@@ -185,7 +215,7 @@ export function findSnapshot(
 function buildConfigSchemaSummary(): string {
   return [
     "<config_schema>",
-    "Top-level: { type, datasource, chartType, dateRange, dimensions, dataset }",
+    "Top-level: { type, datasource, chartType, dateRange, dimensions, dataset, showAs? }",
     'type: "metric" | "fact_table"',
     'chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"',
     "dateRange: { predefined, lookbackValue?, lookbackUnit?, startDate?, endDate? }",
@@ -196,6 +226,7 @@ function buildConfigSchemaSummary(): string {
     'dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters }] }',
     'dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters }] }',
     'rowFilters: [{ operator: "="|"!="|"in"|"not_in"|"contains"|"not_contains"|"starts_with"|"ends_with"|"is_null"|"not_null", column: string, values: string[] }]',
+    'showAs (optional): "total" | "per_unit" — chart-level toggle between raw totals and per-unit averages for mean metrics. Omit to use the smart default (see show_as_rules).',
     "Always pass a complete config object to runExploration.",
     "</config_schema>",
   ].join("\n");
@@ -214,6 +245,9 @@ function buildSnapshotSummary(
     const valueNames = curr.dataset?.values?.map((v) => v.name).filter(Boolean);
     if (valueNames?.length) {
       parts.push(`values: ${valueNames.join(", ")}`);
+    }
+    if (curr.showAs) {
+      parts.push(`showAs: ${curr.showAs}`);
     }
     return parts.join(", ");
   }
@@ -244,82 +278,81 @@ function buildSnapshotSummary(
     parts.push("datasource changed");
   }
 
+  if ((prev.showAs ?? null) !== (curr.showAs ?? null)) {
+    parts.push(
+      `showAs: ${prev.showAs ?? "inferred"} → ${curr.showAs ?? "inferred"}`,
+    );
+  }
+
   return parts.length ? parts.join(", ") : "minor config update";
 }
 
+/**
+ * Serialize exploration result rows into a CSV for the agent. Column schema
+ * and per-cell value selection are produced by the shared helpers that also
+ * drive the Explorer result table, so the agent always sees the same columns
+ * and the same numbers the user sees on screen.
+ *
+ * Display-layer concerns (number precision, date formatting, the "Total"
+ * dimension fallback) are handled here — each surface is free to format how
+ * it prefers, but the underlying column set and cell values are identical.
+ */
 function buildResultCsv(
   rows: ProductAnalyticsResultRow[],
   config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
 ): string | null {
   if (!rows.length || !config) return null;
 
-  const dimHeaders: string[] = (config.dimensions ?? []).map((d) => {
-    if (d.dimensionType === "date") return "Date";
-    if (d.dimensionType === "dynamic") return d.column ?? "Dimension";
-    if (d.dimensionType === "static") return d.column;
-    if (d.dimensionType === "slice") return "Slice";
-    return "Dimension";
-  });
-  if (!dimHeaders.length) dimHeaders.push("Total");
+  const columns = buildExplorationColumns(config, getFactMetricById);
+  if (columns.length === 0) return null;
 
-  const valueNames = config.dataset?.values?.map((v) => v.name) ?? [];
-  const hasDenom = valueNames.map((_, i) =>
-    rows.some((r) => r.values[i]?.denominator != null),
-  );
+  const renderOpts = {
+    showAs: getEffectiveShowAs(config, getFactMetricById),
+    isRatioByIndex: getIsRatioByIndex(config, getFactMetricById),
+  };
 
-  const metricHeaders: string[] = [];
-  for (let i = 0; i < valueNames.length; i++) {
-    if (hasDenom[i]) {
-      metricHeaders.push(
-        `${valueNames[i]} Numerator`,
-        `${valueNames[i]} Denominator`,
-        `${valueNames[i]} Value`,
-      );
-    } else {
-      metricHeaders.push(valueNames[i]);
+  const hasNoDimensions = !config.dimensions || config.dimensions.length === 0;
+
+  const escape = (c: string): string =>
+    c.includes('"') || c.includes(",") || c.includes("\n")
+      ? `"${c.replace(/"/g, '""')}"`
+      : c;
+
+  const formatCell = (
+    raw: string | number | null,
+    col: (typeof columns)[number],
+  ): string => {
+    if (col.kind === "dimension") {
+      if (raw == null || raw === "") return hasNoDimensions ? "Total" : "";
+      return typeof raw === "number" ? String(raw) : raw;
     }
-  }
+    if (raw == null) return "";
+    if (col.sub === "numerator" || col.sub === "denominator") {
+      return typeof raw === "number" ? String(raw) : String(raw);
+    }
+    // value (ratio) and single: 4dp for ratios/per-unit, integer for totals.
+    if (typeof raw === "number") {
+      const isRatioOrPerUnit =
+        col.sub === "value" ||
+        (col.sub === "single" && renderOpts.isRatioByIndex[col.metricIndex]) ||
+        (col.sub === "single" && renderOpts.showAs === "per_unit");
+      return isRatioOrPerUnit ? raw.toFixed(4) : String(raw);
+    }
+    return String(raw);
+  };
 
-  const header = [...dimHeaders, ...metricHeaders].join(",");
+  const header = columns.map((c) => escape(c.label)).join(",");
 
   const truncated = rows.slice(0, MAX_RESULT_ROWS);
-  const dataLines = truncated.map((row) => {
-    const dimCells =
-      dimHeaders.length === 1 && dimHeaders[0] === "Total"
-        ? ["Total"]
-        : row.dimensions.map((d) => d ?? "");
-
-    const metricCells: string[] = [];
-    for (let i = 0; i < valueNames.length; i++) {
-      const v = row.values[i];
-      if (hasDenom[i]) {
-        metricCells.push(
-          v?.numerator != null ? String(v.numerator) : "",
-          v?.denominator != null ? String(v.denominator) : "",
-          v?.numerator != null && v?.denominator != null
-            ? (v.numerator / v.denominator).toFixed(4)
-            : "",
-        );
-      } else {
-        const val =
-          v?.numerator != null
-            ? v.denominator
-              ? (v.numerator / v.denominator).toFixed(4)
-              : String(v.numerator)
-            : "";
-        metricCells.push(val);
-      }
-    }
-
-    return [...dimCells, ...metricCells]
-      .map((c) => {
-        if (c.includes('"') || c.includes(",") || c.includes("\n")) {
-          return `"${c.replace(/"/g, '""')}"`;
-        }
-        return c;
+  const dataLines = truncated.map((row) =>
+    columns
+      .map((col) => {
+        const raw = getExplorationCellValue(row, col, renderOpts);
+        return escape(formatCell(raw, col));
       })
-      .join(",");
-  });
+      .join(","),
+  );
 
   let csv = [header, ...dataLines].join("\n");
   if (rows.length > MAX_RESULT_ROWS) {
@@ -362,30 +395,74 @@ function explorationConfigFromLatestRun(
 }
 
 /**
+ * Light singularization so queries like "page views" still match metrics
+ * named "Page View" (and vice versa). Deliberately simple — this is a
+ * heuristic, not a full stemmer.
+ */
+function singularizeWord(word: string): string {
+  if (word.length <= 3) return word;
+  if (word.endsWith("ies") && word.length > 4) {
+    return word.slice(0, -3) + "y";
+  }
+  if (/(sses|shes|ches|xes|zes)$/.test(word)) {
+    return word.slice(0, -2);
+  }
+  if (
+    word.endsWith("s") &&
+    !word.endsWith("ss") &&
+    !word.endsWith("us") &&
+    !word.endsWith("is")
+  ) {
+    return word.slice(0, -1);
+  }
+  return word;
+}
+
+function normalizeForSearch(text: string): string {
+  return text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(singularizeWord)
+    .join(" ");
+}
+
+/**
  * Score a search query against a haystack string.
  * - Exact name/id match with the full query: 10
  * - Full query found as substring in haystack: 5
  * - Per-token: each token found in haystack adds 1 point
+ * Matching is also performed on a singularized form of both the query and
+ * the haystack so plural/singular differences don't hide results.
  * Returns 0 if no tokens match.
  */
 function scoreSearch(
   q: string,
+  qNorm: string,
   tokens: string[],
+  tokensNorm: string[],
   haystack: string,
+  haystackNorm: string,
   name: string,
   id: string,
 ): number {
   const nameLower = name.toLowerCase();
   const idLower = id.toLowerCase();
-  const exactMatch = nameLower === q || idLower === q;
+  const exactMatch =
+    nameLower === q || idLower === q || normalizeForSearch(nameLower) === qNorm;
   if (exactMatch) return 10;
 
-  const fullSubstring = haystack.includes(q);
+  const fullSubstring = haystack.includes(q) || haystackNorm.includes(qNorm);
   let score = fullSubstring ? 5 : 0;
 
   if (tokens.length > 1) {
-    for (const token of tokens) {
-      if (haystack.includes(token)) score += 1;
+    for (let i = 0; i < tokens.length; i++) {
+      if (
+        haystack.includes(tokens[i]) ||
+        haystackNorm.includes(tokensNorm[i])
+      ) {
+        score += 1;
+      }
     }
   }
 
@@ -401,6 +478,8 @@ async function executeSearch(
   const q = query.trim().toLowerCase();
   const isBlank = q.length === 0;
   const tokens = q.split(/\s+/).filter(Boolean);
+  const qNorm = normalizeForSearch(q);
+  const tokensNorm = tokens.map(singularizeWord);
 
   type ScoredResult = { score: number; name: string; result: unknown };
   const all: ScoredResult[] = [];
@@ -431,7 +510,17 @@ async function executeSearch(
     ]
       .join(" ")
       .toLowerCase();
-    const score = scoreSearch(q, tokens, haystack, m.name, m.id);
+    const haystackNorm = normalizeForSearch(haystack);
+    const score = scoreSearch(
+      q,
+      qNorm,
+      tokens,
+      tokensNorm,
+      haystack,
+      haystackNorm,
+      m.name,
+      m.id,
+    );
     if (score > 0) {
       all.push({ score, name: m.name, result: metricResult });
     }
@@ -455,7 +544,17 @@ async function executeSearch(
     const haystack = [ft.id, ft.name, ft.eventName ?? ""]
       .join(" ")
       .toLowerCase();
-    const score = scoreSearch(q, tokens, haystack, ft.name, ft.id);
+    const haystackNorm = normalizeForSearch(haystack);
+    const score = scoreSearch(
+      q,
+      qNorm,
+      tokens,
+      tokensNorm,
+      haystack,
+      haystackNorm,
+      ft.name,
+      ft.id,
+    );
     if (score > 0) {
       all.push({ score, name: ft.name, result: ftResult });
     }
@@ -528,11 +627,18 @@ const TIMESERIES_CHART_TYPES = new Set(["line", "area", "timeseries-table"]);
 interface NormalizeResult {
   config: ExplorationConfig;
   warnings: string[];
+  /**
+   * Metric resolver derived from the metrics already fetched during
+   * normalization. Reused by the CSV writer so we don't reload metrics.
+   * Returns null for metric IDs not referenced by this config.
+   */
+  getFactMetricById: (id: string) => FactMetricInterface | null;
 }
 
-function normalizeConfigForExplorer(
+async function normalizeConfigForExplorer(
+  ctx: ReqContext,
   config: ExplorationConfig,
-): NormalizeResult {
+): Promise<NormalizeResult> {
   const warnings: string[] = [];
   let dims = config.dimensions;
   let dataset = config.dataset;
@@ -585,6 +691,15 @@ function normalizeConfigForExplorer(
     }
   }
 
+  const dateIdx = dims.findIndex((d) => d.dimensionType === "date");
+  if (dateIdx > 0) {
+    const dateDim = dims[dateIdx];
+    dims = [dateDim, ...dims.filter((_, i) => i !== dateIdx)];
+    warnings.push(
+      "Moved date dimension to the first position. Date dimensions must come before breakdown dimensions.",
+    );
+  }
+
   // bigNumber: no dimensions, single value
   if (config.chartType === "bigNumber") {
     if (dims.length > 0) {
@@ -614,9 +729,93 @@ function normalizeConfigForExplorer(
     );
   }
 
+  // Load every referenced fact metric once. This map serves both the unit
+  // backfill below and the CSV writer downstream — no second round-trip.
+  const referencedMetricIds =
+    dataset.type === "metric"
+      ? Array.from(
+          new Set(
+            dataset.values
+              .map((v) => v.metricId)
+              .filter((id): id is string => !!id),
+          ),
+        )
+      : [];
+  const referencedMetrics = referencedMetricIds.length
+    ? await ctx.models.factMetrics.getByIds(referencedMetricIds)
+    : [];
+  const metricById = new Map(referencedMetrics.map((m) => [m.id, m]));
+  const getFactMetricByIdResolver = (id: string) => metricById.get(id) ?? null;
+
+  // Backfill missing units for metric values so the SQL layer emits a
+  // denominator and per_unit rendering works. The agent often omits `unit`
+  // even when it should be set; default to the numerator fact table's primary
+  // userIdType. Only applies to metric datasets — fact_table/data_source
+  // datasets have user-driven unit semantics.
+  if (dataset.type === "metric") {
+    const needsUnit = dataset.values.some(
+      (v) => !v.unit && v.metricId && metricById.has(v.metricId),
+    );
+
+    if (needsUnit) {
+      const factTableIds = Array.from(
+        new Set(
+          dataset.values
+            .filter((v) => !v.unit && v.metricId)
+            .map((v) => metricById.get(v.metricId!)?.numerator.factTableId)
+            .filter((id): id is string => !!id),
+        ),
+      );
+      const factTables = await Promise.all(
+        factTableIds.map((id) => getFactTable(ctx, id)),
+      );
+      const factTableById = new Map(
+        factTables
+          .filter((ft): ft is FactTableInterface => !!ft)
+          .map((ft) => [ft.id, ft]),
+      );
+
+      let filledCount = 0;
+      const newValues = dataset.values.map((v) => {
+        if (v.unit || !v.metricId) return v;
+        const metric = metricById.get(v.metricId);
+        if (!metric) return v;
+        const factTable = factTableById.get(metric.numerator.factTableId);
+        const defaultUnit = factTable?.userIdTypes?.[0];
+        if (!defaultUnit) return v;
+        filledCount++;
+        return { ...v, unit: defaultUnit };
+      });
+
+      if (filledCount > 0) {
+        dataset = { ...dataset, values: newValues } as typeof dataset;
+        warnings.push(
+          `Filled in default unit (userIdTypes[0] from the metric's fact table) for ${filledCount} metric value(s) where unit was missing. Set unit explicitly for standard metrics (mean, proportion, retention, dailyParticipation) to avoid this.`,
+        );
+      }
+    }
+  }
+
+  let normalized = {
+    ...config,
+    dimensions: dims,
+    dataset,
+  } as ExplorationConfig;
+
+  // Strip `showAs` when the current dataset doesn't support it, so we never
+  // persist a value that disagrees with what the chart will actually render.
+  const beforeShowAs = normalized.showAs;
+  normalized = clearInapplicableShowAs(normalized, getFactMetricByIdResolver);
+  if (beforeShowAs !== undefined && normalized.showAs === undefined) {
+    warnings.push(
+      `Dropped showAs="${beforeShowAs}" — it doesn't apply to this dataset (only meaningful for mean metrics). The chart will render totals.`,
+    );
+  }
+
   return {
-    config: { ...config, dimensions: dims, dataset } as ExplorationConfig,
+    config: normalized,
     warnings,
+    getFactMetricById: getFactMetricByIdResolver,
   };
 }
 
@@ -626,7 +825,8 @@ async function executeRunExploration(
   rawConfig: ExplorationConfig,
 ): Promise<RunExplorationToolResult> {
   try {
-    const { config, warnings } = normalizeConfigForExplorer(rawConfig);
+    const { config, warnings, getFactMetricById } =
+      await normalizeConfigForExplorer(ctx, rawConfig);
     const exploration = await runProductAnalyticsExploration(ctx, config, {
       cache: "preferred",
     });
@@ -642,7 +842,11 @@ async function executeRunExploration(
       buffer.getLatestToolResult("runExploration"),
     );
     const summary = buildSnapshotSummary(prevConfig, config);
-    const resultCsv = buildResultCsv(exploration?.result?.rows ?? [], config);
+    const resultCsv = buildResultCsv(
+      exploration?.result?.rows ?? [],
+      config,
+      getFactMetricById,
+    );
 
     const snapshotId = nextSnapshotId(buffer);
     const rowCount = exploration?.result?.rows?.length ?? 0;

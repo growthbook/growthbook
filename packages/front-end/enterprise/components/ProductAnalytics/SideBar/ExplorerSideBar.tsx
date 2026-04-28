@@ -20,13 +20,17 @@ import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSe
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
-import { createEmptyValue } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  createEmptyValue,
+  showAsAppliesTo,
+} from "@/enterprise/components/ProductAnalytics/util";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import GroupBySection from "./GroupBySection";
+import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
@@ -49,7 +53,7 @@ export default function ExplorerSideBar({
     isStale,
     error,
   } = useExplorerContext();
-  const { factTables, project } = useDefinitions();
+  const { factTables, getFactMetricById, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
   // Check if the user can create dashboards for the current project or globally
   const canCreateDashboards =
@@ -290,6 +294,9 @@ export default function ExplorerSideBar({
         {activeType === "data_source" && <DatasourceTabContent />}
       </Box>
 
+      {showAsAppliesTo(draftExploreState, getFactMetricById) && (
+        <ShowAsSection />
+      )}
       {dataset?.values?.length > 0 && <GroupBySection />}
     </Flex>
   );

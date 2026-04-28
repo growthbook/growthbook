@@ -157,22 +157,32 @@ export default function ChatMessageList({
   );
 
   // Preserve the user's expanded/collapsed toggle across the active→persisted
-  // transition so it doesn't snap shut when the turn ends.
+  // transition so it doesn't snap shut when the turn ends. The active
+  // CollapsedSteps writes to this ref via onToggle, and the persisted
+  // CollapsedSteps reads from it on mount via defaultExpanded.
+  //
+  // We can't rely on a single-render "just finished turn" signal because
+  // setMessages (from syncMessagesFromServer) and setActive([]) don't always
+  // render in the same frame — the persisted CollapsedSteps can mount while
+  // activeTurnItems is still non-empty, picking up the wrong defaultExpanded.
+  // Instead, we keep the ref hot and reset it only when a fresh user turn
+  // begins, so it's stable across whichever render order React picks.
   const stepsExpandedRef = React.useRef(false);
-  const prevCollapsedCountRef = React.useRef(0);
 
-  // Detect the single render where collapsed active items transition to
-  // persisted messages (turn just ended). Only on that render do we carry the
-  // user's expanded state to the persisted CollapsedSteps.
-  const justFinishedTurn =
-    prevCollapsedCountRef.current > 0 && collapsedItems.length === 0;
-  prevCollapsedCountRef.current = collapsedItems.length;
-
-  // Reset the ref on all other renders where there are no collapsed items,
-  // so it doesn't leak to other conversations on navigation.
-  if (!justFinishedTurn && collapsedItems.length === 0) {
-    stepsExpandedRef.current = false;
-  }
+  // Reset the preserved expansion state when a new user-initiated turn starts
+  // (a new user message appears). This keeps the toggle from leaking into
+  // subsequent turns.
+  const prevUserMsgCountRef = React.useRef(0);
+  const userMsgCount = React.useMemo(
+    () => messages.filter((m) => m.role === "user").length,
+    [messages],
+  );
+  React.useEffect(() => {
+    if (userMsgCount > prevUserMsgCountRef.current) {
+      stepsExpandedRef.current = false;
+    }
+    prevUserMsgCountRef.current = userMsgCount;
+  }, [userMsgCount]);
 
   const activeItemsToSteps = (items: ActiveTurnItem[]): CollapsedStepItem[] =>
     items.flatMap((item): CollapsedStepItem[] => {
@@ -473,9 +483,7 @@ export default function ChatMessageList({
                     count={preWorkSteps.length}
                     items={preWorkSteps}
                     defaultExpanded={
-                      isLastBlock && justFinishedTurn
-                        ? stepsExpandedRef.current
-                        : false
+                      isLastBlock ? stepsExpandedRef.current : false
                     }
                   />,
                 ]
