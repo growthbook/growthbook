@@ -2,11 +2,11 @@ import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import Link from "next/link";
 import React from "react";
 import { PiClock } from "react-icons/pi";
 import { Box } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
+import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -17,7 +17,7 @@ import {
 } from "@/services/features";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useExperiments } from "@/hooks/useExperiments";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 

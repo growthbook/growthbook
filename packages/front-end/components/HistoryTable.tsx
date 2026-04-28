@@ -1,10 +1,10 @@
 import { FC, useState, useMemo } from "react";
 import { AuditInterface, EventType } from "shared/types/audit";
-import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Button from "./Button";

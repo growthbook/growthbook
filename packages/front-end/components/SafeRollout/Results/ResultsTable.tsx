@@ -19,6 +19,7 @@ import { MetricTimeSeries } from "shared/validators";
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import { getValidDate } from "shared/dates";
@@ -32,8 +33,6 @@ import {
   getRowResults,
   RowResults,
 } from "@/services/experiments";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -46,6 +45,7 @@ import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
   id: string;
+  significanceThresholds: SignificanceThresholds;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
@@ -81,6 +81,7 @@ export type ResultsTableProps = {
 
 export default function ResultsTable({
   id,
+  significanceThresholds,
   isLatestPhase,
   status,
   queryStatusData,
@@ -114,13 +115,8 @@ export default function ResultsTable({
     ssrPolyfills?.useOrganizationMetricDefaults?.() ||
     _useOrganizationMetricDefaults;
 
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
-
-  const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [tableCellScale, setTableCellScale] = useState(1);
@@ -490,6 +486,7 @@ export default function ResultsTable({
                             }
                             differenceType={differenceType}
                             isBandit={isBandit}
+                            pValueThreshold={pValueThreshold}
                             ssrPolyfills={ssrPolyfills}
                           />
                         </Popover.Content>

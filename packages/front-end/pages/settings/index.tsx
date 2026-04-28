@@ -18,10 +18,10 @@ import {
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
-import Link from "next/link";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -38,6 +38,7 @@ import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetri
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeatureSettings from "@/components/GeneralSettings/FeatureSettings";
+import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
@@ -443,6 +444,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
             <TabsContent value="feature">
               <FeatureSettings />
+              <RampScheduleTemplates />
             </TabsContent>
 
             <TabsContent value="metrics">

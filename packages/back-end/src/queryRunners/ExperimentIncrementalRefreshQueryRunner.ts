@@ -1,7 +1,9 @@
+import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
   isFactMetric,
   isRegressionAdjusted,
+  quantileMetricType,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import { SegmentInterface } from "shared/types/segment";
@@ -105,6 +107,11 @@ export function getIncrementalRefreshMetricSources({
   // TODO(incremental-refresh): error if no efficient percentiles
   // shouldn't be possible since we are unlikely to build incremental
   // refresh for mySQL
+  const getMetricGroupKey = (metric: FactMetricInterface) => {
+    // Keep quantiles in their own source (similar to experimentQueries grouping)
+    return `${metric.numerator.factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
+  };
+
   const groups: Record<
     string,
     {
@@ -131,13 +138,13 @@ export function getIncrementalRefreshMetricSources({
 
     // TODO(incremental-refresh): handle cross-table metrics
     const factTableId = metric.numerator.factTableId;
-
-    groups[factTableId] = groups[factTableId] || {
+    const groupKey = getMetricGroupKey(metric);
+    groups[groupKey] = groups[groupKey] || {
       alreadyExists: false,
       factTableId,
       metrics: [],
     };
-    groups[factTableId].metrics.push(metric);
+    groups[groupKey].metrics.push(metric);
   });
 
   const finalGroups: {
@@ -351,8 +358,8 @@ const startExperimentIncrementalRefreshQueries = async (
         unitsTableFullName: unitQueryParams.unitsTableFullName,
       }),
       dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runDropTableQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runDropTableQuery(query, setExternalId, queryMetadata),
       queryType: "experimentIncrementalRefreshDropUnitsTable",
     });
     queries.push(dropOldUnitsTableQuery);
@@ -363,8 +370,12 @@ const startExperimentIncrementalRefreshQueries = async (
       query:
         integration.getCreateExperimentIncrementalUnitsQuery(unitQueryParams),
       dependencies: [dropOldUnitsTableQuery.query],
-      run: (query, setExternalId) =>
-        integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runIncrementalWithNoOutputQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentIncrementalRefreshCreateUnitsTable",
     });
     queries.push(createUnitsTableQuery);
@@ -378,8 +389,12 @@ const startExperimentIncrementalRefreshQueries = async (
     dependencies: [
       ...(createUnitsTableQuery ? [createUnitsTableQuery.query] : []),
     ],
-    run: (query, setExternalId) =>
-      integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+    run: (query, setExternalId, queryMetadata) =>
+      integration.runIncrementalWithNoOutputQuery(
+        query,
+        setExternalId,
+        queryMetadata,
+      ),
     queryType: "experimentIncrementalRefreshUpdateUnitsTable",
   });
   queries.push(updateUnitsTableQuery);
@@ -390,8 +405,8 @@ const startExperimentIncrementalRefreshQueries = async (
     query: integration.getDropOldIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
     }),
-    run: (query, setExternalId) =>
-      integration.runDropTableQuery(query, setExternalId),
+    run: (query, setExternalId, queryMetadata) =>
+      integration.runDropTableQuery(query, setExternalId, queryMetadata),
     dependencies: [updateUnitsTableQuery.query],
     queryType: "experimentIncrementalRefreshDropUnitsTable",
   });
@@ -405,8 +420,12 @@ const startExperimentIncrementalRefreshQueries = async (
       unitsTempTableFullName: unitsTempTableFullName,
     }),
     dependencies: [dropUnitsTableQuery.query],
-    run: (query, setExternalId) =>
-      integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+    run: (query, setExternalId, queryMetadata) =>
+      integration.runIncrementalWithNoOutputQuery(
+        query,
+        setExternalId,
+        queryMetadata,
+      ),
     queryType: "experimentIncrementalRefreshAlterUnitsTable",
   });
   queries.push(alterUnitsTableQuery);
@@ -419,8 +438,12 @@ const startExperimentIncrementalRefreshQueries = async (
       lastMaxTimestamp: lastMaxTimestamp || null,
     }),
     dependencies: [alterUnitsTableQuery.query],
-    run: (query, setExternalId) =>
-      integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+    run: (query, setExternalId, queryMetadata) =>
+      integration.runIncrementalWithNoOutputQuery(
+        query,
+        setExternalId,
+        queryMetadata,
+      ),
     onSuccess: async (rows) => {
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
 
@@ -536,8 +559,12 @@ const startExperimentIncrementalRefreshQueries = async (
           metricSourceTableFullName,
         }),
         dependencies: [updateUnitsTableQuery.query],
-        run: (query, setExternalId) =>
-          integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
         queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
       });
       queries.push(createMetricsSourceQuery);
@@ -561,8 +588,12 @@ const startExperimentIncrementalRefreshQueries = async (
         ...(createMetricsSourceQuery ? [createMetricsSourceQuery.query] : []),
         alterUnitsTableQuery.query,
       ],
-      run: (query, setExternalId) =>
-        integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runIncrementalWithNoOutputQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
     });
     queries.push(insertMetricsSourceDataQuery);
@@ -602,8 +633,8 @@ const startExperimentIncrementalRefreshQueries = async (
             metricSourceCovariateTableFullName,
           }),
           dependencies: [updateUnitsTableQuery.query],
-          run: (query, setExternalId) =>
-            integration.runDropTableQuery(query, setExternalId),
+          run: (query, setExternalId, queryMetadata) =>
+            integration.runDropTableQuery(query, setExternalId, queryMetadata),
           queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
         });
         queries.push(dropMetricCovariateTableQuery);
@@ -617,8 +648,12 @@ const startExperimentIncrementalRefreshQueries = async (
             metricSourceCovariateTableFullName,
           }),
           dependencies: [dropMetricCovariateTableQuery.query],
-          run: (query, setExternalId) =>
-            integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+          run: (query, setExternalId, queryMetadata) =>
+            integration.runIncrementalWithNoOutputQuery(
+              query,
+              setExternalId,
+              queryMetadata,
+            ),
           queryType: "experimentIncrementalRefreshCreateMetricsCovariateTable",
         });
         queries.push(createMetricCovariateTableQuery);
@@ -639,8 +674,12 @@ const startExperimentIncrementalRefreshQueries = async (
             ? [createMetricCovariateTableQuery.query]
             : []),
         ],
-        run: (query, setExternalId) =>
-          integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
         onSuccess: async () => {
           const incrementalRefresh =
             await context.models.incrementalRefresh.getByExperimentId(
@@ -696,8 +735,8 @@ const startExperimentIncrementalRefreshQueries = async (
         lastMaxTimestamp: existingSource?.maxTimestamp || null,
       }),
       dependencies: [insertMetricsSourceDataQuery.query],
-      run: (query, setExternalId) =>
-        integration.runMaxTimestampQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
       onFailure: async () => {
         // Remove the source from the running data if max timestamp fails
         runningSourceData = runningSourceData.filter(
@@ -767,10 +806,13 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(maxTimestampMetricsSourceQuery);
 
-    const dimensionsForPrecomputation = org.settings
-      ?.disablePrecomputedDimensions
-      ? []
-      : eligibleDimensionsWithSlicesUnderMaxCells;
+    // Match standard query runner behavior: quantiles only run overall stats
+    // (no pre-computed dimensions), regardless of requested dimensions.
+    const runOverallQuantileAnalysis = group.metrics.some(quantileMetricType);
+    const dimensionsForPrecomputation =
+      org.settings?.disablePrecomputedDimensions || runOverallQuantileAnalysis
+        ? []
+        : eligibleDimensionsWithSlicesUnderMaxCells;
 
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,
@@ -787,8 +829,12 @@ const startExperimentIncrementalRefreshQueries = async (
           ? [insertMetricCovariateDataQuery.query]
           : []),
       ],
-      run: (query, setExternalId) =>
-        integration.runIncrementalRefreshStatisticsQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runIncrementalRefreshStatisticsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(statisticsQuery);
@@ -808,8 +854,12 @@ const startExperimentIncrementalRefreshQueries = async (
         useUnitsTable: true,
       }),
       dependencies: [alterUnitsTableQuery.query],
-      run: (query, setExternalId) =>
-        integration.runExperimentAggregateUnitsQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runExperimentAggregateUnitsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
@@ -955,13 +1005,27 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       //     variationsSettings: this.model.settings.variations,
       //   });
       // }
+      const analysisForCovariateImbalance = this.model.analyses.find(
+        (a) => a.settings.useCovariateAsResponse === true,
+      );
+      const isEligibleForCovariateImbalanceAnalysis =
+        !!analysisForCovariateImbalance;
+      if (isEligibleForCovariateImbalanceAnalysis) {
+        result.health.covariateImbalance = tabulateCovariateImbalance(
+          analysisForCovariateImbalance,
+          this.model.settings.goalMetrics,
+          this.model.settings.guardrailMetrics,
+          this.model.settings.secondaryMetrics,
+          this.model.settings.metricSettings,
+        );
+      }
     }
 
     return result;
   }
 
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
-    const obj = await findSnapshotById(this.model.organization, this.model.id);
+    const obj = await findSnapshotById(this.context, this.model.id);
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
@@ -995,10 +1059,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       status: snapshotStatus,
     };
     await updateSnapshot({
-      organization: this.model.organization,
+      context: this.context,
       id: this.model.id,
       updates,
-      context: this.context,
     });
     if (
       this.model.report &&

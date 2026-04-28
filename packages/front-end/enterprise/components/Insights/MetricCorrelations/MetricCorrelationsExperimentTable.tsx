@@ -1,7 +1,6 @@
 import React, { FC, useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
 import clsx from "clsx";
-import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
@@ -21,9 +20,11 @@ import {
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
+import Link from "@/ui/Link";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useSignificanceThresholdsByProject from "@/hooks/useSignificanceThresholdsByProject";
 import { experimentDate, RowResults } from "@/services/experiments";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -77,6 +78,7 @@ export interface MetricExperimentData {
   secondaryMetrics: string[];
   datasource: string;
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+  project?: string;
 }
 
 // Interface for computed data with dynamic lift fields
@@ -104,11 +106,25 @@ const ExperimentWithMetricsTable: FC<Props> = ({
   const end = start + numPerPage;
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
+  const bayesianConfidenceLevels = useConfidenceLevels(undefined);
+  const pValueThreshold = usePValueThreshold(undefined);
+  const defaultSignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
+  // Experiments in this table can span projects. Resolve project-scoped
+  // significance thresholds up front for every project in the org so we can
+  // look them up per-experiment without calling hooks in a loop.
+  const significanceThresholdsByProject = useSignificanceThresholdsByProject();
 
   const expData: MetricExperimentData[] = [];
   experimentsWithSnapshot.forEach((e) => {
+    const {
+      bayesianConfidenceLevels: { ciUpper, ciLower },
+      pValueThreshold,
+    } =
+      significanceThresholdsByProject.get(e.project || "") ??
+      defaultSignificanceThresholds;
     let variationResults: SnapshotMetric[][] = [];
     let statsEngine: StatsEngine = "bayesian";
     let differenceType: DifferenceType = "relative";
@@ -144,6 +160,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
         datasource: e.datasource,
         decisionFrameworkSettings: e.decisionFrameworkSettings,
         users: undefined,
+        project: e.project,
       };
       metrics.forEach((m, metricIndex) => {
         if (
@@ -317,6 +334,12 @@ const ExperimentWithMetricsTable: FC<Props> = ({
               return (
                 <ChangeColumn
                   metric={m}
+                  pValueThreshold={
+                    (
+                      significanceThresholdsByProject.get(e.project || "") ??
+                      defaultSignificanceThresholds
+                    ).pValueThreshold
+                  }
                   stats={mr.results}
                   rowResults={{
                     enoughData: true,

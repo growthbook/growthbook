@@ -13,13 +13,37 @@ import type {
   ExplorationDataset,
   ExplorationConfig,
   ProductAnalyticsResultRow,
+  ShowAs,
 } from "shared/validators";
 import { isEqual } from "lodash";
-import { dateGranularity } from "shared/validators";
+import { createParser } from "nuqs";
 import {
+  encodeExplorationConfig,
   calculateProductAnalyticsDateRange,
   getDateGranularity,
+  mapDatabaseTypeToEnum,
+  getMetricMixClass,
+  getEffectiveMetricValue,
 } from "shared/enterprise";
+export {
+  getMetricMixClass,
+  inferShowAs,
+  getEffectiveShowAs,
+  clearInapplicableShowAs,
+  getEffectiveMetricValue,
+  getSharedUnit,
+  showAsAppliesTo,
+  getIsRatioByIndex,
+  buildExplorationColumns,
+  getExplorationCellValue,
+} from "shared/enterprise";
+export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
+import { dateGranularity, explorationConfigValidator } from "shared/validators";
+
+export { mapDatabaseTypeToEnum };
+
+export const PA_AI_CHAT_INITIAL_MESSAGE_KEY = "pa-ai-chat-initial-message";
+export const PA_AI_CHAT_INITIAL_MODEL_KEY = "pa-ai-chat-initial-model";
 
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
@@ -184,46 +208,6 @@ export function getMaxDimensions(dataset: ExplorationDataset): number {
   return maxDimensions;
 }
 
-export function mapDatabaseTypeToEnum(
-  dbType: string,
-): "string" | "number" | "date" | "boolean" | "other" {
-  const lowerType = dbType.toLowerCase();
-
-  // Numbers
-  if (
-    lowerType.includes("int") ||
-    lowerType.includes("numeric") ||
-    lowerType.includes("decimal") ||
-    lowerType.includes("float") ||
-    lowerType.includes("double") ||
-    lowerType.includes("real")
-  ) {
-    return "number";
-  }
-
-  // Dates
-  if (lowerType.includes("date") || lowerType.includes("time")) {
-    return "date";
-  }
-
-  // Booleans
-  if (lowerType.includes("bool")) {
-    return "boolean";
-  }
-
-  // Strings (varchar, char, text, etc.)
-  if (
-    lowerType.includes("char") ||
-    lowerType.includes("text") ||
-    lowerType.includes("string")
-  ) {
-    return "string";
-  }
-
-  // Default to other
-  return "other";
-}
-
 export function getInferredTimestampColumn(
   columnTypes: Record<string, string>,
 ): string | null {
@@ -267,7 +251,6 @@ export function validateDimensions(
   getFactTableById: (id: string) => FactTableInterface | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationConfig {
-  // Validate dimensions against commonColumns
   const columns = getCommonColumns(
     config.dataset,
     getFactTableById,
@@ -277,6 +260,7 @@ export function validateDimensions(
 
   let validDimensions = config.dimensions.filter((d) => {
     if (d.dimensionType !== "dynamic") return true;
+    if (columns.length === 0) return true;
     return columns.some((c) => c.column === d.column || d.column === null);
   });
   if (validDimensions.length > maxDims) {
@@ -295,6 +279,47 @@ export function validateDimensions(
   return !isEqual(validDimensions, config.dimensions)
     ? { ...config, dimensions: validDimensions }
     : config;
+}
+
+/**
+ * Fills in a default `unit` for metric values that have a resolved metric but
+ * no unit selected. Defaults to the numerator fact table's first userIdType.
+ *
+ * Without a unit, the SQL layer doesn't emit a denominator column, which breaks
+ * the per_unit branch of the showAs toggle and silently degrades ratio-like
+ * metrics. Applied when loading a config from any source (URL, AI agent, saved
+ * exploration) so users don't end up in that state.
+ *
+ * Skips:
+ * - fact_table / data_source datasets (their unit semantics are user-driven).
+ * - Metric values whose unit is already set.
+ * - Metric values whose metricId is empty or can't be resolved.
+ * - Metrics whose fact table has no userIdTypes (nothing to default to).
+ */
+export function fillMissingUnits(
+  config: ExplorationConfig,
+  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): ExplorationConfig {
+  if (!config.dataset || config.dataset.type !== "metric") return config;
+
+  let changed = false;
+  const newValues = config.dataset.values.map((v) => {
+    if (v.unit || !v.metricId) return v;
+    const metric = getFactMetricById(v.metricId);
+    if (!metric) return v;
+    const factTable = getFactTableById(metric.numerator.factTableId);
+    const defaultUnit = factTable?.userIdTypes?.[0];
+    if (!defaultUnit) return v;
+    changed = true;
+    return { ...v, unit: defaultUnit };
+  });
+
+  if (!changed) return config;
+  return {
+    ...config,
+    dataset: { ...config.dataset, values: newValues },
+  } as ExplorationConfig;
 }
 
 function hasNonEmptyValues(values: string[] | undefined): boolean {
@@ -364,10 +389,10 @@ export function cleanConfigForSubmission(
   config: ExplorationConfig,
 ): ExplorationConfig {
   const cleanedDataset = removeIncompleteInputs(config.dataset);
-  // remove any dimensions with a null column
-  const cleanedDimensions = config.dimensions.filter(
-    (d) => "column" in d && d.column !== null,
-  );
+  const cleanedDimensions = config.dimensions.filter((d) => {
+    if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
+    return "column" in d && d.column !== null;
+  });
   return {
     ...config,
     dataset: cleanedDataset,
@@ -399,8 +424,10 @@ function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
 
 /** Strips fields that only affect rendering, not data fetching. */
 function toFetchKey(config: ExplorationConfig): unknown {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { showAs, ...rest } = config;
   return {
-    ...config,
+    ...rest,
     chartType: getChartCategory(config.chartType),
     dataset: {
       ...config.dataset,
@@ -464,15 +491,6 @@ export function compareConfig(
   return { needsFetch, needsUpdate: true };
 }
 
-export function formatShortAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 1) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
-
 export function getRefreshInterval(elapsedSeconds: number): number {
   if (elapsedSeconds < 60) return 10_000; // 0-59s: update every 10s
   if (elapsedSeconds < 3600) return 60_000; // 1-59m: update every 60s
@@ -503,29 +521,52 @@ export function shouldChartSectionShow(params: {
   return true;
 }
 
-// --- Shared sorting helpers for chart & table ---
-
-export function getEffectiveMetricValue(v: {
-  numerator: number | null;
-  denominator: number | null;
-}): number {
-  const num = v.numerator ?? 0;
-  return v.denominator ? num / v.denominator : num;
+/**
+ * Given the other already-selected metrics in the dataset (excluding the slot
+ * being edited), return the class any newly selected metric must match — or
+ * null if any class is allowed.
+ *
+ * Unknown/unselected slots are ignored.
+ */
+export function getLockedMixClass(
+  otherMetricTypes: (string | null | undefined)[],
+): "ratio" | "quantile" | "standard" | null {
+  for (const t of otherMetricTypes) {
+    const c = getMetricMixClass(t);
+    if (c !== "unknown") return c;
+  }
+  return null;
 }
 
-function getRowTotal(row: ProductAnalyticsResultRow): number {
-  return row.values.reduce((sum, v) => sum + getEffectiveMetricValue(v), 0);
+export interface RenderOpts {
+  showAs: ShowAs;
+  // Indexed by the metric value's position in the dataset.values array.
+  // Ratio metrics always render as numerator/denominator regardless of showAs.
+  isRatioByIndex: boolean[];
+}
+
+function getRowTotal(row: ProductAnalyticsResultRow, opts: RenderOpts): number {
+  return row.values.reduce(
+    (sum, v, i) =>
+      sum +
+      getEffectiveMetricValue(v, {
+        showAs: opts.showAs,
+        isRatio: opts.isRatioByIndex[i] ?? false,
+      }),
+    0,
+  );
 }
 
 /** Compute the sum of all metric values grouped by a specific dimension index. */
 export function computeDimensionTotals(
   rows: ProductAnalyticsResultRow[],
   dimIndex: number,
+  opts: RenderOpts,
 ): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const row of rows) {
     const key = row.dimensions[dimIndex] ?? "";
-    totals[key] = (totals[key] ?? 0) + getRowTotal(row);
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
   }
   return totals;
 }
@@ -533,14 +574,40 @@ export function computeDimensionTotals(
 /** Compute the sum of all metric values grouped by the "group key" (all dimensions after the first). */
 export function computeGroupTotals(
   rows: ProductAnalyticsResultRow[],
+  opts: RenderOpts,
 ): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const row of rows) {
     const key = row.dimensions.slice(1).join(" - ");
-    totals[key] = (totals[key] ?? 0) + getRowTotal(row);
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
   }
   return totals;
 }
+
+export type DecodeConfigResult =
+  | { config: ExplorationConfig; error: null }
+  | { config: null; error: string };
+
+export function decodeExplorationConfig(encoded: string): DecodeConfigResult {
+  try {
+    const parsed = JSON.parse(decodeURIComponent(atob(encoded)));
+    const config = explorationConfigValidator.parse(parsed);
+    return { config, error: null };
+  } catch {
+    return {
+      config: null,
+      error: "The URL contains an invalid or outdated explorer configuration.",
+    };
+  }
+}
+
+export const explorationConfigParser = createParser<ExplorationConfig>({
+  parse: (raw) => {
+    const result = decodeExplorationConfig(raw);
+    return result.config;
+  },
+  serialize: (config) => encodeExplorationConfig(config),
+});
 
 /**
  * Sort exploration result rows to match the visual ordering of the chart.
@@ -550,11 +617,12 @@ export function computeGroupTotals(
 export function sortExplorationRows(
   rows: ProductAnalyticsResultRow[],
   isTimeseries: boolean,
+  opts: RenderOpts,
 ): ProductAnalyticsResultRow[] {
   if (rows.length === 0) return rows;
 
-  const dim0Totals = computeDimensionTotals(rows, 0);
-  const groupTotals = computeGroupTotals(rows);
+  const dim0Totals = computeDimensionTotals(rows, 0, opts);
+  const groupTotals = computeGroupTotals(rows, opts);
 
   return [...rows].sort((a, b) => {
     const dim0A = a.dimensions[0] ?? "";

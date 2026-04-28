@@ -1,18 +1,18 @@
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import React, { useState } from "react";
-import { Heading, Text } from "@radix-ui/themes";
+import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
-import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
-import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
-import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
+import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
@@ -24,6 +24,9 @@ import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import Checkbox from "@/ui/Checkbox";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -41,6 +44,8 @@ export interface Props {
   setUrlRedirectModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
   envs: string[];
+  visualChangesetEnvStates?: LinkedChangeEnvStates;
+  urlRedirectEnvStates?: LinkedChangeEnvStates;
 }
 
 export default function Implementation({
@@ -58,10 +63,13 @@ export default function Implementation({
   setUrlRedirectModal,
   linkedFeatures,
   envs,
+  visualChangesetEnvStates,
+  urlRedirectEnvStates,
 }: Props) {
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
   const phases = experiment.phases || [];
+  const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -80,6 +88,11 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
+  const numLinkedChanges =
+    (linkedFeatures.length || 0) +
+    (visualChangesets.length || 0) +
+    (urlRedirects.length || 0);
+
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
 
@@ -90,6 +103,23 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const canEditHoldoutDefaultState =
+    isHoldout &&
+    !!holdout &&
+    !experiment.archived &&
+    experiment.status !== "stopped" &&
+    permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
+
+  async function setHoldoutDefaultState(isDefault: boolean) {
+    if (!holdout) return;
+    await apiCall(`/holdout/${holdout.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        skipAsDefaultHoldout: !isDefault,
+      }),
+    });
+    await mutate();
+  }
 
   return (
     <>
@@ -106,7 +136,7 @@ export default function Implementation({
         {!isHoldout && (
           <div className="box my-3 mb-4 px-2 py-3">
             <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-3">
-              <Heading as="h4" size="3" mb="0">
+              <Heading as="h4" size="small" mb="0">
                 Variations
               </Heading>
               <div className="flex-1" />
@@ -125,34 +155,25 @@ export default function Implementation({
           </div>
         )}
         {hasLinkedChanges && !isHoldout ? (
-          <>
-            <VisualLinkedChanges
-              setVisualEditorModal={setVisualEditorModal}
-              visualChangesets={visualChangesets}
-              canAddChanges={canAddLinkedChanges}
-              canEditVisualChangesets={hasVisualEditorPermission}
-              mutate={mutate}
-              experiment={experiment}
-            />
-            <FeatureLinkedChanges
-              setFeatureModal={setFeatureModal}
-              linkedFeatures={linkedFeatures}
-              experiment={experiment}
-              canAddChanges={canAddLinkedChanges}
-            />
-            <RedirectLinkedChanges
-              setUrlRedirectModal={setUrlRedirectModal}
-              urlRedirects={urlRedirects}
-              experiment={experiment}
-              canAddChanges={canAddLinkedChanges}
-              mutate={mutate}
-            />
-          </>
+          <LinkedChanges
+            linkedFeatures={linkedFeatures}
+            experiment={experiment}
+            canAddChanges={canAddLinkedChanges}
+            visualChangesets={visualChangesets}
+            urlRedirects={urlRedirects}
+            mutate={mutate}
+            canEditVisualChangesets={hasVisualEditorPermission}
+            visualChangesetEnvStates={visualChangesetEnvStates}
+            urlRedirectEnvStates={urlRedirectEnvStates}
+            setVisualEditorModal={setVisualEditorModal}
+            setFeatureModal={setFeatureModal}
+            setUrlRedirectModal={setUrlRedirectModal}
+          />
         ) : null}
         {!isHoldout && (
           <AddLinkedChanges
             experiment={experiment}
-            numLinkedChanges={0}
+            numLinkedChanges={numLinkedChanges}
             hasLinkedFeatures={linkedFeatures.length > 0}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}
@@ -233,6 +254,17 @@ export default function Implementation({
                 )}
               </>
             )}
+            <Flex align="center" justify="between" mt="3">
+              <Checkbox
+                value={!holdout.skipAsDefaultHoldout}
+                disabled={!canEditHoldoutDefaultState}
+                setValue={(isDefault) => {
+                  void setHoldoutDefaultState(isDefault);
+                }}
+                label="Use this holdout as a default for new experiments or features."
+                weight="regular"
+              />
+            </Flex>
           </div>
         ) : null}
         {experiment.status !== "draft" && !hasLinkedChanges && !isHoldout ? (

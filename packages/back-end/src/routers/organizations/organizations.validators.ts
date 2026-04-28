@@ -35,4 +35,11 @@ export const putMemberProjectRoleValidator = z
 export const postApiKeyValidator = z.strictObject({
   type: z.string(),
   description: z.string().optional(),
+  limitAccessByEnvironment: z.boolean().optional(),
+  environments: z.array(z.string()).optional(),
+  projectRoles: z.array(projectMemberRoleValidator).optional(),
+});
+
+export const putApiKeyDisabledValidator = z.strictObject({
+  disabled: z.boolean(),
 });

@@ -4,7 +4,7 @@ import {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "shared/types/events/notification-events";
-import { ApiFeature } from "shared/types/openapi";
+import { ApiFeature } from "shared/validators";
 
 export type FilterDataForNotificationEvent = {
   tags: string[];

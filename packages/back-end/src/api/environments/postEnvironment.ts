@@ -1,4 +1,3 @@
-import { PostEnvironmentResponse } from "shared/types/openapi";
 import { postEnvironmentValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -8,7 +7,7 @@ import { validatePayload } from "./validations";
 
 export const postEnvironment = createApiRequestHandler(
   postEnvironmentValidator,
-)(async (req): Promise<PostEnvironmentResponse> => {
+)(async (req) => {
   const environment = await validatePayload(req.context, req.body);
 
   const org = req.context.org;

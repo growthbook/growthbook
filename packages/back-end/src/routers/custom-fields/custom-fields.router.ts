@@ -50,6 +50,11 @@ router.delete(
         id: z.string(),
       })
       .strict(),
+    query: z
+      .object({
+        index: z.coerce.number().optional(),
+      })
+      .strict(),
   }),
   customFieldController.deleteCustomField,
 );

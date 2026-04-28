@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { namedSchema } from "../../validators/openapi-helpers";
+
 import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
@@ -45,21 +47,24 @@ export const dashboardInterface = z
   })
   .strict();
 
-export const apiDashboardInterface = dashboardInterface
-  .omit({
-    nextUpdate: true,
-    lastUpdated: true,
-    dateCreated: true,
-    dateUpdated: true,
-    blocks: true,
-  })
-  .safeExtend({
-    nextUpdate: z.iso.datetime().optional(),
-    lastUpdated: z.iso.datetime().optional(),
-    dateCreated: z.iso.datetime(),
-    dateUpdated: z.iso.datetime(),
-    blocks: z.array(apiDashboardBlockInterface),
-  });
+export const apiDashboardInterface = namedSchema(
+  "Dashboard",
+  dashboardInterface
+    .omit({
+      nextUpdate: true,
+      lastUpdated: true,
+      dateCreated: true,
+      dateUpdated: true,
+      blocks: true,
+    })
+    .safeExtend({
+      nextUpdate: z.iso.datetime().optional(),
+      lastUpdated: z.iso.datetime().optional(),
+      dateCreated: z.iso.datetime(),
+      dateUpdated: z.iso.datetime(),
+      blocks: z.array(apiDashboardBlockInterface),
+    }),
+);
 
 export const apiCreateDashboardBody = z
   .object({

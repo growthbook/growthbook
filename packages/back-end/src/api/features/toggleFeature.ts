@@ -1,4 +1,3 @@
-import { ToggleFeatureResponse } from "shared/types/openapi";
 import { toggleFeatureValidator } from "shared/validators";
 import {
   checkIfRevisionNeedsReview,
@@ -19,11 +18,12 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
-  async (req): Promise<ToggleFeatureResponse> => {
+  async (req) => {
     const feature = await getFeature(req.context, req.params.id);
     if (!feature) {
       throw new Error("Could not find a feature with that key");
@@ -74,19 +74,26 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       const safeRolloutMap =
         await req.context.models.safeRollout.getAllPayloadSafeRollouts();
       return {
-        feature: getApiFeatureObj({
-          feature,
-          organization: req.organization,
-          groupMap,
-          experimentMap,
-          revision,
-          safeRolloutMap,
-        }),
+        feature: await resolveOwnerEmail(
+          getApiFeatureObj({
+            feature,
+            organization: req.organization,
+            groupMap,
+            experimentMap,
+            revision,
+            safeRolloutMap,
+          }),
+          req.context,
+        ),
       };
     }
 
-    const apiBypassesReviews =
-      !!req.context.org.settings?.restApiBypassesReviews;
+    // Callers bypass the review gate via either the org-level
+    // restApiBypassesReviews setting or a role/token that grants the
+    // bypassApprovalChecks permission on this feature's project.
+    const canBypass =
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
     // Build a minimal fake revision to check whether these toggle changes need review
     const liveRevision = await getRevision({
       context: req.context,
@@ -111,7 +118,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         req.context.hasPremiumFeature("require-approvals"),
     });
 
-    if (reviewRequired && !apiBypassesReviews) {
+    if (reviewRequired && !canBypass) {
       const affectedEnvs = getDraftAffectedEnvironments(
         fakeRevision,
         liveRevision,
@@ -121,7 +128,8 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
       throw new PermissionError(
         `This feature requires a review before publishing changes to: ${envList}. ` +
-          "Enable 'REST API always bypasses approval requirements' in organization settings.",
+          "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+          "or use a role/token that grants bypassApprovalChecks on this project.",
       );
     }
 
@@ -135,7 +143,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       publish: true,
       changes: { environmentsEnabled: changedToggles },
       org: req.organization,
-      canBypassApprovalChecks: true, // review gate already enforced above
+      canBypassApprovalChecks: true, // review gate enforced above
     });
 
     const updatedFeature = await applyRevisionChanges(
@@ -166,14 +174,17 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
-      feature: getApiFeatureObj({
-        feature: updatedFeature,
-        organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision: latestRevision,
-        safeRolloutMap,
-      }),
+      feature: await resolveOwnerEmail(
+        getApiFeatureObj({
+          feature: updatedFeature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision: latestRevision,
+          safeRolloutMap,
+        }),
+        req.context,
+      ),
     };
   },
 );

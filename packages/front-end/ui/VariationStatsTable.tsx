@@ -25,11 +25,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 
 const numberFormatter = Intl.NumberFormat();
+const missingStatsPlaceholder = "—";
 
 export interface VariationStatRow {
   variationIndex: number;
   variationName: string;
-  stats: SnapshotMetric;
+  stats?: SnapshotMetric;
   isBaseline: boolean;
 }
 
@@ -111,6 +112,28 @@ export default function VariationStatsTable({
 
       <TableBody>
         {rows.map((row) => {
+          const stats = row.stats;
+          const hasStats = !!stats;
+          const sampleSizeDisplay = !hasStats
+            ? missingStatsPlaceholder
+            : quantileMetric && stats.stats
+              ? numberFormatter.format(stats.stats.count)
+              : numberFormatter.format(stats.users);
+          const numeratorDisplay = !hasStats
+            ? missingStatsPlaceholder
+            : isFactMetric(metric)
+              ? getColumnRefFormatter(metric.numerator, getFactTableById)(
+                  stats.value,
+                  { currency: displayCurrency },
+                )
+              : getMetricFormatter(
+                  metric.type === "binomial" ? "count" : metric.type,
+                )(stats.value, { currency: displayCurrency });
+          const denominatorDisplay = !hasStats
+            ? missingStatsPlaceholder
+            : denomFormatter(stats.denominator || stats.users, {
+                currency: displayCurrency,
+              });
           const variationColor = getVariationColor(row.variationIndex, true);
           return (
             <TableRow
@@ -163,47 +186,34 @@ export default function VariationStatsTable({
                 </Flex>
               </TableCell>
 
-              <TableCell justify="end">
-                {quantileMetric && row.stats.stats
-                  ? numberFormatter.format(row.stats.stats.count)
-                  : numberFormatter.format(row.stats.users)}
-              </TableCell>
+              <TableCell justify="end">{sampleSizeDisplay}</TableCell>
 
               {!quantileMetric ? (
-                <TableCell justify="end">
-                  {isFactMetric(metric)
-                    ? getColumnRefFormatter(metric.numerator, getFactTableById)(
-                        row.stats.value,
-                        { currency: displayCurrency },
-                      )
-                    : getMetricFormatter(
-                        metric.type === "binomial" ? "count" : metric.type,
-                      )(row.stats.value, { currency: displayCurrency })}
-                </TableCell>
+                <TableCell justify="end">{numeratorDisplay}</TableCell>
               ) : null}
 
               {hasCustomDenominator ? (
-                <TableCell justify="end">
-                  {denomFormatter(row.stats.denominator || row.stats.users, {
-                    currency: displayCurrency,
-                  })}
-                </TableCell>
+                <TableCell justify="end">{denominatorDisplay}</TableCell>
               ) : null}
 
               <TableCell justify="end">
-                <MetricValueColumn
-                  metric={metric}
-                  stats={row.stats}
-                  users={row.stats?.users || 0}
-                  showRatio={false}
-                  displayCurrency={displayCurrency}
-                  getExperimentMetricById={
-                    ssrPolyfills?.getExperimentMetricById ||
-                    getExperimentMetricById
-                  }
-                  getFactTableById={getFactTableById}
-                  asTd={false}
-                />
+                {hasStats ? (
+                  <MetricValueColumn
+                    metric={metric}
+                    stats={stats}
+                    users={stats.users}
+                    showRatio={false}
+                    displayCurrency={displayCurrency}
+                    getExperimentMetricById={
+                      ssrPolyfills?.getExperimentMetricById ||
+                      getExperimentMetricById
+                    }
+                    getFactTableById={getFactTableById}
+                    asTd={false}
+                  />
+                ) : (
+                  <em className="text-muted small">No data</em>
+                )}
               </TableCell>
             </TableRow>
           );

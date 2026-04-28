@@ -1,11 +1,13 @@
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import { parseIntWithDefault } from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 
 export function HashVersionTooltip({ children }: { children: ReactNode }) {
   return (
@@ -42,7 +44,9 @@ export default function HashVersionSelector({
 
   return (
     <>
-      <label>Hashing Algorithm</label>
+      <Text as="label" weight="semibold">
+        Hashing Algorithm
+      </Text>
       <RadioGroup
         options={[
           {
@@ -65,7 +69,7 @@ export default function HashVersionSelector({
         ]}
         value={value + ""}
         setValue={(v) => {
-          onChange((parseInt(v) || 2) as 1 | 2);
+          onChange(parseIntWithDefault(v, 2) as 1 | 2);
         }}
       />
     </>

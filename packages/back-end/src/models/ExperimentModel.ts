@@ -9,7 +9,10 @@ import {
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
-import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  ExperimentStatus,
+} from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
@@ -92,6 +95,12 @@ const banditResultObject = {
   error: String,
   reweight: Boolean,
   weightsWereUpdated: Boolean,
+};
+
+const phaseVariation = {
+  _id: false,
+  id: String,
+  status: String,
 };
 
 const experimentSchema = new mongoose.Schema({
@@ -242,6 +251,7 @@ const experimentSchema = new mongoose.Schema({
       namespace: {},
       seed: String,
       variationWeights: [Number],
+      variations: { type: [phaseVariation], default: undefined },
       groups: [String],
       banditEvents: [
         {
@@ -300,6 +310,10 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      covariateImbalance: {
+        _id: false,
+        isImbalanced: Boolean,
+      },
       power: {
         _id: false,
         type: { type: String, enum: ["error", "success"] },
@@ -341,6 +355,11 @@ const experimentSchema = new mongoose.Schema({
     },
   ],
 });
+
+// Compound indexes for API list filtering
+experimentSchema.index({ organization: 1, datasource: 1 });
+experimentSchema.index({ organization: 1, project: 1 });
+experimentSchema.index({ organization: 1, trackingKey: 1 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
@@ -415,10 +434,18 @@ export async function getAllExperiments(
     project,
     includeArchived = false,
     type,
+    datasourceId,
+    trackingKey,
+    status,
+    sortBy,
   }: {
     project?: string;
     includeArchived?: boolean;
     type?: ExperimentType;
+    datasourceId?: string;
+    trackingKey?: string;
+    status?: ExperimentStatus;
+    sortBy?: SortFilter;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -429,8 +456,20 @@ export async function getAllExperiments(
     query.project = project;
   }
 
+  if (datasourceId) {
+    query.datasource = datasourceId;
+  }
+
+  if (trackingKey) {
+    query.trackingKey = trackingKey;
+  }
+
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+
+  if (status) {
+    query.status = status;
   }
 
   if (type === "multi-armed-bandit") {
@@ -443,7 +482,7 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query);
+  return await findExperiments(context, query, undefined, sortBy);
 }
 
 export async function hasArchivedExperiments(
@@ -1163,7 +1202,7 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }
@@ -1736,7 +1775,6 @@ const getExperimentChanges = (
     "releasedVariationId",
     "excludeFromPayload",
     "autoAssign",
-    "variations",
     "phases",
   ];
 
