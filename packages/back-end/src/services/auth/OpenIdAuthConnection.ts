@@ -335,7 +335,12 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   }
 
   let connection: SSOConnectionInterface;
-  if (IS_CLOUD && ssoConnectionId.startsWith("vercel:")) {
+  if (
+    IS_CLOUD &&
+    VERCEL_CLIENT_ID &&
+    VERCEL_CLIENT_SECRET &&
+    ssoConnectionId.startsWith("vercel:")
+  ) {
     connection = {
       id: ssoConnectionId,
       clientId: VERCEL_CLIENT_ID,

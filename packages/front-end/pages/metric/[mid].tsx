@@ -7,7 +7,6 @@ import React, {
   ReactNode,
   ReactElement,
 } from "react";
-import Link from "next/link";
 import { FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";
@@ -19,6 +18,7 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { Box, Flex } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";

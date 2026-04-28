@@ -1,5 +1,5 @@
 import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
-import Link from "next/link";
+import NextLink from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import {
@@ -9,6 +9,7 @@ import {
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -153,7 +154,7 @@ export default function ExperimentRefSummary({
         {hasNamespace && (
           <>
             in the namespace
-            <Link href={`/namespaces`}>
+            <NextLink href={`/namespaces`}>
               <Badge
                 color="gray"
                 label={
@@ -170,7 +171,7 @@ export default function ExperimentRefSummary({
                   </Text>
                 }
               />
-            </Link>
+            </NextLink>
           </>
         )}
       </Flex>
