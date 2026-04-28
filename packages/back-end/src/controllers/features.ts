@@ -163,6 +163,9 @@ import {
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
   clearPendingFeatureDraftsForRevision,
+  clearPendingFeatureDraftsForFeature,
+  removePendingFeatureDraftFromExperiment,
+  unlinkFeatureFromAllExperiments,
   getAllPayloadExperiments,
   getExperimentById,
   getExperimentsByIds,
@@ -3527,6 +3530,15 @@ export async function deleteFeatureRule(
     { environments: ruleChangedEnvs },
   );
 
+  if (rule.type === "experiment-ref" && rule.experimentId) {
+    await removePendingFeatureDraftFromExperiment(
+      context,
+      rule.experimentId,
+      feature.id,
+      revision.version,
+    );
+  }
+
   res.status(200).json({
     status: 200,
     version: revision.version,
@@ -3773,6 +3785,7 @@ export async function deleteFeatureById(
       }
     }
     await deleteFeature(context, feature);
+    await unlinkFeatureFromAllExperiments(context, feature.id);
     await req.audit({
       event: "feature.delete",
       entity: {
@@ -3993,6 +4006,10 @@ export async function postFeatureArchive(
       "revision.published",
       {},
     );
+  }
+
+  if (newArchivedState) {
+    await clearPendingFeatureDraftsForFeature(context, feature.id);
   }
 
   await req.audit({

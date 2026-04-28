@@ -231,7 +231,12 @@ export type ExperimentTargetingData = Pick<
     reseed: boolean;
   };
 
-export type LinkedFeatureState = "locked" | "live" | "draft" | "discarded";
+export type LinkedFeatureState =
+  | "locked"
+  | "live"
+  | "draft"
+  | "discarded"
+  | "archived";
 
 export type LinkedFeatureEnvState =
   | "missing"

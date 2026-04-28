@@ -51,7 +51,9 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
       heading={info.feature?.id || "Feature"}
       feature={info.feature}
       additionalBadge={(() => {
-        // Mirror the FF-side palette (see RevisionStatusBadge).
+        if (info.state === "archived") {
+          return <Badge label="Archived" radius="full" color="gray" />;
+        }
         const revisionStatus =
           info.state === "live"
             ? "live"
@@ -72,6 +74,12 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
         );
       })()}
     >
+      {info.state === "archived" && (
+        <Callout status="warning" my="4">
+          This feature flag has been archived. Unarchive it to make this
+          experiment active.
+        </Callout>
+      )}
       {info.state === "discarded" && (
         <Callout status="info" my="4">
           This experiment was linked to this feature in the past, but is no
@@ -89,7 +97,7 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
           .
         </Callout>
       )}
-      {info.state !== "discarded" && (
+      {info.state !== "discarded" && info.state !== "archived" && (
         <Box className="appbox">
           <Flex width="100%" gap="4" py="4" px="5" direction="column">
             <Box flexGrow="1">

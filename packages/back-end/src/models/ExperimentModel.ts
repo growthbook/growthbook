@@ -1442,6 +1442,41 @@ export async function removeLinkedFeatureFromExperiment(
   });
 }
 
+// Clear only pendingFeatureDrafts entries for a feature across all experiments,
+// leaving linkedFeatures intact (used for reversible operations like archive).
+export async function clearPendingFeatureDraftsForFeature(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+) {
+  await ExperimentModel.updateMany(
+    {
+      organization: context.org.id,
+      "pendingFeatureDrafts.featureId": featureId,
+    },
+    { $pull: { pendingFeatureDrafts: { featureId } } },
+  );
+}
+
+// Remove a feature from all experiments it is linked to: clears both
+// linkedFeatures[] and pendingFeatureDrafts[] entries for that featureId.
+export async function unlinkFeatureFromAllExperiments(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+) {
+  await ExperimentModel.updateMany(
+    {
+      organization: context.org.id,
+      linkedFeatures: featureId,
+    },
+    {
+      $pull: {
+        linkedFeatures: featureId,
+        pendingFeatureDrafts: { featureId },
+      },
+    },
+  );
+}
+
 // Track a draft to auto-publish when the experiment goes running. One entry
 // per featureId — the latest draft replaces any prior one.
 export async function addPendingFeatureDraftToExperiment(

@@ -3983,7 +3983,6 @@ export async function getLinkedFeatureInfo(
   const linkedFeatureInfo = features.map((feature) => {
     const revisions = revisionsByFeatureId[feature.id] || [];
 
-    // Get all published revisions from most recent to oldest
     const liveMatches = getMatchingRules(feature, filter, environments);
 
     const draftMatches =
@@ -4003,7 +4002,9 @@ export async function getLinkedFeatureInfo(
 
     let state: LinkedFeatureState = "discarded";
     let matches: MatchingRule[] = [];
-    if (liveMatches.length > 0) {
+    if (feature.archived) {
+      state = "archived";
+    } else if (liveMatches.length > 0) {
       state = "live";
       matches = liveMatches;
     } else if (draftMatches.length > 0) {
