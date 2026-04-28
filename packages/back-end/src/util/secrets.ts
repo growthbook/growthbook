@@ -20,8 +20,6 @@ export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
 );
 
 export const UPLOAD_METHOD = (() => {
-  if (IS_CLOUD) return "s3";
-
   const method = process.env.UPLOAD_METHOD;
   if (method && ["s3", "google-cloud"].includes(method)) {
     return method;
@@ -63,7 +61,7 @@ if (MONGODB_URI.match(/:27017(\/)?$/)) {
 export { MONGODB_URI };
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
-const isLocalhost = APP_ORIGIN.includes("localhost");
+export const IS_LOCALHOST = APP_ORIGIN.startsWith("http://localhost:");
 
 const corsOriginRegex = process.env.CORS_ORIGIN_REGEX;
 export const CORS_ORIGIN_REGEX = corsOriginRegex
@@ -91,7 +89,7 @@ export const GCS_DOMAIN =
   `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
-if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
+if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
   throw new Error(
     "Cannot use JWT_SECRET=dev in production. Please set to a long random string.",
   );
@@ -222,7 +220,7 @@ export const API_USER_AGENT =
 // Only allowed while self-hosting and not multi org
 let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";
 // Don't allow using "dev" (default value) in prod
-if ((prod || !isLocalhost) && secretAPIKey === "dev") {
+if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
   secretAPIKey = "";
   // eslint-disable-next-line
   console.error(

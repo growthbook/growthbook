@@ -53,6 +53,7 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
+import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -1377,6 +1378,7 @@ export async function planSnapshot({
     multipleExposures: 0,
     analyses: [
       {
+        analysisKey: buildAnalysisKey(),
         dateCreated: new Date(),
         results: [],
         settings: defaultAnalysisSettings,
@@ -1386,6 +1388,7 @@ export async function planSnapshot({
         .filter((a) => isAnalysisAllowed(snapshotSettings, a))
         .map((a) => {
           const analysis: ExperimentSnapshotAnalysis = {
+            analysisKey: buildAnalysisKey(),
             dateCreated: new Date(),
             results: [],
             settings: a,
@@ -1978,6 +1981,7 @@ async function getSnapshotAnalyses(
       return;
     }
     const analysis: ExperimentSnapshotAnalysis = {
+      analysisKey: buildAnalysisKey(),
       results: [],
       status: "running",
       settings: analysisSettings,
@@ -2076,6 +2080,7 @@ export async function createSnapshotAnalysis(
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
+    analysisKey: buildAnalysisKey(),
     results: [],
     status: "running",
     settings: analysisSettings,
@@ -2352,6 +2357,13 @@ export async function toExperimentApiInterface(
   return apiExperiment;
 }
 
+// Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
+// that break many real-world JSON parsers.
+function safeFloat(n: number | undefined, fallback = 0): number {
+  if (n == null || !isFinite(n)) return fallback;
+  return parseFloat(n.toFixed(20));
+}
+
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
@@ -2448,16 +2460,16 @@ export function toSnapshotApiInterface(
                 {
                   engine:
                     analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-                  numerator: data?.value || 0,
-                  denominator: data?.denominator || data?.users || 0,
-                  mean: data?.stats?.mean || 0,
-                  stddev: data?.stats?.stddev || 0,
-                  percentChange: data?.expected || 0,
-                  ciLow: data?.ci?.[0] ?? 0,
-                  ciHigh: data?.ci?.[1] ?? 0,
-                  pValue: data?.pValue || 0,
-                  risk: data?.risk?.[1] || 0,
-                  chanceToBeatControl: data?.chanceToWin || 0,
+                  numerator: safeFloat(data?.value),
+                  denominator: safeFloat(data?.denominator ?? data?.users),
+                  mean: safeFloat(data?.stats?.mean),
+                  stddev: safeFloat(data?.stats?.stddev),
+                  percentChange: safeFloat(data?.expected),
+                  ciLow: safeFloat(data?.ci?.[0]),
+                  ciHigh: safeFloat(data?.ci?.[1]),
+                  pValue: safeFloat(data?.pValue),
+                  risk: safeFloat(data?.risk?.[1]),
+                  chanceToBeatControl: safeFloat(data?.chanceToWin),
                 },
               ],
             };

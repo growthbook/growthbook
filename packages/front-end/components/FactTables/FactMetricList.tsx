@@ -3,9 +3,9 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import React, { useState } from "react";
-import Link from "next/link";
 import { date } from "shared/dates";
 import { Text } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { tagLinkProps, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";

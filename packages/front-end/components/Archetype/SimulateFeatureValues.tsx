@@ -12,9 +12,9 @@ import {
   ArchetypeInterface,
 } from "shared/types/archetype";
 import { FeatureTestResult } from "shared/types/feature";
-import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
+import Link from "@/ui/Link";
 import { useEnvironments } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";

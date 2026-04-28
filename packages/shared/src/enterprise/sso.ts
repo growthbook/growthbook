@@ -29,9 +29,15 @@ function getSSOConfig() {
     );
   }
 
-  // Sanity check for GrowthBook Cloud (to avoid misconfigurations)
+  // Sanity check for GrowthBook Cloud (to avoid misconfigurations).
+  // Skipped when APP_ORIGIN is localhost so devs can exercise custom SSO
+  // configs in local IS_CLOUD=true setups.
+  const isLocalhost = (
+    process.env.APP_ORIGIN || "http://localhost:3000"
+  ).startsWith("http://localhost:");
   if (
     stringToBoolean(process.env.IS_CLOUD) &&
+    !isLocalhost &&
     config?.metadata?.issuer !== "https://growthbook.auth0.com/"
   ) {
     throw new Error("Invalid SSO configuration for GrowthBook Cloud");

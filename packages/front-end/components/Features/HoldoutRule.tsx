@@ -1,6 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef, useState } from "react";
-import Link from "next/link";
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -8,6 +7,7 @@ import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { filterEnvironmentsByFeature } from "shared/util";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
