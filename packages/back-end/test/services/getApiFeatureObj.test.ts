@@ -147,6 +147,214 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
     });
   });
 
+  // Legacy v1 doc → JIT migrate → v1 API. Origin/main spreads `...rule`, so
+  // internal `savedGroups` leaks through alongside derived `savedGroupTargeting`.
+  it("preserves `savedGroups` end-to-end through v1 → v2 migration", () => {
+    const organization = {
+      id: "org_test",
+      settings: { environments: [{ id: "preprod" }] },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const legacy = {
+      id: "feat_legacy_sg",
+      organization: "org_test",
+      owner: "tester",
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      valueType: "string",
+      defaultValue: "off",
+      version: 1,
+      tags: [],
+      project: "",
+      environmentSettings: {
+        preprod: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_legacy_sg",
+              type: "force",
+              description: "",
+              enabled: true,
+              condition: "",
+              value: "on",
+              savedGroups: [{ match: "all", ids: ["sg_1", "sg_2"] }],
+            },
+          ],
+        },
+      },
+    } as unknown as LegacyFeatureInterface;
+
+    const feature = migrateRawFeatureToV2(legacy, ctx);
+    expect(feature.rules[0]).toMatchObject({
+      savedGroups: [{ match: "all", ids: ["sg_1", "sg_2"] }],
+    });
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    const apiRule = api.environments.preprod.rules[0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(apiRule.savedGroups).toEqual([
+      { match: "all", ids: ["sg_1", "sg_2"] },
+    ]);
+    expect(apiRule.savedGroupTargeting).toEqual([
+      { matchType: "all", savedGroups: ["sg_1", "sg_2"] },
+    ]);
+  });
+
+  // Origin/main's `{...rule}` spread emits any on-disk `[]` field verbatim.
+  // Mirror that on the v1 feature-env path for the common collection fields.
+  it("preserves empty arrays (`savedGroups`, `scheduleRules`, `values`, `variations`) end-to-end", () => {
+    const organization = {
+      id: "org_test",
+      settings: { environments: [{ id: "preprod" }] },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const legacy = {
+      id: "feat_empty_arrays",
+      organization: "org_test",
+      owner: "tester",
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      valueType: "string",
+      defaultValue: "off",
+      version: 1,
+      tags: [],
+      project: "",
+      environmentSettings: {
+        preprod: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_force_empty",
+              type: "force",
+              description: "",
+              enabled: true,
+              condition: "",
+              value: "on",
+              savedGroups: [],
+              scheduleRules: [],
+            },
+            {
+              id: "fr_exp_empty",
+              type: "experiment",
+              description: "",
+              enabled: true,
+              condition: "",
+              hashAttribute: "id",
+              trackingKey: "exp1",
+              coverage: 1,
+              values: [],
+              savedGroups: [],
+              scheduleRules: [],
+            },
+            {
+              id: "fr_expref_empty",
+              type: "experiment-ref",
+              description: "",
+              enabled: true,
+              condition: "",
+              experimentId: "exp_x",
+              variations: [],
+              savedGroups: [],
+              scheduleRules: [],
+            },
+          ],
+        },
+      },
+    } as unknown as LegacyFeatureInterface;
+
+    const feature = migrateRawFeatureToV2(legacy, ctx);
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    const apiRules = api.environments.preprod.rules as unknown as Record<
+      string,
+      unknown
+    >[];
+    const force = apiRules.find((r) => r.id === "fr_force_empty");
+    const exp = apiRules.find((r) => r.id === "fr_exp_empty");
+    const expRef = apiRules.find((r) => r.id === "fr_expref_empty");
+
+    expect(force?.savedGroups).toEqual([]);
+    expect(force?.scheduleRules).toEqual([]);
+    expect(exp?.savedGroups).toEqual([]);
+    expect(exp?.scheduleRules).toEqual([]);
+    expect(exp?.values).toEqual([]);
+    expect(expRef?.savedGroups).toEqual([]);
+    expect(expRef?.scheduleRules).toEqual([]);
+    expect(expRef?.variations).toEqual([]);
+  });
+
+  it("preserves both internal `savedGroups` and derived `savedGroupTargeting`", () => {
+    const organization = {
+      id: "org_test",
+      settings: { environments: [{ id: "preprod" }] },
+    } as unknown as OrganizationInterface;
+
+    const feature: FeatureInterface = {
+      id: "feat_sg",
+      organization: "org_test",
+      owner: "tester",
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      valueType: "string",
+      defaultValue: "off",
+      version: 1,
+      tags: [],
+      project: "",
+      environmentSettings: { preprod: { enabled: true } },
+      rules: [
+        {
+          id: "fr_sg",
+          type: "force",
+          description: "",
+          enabled: true,
+          condition: "",
+          value: "on",
+          savedGroups: [{ match: "all", ids: ["sg_1", "sg_2"] }],
+          allEnvironments: true,
+        },
+      ],
+    } as unknown as FeatureInterface;
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    const apiRule = api.environments.preprod.rules[0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(apiRule.savedGroups).toEqual([
+      { match: "all", ids: ["sg_1", "sg_2"] },
+    ]);
+    expect(apiRule.savedGroupTargeting).toEqual([
+      { matchType: "all", savedGroups: ["sg_1", "sg_2"] },
+    ]);
+  });
+
   it("preserves experiment-ref rule `variations` field verbatim", () => {
     const organization = {
       id: "org_test",

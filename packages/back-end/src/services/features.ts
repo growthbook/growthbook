@@ -1662,7 +1662,8 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
     id: rule.id,
     condition: rule.condition || "",
     enabled: !!rule.enabled,
-    scheduleRules: rule.scheduleRules,
+    // Collection fields default to `[]` for stable v2 client reads.
+    scheduleRules: rule.scheduleRules ?? [],
     scheduleType: rule.scheduleType,
     savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
       matchType: s.match,
@@ -1694,13 +1695,13 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         bucketVersion: rule.bucketVersion,
         minBucketVersion: rule.minBucketVersion,
         namespace: toApiNamespace(rule.namespace),
-        value: rule.values,
+        value: rule.values ?? [],
       };
     case "experiment-ref":
       return {
         ...base,
         type: "experiment-ref",
-        variations: rule.variations,
+        variations: rule.variations ?? [],
         experimentId: rule.experimentId,
       };
     case "safe-rollout":
