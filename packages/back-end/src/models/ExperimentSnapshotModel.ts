@@ -1169,7 +1169,10 @@ async function persistLegacyAnalysisMigration({
 }) {
   const setOps: Record<string, unknown> = {};
 
-  if (legacyChunkedAnalysesMeta !== undefined) {
+  if (
+    legacyChunkedAnalysesMeta !== undefined ||
+    keylessAnalysisPositions.length > 0
+  ) {
     setOps.chunkedAnalysesMeta = snapshot.chunkedAnalysesMeta ?? {};
   }
 

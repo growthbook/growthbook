@@ -2670,6 +2670,61 @@ describe("ExperimentSnapshotModel", () => {
       );
     });
 
+    it("appends a new analysis when chunkedAnalysesMeta is stored as an empty array on disk", async () => {
+      const context = getSnapshotUpdateContext();
+      const legacySnapshotId = "snp_empty_array_meta_append";
+      const experimentId = "exp_empty_array_meta_append";
+
+      const snapshotsCollection = mongoose.connection.db!.collection(
+        "experimentsnapshots",
+      );
+      await snapshotsCollection.insertOne({
+        id: legacySnapshotId,
+        organization: "org_1",
+        experiment: experimentId,
+        phase: 0,
+        dimension: null,
+        dateCreated: new Date(),
+        runStarted: null,
+        status: "success",
+        queries: [],
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasChunkedAnalyses: false,
+        chunkedAnalysesMeta: [],
+        analyses: [
+          {
+            dateCreated: new Date(),
+            status: "success",
+            settings: makeAnalysisSettings({ statsEngine: "bayesian" }),
+            results: [],
+          },
+        ],
+        settings: makeLegacyInlineSnapshotSettings(experimentId),
+      });
+
+      await addOrUpdateSnapshotAnalysis({
+        context,
+        id: legacySnapshotId,
+        analysis: makeAnalysis({
+          settings: makeAnalysisSettings({ statsEngine: "frequentist" }),
+          value: 33,
+        }),
+      });
+
+      const result = await findSnapshotById(context, legacySnapshotId);
+      expect(result?.analyses).toHaveLength(2);
+      expect(
+        result?.analyses[1].results[0].variations[0].metrics.met_1.value,
+      ).toBe(33);
+
+      const stored = (await snapshotsCollection.findOne({
+        id: legacySnapshotId,
+      })) as { chunkedAnalysesMeta?: unknown } | null;
+      expect(Array.isArray(stored?.chunkedAnalysesMeta)).toBe(false);
+      expect(typeof stored?.chunkedAnalysesMeta).toBe("object");
+    });
+
     it("updates an existing analysis when chunkedAnalysesMeta is stored as an array on disk", async () => {
       const context = getSnapshotUpdateContext();
       const legacySnapshotId = "snp_array_meta_update";
