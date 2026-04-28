@@ -124,7 +124,7 @@ export function getBanditStatisticsFactMetricCTE(
       FROM 
         __banditPeriodStatistics
       GROUP BY
-        ${dimensionCols.map((d) => `${d.alias}`).join(" AND ")}
+        ${dimensionCols.map((d) => `${d.alias}`).join(", ")}
     ),
     __banditPeriodWeights AS (
       SELECT
