@@ -300,6 +300,12 @@ interface ExperimentBaseQueryParams {
 
 export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
+  // When set, the units query uses these instead of recomputing its own
+  // identity CTE mapping. This keeps the activation/segment/dimension JOINs
+  // inside the units query aligned with the identity CTEs emitted by the
+  // outer metric query (which sees a wider set of metrics and id types).
+  forcedBaseIdType?: string;
+  forcedIdJoinMap?: Record<string, string>;
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
