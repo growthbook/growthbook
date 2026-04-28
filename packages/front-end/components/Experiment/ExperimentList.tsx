@@ -21,11 +21,13 @@ export default function ExperimentList({
   num,
   status,
   experiments,
+  localStorageKey,
   as = "list",
 }: {
   num: number;
   status: ExperimentStatus;
   experiments: ExperimentInterfaceStringDates[];
+  localStorageKey: string;
   as?: "list" | "table";
 }): React.ReactElement {
   const filterResults = useCallback(
@@ -42,6 +44,7 @@ export default function ExperimentList({
   const { items, SortableTH } = useExperimentSearch({
     allExperiments: experiments,
     filterResults,
+    localStorageKey,
   });
 
   if (as === "table") {

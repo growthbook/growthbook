@@ -19,9 +19,11 @@ import { QueryInterface } from "shared/types/query";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   cleanConfigForSubmission,
+  clearInapplicableShowAs,
   compareConfig,
   createEmptyDataset,
   createEmptyValue,
+  fillMissingUnits,
   generateUniqueValueName,
   getCommonColumns,
   isSubmittableConfig,
@@ -109,12 +111,23 @@ export function ExplorerProvider({
     exploration: ProductAnalyticsExploration | null;
     error: string | null;
     query: QueryInterface | null;
-  }>({
-    draftState: initialConfig,
-    submittedState: hasExistingResults ? initialConfig : null,
-    exploration: null,
-    error: null,
-    query: null,
+  }>(() => {
+    const withUnits = fillMissingUnits(
+      initialConfig,
+      getFactTableById,
+      getFactMetricById,
+    );
+    const normalizedInitial = clearInapplicableShowAs(
+      withUnits,
+      getFactMetricById,
+    );
+    return {
+      draftState: normalizedInitial,
+      submittedState: hasExistingResults ? normalizedInitial : null,
+      exploration: null,
+      error: null,
+      query: null,
+    };
   });
   const [isStale, setIsStale] = useState(false);
   const hasEverFetchedRef = useRef(false);
@@ -132,9 +145,22 @@ export function ExplorerProvider({
             ? newStateOrUpdater(currentDraft)
             : newStateOrUpdater;
 
-        // Validate dimensions against commonColumns
-        const validatedState = validateDimensions(
+        // Backfill missing units from the fact table's primary userIdType
+        // so configs loaded from URLs, saved explorations, or AI-generated
+        // payloads always have a unit set when one is applicable.
+        const unitFilledState = fillMissingUnits(
           newState,
+          getFactTableById,
+          getFactMetricById,
+        );
+        // Strip `showAs` when the current dataset doesn't support it, so the
+        // stored value never disagrees with what the chart actually renders.
+        const showAsNormalized = clearInapplicableShowAs(
+          unitFilledState,
+          getFactMetricById,
+        );
+        const validatedState = validateDimensions(
+          showAsNormalized,
           getFactTableById,
           getFactMetricById,
         );
@@ -147,6 +173,25 @@ export function ExplorerProvider({
     },
     [getFactTableById, getFactMetricById],
   );
+
+  // Re-normalize the draft state whenever the definitions resolver functions
+  // change identity — this handles the case where an initialConfig loaded from
+  // a URL or saved exploration needed metric/fact-table lookups that weren't
+  // resolved yet at first render. Both fillMissingUnits and
+  // clearInapplicableShowAs return the same reference when nothing changes,
+  // so the setExplorerState is a no-op in the steady state.
+  useEffect(() => {
+    setExplorerState((prev) => {
+      const filled = fillMissingUnits(
+        prev.draftState,
+        getFactTableById,
+        getFactMetricById,
+      );
+      const normalized = clearInapplicableShowAs(filled, getFactMetricById);
+      if (normalized === prev.draftState) return prev;
+      return { ...prev, draftState: normalized };
+    });
+  }, [getFactTableById, getFactMetricById]);
 
   const isManagedWarehouse = useMemo(() => {
     if (!draftExploreState.datasource) return false;

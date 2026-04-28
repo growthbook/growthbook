@@ -1282,12 +1282,18 @@ export const listExperimentsValidator = {
       ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       datasourceId: z.string().describe("Filter by Data Source").optional(),
+      trackingKey: z
+        .string()
+        .describe("Filter by experiment tracking key")
+        .optional(),
       experimentId: z
         .string()
         .describe(
-          "Filter the returned list by the experiment tracking key (id)",
+          "Filter the returned list by the experiment tracking key (not the internal experiment ID). Note, this was deprecated to help reduce confusion, consider using `trackingKey` instead, which is functionally identical. You cannot use both params at the same time.",
         )
-        .optional(),
+        .optional()
+        .meta({ deprecated: true }),
+
       status: z.enum(experimentStatus).optional(),
     })
     .strict(),
