@@ -32,7 +32,12 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 className={!isLast ? styles.ancestor : undefined}
               >
                 {item.href ? (
-                  <Link href={item.href} size="2" weight="bold">
+                  <Link
+                    href={item.href}
+                    size="2"
+                    weight="bold"
+                    aria-current={isLast ? "page" : undefined}
+                  >
                     {item.display}
                   </Link>
                 ) : (
