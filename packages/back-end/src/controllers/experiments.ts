@@ -138,6 +138,7 @@ import {
 } from "back-end/src/services/features";
 import {
   ExperimentLinkedFeatureValueUpdate,
+  publishPendingFeatureDraftsForExperiment,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
@@ -2060,6 +2061,9 @@ export async function postExperimentStatus(
       experiment,
     );
     Object.assign(changes, additionalChanges);
+
+    // Publish any pending feature drafts in lockstep with the start. Best-effort.
+    await publishPendingFeatureDraftsForExperiment(context, experiment);
   }
   // If starting or drafting a stopped experiment, clear the phase end date
   // and perform any needed bandit cleanup

@@ -9,6 +9,10 @@ import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
 import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import {
+  revisionStatusColor,
+  revisionStatusLabel,
+} from "@/components/Features/RevisionStatusBadge";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -46,17 +50,27 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
       changeType={"flag"}
       heading={info.feature?.id || "Feature"}
       feature={info.feature}
-      additionalBadge={
-        info.state === "live" ? (
-          <Badge label="Live" radius="full" color="teal" />
-        ) : info.state === "draft" ? (
-          <Badge label="Draft" radius="full" color="indigo" />
-        ) : info.state === "locked" ? (
-          <Badge label="Locked" radius="full" color="gray" />
-        ) : info.state === "discarded" ? (
-          <Badge label="Discarded" radius="full" color="red" />
-        ) : null
-      }
+      additionalBadge={(() => {
+        // Mirror the FF-side palette (see RevisionStatusBadge).
+        const revisionStatus =
+          info.state === "live"
+            ? "live"
+            : info.state === "draft"
+              ? "draft"
+              : info.state === "locked"
+                ? "published"
+                : info.state === "discarded"
+                  ? "discarded"
+                  : null;
+        if (!revisionStatus) return null;
+        return (
+          <Badge
+            label={revisionStatusLabel(revisionStatus)}
+            radius="full"
+            color={revisionStatusColor(revisionStatus)}
+          />
+        );
+      })()}
     >
       {info.state === "discarded" && (
         <Callout status="info" my="4">
@@ -65,13 +79,14 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
         </Callout>
       )}
       {info.state === "draft" && (
-        <Callout status="warning" my="4">
-          Feature is in <strong>Draft</strong> mode and will not allow
-          experiments to run. Publish Feature from the Feature Flag detail page
-          to start.{" "}
-          <Link href={`/features/${info.feature?.id}`}>
-            Take me there <PiArrowSquareOut className="ml-1" />
+        <Callout status="info" my="4">
+          Rule changes for this feature are sitting in a <strong>draft</strong>{" "}
+          revision. They will be auto-published when this experiment starts, or
+          you can publish manually now from the{" "}
+          <Link href={`/features/${info.feature?.id}`} target="_blank">
+            Feature Flag detail page <PiArrowSquareOut className="ml-1" />
           </Link>
+          .
         </Callout>
       )}
       {info.state !== "discarded" && (

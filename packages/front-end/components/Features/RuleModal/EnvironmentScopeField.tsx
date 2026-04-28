@@ -15,6 +15,7 @@ export type EnvScopeProps = {
   setAllEnvironments: (v: boolean) => void;
   selectedEnvironments: string[];
   setSelectedEnvironments: (v: string[]) => void;
+  label?: string;
 } & MarginProps;
 
 export default function RuleEnvironmentScopeField({
@@ -23,6 +24,7 @@ export default function RuleEnvironmentScopeField({
   setAllEnvironments,
   selectedEnvironments,
   setSelectedEnvironments,
+  label = "Rule Environments",
   ...marginProps
 }: EnvScopeProps) {
   const options = environments.map((e) => ({ label: e.id, value: e.id }));
@@ -30,7 +32,7 @@ export default function RuleEnvironmentScopeField({
   return (
     <Box {...marginProps}>
       <Text as="div" weight="semibold" mb="3">
-        Rule Environments
+        {label}
       </Text>
       <RadioGroup
         value={allEnvironments ? "all" : "specific"}

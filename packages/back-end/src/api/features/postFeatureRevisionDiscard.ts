@@ -6,6 +6,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { clearPendingFeatureDraftsForRevision } from "back-end/src/models/ExperimentModel";
 import {
   discardRevision,
   getRevision,
@@ -40,6 +41,12 @@ export async function discardFeatureRevision(
   }
 
   await discardRevision(req.context, revision, req.context.auditUser);
+  await clearPendingFeatureDraftsForRevision(
+    req.context,
+    feature.id,
+    revision.version,
+    revision.rules,
+  );
 
   const updated = await getRevision({
     context: req.context,

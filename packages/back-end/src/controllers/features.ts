@@ -161,6 +161,8 @@ import {
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
 import {
   addLinkedFeatureToExperiment,
+  addPendingFeatureDraftToExperiment,
+  clearPendingFeatureDraftsForRevision,
   getAllPayloadExperiments,
   getExperimentById,
   getExperimentsByIds,
@@ -1797,6 +1799,12 @@ export async function postFeatureDiscard(
   }
 
   await discardRevision(context, revision, res.locals.eventAudit);
+  await clearPendingFeatureDraftsForRevision(
+    context,
+    feature.id,
+    revision.version,
+    revision.rules,
+  );
 
   const discarded = await getRevision({
     context,
@@ -2281,14 +2289,29 @@ export async function postFeatureSync(
   });
 }
 
+// Bundles an experiment-ref rule + the env kill-switch toggles needed to make
+// it applicable into one revision. Default leaves a draft and records it on
+// the experiment for auto-publish on `status -> running`; `autoPublish`
+// publishes immediately when permitted.
 export async function postFeatureExperimentRefRule(
-  req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+  req: AuthRequest<
+    {
+      rule: ExperimentRefRule;
+      autoPublish?: boolean;
+      draftVersion?: number;
+      forceNewDraft?: boolean;
+    },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; version: number; published: boolean },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
-  const { environments, org } = context;
+  const { environments } = context;
   const { id } = req.params;
-  const { rule } = req.body;
+  const { rule, autoPublish, draftVersion, forceNewDraft } = req.body;
 
   if (
     rule.type !== "experiment-ref" ||
@@ -2314,27 +2337,14 @@ export async function postFeatureExperimentRefRule(
     context.permissions.throwPermissionError();
   }
 
-  if (
-    !context.permissions.canPublishFeature(
-      feature,
-      Array.from(getEnabledEnvironments(feature, environments)),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   const experiment = await getExperimentById(context, rule.experimentId);
   if (!experiment) {
     throw new Error("Invalid experiment selected");
   }
 
-  const updates: Partial<FeatureInterface> = {
-    environmentSettings: feature.environmentSettings,
-  };
-
-  // Preserve client-supplied scope. allEnvironments:true strips any stale
-  // environments[] payload; allEnvironments:false + environments:[] passes
-  // through. Legacy callers that send neither default to every org env.
+  // allEnvironments:true strips any stale environments[]; false passes the
+  // explicit list through. Legacy callers that send neither default to every
+  // applicable org env.
   let scopedRule: FeatureRule;
   if (rule.allEnvironments === true) {
     scopedRule = {
@@ -2353,48 +2363,127 @@ export async function postFeatureExperimentRefRule(
       environments,
     );
   }
-  const nextRules: FeatureRule[] = [...(feature.rules ?? []), scopedRule];
-  const changes: Pick<FeatureRevisionInterface, "rules"> = {
+
+  const ruleEnvFootprint = scopedRule.allEnvironments
+    ? environments
+    : (scopedRule.environments ?? []);
+
+  if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // autoPublish always starts from live so the merge stays clean.
+  const targetVersion = autoPublish
+    ? feature.version
+    : forceNewDraft
+      ? feature.version
+      : (draftVersion ?? feature.version);
+  const revision = await getDraftRevision(context, feature, targetVersion);
+
+  // One-way: any rule-footprint env that's currently off flips on. We never
+  // turn envs off here.
+  const baseEnvEnabled: Record<string, boolean> = {
+    ...Object.fromEntries(
+      environments.map((e) => [
+        e,
+        feature.environmentSettings?.[e]?.enabled ?? false,
+      ]),
+    ),
+    ...(revision.environmentsEnabled ?? {}),
+  };
+  const envToggles: Record<string, boolean> = {};
+  for (const envId of ruleEnvFootprint) {
+    if (!environments.includes(envId)) continue;
+    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
+  }
+
+  const existingRules = cloneDeep(revision.rules ?? []);
+  const nextRules = [...existingRules, scopedRule];
+
+  const combinedChanges: Partial<FeatureRevisionInterface> = {
     rules: nextRules,
   };
-  updates.rules = nextRules;
+  if (Object.keys(envToggles).length > 0) {
+    combinedChanges.environmentsEnabled = {
+      ...(revision.environmentsEnabled ?? {}),
+      ...envToggles,
+    };
+  }
+  // Title fresh drafts only — don't clobber a user's title on an existing draft.
+  const bundlingIntoExistingDraft =
+    !!draftVersion && !forceNewDraft && !autoPublish;
+  if (!bundlingIntoExistingDraft && !revision.title) {
+    combinedChanges.title =
+      experiment.type === "multi-armed-bandit"
+        ? "Publish bandit"
+        : "Publish experiment";
+  }
 
-  const revision = await createRevision({
-    context,
-    feature,
-    user: res.locals.eventAudit,
-    baseVersion: feature.version,
-    publish: true,
-    changes,
-    environments,
-    comment: `Add Experiment - ${experiment.name}`,
-    org,
+  const auditSubject = scopedRule.allEnvironments
+    ? "to all environments"
+    : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
+  const updatedRevision =
+    (await updateRevision(
+      context,
+      feature,
+      revision,
+      combinedChanges,
+      {
+        user: res.locals.eventAudit,
+        action: "add experiment rule",
+        subject: auditSubject,
+        value: JSON.stringify(scopedRule),
+      },
+      false,
+    )) ?? revision;
+  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
+    environments: ruleEnvFootprint,
   });
 
-  const linkedExperiments = feature.linkedExperiments || [];
-  if (!feature.linkedExperiments?.includes(experiment.id)) {
-    linkedExperiments.push(experiment.id);
-    updates.linkedExperiments = linkedExperiments;
-  }
-
-  if (revision.status === "published") {
-    updates.version = revision.version;
-    const updatedFeature = await updateFeature(context, feature, updates);
-
+  let published = false;
+  if (autoPublish) {
+    await assertCanAutoPublish(context, feature, updatedRevision);
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision: updatedRevision,
+    });
+    const orgEnvIds = environments;
+    const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+    if (!mergeResult.success) {
+      throw new Error(
+        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
+      );
+    }
+    const updatedFeature = await publishRevision(
+      context,
+      feature,
+      updatedRevision,
+      mergeResult.result,
+      `Add experiment rule for "${experiment.name}"`,
+    );
     await req.audit({
-      event: "feature.update",
-      entity: {
-        object: "feature",
-        id: feature.id,
-      },
+      event: "feature.publish",
+      entity: { object: "feature", id: feature.id },
       details: auditDetailsUpdate(feature, updatedFeature, {
-        revision: revision.version,
+        revision: updatedRevision.version,
+        comment: `Add experiment rule for "${experiment.name}"`,
       }),
     });
+    published = true;
   } else {
-    await updateFeature(context, feature, { linkedExperiments });
+    // Queue the draft for auto-publish on `status -> running`.
+    await addPendingFeatureDraftToExperiment(
+      context,
+      rule.experimentId,
+      feature.id,
+      updatedRevision.version,
+    );
   }
 
+  if (!feature.linkedExperiments?.includes(experiment.id)) {
+    await addLinkedExperiment(feature, experiment.id);
+  }
   await addLinkedFeatureToExperiment(
     context,
     rule.experimentId,
@@ -2404,7 +2493,8 @@ export async function postFeatureExperimentRefRule(
 
   res.status(200).json({
     status: 200,
-    version: revision.version,
+    version: updatedRevision.version,
+    published,
   });
 }
 

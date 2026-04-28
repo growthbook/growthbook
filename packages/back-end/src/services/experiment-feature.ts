@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
+  autoMerge,
   getMatchingRules,
   MatchingRule,
   resetReviewOnChange,
@@ -16,12 +17,21 @@ import {
   FeatureInterface,
   FeatureRule,
 } from "shared/validators";
+import { ApiReqContext } from "back-end/types/api";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
-import { editFeatureRules } from "back-end/src/models/FeatureModel";
+import {
+  editFeatureRules,
+  getFeature,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
+import { logger } from "back-end/src/util/logger";
 import {
   assertCanAutoPublish,
   getDraftRevision,
+  getLiveAndBaseRevisionsForFeature,
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
 
@@ -263,4 +273,103 @@ export async function validateExperimentFeatureUpdates({
   }
 
   return plans;
+}
+
+// Auto-publish each `experiment.pendingFeatureDrafts` entry that still
+// references an active draft. Stale entries are pruned silently. Best-effort:
+// per-feature failures are logged so a downstream conflict can't block the
+// caller (e.g. an experiment starting).
+export async function publishPendingFeatureDraftsForExperiment(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<{ featureId: string; revisionVersion: number }[]> {
+  const drafts = experiment.pendingFeatureDrafts ?? [];
+  if (!drafts.length) return [];
+
+  const orgEnvIds = context.environments;
+  const published: { featureId: string; revisionVersion: number }[] = [];
+
+  for (const { featureId, revisionVersion } of drafts) {
+    try {
+      const feature = await getFeature(context, featureId);
+      if (!feature) {
+        await removePendingFeatureDraftFromExperiment(
+          context,
+          experiment.id,
+          featureId,
+          revisionVersion,
+        );
+        continue;
+      }
+
+      const revision = await getRevision({
+        context,
+        organization: feature.organization,
+        featureId: feature.id,
+        feature,
+        version: revisionVersion,
+      });
+      if (
+        !revision ||
+        revision.status === "published" ||
+        revision.status === "discarded"
+      ) {
+        await removePendingFeatureDraftFromExperiment(
+          context,
+          experiment.id,
+          featureId,
+          revisionVersion,
+        );
+        continue;
+      }
+
+      await assertCanAutoPublish(context, feature, revision);
+      const { live, base } = await getLiveAndBaseRevisionsForFeature({
+        context,
+        feature,
+        revision,
+      });
+      const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+      if (!mergeResult.success) {
+        logger.warn(
+          {
+            experimentId: experiment.id,
+            featureId,
+            revisionVersion,
+            conflicts: mergeResult.conflicts,
+          },
+          "Skipping auto-publish of pending feature draft due to merge conflicts",
+        );
+        continue;
+      }
+
+      await publishRevision(
+        context,
+        feature,
+        revision,
+        mergeResult.result,
+        `Experiment "${experiment.name}" started`,
+      );
+      // publishRevision sweeps via experiment-ref rules; cover the no-rules edge case here.
+      await removePendingFeatureDraftFromExperiment(
+        context,
+        experiment.id,
+        featureId,
+        revisionVersion,
+      );
+      published.push({ featureId, revisionVersion });
+    } catch (err) {
+      logger.error(
+        {
+          err,
+          experimentId: experiment.id,
+          featureId,
+          revisionVersion,
+        },
+        "Failed to auto-publish pending feature draft on experiment start",
+      );
+    }
+  }
+
+  return published;
 }

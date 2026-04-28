@@ -366,6 +366,17 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
+    // Drafts queued for auto-publish on `status -> running`.
+    pendingFeatureDrafts: z
+      .array(
+        z
+          .object({
+            featureId: z.string(),
+            revisionVersion: z.number(),
+          })
+          .strict(),
+      )
+      .optional(),
     manualLaunchChecklist: z
       .array(
         z

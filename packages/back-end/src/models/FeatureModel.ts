@@ -93,6 +93,7 @@ import {
 } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
+  clearPendingFeatureDraftsForRevision,
   getExperimentById,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
@@ -1845,6 +1846,13 @@ export async function publishRevision(
       revision,
       context.auditUser,
       comment,
+    );
+
+    await clearPendingFeatureDraftsForRevision(
+      context,
+      revision.featureId,
+      revision.version,
+      revision.rules,
     );
   } catch (err) {
     // Roll back pre-created ramp schedules so they don't linger as orphans.

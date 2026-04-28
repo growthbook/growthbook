@@ -278,6 +278,13 @@ const experimentSchema = new mongoose.Schema({
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
+  pendingFeatureDrafts: [
+    {
+      _id: false,
+      featureId: String,
+      revisionVersion: Number,
+    },
+  ],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
@@ -1433,6 +1440,81 @@ export async function removeLinkedFeatureFromExperiment(
   }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
+}
+
+// Track a draft to auto-publish when the experiment goes running. One entry
+// per featureId — the latest draft replaces any prior one.
+export async function addPendingFeatureDraftToExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  revisionVersion: number,
+) {
+  const experiment = await findExperiment({ experimentId, context });
+  if (!experiment) return;
+
+  const others = (experiment.pendingFeatureDrafts || []).filter(
+    (e) => e.featureId !== featureId,
+  );
+  const next = [...others, { featureId, revisionVersion }];
+
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    { $set: { pendingFeatureDrafts: next } },
+  );
+}
+
+// Untrack a draft (e.g. because it was published or discarded manually).
+export async function removePendingFeatureDraftFromExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  revisionVersion?: number,
+) {
+  const experiment = await findExperiment({ experimentId, context });
+  if (!experiment) return;
+  if (!experiment.pendingFeatureDrafts?.length) return;
+
+  const next = experiment.pendingFeatureDrafts.filter((e) =>
+    revisionVersion != null
+      ? !(e.featureId === featureId && e.revisionVersion === revisionVersion)
+      : e.featureId !== featureId,
+  );
+
+  if (next.length === experiment.pendingFeatureDrafts.length) return;
+
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    { $set: { pendingFeatureDrafts: next } },
+  );
+}
+
+// Drop pendingFeatureDrafts entries for every experiment referenced by an
+// experiment-ref rule on the revision. Hook from publish/discard sites.
+export async function clearPendingFeatureDraftsForRevision(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+  revisionVersion: number,
+  rules: { type?: string; experimentId?: string }[] | undefined,
+) {
+  const experimentIds = new Set<string>();
+  for (const rule of rules ?? []) {
+    if (rule.type === "experiment-ref" && rule.experimentId) {
+      experimentIds.add(rule.experimentId);
+    }
+  }
+  if (!experimentIds.size) return;
+
+  await Promise.all(
+    [...experimentIds].map((expId) =>
+      removePendingFeatureDraftFromExperiment(
+        context,
+        expId,
+        featureId,
+        revisionVersion,
+      ),
+    ),
+  );
 }
 
 function logAllChanges(
