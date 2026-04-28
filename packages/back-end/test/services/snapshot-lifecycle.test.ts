@@ -6,6 +6,7 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
+import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -196,6 +197,7 @@ function makePlan(
       multipleExposures: 0,
       analyses: [
         {
+          analysisKey: buildAnalysisKey(),
           dateCreated: new Date("2025-02-01T00:00:00.000Z"),
           results: [],
           settings: defaultAnalysisSettings,

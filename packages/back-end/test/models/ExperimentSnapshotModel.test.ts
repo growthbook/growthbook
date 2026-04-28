@@ -2312,6 +2312,7 @@ describe("ExperimentSnapshotModel", () => {
         context,
         id: legacySnapshotId,
         analysis: {
+          analysisKey: buildAnalysisKey(),
           dateCreated: new Date(),
           status: "success",
           settings: makeAnalysisSettings({ statsEngine: "bayesian" }),
