@@ -12,6 +12,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { filterEnvironmentsByExperiment, getReviewSetting } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
+import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -41,6 +42,7 @@ import {
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
@@ -56,7 +58,6 @@ export type Props = {
   source?: string;
 };
 
-// Form default only — submit overrides this to all-disabled for new-FF.
 const genEnvironmentSettings = ({
   environments,
   permissions,
@@ -154,6 +155,7 @@ export default function FeatureFromExperimentModal({
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
+  const { holdoutsMap } = useHoldouts();
   const allCustomFields = useCustomFields();
   const customFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,
@@ -188,7 +190,6 @@ export default function FeatureFromExperimentModal({
     experiment.description && experiment.description.length > 0,
   );
 
-  // Single source of truth for the rule's env scope AND the FF's kill switches.
   const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
   const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
     string[]
@@ -228,6 +229,24 @@ export default function FeatureFromExperimentModal({
     return gatedEnvSet === "none";
   }, [existingFeature, permissionsUtil, gatedEnvSet]);
 
+  const holdoutWarning = useMemo<string | null>(() => {
+    if (!existing || !existingFeature || !experiment.holdoutId) return null;
+    const featureHoldoutId = existingFeature.holdout?.id;
+    const holdout = holdoutsMap.get(experiment.holdoutId);
+    const holdoutName = holdout?.name ?? "Unknown holdout";
+    if (!featureHoldoutId) {
+      const covers =
+        !!holdout && holdout.projects.includes(existingFeature.project ?? "");
+      return covers
+        ? `This experiment belongs to holdout "${holdoutName}", but the selected feature isn't enrolled in it. Visit the feature page and use "Add to holdout" to enroll it, then try again.`
+        : `This experiment belongs to holdout "${holdoutName}", which is unavailable in the selected feature's project. Update the holdout's project scope, or select a feature in a project covered by the holdout.`;
+    }
+    if (featureHoldoutId !== experiment.holdoutId) {
+      return `Holdout mismatch: the experiment and the selected feature are in different holdouts. They must share the same holdout to be linked.`;
+    }
+    return null;
+  }, [existing, existingFeature, experiment.holdoutId, holdoutsMap]);
+
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
@@ -239,6 +258,10 @@ export default function FeatureFromExperimentModal({
     ctaEnabled = false;
     disabledMessage =
       "You don't have permission to create feature flag drafts.";
+  }
+
+  if (holdoutWarning) {
+    ctaEnabled = false;
   }
 
   function updateValuesOnTypeChange(val: FeatureValueType) {
@@ -287,8 +310,6 @@ export default function FeatureFromExperimentModal({
 
         const featureFromCache = existing ? existingFeature : undefined;
 
-        // Bare feature starts with all kill switches off; the draft revision
-        // below flips the rule-scope envs on alongside adding the rule.
         const newFeatureEnvSettings: Record<string, FeatureEnvironment> = {};
         if (!existing) {
           environments.forEach((env) => {
@@ -348,25 +369,11 @@ export default function FeatureFromExperimentModal({
         let targetFeatureId: string;
 
         if (existing) {
-          const featureHoldoutId = featureFromCache?.holdout?.id;
-          if (experiment.holdoutId && !featureHoldoutId) {
-            throw new Error(
-              "You cannot add a feature flag with no holdout to an experiment with a holdout. Add the holdout to the feature on the feature page itself.",
-            );
-          }
-          if (
-            experiment.holdoutId &&
-            featureHoldoutId !== experiment.holdoutId
-          ) {
-            throw new Error(
-              "You cannot add a feature flag with a holdout to an experiment that has a different holdout.",
-            );
-          }
+          if (holdoutWarning)
+            throw new Error("Holdout configuration mismatch.");
 
           targetFeatureId = featureToCreate.id;
         } else {
-          // Rev 1 (published): bare feature, no rule, kill switches off.
-          // Rev 2 (draft, added below): rule + toggle-on for rule-scope envs.
           const created = await apiCall<{ feature: FeatureInterface }>(
             `/feature`,
             {
@@ -390,8 +397,6 @@ export default function FeatureFromExperimentModal({
           refreshWatching();
         }
 
-        // Existing features: draft selector picks draft / auto-publish.
-        // New features: always a fresh draft on top of the bare FF we just made.
         const autoPublish = existing && draftMode === "publish";
         const draftVersion =
           existing && draftMode === "existing" && selectedDraft != null
@@ -429,11 +434,16 @@ export default function FeatureFromExperimentModal({
           }
 
           form.setValue("existing", value);
-          // Reset draft selection whenever the FF changes.
           setDraftMode("new");
           setSelectedDraft(null);
         }}
       />
+
+      {holdoutWarning && (
+        <Callout status="warning" mb="3">
+          {holdoutWarning}
+        </Callout>
+      )}
 
       {!existing && (
         <>
