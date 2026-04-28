@@ -1288,6 +1288,7 @@ export function evaluateFeature({
   date = new Date(),
   safeRolloutMap,
   namespaces,
+  organization,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -1303,6 +1304,9 @@ export function evaluateFeature({
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
   >;
+  // Drives project-scoping intersect inside `getFeatureDefinition`; omitting
+  // it leaks `allEnvironments: true` rules into project-scoped-out envs.
+  organization?: OrganizationInterface;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1337,6 +1341,7 @@ export function evaluateFeature({
         date,
         safeRolloutMap,
         namespaces: namespaces,
+        organization,
       });
 
       if (definition) {
@@ -1883,6 +1888,7 @@ export function getApiFeatureObjV2({
       experimentMap,
       environment: env,
       safeRolloutMap,
+      organization,
     });
     featureEnvironments[env] = { enabled, defaultValue };
     if (definition) {
@@ -1996,6 +2002,7 @@ export function getApiFeatureObj({
       environment: env,
       safeRolloutMap,
       namespaces: namespacesToMap(organization.settings?.namespaces),
+      organization,
     });
 
     featureEnvironments[env] = {
@@ -2053,6 +2060,7 @@ export function getApiFeatureObj({
         environment: env,
         safeRolloutMap,
         namespaces: namespacesToMap(organization.settings?.namespaces),
+        organization,
       });
 
       environmentRules[env] = revRulesByEnv[env] ?? [];

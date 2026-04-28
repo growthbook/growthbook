@@ -30,6 +30,8 @@ import { createSnapshot } from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createFeature } from "back-end/src/models/FeatureModel";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   createFactTable,
   getFactTableMap,
@@ -183,7 +185,7 @@ export const postDemoDatasourceProject = async (
   }
   req.checkPermissions("createAnalyses", "");
 
-  const { org, environments } = context;
+  const { org } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const demoFactTableId = getDemoDatasourceFactTableIdForOrganization(org.id);
@@ -448,7 +450,12 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       rules: [],
     };
 
-    environments.forEach((env) => {
+    // Skip envs scoped to other projects — they'd leave unreachable rules.
+    const applicableEnvs = getApplicableEnvIds(
+      getEnvironments(org),
+      project.id,
+    );
+    applicableEnvs.forEach((env) => {
       featureToCreate.environmentSettings[env] = {
         enabled: true,
       };

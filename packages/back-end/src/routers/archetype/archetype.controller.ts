@@ -139,6 +139,7 @@ export const getArchetypeAndEval = async (
           skipRulesWithPrerequisites,
           safeRolloutMap,
           namespaces: namespacesToMap(org.settings?.namespaces),
+          organization: org,
         });
 
         if (!result) return;

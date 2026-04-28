@@ -46,6 +46,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { logger } from "back-end/src/util/logger";
+import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export type MetadataOptions = {
@@ -529,13 +530,31 @@ export function getFeatureDefinition({
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
 
-  // Rule source: the revision's unified array (draft/published) or the
-  // feature's (live), projected per env. Legacy `settings.rules` fallback
-  // is test-only — production readers flow through `migrateRawFeatureToV2`.
+  // Rule source: revision's unified array (draft/published) > feature's (live).
+  // Legacy `settings.rules` is test-only — production reads flow through
+  // `migrateRawFeatureToV2`.
+  //
+  // Project-scoping intersect: `allEnvironments: true` means "all APPLICABLE
+  // envs" (per `flattenV1ToV2Rules`). Use `ruleFootprint` to honor that —
+  // matching `bucketRulesByEnv` so the SDK definition and the per-env API
+  // bucket agree. Without `organization` we can't resolve applicability and
+  // fall back to the literal env-list filter.
   const v2Rules = revision?.rules ?? feature.rules;
-  const rules: FeatureRule[] = Array.isArray(v2Rules)
-    ? getRulesForEnvironment(v2Rules, environment)
-    : ((settings as unknown as { rules?: FeatureRule[] }).rules ?? []);
+  const applicableEnvs = organization?.settings?.environments
+    ? getApplicableEnvIds(organization.settings.environments, feature.project)
+    : null;
+  let rules: FeatureRule[];
+  if (!Array.isArray(v2Rules)) {
+    rules = (settings as unknown as { rules?: FeatureRule[] }).rules ?? [];
+  } else if (!applicableEnvs) {
+    rules = getRulesForEnvironment(v2Rules, environment);
+  } else if (!applicableEnvs.includes(environment)) {
+    rules = [];
+  } else {
+    rules = v2Rules.filter((r) =>
+      ruleFootprint(r, applicableEnvs).includes(environment),
+    );
+  }
 
   const namespacesMap =
     namespaces ?? namespacesToMap(organization?.settings?.namespaces);

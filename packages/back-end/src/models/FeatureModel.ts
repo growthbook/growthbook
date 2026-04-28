@@ -217,19 +217,19 @@ export function migrateRawFeatureToV2(
       ("allEnvironments" in r || "environments" in r),
   );
 
-  // Mirror origin/main's `updateEnvironmentSettings`: when an env entry has
-  // NO `rules` key (vs an explicit `rules: []`), backfill it from the legacy
-  // top-level rules. This preserves rules on hybrid v0/v1 docs whose env
-  // settings only ever stored toggle state. v2-shaped top-level rules never
-  // backfill — they belong on the unified v2 array.
+  // Mirror origin/main's `updateEnvironmentSettings`: backfill legacy
+  // top-level rules into `dev` and `production` only. Other envs without a
+  // `rules` key are left untouched. v2-shaped top-level rules never backfill.
   if (!topLevelRulesAreV2Shaped && topLevelRules.length > 0) {
-    for (const envId of Object.keys(envSettings)) {
-      const settings = envSettings[envId];
-      if (settings && !("rules" in settings)) {
+    for (const envId of ["dev", "production"]) {
+      const settings = envSettings[envId] ?? {};
+      if (!("rules" in settings)) {
         (settings as { rules?: V1FeatureRule[] }).rules =
           topLevelRules as unknown as V1FeatureRule[];
       }
+      envSettings[envId] = settings as FeatureEnvironment;
     }
+    postV0Doc.environmentSettings = envSettings;
   }
 
   if (!hasNoV1EnvRules(envSettings) || !topLevelRulesAreV2Shaped) {

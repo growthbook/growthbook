@@ -521,6 +521,162 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
     expect(api.environments.production.rules).toEqual([]);
   });
 
+  // Sparse legacy v0/v1 docs: only `dev` exists in environmentSettings, but a
+  // top-level `rules` array carries production rules implicitly. Origin/main's
+  // `upgradeFeatureInterface` hard-codes `dev`+`production` env entries and
+  // backfills missing ones from the top-level rules — we mirror that so a
+  // production-only legacy rule isn't silently dropped on first read.
+  it("backfills production from legacy top-level rules when environmentSettings only has dev (sparse v0/v1 hybrid)", async () => {
+    const { FeatureModel, toInterface } = await import(
+      "back-end/src/models/FeatureModel"
+    );
+    const organization = {
+      id: "org_test",
+      settings: { environments: [{ id: "dev" }, { id: "production" }] },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const raw = {
+      id: "feat_sparse_v0",
+      organization: "org_test",
+      owner: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean",
+      defaultValue: "true",
+      project: "",
+      tags: [],
+      // Legacy v0 marker — empty enabled-env list.
+      environments: [],
+      // Top-level rule belongs on `production` per origin/main's hard-coded
+      // dev+production backfill.
+      rules: [
+        {
+          id: "rule_top_level_only",
+          type: "force",
+          description: "",
+          trackingKey: "tk",
+          hashAttribute: "id",
+          value: "true",
+          enabled: true,
+          condition: "{}",
+        },
+      ],
+      // Only `dev` is materialized — with its OWN rule (no `rules` key would
+      // also be valid; here we test the case where dev already carries rules
+      // and production is missing entirely).
+      environmentSettings: {
+        dev: {
+          enabled: false,
+          rules: [
+            {
+              id: "rule_dev_only",
+              type: "force",
+              description: "",
+              trackingKey: "tk-dev",
+              hashAttribute: "id",
+              value: "false",
+              enabled: true,
+              condition: "{}",
+            },
+          ],
+        },
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = new FeatureModel(raw as any);
+    const feature = toInterface(doc, ctx);
+
+    // Both legacy-flavored rules survive: dev's own rule + production's
+    // backfilled-from-top-level rule.
+    const ids = (feature.rules ?? []).map((r) => r.id).sort();
+    expect(ids).toEqual(["rule_dev_only", "rule_top_level_only"]);
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+    expect(api.environments.dev.rules.map((r) => r.id)).toEqual([
+      "rule_dev_only",
+    ]);
+    expect(api.environments.production.rules.map((r) => r.id)).toEqual([
+      "rule_top_level_only",
+    ]);
+  });
+
+  it("does not enroll non-(dev|production) envs lacking a rules key into top-level rule backfill", async () => {
+    const { FeatureModel, toInterface } = await import(
+      "back-end/src/models/FeatureModel"
+    );
+    // Custom envs lack a `rules` key; `dev` is stale (in envSettings, not in
+    // the org list).
+    const organization = {
+      id: "org_test",
+      settings: {
+        environments: [
+          { id: "custom_a" },
+          { id: "custom_b" },
+          { id: "production" },
+        ],
+      },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const topLevelRule = {
+      id: "rule_prod_only",
+      type: "force",
+      description: "",
+      trackingKey: "tk",
+      hashAttribute: "id",
+      value: "true",
+      enabled: true,
+      condition: "{}",
+    };
+
+    const raw = {
+      id: "feat_no_enroll",
+      organization: "org_test",
+      owner: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean",
+      defaultValue: "false",
+      project: "",
+      tags: [],
+      rules: [topLevelRule],
+      environmentSettings: {
+        dev: { enabled: true, rules: [topLevelRule] },
+        production: { enabled: false, rules: [topLevelRule] },
+        // No `rules` key — must NOT be backfilled with `topLevelRule`.
+        custom_a: { enabled: true },
+        custom_b: { enabled: true, rules: [] },
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = new FeatureModel(raw as any);
+    const feature = toInterface(doc, ctx);
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+    expect(api.environments.production.rules.map((r) => r.id)).toEqual([
+      "rule_prod_only",
+    ]);
+    expect(api.environments.custom_a.rules).toEqual([]);
+    expect(api.environments.custom_b.rules).toEqual([]);
+  });
+
   // Catches anything Mongoose's schema/toJSON pass strips that the bare
   // `migrateRawFeatureToV2` test does not.
   it("preserves [] fields end-to-end through Mongoose toInterface (v1 on-disk)", async () => {

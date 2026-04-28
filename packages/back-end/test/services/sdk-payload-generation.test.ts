@@ -1818,5 +1818,68 @@ describe("SDK payload generation (scenario-specific)", () => {
       );
       expect(ids).toEqual(["r-1", "r-3", "r-4"]);
     });
+
+    // `allEnvironments: true` semantically means "all envs APPLICABLE to this
+    // feature" — `flattenV1ToV2Rules` collapses to it whenever a rule covers
+    // the project-scoped applicable env set. When the SDK definition iterates
+    // a non-applicable org env, the rule must NOT leak in. Origin/main avoided
+    // this naturally via per-env storage (the rule simply wasn't in
+    // `dev.rules`); we mirror that by intersecting with `applicableEnvs` at
+    // the consumer.
+    it("does not emit allEnvironments rules into project-scoped-out envs", () => {
+      const feature: FeatureInterface = {
+        ...v2BaseFeature(),
+        project: "prj_other",
+        rules: [
+          {
+            type: "force",
+            id: "r-prod-only",
+            description: "",
+            enabled: true,
+            value: "y",
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      };
+      // `dev` is project-scoped to `prj_dev_only` — non-applicable to a
+      // feature in `prj_other`. `production` has no `projects` filter, so
+      // applies everywhere.
+      const organization = {
+        id: "org-1",
+        settings: {
+          environments: [
+            { id: "production" },
+            { id: "dev", projects: ["prj_dev_only"] },
+          ],
+        },
+      } as unknown as OrganizationInterface;
+
+      const prodDef = getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: true,
+        organization,
+      });
+      expect(prodDef?.rules?.length).toBe(1);
+      expect((prodDef?.rules?.[0] as Record<string, unknown>).id).toBe(
+        "r-prod-only",
+      );
+
+      const devDef = getFeatureDefinition({
+        feature,
+        environment: "dev",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        capabilities: undefined,
+        includeRuleIds: true,
+        organization,
+      });
+      expect(devDef?.rules ?? []).toEqual([]);
+    });
   });
 });

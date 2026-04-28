@@ -3758,6 +3758,7 @@ export async function postFeatureEvaluate(
     date,
     safeRolloutMap,
     namespaces: namespacesToMap(org.settings?.namespaces),
+    organization: org,
   });
 
   res.status(200).json({
