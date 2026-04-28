@@ -2352,7 +2352,7 @@ export async function toExperimentApiInterface(
   return apiExperiment;
 }
 
-// Round to 10 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
+// Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
 // that break many real-world JSON parsers.
 function safeFloat(n: number | undefined, fallback = 0): number {
   if (n == null || !isFinite(n)) return fallback;
