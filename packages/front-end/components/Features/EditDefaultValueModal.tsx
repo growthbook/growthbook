@@ -7,9 +7,9 @@ import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import DraftSelectorForChanges, {
+import DraftSelectorDropdown, {
   DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
+} from "@/components/Features/DraftSelectorDropdown";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import FeatureValueField from "./FeatureValueField";
@@ -66,7 +66,7 @@ export default function EditDefaultValueModal({
       trackingEventModalType=""
       header="Edit Default Value"
       headerAction={
-        <DraftSelectorForChanges
+        <DraftSelectorDropdown
           feature={feature}
           revisionList={revisionList}
           mode={mode}
