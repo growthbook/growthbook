@@ -1,9 +1,16 @@
-import React, { FC, useMemo, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import React, { FC, Fragment, useMemo, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
+import {
+  formatInvalidTargetingAttributeColumnMessages,
+  getInvalidTargetingAttributeColumnsForExposureQueries,
+  TARGETING_ATTRIBUTE_COLUMN_HELP_AFTER_SETTINGS_LINK,
+  TARGETING_ATTRIBUTE_COLUMN_HELP_BEFORE_SETTINGS_LINK,
+  TARGETING_ATTRIBUTE_COLUMN_SETTINGS_LINK_LABEL,
+} from "shared/validators";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
@@ -16,6 +23,8 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
+import { useUser } from "@/services/UserContext";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -25,9 +34,34 @@ type EditExperimentAssignmentQueryProps = {
   onCancel: () => void;
 };
 
+function targetingAttributeColumnsValidationError(columns: string[]): Error {
+  const unique = [...new Set(columns)];
+  const plain = formatInvalidTargetingAttributeColumnMessages(unique);
+  const err = new Error(plain);
+  (err as Error & { display?: React.ReactNode }).display = (
+    <Box>
+      {unique.map((col, i) => (
+        <Fragment key={col}>
+          <div style={{ marginTop: i > 0 ? "var(--space-3)" : 0 }}>
+            {col} is not a saved targeting attribute.{" "}
+            {TARGETING_ATTRIBUTE_COLUMN_HELP_BEFORE_SETTINGS_LINK}
+            <Link href="/attributes">
+              {TARGETING_ATTRIBUTE_COLUMN_SETTINGS_LINK_LABEL}
+            </Link>
+            {TARGETING_ATTRIBUTE_COLUMN_HELP_AFTER_SETTINGS_LINK}
+          </div>
+        </Fragment>
+      ))}
+    </Box>
+  );
+  return err;
+}
+
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
 > = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+  const { settings } = useUser();
+  const attributeSchema = settings?.attributeSchema ?? [];
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -52,12 +86,18 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const form = useForm<ExposureQuery>({
     defaultValues:
       mode === "edit" && exposureQuery
-        ? cloneDeep<ExposureQuery>(exposureQuery)
+        ? {
+            ...cloneDeep<ExposureQuery>(exposureQuery),
+            dimensions: exposureQuery.dimensions ?? [],
+            targetingAttributeColumns:
+              exposureQuery.targetingAttributeColumns ?? [],
+          }
         : {
             description: "",
             id: uniqId("tbl_"),
             name: "",
             dimensions: [],
+            targetingAttributeColumns: [],
             query: defaultQuery,
             userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
           },
@@ -67,9 +107,52 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredUserIdType = form.watch("userIdType");
   const userEnteredQuery = form.watch("query");
   const userEnteredDimensions = form.watch("dimensions");
+  const userEnteredTargetingAttributeColumns = form.watch(
+    "targetingAttributeColumns",
+  );
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
-  const handleSubmit = form.handleSubmit(async (value) => {
+  const composeExposureQueryPayload = (): ExposureQuery => {
+    const registered = form.getValues();
+    const base =
+      mode === "edit" && exposureQuery
+        ? cloneDeep<ExposureQuery>(exposureQuery)
+        : ({} as ExposureQuery);
+    // Dimensions / query / targeting columns use `setValue` + watch, not `register`.
+    // Prefer `getValues()` after blur, then fall back to watch.
+    return {
+      ...base,
+      ...registered,
+      id: registered.id ?? base.id,
+      query: registered.query ?? userEnteredQuery,
+      dimensions: [...(registered.dimensions ?? userEnteredDimensions ?? [])],
+      targetingAttributeColumns: [
+        ...(registered.targetingAttributeColumns ??
+          userEnteredTargetingAttributeColumns ??
+          []),
+      ],
+      hasNameCol: !!(registered.hasNameCol ?? userEnteredHasNameCol),
+    };
+  };
+
+  const handleSubmit = form.handleSubmit(async () => {
+    // CreatableSelect only commits pending text on blur; blur before read so
+    // `getValues` / watch include the last token when Save is clicked.
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const value = composeExposureQueryPayload();
+    const invalid = getInvalidTargetingAttributeColumnsForExposureQueries(
+      attributeSchema,
+      [value],
+    );
+    if (invalid.length > 0) {
+      // Must reject so Modal does not treat submit as success and auto-close
+      // (see Modal.tsx: await submit() then close when autoCloseOnSubmit).
+      throw targetingAttributeColumnsValidationError(
+        invalid.map((i) => i.column),
+      );
+    }
     await onSave(value);
 
     form.reset({
@@ -77,6 +160,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       query: "",
       name: "",
       dimensions: [],
+      targetingAttributeColumns: [],
       description: "",
       hasNameCol: false,
       userIdType: undefined,
@@ -90,9 +174,15 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       "timestamp",
       userEnteredUserIdType,
       ...(userEnteredDimensions || []),
+      ...(userEnteredTargetingAttributeColumns || []),
       ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
-  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
+  }, [
+    userEnteredUserIdType,
+    userEnteredDimensions,
+    userEnteredTargetingAttributeColumns,
+    userEnteredHasNameCol,
+  ]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],
@@ -115,6 +205,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     const userIdTypes = identityTypes?.map((type) => type.userIdType || []);
 
     const requiredColumnsArray = Array.from(requiredColumns);
+    const userEnteredTargetingCols =
+      form.getValues("targetingAttributeColumns") ?? [];
     const returnedColumns = new Set<string>(Object.keys(result));
     const optionalColumns = [...returnedColumns].filter(
       (col) =>
@@ -191,6 +283,21 @@ export const AddEditExperimentAssignmentQueryModal: FC<
           (column) => !missingDimensions.includes(column),
         );
         form.setValue("dimensions", newUserEnteredDimensions);
+      }
+
+      const missingTargeting = missingColumns.filter((column) =>
+        userEnteredTargetingCols.includes(column),
+      );
+      if (missingTargeting.length > 0) {
+        missingColumns = missingColumns.filter(
+          (column) => !missingTargeting.includes(column),
+        );
+        form.setValue(
+          "targetingAttributeColumns",
+          userEnteredTargetingCols.filter(
+            (column) => !missingTargeting.includes(column),
+          ),
+        );
       }
 
       // Now, if missingColumns still has a length, throw an error
@@ -323,6 +430,23 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                           form.setValue("dimensions", dimensions);
                         }}
                       />
+                      <div className="mt-3">
+                        <StringArrayField
+                          label="Targeting Attribute Columns"
+                          value={userEnteredTargetingAttributeColumns ?? []}
+                          onChange={(cols) => {
+                            form.setValue("targetingAttributeColumns", cols);
+                          }}
+                        />
+                        <small className="form-text text-muted d-block mt-1">
+                          Column aliases in your assignment query must match
+                          organization targeting attributes (
+                          <Link href="/attributes">Settings → Attributes</Link>
+                          ). Each name must match a non-archived attribute
+                          property. These columns must appear in your SELECT
+                          (same as dimension columns).
+                        </small>
+                      </div>
                     </div>
                   </div>
                 )}

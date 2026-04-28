@@ -605,6 +605,7 @@ export function getInitialSettings(
         id,
         userIdType: id,
         dimensions: schema.experimentDimensions,
+        targetingAttributeColumns: [],
         name:
           id === "user_id"
             ? "Logged-in Users"

@@ -1,16 +1,23 @@
+import type { ReactNode } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { RadixStatusIcon } from "./HelperText";
+
+function isEmptyError(error: string | ReactNode): boolean {
+  if (error == null || error === false) return true;
+  if (typeof error === "string") return !error.trim();
+  return false;
+}
 
 export default function ErrorDisplay({
   error,
   maxLines = 4,
   ...containerProps
 }: {
-  error: string;
+  error: string | ReactNode;
   maxLines?: number;
 } & MarginProps) {
-  if (!error || !error.trim()) return null;
+  if (isEmptyError(error)) return null;
 
   return (
     <Box
@@ -32,12 +39,17 @@ export default function ErrorDisplay({
             flex: 1,
             maxHeight: 21 * maxLines,
             overflowY: "auto",
-            whiteSpace: "pre-wrap",
           }}
         >
-          <Text size="2" color="red">
-            {error}
-          </Text>
+          {typeof error === "string" ? (
+            <Text size="2" color="red" style={{ whiteSpace: "pre-wrap" }}>
+              {error}
+            </Text>
+          ) : (
+            <Text size="2" color="red" as="div">
+              {error}
+            </Text>
+          )}
         </Box>
       </Flex>
     </Box>

@@ -31,6 +31,7 @@ export const apiDataSourceValidator = namedSchema(
           sql: z.string(),
           includesNameColumns: z.boolean(),
           dimensionColumns: z.array(z.string()),
+          targetingAttributeColumns: z.array(z.string()).optional(),
         }),
       ),
       identifierJoinQueries: z.array(

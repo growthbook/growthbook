@@ -63,5 +63,6 @@ export * from "./organization";
 export * from "./team";
 export * from "./visual-changesets";
 export * from "./sdk-connections";
+export * from "./exposure-query-targeting-attribute-columns";
 export * from "./data-sources";
 export * from "./openapi-helpers";
