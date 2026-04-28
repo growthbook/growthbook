@@ -47,9 +47,13 @@ import {
 } from "back-end/src/services/datasource";
 import {
   getEventForwarderConfigDraftForDatasource,
+  refreshEventForwarderConfigCredentials,
   syncEventForwarderConfigFromDatasource,
 } from "back-end/src/services/eventForwarderConfig";
-import { provisionEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarderProvisioning";
+import {
+  provisionEventForwarderThroughLicenseServer,
+  updateEventForwarderCredentialsThroughLicenseServer,
+} from "back-end/src/services/eventForwarderProvisioning";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
@@ -569,18 +573,35 @@ export async function putDataSource(
       updatedDatasource.type,
       integration.params,
     );
-    const syncedEventForwarderConfig =
-      await syncEventForwarderConfigFromDatasource({
+
+    if (eventForwarderConfig !== undefined) {
+      // Explicit event forwarder config change in the request → full provision flow.
+      const syncedEventForwarderConfig =
+        await syncEventForwarderConfigFromDatasource({
+          context,
+          datasource: updatedDatasource,
+          draft: eventForwarderConfig,
+          datasourceParams: eventForwarderDatasourceParams,
+        });
+      await provisionEventForwarderThroughLicenseServer(
         context,
-        datasource: updatedDatasource,
-        draft: eventForwarderConfig,
-        datasourceParams: eventForwarderDatasourceParams,
-      });
-    await provisionEventForwarderThroughLicenseServer(
-      context,
-      syncedEventForwarderConfig,
-      eventForwarderDatasourceParams,
-    );
+        syncedEventForwarderConfig,
+        eventForwarderDatasourceParams,
+      );
+    } else if (params) {
+      // Only connection credentials changed — re-sync stored credentials then
+      // push them to the Confluent connector without touching topic or schema.
+      const refreshedConfig = await refreshEventForwarderConfigCredentials(
+        context,
+        updatedDatasource,
+        eventForwarderDatasourceParams,
+      );
+      await updateEventForwarderCredentialsThroughLicenseServer(
+        context,
+        refreshedConfig,
+        eventForwarderDatasourceParams,
+      );
+    }
 
     res.status(200).json({
       status: 200,
