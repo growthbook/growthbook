@@ -29,6 +29,12 @@ export type Props = {
   showDuration?: boolean;
   headerStructure?: HeaderStructure;
   orderedColumnKeys?: string[];
+  /**
+   * Display labels aligned with `orderedColumnKeys`. When omitted, the keys
+   * themselves are used as labels (back-compat for existing callers that
+   * pass human-readable keys).
+   */
+  columnLabels?: string[];
   paddingTop?: number;
   showNoRowsWarning?: boolean;
 };
@@ -46,11 +52,13 @@ export default function DisplayTestQueryResults({
   showDuration = true,
   headerStructure,
   orderedColumnKeys,
+  columnLabels,
   paddingTop = 0,
   showNoRowsWarning = true,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
+  const labels = columnLabels ?? cols;
   const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
 
   const forceShowSql = error || !results.length;
@@ -70,7 +78,21 @@ export default function DisplayTestQueryResults({
     : undefined;
 
   function handleDownload(results: Record<string, unknown>[]) {
-    const csv = convertToCSV(results);
+    // When the caller passes stable keys + separate labels, rewrite each row
+    // so the CSV column headers (derived from Object.keys) are the display
+    // labels. Otherwise fall through unchanged — the key *is* the label.
+    const rowsForCsv =
+      columnLabels && orderedColumnKeys
+        ? results.map((row) =>
+            Object.fromEntries(
+              orderedColumnKeys.map((key, i) => [
+                columnLabels[i] ?? key,
+                row[key],
+              ]),
+            ),
+          )
+        : results;
+    const csv = convertToCSV(rowsForCsv);
     if (!csv) {
       throw new Error(
         "Error downloading results. Reason: Unable to convert results to CSV.",
@@ -246,8 +268,8 @@ export default function DisplayTestQueryResults({
                     </>
                   ) : (
                     <tr>
-                      {cols.map((col) => (
-                        <th key={col}>{col}</th>
+                      {cols.map((col, i) => (
+                        <th key={col}>{labels[i] ?? col}</th>
                       ))}
                     </tr>
                   )}

@@ -1,5 +1,4 @@
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
@@ -7,6 +6,7 @@ import {
   FactMetricInterface,
 } from "shared/types/fact-table";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import Link from "@/ui/Link";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";

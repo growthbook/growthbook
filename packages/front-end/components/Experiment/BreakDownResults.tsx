@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, Fragment } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -249,7 +249,7 @@ const BreakDownResults: FC<{
 
       {tables.map((table, i) => {
         return (
-          <>
+          <Fragment key={table.metric.id + "_" + i}>
             <h4
               className="mt-2 mb-1 d-flex position-relative ml-2"
               style={{ gap: 4 }}
@@ -340,7 +340,7 @@ const BreakDownResults: FC<{
               mutate={mutate}
             />
             <div className="mb-5" />
-          </>
+          </Fragment>
         );
       })}
     </div>

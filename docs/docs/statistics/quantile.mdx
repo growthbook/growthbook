@@ -57,10 +57,10 @@ To illustrate the mathematics behind the two approaches, consider an experiment 
 
 Taking the median (P50) under each approach gives different results:
 
-| Quantile Type | P50 | Formula                                  |
-| ------------- | --- | ---------------------------------------- |
+| Quantile Type | P50 | Formula                                    |
+| ------------- | --- | ------------------------------------------ |
 | Event         | 2   | `APPROX_PERCENTILE([0, 0, 2, 3, 99], 0.5)` |
-| Per-User      | 5   | `APPROX_PERCENTILE([0, 5, 99], 0.5)`        |
+| Per-User      | 5   | `APPROX_PERCENTILE([0, 5, 99], 0.5)`       |
 
 Notice that for the Per-User quantile, we sum values at the user level first (user 123: 0, user 456: 5, user 789: 99) before passing them to the percentile function. `NULL` values are always ignored.
 
