@@ -1,5 +1,5 @@
 import { CommercialFeature } from "shared/enterprise";
-import React from "react";
+import React, { CSSProperties } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
@@ -12,6 +12,7 @@ export type Props = {
   premiumText?: string | JSX.Element;
   useTip?: boolean;
   variant?: "outline" | "solid";
+  style?: CSSProperties;
 } & MarginProps;
 
 const PaidFeatureBadge = ({
