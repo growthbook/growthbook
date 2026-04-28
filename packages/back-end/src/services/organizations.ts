@@ -290,7 +290,7 @@ export function getAISettingsForOrg(
       ? "claude-haiku-4-5-20251001"
       : context.org.settings?.defaultAIModel ||
         context.org.settings?.openAIDefaultModel ||
-        "claude-haiku-4-5-20251001",
+        "gpt-5.4-mini",
     embeddingModel:
       context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };
