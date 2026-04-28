@@ -611,9 +611,24 @@ function getMetricData(
     }
   }
 
-  // For mean metrics, we need to count the units to calculate the average
+  // Always expose a denominator (unit count) for unit-aggregated non-ratio,
+  // non-quantile metrics so the frontend can render either the raw numerator
+  // (totals) or numerator/denominator (per-unit averages) based on the
+  // chart-level `showAs` setting.
+  //
+  // Intentionally symmetric across dataset types: fact_table/data_source
+  // datasets (where `showAsAppliesTo` returns false and the denominator is
+  // never surfaced) still emit this column. The extra `COUNT(...)` is cheap
+  // relative to the rest of the rollup and keeps the SQL shape / result
+  // column set identical regardless of dataset type, which simplifies the
+  // downstream parser and test fixtures. If this ever becomes a measurable
+  // cost, narrow the guard to metric datasets where per-unit is meaningful.
   let rollupCountExpr: string | null = null;
-  if (metric.metricType === "mean" && selectedUnit) {
+  if (
+    selectedUnit &&
+    metric.metricType !== "ratio" &&
+    metric.metricType !== "quantile"
+  ) {
     rollupCountExpr = getRollupCountExpr(metric, alias);
   }
 
@@ -883,7 +898,8 @@ function generateUnitAggregationRollupCTE(
   unitIndex: number,
   includedMetrics: MetricData[],
   allMetrics: string[],
-  helpers: SqlDialect,
+  aliasesWithDenominator: Set<string>,
+  dialect: SqlDialect,
 ): CTE {
   const selects: string[] = [];
   const groupBys: string[] = [];
@@ -900,17 +916,17 @@ function generateUnitAggregationRollupCTE(
 
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${helpers.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${alias}_numerator`,
+        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${alias}_numerator`,
       );
-      if (metricData.rollupCountExpr) {
+      if (aliasesWithDenominator.has(alias)) {
         selects.push(
-          `${helpers.castToFloat(metricData.rollupCountExpr)} AS ${alias}_denominator`,
+          `${dialect.castToFloat(metricData.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
         );
       }
     } else {
-      selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_numerator`);
-      if (metricData?.rollupCountExpr) {
-        selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_denominator`);
+      selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_numerator`);
+      if (aliasesWithDenominator.has(alias)) {
+        selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
       }
     }
   });
@@ -932,7 +948,8 @@ function generateEventRollupCTE(
   dimensions: DimensionData[],
   includedMetrics: MetricData[],
   allMetrics: string[],
-  helpers: SqlDialect,
+  aliasesWithDenominator: Set<string>,
+  dialect: SqlDialect,
 ): CTE {
   const selects: string[] = [];
   const groupBys: string[] = [];
@@ -948,17 +965,17 @@ function generateEventRollupCTE(
     const metricData = includedMetrics.find((m) => m.alias === alias);
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${helpers.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${metricData.alias}_numerator`,
+        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${metricData.alias}_numerator`,
       );
-      if (metricData.rollupCountExpr) {
+      if (aliasesWithDenominator.has(alias)) {
         selects.push(
-          `${helpers.castToFloat(metricData.rollupCountExpr)} AS ${alias}_denominator`,
+          `${dialect.castToFloat(metricData.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
         );
       }
     } else {
-      selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_numerator`);
-      if (metricData?.rollupCountExpr) {
-        selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_denominator`);
+      selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_numerator`);
+      if (aliasesWithDenominator.has(alias)) {
+        selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
       }
     }
   });
@@ -1051,6 +1068,9 @@ export function generateProductAnalyticsSQL(
   });
 
   const allMetricsAliases: string[] = allMetrics.map((m) => m.alias);
+  const aliasesWithDenominator: Set<string> = new Set(
+    allMetrics.filter((m) => m.rollupCountExpr).map((m) => m.alias),
+  );
 
   // Get all dimensions
   const allDimensions: DimensionData[] = [];
@@ -1152,6 +1172,7 @@ export function generateProductAnalyticsSQL(
         unitIndex,
         metrics,
         allMetricsAliases,
+        aliasesWithDenominator,
         dialect,
       );
       ctes.push(unitRollupCTE);
@@ -1166,6 +1187,7 @@ export function generateProductAnalyticsSQL(
         allDimensions,
         eventMetrics,
         allMetricsAliases,
+        aliasesWithDenominator,
         dialect,
       );
       ctes.push(eventRollupCTE);

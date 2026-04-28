@@ -9,8 +9,14 @@ import {
   shouldChartSectionShow,
   getEffectiveMetricValue,
   computeDimensionTotals,
+  getIsRatioByIndex,
+  getEffectiveShowAs,
+  getSharedUnit,
+  showAsAppliesTo,
+  type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
@@ -69,6 +75,28 @@ export default function ExplorerChart({
   const gridLineColor =
     theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
   const chartsContext = useDashboardCharts();
+  const { getFactMetricById } = useDefinitions();
+
+  const renderOpts: RenderOpts = useMemo(
+    () => ({
+      showAs: getEffectiveShowAs(submittedExploreState, getFactMetricById),
+      isRatioByIndex: getIsRatioByIndex(
+        submittedExploreState,
+        getFactMetricById,
+      ),
+    }),
+    [submittedExploreState, getFactMetricById],
+  );
+
+  // Y-axis label: reflects whether we're rendering raw totals or per-unit
+  // averages. Only populated when showAs applies (otherwise the toggle is
+  // hidden and the number's meaning is carried by the metric/series name).
+  const valueAxisName = useMemo(() => {
+    if (!showAsAppliesTo(submittedExploreState, getFactMetricById)) return "";
+    if (renderOpts.showAs === "total") return "Total";
+    const sharedUnit = getSharedUnit(submittedExploreState);
+    return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+  }, [submittedExploreState, getFactMetricById, renderOpts.showAs]);
 
   // Transform ProductAnalyticsResult + exploreState to ECharts format
   const chartConfig = useMemo(() => {
@@ -86,10 +114,13 @@ export default function ExplorerChart({
       chartType === "stackedBar" || chartType === "stackedHorizontalBar";
 
     if (chartType === "bigNumber") {
-      let value = rows[0]?.values[0]?.numerator ?? 0;
-      if (rows[0]?.values[0]?.denominator) {
-        value /= rows[0]?.values[0]?.denominator;
-      }
+      const firstValue = rows[0]?.values[0];
+      const value = firstValue
+        ? getEffectiveMetricValue(firstValue, {
+            showAs: renderOpts.showAs,
+            isRatio: renderOpts.isRatioByIndex[0] ?? false,
+          })
+        : 0;
       return { type: "bigNumber" as const, value };
     }
 
@@ -142,7 +173,10 @@ export default function ExplorerChart({
           };
         }
 
-        dataMap[seriesKey][xValue] = getEffectiveMetricValue(v);
+        dataMap[seriesKey][xValue] = getEffectiveMetricValue(v, {
+          showAs: renderOpts.showAs,
+          isRatio: renderOpts.isRatioByIndex[valueIndex] ?? false,
+        });
       });
     });
 
@@ -168,7 +202,7 @@ export default function ExplorerChart({
     // Bar charts: sort categories by total value; timeseries: chronological
     let sortedXValues: string[];
     if (isBarType) {
-      const xValueTotals = computeDimensionTotals(rows, 0);
+      const xValueTotals = computeDimensionTotals(rows, 0, renderOpts);
       // Horizontal bars render bottom-to-top, so sort ascending for largest on top
       sortedXValues = Array.from(uniqueXValues).sort((a, b) =>
         isHorizontalBar
@@ -254,7 +288,9 @@ export default function ExplorerChart({
     const valueAxis = {
       type: "value" as const,
       scale: false,
+      name: valueAxisName,
       nameLocation: "middle" as const,
+      nameGap: 50,
       nameTextStyle: {
         fontSize: 14,
         fontWeight: "bold",
@@ -301,10 +337,12 @@ export default function ExplorerChart({
   }, [
     exploration?.result?.rows,
     submittedExploreState,
+    renderOpts,
     textColor,
     gridLineColor,
     tooltipBackgroundColor,
     animate,
+    valueAxisName,
   ]);
 
   const hasEmptyData = useMemo(() => {
