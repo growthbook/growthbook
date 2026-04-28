@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
+import asyncHandler from "express-async-handler";
 import { hasPermission } from "shared/permissions";
 import {
   EventUserApiKey,
@@ -80,14 +81,17 @@ function authenticateWithJwt(
   // so launder through Request to keep the call signature happy.
   const reqAsExpress = req as Request;
 
+  // Wrap processJWT with asyncHandler so any rejected promise from the async
+  // middleware is forwarded to next(err) instead of becoming an unhandled
+  // rejection that hangs the request. Mirrors how app.ts mounts processJWT.
+  const wrappedProcessJWT = asyncHandler(
+    processJWT as unknown as RequestHandler,
+  );
+
   runMiddleware(jwtMiddleware, reqAsExpress, res)
     .then(() => {
       if (res.headersSent) return;
-      return runMiddleware(
-        processJWT as unknown as RequestHandler,
-        reqAsExpress,
-        res,
-      );
+      return runMiddleware(wrappedProcessJWT, reqAsExpress, res);
     })
     .then(async () => {
       // processJWT may have responded (e.g. 403 for missing org access) —

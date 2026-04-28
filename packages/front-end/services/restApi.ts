@@ -45,10 +45,10 @@ export function useRestApiCall() {
   const { fetchRaw } = useAuth();
 
   return useCallback(
-    async <T extends AnyEndpointSpec>(
-      spec: T,
+    async <T extends AnyEndpointSpec, ResponseSchema extends ZodTypeAny>(
+      spec: T & { responseSchema: ResponseSchema },
       ...rest: CallArgs<T>
-    ): Promise<z.infer<T["responseSchema"]>> => {
+    ): Promise<z.infer<ResponseSchema>> => {
       const { params, body, query } = (rest[0] ?? {}) as {
         params?: Record<string, unknown>;
         body?: unknown;
@@ -65,17 +65,21 @@ export function useRestApiCall() {
         if (value === undefined || value === "") {
           throw new Error(`Missing required path parameter: ${p}`);
         }
-        return value;
+        return encodeURIComponent(value);
       })}`;
 
       if (query && Object.keys(query).length > 0) {
-        const queryObj = Object.fromEntries(
-          Object.entries(query)
-            .filter(([, v]) => v !== undefined && v !== null)
-            .map(([k, v]) => [k, String(v)]),
-        );
-        const qs = new URLSearchParams(queryObj).toString();
-        if (qs) url += `?${qs}`;
+        const qs = new URLSearchParams();
+        for (const [k, v] of Object.entries(query)) {
+          if (v === undefined || v === null) continue;
+          if (Array.isArray(v)) {
+            v.forEach((item) => qs.append(k, String(item)));
+          } else {
+            qs.set(k, String(v));
+          }
+        }
+        const qsStr = qs.toString();
+        if (qsStr) url += `?${qsStr}`;
       }
 
       const response = await fetchRaw(url, {
@@ -95,7 +99,15 @@ export function useRestApiCall() {
       }
 
       const responseData = await response.json();
-      return responseData as z.infer<T["responseSchema"]>;
+      try {
+        return spec.responseSchema.parse(responseData);
+      } catch (e) {
+        console.warn(
+          `[useRestApiCall] response validation failed for ${spec.operationId}`,
+          e,
+        );
+        return responseData as z.infer<ResponseSchema>;
+      }
     },
     [fetchRaw],
   );
