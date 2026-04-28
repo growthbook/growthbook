@@ -482,16 +482,17 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     const disableSelfServeBilling =
       organization?.disableSelfServeBilling || false;
 
-    if (disableSelfServeBilling) return false;
+    const hasValidEnterprisePlan =
+      currentOrg?.effectiveAccountPlan === "enterprise";
 
-    if (organization?.enterprise) return false; //TODO: Remove this once we have moved the license off the organization
-
-    if (license?.plan === "enterprise") return false;
+    if (hasValidEnterprisePlan) {
+      if (disableSelfServeBilling) return false;
+      return false;
+    }
 
     // if already on pro, they must have a subscription - some self-hosted pro have an annual contract not directly through stripe.
     if (
-      license &&
-      ["pro", "pro_sso"].includes(license.plan || "") &&
+      ["pro", "pro_sso"].includes(currentOrg?.effectiveAccountPlan || "") &&
       !subscription?.externalId
     )
       return false;
@@ -500,7 +501,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       return false;
 
     return true;
-  }, [organization, license, subscription]);
+  }, [
+    organization?.disableSelfServeBilling,
+    currentOrg?.effectiveAccountPlan,
+    subscription?.externalId,
+    subscription?.status,
+  ]);
 
   return (
     <UserContext.Provider
