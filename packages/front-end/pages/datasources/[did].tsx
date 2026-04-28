@@ -35,6 +35,7 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -428,6 +429,18 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     canEdit={canUpdateDataSourceSettings}
                   />
                 </Frame>
+
+                {d.eventForwarderConfig ? (
+                  <Frame>
+                    <EventForwarder
+                      dataSource={d}
+                      canEdit={canUpdateDataSourceSettings}
+                      onRefresh={async () => {
+                        await mutateDefinitions({});
+                      }}
+                    />
+                  </Frame>
+                ) : null}
 
                 {d.settings.notebookRunQuery && (
                   <Frame>

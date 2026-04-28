@@ -6,6 +6,7 @@ import {
   BigQueryEventForwarderConfigDraft,
   BigQueryEventForwarderStoredConfig,
   EventForwarderConfigDraft,
+  EventForwarderConfigWithMetadata,
   EventForwarderSinkType,
   SnowflakeEventForwarderConfigDraft,
   SnowflakeEventForwarderStoredConfig,
@@ -290,6 +291,29 @@ export async function getEventForwarderConfigDraftForDatasource(
     datasource.id,
   );
   return toEventForwarderConfigDraft(existing);
+}
+
+export async function getEventForwarderConfigWithMetadataForDatasource(
+  context: ReqContext,
+  datasource: Pick<DataSourceInterface, "type" | "id">,
+): Promise<EventForwarderConfigWithMetadata | null> {
+  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
+  if (!sinkType) return null;
+
+  const existing = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  const draft = toEventForwarderConfigDraft(existing);
+  if (!existing || !draft) return null;
+
+  return {
+    ...draft,
+    status: existing.status,
+    connectorName: existing.connectorName,
+    connectorId: existing.connectorId,
+    lastProvisioningError: existing.lastProvisioningError,
+  };
 }
 
 export async function syncEventForwarderConfigFromDatasource({

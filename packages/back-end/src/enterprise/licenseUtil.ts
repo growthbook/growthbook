@@ -1091,6 +1091,21 @@ export async function postPauseEventForwarderToLicenseServer(params: {
   });
 }
 
+export async function postResumeEventForwarderToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  connectorName: string;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/resume`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
 export type EventForwarderSchemaUpdateParams = {
   organizationId: string;
   datasourceId: string;

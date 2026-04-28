@@ -918,6 +918,10 @@ app.post(
   "/datasource/:id/event-forwarder/pause",
   datasourcesController.postPauseEventForwarder,
 );
+app.post(
+  "/datasource/:id/event-forwarder/resume",
+  datasourcesController.postResumeEventForwarder,
+);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.post(
