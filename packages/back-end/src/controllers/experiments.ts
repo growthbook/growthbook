@@ -2155,13 +2155,13 @@ export async function postExperimentStatus(
 
 type PostExperimentStopBody = {
   results: ExperimentResultsType;
+  releasedVariationId?: string;
   winnerVariationId?: string;
   enableTemporaryRollout?: boolean;
   reason?: string;
   analysis?: string;
   dateEnded?: string;
   // Legacy/internal fields accepted by the existing stop form.
-  releasedVariationId?: string;
   excludeFromPayload?: boolean;
 };
 
