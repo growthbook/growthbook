@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/growthbook-growthbook-badge.png)](https://mseep.ai/app/growthbook-growthbook)
+
 <p align="center"><a href="https://www.growthbook.io"><img src="https://cdn.growthbook.io/growthbook-logo@2x.png" width="400px" alt="GrowthBook" /></a></p>
 <p align="center"><b>Open Source Feature Flags, Experimentation, and Product Analytics</b></p>
 <p align="center">
