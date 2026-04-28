@@ -492,13 +492,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
 
     if (["pro", "pro_sso"].includes(effectiveAccountPlan || "")) {
-      if (
-        ["active", "trialing", "past_due", "paused", "unpaid"].includes(
-          subscriptionStatus,
-        )
-      ) {
-        return false;
-      }
+      if (subscriptionStatus !== "canceled") return false;
     }
 
     return true;
