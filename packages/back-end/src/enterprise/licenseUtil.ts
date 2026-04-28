@@ -1106,3 +1106,47 @@ export async function postUpdateEventForwarderSchemaToLicenseServer(
     }),
   });
 }
+
+/** Payload for central-license-server `POST .../event-forwarder/update-credentials`. */
+export type EventForwarderLicenseUpdateCredentialsParams =
+  | {
+      organizationId: string;
+      datasourceId: string;
+      connectorName: string;
+      sinkType: "bigquery";
+      bigqueryProjectId: string;
+      bigqueryDataset: string;
+      resolvedTableName: string;
+      serviceAccountKeyJson: string;
+    }
+  | {
+      organizationId: string;
+      datasourceId: string;
+      connectorName: string;
+      sinkType: "snowflake";
+      snowflake: {
+        tableName: string;
+        account: string;
+        accessUrl?: string;
+        username: string;
+        database: string;
+        schema: string;
+        privateKey: string;
+        privateKeyPassword?: string;
+        role?: string;
+        warehouse?: string;
+      };
+    };
+
+export async function postUpdateEventForwarderCredentialsToLicenseServer(
+  params: EventForwarderLicenseUpdateCredentialsParams,
+): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/update-credentials`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
