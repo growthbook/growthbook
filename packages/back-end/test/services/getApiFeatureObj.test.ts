@@ -9,12 +9,7 @@ import { ReqContext } from "back-end/types/request";
 
 // Regression: env-less org → v1 REST emit dropped every rule because
 // `getApiFeatureObj` used `org.settings.environments ?? []` instead of the
-// `getEnvironments` backfill. Read path backfilled, emit path didn't, so
-// `applicableEnvs` was empty and `ruleFootprint` resolved to []. Reproduces
-// the "prod-like diff" workflow: v0 mongo doc → JIT migrate → v1 API.
-
-// Real prod feature: pre-revisions v0, inline `type: "experiment"` rule,
-// no `environmentSettings`, no `environments`.
+// `getEnvironments` backfill. Reproduces v0 mongo doc → JIT migrate → v1 API.
 function failingV0Feature(): LegacyFeatureInterface {
   return {
     id: "feat_test",
@@ -79,7 +74,7 @@ describe("getApiFeatureObj: env-less org backfill", () => {
 // `getApiFeatureObj` (raw spread) and `revisionToApiInterface`
 // (`normalizeRuleForApi`) intentionally diverge on per-rule shape — the
 // former keeps `values`/raw `namespace`, the latter renames to `value` and
-// runs `toApiNamespace`. Pin the feature-env shape against accidental fold.
+// runs `toApiNamespace`.
 describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
   it("preserves experiment rule `values` and `namespace` fields verbatim", () => {
     const organization = {
@@ -91,25 +86,25 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       id: "feat_exp",
       organization: "org_test",
       owner: "tester",
-      dateCreated: new Date("2024-01-01"),
-      dateUpdated: new Date("2024-01-01"),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
       valueType: "string",
-      defaultValue: "50_DISCOUNT",
+      defaultValue: "a",
       version: 1,
       tags: [],
       project: "",
       environmentSettings: { preprod: { enabled: true } },
       rules: [
         {
-          id: "fr_19g61mlb4ulhxp",
+          id: "rule_exp",
           type: "experiment",
           description: "",
-          trackingKey: "show-coupon-booking",
+          trackingKey: "tk",
           hashAttribute: "id",
           values: [
-            { weight: 0.34, value: "50_DISCOUNT" },
-            { weight: 0.33, value: "40_DISCOUNT" },
-            { weight: 0.33, value: "1+1_PACK" },
+            { weight: 0.34, value: "a" },
+            { weight: 0.33, value: "b" },
+            { weight: 0.33, value: "c" },
           ],
           coverage: 1,
           condition: "{}",
@@ -135,9 +130,9 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
     >;
     expect(apiRule.type).toBe("experiment");
     expect(apiRule.values).toEqual([
-      { weight: 0.34, value: "50_DISCOUNT" },
-      { weight: 0.33, value: "40_DISCOUNT" },
-      { weight: 0.33, value: "1+1_PACK" },
+      { weight: 0.34, value: "a" },
+      { weight: 0.33, value: "b" },
+      { weight: 0.33, value: "c" },
     ]);
     expect(apiRule).not.toHaveProperty("value");
     expect(apiRule.namespace).toEqual({
@@ -147,8 +142,8 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
     });
   });
 
-  // Legacy v1 doc → JIT migrate → v1 API. Origin/main spreads `...rule`, so
-  // internal `savedGroups` leaks through alongside derived `savedGroupTargeting`.
+  // Origin/main spreads `...rule`, so internal `savedGroups` leaks through
+  // alongside derived `savedGroupTargeting`. Match that on v1 emit.
   it("preserves `savedGroups` end-to-end through v1 → v2 migration", () => {
     const organization = {
       id: "org_test",
@@ -160,8 +155,8 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       id: "feat_legacy_sg",
       organization: "org_test",
       owner: "tester",
-      dateCreated: new Date("2024-01-01"),
-      dateUpdated: new Date("2024-01-01"),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
       valueType: "string",
       defaultValue: "off",
       version: 1,
@@ -224,8 +219,8 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       id: "feat_empty_arrays",
       organization: "org_test",
       owner: "tester",
-      dateCreated: new Date("2024-01-01"),
-      dateUpdated: new Date("2024-01-01"),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
       valueType: "string",
       defaultValue: "off",
       version: 1,
@@ -300,6 +295,462 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
     expect(expRef?.savedGroups).toEqual([]);
     expect(expRef?.scheduleRules).toEqual([]);
     expect(expRef?.variations).toEqual([]);
+  });
+
+  // Project-scoped feature, identical experiment rule in dev + production.
+  // Exercises raw mongo doc → `new FeatureModel(raw)` → `toInterface(doc, ctx)`.
+  it("preserves [] fields for project-scoped experiment rule via Mongoose", async () => {
+    const { FeatureModel, toInterface } = await import(
+      "back-end/src/models/FeatureModel"
+    );
+    const organization = {
+      id: "org_test",
+      settings: {
+        environments: [{ id: "dev" }, { id: "production" }],
+      },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const rule = {
+      id: "rule_exp_proj",
+      type: "experiment",
+      description: "",
+      enabled: true,
+      condition: "{}",
+      coverage: 1,
+      hashAttribute: "anonId",
+      trackingKey: "tk",
+      value: "true",
+      values: [
+        { value: "false", weight: 0.5 },
+        { value: "true", weight: 0.5 },
+      ],
+      savedGroups: [],
+      savedGroupTargeting: [],
+      scheduleRules: [],
+      variations: [],
+      prerequisites: [],
+    };
+    const raw = {
+      id: "feat_proj_scoped",
+      organization: "org_test",
+      owner: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean",
+      defaultValue: "false",
+      version: 1,
+      tags: [],
+      project: "prj_x",
+      archived: false,
+      description: "",
+      customFields: {},
+      prerequisites: [],
+      revision: {
+        comment: "",
+        createdBy: "",
+        date: "",
+        publishedBy: "",
+        version: 1,
+      },
+      environmentSettings: {
+        dev: { defaultValue: "false", enabled: false, rules: [rule] },
+        production: { defaultValue: "false", enabled: false, rules: [rule] },
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = new FeatureModel(raw as any);
+    const feature = toInterface(doc, ctx);
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    const apiRule = api.environments.dev.rules[0] as unknown as Record<
+      string,
+      unknown
+    >;
+
+    expect(apiRule.savedGroups).toEqual([]);
+    expect(apiRule.scheduleRules).toEqual([]);
+    expect(apiRule.variations).toEqual([]);
+  });
+
+  // Origin/main's typed Mongoose `rules: [...]` schema seeded `[]` defaults
+  // for `savedGroups`/`scheduleRules`/`variations`; our Mixed schema does
+  // not, and we intentionally do NOT backfill those either.
+  it("does NOT backfill [] defaults on v0 rules missing savedGroups/scheduleRules/variations", async () => {
+    const { FeatureModel, toInterface } = await import(
+      "back-end/src/models/FeatureModel"
+    );
+    const organization = {
+      id: "org_v0",
+      settings: { environments: [{ id: "dev" }, { id: "production" }] },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const raw = {
+      id: "feat_v0_minimal",
+      organization: "org_v0",
+      owner: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean",
+      defaultValue: "false",
+      description: "",
+      project: "prj_x",
+      environments: ["dev"],
+      rules: [
+        {
+          id: "rule_minimal",
+          type: "experiment",
+          description: "",
+          trackingKey: "tk",
+          hashAttribute: "anonId",
+          value: "true",
+          enabled: true,
+          condition: "{}",
+          values: [
+            { value: "false", weight: 0.5 },
+            { value: "true", weight: 0.5 },
+          ],
+        },
+      ],
+      environmentSettings: {
+        production: { enabled: false },
+        dev: { enabled: false },
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = new FeatureModel(raw as any);
+    const feature = toInterface(doc, ctx);
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    for (const env of ["dev", "production"] as const) {
+      const apiRule = api.environments[env].rules[0] as unknown as Record<
+        string,
+        unknown
+      >;
+      expect(apiRule).not.toHaveProperty("savedGroups");
+      expect(apiRule).not.toHaveProperty("scheduleRules");
+      expect(apiRule).not.toHaveProperty("variations");
+      // Sanity: the rule itself is still emitted, just without empty defaults.
+      expect(apiRule.id).toBe("rule_minimal");
+      expect(apiRule.type).toBe("experiment");
+    }
+  });
+
+  // Hybrid v0/v1 doc: legacy top-level `rules` alongside `environmentSettings`
+  // whose envs have `rules: []` (key present, empty). Must NOT leak the
+  // legacy top-level rule through the v2 path — origin/main's
+  // `updateEnvironmentSettings` skips re-copying when the key is present.
+  it("ignores legacy top-level rules when env settings have empty rules: [] (hybrid v0/v1)", async () => {
+    const { FeatureModel, toInterface } = await import(
+      "back-end/src/models/FeatureModel"
+    );
+    const organization = {
+      id: "org_test",
+      settings: { environments: [{ id: "dev" }, { id: "production" }] },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const raw = {
+      id: "feat_hybrid",
+      organization: "org_test",
+      owner: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean",
+      defaultValue: "true",
+      project: "",
+      tags: [],
+      // Legacy v0 enabled-list AND a legacy top-level rules array...
+      environments: ["dev", "production"],
+      rules: [
+        {
+          id: "rule_stale_top_level",
+          type: "force",
+          description: "",
+          trackingKey: "tk",
+          hashAttribute: "id",
+          value: "true",
+          enabled: true,
+          condition: "{}",
+        },
+      ],
+      // ...alongside a partially-populated environmentSettings map. The
+      // per-env `rules: []` keys are PRESENT (just empty), so origin/main's
+      // `updateEnvironmentSettings` does not re-copy the top-level rules.
+      environmentSettings: {
+        production: { rules: [], enabled: true },
+        dev: { rules: [], enabled: true },
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = new FeatureModel(raw as any);
+    const feature = toInterface(doc, ctx);
+
+    // Top-level v2 rules array must NOT carry the legacy stale rule.
+    expect(feature.rules).toEqual([]);
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+    expect(api.environments.dev.rules).toEqual([]);
+    expect(api.environments.production.rules).toEqual([]);
+  });
+
+  // Catches anything Mongoose's schema/toJSON pass strips that the bare
+  // `migrateRawFeatureToV2` test does not.
+  it("preserves [] fields end-to-end through Mongoose toInterface (v1 on-disk)", async () => {
+    const { FeatureModel, toInterface } = await import(
+      "back-end/src/models/FeatureModel"
+    );
+    const organization = {
+      id: "org_test",
+      settings: {
+        environments: [{ id: "dev" }, { id: "production" }],
+      },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const rule = {
+      id: "rule_force_empty",
+      type: "force",
+      description: "",
+      enabled: true,
+      condition: "{}",
+      coverage: 1,
+      hashAttribute: "id",
+      trackingKey: "",
+      value: "true",
+      values: [
+        { value: "true", weight: 0.5 },
+        { value: "true", weight: 0.5 },
+      ],
+      savedGroups: [],
+      scheduleRules: [],
+      variations: [],
+      prerequisites: [],
+    };
+    const raw = {
+      id: "feat_via_mongoose",
+      organization: "org_test",
+      owner: "tester",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean",
+      defaultValue: "true",
+      version: 1,
+      tags: [],
+      project: "",
+      environmentSettings: {
+        dev: { enabled: false, rules: [rule] },
+        production: { enabled: false, rules: [rule] },
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = new FeatureModel(raw as any);
+    const feature = toInterface(doc, ctx);
+
+    const v2Rule = feature.rules[0] as unknown as Record<string, unknown>;
+    expect(v2Rule.savedGroups).toEqual([]);
+    expect(v2Rule.scheduleRules).toEqual([]);
+    expect(v2Rule.variations).toEqual([]);
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    const apiRule = api.environments.dev.rules[0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(apiRule.savedGroups).toEqual([]);
+    expect(apiRule.scheduleRules).toEqual([]);
+    expect(apiRule.variations).toEqual([]);
+  });
+
+  // v2 path skips `flattenV1ToV2Rules` entirely; reads must NOT silently
+  // drop legacy `[]` fields baked into the on-disk rule.
+  it("preserves [] fields when on-disk doc is already v2 with allEnvironments", () => {
+    const organization = {
+      id: "org_test",
+      settings: {
+        environments: [{ id: "dev" }, { id: "production" }],
+      },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const v2OnDiskRule = {
+      id: "rule_force_v2",
+      type: "force",
+      description: "",
+      enabled: true,
+      condition: "{}",
+      coverage: 1,
+      hashAttribute: "id",
+      trackingKey: "",
+      value: "true",
+      values: [
+        { value: "true", weight: 0.5 },
+        { value: "true", weight: 0.5 },
+      ],
+      savedGroups: [],
+      scheduleRules: [],
+      variations: [],
+      prerequisites: [],
+      allEnvironments: true,
+    };
+    const legacy = {
+      id: "feat_v2_force",
+      organization: "org_test",
+      owner: "tester",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean",
+      defaultValue: "true",
+      version: 2,
+      tags: [],
+      project: "",
+      environmentSettings: {
+        dev: { enabled: false },
+        production: { enabled: false },
+      },
+      rules: [v2OnDiskRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const feature = migrateRawFeatureToV2(legacy, ctx);
+    const v2Rule = feature.rules[0] as unknown as Record<string, unknown>;
+    expect(v2Rule.savedGroups).toEqual([]);
+    expect(v2Rule.scheduleRules).toEqual([]);
+    expect(v2Rule.variations).toEqual([]);
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    const apiRule = api.environments.dev.rules[0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(apiRule.savedGroups).toEqual([]);
+    expect(apiRule.scheduleRules).toEqual([]);
+    expect(apiRule.variations).toEqual([]);
+    expect(apiRule.values).toEqual([
+      { value: "true", weight: 0.5 },
+      { value: "true", weight: 0.5 },
+    ]);
+  });
+
+  // Identical force rule in dev + production with `[]` legacy fields baked
+  // in; migration merges into a single `allEnvironments: true` rule. Assert
+  // every empty-array field survives the merge → bucket → emit pipeline.
+  it("preserves [] fields through merged-rule v1 → v2 migration", () => {
+    const organization = {
+      id: "org_test",
+      settings: {
+        environments: [{ id: "dev" }, { id: "production" }],
+      },
+    } as unknown as OrganizationInterface;
+    const ctx = { org: organization } as unknown as ReqContext;
+
+    const rule = {
+      id: "rule_force_merged",
+      type: "force",
+      description: "",
+      enabled: true,
+      condition: "{}",
+      coverage: 1,
+      hashAttribute: "id",
+      trackingKey: "",
+      value: "true",
+      values: [
+        { value: "true", weight: 0.5 },
+        { value: "true", weight: 0.5 },
+      ],
+      savedGroups: [],
+      scheduleRules: [],
+      variations: [],
+      prerequisites: [],
+    };
+    const legacy = {
+      id: "feat_merged_force",
+      organization: "org_test",
+      owner: "tester",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      valueType: "boolean",
+      defaultValue: "true",
+      version: 1,
+      tags: [],
+      project: "",
+      environmentSettings: {
+        dev: { enabled: false, rules: [rule] },
+        production: { enabled: false, rules: [rule] },
+      },
+    } as unknown as LegacyFeatureInterface;
+
+    const feature = migrateRawFeatureToV2(legacy, ctx);
+    expect(feature.rules).toHaveLength(1);
+    expect(feature.rules[0].allEnvironments).toBe(true);
+    const v2Rule = feature.rules[0] as unknown as Record<string, unknown>;
+    expect(v2Rule.savedGroups).toEqual([]);
+    expect(v2Rule.scheduleRules).toEqual([]);
+    expect(v2Rule.variations).toEqual([]);
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    const apiRule = api.environments.dev.rules[0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(apiRule.savedGroups).toEqual([]);
+    expect(apiRule.scheduleRules).toEqual([]);
+    expect(apiRule.variations).toEqual([]);
+    expect(apiRule.values).toEqual([
+      { value: "true", weight: 0.5 },
+      { value: "true", weight: 0.5 },
+    ]);
   });
 
   it("preserves both internal `savedGroups` and derived `savedGroupTargeting`", () => {

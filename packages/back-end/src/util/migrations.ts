@@ -321,6 +321,14 @@ function draftHasChanges(
 // Heal a single ancient rule on read. Returns a new rule object (pure), so
 // callers can share references (e.g. the same rule on a feature + revision).
 // Add new rule-level backfills here.
+//
+// Note: origin/main's typed Mongoose `rules: [...]` schema seeded `[]` defaults
+// for `savedGroups`, `values`, `variations`, `scheduleRules` at hydration. We
+// switched to Mixed for v2 compatibility (which silently dropped that side
+// effect) and intentionally do NOT backfill those here — empty-array seeding
+// pollutes the v1 API surface with noise that wasn't an explicit contract.
+// Diffs against origin/main may show those keys as `-` deletes; mask via the
+// `--stripOutputFields` flag in `diff-features.ts` if you need clean diffs.
 export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {

@@ -202,11 +202,42 @@ export function migrateRawFeatureToV2(
 
   const envSettings = postV0Doc.environmentSettings || {};
 
-  if (!hasNoV1EnvRules(envSettings)) {
+  // v2 detection requires (a) all per-env rules empty AND (b) top-level
+  // `rules` looks v2-shaped. Hybrid v0/v1 docs (legacy top-level `rules` left
+  // behind alongside an `environmentSettings` map) would otherwise be misread
+  // as v2 and re-emit the stale legacy rules. Every rule our branch writes
+  // via `flattenV1ToV2Rules` carries either `allEnvironments` or
+  // `environments`, so their presence on any rule is a reliable v2 marker.
+  const topLevelRules = ((postV0Doc as { rules?: unknown[] }).rules ??
+    []) as Array<Record<string, unknown>>;
+  const topLevelRulesAreV2Shaped = topLevelRules.some(
+    (r) =>
+      r &&
+      typeof r === "object" &&
+      ("allEnvironments" in r || "environments" in r),
+  );
+
+  // Mirror origin/main's `updateEnvironmentSettings`: when an env entry has
+  // NO `rules` key (vs an explicit `rules: []`), backfill it from the legacy
+  // top-level rules. This preserves rules on hybrid v0/v1 docs whose env
+  // settings only ever stored toggle state. v2-shaped top-level rules never
+  // backfill — they belong on the unified v2 array.
+  if (!topLevelRulesAreV2Shaped && topLevelRules.length > 0) {
+    for (const envId of Object.keys(envSettings)) {
+      const settings = envSettings[envId];
+      if (settings && !("rules" in settings)) {
+        (settings as { rules?: V1FeatureRule[] }).rules =
+          topLevelRules as unknown as V1FeatureRule[];
+      }
+    }
+  }
+
+  if (!hasNoV1EnvRules(envSettings) || !topLevelRulesAreV2Shaped) {
     // v1 path. Inheritance must run BEFORE flattening so a rule defined only
     // on a parent env reaches inheriting children — otherwise sparse legacy
     // docs silently lose rules in child envs (origin/main applied inheritance
-    // at read time on the per-env shape).
+    // at read time on the per-env shape). Top-level legacy `rules` cruft has
+    // already been folded into per-env settings above where applicable.
     const inheritedSettings = applyEnvironmentInheritance(orgEnvs, envSettings);
     const rulesByEnv: V1RulesByEnv = {};
     for (const [envId, envObj] of Object.entries(inheritedSettings)) {

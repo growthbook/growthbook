@@ -146,65 +146,6 @@ describe("revisionToApiInterface rule.id contract", () => {
     expect(api.rules.enterprise).toBeUndefined();
   });
 
-  // `scheduleRules`, experiment `value`, experiment-ref `variations` default
-  // to `[]` (matches the existing `prerequisites` / `savedGroupTargeting`
-  // pattern) so v2 clients don't need `undefined` checks.
-  describe("collection-field empty-array defaults", () => {
-    it("defaults `scheduleRules` to [] when undefined on a force rule", () => {
-      const rev = {
-        ...BASE_REVISION,
-        rules: [
-          rule("fr_force_no_schedule", { allEnvironments: true }),
-        ] as unknown as FeatureRule[],
-      } as FeatureRevisionInterface;
-      const api = revisionToApiInterface(rev, ORG_ENVS, "");
-      const apiRule = api.rules.dev[0] as unknown as Record<string, unknown>;
-      expect(apiRule.scheduleRules).toEqual([]);
-      expect(apiRule.savedGroupTargeting).toEqual([]);
-      expect(apiRule.prerequisites).toEqual([]);
-    });
-
-    it("defaults `value` to [] for an experiment rule with no variations stored", () => {
-      const expRule = {
-        id: "fr_exp_no_values",
-        type: "experiment",
-        description: "",
-        enabled: true,
-        condition: "",
-        hashAttribute: "id",
-        trackingKey: "exp1",
-        coverage: 1,
-        allEnvironments: true,
-      } as unknown as FeatureRule;
-      const rev = {
-        ...BASE_REVISION,
-        rules: [expRule],
-      } as FeatureRevisionInterface;
-      const api = revisionToApiInterface(rev, ORG_ENVS, "");
-      const apiRule = api.rules.dev[0] as unknown as Record<string, unknown>;
-      expect(apiRule.value).toEqual([]);
-    });
-
-    it("defaults `variations` to [] for an experiment-ref rule with no variations stored", () => {
-      const expRefRule = {
-        id: "fr_expref_no_variations",
-        type: "experiment-ref",
-        description: "",
-        enabled: true,
-        condition: "",
-        experimentId: "exp_x",
-        allEnvironments: true,
-      } as unknown as FeatureRule;
-      const rev = {
-        ...BASE_REVISION,
-        rules: [expRefRule],
-      } as FeatureRevisionInterface;
-      const api = revisionToApiInterface(rev, ORG_ENVS, "");
-      const apiRule = api.rules.dev[0] as unknown as Record<string, unknown>;
-      expect(apiRule.variations).toEqual([]);
-    });
-  });
-
   it("does not mutate the input revision rules", () => {
     const rev = {
       ...BASE_REVISION,

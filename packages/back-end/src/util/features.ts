@@ -704,9 +704,11 @@ export function getFeatureDefinition({
           }
           rule.hashVersion = exp.hashVersion;
 
-          // Stopped experiment
+          // Stopped experiment. Origin/main's Mongoose `[]` seed silently
+          // dropped malformed legacy rules lacking `variations`; we no longer
+          // seed defaults, so guard against missing arrays here and below.
           if (exp.status === "stopped") {
-            const variation = r.variations.find(
+            const variation = r.variations?.find(
               (v) => v.variationId === exp.releasedVariationId,
             );
             if (!variation) return null;
@@ -717,7 +719,7 @@ export function getFeatureDefinition({
           // Running experiment
           else {
             rule.variations = getLatestPhaseVariations(exp).map((v) => {
-              const variation = r.variations.find(
+              const variation = r.variations?.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
               );
               return variation
