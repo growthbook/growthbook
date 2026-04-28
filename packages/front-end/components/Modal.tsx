@@ -21,6 +21,9 @@ import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 import styles from "./Modal.module.scss";
 
+// Stack of open modals so Escape only closes the topmost one.
+const openModalStack: Array<() => void> = [];
+
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
   subHeader?: string | ReactNode;
@@ -156,6 +159,23 @@ const Modal: FC<ModalProps> = ({
   }, [externalLoading]);
 
   useEffect(() => {
+    if (inline || !open || !close) return;
+    openModalStack.push(close);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (openModalStack[openModalStack.length - 1] !== close) return;
+      e.stopPropagation();
+      close();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      const idx = openModalStack.lastIndexOf(close);
+      if (idx >= 0) openModalStack.splice(idx, 1);
+    };
+  }, [open, close, inline]);
+
+  useEffect(() => {
     setTimeout(() => {
       if (!autoFocusSelector) return;
       if (open && bodyRef.current) {
@@ -194,7 +214,7 @@ const Modal: FC<ModalProps> = ({
           })}
         >
           <div>
-            <h4 className="modal-title">
+            <h4 className="modal-title" id={`modal-title-${modalUuid}`}>
               {header === "logo" ? (
                 <img
                   alt="GrowthBook"
@@ -426,6 +446,9 @@ const Modal: FC<ModalProps> = ({
     >
       <div
         className={`modal-dialog modal-${size}`}
+        role="dialog"
+        aria-modal={!inline}
+        aria-labelledby={header ? `modal-title-${modalUuid}` : undefined}
         style={
           size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
