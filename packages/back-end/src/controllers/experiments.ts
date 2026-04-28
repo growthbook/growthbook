@@ -2142,12 +2142,12 @@ type PostExperimentStopBody = {
   results: ExperimentResultsType;
   winnerVariationId?: string;
   enableTemporaryRollout?: boolean;
-  // Legacy/internal fields accepted by the existing stop form.
-  releasedVariationId?: string;
-  excludeFromPayload?: boolean;
   reason?: string;
   analysis?: string;
   dateEnded?: string;
+  // Legacy/internal fields accepted by the existing stop form.
+  releasedVariationId?: string;
+  excludeFromPayload?: boolean;
 };
 
 export async function postExperimentStop(
@@ -2172,7 +2172,7 @@ export async function postExperimentStop(
             : undefined),
         reason: req.body.reason,
         analysis: req.body.analysis,
-        dateEnded: req.body.dateEnded,
+        dateEnded: req.body.dateEnded ? `${req.body.dateEnded}:00Z` : undefined,
       },
       allowAlreadyStopped: true,
     });

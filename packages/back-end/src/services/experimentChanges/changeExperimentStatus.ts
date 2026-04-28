@@ -349,12 +349,12 @@ export async function stopExperiment({
   let winner = winnerIndexFromId;
   if (winner < 0) {
     if (input.results === "won") {
-      if (variations.length > 1) {
+      if (variations.length === 2) {
         // Default to the single test variation (index 1) when no winner is provided.
         winner = 1;
       } else {
         throw new Error(
-          "invalid_winner_variation_id: winnerVariationId is required when results is won and there are multiple test variations in the experiment history",
+          "invalid_winner_variation_id: winnerVariationId is required when results is won unless the experiment has exactly 2 variations",
         );
       }
     } else {

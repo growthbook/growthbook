@@ -1,19 +1,12 @@
 import {
-  PRESET_DECISION_CRITERIA,
-  getPresetDecisionCriteriaForOrg,
-  getHealthSettings,
-  getStatusIndicatorData,
-} from "shared/enterprise";
-import {
   ExperimentInterfaceExcludingHoldouts,
   postExperimentModifyTemporaryRolloutValidator,
 } from "shared/validators";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { modifyTemporaryRollout } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { ReqContext } from "back-end/types/request";
+import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 
 export const postExperimentModifyTemporaryRollout = createApiRequestHandler(
   postExperimentModifyTemporaryRolloutValidator,
@@ -36,37 +29,11 @@ export const postExperimentModifyTemporaryRollout = createApiRequestHandler(
     details: auditDetailsUpdate(experiment, updated),
   });
 
-  const settings = req.context.org.settings;
-  const healthSettings = getHealthSettings(
-    settings,
-    orgHasPremiumFeature(req.context.org, "decision-framework"),
-  );
-  let decisionCriteria = getPresetDecisionCriteriaForOrg(settings);
-  if (settings?.defaultDecisionCriteriaId) {
-    try {
-      decisionCriteria ||=
-        (await req.context.models.decisionCriteria.getById(
-          settings.defaultDecisionCriteriaId,
-        )) ?? PRESET_DECISION_CRITERIA;
-    } catch {
-      // Empty catch - we fall back to the default below if the query failed.
-    }
-  }
-  decisionCriteria ||= PRESET_DECISION_CRITERIA;
-
-  const { status, detailedStatus } = getStatusIndicatorData(
-    updated,
-    false,
-    healthSettings,
-    decisionCriteria,
-  );
-  const enhancedStatus = { status, detailedStatus };
-
-  const apiExperiment = await toExperimentApiInterface(
+  const apiExperiment = await toEnhancedExperimentApiResponse(
     req.context,
     updated as ExperimentInterfaceExcludingHoldouts,
   );
   return {
-    experiment: { ...apiExperiment, enhancedStatus },
+    experiment: apiExperiment,
   };
 });
