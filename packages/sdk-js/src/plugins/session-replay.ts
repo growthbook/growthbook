@@ -1,7 +1,6 @@
 import { record } from "rrweb";
 import type { eventWithTime } from "@rrweb/types";
 import { GrowthBook } from "../GrowthBook";
-import { GrowthBookClient, UserScopedGrowthBook } from "../GrowthBookClient";
 
 type PluginOptions = {
   trackingHost?: string;
@@ -20,10 +19,7 @@ export function sessionReplayPlugin({ trackingHost = "" }: PluginOptions = {}) {
     throw new Error("rrwebPlugin only works in the browser");
   }
 
-  return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
-    if (!(gb instanceof GrowthBook)) {
-      throw new Error("Must use a GrowthBook SDK instance");
-    }
+  return (gb: GrowthBook) => {
     if (!gb.logEvent) {
       throw new Error("GrowthBook instance must have a logEvent method");
     }
@@ -32,12 +28,12 @@ export function sessionReplayPlugin({ trackingHost = "" }: PluginOptions = {}) {
 
     // todo: get proper track URLs
     const host = trackingHost || gb.getApiInfo()[0];
-    const metadataUrl = `${host}/`;
+    const _metadataUrl = `${host}/`;
     console.log("session replay cb start", trackingHost);
 
     window._gbReplayEvents = window._gbReplayEvents || [];
     window._gbGetReplayEvents = () => {
-      let customEvents: eventWithTime[] = [];
+      const customEvents: eventWithTime[] = [];
       gb.logs?.forEach?.((log) => {
         if (log.logType === "feature") {
           customEvents.push({
@@ -48,9 +44,9 @@ export function sessionReplayPlugin({ trackingHost = "" }: PluginOptions = {}) {
               payload: {
                 id: log.featureKey,
                 value: log.result.value,
-              }
+              },
             },
-          })
+          });
         } else if (log.logType === "experiment") {
           customEvents.push({
             type: 5,
@@ -60,9 +56,9 @@ export function sessionReplayPlugin({ trackingHost = "" }: PluginOptions = {}) {
               payload: {
                 id: log.experiment.key,
                 variation: log.result.variationId,
-              }
+              },
             },
-          })
+          });
         }
       });
 
@@ -93,11 +89,14 @@ export function sessionReplayPlugin({ trackingHost = "" }: PluginOptions = {}) {
       if (window._gbReplayEvents?.length === 0) return;
 
       const evaluatedExperiments = Array.from(
-        gb.getAllResults().entries()
-      ).reduce((acc, [key, { result }]) => {
-        acc[key] = result.value.variationId;
-        return acc;
-      }, {} as Record<string, number>);
+        gb.getAllResults().entries(),
+      ).reduce(
+        (acc, [key, { result }]) => {
+          acc[key] = result.value.variationId;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
 
       const context = {
         attributes: gb.getAttributes(),
