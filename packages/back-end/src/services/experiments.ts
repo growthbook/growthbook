@@ -2356,7 +2356,7 @@ export async function toExperimentApiInterface(
 // that break many real-world JSON parsers.
 function safeFloat(n: number | undefined, fallback = 0): number {
   if (n == null || !isFinite(n)) return fallback;
-  return parseFloat(n.toFixed(10));
+  return parseFloat(n.toFixed(20));
 }
 
 export function toSnapshotApiInterface(
