@@ -165,12 +165,14 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       if (existingByTrackingKey) {
         if (requireUniqueTrackingKeys) {
           throw new Error(
-            `An experiment with tracking key "${payload.trackingKey}" already exists. Your organization requires unique experiment tracking keys.`,
+            `Experiment with tracking key already exists: ${payload.trackingKey}. Your organization requires unique experiment tracking keys and bypassDuplicateKeyCheck is ignored.`,
           );
         }
-        throw new Error(
-          `Experiment with tracking key already exists: ${payload.trackingKey}`,
-        );
+        if (!payload.bypassDuplicateKeyCheck) {
+          throw new Error(
+            `Experiment with tracking key already exists: ${payload.trackingKey}.`,
+          );
+        }
       }
     }
 

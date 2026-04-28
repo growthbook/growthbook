@@ -1228,7 +1228,7 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      expect(getExperimentByTrackingKey).toHaveBeenCalled();
+      expect(getExperimentByTrackingKey).toHaveBeenCalledTimes(0);
     });
 
     it("rejects duplicate trackingKey on update when requireUniqueExperimentTrackingKeys is enabled, even with bypassDuplicateKeyCheck", async () => {

@@ -1215,7 +1215,11 @@ export async function postExperiments(
     validateVariationIds(obj.variations);
 
     // Make sure tracking key is unique
-    if (obj.trackingKey) {
+    if (
+      obj.trackingKey &&
+      (org.settings?.requireUniqueExperimentTrackingKeys ||
+        req.query.allowDuplicateTrackingKey)
+    ) {
       const existing = await getExperimentByTrackingKey(
         context,
         obj.trackingKey,
