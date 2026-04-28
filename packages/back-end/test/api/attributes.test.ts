@@ -177,6 +177,9 @@ describe("attributes API", () => {
         projects: {
           getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
         },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
       },
       org: {
         id: "org1",
@@ -328,6 +331,9 @@ describe("attributes API", () => {
         projects: {
           getAll: () => [{ id: "bla" }],
         },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
       },
       org: {
         id: "org1",
@@ -347,6 +353,52 @@ describe("attributes API", () => {
       },
       permissions: {
         canUpdateAttribute: () => false,
+        throwPermissionError: () => {
+          throw new Error("permission error");
+        },
+      },
+    });
+
+    const response = await request(app)
+      .put("/api/v1/attributes/attr1")
+      .send({
+        description: "bla",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message: "permission error",
+    });
+    expect(updateOrganization).not.toHaveBeenCalledWith();
+    expect(auditMock).not.toHaveBeenCalledWith();
+  });
+
+  it("refuses to update attributes when a ready event forwarder exists", async () => {
+    setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "bla" }],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [{ status: "ready" }],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [
+            {
+              property: "attr1",
+              datatype: "string[]",
+              projects: ["bla"],
+            },
+          ],
+        },
+      },
+      permissions: {
+        canUpdateAttribute: (_existing, _updates, hasReadyEventForwarder) =>
+          !hasReadyEventForwarder,
         throwPermissionError: () => {
           throw new Error("permission error");
         },

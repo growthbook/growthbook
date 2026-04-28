@@ -76,6 +76,13 @@ export async function getEventForwarderConfigForDatasource(
   return configs.find((config) => config.datasourceId === datasourceId) ?? null;
 }
 
+export async function hasReadyEventForwarderConfig(
+  context: ReqContext,
+): Promise<boolean> {
+  const configs = await context.models.eventForwarderConfigs.getAll();
+  return configs.some((config) => config.status === "ready");
+}
+
 /**
  * Builds the same JSON shape as a GCP-downloaded service account key (see
  * `keyfile` in Confluent’s BigQuery Storage Sink docs). This is not Confluent’s

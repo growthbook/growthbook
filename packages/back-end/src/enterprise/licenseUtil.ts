@@ -1076,6 +1076,21 @@ export async function postTeardownEventForwarderToLicenseServer(params: {
   });
 }
 
+export async function postPauseEventForwarderToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  connectorName: string;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/pause`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
 export type EventForwarderSchemaUpdateParams = {
   organizationId: string;
   datasourceId: string;

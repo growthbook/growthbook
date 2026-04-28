@@ -9,6 +9,7 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { updateEventForwarderSchemaThroughLicenseServer } from "back-end/src/services/eventForwarderProvisioning";
+import { hasReadyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -128,7 +129,14 @@ export const putAttribute = async (
   }
 
   const existing = attributeSchema[index];
-  if (!context.permissions.canUpdateAttribute(existing, { projects })) {
+  const hasReadyEventForwarder = await hasReadyEventForwarderConfig(context);
+  if (
+    !context.permissions.canUpdateAttribute(
+      existing,
+      { projects },
+      hasReadyEventForwarder,
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
