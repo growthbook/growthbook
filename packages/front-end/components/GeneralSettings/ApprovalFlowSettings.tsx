@@ -299,13 +299,13 @@ export default function ApprovalFlowSettings() {
               id="toggle-require-approvals-saved-groups"
               label="Require approval to modify Saved Groups"
               description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
-              value={!!form.watch("approvalFlows.savedGroups.required")}
+              value={!!form.watch("approvalFlows.savedGroups.0.required")}
               setValue={(v) =>
-                form.setValue("approvalFlows.savedGroups.required", v)
+                form.setValue("approvalFlows.savedGroups.0.required", v)
               }
               disabled={!hasRequireApprovals}
             />
-            {!!form.watch("approvalFlows.savedGroups.required") && (
+            {!!form.watch("approvalFlows.savedGroups.0.required") && (
               <Flex direction="column" gap="3" mt="2" ml="5">
                 <Box mt="2">
                   <Text as="label" size="medium" weight="semibold" mb="2">
@@ -324,12 +324,12 @@ export default function ApprovalFlowSettings() {
                       label="Metadata changes (description, owner, project, tags, etc.)"
                       value={
                         form.watch(
-                          `approvalFlows.savedGroups.requireMetadataReview`,
+                          `approvalFlows.savedGroups.0.requireMetadataReview`,
                         ) !== false
                       }
                       setValue={(v) =>
                         form.setValue(
-                          `approvalFlows.savedGroups.requireMetadataReview`,
+                          `approvalFlows.savedGroups.0.requireMetadataReview`,
                           v,
                         )
                       }
@@ -342,12 +342,12 @@ export default function ApprovalFlowSettings() {
                   description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
                   value={
                     !!form.watch(
-                      `approvalFlows.savedGroups.resetReviewOnChange`,
+                      `approvalFlows.savedGroups.0.resetReviewOnChange`,
                     )
                   }
                   setValue={(v) =>
                     form.setValue(
-                      `approvalFlows.savedGroups.resetReviewOnChange`,
+                      `approvalFlows.savedGroups.0.resetReviewOnChange`,
                       v,
                     )
                   }
@@ -357,11 +357,13 @@ export default function ApprovalFlowSettings() {
                   label="Require approval from a non-editor"
                   description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
                   value={
-                    !!form.watch(`approvalFlows.savedGroups.blockSelfApproval`)
+                    !!form.watch(
+                      `approvalFlows.savedGroups.0.blockSelfApproval`,
+                    )
                   }
                   setValue={(v) =>
                     form.setValue(
-                      `approvalFlows.savedGroups.blockSelfApproval`,
+                      `approvalFlows.savedGroups.0.blockSelfApproval`,
                       v,
                     )
                   }

@@ -29,8 +29,8 @@ export const getApprovalFlowSettings = (
   if (!approvalFlows) return undefined;
   switch (entityType) {
     case "saved-group":
-      return approvalFlows.savedGroups;
-    // case "feature": return approvalFlows.features;  ← add future entity types here
+      return approvalFlows.savedGroups?.[0];
+    // case "feature": return approvalFlows.features?.[0];  ← add future entity types here
     default:
       return undefined;
   }

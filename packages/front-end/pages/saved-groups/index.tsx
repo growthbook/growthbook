@@ -65,7 +65,7 @@ export default function SavedGroupsPage() {
 
   const settings = useOrgSettings();
   const approvalFlowRequired =
-    settings.approvalFlows?.savedGroups?.required ?? false;
+    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
 
   const { data: beaconData } = useApi<{
     openRevisionTargetIds: string[];

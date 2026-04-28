@@ -61,7 +61,9 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   },
 
   isRevisionRequired(context: Context): boolean {
-    return context.org.settings?.approvalFlows?.savedGroups?.required || false;
+    return (
+      context.org.settings?.approvalFlows?.savedGroups?.[0]?.required || false
+    );
   },
 
   getUpdatableFields(): ReadonlySet<string> {
@@ -89,7 +91,9 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   },
 
   isApprovalRequired(context: Context): boolean {
-    return context.org.settings?.approvalFlows?.savedGroups?.required || false;
+    return (
+      context.org.settings?.approvalFlows?.savedGroups?.[0]?.required || false
+    );
   },
 
   canBypassApproval(context: Context, snapshot: SavedGroupInterface): boolean {

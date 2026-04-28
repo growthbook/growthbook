@@ -43,7 +43,7 @@ export default function IdLists({
     useState<SavedGroupWithoutValues | null>(null);
   const settings = useOrgSettings();
   const approvalFlowRequired =
-    settings.approvalFlows?.savedGroups?.required ?? false;
+    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
   const { project, projects } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 

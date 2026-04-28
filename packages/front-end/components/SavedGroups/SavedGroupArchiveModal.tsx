@@ -52,7 +52,7 @@ export default function SavedGroupArchiveModal({
       : permissionsUtil.canBypassApprovalChecks({ project: "" });
 
   const approvalRequired =
-    settings.approvalFlows?.savedGroups?.required ?? false;
+    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
 
   // Archive/unarchive always requires review when approval flows are enabled
   const archiveGated = approvalRequired;

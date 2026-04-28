@@ -86,14 +86,15 @@ const SavedGroupForm: FC<{
   // Compute approvalFlowRequired from settings if not provided as prop
   const isApprovalFlowRequired =
     approvalFlowRequired ??
-    settings.approvalFlows?.savedGroups?.required ??
+    settings.approvalFlows?.savedGroups?.[0]?.required ??
     false;
 
   // Compute metadataReviewRequired from settings if not provided as prop
   const isMetadataReviewRequired =
     metadataReviewRequired ??
     (isApprovalFlowRequired &&
-      (settings.approvalFlows?.savedGroups?.requireMetadataReview ?? true));
+      (settings.approvalFlows?.savedGroups?.[0]?.requireMetadataReview ??
+        true));
 
   const canAdminPublish =
     !!isApprovalFlowRequired &&

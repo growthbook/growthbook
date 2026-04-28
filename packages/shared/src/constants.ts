@@ -99,10 +99,12 @@ export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
 export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
 
 export const DEFAULT_REVISION_CONFIGURATION: ApprovalFlowConfigurations = {
-  savedGroups: {
-    required: false,
-    requireMetadataReview: true,
-  },
+  savedGroups: [
+    {
+      required: false,
+      requireMetadataReview: true,
+    },
+  ],
 };
 
 // Default configuration for Safe Rollout

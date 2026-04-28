@@ -546,6 +546,16 @@ export function upgradeOrganizationDoc(
     org.settings.approvalFlows = DEFAULT_REVISION_CONFIGURATION;
   }
 
+  // Normalize legacy single-object savedGroups to array format
+  if (
+    org.settings?.approvalFlows?.savedGroups &&
+    !Array.isArray(org.settings.approvalFlows.savedGroups)
+  ) {
+    org.settings.approvalFlows.savedGroups = [
+      org.settings.approvalFlows.savedGroups,
+    ];
+  }
+
   return org;
 }
 

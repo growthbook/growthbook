@@ -37,8 +37,8 @@ function makeContext(overrides: {
     org: {
       settings: {
         approvalFlows: overrides.approvalRequired
-          ? { savedGroups: { required: true } }
-          : { savedGroups: { required: false } },
+          ? { savedGroups: [{ required: true }] }
+          : { savedGroups: [{ required: false }] },
       },
     },
     permissions,

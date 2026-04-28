@@ -212,9 +212,8 @@ export type ApprovalFlowConfiguration = {
   resetReviewOnChange?: boolean;
 };
 
-// TODO: Migrate Feature Approval Flows settings here too
 export type ApprovalFlowConfigurations = {
-  savedGroups: ApprovalFlowConfiguration;
+  savedGroups: ApprovalFlowConfiguration[];
 };
 
 export interface OrganizationSettings {

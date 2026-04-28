@@ -165,12 +165,12 @@ export default function EditSavedGroupPage() {
   const { projects } = useDefinitions();
 
   const approvalRequired =
-    settings.approvalFlows?.savedGroups?.required ?? false;
+    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
 
   // Check if metadata review is required
   const metadataReviewRequired =
     approvalRequired &&
-    (settings.approvalFlows?.savedGroups?.requireMetadataReview ?? true);
+    (settings.approvalFlows?.savedGroups?.[0]?.requireMetadataReview ?? true);
 
   const revisionState = useSavedGroupRevision(
     savedGroup?.id,

@@ -57,7 +57,7 @@ describe("revisions helpers", () => {
           entityType: "saved-group",
           revision: baseRevision,
           entity: {},
-          approvalFlowSettings: { savedGroups: { required: true } },
+          approvalFlowSettings: { savedGroups: [{ required: true }] },
           userId: "user-reviewer",
           canEditEntity: true,
         }),
@@ -70,7 +70,7 @@ describe("revisions helpers", () => {
           entityType: "saved-group",
           revision: baseRevision,
           entity: {},
-          approvalFlowSettings: { savedGroups: { required: true } },
+          approvalFlowSettings: { savedGroups: [{ required: true }] },
           userId: "user-author",
           canEditEntity: true,
         }),
@@ -83,7 +83,7 @@ describe("revisions helpers", () => {
           entityType: "saved-group",
           revision: baseRevision,
           entity: {},
-          approvalFlowSettings: { savedGroups: { required: true } },
+          approvalFlowSettings: { savedGroups: [{ required: true }] },
           userId: "user-reviewer",
           canEditEntity: false,
         }),
@@ -100,7 +100,7 @@ describe("revisions helpers", () => {
           entityType: "saved-group",
           revision: mergedFlow,
           entity: {},
-          approvalFlowSettings: { savedGroups: { required: true } },
+          approvalFlowSettings: { savedGroups: [{ required: true }] },
           userId: "user-reviewer",
           canEditEntity: true,
         }),
@@ -117,7 +117,7 @@ describe("revisions helpers", () => {
           entityType: "saved-group",
           revision: discardedFlow,
           entity: {},
-          approvalFlowSettings: { savedGroups: { required: true } },
+          approvalFlowSettings: { savedGroups: [{ required: true }] },
           userId: "user-reviewer",
           canEditEntity: true,
         }),
@@ -563,22 +563,24 @@ describe("revisions helpers", () => {
       expect(getApprovalFlowSettings(undefined, "saved-group")).toBeUndefined();
     });
 
-    it("returns the savedGroups config for saved-group entityType", () => {
+    it("returns the first savedGroups config for saved-group entityType", () => {
       const cfg = {
-        savedGroups: {
-          required: true,
-          requireMetadataReview: false,
-          blockSelfApproval: true,
-        },
+        savedGroups: [
+          {
+            required: true,
+            requireMetadataReview: false,
+            blockSelfApproval: true,
+          },
+        ],
       } as ApprovalFlowConfigurations;
       expect(getApprovalFlowSettings(cfg, "saved-group")).toEqual(
-        cfg.savedGroups,
+        cfg.savedGroups[0],
       );
     });
 
     it("returns undefined for unknown entityType", () => {
       const cfg = {
-        savedGroups: { required: true, requireMetadataReview: false },
+        savedGroups: [{ required: true, requireMetadataReview: false }],
       } as ApprovalFlowConfigurations;
       expect(
         getApprovalFlowSettings(cfg, "unknown" as RevisionTargetType),
@@ -596,7 +598,7 @@ describe("revisions helpers", () => {
       expect(
         isUserBlockedFromApproving({
           approvalFlows: {
-            savedGroups: { required: true, requireMetadataReview: false },
+            savedGroups: [{ required: true, requireMetadataReview: false }],
           } as ApprovalFlowConfigurations,
           entityType: "saved-group",
           revision: baseRevision,
@@ -609,11 +611,13 @@ describe("revisions helpers", () => {
       expect(
         isUserBlockedFromApproving({
           approvalFlows: {
-            savedGroups: {
-              required: true,
-              requireMetadataReview: false,
-              blockSelfApproval: true,
-            },
+            savedGroups: [
+              {
+                required: true,
+                requireMetadataReview: false,
+                blockSelfApproval: true,
+              },
+            ],
           } as ApprovalFlowConfigurations,
           entityType: "saved-group",
           revision: baseRevision,
@@ -626,11 +630,13 @@ describe("revisions helpers", () => {
       expect(
         isUserBlockedFromApproving({
           approvalFlows: {
-            savedGroups: {
-              required: true,
-              requireMetadataReview: false,
-              blockSelfApproval: true,
-            },
+            savedGroups: [
+              {
+                required: true,
+                requireMetadataReview: false,
+                blockSelfApproval: true,
+              },
+            ],
           } as ApprovalFlowConfigurations,
           entityType: "saved-group",
           revision: baseRevision,
@@ -643,11 +649,13 @@ describe("revisions helpers", () => {
       expect(
         isUserBlockedFromApproving({
           approvalFlows: {
-            savedGroups: {
-              required: true,
-              requireMetadataReview: false,
-              blockSelfApproval: true,
-            },
+            savedGroups: [
+              {
+                required: true,
+                requireMetadataReview: false,
+                blockSelfApproval: true,
+              },
+            ],
           } as ApprovalFlowConfigurations,
           entityType: "saved-group",
           revision: baseRevision,
@@ -665,11 +673,13 @@ describe("revisions helpers", () => {
       expect(
         isUserBlockedFromApproving({
           approvalFlows: {
-            savedGroups: {
-              required: true,
-              requireMetadataReview: false,
-              blockSelfApproval: true,
-            },
+            savedGroups: [
+              {
+                required: true,
+                requireMetadataReview: false,
+                blockSelfApproval: true,
+              },
+            ],
           } as ApprovalFlowConfigurations,
           entityType: "saved-group",
           revision: legacy,
@@ -680,11 +690,13 @@ describe("revisions helpers", () => {
       expect(
         isUserBlockedFromApproving({
           approvalFlows: {
-            savedGroups: {
-              required: true,
-              requireMetadataReview: false,
-              blockSelfApproval: true,
-            },
+            savedGroups: [
+              {
+                required: true,
+                requireMetadataReview: false,
+                blockSelfApproval: true,
+              },
+            ],
           } as ApprovalFlowConfigurations,
           entityType: "saved-group",
           revision: legacy,
