@@ -6,33 +6,31 @@ import {
 } from "shared/enterprise";
 import {
   ExperimentInterfaceExcludingHoldouts,
-  postExperimentStopValidator,
+  postExperimentModifyTemporaryRolloutValidator,
 } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { stopExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import {
+  modifyTemporaryRollout,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { ReqContext } from "back-end/types/request";
 
-export const postExperimentStop = createApiRequestHandler(
-  postExperimentStopValidator,
+export const postExperimentModifyTemporaryRollout = createApiRequestHandler(
+  postExperimentModifyTemporaryRolloutValidator,
 )(async (req) => {
-  const { experiment, updated, isEnding } = await stopExperiment({
+  const { experiment, updated } = await modifyTemporaryRollout({
     context: req.context as ReqContext,
     input: {
       experimentId: req.params.id,
-      results: req.body.results,
-      winnerVariationId: req.body.winnerVariationId,
       enableTemporaryRollout: req.body.enableTemporaryRollout,
-      reason: req.body.reason,
-      analysis: req.body.analysis,
-      dateEnded: req.body.dateEnded,
+      winnerVariationId: req.body.winnerVariationId,
     },
   });
 
   await req.audit({
-    event: isEnding ? "experiment.stop" : "experiment.results",
+    event: "experiment.update",
     entity: {
       object: "experiment",
       id: experiment.id,
@@ -74,3 +72,4 @@ export const postExperimentStop = createApiRequestHandler(
     experiment: { ...apiExperiment, enhancedStatus },
   };
 });
+

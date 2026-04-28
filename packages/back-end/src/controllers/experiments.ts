@@ -2142,13 +2142,12 @@ type PostExperimentStopBody = {
   results: ExperimentResultsType;
   winnerVariationId?: string;
   enableTemporaryRollout?: boolean;
+  // Legacy/internal fields accepted by the existing stop form.
   releasedVariationId?: string;
+  excludeFromPayload?: boolean;
   reason?: string;
   analysis?: string;
   dateEnded?: string;
-  // Legacy fields used by the current internal stop form. We map these into shared stop input.
-  winner?: number;
-  excludeFromPayload?: boolean;
 };
 
 export async function postExperimentStop(
@@ -2163,15 +2162,18 @@ export async function postExperimentStop(
       input: {
         experimentId: id,
         results: req.body.results,
-        winnerVariationId: req.body.winnerVariationId,
-        enableTemporaryRollout: req.body.enableTemporaryRollout,
-        releasedVariationId: req.body.releasedVariationId,
+        winnerVariationId:
+          req.body.winnerVariationId || req.body.releasedVariationId,
+        enableTemporaryRollout:
+          req.body.enableTemporaryRollout ??
+          (req.body.excludeFromPayload !== undefined
+            ? !req.body.excludeFromPayload
+            : undefined),
         reason: req.body.reason,
         analysis: req.body.analysis,
         dateEnded: req.body.dateEnded,
-        winner: req.body.winner,
-        excludeFromPayload: req.body.excludeFromPayload,
       },
+      allowAlreadyStopped: true,
     });
 
     await req.audit({

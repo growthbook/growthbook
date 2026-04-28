@@ -5944,8 +5944,8 @@ paths:
               properties:
                 skipChecklist:
                   description: >-
-                    If true, allows starting even when required pre-launch
-                    checklist items are incomplete.
+                    If true, skips validating the experiment satisifies all
+                    pre-launch checklist items
                   type: boolean
               additionalProperties: false
       responses:
@@ -5965,13 +5965,11 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/experiments/exp_abc123/start' \
-              -H 'Authorization: Bearer YOUR_API_KEY' \
-              -H 'Content-Type: application/json' \
-              -d '{"skipChecklist":false}'
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiments/{id}/stop:
     post:
       operationId: postExperimentStop
-      summary: Stop an experiment and record the decision
+      summary: Stop an experiment
       tags:
         - experiments
       parameters:
@@ -5994,26 +5992,27 @@ paths:
                 winnerVariationId:
                   description: >-
                     Variation ID (e.g. var_abc123) of the winning variation.
-                    Required when results is won.
-                  type: string
-                releasedVariationId:
-                  description: >-
-                    Variation ID to release during temporary rollout. Defaults
-                    to winnerVariationId when temporary rollout is enabled.
+                    Defaults to the baseline variation if status is not 'won'.
+                    Required otherwise.
                   type: string
                 enableTemporaryRollout:
                   description: >-
                     If true, include this stopped experiment in SDK payload and
-                    force a released variation.
+                    force the winning variation (`winnerVariationId`) to all
+                    traffic.
                   type: boolean
                 reason:
                   description: Optional reason stored on the latest phase metadata.
                   type: string
                 analysis:
-                  description: Optional markdown summary.
+                  description: >-
+                    Optional markdown summary displayed on the experiment
+                    results page.
                   type: string
                 dateEnded:
-                  description: Optional ISO datetime for ending the latest phase.
+                  description: >-
+                    Optional ISO datetime for ending the latest phase. Defaults
+                    to the current date and time.
                   type: string
               required:
                 - results
@@ -6037,7 +6036,57 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/exp_abc123/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"results":"won","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"reason":"Reached significance and shipping treatment"}'
+              -d '{"results":"won","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"analysis":"Reached desired sample size with statistically significant positive lift; shipping treatment"}'
+  /experiments/{id}/modify-temporary-rollout:
+    post:
+      operationId: postExperimentModifyTemporaryRollout
+      summary: Modify temporary rollout status for a stopped experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enableTemporaryRollout:
+                  description: >-
+                    If true, keep the stopped experiment in SDK payload and
+                    force traffic to the winner variation. If false, end
+                    temporary rollout and remove from SDK payload.
+                  type: boolean
+                winnerVariationId:
+                  description: >-
+                    Optional variation ID (e.g. var_abc123) to use when enabling
+                    temporary rollout.
+                  type: string
+              required:
+                - enableTemporaryRollout
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/modify-temporary-rollout'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"enableTemporaryRollout":false}'
   /experiments/{id}/snapshot:
     post:
       operationId: postExperimentSnapshot

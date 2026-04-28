@@ -8,6 +8,7 @@ import { updateExperiment } from "./updateExperiment";
 import { postExperiment } from "./postExperiment";
 import { postExperimentStart } from "./postExperimentStart";
 import { postExperimentStop } from "./postExperimentStop";
+import { postExperimentModifyTemporaryRollout } from "./postExperimentModifyTemporaryRollout";
 import { postExperimentSnapshot } from "./postExperimentSnapshot";
 import { postVariationImageUpload } from "./postVariationImageUpload";
 import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
@@ -22,6 +23,7 @@ export const experimentsRoutes: OpenApiRoute[] = [
   updateExperiment,
   postExperimentStart,
   postExperimentStop,
+  postExperimentModifyTemporaryRollout,
   postExperimentSnapshot,
   postVariationImageUpload,
   deleteVariationScreenshot,

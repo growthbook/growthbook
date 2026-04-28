@@ -6,7 +6,10 @@ import {
   Changeset,
   ExperimentResultsType,
 } from "shared/types/experiment";
-import { getAffectedEnvsForExperiment, experimentHasLiveLinkedChanges } from "shared/util";
+import {
+  getAffectedEnvsForExperiment,
+  experimentHasLiveLinkedChanges,
+} from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getExperimentLaunchChecklist } from "back-end/src/models/ExperimentLaunchChecklistModel";
 import {
@@ -16,7 +19,10 @@ import {
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
-import { getChangesToStartExperiment, getLinkedFeatureInfo } from "../experiments";
+import {
+  getChangesToStartExperiment,
+  getLinkedFeatureInfo,
+} from "../experiments";
 
 type ChecklistStatus = "complete" | "incomplete";
 
@@ -31,13 +37,16 @@ export type StopExperimentInput = {
   experimentId: string;
   results: ExperimentResultsType;
   winnerVariationId?: string;
-  winner?: number;
-  releasedVariationId?: string;
   enableTemporaryRollout?: boolean;
-  excludeFromPayload?: boolean;
   reason?: string;
   analysis?: string;
   dateEnded?: string;
+};
+
+export type ModifyTemporaryRolloutInput = {
+  experimentId: string;
+  enableTemporaryRollout: boolean;
+  winnerVariationId?: string;
 };
 
 function getHasLinkedChanges(
@@ -136,7 +145,10 @@ export async function getExperimentStartChecklistStatus(
   if (orgHasPremiumFeature(context.org, "custom-launch-checklist")) {
     const checklist =
       (experiment.project &&
-        (await getExperimentLaunchChecklist(context.org.id, experiment.project))) ||
+        (await getExperimentLaunchChecklist(
+          context.org.id,
+          experiment.project,
+        ))) ||
       (await getExperimentLaunchChecklist(context.org.id, ""));
 
     checklist?.tasks?.forEach((task) => {
@@ -189,14 +201,20 @@ async function loadAndValidateExperimentForStatusChange(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatures = await getFeaturesByIds(context, experiment.linkedFeatures || []);
+  const linkedFeatures = await getFeaturesByIds(
+    context,
+    experiment.linkedFeatures || [],
+  );
   const envs = getAffectedEnvsForExperiment({
     experiment,
     orgEnvironments: context.org.settings?.environments || [],
     linkedFeatures,
   });
 
-  if (envs.length > 0 && !context.permissions.canRunExperiment(experiment, envs)) {
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -236,7 +254,40 @@ export async function startExperiment({
     );
   }
 
-  const changes = await getChangesToStartExperiment(context, experiment);
+  const allVariations = getAllVariations(experiment);
+  const defaultVariationWeight =
+    allVariations.length > 0 ? 1 / allVariations.length : 1;
+  const startExperimentTarget =
+    experiment.phases.length > 0
+      ? experiment
+      : {
+          ...experiment,
+          phases: [
+            {
+              coverage: 1,
+              dateStarted: new Date(),
+              name: "Main",
+              reason: "",
+              variationWeights: allVariations.map(() => defaultVariationWeight),
+              variations: allVariations.map((v) => ({
+                id: v.id,
+                status: "active" as const,
+              })),
+              condition: "",
+              savedGroups: [],
+              namespace: {
+                enabled: false,
+                name: "",
+                range: [0, 1] as [number, number],
+              },
+            },
+          ],
+        };
+
+  const changes = await getChangesToStartExperiment(context, startExperimentTarget);
+  if (!experiment.phases.length && !changes.phases) {
+    changes.phases = startExperimentTarget.phases;
+  }
   changes.status = "running";
 
   const updated = await updateExperiment({
@@ -251,17 +302,21 @@ export async function startExperiment({
 export async function stopExperiment({
   context,
   input,
+  allowAlreadyStopped = false,
 }: {
   context: ReqContext;
   input: StopExperimentInput;
+  allowAlreadyStopped?: boolean;
 }) {
   const experiment = await loadAndValidateExperimentForStatusChange(
     context,
     input.experimentId,
   );
 
-  if (experiment.status === "draft") {
-    throw new Error("invalid_status: Cannot stop an experiment in draft status");
+  if (experiment.status !== "running" && !(allowAlreadyStopped && experiment.status === "stopped")) {
+    throw new Error(
+      "invalid_status: Can only stop an experiment in running status",
+    );
   }
   if (input.dateEnded && Number.isNaN(new Date(input.dateEnded).getTime())) {
     throw new Error("invalid_dateEnded: dateEnded must be an ISO datetime");
@@ -271,50 +326,40 @@ export async function stopExperiment({
   const winnerIndexFromId = input.winnerVariationId
     ? variations.findIndex((v) => v.id === input.winnerVariationId)
     : -1;
-  const winnerIndex =
-    winnerIndexFromId >= 0
-      ? winnerIndexFromId
-      : typeof input.winner === "number"
-        ? input.winner
-        : -1;
-
-  if (input.results === "won" && winnerIndex < 0) {
-    throw new Error(
-      "invalid_winner_variation_id: winnerVariationId is required and must match an experiment variation when results is won",
-    );
-  }
   if (input.winnerVariationId && winnerIndexFromId < 0) {
     throw new Error(
       "invalid_winner_variation_id: winnerVariationId must match an experiment variation",
     );
   }
-
-  const winner = winnerIndex >= 0 ? winnerIndex : 0;
-  const enableTemporaryRollout =
-    input.enableTemporaryRollout !== undefined
-      ? input.enableTemporaryRollout
-      : input.excludeFromPayload !== undefined
-        ? !input.excludeFromPayload
-        : false;
-
-  let releasedVariationId = "";
-  if (enableTemporaryRollout) {
-    releasedVariationId =
-      input.releasedVariationId ||
-      input.winnerVariationId ||
-      variations[winner]?.id ||
-      "";
-    if (!releasedVariationId) {
-      throw new Error(
-        "temporary_rollout_requires_released_variation: releasedVariationId or winnerVariationId is required when enableTemporaryRollout is true",
-      );
-    }
-    if (!variations.some((v) => v.id === releasedVariationId)) {
-      throw new Error(
-        "invalid_winner_variation_id: releasedVariationId must match an experiment variation",
-      );
+  const hasMultipleTestVariations = variations.length > 2;
+  let resolvedWinnerVariationId = input.winnerVariationId;
+  if (!resolvedWinnerVariationId) {
+    if (input.results === "won") {
+      if (!hasMultipleTestVariations && variations.length > 1) {
+        // Default to the single test variation (index 1) when no winner is provided.
+        resolvedWinnerVariationId = variations[1]?.id;
+      } else {
+        throw new Error(
+          "invalid_winner_variation_id: winnerVariationId is required when results is won and there are multiple test variations",
+        );
+      }
+    } else {
+      // For non-won results, default to baseline variation.
+      resolvedWinnerVariationId = variations[0]?.id;
     }
   }
+
+  const winner = variations.findIndex((v) => v.id === resolvedWinnerVariationId);
+  if (winner < 0) {
+    throw new Error(
+      "invalid_winner_variation_id: winnerVariationId must match an experiment variation",
+    );
+  }
+
+  const enableTemporaryRollout = input.enableTemporaryRollout === true;
+  const releasedVariationId = enableTemporaryRollout
+    ? resolvedWinnerVariationId || ""
+    : "";
 
   const changes: Changeset = {
     winner,
@@ -355,3 +400,68 @@ export async function stopExperiment({
   return { experiment, updated, isEnding };
 }
 
+export async function modifyTemporaryRollout({
+  context,
+  input,
+}: {
+  context: ReqContext;
+  input: ModifyTemporaryRolloutInput;
+}) {
+  const experiment = await loadAndValidateExperimentForStatusChange(
+    context,
+    input.experimentId,
+  );
+  if (experiment.status !== "stopped") {
+    throw new Error(
+      "invalid_status: Can only modify temporary rollout for stopped experiments",
+    );
+  }
+
+  const variations = getAllVariations(experiment);
+  const winnerIndexFromId = input.winnerVariationId
+    ? variations.findIndex((v) => v.id === input.winnerVariationId)
+    : -1;
+  if (input.winnerVariationId && winnerIndexFromId < 0) {
+    throw new Error(
+      "invalid_winner_variation_id: winnerVariationId must match an experiment variation",
+    );
+  }
+
+  let releasedVariationId = "";
+  if (input.enableTemporaryRollout) {
+    releasedVariationId =
+      input.winnerVariationId ||
+      experiment.releasedVariationId ||
+      variations[experiment.winner || 0]?.id ||
+      "";
+    if (!releasedVariationId) {
+      throw new Error(
+        "temporary_rollout_requires_released_variation: winnerVariationId is required when no existing release variation can be inferred",
+      );
+    }
+  }
+
+  const changes: Changeset = {
+    excludeFromPayload: !input.enableTemporaryRollout,
+    releasedVariationId,
+  };
+
+  if (input.enableTemporaryRollout) {
+    const phases = [...experiment.phases];
+    if (phases.length > 0) {
+      phases[phases.length - 1] = {
+        ...phases[phases.length - 1],
+        coverage: 1,
+      };
+      changes.phases = phases;
+    }
+  }
+
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes,
+  });
+
+  return { experiment, updated };
+}

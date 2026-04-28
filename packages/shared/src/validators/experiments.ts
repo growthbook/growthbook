@@ -1262,29 +1262,46 @@ const postExperimentStopBody = z
     winnerVariationId: z
       .string()
       .describe(
-        "Variation ID (e.g. var_abc123) of the winning variation. Required when results is 'won'. If not provided for other results, defaults to the baseline variation.",
-      )
-      .optional(),
-    releasedVariationId: z
-      .string()
-      .describe(
-        "Variation ID to release during temporary rollout. Defaults to winnerVariationId when temporary rollout is enabled.",
+        "Variation ID (e.g. var_abc123) of the winning variation. Defaults to the baseline variation if status is not 'won'. Required otherwise.",
       )
       .optional(),
     enableTemporaryRollout: z
       .boolean()
       .describe(
-        "If true, include this stopped experiment in SDK payload and force a released variation to all traffic.",
+        "If true, include this stopped experiment in SDK payload and force the winning variation (`winnerVariationId`) to all traffic.",
       )
       .optional(),
     reason: z
       .string()
       .describe("Optional reason stored on the latest phase metadata.")
       .optional(),
-    analysis: z.string().describe("Optional markdown summary displayed on the experiment results page.").optional(),
+    analysis: z
+      .string()
+      .describe(
+        "Optional markdown summary displayed on the experiment results page.",
+      )
+      .optional(),
     dateEnded: z
       .string()
-      .describe("Optional ISO datetime for ending the latest phase. Defaults to the current date and time.")
+      .describe(
+        "Optional ISO datetime for ending the latest phase. Defaults to the current date and time.",
+      )
+      .optional(),
+  })
+  .strict();
+
+const postExperimentModifyTemporaryRolloutBody = z
+  .object({
+    enableTemporaryRollout: z
+      .boolean()
+      .describe(
+        "If true, keep the stopped experiment in SDK payload and force traffic to the winner variation. If false, end temporary rollout and remove from SDK payload.",
+      ),
+    winnerVariationId: z
+      .string()
+      .describe(
+        "Optional variation ID (e.g. var_abc123) to use when enabling temporary rollout.",
+      )
       .optional(),
   })
   .strict();
@@ -1430,7 +1447,7 @@ export const postExperimentStartValidator = {
   method: "post" as const,
   path: "/experiments/:id/start",
   exampleRequest: {
-    params: { id: "exp_abc123" }
+    params: { id: "exp_abc123" },
   },
 };
 
@@ -1443,7 +1460,7 @@ export const postExperimentStopValidator = {
       experiment: apiExperimentWithEnhancedStatus,
     })
     .strict(),
-  summary: "Stop an experiment and/or modify temporary rollout",
+  summary: "Stop an experiment",
   operationId: "postExperimentStop",
   tags: ["experiments"],
   method: "post" as const,
@@ -1454,7 +1471,30 @@ export const postExperimentStopValidator = {
       results: "won" as const,
       winnerVariationId: "var_treatment",
       enableTemporaryRollout: true,
-      analysis: "Reached desired sample size with statistically significant positive lift; shipping treatment",
+      analysis:
+        "Reached desired sample size with statistically significant positive lift; shipping treatment",
+    },
+  },
+};
+
+export const postExperimentModifyTemporaryRolloutValidator = {
+  bodySchema: postExperimentModifyTemporaryRolloutBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+    })
+    .strict(),
+  summary: "Modify temporary rollout status for a stopped experiment",
+  operationId: "postExperimentModifyTemporaryRollout",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/modify-temporary-rollout",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      enableTemporaryRollout: false,
     },
   },
 };
