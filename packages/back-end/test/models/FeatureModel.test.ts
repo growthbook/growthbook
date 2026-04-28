@@ -428,6 +428,90 @@ describe("migrateRawFeatureToV2", () => {
     });
   });
 
+  // ================= 4a. version backfill from legacy embedded revision =================
+  //
+  // Sparse legacy v1 docs store `version` only on the embedded
+  // `revision: { version }` sub-doc. Pre-unification reads flowed through
+  // `upgradeFeatureInterface`'s `feature.version || revision?.version || 1`
+  // fallback; the v1/v2 branch here must mirror it or these docs read as
+  // version 1.
+
+  describe("version backfill (v1 doc with legacy embedded revision)", () => {
+    it("lifts revision.version onto feature.version when top-level is missing", () => {
+      const legacy = {
+        ...BASE_META,
+        version: undefined,
+        revision: { version: 7, comment: "", date: new Date() },
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          production: { enabled: true, rules: [] },
+        },
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(legacy, mockContext());
+      expect(out.version).toBe(7);
+    });
+
+    it("lifts revision.version when top-level is 0 (falsy)", () => {
+      const legacy = {
+        ...BASE_META,
+        version: 0,
+        revision: { version: 12, comment: "", date: new Date() },
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          production: { enabled: true, rules: [] },
+        },
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(legacy, mockContext());
+      expect(out.version).toBe(12);
+    });
+
+    it("preserves a non-falsy top-level version over revision.version", () => {
+      const legacy = {
+        ...BASE_META,
+        version: 9,
+        revision: { version: 2, comment: "", date: new Date() },
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          production: { enabled: true, rules: [] },
+        },
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(legacy, mockContext());
+      expect(out.version).toBe(9);
+    });
+
+    it("falls back to 1 only when both top-level and revision.version are missing", () => {
+      const legacy = {
+        ...BASE_META,
+        version: undefined,
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          production: { enabled: true, rules: [] },
+        },
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(legacy, mockContext());
+      expect(out.version).toBe(1);
+    });
+
+    it("strips the legacy `revision` sub-doc from the output (FeatureInterface has no such field)", () => {
+      const legacy = {
+        ...BASE_META,
+        version: 5,
+        revision: { version: 5, comment: "old", date: new Date() },
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          production: { enabled: true, rules: [] },
+        },
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(legacy, mockContext());
+      expect("revision" in (out as object)).toBe(false);
+    });
+  });
+
   // ================= 4b. env.rules scrub on output =================
   //
   // `migrateRawFeatureToV2` must never expose the legacy

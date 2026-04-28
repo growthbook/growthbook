@@ -186,9 +186,17 @@ export function migrateRawFeatureToV2(
   if (!hasEnvSettings) {
     postV0Doc = upgradeV0Feature(raw);
   } else {
-    // Strip v0 `environments` crust; a v2 doc's top-level `rules` is kept.
-    // Must NOT call upgradeV0Feature — it would clobber v2's top-level rules.
-    postV0Doc = omit(raw, ["environments"]) as V1FeatureInterface;
+    // v2 top-level `rules` must NOT route through `upgradeV0Feature` — it
+    // would redistribute them back into v1 per-env arrays. Strip
+    // `environments` crust + the legacy embedded `revision` sub-doc to
+    // match origin/main `upgradeFeatureInterface`'s destructure.
+    const legacyRevisionVersion = (raw as { revision?: { version?: number } })
+      .revision?.version;
+    postV0Doc = omit(raw, ["environments", "revision"]) as V1FeatureInterface;
+    // Legacy version backfill: sparse docs that never lifted `version` out
+    // of the embedded `revision` sub-doc fall through to it before the
+    // `|| 1` floor in `applyNonRuleFeatureUpgrades`.
+    postV0Doc.version = postV0Doc.version || legacyRevisionVersion || 1;
     applyNonRuleFeatureUpgrades(postV0Doc);
   }
 

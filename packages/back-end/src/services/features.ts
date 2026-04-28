@@ -1956,15 +1956,33 @@ export function getApiFeatureObj({
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
-  // `applicableEnvs` keeps `allEnvironments: true` rules from leaking into
-  // project-excluded envs; seeding with `environments` keeps every org env
-  // in the response shape (mirrors the v1 read path on env-less orgs).
+  // Raw spread + standard overrides. Preserves internal FeatureRule field
+  // names (`values`, raw `namespace`, …) for `/api/v1/feature/:id`.
+  // `revisionToApiInterface` uses `normalizeRuleForApi` instead, which renames
+  // and reshapes; the two surfaces have always diverged.
+  const normalizeRuleForFeatureEnv = (rule: FeatureRule): ApiFeatureRule =>
+    ({
+      ...rule,
+      coverage:
+        rule.type === "rollout" || rule.type === "experiment"
+          ? (rule.coverage ?? 1)
+          : 1,
+      condition: rule.condition || "",
+      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+        matchType: s.match,
+        savedGroups: s.ids,
+      })),
+      prerequisites: rule.prerequisites || [],
+      enabled: !!rule.enabled,
+    }) as unknown as ApiFeatureRule;
+  // `applicableEnvs` scopes `allEnvironments: true` rules; seeding with
+  // `environments` keeps every org env present in the response.
   const orgEnvs = getEnvironments(organization);
   const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
   const featureRulesByEnv = bucketRulesByEnv(
     feature.rules,
     applicableEnvs,
-    normalizeRuleForApi,
+    normalizeRuleForFeatureEnv,
     environments,
   );
   environments.forEach((env) => {
@@ -2003,14 +2021,13 @@ export function getApiFeatureObj({
         : revision?.publishedBy?.name;
 
   const revisionDefs = revisions?.map((rev) => {
-    // Bucket twice — normalized for the REST response, raw for SDK payload
-    // compilation below. Two passes are cheap on revision-sized inputs and
-    // keep both surfaces routed through the shared helper.
+    // Bucket twice: REST response shape (matches the feature env loop above)
+    // and raw FeatureRule[] for SDK payload compilation below.
     const revRules = Array.isArray(rev?.rules) ? rev.rules : undefined;
     const revRulesByEnv = bucketRulesByEnv(
       revRules,
       applicableEnvs,
-      normalizeRuleForApi,
+      normalizeRuleForFeatureEnv,
       environments,
     );
     const revRawRulesByEnv = bucketRulesByEnv(
