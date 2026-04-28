@@ -13,6 +13,7 @@ export type ErrorReporterSettings = {
   // sampling:
   samplingRate?: number;
   hashAttribute?: string;
+  samplingSeed?: string;
   userContext?: UserContext;
   growthbook: GrowthBook | GrowthBookClient | UserScopedGrowthBook;
 };
@@ -42,6 +43,7 @@ export function createErrorReporter({
   dedupeCacheSize = 100,
   samplingRate = 1,
   hashAttribute = "id",
+  samplingSeed,
   userContext,
   growthbook,
 }: ErrorReporterSettings) {
@@ -59,7 +61,7 @@ export function createErrorReporter({
         growthbook && "getAttributes" in growthbook
           ? growthbook.getAttributes()
           : userContext?.attributes,
-      seed: "error-sampling",
+      seed: samplingSeed ?? "error-sampling",
     })
   ) {
     return;

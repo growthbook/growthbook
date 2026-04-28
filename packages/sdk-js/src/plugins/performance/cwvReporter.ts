@@ -14,6 +14,7 @@ export type CWVReporterSettings = {
   // sampling:
   samplingRate?: number;
   hashAttribute?: string;
+  samplingSeed?: string;
   // Also finalize CWV on query-string changes (default: pathname-only)
   trackQueryStringChanges?: boolean;
   enableUrlPolling?: boolean;
@@ -57,6 +58,7 @@ export function createCWVReporter({
   trackTBT = true,
   samplingRate = 1,
   hashAttribute = "id",
+  samplingSeed,
   trackQueryStringChanges = false,
   enableUrlPolling = false,
   growthbook,
@@ -64,10 +66,7 @@ export function createCWVReporter({
   if (samplingRate < 0 || samplingRate > 1) {
     throw new Error("samplingRate must be between 0 and 1");
   }
-  const env = detectEnv();
-  if (env !== "browser") {
-    throw new Error("CWV reporting only works in the browser");
-  }
+  if (detectEnv() !== "browser") return;
   // Duck-type rather than instanceof so multi-bundle setups (CDN + npm) work
   if (
     !growthbook ||
@@ -83,7 +82,7 @@ export function createCWVReporter({
       rate: samplingRate,
       hashAttribute,
       attributes: growthbook.getAttributes(),
-      seed: "cwv-sampling",
+      seed: samplingSeed ?? "cwv-sampling",
     })
   ) {
     return;

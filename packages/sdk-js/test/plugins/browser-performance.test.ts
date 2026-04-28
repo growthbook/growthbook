@@ -1,12 +1,14 @@
 import { GrowthBook } from "../../src";
 import { createCWVReporter } from "../../src/plugins/performance/cwvReporter";
-import { createPageViewReporter } from "../../src/plugins/performance/pageViewReporter";
 import { createErrorReporter } from "../../src/plugins/performance/errorReporter";
+import { createInteractionReporter } from "../../src/plugins/performance/interactionReporter";
+import { createEngagementReporter } from "../../src/plugins/performance/engagementReporter";
+import { _resetPageStateForTests } from "../../src/plugins/performance/pageState";
 import {
   _resetUrlChangeObserverForTests,
   subscribeToUrlChanges,
 } from "../../src/plugins/performance/urlChangeObserver";
-import { browserPerformancePlugin } from "../../src/plugins/performance/browser-performance";
+import { browserEventsPlugin } from "../../src/plugins/performance/browser-events";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -417,167 +419,6 @@ describe("CWV reporter", () => {
   });
 });
 
-describe("Page view reporter", () => {
-  beforeEach(() => {
-    _resetUrlChangeObserverForTests();
-    window.history.replaceState({}, "", "/");
-  });
-
-  it("reports an initial page view and on URL changes", async () => {
-    const gb = new GrowthBook({ clientKey: "test" });
-    const logEvent = jest.spyOn(gb, "logEvent");
-
-    createPageViewReporter({ growthbook: gb });
-
-    expect(logEvent).toHaveBeenCalledTimes(1);
-    expect(logEvent).toHaveBeenCalledWith("page_view");
-
-    window.history.pushState({}, "", "/foo");
-    await sleep(0);
-    expect(logEvent).toHaveBeenCalledTimes(2);
-
-    window.history.pushState({}, "", "/foo");
-    await sleep(0);
-    expect(logEvent).toHaveBeenCalledTimes(2);
-
-    window.history.pushState({}, "", "/bar");
-    await sleep(0);
-    expect(logEvent).toHaveBeenCalledTimes(3);
-
-    gb.destroy();
-  });
-
-  it("dispatches growthbookrefresh before logging the page_view", () => {
-    const gb = new GrowthBook({ clientKey: "test" });
-    const refreshHandler = jest.fn();
-    const logEvent = jest.spyOn(gb, "logEvent");
-
-    document.addEventListener("growthbookrefresh", refreshHandler);
-    createPageViewReporter({ growthbook: gb });
-
-    expect(refreshHandler).toHaveBeenCalledTimes(1);
-    // The refresh event must fire BEFORE the logEvent call so the URL is
-    // synced to the new path before the event payload snapshots it.
-    const refreshOrder = refreshHandler.mock.invocationCallOrder[0];
-    const logOrder = logEvent.mock.invocationCallOrder[0];
-    expect(refreshOrder).toBeLessThan(logOrder);
-
-    document.removeEventListener("growthbookrefresh", refreshHandler);
-    gb.destroy();
-  });
-
-  it("re-fires page_view on bfcache restore (pageshow with persisted=true)", () => {
-    const gb = new GrowthBook({ clientKey: "test" });
-    const logEvent = jest.spyOn(gb, "logEvent");
-
-    createPageViewReporter({ growthbook: gb });
-    expect(logEvent).toHaveBeenCalledTimes(1);
-
-    // Simulate bfcache restore. PageTransitionEvent isn't in jsdom; reuse Event.
-    const evt = new Event("pageshow") as Event & { persisted: boolean };
-    Object.defineProperty(evt, "persisted", {
-      configurable: true,
-      get: () => true,
-    });
-    window.dispatchEvent(evt);
-
-    expect(logEvent).toHaveBeenCalledTimes(2);
-
-    // A non-persisted pageshow (initial load) should NOT re-fire.
-    const evt2 = new Event("pageshow") as Event & { persisted: boolean };
-    Object.defineProperty(evt2, "persisted", {
-      configurable: true,
-      get: () => false,
-    });
-    window.dispatchEvent(evt2);
-    expect(logEvent).toHaveBeenCalledTimes(2);
-
-    gb.destroy();
-  });
-
-  it("stops reporting after destroy", async () => {
-    const gb = new GrowthBook({ clientKey: "test" });
-    const logEvent = jest.spyOn(gb, "logEvent");
-
-    createPageViewReporter({ growthbook: gb });
-    expect(logEvent).toHaveBeenCalledTimes(1);
-
-    gb.destroy();
-
-    window.history.pushState({}, "", "/after-destroy");
-    await sleep(0);
-    expect(logEvent).toHaveBeenCalledTimes(1);
-  });
-
-  it("dispatches growthbookrefresh on SPA URL changes", async () => {
-    const gb = new GrowthBook({ clientKey: "test" });
-    const logEvent = jest.spyOn(gb, "logEvent");
-    const refreshHandler = jest.fn();
-
-    createPageViewReporter({ growthbook: gb });
-    document.addEventListener("growthbookrefresh", refreshHandler);
-    refreshHandler.mockClear();
-
-    window.history.pushState({}, "", "/spa-route");
-    await sleep(0);
-
-    expect(refreshHandler).toHaveBeenCalledTimes(1);
-    const refreshOrder = refreshHandler.mock.invocationCallOrder[0];
-    const lastLogOrder =
-      logEvent.mock.invocationCallOrder[
-        logEvent.mock.invocationCallOrder.length - 1
-      ];
-    expect(refreshOrder).toBeLessThan(lastLogOrder);
-
-    document.removeEventListener("growthbookrefresh", refreshHandler);
-    gb.destroy();
-  });
-
-  it("ignores query-string-only changes by default", async () => {
-    const gb = new GrowthBook({ clientKey: "test" });
-    const logEvent = jest.spyOn(gb, "logEvent");
-
-    createPageViewReporter({ growthbook: gb });
-    expect(logEvent).toHaveBeenCalledTimes(1);
-
-    window.history.pushState({}, "", "/?filter=red");
-    await sleep(0);
-    expect(logEvent).toHaveBeenCalledTimes(1);
-
-    window.history.pushState({}, "", "/?filter=blue");
-    await sleep(0);
-    expect(logEvent).toHaveBeenCalledTimes(1);
-
-    // Pathname change still triggers
-    window.history.pushState({}, "", "/products");
-    await sleep(0);
-    expect(logEvent).toHaveBeenCalledTimes(2);
-
-    gb.destroy();
-  });
-
-  it("fires page_view on query-string changes when trackQueryStringChanges is true", async () => {
-    const gb = new GrowthBook({ clientKey: "test" });
-    const logEvent = jest.spyOn(gb, "logEvent");
-
-    createPageViewReporter({
-      growthbook: gb,
-      trackQueryStringChanges: true,
-    });
-    expect(logEvent).toHaveBeenCalledTimes(1);
-
-    window.history.pushState({}, "", "/?filter=red");
-    await sleep(0);
-    expect(logEvent).toHaveBeenCalledTimes(2);
-
-    window.history.pushState({}, "", "/?filter=blue");
-    await sleep(0);
-    expect(logEvent).toHaveBeenCalledTimes(3);
-
-    gb.destroy();
-  });
-});
-
 describe("Error reporter", () => {
   it("reports window errors with debounce and stack", async () => {
     const gb = new GrowthBook({ clientKey: "test" });
@@ -771,8 +612,8 @@ describe("subscribeToUrlChanges", () => {
     unsubB();
   });
 
-  it("a CWV-style reporter is not finalized prematurely by a page-view reporter that opted into query-string tracking", async () => {
-    // CWV observer must stay attached on ?qs-only nav when only page-view opted in
+  it("a CWV-style reporter is not finalized prematurely by an engagement reporter that opted into query-string tracking", async () => {
+    _resetPageStateForTests();
     const gb = new GrowthBook({ clientKey: "test" });
     const logEvent = jest.spyOn(gb, "logEvent");
 
@@ -787,20 +628,24 @@ describe("subscribeToUrlChanges", () => {
       trackTTFB: false,
       trackTBT: false,
     });
-    createPageViewReporter({
+    createEngagementReporter({
       growthbook: gb,
+      pageViewSamplingRate: 1,
       trackQueryStringChanges: true,
     });
 
     // Initial page_view
-    expect(logEvent).toHaveBeenCalledTimes(1);
+    expect(logEvent).toHaveBeenCalledWith("page_view");
     logEvent.mockClear();
 
     window.history.pushState({}, "", "/?qs=1");
     await sleep(0);
 
-    // page-view fires; CWV does not (would have logged on finalize)
-    expect(logEvent).toHaveBeenCalledTimes(1);
+    // engagement fires page_leave + page_view; CWV does not finalize
+    const cwvCalls = logEvent.mock.calls.filter((c) =>
+      String(c[0]).startsWith("CWV:"),
+    );
+    expect(cwvCalls.length).toBe(0);
     expect(logEvent).toHaveBeenCalledWith("page_view");
 
     gb.destroy();
@@ -814,58 +659,344 @@ describe("subscribeToUrlChanges", () => {
   });
 });
 
-describe("browserPerformancePlugin", () => {
+describe("Interaction reporter", () => {
+  beforeEach(() => {
+    _resetPageStateForTests();
+  });
+
+  it("tracks clicks on default selectors (links, buttons, data-gb-track)", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createInteractionReporter({ growthbook: gb, samplingRate: 1 });
+
+    const btn = document.createElement("button");
+    btn.textContent = "Go";
+    document.body.appendChild(btn);
+    btn.click();
+
+    expect(logEvent).toHaveBeenCalledWith(
+      "button_click",
+      expect.objectContaining({ element_tag: "button" }),
+    );
+
+    document.body.removeChild(btn);
+    gb.destroy();
+  });
+
+  it("respects ignoreClickSelector", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createInteractionReporter({
+      growthbook: gb,
+      samplingRate: 1,
+      ignoreClickSelector: ".skip-me",
+    });
+
+    const btn = document.createElement("button");
+    btn.className = "skip-me";
+    document.body.appendChild(btn);
+    btn.click();
+
+    expect(logEvent).not.toHaveBeenCalled();
+
+    document.body.removeChild(btn);
+    gb.destroy();
+  });
+
+  it("detects custom event name via data-gb-track", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createInteractionReporter({ growthbook: gb, samplingRate: 1 });
+
+    const div = document.createElement("div");
+    div.setAttribute("data-gb-track", "cta_hero");
+    document.body.appendChild(div);
+    div.click();
+
+    expect(logEvent).toHaveBeenCalledWith(
+      "cta_hero",
+      expect.objectContaining({ element_tag: "div" }),
+    );
+
+    document.body.removeChild(div);
+    gb.destroy();
+  });
+
+  it("tracks form submissions", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createInteractionReporter({ growthbook: gb, samplingRate: 1 });
+
+    const form = document.createElement("form");
+    form.setAttribute("name", "signup");
+    document.body.appendChild(form);
+
+    const submitEvent = new Event("submit", {
+      bubbles: true,
+      cancelable: true,
+    });
+    form.dispatchEvent(submitEvent);
+
+    expect(logEvent).toHaveBeenCalledWith(
+      "form_submit",
+      expect.objectContaining({ form_name: "signup" }),
+    );
+
+    document.body.removeChild(form);
+    gb.destroy();
+  });
+
+  it("fires rage_click when threshold is met within time + distance window", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createInteractionReporter({
+      growthbook: gb,
+      samplingRate: 1,
+      rageThreshold: 3,
+      rageTimeWindowMs: 5000,
+      rageMaxDistancePx: 100,
+    });
+
+    const btn = document.createElement("button");
+    document.body.appendChild(btn);
+
+    for (let i = 0; i < 3; i++) {
+      const evt = new MouseEvent("click", {
+        bubbles: true,
+        clientX: 10,
+        clientY: 10,
+      });
+      btn.dispatchEvent(evt);
+    }
+
+    expect(logEvent).toHaveBeenCalledWith(
+      "rage_click",
+      expect.objectContaining({ click_count: 3 }),
+    );
+
+    document.body.removeChild(btn);
+    gb.destroy();
+  });
+
+  it("cleans up listeners on destroy", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createInteractionReporter({ growthbook: gb, samplingRate: 1 });
+    gb.destroy();
+
+    const btn = document.createElement("button");
+    document.body.appendChild(btn);
+    btn.click();
+
+    expect(logEvent).not.toHaveBeenCalled();
+    document.body.removeChild(btn);
+  });
+});
+
+describe("Engagement reporter", () => {
   beforeEach(() => {
     _resetUrlChangeObserverForTests();
+    _resetPageStateForTests();
+    window.history.replaceState({}, "", "/");
+    setVisibilityState("visible");
+  });
+
+  it("fires initial page_view when pageViewSamplingRate > 0", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 1,
+    });
+
+    expect(logEvent).toHaveBeenCalledWith("page_view");
+    gb.destroy();
+  });
+
+  it("does not fire page_view when pageViewSamplingRate is 0", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 0,
+      engagementSamplingRate: 1,
+    });
+
+    expect(logEvent).not.toHaveBeenCalledWith("page_view");
+    gb.destroy();
+  });
+
+  it("fires page_leave on pagehide", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 0,
+      engagementSamplingRate: 1,
+    });
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_leave",
+      expect.objectContaining({
+        leave_reason: "pagehide",
+      }),
+    );
+    gb.destroy();
+  });
+
+  it("sends page_engagement on visibilitychange to hidden", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 0,
+      engagementSamplingRate: 1,
+    });
+
+    setVisibilityState("hidden");
+
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_engagement",
+      expect.objectContaining({ visibility_state: "hidden" }),
+    );
+    gb.destroy();
+  });
+
+  it("fires page_view + page_leave on SPA navigation", async () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 1,
+      engagementSamplingRate: 1,
+    });
+
+    expect(logEvent).toHaveBeenCalledWith("page_view");
+    logEvent.mockClear();
+
+    window.history.pushState({}, "", "/new-page");
+    await sleep(0);
+
+    expect(logEvent).toHaveBeenCalledWith(
+      "page_leave",
+      expect.objectContaining({ leave_reason: "route_change" }),
+    );
+    expect(logEvent).toHaveBeenCalledWith("page_view");
+    gb.destroy();
+  });
+
+  it("sends heartbeats up to maxHeartbeats", () => {
+    jest.useFakeTimers();
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 0,
+      engagementSamplingRate: 1,
+      heartbeatIntervalMs: 1000,
+      maxHeartbeats: 2,
+    });
+
+    jest.advanceTimersByTime(3500);
+
+    const heartbeats = logEvent.mock.calls.filter(
+      (c) =>
+        c[0] === "page_engagement" &&
+        (c[1] as Record<string, unknown>).heartbeat_index,
+    );
+    expect(heartbeats.length).toBe(2);
+
+    gb.destroy();
+    jest.useRealTimers();
+  });
+
+  it("cleans up on destroy", () => {
+    jest.useFakeTimers();
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createEngagementReporter({
+      growthbook: gb,
+      pageViewSamplingRate: 1,
+      engagementSamplingRate: 1,
+      heartbeatIntervalMs: 1000,
+    });
+
+    logEvent.mockClear();
+    gb.destroy();
+
+    jest.advanceTimersByTime(5000);
+    expect(logEvent).not.toHaveBeenCalled();
+
+    jest.useRealTimers();
+  });
+});
+
+describe("browserEventsPlugin", () => {
+  beforeEach(() => {
+    _resetUrlChangeObserverForTests();
+    _resetPageStateForTests();
     window.history.replaceState({}, "", "/");
   });
 
-  it("does not throw when constructed at module-eval time (SSR-safe)", () => {
-    // Env guard lives in the returned fn, not the factory — safe to import in shared config
-    expect(() =>
-      browserPerformancePlugin({ cwvSamplingRate: 1 }),
-    ).not.toThrow();
+  it("is SSR-safe (returns a function without throwing)", () => {
+    expect(() => browserEventsPlugin({ cwvSamplingRate: 1 })).not.toThrow();
   });
 
-  it("skips CWV and page-view reporters with a warn when given a non-GrowthBook instance", () => {
-    // Duck-typed client (logEvent only) — CWV/pageView skip with warn, error reporter still attaches
-    const fakeClient = { logEvent: jest.fn() };
-    const apply = browserPerformancePlugin({
-      cwvSamplingRate: 1,
-      pageViewSamplingRate: 1,
-      errorSamplingRate: 1,
-    });
-
-    expect(() => apply(fakeClient as never)).not.toThrow();
-
-    const warnMessages = consoleWarnSpy.mock.calls.map((c) => String(c[0]));
-    expect(
-      warnMessages.some((m) => m.includes("CWV / page-view need a GrowthBook")),
-    ).toBe(true);
-
-    window.dispatchEvent(
-      new ErrorEvent("error", {
-        message: "boom",
-        filename: "x.js",
-        lineno: 1,
-        colno: 1,
-      }),
-    );
-    expect(fakeClient.logEvent).toHaveBeenCalledWith(
-      "browser-error",
-      expect.objectContaining({ message: "boom" }),
-    );
-  });
-
-  it("does not require constructor identity (multi-bundle safe)", () => {
-    // Duck-typed guard path; cross-realm constructors take the same code path
+  it("wires up interaction + engagement reporters when rates > 0", () => {
     const gb = new GrowthBook({ clientKey: "test" });
-    const apply = browserPerformancePlugin({
-      cwvSamplingRate: 1,
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    const apply = browserEventsPlugin({
+      cwvSamplingRate: 0,
+      errorSamplingRate: 0,
       pageViewSamplingRate: 1,
+      engagementSamplingRate: 1,
+      interactionSamplingRate: 1,
     });
-    expect(() => apply(gb)).not.toThrow();
+    apply(gb);
+
+    expect(logEvent).toHaveBeenCalledWith("page_view");
+
+    const btn = document.createElement("button");
+    document.body.appendChild(btn);
+    btn.click();
+    expect(logEvent).toHaveBeenCalledWith(
+      "button_click",
+      expect.objectContaining({ element_tag: "button" }),
+    );
+
+    document.body.removeChild(btn);
     gb.destroy();
+  });
+
+  it("warns when given a non-GrowthBook instance and engagement/interaction are enabled", () => {
+    const fakeClient = { logEvent: jest.fn() };
+    const apply = browserEventsPlugin({
+      cwvSamplingRate: 0,
+      errorSamplingRate: 1,
+      interactionSamplingRate: 1,
+    });
+    apply(fakeClient as never);
+
+    const warns = consoleWarnSpy.mock.calls.map((c) => String(c[0]));
+    expect(
+      warns.some((m) => m.includes("CWV / engagement / interaction")),
+    ).toBe(true);
   });
 });
 
