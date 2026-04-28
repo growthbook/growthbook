@@ -479,33 +479,33 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const license = currentOrg?.license;
 
   const canSubscribe = useMemo(() => {
-    const disableSelfServeBilling =
-      organization?.disableSelfServeBilling || false;
+    const effectiveAccountPlan = currentOrg?.effectiveAccountPlan;
+    const subscriptionStatus =
+      license?.stripeSubscription?.status ||
+      license?.orbSubscription?.status ||
+      "";
 
-    const hasValidEnterprisePlan =
-      currentOrg?.effectiveAccountPlan === "enterprise";
-
-    if (hasValidEnterprisePlan) {
-      if (disableSelfServeBilling) return false;
+    if (effectiveAccountPlan === "enterprise") {
+      // There are some edge cases where enterprise plans don't have a subscription/status
+      // so we return false to be safe
       return false;
     }
 
-    // if already on pro, they must have a subscription - some self-hosted pro have an annual contract not directly through stripe.
-    if (
-      ["pro", "pro_sso"].includes(currentOrg?.effectiveAccountPlan || "") &&
-      !subscription?.externalId
-    )
-      return false;
-
-    if (["active", "trialing", "past_due"].includes(subscription?.status || ""))
-      return false;
+    if (["pro", "pro_sso"].includes(effectiveAccountPlan || "")) {
+      if (
+        ["active", "trialing", "past_due", "paused", "unpaid"].includes(
+          subscriptionStatus,
+        )
+      ) {
+        return false;
+      }
+    }
 
     return true;
   }, [
-    organization?.disableSelfServeBilling,
     currentOrg?.effectiveAccountPlan,
-    subscription?.externalId,
-    subscription?.status,
+    license?.orbSubscription?.status,
+    license?.stripeSubscription?.status,
   ]);
 
   return (
