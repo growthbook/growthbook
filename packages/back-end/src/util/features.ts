@@ -6,7 +6,12 @@ import {
 import {
   includeExperimentInPayload,
   isDefined,
+  isMultiRangeNamespaceFormat,
+  namespacesToMap,
   recursiveWalk,
+  getNamespaceRanges,
+  getNamespaceHashAttribute,
+  NamespaceValue,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -363,6 +368,63 @@ export function getHoldoutFeatureDefId(holdoutId: string) {
   return `$holdout:${holdoutId}`;
 }
 
+/**
+ * Helper function to apply namespace to a rule
+ * Handles both multiRange format (with hashAttribute and multiple ranges) and legacy format
+ */
+export function applyNamespaceToPayload(
+  rule: FeatureDefinitionRule,
+  namespace: NamespaceValue,
+  namespacesMap?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >,
+): void {
+  const nsDefinition = namespacesMap?.get(namespace.name);
+
+  // When the namespace is defined on the org, trust its format; otherwise fall
+  // back to the structural check on the phase/rule's namespace shape.
+  const multiRange = nsDefinition
+    ? nsDefinition.format === "multiRange"
+    : isMultiRangeNamespaceFormat(namespace);
+
+  // Some legacy docs stored strings like "0.5" in range tuples — coerce defensively.
+  const ranges = getNamespaceRanges(namespace).map(
+    ([start, end]) =>
+      [Number(start) || 0, Number(end) || 0] as [number, number],
+  );
+
+  if (multiRange) {
+    // Namespace bucketing is independent of the rule's own variation bucketing.
+    // Populate only the Filter object: the SDK reads filter.attribute /
+    // filter.hashVersion via getHashAttribute independently of rule.hashAttribute
+    // (see packages/sdk-js/src/core.ts `isFilteredOut`). Mutating rule.hashAttribute
+    // here would silently re-bucket every user of a running experiment.
+    const filterAttribute = getNamespaceHashAttribute(
+      namespace,
+      nsDefinition?.hashAttribute || rule.hashAttribute || "id",
+    );
+    const filterHashVersion =
+      ("hashVersion" in namespace && namespace.hashVersion) || 2;
+    const seed = nsDefinition?.seed || namespace.name;
+
+    rule.filters = [
+      ...(rule.filters || []),
+      {
+        attribute: filterAttribute,
+        seed,
+        hashVersion: filterHashVersion,
+        ranges,
+      },
+    ];
+    return;
+  }
+
+  // Legacy format: use tuple on the rule itself for backward compatibility.
+  const [start, end] = ranges[0] ?? [0, 0];
+  rule.namespace = [namespace.name, start, end];
+}
+
 export function getFeatureDefinition({
   feature,
   environment,
@@ -378,6 +440,7 @@ export function getFeatureDefinition({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  namespaces,
   metadataOptions,
   projectsMap,
 }: {
@@ -398,6 +461,11 @@ export function getFeatureDefinition({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  /** Optional override: if provided, skips derivation from organization.settings.namespaces */
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
 }): FeatureDefinition | null {
@@ -415,6 +483,9 @@ export function getFeatureDefinition({
   const rules = revision
     ? (revision.rules?.[environment] ?? settings.rules)
     : settings.rules;
+
+  const namespacesMap =
+    namespaces ?? namespacesToMap(organization?.settings?.namespaces);
 
   // undefined = all capabilities; compute build-time constraints when capabilities is set
   const hasPrerequisites =
@@ -569,13 +640,7 @@ export function getFeatureDefinition({
             phase.namespace.enabled &&
             phase.namespace.name
           ) {
-            rule.namespace = [
-              phase.namespace.name,
-              // eslint-disable-next-line
-              parseFloat(phase.namespace.range[0] as any) || 0,
-              // eslint-disable-next-line
-              parseFloat(phase.namespace.range[1] as any) || 0,
-            ];
+            applyNamespaceToPayload(rule, phase.namespace, namespacesMap);
           }
 
           if (phase.seed) {
@@ -712,13 +777,7 @@ export function getFeatureDefinition({
             rule.minBucketVersion = r.minBucketVersion;
           }
           if (r?.namespace && r.namespace.enabled && r.namespace.name) {
-            rule.namespace = [
-              r.namespace.name,
-              // eslint-disable-next-line
-              parseFloat(r.namespace.range[0] as any) || 0,
-              // eslint-disable-next-line
-              parseFloat(r.namespace.range[1] as any) || 0,
-            ];
+            applyNamespaceToPayload(rule, r.namespace, namespacesMap);
           }
         } else if (r.type === "rollout") {
           rule.force = getJSONValue(feature.valueType, r.value);

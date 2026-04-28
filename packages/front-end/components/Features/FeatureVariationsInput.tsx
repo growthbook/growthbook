@@ -17,6 +17,7 @@ import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -122,7 +123,11 @@ export default function FeatureVariationsInput({
 
   return (
     <div className="form-group">
-      {_label !== null ? <label>{label}</label> : null}
+      {_label !== null ? (
+        <Text as="label" weight="semibold">
+          {label}
+        </Text>
+      ) : null}
       {simple ? (
         <>
           {!hideCoverage ? (

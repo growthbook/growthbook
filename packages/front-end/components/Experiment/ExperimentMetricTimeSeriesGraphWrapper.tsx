@@ -14,7 +14,6 @@ import {
   getExperimentMetricFormatter,
   formatPercent,
 } from "@/services/metrics";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useCurrency } from "@/hooks/useCurrency";
 import { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
@@ -23,6 +22,7 @@ import ExperimentTimeSeriesGraph, {
 
 interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
+  pValueThreshold: number;
   phase: number;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
@@ -55,6 +55,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
 
 function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
+  pValueThreshold,
   phase,
   metric,
   differenceType,
@@ -68,7 +69,6 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   unavailableMessage,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
-  const pValueThreshold = usePValueThreshold();
 
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };

@@ -50,6 +50,7 @@ describe("getConnectionSDKCapabilities", () => {
       "streaming",
       "encryption",
       "looseUnmarshalling",
+      "namespacesV2",
     ]);
   });
 

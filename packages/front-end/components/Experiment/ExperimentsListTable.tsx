@@ -10,6 +10,7 @@ import WatchButton from "@/components/WatchButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/components/Pagination";
+import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -22,6 +23,8 @@ interface ExperimentsListTableProps {
   filtered: Array<ComputedExperimentInterface>;
   isFiltered: boolean;
   project?: string | null;
+  searchValue: string;
+  setSearchValue: (value: string) => void;
 }
 
 const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
@@ -30,6 +33,8 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   filtered,
   isFiltered,
   project,
+  searchValue,
+  setSearchValue,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const NUM_PER_PAGE = 20;
@@ -139,7 +144,12 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                 )}
 
                 <td data-title="Tags:" className="table-tags">
-                  <SortedTags tags={Object.values(e.tags)} useFlex={true} />
+                  <SortedTags
+                    tags={Object.values(e.tags)}
+                    useFlex={true}
+                    {...tagLinkProps("experiments")}
+                    onTagClick={tagFilterOnClick(searchValue, setSearchValue)}
+                  />
                 </td>
                 <td className="nowrap" data-title="Owner:">
                   {e.ownerName}

@@ -9,8 +9,9 @@ import { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaAngleRight, FaCheck } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import Link from "next/link";
+import NextLink from "next/link";
 import Collapsible from "react-collapsible";
+import Link from "@/ui/Link";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -474,13 +475,13 @@ export function PreLaunchChecklistUI({
       </h4>
       <div className="flex-1" />
       {showEditChecklistLink ? (
-        <Link
+        <NextLink
           className="mr-3 link-purple"
           href={"/settings?editCheckListModal=true"}
           onClick={(e) => e.stopPropagation()}
         >
           Edit
-        </Link>
+        </NextLink>
       ) : null}
       {collapsible && <FaAngleRight className="chevron" />}
     </div>

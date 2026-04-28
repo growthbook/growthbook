@@ -4,6 +4,7 @@ import {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
+  SignificanceThresholds,
   BayesianVariationResponseIndividual,
   FrequentistVariationResponseIndividual,
   BaselineResponse,
@@ -30,6 +31,7 @@ interface MetricDrilldownDebugProps {
   variationFilter?: number[];
   setVariationFilter: (filter: number[] | undefined) => void;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   variations: ExperimentReportVariation[];
   startDate: string;
@@ -123,6 +125,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   variationFilter,
   setVariationFilter,
   experimentId,
+  significanceThresholds,
   phase,
   variations,
   startDate,
@@ -297,6 +300,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             Variance Reduction Comparison
           </Heading>
           <ResultsTable
+            significanceThresholds={significanceThresholds}
             experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
@@ -339,6 +343,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             Prior Comparison
           </Heading>
           <ResultsTable
+            significanceThresholds={significanceThresholds}
             experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
@@ -381,6 +386,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             Capping Comparison
           </Heading>
           <ResultsTable
+            significanceThresholds={significanceThresholds}
             experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}

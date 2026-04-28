@@ -7,6 +7,7 @@ import {
 import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { ReqContext } from "back-end/types/request";
 
 export async function toEnhancedExperimentApiResponse(
@@ -39,6 +40,9 @@ export async function toEnhancedExperimentApiResponse(
   );
   const enhancedStatus = { status, detailedStatus };
 
-  const apiExperiment = await toExperimentApiInterface(context, experiment);
+  const apiExperiment = await resolveOwnerEmail(
+    await toExperimentApiInterface(context, experiment),
+    context,
+  );
   return { ...apiExperiment, enhancedStatus };
 }

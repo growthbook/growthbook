@@ -62,6 +62,7 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
+import { getPValueThresholdForProject } from "back-end/src/services/organizations";
 import { getSourceIntegrationObject } from "./datasource";
 import { computeResultsStatus, isJoinableMetric } from "./experiments";
 
@@ -117,6 +118,7 @@ export function getMetricForSafeRolloutSnapshot(
 
 export function getAnalysisSettingsFromSafeRolloutArgs(
   args: SafeRolloutSnapshotAnalysisSettings,
+  numGuardrailMetrics: number,
 ): ExperimentSnapshotAnalysisSettings {
   return {
     dimensions: [],
@@ -129,6 +131,7 @@ export function getAnalysisSettingsFromSafeRolloutArgs(
     differenceType: "absolute",
     baselineVariationIndex: 0,
     numGoalMetrics: 0,
+    numGuardrailMetrics,
     oneSidedIntervals: true,
   };
 }
@@ -177,6 +180,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
 
   const analysisSettings = getAnalysisSettingsFromSafeRolloutArgs(
     args.analyses[0].settings,
+    args.settings.guardrailMetrics.length,
   );
   return { snapshotSettings, analysisSettings };
 }
@@ -232,6 +236,7 @@ export async function getSettingsForSnapshotMetrics(
 export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   organization: OrganizationInterface,
   regressionAdjustmentEnabled?: boolean,
+  pValueThresholdOverride?: number,
 ): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
@@ -264,8 +269,11 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
     baselineVariationIndex: 0,
     differenceType: "absolute",
     pValueThreshold:
-      organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+      pValueThresholdOverride ??
+      organization.settings?.pValueThreshold ??
+      DEFAULT_P_VALUE_THRESHOLD,
     numGoalMetrics: 0,
+    numGuardrailMetrics: 0,
   };
 }
 
@@ -479,9 +487,17 @@ export async function createSafeRolloutSnapshot({
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
     await getSettingsForSnapshotMetrics(context, safeRollout);
 
+  const srFeature = await getFeature(context, safeRollout.featureId);
+  const srProjectId = srFeature?.project ?? undefined;
+  const pValueThreshold = await getPValueThresholdForProject(
+    context,
+    srProjectId,
+  );
+
   const analysisSettings = getDefaultExperimentAnalysisSettingsForSafeRollout(
     org,
     regressionAdjustmentEnabled,
+    pValueThreshold,
   );
 
   const queryRunner = await _createSafeRolloutSnapshot({

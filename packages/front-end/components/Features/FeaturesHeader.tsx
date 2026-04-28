@@ -22,6 +22,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 import { useWatching } from "@/services/WatchProvider";
 import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEventsModal";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -501,6 +502,7 @@ export default function FeaturesHeader({
                   tags={feature.tags || []}
                   useFlex
                   shouldShowEllipsis={false}
+                  {...tagLinkProps("features")}
                 />
               </Box>
             ) : null}

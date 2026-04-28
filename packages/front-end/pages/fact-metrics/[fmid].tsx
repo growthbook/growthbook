@@ -1,5 +1,4 @@
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import {
@@ -21,6 +20,7 @@ import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -29,6 +29,7 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
@@ -645,7 +646,8 @@ export default function FactMetricPage() {
           </div>
         ) : null}
         <div className="col-auto">
-          Tags: <SortedTags tags={factMetric.tags} />
+          Tags:{" "}
+          <SortedTags tags={factMetric.tags} {...tagLinkProps("metrics")} />
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"
