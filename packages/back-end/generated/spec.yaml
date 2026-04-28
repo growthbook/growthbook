@@ -5989,25 +5989,35 @@ paths:
                     - won
                     - lost
                     - inconclusive
-                winnerVariationId:
-                  description: >-
-                    Variation ID (e.g. var_abc123) of the winning variation.
-                    Defaults to the baseline variation if status is not 'won'.
-                    Required otherwise.
-                  type: string
                 enableTemporaryRollout:
                   description: >-
                     If true, include this stopped experiment in SDK payload and
-                    force the winning variation (`winnerVariationId`) to all
+                    force the release variation (`releasedVariationId`) to all
                     traffic.
                   type: boolean
-                reason:
-                  description: Optional reason stored on the latest phase metadata.
+                releasedVariationId:
+                  description: >-
+                    Required if enableTemporaryRollout is true. Variation ID
+                    (e.g. var_abc123) to release to 100% of traffic eligible for
+                    this experiment.
+                  type: string
+                winnerVariationId:
+                  description: >-
+                    Variation ID (e.g. var_abc123) of the winning variation.
+                    Used only as metadata. Required if results is 'won' and
+                    there are multiple test variations. Otherwise, defaults to
+                    the test variation when results is 'won' and to the baseline
+                    variation for other results.
                   type: string
                 analysis:
                   description: >-
                     Optional markdown summary displayed on the experiment
                     results page.
+                  type: string
+                reason:
+                  description: >-
+                    Optional reason for ending the phase stored on the latest
+                    phase metadata.
                   type: string
                 dateEnded:
                   description: >-
@@ -6036,7 +6046,7 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/exp_abc123/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
-              -d '{"results":"won","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"analysis":"Reached desired sample size with statistically significant positive lift; shipping treatment"}'
+              -d '{"results":"won","releasedVariationId":"var_treatment","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"analysis":"Reached desired sample size with statistically significant positive lift; shipping treatment"}'
   /experiments/{id}/modify-temporary-rollout:
     post:
       operationId: postExperimentModifyTemporaryRollout
@@ -6058,10 +6068,11 @@ paths:
                     force traffic to the winner variation. If false, end
                     temporary rollout and remove from SDK payload.
                   type: boolean
-                winnerVariationId:
+                releasedVariationId:
                   description: >-
-                    Optional variation ID (e.g. var_abc123) to use when enabling
-                    temporary rollout.
+                    Variation ID (e.g. var_abc123) to release to 100% of traffic
+                    eligible for this experiment. Required if
+                    enableTemporaryRollout is true.
                   type: string
               required:
                 - enableTemporaryRollout

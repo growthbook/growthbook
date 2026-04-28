@@ -2164,6 +2164,7 @@ export async function postExperimentStop(
         results: req.body.results,
         winnerVariationId:
           req.body.winnerVariationId || req.body.releasedVariationId,
+        releasedVariationId: req.body.releasedVariationId,
         enableTemporaryRollout:
           req.body.enableTemporaryRollout ??
           (req.body.excludeFromPayload !== undefined

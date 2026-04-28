@@ -24,6 +24,7 @@ export const postExperimentStop = createApiRequestHandler(
       experimentId: req.params.id,
       results: req.body.results,
       winnerVariationId: req.body.winnerVariationId,
+      releasedVariationId: req.body.releasedVariationId,
       enableTemporaryRollout: req.body.enableTemporaryRollout,
       reason: req.body.reason,
       analysis: req.body.analysis,

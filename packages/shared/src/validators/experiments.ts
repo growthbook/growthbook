@@ -1259,26 +1259,34 @@ const postExperimentStopBody = z
     results: z
       .enum(experimentResultsType)
       .describe("The experiment conclusion status."),
-    winnerVariationId: z
-      .string()
-      .describe(
-        "Variation ID (e.g. var_abc123) of the winning variation. Defaults to the baseline variation if status is not 'won'. Required otherwise.",
-      )
-      .optional(),
     enableTemporaryRollout: z
       .boolean()
       .describe(
-        "If true, include this stopped experiment in SDK payload and force the winning variation (`winnerVariationId`) to all traffic.",
+        "If true, include this stopped experiment in SDK payload and force the release variation (`releasedVariationId`) to all traffic.",
       )
       .optional(),
-    reason: z
+    releasedVariationId: z
       .string()
-      .describe("Optional reason stored on the latest phase metadata.")
+      .describe(
+        "Required if enableTemporaryRollout is true. Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment.",
+      )
+      .optional(),
+    winnerVariationId: z
+      .string()
+      .describe(
+        "Variation ID (e.g. var_abc123) of the winning variation. Used only as metadata. Required if results is 'won' and there are multiple test variations. Otherwise, defaults to the test variation when results is 'won' and to the baseline variation for other results.",
+      )
       .optional(),
     analysis: z
       .string()
       .describe(
         "Optional markdown summary displayed on the experiment results page.",
+      )
+      .optional(),
+    reason: z
+      .string()
+      .describe(
+        "Optional reason for ending the phase stored on the latest phase metadata.",
       )
       .optional(),
     dateEnded: z
@@ -1297,10 +1305,10 @@ const postExperimentModifyTemporaryRolloutBody = z
       .describe(
         "If true, keep the stopped experiment in SDK payload and force traffic to the winner variation. If false, end temporary rollout and remove from SDK payload.",
       ),
-    winnerVariationId: z
+    releasedVariationId: z
       .string()
       .describe(
-        "Optional variation ID (e.g. var_abc123) to use when enabling temporary rollout.",
+        "Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment. Required if enableTemporaryRollout is true.",
       )
       .optional(),
   })
@@ -1469,6 +1477,7 @@ export const postExperimentStopValidator = {
     params: { id: "exp_abc123" },
     body: {
       results: "won" as const,
+      releasedVariationId: "var_treatment",
       winnerVariationId: "var_treatment",
       enableTemporaryRollout: true,
       analysis:

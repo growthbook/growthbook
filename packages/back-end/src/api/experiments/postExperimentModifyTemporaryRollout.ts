@@ -12,9 +12,7 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import {
-  modifyTemporaryRollout,
-} from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { modifyTemporaryRollout } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { ReqContext } from "back-end/types/request";
 
 export const postExperimentModifyTemporaryRollout = createApiRequestHandler(
@@ -25,7 +23,7 @@ export const postExperimentModifyTemporaryRollout = createApiRequestHandler(
     input: {
       experimentId: req.params.id,
       enableTemporaryRollout: req.body.enableTemporaryRollout,
-      winnerVariationId: req.body.winnerVariationId,
+      releasedVariationId: req.body.releasedVariationId,
     },
   });
 
@@ -72,4 +70,3 @@ export const postExperimentModifyTemporaryRollout = createApiRequestHandler(
     experiment: { ...apiExperiment, enhancedStatus },
   };
 });
-
