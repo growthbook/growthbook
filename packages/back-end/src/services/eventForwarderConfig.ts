@@ -400,3 +400,47 @@ export function decryptEventForwarderConfigModel<T extends SinkConfig>(
 ): T {
   return decryptSinkConfig<T>(config.config);
 }
+
+/**
+ * Re-derives and persists the encrypted sink credential blob for an existing
+ * event forwarder config using the latest datasource connection params.
+ *
+ * Called when `putDatasource` receives updated `params` (connection credentials)
+ * but no explicit `eventForwarderConfig` draft — so `syncEventForwarderConfigFromDatasource`
+ * would otherwise leave the stored credentials stale.
+ *
+ * Returns the updated config, or `null` if no config exists for the datasource.
+ */
+export async function refreshEventForwarderConfigCredentials(
+  context: ReqContext,
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >,
+  datasourceParams: EventForwarderDatasourceParams,
+): Promise<EventForwarderConfigInterface | null> {
+  const existing = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!existing) {
+    return null;
+  }
+
+  const draft = toEventForwarderConfigDraft(existing);
+  if (!draft) {
+    return existing;
+  }
+
+  const normalizedPayload = buildNormalizedSinkPayload(
+    draft,
+    datasourceParams,
+    existing,
+  );
+
+  return context.models.eventForwarderConfigs.update(existing, {
+    config: encryptSinkConfig(normalizedPayload),
+    status: "pending",
+    lastProvisioningError: "",
+  });
+}
