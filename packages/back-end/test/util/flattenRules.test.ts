@@ -251,21 +251,32 @@ describe("flattenV1ToV2Rules", () => {
       out.forEach((r) => expect(stemRuleId(r.id)).toBe("r1"));
     });
 
-    it("order-conflicting rules do not collapse — each split piece stays env-specific with suffixed id", () => {
+    it("order-conflicting rules: only the conflicting predecessor splits; the trailing rule safely merges (round-trip preserves env order)", () => {
       const A = forceRule("A");
       const B = forceRule("B");
       const out = flattenV1ToV2Rules(
         { dev: [A, B], prod: [B, A] },
         { applicableEnvs: ["dev", "prod"] },
       );
-      expect(out).toHaveLength(4);
-      out.forEach((r) => {
-        expect(r.allEnvironments).toBe(false);
-        expect(r.environments).toHaveLength(1);
-      });
-      // Every output id stem-strips back to the legacy id.
-      const stems = out.map((r) => stemRuleId(r.id)).sort();
-      expect(stems).toEqual(["A", "A", "B", "B"]);
+      // A splits (preds(A) in prod = {B} which is not a pred of A in its
+      // canonical-first env). B safely merges across [dev, prod] because A
+      // (now split) is no longer a "merged predecessor" obstructing B.
+      const byStem = (stem: string) =>
+        out.filter((r) => stemRuleId(r.id) === stem);
+      expect(byStem("A")).toHaveLength(2);
+      expect(byStem("B")).toHaveLength(1);
+      expect(byStem("B")[0].id).toBe("B");
+      expect(byStem("B")[0].allEnvironments).toBe(true);
+
+      // Buckets must round-trip back to v1 on-disk order in each env.
+      const bucketBy = (env: string) =>
+        out
+          .filter((r) =>
+            r.allEnvironments ? true : (r.environments ?? []).includes(env),
+          )
+          .map((r) => stemRuleId(r.id));
+      expect(bucketBy("dev")).toEqual(["A", "B"]);
+      expect(bucketBy("prod")).toEqual(["B", "A"]);
     });
 
     it("empty applicableEnvs preserves rules as no-env pending (no silent drop)", () => {
@@ -406,29 +417,39 @@ describe("flattenV1ToV2Rules", () => {
       out.forEach((r) => expect(r.environments).toEqual(["dev", "prod"]));
     });
 
-    it("splits both rules on order conflict (suffixed ids)", () => {
+    it("two-env order conflict: only the rule whose preds-in-non-first-env aren't preds-in-first-env splits", () => {
       const r1 = forceRule("r1");
       const r2 = forceRule("r2");
       const out = flattenV1ToV2Rules({
         dev: [r1, r2],
         prod: [r2, r1],
       });
-      expect(out).toHaveLength(4);
-      const perEnv = new Map<string, string[]>();
-      for (const r of out) {
-        const env = r.environments![0];
-        perEnv.set(env, [...(perEnv.get(env) ?? []), stemRuleId(r.id)]);
-      }
-      expect(perEnv.get("dev")).toEqual(["r1", "r2"]);
-      expect(perEnv.get("prod")).toEqual(["r2", "r1"]);
-      out.forEach((r) => expect(r.environments).toHaveLength(1));
-      // Every split piece's id is suffixed with its env.
-      out.forEach((r) => {
-        expect(r.id).toBe(suffixRuleId(stemRuleId(r.id), r.environments![0]));
-      });
+      // r1 splits (preds(r1) in prod = {r2}, but firstPreds(r1) = {} since
+      // r1 is at pos 0 in dev). r2 safely merges (no preds in prod, so
+      // nothing forces a split).
+      const byStem = (stem: string) =>
+        out.filter((r) => stemRuleId(r.id) === stem);
+      expect(byStem("r1")).toHaveLength(2);
+      expect(
+        byStem("r1")
+          .map((r) => r.id)
+          .sort(),
+      ).toEqual([suffixRuleId("r1", "dev"), suffixRuleId("r1", "prod")]);
+      expect(byStem("r2")).toHaveLength(1);
+      expect(byStem("r2")[0].id).toBe("r2");
+
+      // Bucket round-trip preserves v1 order in both envs.
+      const bucketBy = (env: string) =>
+        out
+          .filter((r) =>
+            r.allEnvironments ? true : (r.environments ?? []).includes(env),
+          )
+          .map((r) => stemRuleId(r.id));
+      expect(bucketBy("dev")).toEqual(["r1", "r2"]);
+      expect(bucketBy("prod")).toEqual(["r2", "r1"]);
     });
 
-    it("only splits the conflicting pair — unrelated mergeable rules still merge and keep bare id", () => {
+    it("3-rule swap in tail: leading rule and trailing predecessors merge; only the rule whose predecessors disagree splits", () => {
       const A = forceRule("A");
       const B = forceRule("B");
       const C = forceRule("C");
@@ -438,13 +459,26 @@ describe("flattenV1ToV2Rules", () => {
       });
       const byStem = (stem: string) =>
         out.filter((r) => stemRuleId(r.id) === stem);
-      // A merges (stable order) and keeps bare id.
+      // A merges (no preds in either env). B splits (preds(B) in prod
+      // includes C which isn't in firstPreds(B) = {A}). C merges (preds(C) in
+      // prod = {A} ⊆ firstPreds(C) = {A, B}, and A is mergeable).
       expect(byStem("A")).toHaveLength(1);
       expect(byStem("A")[0].id).toBe("A");
       expect(byStem("A")[0].environments).toEqual(["dev", "prod"]);
-      // B and C split, suffixed.
       expect(byStem("B")).toHaveLength(2);
-      expect(byStem("C")).toHaveLength(2);
+      expect(byStem("C")).toHaveLength(1);
+      expect(byStem("C")[0].id).toBe("C");
+      expect(byStem("C")[0].environments).toEqual(["dev", "prod"]);
+
+      // Bucket round-trip preserves v1 order.
+      const bucketBy = (env: string) =>
+        out
+          .filter((r) =>
+            r.allEnvironments ? true : (r.environments ?? []).includes(env),
+          )
+          .map((r) => stemRuleId(r.id));
+      expect(bucketBy("dev")).toEqual(["A", "B", "C"]);
+      expect(bucketBy("prod")).toEqual(["A", "C", "B"]);
     });
 
     it("preserves within-env order for split rules", () => {
@@ -454,14 +488,78 @@ describe("flattenV1ToV2Rules", () => {
         dev: [A, B],
         prod: [B, A],
       });
-      const devSeq = out
-        .filter((r) => r.environments?.[0] === "dev")
-        .map((r) => stemRuleId(r.id));
-      const prodSeq = out
-        .filter((r) => r.environments?.[0] === "prod")
-        .map((r) => stemRuleId(r.id));
-      expect(devSeq).toEqual(["A", "B"]);
-      expect(prodSeq).toEqual(["B", "A"]);
+      // A splits (its preds in prod include mergeable B which isn't a pred in
+      // dev). B safely merges — bucket round-trip preserves [A, B] / [B, A].
+      const bucketBy = (env: string) =>
+        out
+          .filter((r) =>
+            r.allEnvironments ? true : (r.environments ?? []).includes(env),
+          )
+          .map((r) => stemRuleId(r.id));
+      expect(bucketBy("dev")).toEqual(["A", "B"]);
+      expect(bucketBy("prod")).toEqual(["B", "A"]);
+    });
+
+    // Regression: real-world multi-env hybrid feature where two rules F, G
+    // are content-equivalent across {production, azure-prod, single-tenants-prod}
+    // but azure-prod ALSO has a non-mergeable multi-env predecessor U at pos 0.
+    // Naive merge anchors F, G at production's iteration and reorders
+    // azure-prod's bucket to [F, G, U, T] instead of v1's [U, T, F, G].
+    // Order-conflict detection must split F and G to keep the bucket invariant.
+    it("splits a mergeable rule when a non-mergeable predecessor only exists in non-canonical-first envs", () => {
+      // U is multi-env but content-divergent (split per env).
+      const uDev = forceRule("U", { value: "u-dev" });
+      const uAzure = forceRule("U", { value: "u-azure" });
+      const uStaging = forceRule("U", { value: "u-staging" });
+      // T is multi-env but content-divergent (also split per env).
+      const tDev = forceRule("T", { value: "t-dev" });
+      const tProd = forceRule("T", { value: "t-prod" });
+      const tAzure = forceRule("T", { value: "t-azure" });
+      const tSingleTenants = forceRule("T", { value: "t-single" });
+      const tStaging = forceRule("T", { value: "t-staging" });
+      // F, G are content-equivalent across the 3 envs they appear in.
+      const f = forceRule("F", { value: "f" });
+      const g = forceRule("G", { value: "g" });
+
+      const out = flattenV1ToV2Rules(
+        {
+          dev: [tDev, uDev],
+          production: [tProd, { ...f }, { ...g }],
+          "azure-prod": [uAzure, tAzure, { ...f }, { ...g }],
+          "single-tenants-prod": [tSingleTenants, { ...f }, { ...g }],
+          staging: [tStaging, uStaging],
+        },
+        {
+          envOrder: [
+            "dev",
+            "production",
+            "azure-prod",
+            "single-tenants-prod",
+            "staging",
+          ],
+        },
+      );
+
+      // F and G must NOT merge — they'd reorder azure-prod's bucket.
+      const byStem = (stem: string) =>
+        out.filter((r) => stemRuleId(r.id) === stem);
+      expect(byStem("F")).toHaveLength(3);
+      expect(byStem("G")).toHaveLength(3);
+      byStem("F").forEach((r) => expect(r.environments).toHaveLength(1));
+      byStem("G").forEach((r) => expect(r.environments).toHaveLength(1));
+
+      // Round-trip into per-env buckets must equal the original v1 order.
+      const bucketBy = (env: string) =>
+        out
+          .filter((r) =>
+            r.allEnvironments ? true : (r.environments ?? []).includes(env),
+          )
+          .map((r) => stemRuleId(r.id));
+      expect(bucketBy("dev")).toEqual(["T", "U"]);
+      expect(bucketBy("production")).toEqual(["T", "F", "G"]);
+      expect(bucketBy("azure-prod")).toEqual(["U", "T", "F", "G"]);
+      expect(bucketBy("single-tenants-prod")).toEqual(["T", "F", "G"]);
+      expect(bucketBy("staging")).toEqual(["T", "U"]);
     });
   });
 
@@ -618,7 +716,7 @@ describe("flattenV1ToV2Rules", () => {
       ]);
     });
 
-    it("transitive-safe: if X and Y conflict in order, unrelated Z with content match to X still merges", () => {
+    it("trailing rule with disagreeing predecessor sequence cannot merge — splits transitively", () => {
       const X = forceRule("X");
       const Y = forceRule("Y");
       const Z = forceRule("Z");
@@ -626,16 +724,28 @@ describe("flattenV1ToV2Rules", () => {
         dev: [X, Y, Z],
         prod: [Y, X, Z],
       });
+      // X splits (preds(X) in prod = {Y}, not in firstPreds(X)). Once X is
+      // split, Z's preds in prod = {Y, X} include the now-non-mergeable X,
+      // so Z must split too. Y safely merges (no preds in prod). Each env's
+      // bucket round-trips: dev=[X,Y,Z], prod=[Y,X,Z].
       const byStem = (stem: string) =>
         out.filter((r) => stemRuleId(r.id) === stem);
       expect(byStem("X")).toHaveLength(2);
-      expect(byStem("Y")).toHaveLength(2);
-      expect(byStem("Z")).toHaveLength(1);
-      expect(byStem("Z")[0].id).toBe("Z");
-      expect(byStem("Z")[0].environments).toEqual(["dev", "prod"]);
+      expect(byStem("Y")).toHaveLength(1);
+      expect(byStem("Y")[0].id).toBe("Y");
+      expect(byStem("Z")).toHaveLength(2);
+
+      const bucketBy = (env: string) =>
+        out
+          .filter((r) =>
+            r.allEnvironments ? true : (r.environments ?? []).includes(env),
+          )
+          .map((r) => stemRuleId(r.id));
+      expect(bucketBy("dev")).toEqual(["X", "Y", "Z"]);
+      expect(bucketBy("prod")).toEqual(["Y", "X", "Z"]);
     });
 
-    it("order conflict where conflicting pair only overlaps in a subset of envs", () => {
+    it("conflicting pair only co-occurs in a subset of envs: predecessor-set check still splits the leading rule and lets the trailing one merge", () => {
       const X = forceRule("X");
       const Y = forceRule("Y");
       const out = flattenV1ToV2Rules({
@@ -645,8 +755,22 @@ describe("flattenV1ToV2Rules", () => {
       });
       const byStem = (stem: string) =>
         out.filter((r) => stemRuleId(r.id) === stem);
+      // X splits across all 3 envs (preds in prod include Y not in firstPreds(X)).
+      // Y safely merges across [dev, prod] (no preds in prod, only in dev).
       expect(byStem("X")).toHaveLength(3);
-      expect(byStem("Y")).toHaveLength(2);
+      expect(byStem("Y")).toHaveLength(1);
+      expect(byStem("Y")[0].id).toBe("Y");
+      expect(byStem("Y")[0].environments).toEqual(["dev", "prod"]);
+
+      const bucketBy = (env: string) =>
+        out
+          .filter((r) =>
+            r.allEnvironments ? true : (r.environments ?? []).includes(env),
+          )
+          .map((r) => stemRuleId(r.id));
+      expect(bucketBy("dev")).toEqual(["X", "Y"]);
+      expect(bucketBy("staging")).toEqual(["X"]);
+      expect(bucketBy("prod")).toEqual(["Y", "X"]);
     });
 
     it("pair is consistent because they never share an env → still 'merges' (one-env each, no suffix)", () => {

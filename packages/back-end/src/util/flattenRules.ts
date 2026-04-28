@@ -313,29 +313,74 @@ export function flattenV1ToV2Rules(
     if (allSame) contentMergeable.add(legacyId);
   }
 
-  // 3. Order conflicts: if mergeable ids X,Y coexist in >=2 envs with
-  //    disagreeing relative order, split both.
+  // 3. Order conflicts. A merged rule emits exactly once, at its
+  //    canonical-first env's iteration position. So in any other env where it
+  //    appears, every rule that came before it on disk MUST also emit before
+  //    its canonical position in v2 — otherwise `bucketRulesByEnv` will
+  //    reorder rules within that env's bucket.
+  //
+  //    Concretely, X is safe to merge iff for every env E where X appears
+  //    other than X's canonical-first env, every predecessor R of X in E
+  //    is (a) also a predecessor of X in X's canonical-first env, AND
+  //    (b) itself still mergeable (so R emits during R's own canonical-first
+  //    iteration, at-or-before X's iteration).
+  //
+  //    This is iterated to a fixed point: removing one id from the merge
+  //    set can render another unsafe (its previously-mergeable predecessor
+  //    now emits per-env via suffixing).
+  //
+  //    Subsumes the looser pairwise (mergeable, mergeable) check: if X and
+  //    Y conflict in their relative order across envs, the predecessor-set
+  //    asymmetry surfaces here too.
   const splitFromOrderConflict = new Set<string>();
-  const mergeableIds = [...contentMergeable];
-  for (let i = 0; i < mergeableIds.length; i++) {
-    for (let j = i + 1; j < mergeableIds.length; j++) {
-      const X = mergeableIds[i];
-      const Y = mergeableIds[j];
-      const xOccs = groups.get(X) ?? [];
-      const yOccs = groups.get(Y) ?? [];
-      let prevDirection: "x-before-y" | "y-before-x" | null = null;
-      for (const env of envs) {
-        const xOcc = xOccs.find((o) => o.env === env);
-        const yOcc = yOccs.find((o) => o.env === env);
-        if (!xOcc || !yOcc) continue;
-        const dir = xOcc.position < yOcc.position ? "x-before-y" : "y-before-x";
-        if (prevDirection === null) {
-          prevDirection = dir;
-        } else if (prevDirection !== dir) {
-          splitFromOrderConflict.add(X);
-          splitFromOrderConflict.add(Y);
-          break;
+
+  function predecessorStems(env: string, position: number): string[] {
+    const list = rulesByEnv[env] || [];
+    const out: string[] = [];
+    for (let i = 0; i < position; i++) {
+      const r = list[i];
+      if (r && typeof r === "object" && r.id) out.push(stemRuleId(r.id));
+    }
+    return out;
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const id of contentMergeable) {
+      if (splitFromOrderConflict.has(id)) continue;
+      const occs = groups.get(id) ?? [];
+      if (occs.length < 2) continue;
+
+      // Canonical-first env: first env in `envs` order where id appears.
+      const firstEnv = envs.find((e) => occs.some((o) => o.env === e));
+      if (!firstEnv) continue;
+      const firstOcc = occs.find((o) => o.env === firstEnv);
+      if (!firstOcc) continue;
+
+      const firstPredSet = new Set(
+        predecessorStems(firstEnv, firstOcc.position),
+      );
+
+      let unsafe = false;
+      for (const occ of occs) {
+        if (occ.env === firstEnv) continue;
+        const preds = predecessorStems(occ.env, occ.position);
+        for (const predStem of preds) {
+          const predStillMergeable =
+            contentMergeable.has(predStem) &&
+            !splitFromOrderConflict.has(predStem);
+          if (!firstPredSet.has(predStem) || !predStillMergeable) {
+            unsafe = true;
+            break;
+          }
         }
+        if (unsafe) break;
+      }
+
+      if (unsafe) {
+        splitFromOrderConflict.add(id);
+        changed = true;
       }
     }
   }
