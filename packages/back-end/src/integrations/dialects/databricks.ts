@@ -61,7 +61,7 @@ export const databricksDialect: SqlDialect = {
       where,
     ),
 
-  supportsEfficientTopValues: () => true,
+  supportsEfficientTopValues: true,
   getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
     // Unpivot via LATERAL VIEW STACK so the fact table is scanned once
     // regardless of how many columns we're sampling. STACK(N, ...) splits

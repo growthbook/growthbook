@@ -66,7 +66,7 @@ if(
       metricTable,
       where,
     ),
-  supportsEfficientTopValues: () => true,
+  supportsEfficientTopValues: true,
   getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
     // ARRAY JOIN with two parallel arrays zips them element-wise, so the
     // fact table is scanned once and we get one output row per (input row,

@@ -136,7 +136,7 @@ export const baseDialect: SqlDialect = {
     );
   },
 
-  supportsEfficientTopValues: () => false,
+  supportsEfficientTopValues: false,
   getTopValuesCTEBody: (dialect, { columns, start, limit }) => {
     // Naive approach: one subquery per column UNION ALL'd together. Each
     // subquery re-scans __factTable, so this is only suitable for dialects

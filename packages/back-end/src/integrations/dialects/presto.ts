@@ -29,7 +29,7 @@ export const prestoDialect: SqlDialect = {
   hllCardinality: (col: string) => `CARDINALITY(${col})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(prestoDialect, values, metricTable, where),
-  supportsEfficientTopValues: () => true,
+  supportsEfficientTopValues: true,
   getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
     // Unpivot via CROSS JOIN UNNEST over an array of ROWs, so the fact
     // table is scanned once regardless of how many columns we're sampling.

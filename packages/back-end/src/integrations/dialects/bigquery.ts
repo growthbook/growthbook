@@ -91,7 +91,7 @@ export const bigQueryDialect: SqlDialect = {
       metricTable,
       where,
     ),
-  supportsEfficientTopValues: () => true,
+  supportsEfficientTopValues: true,
   getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
     // Unpivot via UNNEST over an array of STRUCTs, so the fact table is
     // scanned once regardless of how many columns we're sampling.

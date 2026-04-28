@@ -78,7 +78,7 @@ export interface SqlDialect {
     nEventsCol: string,
     numQuantiles: number,
   ) => string;
-  supportsEfficientTopValues: () => boolean;
+  supportsEfficientTopValues: boolean;
   getTopValuesCTEBody: (
     dialect: SqlDialect,
     params: {

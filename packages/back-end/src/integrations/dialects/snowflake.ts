@@ -52,7 +52,7 @@ export const snowflakeDialect: SqlDialect = {
       where,
     ),
 
-  supportsEfficientTopValues: () => true,
+  supportsEfficientTopValues: true,
   getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
     // Unpivot via LATERAL FLATTEN over an array of OBJECTs so the fact table
     // is scanned once regardless of how many columns we're sampling.
