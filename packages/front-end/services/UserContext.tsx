@@ -483,6 +483,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     const subscriptionStatus =
       license?.stripeSubscription?.status ||
       license?.orbSubscription?.status ||
+      subscription?.status ||
       "";
 
     if (effectiveAccountPlan === "enterprise") {
@@ -500,6 +501,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     currentOrg?.effectiveAccountPlan,
     license?.orbSubscription?.status,
     license?.stripeSubscription?.status,
+    subscription?.status,
   ]);
 
   return (
