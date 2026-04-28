@@ -9,6 +9,7 @@ import { EventForwarderConfigInterface } from "shared/validators";
 import {
   postProvisionEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
+  postUpdateEventForwarderCredentialsToLicenseServer,
   postUpdateEventForwarderSchemaToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
@@ -116,6 +117,115 @@ export async function provisionEventForwarderThroughLicenseServer(
         error: message,
       },
       "Failed to provision event forwarder config via license server",
+    );
+
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      status: "error",
+      lastProvisioningError: message,
+    });
+
+    throw new Error(message);
+  }
+}
+
+/**
+ * Pushes updated connection credentials to the Confluent connector for an
+ * existing event forwarder. Called from `putDataSource` when the datasource
+ * connection params change but no explicit `eventForwarderConfig` draft is
+ * provided. Skips if no connector name is recorded (provisioning hasn't
+ * completed) or if the sink type is `databricks`.
+ *
+ * On success the config status is set to `ready`. On failure the error is
+ * persisted as `status: "error"` and re-thrown so the HTTP response can
+ * signal a partial failure.
+ */
+export async function updateEventForwarderCredentialsThroughLicenseServer(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface | null,
+  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+): Promise<void> {
+  if (!eventForwarderConfig) {
+    return;
+  }
+
+  if (eventForwarderConfig.sinkType === "databricks") {
+    return;
+  }
+
+  const connectorName = eventForwarderConfig.connectorName?.trim();
+  if (!connectorName) {
+    return;
+  }
+
+  try {
+    if (eventForwarderConfig.sinkType === "bigquery") {
+      const bigqueryConnectionParams = datasourceParams as
+        | BigQueryConnectionParams
+        | undefined;
+      const projectId =
+        bigqueryConnectionParams?.defaultProject?.trim() ||
+        bigqueryConnectionParams?.projectId?.trim() ||
+        "";
+
+      if (!projectId) {
+        throw new Error(
+          "Missing BigQuery project id for event forwarder credential update",
+        );
+      }
+
+      const resolvedTableName =
+        await resolveBigQueryEventForwarderTableName(eventForwarderConfig);
+
+      const decrypted =
+        decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+
+      await postUpdateEventForwarderCredentialsToLicenseServer({
+        organizationId: context.org.id,
+        datasourceId: eventForwarderConfig.datasourceId,
+        connectorName,
+        sinkType: "bigquery",
+        bigqueryProjectId: projectId,
+        resolvedTableName,
+        bigqueryDataset: decrypted.dataset.trim(),
+        serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
+      });
+    } else if (eventForwarderConfig.sinkType === "snowflake") {
+      const decrypted =
+        decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+
+      await postUpdateEventForwarderCredentialsToLicenseServer({
+        organizationId: context.org.id,
+        datasourceId: eventForwarderConfig.datasourceId,
+        connectorName,
+        sinkType: "snowflake",
+        snowflake: decrypted,
+      });
+    } else {
+      throw new Error(
+        `Unsupported event forwarder sink type for credential update: ${eventForwarderConfig.sinkType}`,
+      );
+    }
+
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      status: "ready",
+      lastProvisioningError: "",
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unknown credential update error";
+    logger.error(
+      {
+        eventForwarderConfigId: eventForwarderConfig.id,
+        organizationId: context.org.id,
+        error: message,
+      },
+      "Failed to update event forwarder connector credentials via license server",
     );
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
