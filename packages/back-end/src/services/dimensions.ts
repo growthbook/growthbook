@@ -30,7 +30,7 @@ export function getDimensionsWithSpecifiedSlices({
   return (
     exposureQuery.dimensionMetadata?.flatMap((d) => {
       if (
-        d.specifiedSlices &&
+        d.specifiedSlices?.length &&
         dimensions.some((dim) => dim.id === d.dimension)
       ) {
         return [
