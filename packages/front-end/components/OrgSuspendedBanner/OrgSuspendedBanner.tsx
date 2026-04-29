@@ -1,3 +1,4 @@
+import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 
 export function OrgSuspendedBannerContainer() {
@@ -9,12 +10,12 @@ export function OrgSuspendedBannerContainer() {
 
   return (
     <div className="contents pagecontents container mb-3">
-      <div className="alert alert-danger">
+      <Callout status="error">
         <strong>Account Suspended.</strong> This organization has been suspended
         and access is restricted. Please contact{" "}
         <a href="mailto:support@growthbook.io">support@growthbook.io</a> for
         assistance.
-      </div>
+      </Callout>
     </div>
   );
 }
