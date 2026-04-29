@@ -98,7 +98,7 @@ export default function EventForwarder({
 
       <Card>
         <Flex direction="column" gap="3" p="2">
-          <Flex direction="row" gap="4" align="center" wrap="wrap">
+          <Flex direction="column" gap="4">
             <Box>
               <Text weight="medium">Table Name: </Text>
               {tableName ? (
@@ -106,10 +106,6 @@ export default function EventForwarder({
               ) : (
                 <Text color="text-low">None</Text>
               )}
-            </Box>
-            <Box>
-              <Text weight="medium">Connector Status: </Text>
-              <Text>{statusLabels[eventForwarderConfig.status]}</Text>
             </Box>
           </Flex>
 
