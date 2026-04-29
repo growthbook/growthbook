@@ -351,6 +351,7 @@ export default function FactTablePage() {
                         mutateDefinitions();
                         router.push("/fact-tables");
                       },
+                      closeDropdown: () => setDropdownOpen(false),
                     }}
                   >
                     Delete Fact Table
