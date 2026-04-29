@@ -205,14 +205,14 @@ function App({
                               {liteLayout ? <LayoutLite /> : <Layout />}
                               <CommandPaletteLauncher />
                               <main className={`main ${parts[0]}`}>
-                                <GuidedGetStartedBar />
-                                {/* These two banners intentionally live outside OrgPageContent
+                                {/* These banners intentionally live outside OrgPageContent
                                     so they render even when the org is suspended. */}
                                 <OrgSuspendedBannerContainer />
                                 <OrganizationMessagesContainer />
                                 <DemoDataSourceGlobalBannerContainer />
                                 <OrgPageContent>
                                   <GetStartedProvider>
+                                    <GuidedGetStartedBar />
                                     <DefinitionsProvider>
                                       <FeatureStaleStatesProvider>
                                         <DefinitionsGuard>

@@ -171,6 +171,20 @@ export async function _dangerousAdminPutOrganization(
     orig.suspended = org.suspended;
   }
   if (messages !== undefined) {
+    const VALID_LEVELS = new Set(["info", "warning", "danger"]);
+    if (
+      !Array.isArray(messages) ||
+      messages.length > 10 ||
+      messages.some(
+        (m) => typeof m.message !== "string" || !VALID_LEVELS.has(m.level),
+      )
+    ) {
+      return res.status(400).json({
+        status: 400,
+        message:
+          "Invalid messages: each entry must have a string message and a level of 'info', 'warning', or 'danger', with a maximum of 10 messages.",
+      });
+    }
     updates.messages = messages;
     orig.messages = org.messages;
   }
