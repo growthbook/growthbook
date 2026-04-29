@@ -103,7 +103,7 @@ function getEfficientTopValuesCTEBody(
   }
 
   const pairs = columns.map((c) => ({
-    keyLiteral: c.column,
+    keyLiteral: c.column.replace(/'/g, "''"),
     valueSql: dialect.castToString(c.column),
   }));
 
