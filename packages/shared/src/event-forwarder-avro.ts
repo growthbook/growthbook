@@ -110,10 +110,10 @@ export const EVENT_FORWARDER_AVRO_DEFAULT_FIELDS = [
     source: "top-level",
   },
   {
-    name: "attributes",
+    name: "additional_attributes",
     type: ["null", "string"],
     default: null,
-    doc: "JSON-encoded user attributes (context_json) — dynamic per customer",
+    doc: "JSON-encoded attributes passed by the client that do not have a dedicated schema column",
     source: "top-level",
   },
 ] as const satisfies readonly DefaultFieldDescriptor[];
@@ -137,6 +137,16 @@ const DEFAULT_FIELD_NAMES: Set<string> = new Set(
   EVENT_FORWARDER_AVRO_DEFAULT_FIELDS.map((f) => f.name),
 );
 
+/**
+ * Sanitizes a string for use as an Avro/BigQuery/Snowflake field name.
+ * Replaces any character that is not alphanumeric or underscore with "_",
+ * prepends "_" if the result starts with a digit, and truncates to 255 chars.
+ *
+ * IMPORTANT: This logic is intentionally duplicated in
+ * growthbook-ingestor/packages/ingestor/src/data.ts (`sanitizeAvroFieldName`).
+ * These two repos cannot share code directly. If you change this function,
+ * you MUST apply the same change there, and vice versa.
+ */
 export function sanitizeAvroFieldName(property: string): string {
   const sanitized = property.replace(/[^A-Za-z0-9_]+/g, "_");
   const withPrefix = /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
