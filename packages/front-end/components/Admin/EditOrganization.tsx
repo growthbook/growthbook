@@ -3,12 +3,12 @@ import {
   OrganizationInterface,
   OrganizationMessage,
 } from "shared/types/organization";
-
-type MessageWithId = OrganizationMessage & { id: string };
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
+
+type MessageWithId = OrganizationMessage & { id: string };
 
 const EditOrganization: FC<{
   onEdit: () => void;
