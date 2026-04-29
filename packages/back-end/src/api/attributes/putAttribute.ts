@@ -4,6 +4,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTagsDiff } from "back-end/src/models/TagModel";
+import { hasReadyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
@@ -24,8 +25,15 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       ...(await validatePayload(req.context, rawUpdatedAttribute)),
     };
 
+    const hasReadyEventForwarder = await hasReadyEventForwarderConfig(
+      req.context,
+    );
     if (
-      !req.context.permissions.canUpdateAttribute(attribute, updatedAttribute)
+      !req.context.permissions.canUpdateAttribute(
+        attribute,
+        updatedAttribute,
+        hasReadyEventForwarder,
+      )
     )
       req.context.permissions.throwPermissionError();
 
