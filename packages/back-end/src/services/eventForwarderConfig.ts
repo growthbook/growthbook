@@ -6,6 +6,7 @@ import {
   BigQueryEventForwarderConfigDraft,
   BigQueryEventForwarderStoredConfig,
   EventForwarderConfigDraft,
+  EventForwarderConfigWithMetadata,
   EventForwarderSinkType,
   SnowflakeEventForwarderConfigDraft,
   SnowflakeEventForwarderStoredConfig,
@@ -74,6 +75,13 @@ export async function getEventForwarderConfigForDatasource(
 ): Promise<EventForwarderConfigInterface | null> {
   const configs = await context.models.eventForwarderConfigs.getAll();
   return configs.find((config) => config.datasourceId === datasourceId) ?? null;
+}
+
+export async function hasReadyEventForwarderConfig(
+  context: ReqContext,
+): Promise<boolean> {
+  const configs = await context.models.eventForwarderConfigs.getAll();
+  return configs.some((config) => config.status === "ready");
 }
 
 /**
@@ -283,6 +291,29 @@ export async function getEventForwarderConfigDraftForDatasource(
     datasource.id,
   );
   return toEventForwarderConfigDraft(existing);
+}
+
+export async function getEventForwarderConfigWithMetadataForDatasource(
+  context: ReqContext,
+  datasource: Pick<DataSourceInterface, "type" | "id">,
+): Promise<EventForwarderConfigWithMetadata | null> {
+  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
+  if (!sinkType) return null;
+
+  const existing = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  const draft = toEventForwarderConfigDraft(existing);
+  if (!existing || !draft) return null;
+
+  return {
+    ...draft,
+    status: existing.status,
+    connectorName: existing.connectorName,
+    connectorId: existing.connectorId,
+    lastProvisioningError: existing.lastProvisioningError,
+  };
 }
 
 export async function syncEventForwarderConfigFromDatasource({

@@ -24,6 +24,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
+import useApi from "@/hooks/useApi";
 
 const HEADER_HEIGHT_PX = 55;
 
@@ -46,6 +47,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
     [attributeSchema],
   );
   const { references } = useAttributeReferences(attributeKeys);
+  const { data: eventForwarderData } = useApi<{
+    status: 200;
+    hasReadyEventForwarder: boolean;
+  }>("/event-forwarder/has-ready");
+  const activeEventForwarder =
+    eventForwarderData?.hasReadyEventForwarder || false;
 
   const attributesWithComputedFields = useAddComputedFields(
     attributeSchema,
@@ -259,7 +266,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       This action cannot be undone.
                     </>
                   }
-                  className="dropdown-item text-danger"
+                  className={`dropdown-item text-danger${
+                    activeEventForwarder ? " disabled" : ""
+                  }`}
+                  disabled={activeEventForwarder}
+                  title={
+                    activeEventForwarder
+                      ? "Attributes can't be deleted while an Event Forwarder is active."
+                      : ""
+                  }
                   onClick={async () => {
                     await apiCall<{
                       status: number;

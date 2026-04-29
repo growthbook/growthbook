@@ -18,6 +18,7 @@ import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -48,6 +49,15 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   const schema = useAttributeSchema(true);
   const current = schema.find((s) => s.property === attribute);
+  const { data: eventForwarderData } = useApi<{
+    status: 200;
+    hasReadyEventForwarder: boolean;
+  }>("/event-forwarder/has-ready", {
+    shouldRun: () => !!attribute,
+  });
+  const hasReadyEventForwarder =
+    eventForwarderData?.hasReadyEventForwarder || false;
+  const isEventForwarderStatusLoading = !!attribute && !eventForwarderData;
 
   const form = useForm<SDKAttribute>({
     defaultValues: {
@@ -77,7 +87,11 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   const permissionRequired = (project: string) => {
     return attribute
-      ? permissionsUtil.canUpdateAttribute({ projects: [project] }, {})
+      ? permissionsUtil.canUpdateAttribute(
+          { projects: [project] },
+          {},
+          hasReadyEventForwarder,
+        )
       : permissionsUtil.canCreateAttribute({ projects: [project] });
   };
 
@@ -87,23 +101,39 @@ export default function AttributeModal({ close, attribute }: Props) {
   );
 
   const selectedProjects = form.watch("projects") || [];
-  const canCreateWithoutProject = attribute
-    ? permissionsUtil.canUpdateAttribute(
-        { projects: current?.projects || [] },
-        { projects: [] },
-      )
-    : permissionsUtil.canCreateAttribute({ projects: [] });
-  const hasProjectPermission = attribute
-    ? permissionsUtil.canUpdateAttribute(
-        { projects: current?.projects || [] },
-        { projects: selectedProjects },
-      )
-    : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
-  const ctaDisabledMessage = !hasProjectPermission
-    ? !selectedProjects.length && projectOptions.length > 0
-      ? "Select a project to continue."
-      : `You don't have permission to ${attribute ? "update" : "create"} attributes.`
-    : undefined;
+  const canCreateWithoutProject =
+    !isEventForwarderStatusLoading &&
+    (attribute
+      ? permissionsUtil.canUpdateAttribute(
+          { projects: current?.projects || [] },
+          { projects: [] },
+          hasReadyEventForwarder,
+        )
+      : permissionsUtil.canCreateAttribute({ projects: [] }));
+  const hasProjectPermission =
+    !isEventForwarderStatusLoading &&
+    (attribute
+      ? permissionsUtil.canUpdateAttribute(
+          { projects: current?.projects || [] },
+          { projects: selectedProjects },
+          hasReadyEventForwarder,
+        )
+      : permissionsUtil.canCreateAttribute({ projects: selectedProjects }));
+  let ctaDisabledMessage: string | undefined;
+  if (!hasProjectPermission) {
+    if (isEventForwarderStatusLoading) {
+      ctaDisabledMessage = "Checking Event Forwarder status.";
+    } else if (hasReadyEventForwarder) {
+      ctaDisabledMessage =
+        "Attributes can't be updated while an Event Forwarder is active.";
+    } else if (!selectedProjects.length && projectOptions.length > 0) {
+      ctaDisabledMessage = "Select a project to continue.";
+    } else {
+      ctaDisabledMessage = `You don't have permission to ${
+        attribute ? "update" : "create"
+      } attributes.`;
+    }
+  }
 
   return (
     <Modal
