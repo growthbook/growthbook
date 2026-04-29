@@ -1218,7 +1218,7 @@ export async function postExperiments(
     if (
       obj.trackingKey &&
       (org.settings?.requireUniqueExperimentTrackingKeys ||
-        req.query.allowDuplicateTrackingKey)
+        !req.query.allowDuplicateTrackingKey)
     ) {
       const existing = await getExperimentByTrackingKey(
         context,
