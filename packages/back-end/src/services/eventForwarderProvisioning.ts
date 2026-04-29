@@ -7,7 +7,9 @@ import {
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
+  postPauseEventForwarderToLicenseServer,
   postProvisionEventForwarderToLicenseServer,
+  postResumeEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
   postUpdateEventForwarderCredentialsToLicenseServer,
   postUpdateEventForwarderSchemaToLicenseServer,
@@ -230,6 +232,110 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
       status: "error",
+      lastProvisioningError: message,
+    });
+
+    throw new Error(message);
+  }
+}
+
+/**
+ * Pauses a provisioned event forwarder connector through the central license server.
+ * Only ready configs can be paused; failed or pending configs do not have a
+ * reliably running Confluent connector to pause.
+ */
+export async function pauseEventForwarderThroughLicenseServer(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+): Promise<void> {
+  if (eventForwarderConfig.status !== "ready") {
+    throw new Error("Only ready event forwarders can be paused");
+  }
+
+  if (eventForwarderConfig.sinkType === "databricks") {
+    throw new Error("Databricks event forwarders cannot be paused");
+  }
+
+  const connectorName = eventForwarderConfig.connectorName?.trim();
+  if (!connectorName) {
+    throw new Error("Cannot pause event forwarder without a connector name");
+  }
+
+  try {
+    await postPauseEventForwarderToLicenseServer({
+      organizationId: context.org.id,
+      datasourceId: eventForwarderConfig.datasourceId,
+      connectorName,
+    });
+
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      status: "paused",
+      lastProvisioningError: "",
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown pause error";
+    logger.error(
+      {
+        eventForwarderConfigId: eventForwarderConfig.id,
+        organizationId: context.org.id,
+        error: message,
+      },
+      "Failed to pause event forwarder connector via license server",
+    );
+
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      lastProvisioningError: message,
+    });
+
+    throw new Error(message);
+  }
+}
+
+/**
+ * Resumes a paused event forwarder connector through the central license server.
+ */
+export async function resumeEventForwarderThroughLicenseServer(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+): Promise<void> {
+  if (eventForwarderConfig.status !== "paused") {
+    throw new Error("Only paused event forwarders can be resumed");
+  }
+
+  if (eventForwarderConfig.sinkType === "databricks") {
+    throw new Error("Databricks event forwarders cannot be resumed");
+  }
+
+  const connectorName = eventForwarderConfig.connectorName?.trim();
+  if (!connectorName) {
+    throw new Error("Cannot resume event forwarder without a connector name");
+  }
+
+  try {
+    await postResumeEventForwarderToLicenseServer({
+      organizationId: context.org.id,
+      datasourceId: eventForwarderConfig.datasourceId,
+      connectorName,
+    });
+
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      status: "ready",
+      lastProvisioningError: "",
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown resume error";
+    logger.error(
+      {
+        eventForwarderConfigId: eventForwarderConfig.id,
+        organizationId: context.org.id,
+        error: message,
+      },
+      "Failed to resume event forwarder connector via license server",
+    );
+
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
       lastProvisioningError: message,
     });
 

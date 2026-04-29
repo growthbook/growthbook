@@ -47,12 +47,16 @@ import {
   runUserExposureQuery,
 } from "back-end/src/services/datasource";
 import {
-  getEventForwarderConfigDraftForDatasource,
+  getEventForwarderConfigForDatasource,
+  getEventForwarderConfigWithMetadataForDatasource,
+  hasReadyEventForwarderConfig,
   refreshEventForwarderConfigCredentials,
   syncEventForwarderConfigFromDatasource,
 } from "back-end/src/services/eventForwarderConfig";
 import {
+  pauseEventForwarderThroughLicenseServer,
   provisionEventForwarderThroughLicenseServer,
+  resumeEventForwarderThroughLicenseServer,
   updateEventForwarderCredentialsThroughLicenseServer,
 } from "back-end/src/services/eventForwarderProvisioning";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
@@ -229,10 +233,11 @@ async function getDataSourceWithParams(
     ...otherFields,
     params: getNonSensitiveParams(integration),
     decryptionError: integration.decryptionError,
-    eventForwarderConfig: await getEventForwarderConfigDraftForDatasource(
-      context,
-      datasource,
-    ),
+    eventForwarderConfig:
+      await getEventForwarderConfigWithMetadataForDatasource(
+        context,
+        datasource,
+      ),
   };
 }
 
@@ -619,6 +624,138 @@ export async function putDataSource(
       message: e.message || "An error occurred",
     });
   }
+}
+
+export async function postPauseEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200 }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  if (eventForwarderConfig.status !== "ready") {
+    res.status(400).json({
+      status: 400,
+      message: "Only ready event forwarders can be paused",
+    });
+    return;
+  }
+
+  try {
+    await pauseEventForwarderThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to pause event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function postResumeEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200 }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  if (eventForwarderConfig.status !== "paused") {
+    res.status(400).json({
+      status: 400,
+      message: "Only paused event forwarders can be resumed",
+    });
+    return;
+  }
+
+  try {
+    await resumeEventForwarderThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to resume event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function getHasReadyEventForwarder(
+  req: AuthRequest,
+  res: Response<{ status: 200; hasReadyEventForwarder: boolean }>,
+) {
+  const context = getContextFromReq(req);
+
+  res.status(200).json({
+    status: 200,
+    hasReadyEventForwarder: await hasReadyEventForwarderConfig(context),
+  });
 }
 
 /**
