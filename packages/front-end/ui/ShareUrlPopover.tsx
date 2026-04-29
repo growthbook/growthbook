@@ -15,6 +15,7 @@ interface ShareUrlPopoverProps {
   description?: string;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
+  onCopy?: (url: string) => void;
 }
 
 export default function ShareUrlPopover({
@@ -24,6 +25,7 @@ export default function ShareUrlPopover({
   description,
   side = "bottom",
   align = "center",
+  onCopy,
 }: ShareUrlPopoverProps) {
   const shareUrl =
     url ?? (typeof window !== "undefined" ? window.location.href : "");
@@ -61,7 +63,10 @@ export default function ShareUrlPopover({
               color="violet"
               size="md"
               icon={copySuccess ? <PiCheck /> : <PiCopy />}
-              onClick={() => performCopy(shareUrl)}
+              onClick={() => {
+                performCopy(shareUrl);
+                onCopy?.(shareUrl);
+              }}
             >
               {copySuccess ? "Copied!" : "Copy link"}
             </Button>

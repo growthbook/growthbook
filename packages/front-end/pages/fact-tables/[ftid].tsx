@@ -44,6 +44,8 @@ import {
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Callout from "@/ui/Callout";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -69,6 +71,7 @@ export default function FactTablePage() {
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
 
   const [duplicateFactTable, setDuplicateFactTable] = useState<
     FactTableInterface | undefined
@@ -217,6 +220,18 @@ export default function FactTablePage() {
           source="fact-table-page"
         />
       )}
+      {auditModal && (
+        <Modal
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type="factTable" id={factTable.id} />
+        </Modal>
+      )}
       <PageHead
         breadcrumb={[
           { display: "Fact Tables", href: "/fact-tables" },
@@ -315,6 +330,14 @@ export default function FactTablePage() {
                   Duplicate Fact Table
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setAuditModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Audit log
+              </DropdownMenuItem>
               {canEdit && (
                 <DropdownMenuItem
                   onClick={async () => {
