@@ -120,6 +120,7 @@ export function getExperimentFactMetricsQuery(
       to: settings.endDate,
       forcedBaseIdType: userIdType,
       experimentId: settings.experimentId,
+      identityPlan: params.identityPlan,
     },
   );
 

@@ -266,6 +266,12 @@ export type ProcessedDimensions = {
   dateDimension: DateDimension | null;
 };
 
+export type IdentityPlan = {
+  baseIdType: string;
+  joinsRequired: string[];
+  idJoinMap: Record<string, string>;
+};
+
 export interface DropTableQueryParams {
   fullTablePath: string;
 }
@@ -296,6 +302,7 @@ interface ExperimentBaseQueryParams {
   dimensions: Dimension[];
   segment: SegmentInterface | null;
   unitsTableFullName?: string;
+  identityPlan?: IdentityPlan;
 }
 
 export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {

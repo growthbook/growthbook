@@ -148,7 +148,10 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
 import { getFreeFormQuery } from "back-end/src/integrations/sql/queries/free-form-query";
-import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
+import {
+  getIdentitiesCTE,
+  type IdentityPlan,
+} from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getKllQuantileGridColumns as getKllQuantileGridColumnsFromSql } from "back-end/src/integrations/sql/columns/kll-quantile-grid-columns";
 import { getMetricAnalysisQuery as buildMetricAnalysisQuerySql } from "back-end/src/integrations/sql/queries/metric-analysis-query";
 import { getMetricSourceTableSchema } from "back-end/src/integrations/sql/fact-metrics/metric-source-table-schema";
@@ -182,6 +185,7 @@ export default abstract class SqlIntegration
   context: ReqContext;
   // Metadata set by the individual query runners
   additionalMetadata?: AdditionalQueryMetadata;
+  identityPlan?: IdentityPlan;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
@@ -233,6 +237,14 @@ export default abstract class SqlIntegration
 
   setAdditionalQueryMetadata(additionalQueryMetadata: AdditionalQueryMetadata) {
     this.additionalMetadata = additionalQueryMetadata;
+  }
+
+  setIdentityPlan(plan: IdentityPlan) {
+    this.identityPlan = plan;
+  }
+
+  clearIdentityPlan() {
+    this.identityPlan = undefined;
   }
 
   getSourceProperties(): DataSourceProperties {
@@ -834,7 +846,10 @@ export default abstract class SqlIntegration
     return buildExperimentUnitsQuerySql(
       this.getSqlDialect(),
       this.datasource,
-      params,
+      {
+        ...params,
+        identityPlan: this.identityPlan,
+      },
     );
   }
   getBanditVariationPeriodWeights(
@@ -850,7 +865,10 @@ export default abstract class SqlIntegration
     return getExperimentAggregateUnitsQueryFromSql(
       this.getSqlDialect(),
       this.datasource,
-      params,
+      {
+        ...params,
+        identityPlan: this.identityPlan,
+      },
     );
   }
 
@@ -958,7 +976,10 @@ export default abstract class SqlIntegration
     return getExperimentFactMetricsQueryFromSql(
       this.getSqlDialect(),
       this.datasource,
-      params,
+      {
+        ...params,
+        identityPlan: this.identityPlan,
+      },
     );
   }
 
@@ -966,7 +987,10 @@ export default abstract class SqlIntegration
     return buildExperimentMetricQuerySql(
       this.getSqlDialect(),
       this.datasource,
-      params,
+      {
+        ...params,
+        identityPlan: this.identityPlan,
+      },
     );
   }
 
@@ -1567,6 +1591,7 @@ export default abstract class SqlIntegration
         to: settings.endDate,
         forcedBaseIdType: exposureQuery.userIdType,
         experimentId: settings.experimentId,
+        identityPlan: this.identityPlan,
       },
     );
 
@@ -1893,6 +1918,7 @@ export default abstract class SqlIntegration
         to: params.settings.endDate,
         forcedBaseIdType: exposureQuery.userIdType,
         experimentId: params.settings.experimentId,
+        identityPlan: this.identityPlan,
       },
     );
 
@@ -2155,6 +2181,7 @@ export default abstract class SqlIntegration
         to: params.settings.endDate,
         forcedBaseIdType: exposureQuery.userIdType,
         experimentId: params.settings.experimentId,
+        identityPlan: this.identityPlan,
       },
     );
 
@@ -2382,6 +2409,7 @@ export default abstract class SqlIntegration
         to: params.settings.endDate,
         forcedBaseIdType: exposureQuery.userIdType,
         experimentId: params.settings.experimentId,
+        identityPlan: this.identityPlan,
       },
     );
 

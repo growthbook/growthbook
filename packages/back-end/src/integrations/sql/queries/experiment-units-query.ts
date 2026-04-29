@@ -62,6 +62,7 @@ export function getExperimentUnitsQuery(
       to: settings.endDate,
       forcedBaseIdType: exposureQuery.userIdType,
       experimentId: settings.experimentId,
+      identityPlan: params.identityPlan,
     },
   );
 

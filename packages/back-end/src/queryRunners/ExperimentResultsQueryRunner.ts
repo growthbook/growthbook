@@ -53,6 +53,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { IdentityQueryBuilder } from "back-end/src/integrations/queryBuilder/IdentityQueryBuilder";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
   QueryRunner,
@@ -183,6 +184,48 @@ export const startExperimentResultQueries = async (
     factTableMap: params.factTableMap,
   };
 
+  const sqlIntegration =
+    integration instanceof SqlIntegration ? integration : null;
+  const identityBuilder =
+    sqlIntegration && exposureQuery
+      ? new IdentityQueryBuilder({
+          identityJoins: integration.datasource.settings?.queries?.identityJoins,
+          factTableMap: params.factTableMap,
+          exposureQuery,
+          activationMetric,
+          segment: segmentObj,
+          unitDimensions: unitQueryParams.dimensions,
+          forcedBaseIdType: exposureQuery.userIdType,
+        })
+      : null;
+
+  const buildQueryWithIdentityPlan = ({
+    build,
+    metrics = [],
+    denominatorMetrics = [],
+    dimensions,
+  }: {
+    build: () => string;
+    metrics?: ExperimentMetricInterface[];
+    denominatorMetrics?: MetricInterface[];
+    dimensions?: Dimension[];
+  }): string => {
+    if (!sqlIntegration || !identityBuilder) {
+      return build();
+    }
+    const plan = identityBuilder.buildForAnalysis({
+      metrics,
+      denominatorMetrics,
+      dimensions: dimensions || unitQueryParams.dimensions,
+    });
+    sqlIntegration.setIdentityPlan(plan);
+    try {
+      return build();
+    } finally {
+      sqlIntegration.clearIdentityPlan();
+    }
+  };
+
   if (useUnitsTable) {
     // The Mixpanel integration does not support writing tables
     if (!integration.generateTablePath) {
@@ -192,7 +235,10 @@ export const startExperimentResultQueries = async (
     }
     unitQuery = await startQuery({
       name: queryParentId,
-      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
+      query: buildQueryWithIdentityPlan({
+        build: () => integration.getExperimentUnitsTableQuery(unitQueryParams),
+        dimensions: unitQueryParams.dimensions,
+      }),
       dependencies: [],
       run: (query, setExternalId, queryMetadata) =>
         integration.runExperimentUnitsQuery(
@@ -243,7 +289,12 @@ export const startExperimentResultQueries = async (
     queries.push(
       await startQuery({
         name: m.id,
-        query: integration.getExperimentMetricQuery(queryParams),
+        query: buildQueryWithIdentityPlan({
+          build: () => integration.getExperimentMetricQuery(queryParams),
+          metrics: [m],
+          denominatorMetrics,
+          dimensions: queryParams.dimensions,
+        }),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
           integration.runExperimentMetricQuery(
@@ -283,7 +334,11 @@ export const startExperimentResultQueries = async (
     queries.push(
       await startQuery({
         name: `group_${i}`,
-        query: integration.getExperimentFactMetricsQuery(queryParams),
+        query: buildQueryWithIdentityPlan({
+          build: () => integration.getExperimentFactMetricsQuery!(queryParams),
+          metrics: m,
+          dimensions: queryParams.dimensions,
+        }),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
@@ -313,14 +368,19 @@ export const startExperimentResultQueries = async (
       }
     });
 
+    const trafficDimensions = snapshotDimensionsForTraffic.length
+      ? snapshotDimensionsForTraffic
+      : dimensionsForTraffic;
     trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
-      query: integration.getExperimentAggregateUnitsQuery({
-        ...unitQueryParams,
-        dimensions: snapshotDimensionsForTraffic.length
-          ? snapshotDimensionsForTraffic
-          : dimensionsForTraffic,
-        useUnitsTable: !!unitQuery,
+      query: buildQueryWithIdentityPlan({
+        build: () =>
+          integration.getExperimentAggregateUnitsQuery({
+            ...unitQueryParams,
+            dimensions: trafficDimensions,
+            useUnitsTable: !!unitQuery,
+          }),
+        dimensions: trafficDimensions,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
       run: (query, setExternalId, queryMetadata) =>
