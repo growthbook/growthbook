@@ -109,7 +109,7 @@
     "styled-jsx": "5.1.6",
     "swr": "^2.2.5",
     "uniqid": "^5.3.0",
-    "uuid": "^14.0.0",
+    "uuid": "^9.0.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

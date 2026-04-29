@@ -901,8 +901,8 @@ importers:
         specifier: ^5.3.0
         version: 5.4.0
       uuid:
-        specifier: ^14.0.0
-        version: 14.0.0
+        specifier: ^9.0.0
+        version: 9.0.1
       zod:
         specifier: ^4.1.12
         version: 4.1.12
