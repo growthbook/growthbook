@@ -853,9 +853,16 @@ export async function getOrganization(
   if (req.orgSuspended) {
     const org = req.organization;
     const currentUserPermissions = getUserPermissions(req.currentUser, org, []);
+
     return res.status(200).json({
       status: 200,
-      organization: org,
+      organization: {
+        id: org.id,
+        name: org.name,
+        suspended: org.suspended,
+        messages: org.messages || [],
+        settings: {},
+      } as unknown as OrganizationInterface,
       members: [],
       seatsInUse: 0,
       roles: getRoles(org),
