@@ -969,7 +969,7 @@ const postExperimentBody = z
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow creating an experiment even if another experiment with the same tracking key already exists",
+        "If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule.",
       )
       .optional(),
     name: z.string().describe("Name of the experiment"),
@@ -1083,7 +1083,7 @@ const updateExperimentBody = z
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow updating the tracking key even if another experiment with the same tracking key already exists",
+        "If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule.",
       )
       .optional(),
     name: z.string().describe("Name of the experiment").optional(),
@@ -1282,12 +1282,18 @@ export const listExperimentsValidator = {
       ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       datasourceId: z.string().describe("Filter by Data Source").optional(),
+      trackingKey: z
+        .string()
+        .describe("Filter by experiment tracking key")
+        .optional(),
       experimentId: z
         .string()
         .describe(
-          "Filter the returned list by the experiment tracking key (id)",
+          "Filter the returned list by the experiment tracking key (not the internal experiment ID). Note, this was deprecated to help reduce confusion, consider using `trackingKey` instead, which is functionally identical. You cannot use both params at the same time.",
         )
-        .optional(),
+        .optional()
+        .meta({ deprecated: true }),
+
       status: z.enum(experimentStatus).optional(),
     })
     .strict(),

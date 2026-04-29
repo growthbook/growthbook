@@ -95,6 +95,9 @@ export async function postReportFromSnapshot(
     throw new Error("Missing analysis settings");
   }
 
+  // Enforce a single analysis per snapshot for reports
+  snapshot.analyses = [analysis];
+
   const phaseIndex = snapshot.phase ?? (experiment.phases?.length || 1) - 1;
   const _experimentAnalysisSettings: ExperimentReportAnalysisSettings = {
     ...pick(experiment, Object.keys(experimentAnalysisSettings.shape)),
