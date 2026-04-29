@@ -19,6 +19,7 @@ from sklearn.tree import DecisionTreeRegressor
 
 BANDIT_DIMENSION_COLUMN = "dimension"
 BANDIT_DIMENSION_VALUE = "All"
+BANDIT_DEFAULT_CONTEXT_VALUE = "All"
 # Synthetic column for contextual tree: leaf id from DecisionTreeRegressor.apply
 LEAF_ID_COLUMN = "leaf_id"
 
@@ -157,9 +158,9 @@ class UpdateWeightsContextualBandit:
             # If there are no rows, return no-update results for all contexts we have weights for.
             context_keys = list(
                 self.contextual_bandit_settings.current_contextual_weights
-            ) or [BANDIT_DIMENSION_VALUE]
+            ) or [BANDIT_DEFAULT_CONTEXT_VALUE]
             update_message = "no rows"
-            responses = {
+            no_row_responses: dict[ContextKey, BanditResult] = {
                 ctx: no_update_result(
                     weights=self.contextual_bandit_settings.current_contextual_weights.get(
                         ctx
@@ -169,19 +170,14 @@ class UpdateWeightsContextualBandit:
                 )
                 for ctx in context_keys
             }
-            return ContextualBanditResponse(
-                responses=cast(dict[ContextKey, BanditResult], responses)
-            )
+            return ContextualBanditResponse(responses=no_row_responses)
 
         elif not self.contextual_bandit_settings.contexts:
-            context_keys = list(
-                self.contextual_bandit_settings.current_contextual_weights
-            ) or [BANDIT_DIMENSION_VALUE]
             update_message = "no context columns configured"
-            responses = self.default_responses(update_message)
-            return ContextualBanditResponse(
-                responses=cast(dict[ContextKey, BanditResult], responses)
+            no_config_responses: dict[ContextKey, BanditResult] = (
+                self.default_responses(update_message)
             )
+            return ContextualBanditResponse(responses=no_config_responses)
 
         else:
             # Unique contexts: one tuple per combination of (col0, col1, ...) across rows
@@ -191,7 +187,7 @@ class UpdateWeightsContextualBandit:
             rows_by_ctx = create_rows_by_context(
                 self.rows, self.contextual_bandit_settings.contexts, contexts
             )
-            result = ContextualBanditResponse({})
+            per_context_responses: dict[ContextKey, BanditResult] = {}
 
             for ctx in contexts:
                 if (
@@ -223,18 +219,13 @@ class UpdateWeightsContextualBandit:
                     settings=self.analysis_settings,
                     bandit_settings=bandit_settings,
                 )
-                result.responses[ctx] = r
+                per_context_responses[ctx] = r
 
-            return ContextualBanditResponse(
-                responses=cast(dict[ContextKey, BanditResult], result.responses)
-            )
+            return ContextualBanditResponse(responses=per_context_responses)
 
 
-class BuildClassificationTree:
-    """Fit a decision tree over context tuples using per-context variation means as targets (sklearn DecisionTreeRegressor + one-hot encoded context indices).
-
-    Despite the name, the implementation uses a **regression** tree on continuous mean outcomes per variation.
-    """
+class BuildRegressionTree:
+    """Fit a decision tree over context tuples using per-context variation means as targets (sklearn DecisionTreeRegressor + one-hot encoded context indices)."""
 
     def __init__(
         self,
@@ -272,20 +263,20 @@ class BuildClassificationTree:
             self.tree_feature_names = []
             return
 
-        num_dims = len(self.contexts[0])
-        dimension_names: list[str] = getattr(
+        num_attributes = len(self.contexts[0])
+        attribute_names: list[str] = getattr(
             self.bandit_settings, "dimension", None
-        ) or [f"dimension_{i}" for i in range(num_dims)]
-        if len(dimension_names) != num_dims:
-            dimension_names = [
-                dimension_names[i] if i < len(dimension_names) else f"dimension_{i}"
-                for i in range(num_dims)
+        ) or [f"attribute_{i}" for i in range(num_attributes)]
+        if len(attribute_names) != num_attributes:
+            attribute_names = [
+                attribute_names[i] if i < len(attribute_names) else f"attribute_{i}"
+                for i in range(num_attributes)
             ]
-        unique_by_dim: list[list[str]] = [
-            sorted(set(c[i] for c in self.contexts)) for i in range(num_dims)
+        unique_by_attribute: list[list[str]] = [
+            sorted(set(c[i] for c in self.contexts)) for i in range(num_attributes)
         ]
-        X_list: list[list[int]] = []
-        Y_list: list[list[float]] = []
+        x_list: list[list[int]] = []
+        y_list: list[list[float]] = []
         sample_weight_list: list[int] = []
         for ctx in groups_with_data:
             rows = rows_by_context[ctx]
@@ -301,50 +292,54 @@ class BuildClassificationTree:
                 else:
                     s = float(s)
                 means[v] = (s / n) if n > 0 else 0.0
-            x_row = [unique_by_dim[i].index(ctx[i]) for i in range(num_dims)]
-            X_list.append(x_row)
-            Y_list.append(means)
+            x_row = [
+                unique_by_attribute[i].index(ctx[i]) for i in range(num_attributes)
+            ]
+            x_list.append(x_row)
+            y_list.append(means)
             sample_weight_list.append(n_ctx)
-        X_train = np.array(X_list, dtype=np.float64)
+        x_train = np.array(x_list, dtype=np.float64)
         transformers = [
             (
                 f"dim_{i}",
                 OneHotEncoder(
                     categories=cast(
                         Any,
-                        [np.arange(len(unique_by_dim[i]), dtype=np.int64)],
+                        [np.arange(len(unique_by_attribute[i]), dtype=np.int64)],
                     ),
                     sparse_output=False,
                 ),
                 [i],
             )
-            for i in range(num_dims)
+            for i in range(num_attributes)
         ]
         ct = ColumnTransformer(transformers, remainder="drop")
-        X_train_encoded = ct.fit_transform(X_train)
-        Y_train = np.array(Y_list, dtype=np.float64)
+        x_train_encoded = ct.fit_transform(x_train)
+        Y_train = np.array(y_list, dtype=np.float64)
         tree = DecisionTreeRegressor(
             max_leaf_nodes=self.max_leaf_nodes,
             random_state=np.random.RandomState(self.rng.integers(0, 2**31 - 1)),
         )
         tree.fit(
-            X_train_encoded,
+            x_train_encoded,
             Y_train,
             sample_weight=np.array(sample_weight_list, dtype=np.float64),
         )
 
         def _row(c: tuple[str, ...]) -> list[float]:
-            return [float(unique_by_dim[i].index(c[i])) for i in range(num_dims)]
+            return [
+                float(unique_by_attribute[i].index(c[i])) for i in range(num_attributes)
+            ]
 
-        X_full = np.array([_row(c) for c in self.contexts], dtype=np.float64)
-        X_full_encoded = ct.transform(X_full)
-        leaf_ids_arr = tree.apply(X_full_encoded)
+        x_full = np.array([_row(c) for c in self.contexts], dtype=np.float64)
+        x_full_encoded = ct.transform(x_full)
+        leaf_ids_arr = tree.apply(x_full_encoded)
         self.leaf_map = {
             self.contexts[i]: int(leaf_ids_arr[i]) for i in range(len(self.contexts))
         }
         self.leaf_ids = sorted(set(self.leaf_map.values()))
         self.fitted_tree = tree
-        self.tree_feature_names = ct.get_feature_names_out(dimension_names).tolist()
+        self.tree_feature_names = ct.get_feature_names_out(attribute_names).tolist()
 
 
 class UpdateWeightsContextualTree:
@@ -439,29 +434,40 @@ class UpdateWeightsContextualTree:
     def rows_to_rows_by_context(
         self, rows: ExperimentMetricQueryResponseRows
     ) -> dict[tuple, ExperimentMetricQueryResponseRows]:
-        """Transform flat ExperimentMetricQueryResponseRows into the structure expected by build_tree: dict mapping context (tuple of dimension values) -> list of rows.
+        """Transform flat ExperimentMetricQueryResponseRows into the structure expected by build_tree: dict mapping context (tuple of targeting attribute values) -> list of rows.
         Uses bandit_settings.dimension for column names (arbitrary number of dimensions), falling back to analysis_settings.dimension for a single dimension.
         Example:
         rows = [
-            {"dimension": "A", "variation": 0, "users": 100, "main_sum": 1000},
-            {"dimension": "A", "variation": 1, "users": 200, "main_sum": 2000},
-            {"dimension": "B", "variation": 0, "users": 150, "main_sum": 1500},
+            {"country": "US", "browser": "Chrome", "variation": 0, "users": 100, "main_sum": 1000},
+            {"country": "UK", "browser": "Firefox", "variation": 1, "users": 200, "main_sum": 2000},
+            {"country": "DE", "browser": "Chrome", "variation": 0, "users": 150, "main_sum": 1500},
         ]
+        rows_by_context = {
+            ("US", "Chrome"): [
+                {"country": "US", "browser": "Chrome", "variation": 0, "users": 100, "main_sum": 1000},
+            ],
+            ("UK", "Firefox"): [
+                {"country": "UK", "browser": "Firefox", "variation": 1, "users": 200, "main_sum": 2000},
+            ],
+            ("DE", "Chrome"): [
+                {"country": "DE", "browser": "Chrome", "variation": 0, "users": 150, "main_sum": 1500},
+            ],
+        }
         """
         if not rows:
             return {}
         out: dict[tuple, ExperimentMetricQueryResponseRows] = {}
         for row in rows:
             ctx = tuple(
-                str(row.get(col, BANDIT_DIMENSION_VALUE))
-                for col in self.bandit_settings.contexts
+                str(row.get(context, BANDIT_DIMENSION_VALUE))
+                for context in self.bandit_settings.contexts
             )
             out.setdefault(ctx, []).append(row)
         return out
 
     def build_tree(self, rows_by_context: dict):
-        """Delegate tree fitting to :class:`BuildClassificationTree`."""
-        builder = BuildClassificationTree(
+        """Delegate tree fitting to :class:`BuildRegressionTree`."""
+        builder = BuildRegressionTree(
             contexts=self.contexts,
             num_variations=self.num_variations,
             max_leaf_nodes=self.max_leaf_nodes,
@@ -609,6 +615,6 @@ class UpdateWeightsContextualTree:
                 context_to_result[ctx] = no_update_result(list(w))
 
         return ContextualTreeBanditResponse(
-            responses=cast(dict[ContextKey, BanditResult], context_to_result),
+            responses=context_to_result,
             leaf_map=copy.copy(self.leaf_map),
         )
