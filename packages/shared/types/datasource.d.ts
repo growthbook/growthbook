@@ -11,7 +11,7 @@ import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
-import { EventForwarderConfigDraft } from "./event-forwarder";
+import { EventForwarderConfigWithMetadata } from "./event-forwarder";
 
 export type DataSourceType =
   | "growthbook_clickhouse"
@@ -154,7 +154,7 @@ type WithParams<B, P> = Omit<B, "params"> & {
   params: P;
   properties?: DataSourceProperties;
   decryptionError: boolean;
-  eventForwarderConfig?: EventForwarderConfigDraft | null;
+  eventForwarderConfig?: EventForwarderConfigWithMetadata | null;
 };
 
 export type IdentityJoinQuery = {

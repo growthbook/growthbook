@@ -33,6 +33,7 @@ import {
 } from "@/ui/DropdownMenu";
 import AttributeReferencesList from "@/components/Features/AttributeReferencesList";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@/hooks/useApi";
 
 export default function AttributeDetailPage() {
   const router = useRouter();
@@ -49,6 +50,12 @@ export default function AttributeDetailPage() {
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const { data: eventForwarderData } = useApi<{
+    status: 200;
+    hasReadyEventForwarder: boolean;
+  }>("/event-forwarder/has-ready");
+  const activeEventForwarder =
+    eventForwarderData?.hasReadyEventForwarder || false;
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showReferencesModal, setShowReferencesModal] = useState(false);
@@ -207,8 +214,11 @@ export default function AttributeDetailPage() {
           close={() => setShowDeleteModal(false)}
           cta="Delete"
           submitColor="danger"
+          ctaEnabled={!activeEventForwarder}
+          disabledMessage="Attributes can't be deleted while an Event Forwarder is active."
           trackingEventModalType=""
           submit={async () => {
+            if (activeEventForwarder) return;
             await apiCall<{ status: number }>("/attribute/", {
               method: "DELETE",
               body: JSON.stringify({ id: attribute.property }),
@@ -269,6 +279,7 @@ export default function AttributeDetailPage() {
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   color="red"
+                  disabled={activeEventForwarder}
                   onClick={() => {
                     setShowDeleteModal(true);
                     setDropdownOpen(false);

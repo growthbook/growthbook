@@ -1,6 +1,11 @@
 export type EventForwarderSinkType = "bigquery" | "snowflake" | "databricks";
 
-export type EventForwarderStatus = "pending" | "ready" | "error";
+export type EventForwarderStatus =
+  | "pending"
+  | "ready"
+  | "paused"
+  | "error"
+  | "schema_update_error";
 
 /** BigQuery sink settings edited with the datasource form (dataset is the datasource Default Dataset). */
 export interface BigQueryEventForwarderConfigDraft {
@@ -47,3 +52,10 @@ export type EventForwarderConfigDraft =
       sinkType: "databricks";
       config: Record<string, string>;
     };
+
+export type EventForwarderConfigWithMetadata = EventForwarderConfigDraft & {
+  status: EventForwarderStatus;
+  connectorName?: string;
+  connectorId?: string;
+  lastProvisioningError?: string;
+};

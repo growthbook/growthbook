@@ -99,8 +99,15 @@ export const DataSourceInlineEditIdentifierTypes: FC<
         </Flex>
         {canEdit && (
           <Box>
-            <Button variant="solid" onClick={handleAdd}>
-              <FaPlus className="mr-1" /> Add
+            <Button
+              variant="solid"
+              onClick={handleAdd}
+              style={{
+                alignItems: "center",
+              }}
+            >
+              <FaPlus className="mr-1" />
+              &nbsp;<span>Add</span>
             </Button>
           </Box>
         )}

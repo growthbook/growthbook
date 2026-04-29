@@ -9,6 +9,7 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { updateEventForwarderSchemaThroughLicenseServer } from "back-end/src/services/eventForwarderProvisioning";
+import { hasReadyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -98,7 +99,7 @@ export const putAttribute = async (
   if (index === -1) {
     context.throwNotFoundError("Attribute not found");
   }
-
+  const hasReadyEventForwarder = await hasReadyEventForwarderConfig(context);
   const existing = attributeSchema[index];
   // Only pass `projects` when the client actually sent it — passing
   // `{ projects: undefined }` would be interpreted as a request to scope the
@@ -109,6 +110,7 @@ export const putAttribute = async (
       "projects" in attributeFields
         ? { projects: attributeFields.projects }
         : {},
+      hasReadyEventForwarder,
     )
   ) {
     context.permissions.throwPermissionError();
