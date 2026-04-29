@@ -8,11 +8,12 @@ const API_RATE_LIMIT_MAX = parseEnvInt(process.env.API_RATE_LIMIT_MAX, 60, {
   name: "API_RATE_LIMIT_MAX",
 });
 
-const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
+const messageRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
 
 /**
- * Same window and cap as `/api/v1` (see `API_RATE_LIMIT_MAX`). Use after auth
- * with a keyGenerator that identifies the caller (e.g. secret API key id).
+ * Since API_RATE_LIMIT_MAX is per server, the error message is not quite accurate.
+ * For cloud we hardcode the approximate limit. As many self hosted users have a single server,
+ * the actual limit is probably API_RATE_LIMIT_MAX.
  */
 export function apiStyleRateLimiter(
   keyGenerator: (req: Request) => string,
@@ -24,7 +25,7 @@ export function apiStyleRateLimiter(
     legacyHeaders: false,
     keyGenerator,
     message: {
-      message: `Too many requests, limit to ${overallRateLimit} per minute`,
+      message: `Too many requests, limit to ${messageRateLimit} per minute`,
     },
   });
 }
