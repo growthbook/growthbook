@@ -290,9 +290,17 @@ export function getFactMetricGroups(
   // Group fact metrics into efficient groups (primarily if they share a fact table)
   const groups: Record<string, FactMetricInterface[]> = {};
   factMetrics.forEach((m) => {
-    // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
+    // Skip grouping metrics with percentile caps if they cannot be grouped at all
     if (
-      (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
+      m.cappingSettings.type === "percentile" &&
+      !integration.getSourceProperties().canGroupPercentileCappedMetrics
+    ) {
+      return;
+    }
+
+    // Skip grouping quantile metrics if there's not an efficient implementation
+    if (
+      quantileMetricType(m) &&
       !integration.getSourceProperties().hasEfficientPercentiles
     ) {
       return;

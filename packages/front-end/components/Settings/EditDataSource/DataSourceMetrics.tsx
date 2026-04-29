@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { FaArchive, FaChevronRight, FaPlus } from "react-icons/fa";
-import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { DocLink } from "@/components/DocLink";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -23,6 +23,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useUser } from "@/services/UserContext";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -46,6 +47,7 @@ export default function DataSourceMetrics({
     factTables,
     metrics: legacyMetrics,
   } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
@@ -179,7 +181,7 @@ export default function DataSourceMetrics({
                               )}
                             >
                               <strong>Owner: </strong>
-                              {metric.owner}
+                              {getOwnerDisplay(metric.owner)}
                             </div>
                             <div
                               className={clsx(

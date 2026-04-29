@@ -14,6 +14,8 @@ import { ExperimentRefVariation, FeatureInterface } from "./feature";
 export {
   AttributionModel,
   ImplementationType,
+  LookbackOverride,
+  LookbackOverrideValueUnit,
   MetricOverride,
   BanditResult,
   ExperimentStatus,
@@ -28,12 +30,15 @@ export {
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,
+  PhaseVariation,
   Screenshot,
   Variation,
+  VariationStatus,
 } from "shared/validators";
 
 export {
   ExperimentTemplateInterface,
+  ApiExperimentTemplateInterface,
   CreateTemplateProps,
   UpdateTemplateProps,
 } from "shared/validators";
@@ -80,6 +85,7 @@ export type ExperimentUnhealthyData = {
     multipleExposedUsers: number;
   };
   lowPowered?: boolean;
+  covariateImbalance?: boolean;
 };
 
 export type ExperimentResultStatus =
@@ -207,6 +213,7 @@ export type ExperimentTargetingData = Pick<
   | "namespace"
   | "seed"
   | "variationWeights"
+  | "variations"
   | "savedGroups"
   | "prerequisites"
 > &
@@ -241,6 +248,10 @@ export interface LinkedFeatureInfo {
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
 }
+
+export type LinkedChangeEnvState = "active" | "no-sdk-connection";
+
+export type LinkedChangeEnvStates = Record<string, LinkedChangeEnvState>;
 
 export type ExperimentHealthSettings = {
   decisionFrameworkEnabled: boolean;

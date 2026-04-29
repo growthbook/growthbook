@@ -36,7 +36,8 @@ export type DataType =
   | "boolean"
   | "date"
   | "timestamp"
-  | "hll";
+  | "hll"
+  | "kll";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
@@ -457,6 +458,11 @@ export type MetricAnalysisParams = {
   metric: FactMetricInterface;
   factTableMap: FactTableMap;
   segment: SegmentInterface | null;
+};
+
+export type ProductAnalyticsExplorationParams = {
+  factTableMap: FactTableMap;
+  factMetricMap: Map<string, FactMetricInterface>;
 };
 
 export type DimensionColumnData = {

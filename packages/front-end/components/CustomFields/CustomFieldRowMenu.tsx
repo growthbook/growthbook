@@ -14,10 +14,12 @@ interface CustomFieldRowMenuProps {
   canDelete: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  isActive: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onToggleActive: () => void;
 }
 
 export default function CustomFieldRowMenu({
@@ -25,10 +27,12 @@ export default function CustomFieldRowMenu({
   canDelete,
   canMoveUp,
   canMoveDown,
+  isActive,
   onEdit,
   onDelete,
   onMoveUp,
   onMoveDown,
+  onToggleActive,
 }: CustomFieldRowMenuProps) {
   const [open, setOpen] = useState(false);
 
@@ -60,6 +64,16 @@ export default function CustomFieldRowMenu({
             }}
           >
             Edit
+          </DropdownMenuItem>
+        )}
+        {canEdit && (
+          <DropdownMenuItem
+            onClick={() => {
+              onToggleActive();
+              setOpen(false);
+            }}
+          >
+            {isActive ? "Disable" : "Enable"}
           </DropdownMenuItem>
         )}
         {canDelete && (

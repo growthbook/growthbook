@@ -5,16 +5,7 @@ import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
 import { PiArrowsDownUp } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import {
-  experimentsReferencingSavedGroups,
-  featuresReferencingSavedGroups,
-  isIdListSupportedAttribute,
-} from "shared/util";
-import { FeatureInterface } from "shared/types/feature";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
+import { isIdListSupportedAttribute } from "shared/util";
 import { Box, Card, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
@@ -24,7 +15,6 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useEnvironments, useFeaturesList } from "@/services/features";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
@@ -35,15 +25,23 @@ import LargeSavedGroupPerformanceWarning, {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import HistoryTable from "@/components/HistoryTable";
+import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
+import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
+import {
+  renderSavedGroupTargeting,
+  renderSavedGroupProjects,
+  renderSavedGroupSettings,
+  getSavedGroupSettingsBadges,
+  getSavedGroupTargetingBadges,
+  getSavedGroupValuesBadges,
+  getSavedGroupProjectsBadges,
+} from "@/components/SavedGroups/SavedGroupDiffRenders";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
-import { useExperiments } from "@/hooks/useExperiments";
 import Button from "@/ui/Button";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupReferences from "@/components/SavedGroups/SavedGroupReferences";
 import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
-import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
 import SavedGroupDeleteModal from "@/components/SavedGroups/SavedGroupDeleteModal";
 import {
@@ -52,6 +50,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
+import { useUser } from "@/services/UserContext";
 
 const NUM_PER_PAGE = 10;
 
@@ -71,28 +71,17 @@ export default function EditSavedGroupPage() {
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
-  const [showOtherProjects, setShowOtherProjects] = useState(false);
   const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
   const { savedGroupSizeLimit } = useOrgSettings();
 
-  // Scope features to saved group's projects
-  const savedGroupProjectIds = useMemo(() => {
-    if (!savedGroup?.projects || savedGroup.projects.length === 0) return [];
-    return savedGroup.projects;
-  }, [savedGroup?.projects]);
-
-  // Scope features based on toggle state and saved group's projects
-  const { features } = useFeaturesList({
-    project:
-      savedGroupProjectIds.length === 1 && !showOtherProjects
-        ? savedGroupProjectIds[0]
-        : undefined,
-    useCurrentProject:
-      savedGroupProjectIds.length === 0 || showOtherProjects ? false : true,
-    skipFetch: !savedGroup, // Skip fetching until saved group is loaded
-  });
-  const { experiments } = useExperiments();
-  const environments = useEnvironments();
+  const { references } = useSavedGroupReferences(savedGroup?.id);
+  const referencingFeatures = references?.features ?? [];
+  const referencingExperiments = references?.experiments ?? [];
+  const referencingSavedGroups = references?.savedGroups ?? [];
+  const totalReferences =
+    referencingFeatures.length +
+    referencingExperiments.length +
+    referencingSavedGroups.length;
 
   const values = useMemo(() => savedGroup?.values ?? [], [savedGroup]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -111,7 +100,8 @@ export default function EditSavedGroupPage() {
     "replace",
   );
   const { attributeSchema } = useOrgSettings();
-  const { projects, savedGroups: allSavedGroups } = useDefinitions();
+  const { projects } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const { hasLargeSavedGroupFeature, unsupportedConnections } =
     useLargeSavedGroupSupport();
@@ -133,67 +123,6 @@ export default function EditSavedGroupPage() {
     },
     [mutate, savedGroup],
   );
-
-  const savedGroupsReferencingTarget = useMemo(() => {
-    if (!savedGroup || !allSavedGroups) return [];
-    return allSavedGroups.filter((sg) => {
-      if (sg.id === savedGroup.id) return false;
-      if (!sg.condition) return false;
-      return sg.condition.includes(savedGroup.id);
-    });
-  }, [savedGroup, allSavedGroups]);
-
-  const referencingFeatures = useMemo(() => {
-    if (!savedGroup) return [] as FeatureInterface[];
-    // Include the target saved group itself, plus any saved groups that reference it
-    const savedGroupsToCheck = [savedGroup, ...savedGroupsReferencingTarget];
-    const referenceMap = featuresReferencingSavedGroups({
-      savedGroups: savedGroupsToCheck,
-      features,
-      environments,
-    });
-    const allFeatures = new Map<string, FeatureInterface>();
-    savedGroupsToCheck.forEach((sg) => {
-      (referenceMap[sg.id] || []).forEach((feature) => {
-        allFeatures.set(feature.id, feature);
-      });
-    });
-    return Array.from(allFeatures.values());
-  }, [savedGroup, savedGroupsReferencingTarget, features, environments]);
-
-  const referencingExperiments = useMemo(() => {
-    if (!savedGroup) return [] as ExperimentInterfaceStringDates[];
-    // Include the target saved group itself, plus any saved groups that reference it
-    const savedGroupsToCheck = [savedGroup, ...savedGroupsReferencingTarget];
-    const referenceMap = experimentsReferencingSavedGroups({
-      savedGroups: savedGroupsToCheck,
-      experiments,
-    });
-    const allExperiments = new Map<
-      string,
-      ExperimentInterface | ExperimentInterfaceStringDates
-    >();
-    savedGroupsToCheck.forEach((sg) => {
-      (referenceMap[sg.id] || []).forEach((experiment) => {
-        allExperiments.set(experiment.id, experiment);
-      });
-    });
-    return Array.from(
-      allExperiments.values(),
-    ) as ExperimentInterfaceStringDates[];
-  }, [savedGroup, savedGroupsReferencingTarget, experiments]);
-
-  const referencingSavedGroups = useMemo(() => {
-    if (!savedGroup || !savedGroupsReferencingTarget.length)
-      return [] as SavedGroupInterface[];
-    // Exclude the target saved group itself
-    return savedGroupsReferencingTarget.filter((sg) => sg.id !== savedGroup.id);
-  }, [savedGroup, savedGroupsReferencingTarget]);
-
-  const totalReferences =
-    referencingFeatures.length +
-    referencingExperiments.length +
-    referencingSavedGroups.length;
 
   const attr = (attributeSchema || []).find(
     (attr) => attr.property === savedGroup?.attributeKey,
@@ -241,16 +170,83 @@ export default function EditSavedGroupPage() {
         />
       )}
       {showAuditModal && savedGroup && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setShowAuditModal(false)}
-          size="max"
-          closeCta="Close"
-        >
-          <HistoryTable type="savedGroup" id={savedGroup.id} />
-        </Modal>
+        <AuditHistoryExplorerModal<SavedGroupInterface>
+          entityId={savedGroup.id}
+          entityName="Saved Group"
+          config={{
+            entityType: "savedGroup",
+            includedEvents: ["savedGroup.created", "savedGroup.updated"],
+            alwaysVisibleEvents: ["savedGroup.created"],
+            labelOnlyEvents: [
+              {
+                event: "savedGroup.deleted",
+                getLabel: () => "Deleted",
+                alwaysVisible: true,
+              },
+            ],
+            sections: [
+              {
+                label: "Settings",
+                keys: ["groupName", "owner", "description"],
+                render: renderSavedGroupSettings,
+                getBadges: getSavedGroupSettingsBadges,
+              },
+              {
+                label: "Targeting",
+                keys: ["condition"],
+                render: renderSavedGroupTargeting,
+                getBadges: getSavedGroupTargetingBadges,
+              },
+              {
+                label: "Values",
+                keys: ["values", "attributeKey"],
+                getBadges: getSavedGroupValuesBadges,
+              },
+              {
+                label: "Projects",
+                keys: ["projects"],
+                render: renderSavedGroupProjects,
+                getBadges: getSavedGroupProjectsBadges,
+              },
+            ],
+            updateEventNames: ["savedGroup.updated"],
+            defaultGroupBy: "minute",
+            hideFilters: true,
+            hiddenLabelSections: [OVERFLOW_SECTION_LABEL],
+            normalizeSnapshot: (snapshot) => {
+              if (!snapshot || typeof snapshot !== "object") return snapshot;
+              let result = { ...snapshot };
+              if (
+                "condition" in result &&
+                typeof result.condition === "string"
+              ) {
+                try {
+                  result = {
+                    ...result,
+                    condition: JSON.parse(result.condition),
+                  };
+                } catch {
+                  // leave as-is if unparseable
+                }
+              }
+              if ("values" in result && Array.isArray(result.values)) {
+                const vals = result.values as string[];
+                const LIMIT = 100;
+                if (vals.length > LIMIT) {
+                  result = {
+                    ...result,
+                    values: [
+                      ...vals.slice(0, LIMIT),
+                      `— ${vals.length - LIMIT} more values...`,
+                    ],
+                  };
+                }
+              }
+              return result;
+            },
+          }}
+          onClose={() => setShowAuditModal(false)}
+        />
       )}
       {addItems && (
         <Modal
@@ -383,7 +379,7 @@ export default function EditSavedGroupPage() {
                   setDropdownOpen(false);
                 }}
               >
-                View Audit Log
+                Audit history
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -426,25 +422,14 @@ export default function EditSavedGroupPage() {
             </Text>
             <Text>
               Owner:{" "}
-              <strong>{savedGroup.owner ? savedGroup.owner : "None"}</strong>
+              <strong>{getOwnerDisplay(savedGroup.owner) || "None"}</strong>
             </Text>
           </Flex>
           <Flex direction="column" align="end" gap="2">
             <SavedGroupReferences
               totalReferences={totalReferences}
               onShowReferences={() => setShowReferencesModal(true)}
-              isScopedToProject={
-                savedGroupProjectIds.length > 0 && !showOtherProjects
-              }
             />
-            {savedGroupProjectIds.length > 0 && (
-              <Switch
-                value={showOtherProjects}
-                onChange={setShowOtherProjects}
-                label="Include other projects"
-                size="1"
-              />
-            )}
           </Flex>
         </Flex>
         {savedGroup.description && (

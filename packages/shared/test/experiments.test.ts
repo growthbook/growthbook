@@ -17,7 +17,10 @@ import {
   setAdjustedPValuesOnResults,
   chanceToWinFlatPrior,
   getRowFilterSQL,
+  getEffectiveLookbackOverride,
+  getIntersectionBaseMetricIds,
 } from "../src/experiments";
+import { LookbackOverride } from "../src/validators/experiments";
 
 describe("Experiments", () => {
   describe("Fact Tables", () => {
@@ -1559,5 +1562,81 @@ describe("chanceToWinFlatPrior", () => {
         ),
       ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
+  });
+});
+
+describe("getEffectiveLookbackOverride", () => {
+  const windowOverride: LookbackOverride = {
+    type: "window",
+    value: 7,
+    valueUnit: "days",
+  };
+  const dateOverride: LookbackOverride = {
+    type: "date",
+    value: new Date("2025-06-01"),
+  };
+
+  it("returns the override when attributionModel is 'lookbackOverride' and override is defined", () => {
+    expect(
+      getEffectiveLookbackOverride("lookbackOverride", windowOverride),
+    ).toEqual(windowOverride);
+  });
+
+  it("returns the date override when attributionModel is 'lookbackOverride'", () => {
+    expect(
+      getEffectiveLookbackOverride("lookbackOverride", dateOverride),
+    ).toEqual(dateOverride);
+  });
+
+  it("returns undefined when attributionModel is 'firstExposure'", () => {
+    expect(
+      getEffectiveLookbackOverride("firstExposure", windowOverride),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when attributionModel is 'experimentDuration'", () => {
+    expect(
+      getEffectiveLookbackOverride("experimentDuration", windowOverride),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when attributionModel is 'lookbackOverride' but override is undefined", () => {
+    expect(
+      getEffectiveLookbackOverride("lookbackOverride", undefined),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when both are undefined", () => {
+    expect(getEffectiveLookbackOverride(undefined, undefined)).toBeUndefined();
+  });
+
+  it("returns undefined when attributionModel is undefined but override is defined", () => {
+    expect(
+      getEffectiveLookbackOverride(undefined, windowOverride),
+    ).toBeUndefined();
+  });
+});
+
+describe("getIntersectionBaseMetricIds", () => {
+  it("returns non-slice subset ids when superset is empty", () => {
+    expect(
+      getIntersectionBaseMetricIds(["a", "b", "m_goal?dim:country=us"], []),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("omits slice metrics and keeps base ids in superset order", () => {
+    const sliceId = "m_goal?dim:country=us";
+    expect(
+      getIntersectionBaseMetricIds(["m_goal"], ["m_goal", sliceId, "other"]),
+    ).toEqual(["m_goal"]);
+  });
+
+  it("includes every base metric in the subset that appears in the superset", () => {
+    expect(
+      getIntersectionBaseMetricIds(
+        ["m_a", "m_b"],
+        ["m_b", "m_a?dim:x=y", "m_a"],
+      ),
+    ).toEqual(["m_b", "m_a"]);
   });
 });

@@ -3,9 +3,9 @@ import { FaPencilAlt } from "react-icons/fa";
 import { SegmentInterface } from "shared/types/segment";
 import { IdeaInterface } from "shared/types/idea";
 import { MetricInterface } from "shared/types/metric";
-import Link from "next/link";
 import clsx from "clsx";
 import { ago } from "shared/dates";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";
@@ -19,6 +19,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import { useUser } from "@/services/UserContext";
 
 const SegmentPage: FC = () => {
   const {
@@ -32,6 +33,7 @@ const SegmentPage: FC = () => {
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
+  const { getOwnerDisplay } = useUser();
 
   const hasCreatePermission = permissionsUtil.canCreateSegment({
     projects: [project],
@@ -78,11 +80,7 @@ const SegmentPage: FC = () => {
                 : res.metrics.length + " metrics",
             );
             res.metrics.forEach((m) => {
-              metricLinks.push(
-                <Link href={`/metric/${m.id}`} className="">
-                  {m.name}
-                </Link>,
-              );
+              metricLinks.push(<Link href={`/metric/${m.id}`}>{m.name}</Link>);
             });
           }
           if (res.ideas && res.ideas.length) {
@@ -271,7 +269,7 @@ const SegmentPage: FC = () => {
                           ) : null}
                         </>
                       </td>
-                      <td>{s.owner}</td>
+                      <td>{getOwnerDisplay(s.owner)}</td>
                       <td className="col-2">
                         {s && (s.projects || []).length > 0 ? (
                           <ProjectBadges

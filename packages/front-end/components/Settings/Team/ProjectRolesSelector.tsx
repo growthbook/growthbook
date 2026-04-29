@@ -71,6 +71,7 @@ export default function ProjectRolesSelector({
             }
             disabled={!hasFeature}
             includeAdminRole={false}
+            includeProjectAdminRole={true}
           />
         </div>
       ))}

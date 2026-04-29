@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, Fragment } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -17,6 +17,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
@@ -38,6 +39,7 @@ import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import Link from "@/ui/Link";
 import UsersTable from "./UsersTable";
 
@@ -54,6 +56,7 @@ export const includeVariation = (
 
 const BreakDownResults: FC<{
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
@@ -105,12 +108,9 @@ const BreakDownResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
-  onRowClick?: (
-    row: ExperimentTableRow,
-    dimensionInfo?: { name: string; value: string },
-  ) => void;
 }> = ({
   experimentId,
+  significanceThresholds,
   dimensionId,
   dimensionValuesFilter,
   results,
@@ -156,12 +156,14 @@ const BreakDownResults: FC<{
   setAnalysisSettings,
   mutate,
   setDifferenceType,
-  onRowClick,
 }) => {
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
+
+  // Detect drilldown context for automatic row click handling
+  const drilldownContext = useMetricDrilldownContext();
 
   const dimension =
     ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
@@ -187,6 +189,7 @@ const BreakDownResults: FC<{
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
+    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const activationMetricObj = activationMetric
@@ -197,14 +200,16 @@ const BreakDownResults: FC<{
   const isBandit = experimentType === "multi-armed-bandit";
   const isHoldout = experimentType === "holdout";
 
-  // Wrap onRowClick to include dimension info
-  const handleRowClick = onRowClick
+  // Wrap drilldown to include dimension info
+  const handleRowClick = drilldownContext
     ? (row: ExperimentTableRow) => {
         const value =
           typeof row.label === "string"
             ? formatDimensionValueForDisplay(row.label)
             : "";
-        onRowClick(row, { name: dimension, value });
+        drilldownContext.openDrilldown(row, {
+          dimensionInfo: { name: dimension, value },
+        });
       }
     : undefined;
 
@@ -244,7 +249,7 @@ const BreakDownResults: FC<{
 
       {tables.map((table, i) => {
         return (
-          <>
+          <Fragment key={table.metric.id + "_" + i}>
             <h4
               className="mt-2 mb-1 d-flex position-relative ml-2"
               style={{ gap: 4 }}
@@ -260,6 +265,7 @@ const BreakDownResults: FC<{
             <ResultsTable
               key={i}
               experimentId={experimentId}
+              significanceThresholds={significanceThresholds}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               phase={phase}
@@ -334,7 +340,7 @@ const BreakDownResults: FC<{
               mutate={mutate}
             />
             <div className="mb-5" />
-          </>
+          </Fragment>
         );
       })}
     </div>

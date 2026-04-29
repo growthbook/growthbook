@@ -4,14 +4,16 @@ import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentStatus } from "shared/types/experiment";
+import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
@@ -20,12 +22,13 @@ import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   reportDate: Date;
   isLatestPhase: boolean;
   phase: number;
   startDate: string;
   endDate: string;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
   localBaselineRow: number;
   setLocalBaselineRow: (baseline: number) => void;
@@ -38,11 +41,14 @@ interface MetricDrilldownOverviewProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
+  lookbackOverride?: LookbackOverride;
+  timeSeriesMessage?: string;
 }
 
 function MetricDrilldownOverview({
   row,
   experimentId,
+  significanceThresholds,
   reportDate,
   isLatestPhase,
   phase,
@@ -61,8 +67,11 @@ function MetricDrilldownOverview({
   localDifferenceType,
   setLocalDifferenceType,
   sequentialTestingEnabled,
+  lookbackOverride,
+  timeSeriesMessage,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
+  const { isAuthenticated } = useAuth();
   const { snapshot, analysis, setAnalysisSettings, mutateSnapshot } =
     useSnapshot();
 
@@ -96,6 +105,7 @@ function MetricDrilldownOverview({
     <Flex direction="column" gap="6">
       <ResultsTable
         experimentId={experimentId}
+        significanceThresholds={significanceThresholds}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}
@@ -127,7 +137,10 @@ function MetricDrilldownOverview({
         noTooltip={false}
         isBandit={false}
         isHoldout={false}
-        visibleTimeSeriesRowIds={[`${tableId}-${metric.id}-0`]}
+        visibleTimeSeriesRowIds={
+          isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
+        }
+        timeSeriesMessage={timeSeriesMessage}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
@@ -163,13 +176,19 @@ function MetricDrilldownOverview({
         <Text size="4" weight="medium">
           Metric definition
         </Text>
-        <MetricDrilldownMetadata statsEngine={statsEngine} row={row} />
-        <Flex direction="row" gap="5">
-          <MetricDrilldownMetricCard metric={metric} type="numerator" />
-          {isRatioMetric(metric) && (
-            <MetricDrilldownMetricCard metric={metric} type="denominator" />
-          )}
-        </Flex>
+        <MetricDrilldownMetadata
+          statsEngine={statsEngine}
+          lookbackOverride={lookbackOverride}
+          row={row}
+        />
+        {isAuthenticated && (
+          <Flex direction="row" gap="5">
+            <MetricDrilldownMetricCard metric={metric} type="numerator" />
+            {isRatioMetric(metric) && (
+              <MetricDrilldownMetricCard metric={metric} type="denominator" />
+            )}
+          </Flex>
+        )}
       </Flex>
     </Flex>
   );

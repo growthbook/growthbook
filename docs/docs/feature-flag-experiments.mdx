@@ -39,13 +39,11 @@ about [targeting](/features/targeting). By default, all users will be included.
 The tracking key used to identify this experiment in the SDK. It is used, along with the user hashing attribute in the
 persistent hashing algorithm to ensure the users always get randomized into the same treatment group. It is also what is
 passed to the tracking callback to be tracked in your data warehouse. By default, the tracking key is the same as the
-feature name, but can be any string. If you change the experiment tracking key users will re-bucketed. The tracking key
-can be set to the same values in different features or experiment rules to allow for one experiment to have multiple
-features.
+feature name, but can be any string. We used to use the tracking key as part of the hashing value, but we now instead use a random seed that is generated for each experiment.
 
 ### Assign Variations Based on Attribute
 
-The value you select here will be hashed along with tracking key to determine which variation the user will be assigned.
+The value you select here will be hashed along with experiment seed (set randomly for each experiment but fixed for each phase of the experiment) to determine which variation the user will be assigned.
 Only attributes marked as **identifiers** can be used here. In the vast majority of cases, you want to split traffic based
 on either a logged-in user id or some sort of anonymous identifier like a device id or session cookie. As long as the user
 has the same value for this attribute, they will always get assigned the same variation.
@@ -68,7 +66,7 @@ Multiple variations can be added to an experiment from this section as well, as 
 
 The bar at the bottom shows the traffic allocation for this experiment.
 
-Each user will have the **tracking key** and **hashing attribute** hashed together to determine which variation they
+Each user will have the experiment's **seed** and **hashing attribute** hashed together to determine which variation they
 will be assigned. The algorithm is deterministic, and always returns the same value (a number from 0 to 1) as long as
 the inputs are the same. Changing the split percentages mid-experiment risks having a user switch variations, and could
 cause multiple exposure warnings. Changing the overall exposure percentage is completely safe.

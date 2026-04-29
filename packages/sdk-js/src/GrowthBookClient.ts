@@ -12,6 +12,7 @@ import type {
   FeatureApiResponse,
   FeatureDefinitions,
   FeatureResult,
+  FeatureUsageCallback,
   GlobalContext,
   InitOptions,
   InitResponse,
@@ -333,6 +334,10 @@ export class GrowthBookClient<
 
   public setTrackingCallback(callback: TrackingCallbackWithUser) {
     this._options.trackingCallback = callback;
+  }
+
+  public setFeatureUsageCallback(callback: FeatureUsageCallback) {
+    this._options.onFeatureUsage = callback;
   }
 
   public async applyStickyBuckets(

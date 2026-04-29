@@ -21,6 +21,7 @@ interface Props
     HTMLTableCellElement
   > {
   metric: ExperimentMetricInterface;
+  pValueThreshold: number;
   stats: SnapshotMetric;
   rowResults: Pick<
     RowResults,
@@ -29,6 +30,10 @@ interface Props
     | "hasScaledImpact"
     | "resultsStatus"
     | "significant"
+    | "suspiciousChange"
+    | "suspiciousThreshold"
+    | "minPercentChange"
+    | "currentMetricTotal"
   >;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
@@ -37,19 +42,24 @@ interface Props
   className?: string;
   ssrPolyfills?: SSRPolyfills;
   additionalButton?: React.ReactNode;
+  minSampleSize?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 export default function ChangeColumn({
   metric,
+  pValueThreshold,
   stats,
   rowResults,
   statsEngine,
-  showPlusMinus = true,
+  showPlusMinus = false,
   showCI = false,
   differenceType,
   className,
   ssrPolyfills,
   additionalButton,
+  minSampleSize = 0,
+  pValueAdjustmentEnabled,
   ...otherProps
 }: Props) {
   const _displayCurrency = useCurrency();
@@ -77,20 +87,27 @@ export default function ChangeColumn({
   };
   const showPopover = !!stats?.ci;
 
-  const { handleMouseEnter, handleMouseMove, handleMouseLeave, renderPopover } =
-    useResultPopover({
-      enabled: showPopover,
-      positioning: "element",
-      data: {
-        stats,
-        metric,
-        significant: rowResults.significant,
-        resultsStatus: rowResults.resultsStatus,
-        differenceType,
-        statsEngine,
-        ssrPolyfills,
-      },
-    });
+  const { Trigger } = useResultPopover({
+    enabled: showPopover,
+    positioning: "element",
+    data: {
+      stats,
+      metric,
+      pValueThreshold,
+      significant: rowResults.significant,
+      resultsStatus: rowResults.resultsStatus,
+      differenceType,
+      statsEngine,
+      ssrPolyfills,
+      suspiciousChange: rowResults.suspiciousChange,
+      suspiciousThreshold: rowResults.suspiciousThreshold,
+      notEnoughData: !rowResults.enoughData,
+      minSampleSize,
+      minPercentChange: rowResults.minPercentChange,
+      currentMetricTotal: rowResults.currentMetricTotal,
+      pValueAdjustmentEnabled,
+    },
+  });
 
   if (!rowResults.hasScaledImpact && differenceType === "scaled") {
     return null;
@@ -137,25 +154,14 @@ export default function ChangeColumn({
     </div>
   );
 
-  return (
-    <>
-      {metric && rowResults.enoughData ? (
-        <td className={clsx("results-change", className)} {...otherProps}>
-          <Flex align="center" justify="end" gap="2">
-            <span
-              onMouseEnter={handleMouseEnter}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
-            >
-              {changeContent}
-            </span>
-            {additionalButton}
-          </Flex>
-        </td>
-      ) : (
-        <td />
-      )}
-      {renderPopover()}
-    </>
+  return metric && rowResults.enoughData ? (
+    <td className={clsx("results-change", className)} {...otherProps}>
+      <Flex align="center" justify="end" gap="2">
+        <Trigger>{changeContent}</Trigger>
+        {additionalButton}
+      </Flex>
+    </td>
+  ) : (
+    <td />
   );
 }

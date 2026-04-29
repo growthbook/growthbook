@@ -9,7 +9,6 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { getSelectedColumnDatatype } from "shared/experiments";
-import { PostFactMetricResponse } from "shared/types/openapi";
 import { postFactMetricValidator } from "shared/validators";
 import {
   ColumnRef,
@@ -18,6 +17,7 @@ import {
 } from "shared/types/fact-table";
 import { OrganizationInterface } from "shared/types/organization";
 import { getFactTable } from "back-end/src/models/FactTableModel";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
@@ -65,6 +65,7 @@ export async function getCreateMetricPropsFromBody(
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
+    priorSettings,
     numerator,
     denominator,
     riskThresholdSuccess,
@@ -134,7 +135,7 @@ export async function getCreateMetricPropsFromBody(
       type: "",
       value: 0,
     },
-    priorSettings: {
+    priorSettings: priorSettings ?? {
       override: false,
       proper: false,
       mean: 0,
@@ -172,6 +173,7 @@ export async function getCreateMetricPropsFromBody(
   if (cappingSettings?.type && cappingSettings?.type !== "none") {
     data.cappingSettings.type = cappingSettings.type;
     data.cappingSettings.value = cappingSettings.value || 0;
+    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
   }
 
   if (windowSettings?.type && windowSettings?.type !== "none") {
@@ -198,7 +200,7 @@ export async function getCreateMetricPropsFromBody(
 }
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
-  async (req): Promise<PostFactMetricResponse> => {
+  async (req) => {
     if (
       req.body.metricAutoSlices &&
       req.body.metricAutoSlices.length > 0 &&
@@ -214,11 +216,13 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
       req.organization,
       lookupFactTable,
     );
-
     const factMetric = await req.context.models.factMetrics.create(data);
 
     return {
-      factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
+      factMetric: await resolveOwnerEmail(
+        req.context.models.factMetrics.toApiInterface(factMetric),
+        req.context,
+      ),
     };
   },
 );

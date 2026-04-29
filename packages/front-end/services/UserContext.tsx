@@ -38,8 +38,8 @@ import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
-import { useFeature } from "@growthbook/growthbook-react";
 import { AgreementType } from "shared/validators";
+import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -105,6 +105,7 @@ export interface UserContextValue {
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
+  getOwnerDisplay: (owner: string | undefined) => string;
   updateUser: () => Promise<void>;
   refreshOrganization: () => Promise<void>;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
@@ -152,6 +153,7 @@ export const UserContext = createContext<UserContextValue>({
   roles: [],
   commercialFeatures: [],
   getUserDisplay: () => "",
+  getOwnerDisplay: () => "",
   updateUser: async () => {
     // Do nothing
   },
@@ -199,8 +201,6 @@ export function getCurrentUser() {
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, orgId, setOrganizations } = useAuth();
-
-  const selfServePricingEnabled = useFeature("self-serve-billing").on;
 
   const {
     data,
@@ -454,6 +454,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     [users],
   );
 
+  const getOwnerDisplay = useCallback(
+    (owner: string | undefined) => {
+      return getOwnerDisplayName({ owner, users });
+    },
+    [users],
+  );
+
   const watching = useMemo(() => {
     return {
       experiments: currentOrg?.watching?.experiments || [],
@@ -489,13 +496,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     )
       return false;
 
-    if (!selfServePricingEnabled) return false;
-
     if (["active", "trialing", "past_due"].includes(subscription?.status || ""))
       return false;
 
     return true;
-  }, [organization, license, subscription, selfServePricingEnabled]);
+  }, [organization, license, subscription]);
 
   return (
     <UserContext.Provider
@@ -510,6 +515,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         user,
         users,
         getUserDisplay: getUserDisplay,
+        getOwnerDisplay: getOwnerDisplay,
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissions,

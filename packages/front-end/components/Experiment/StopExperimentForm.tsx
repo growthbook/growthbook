@@ -1,26 +1,29 @@
-import { FC, useState } from "react";
+import { FC, useRef, useState } from "react";
+import { getAllVariations } from "shared/experiments";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
   ExperimentResultsType,
 } from "shared/types/experiment";
+import { computeAIUsageData, formatAIRateLimitRetryMessage } from "shared/ai";
 import { useForm } from "react-hook-form";
-import { experimentHasLinkedChanges } from "shared/util";
+import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
 import { datetime } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
-import Modal from "@/components/Modal";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import { AppFeatures } from "@/types/app-features";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
@@ -45,43 +48,41 @@ const StopExperimentForm: FC<{
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
 
   const gb = useGrowthBook<AppFeatures>();
-  const aiSuggestFunction = gb.isOn(
-    "ai-suggestions-for-experiment-analysis-input",
-  )
-    ? async () => {
-        const response = await apiCall<{
-          status: number;
-          data: {
-            description: string;
-          };
-        }>(
-          `/experiment/${experiment.id}/analysis/ai-suggest`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              results: form.watch("results"),
-              winner: form.watch("winner"),
-              releasedVariationId: form.watch("releasedVariationId"),
-            }),
-          },
-          (responseData) => {
-            if (responseData.status === 429) {
-              const retryAfter = parseInt(responseData.retryAfter);
-              const hours = Math.floor(retryAfter / 3600);
-              const minutes = Math.floor((retryAfter % 3600) / 60);
-              throw new Error(
-                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
-              );
-            } else if (responseData.message) {
-              throw new Error(responseData.message);
-            } else {
-              throw new Error("Error getting AI suggestion");
-            }
-          },
-        );
-        return response.data.description;
-      }
-    : undefined;
+  const aiSuggestionRef = useRef<string | undefined>(undefined);
+
+  const aiSuggestFunction = async (): Promise<string> => {
+    const aiTemperature =
+      gb.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
+    const response = await apiCall<{
+      status: number;
+      data: {
+        description: string;
+      };
+    }>(
+      `/experiment/${experiment.id}/analysis/ai-suggest`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          results: form.watch("results"),
+          winner: form.watch("winner"),
+          releasedVariationId: form.watch("releasedVariationId"),
+          temperature: aiTemperature,
+        }),
+      },
+      (responseData) => {
+        if (responseData.status === 429) {
+          throw new Error(
+            formatAIRateLimitRetryMessage(responseData.retryAfter),
+          );
+        } else if (responseData.message) {
+          throw new Error(responseData.message);
+        } else {
+          throw new Error("Error getting AI suggestion");
+        }
+      },
+    );
+    return response.data.description;
+  };
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -111,18 +112,14 @@ const StopExperimentForm: FC<{
     return {};
   };
 
+  const variations = getAllVariations(experiment);
   const {
     result: recommendedResult,
     releasedVariationId: recommendedReleaseVariationId,
-  } = getRecommendedResult(
-    runningExperimentStatus,
-    experiment.variations?.[0]?.id,
-  );
+  } = getRecommendedResult(runningExperimentStatus, variations?.[0]?.id);
 
   const recommendedReleaseVariationIndex = recommendedReleaseVariationId
-    ? experiment.variations.findIndex(
-        (v) => v.id === recommendedReleaseVariationId,
-      )
+    ? variations.findIndex((v) => v.id === recommendedReleaseVariationId)
     : undefined;
 
   const form = useForm<{
@@ -155,8 +152,7 @@ const StopExperimentForm: FC<{
   const winnerDoesNotMatchRecommendedReleaseVariationId =
     !decisionDoesNotMatchRecommendedResult &&
     recommendedReleaseVariationId !== undefined &&
-    experiment.variations?.[form.watch("winner")]?.id !==
-      recommendedReleaseVariationId;
+    variations?.[form.watch("winner")]?.id !== recommendedReleaseVariationId;
   const { apiCall } = useAuth();
 
   const decisionBanner =
@@ -174,7 +170,7 @@ const StopExperimentForm: FC<{
     if (value.results === "lost") {
       winner = 0;
     } else if (value.results === "won") {
-      if (experiment.variations.length === 2) {
+      if (variations.length === 2) {
         winner = 1;
       } else {
         winner = value.winner;
@@ -196,17 +192,21 @@ const StopExperimentForm: FC<{
       },
     );
 
-    if (!isStopped) {
-      track("Stop Experiment", {
-        result: value.results,
-      });
-    }
+    const aiUsageData = computeAIUsageData({
+      value: value.analysis,
+      aiSuggestionText: aiSuggestionRef.current,
+    });
+    track("Stop Experiment", {
+      result: value.results,
+      isStopped,
+      aiUsageData,
+    });
 
     mutate();
   });
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType="stop-experiment-form"
       trackingEventModalSource={source}
       header={
@@ -219,14 +219,15 @@ const StopExperimentForm: FC<{
       open={showModal}
       submit={submit}
       cta={isStopped ? "Save" : "Stop"}
-      submitColor={isStopped ? "primary" : "danger"}
-      closeCta="Cancel"
+      ctaColor={isStopped ? "violet" : "red"}
     >
       <Flex direction={"column"} gap={"1"}>
         {decisionBanner ? (
           <>
             <Flex direction={"column"} gap="0">
-              <label>Recommendation</label>
+              <Text as="label" weight="semibold">
+                Recommendation
+              </Text>
               {decisionBanner}
             </Flex>
             <hr className="m-1" />
@@ -236,6 +237,7 @@ const StopExperimentForm: FC<{
           <div className="row">
             <SelectField
               label="Conclusion"
+              labelClassName="font-weight-bold"
               containerClassName="col-lg"
               className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
               value={form.watch("results")}
@@ -255,16 +257,12 @@ const StopExperimentForm: FC<{
                   );
                   form.setValue(
                     "releasedVariationId",
-                    recommendedReleaseVariationId ??
-                      (experiment.variations[1]?.id || ""),
+                    recommendedReleaseVariationId ?? (variations[1]?.id || ""),
                   );
                 } else if (result === "lost") {
                   form.setValue("excludeFromPayload", true);
                   form.setValue("winner", 0);
-                  form.setValue(
-                    "releasedVariationId",
-                    experiment.variations[0]?.id || "",
-                  );
+                  form.setValue("releasedVariationId", variations[0]?.id || "");
                 }
               }}
               placeholder="Pick one..."
@@ -276,29 +274,29 @@ const StopExperimentForm: FC<{
                 { label: "Inconclusive", value: "inconclusive" },
               ]}
             />
-            {form.watch("results") === "won" &&
-              experiment.variations.length > 2 && (
-                <SelectField
-                  label="Winner"
-                  containerClassName="col-lg"
-                  className={
-                    decisionDoesNotMatchRecommendedResult ? "warning" : ""
-                  }
-                  value={form.watch("winner") + ""}
-                  onChange={(v) => {
-                    form.setValue("winner", parseInt(v) || 0);
+            {form.watch("results") === "won" && variations.length > 2 && (
+              <SelectField
+                label="Winner"
+                labelClassName="font-weight-bold"
+                containerClassName="col-lg"
+                className={
+                  decisionDoesNotMatchRecommendedResult ? "warning" : ""
+                }
+                value={form.watch("winner") + ""}
+                onChange={(v) => {
+                  form.setValue("winner", parseIntWithDefault(v, 0));
 
-                    form.setValue(
-                      "releasedVariationId",
-                      experiment.variations[parseInt(v)]?.id ||
-                        form.watch("releasedVariationId"),
-                    );
-                  }}
-                  options={experiment.variations.slice(1).map((v, i) => {
-                    return { value: i + 1 + "", label: v.name };
-                  })}
-                />
-              )}
+                  form.setValue(
+                    "releasedVariationId",
+                    variations[parseIntWithDefault(v, 0)]?.id ||
+                      form.watch("releasedVariationId"),
+                  );
+                }}
+                options={variations.slice(1).map((v, i) => {
+                  return { value: i + 1 + "", label: v.name };
+                })}
+              />
+            )}
           </div>
           {decisionDoesNotMatchRecommendedResult ||
           winnerDoesNotMatchRecommendedReleaseVariationId ? (
@@ -354,6 +352,7 @@ const StopExperimentForm: FC<{
                 <div className="row">
                   <SelectField
                     label="Variation to Release"
+                    labelClassName="font-weight-bold"
                     containerClassName="col"
                     value={form.watch("releasedVariationId")}
                     onChange={(v) => {
@@ -362,7 +361,7 @@ const StopExperimentForm: FC<{
                     helpText="Send 100% of experiment traffic to this variation"
                     placeholder="Pick one..."
                     required
-                    options={experiment.variations.map((v) => {
+                    options={variations.map((v) => {
                       return { value: v.id, label: v.name };
                     })}
                   />
@@ -385,13 +384,19 @@ const StopExperimentForm: FC<{
 
         <div className="row">
           <div className="form-group col-lg">
-            <label>Additional Analysis or Details</label>{" "}
+            <Text as="label" weight="semibold">
+              Additional Analysis or Details
+            </Text>
             <MarkdownInput
               value={form.watch("analysis")}
               setValue={(val) => form.setValue("analysis", val)}
               aiSuggestFunction={aiSuggestFunction}
               aiButtonText="Generate Analysis"
               aiSuggestionHeader="Suggested Summary"
+              trackingSource="stop-experiment"
+              onAISuggestionReceived={(result) => {
+                aiSuggestionRef.current = result;
+              }}
               onOptInModalClose={() => {
                 setShowModal(true);
               }}
@@ -402,7 +407,7 @@ const StopExperimentForm: FC<{
           </div>
         </div>
       </Flex>
-    </Modal>
+    </DialogLayout>
   );
 };
 

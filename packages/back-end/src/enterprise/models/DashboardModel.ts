@@ -9,11 +9,8 @@ import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
   apiCreateDashboardBody,
-  apiDashboardInterface,
   ApiDashboardInterface,
   ApiGetDashboardsForExperimentReturn,
-  apiGetDashboardsForExperimentReturn,
-  apiGetDashboardsForExperimentValidator,
   apiUpdateDashboardBody,
   dashboardInterface,
   DashboardInterface,
@@ -25,6 +22,7 @@ import {
 } from "shared/enterprise";
 import omit from "lodash/omit";
 import { getValidDate } from "shared/dates";
+import { defaultPrimaryKeyShape } from "shared/validators";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -35,6 +33,12 @@ import {
   ToInterface,
 } from "back-end/src/util/mongo.util";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  dashboardApiSpec,
+  getDashboardsForExperimentEndpoint,
+} from "back-end/src/api/specs/dashboard.spec";
+import { determineNextDate } from "back-end/src/services/experiments";
+import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -57,7 +61,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "dashboard.update",
     deleteEvent: "dashboard.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     { fields: { organization: 1, experimentId: 1 }, unique: false },
   ],
@@ -67,23 +71,10 @@ const BaseClass = MakeModelClass({
   },
   apiConfig: {
     modelKey: "dashboards",
-    modelSingular: "dashboard",
-    modelPlural: "dashboards",
-    apiInterface: apiDashboardInterface,
-    schemas: {
-      createBody: apiCreateDashboardBody,
-      updateBody: apiUpdateDashboardBody,
-    },
-    pathBase: "/dashboards",
-    includeDefaultCrud: true,
+    openApiSpec: dashboardApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        pathFragment: "/by-experiment/:experimentId",
-        verb: "get",
-        operationId: "getDashboardsForExperiment",
-        validator: apiGetDashboardsForExperimentValidator,
-        zodReturnObject: apiGetDashboardsForExperimentReturn,
-        summary: "Get all dashboards for an experiment",
+        ...getDashboardsForExperimentEndpoint,
         reqHandler: async (
           req,
         ): Promise<ApiGetDashboardsForExperimentReturn> => ({
@@ -107,7 +98,10 @@ export const toInterface: ToInterface<DashboardInterface> = (doc) => {
 export class DashboardModel extends BaseClass {
   public async findByExperiment(
     experimentId: string,
-    additionalFilter: ScopedFilterQuery<typeof dashboardInterface> = {},
+    additionalFilter: ScopedFilterQuery<
+      typeof dashboardInterface,
+      typeof defaultPrimaryKeyShape
+    > = {},
   ): Promise<DashboardInterface[]> {
     return this._find({ experimentId, ...additionalFilter });
   }
@@ -380,6 +374,24 @@ export class DashboardModel extends BaseClass {
         savedQueryId: newIdMapping[block.savedQueryId] ?? block.savedQueryId,
       };
     });
+  }
+
+  protected async beforeUpdate(
+    existing: DashboardDocument,
+    updates: UpdateProps<DashboardDocument>,
+    _newDoc: DashboardDocument,
+  ) {
+    // Recalculate nextUpdate if auto-updates are enabled and schedule is being updated
+    if (updates.enableAutoUpdates === false) {
+      // Auto-updates being disabled - clear the nextUpdate
+      updates.nextUpdate = undefined;
+    } else if (shouldRecalculateNextUpdate(updates, existing)) {
+      // Recalculate nextUpdate based on the schedule
+      const schedule = updates.updateSchedule ?? existing.updateSchedule;
+      updates.nextUpdate = schedule
+        ? (determineNextDate(schedule) ?? undefined)
+        : undefined;
+    }
   }
 
   public toApiInterface(dashboard: DashboardInterface): ApiDashboardInterface {

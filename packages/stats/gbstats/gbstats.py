@@ -329,11 +329,22 @@ def get_configured_test(
         "difference_type": analysis.difference_type,
         "post_stratify": post_stratify,
     }
+    if analysis.use_covariate_as_response:
+        num_variations = len(analysis.var_names)
+        # if there are no goal metrics, just use 1 as the number of tests
+        num_tests = max(
+            1,
+            (num_variations - 1)
+            * (analysis.num_goal_metrics + analysis.num_guardrail_metrics),
+        )
+        alpha = analysis.alpha / num_tests
+    else:
+        alpha = analysis.alpha
     if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
             sequential_config = SequentialConfig(
                 **base_config,
-                alpha=analysis.alpha,
+                alpha=alpha,
                 sequential_tuning_parameter=analysis.sequential_tuning_parameter,
             )
             if analysis.one_sided_intervals:
@@ -350,7 +361,7 @@ def get_configured_test(
         else:
             config = FrequentistConfig(
                 **base_config,
-                alpha=analysis.alpha,
+                alpha=alpha,
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
@@ -360,11 +371,18 @@ def get_configured_test(
             else:
                 return TwoSidedTTest(stats, config)
     else:
-        prior = GaussianPrior(
-            mean=metric.prior_mean,
-            variance=pow(metric.prior_stddev, 2),
-            proper=metric.prior_proper,
-        )
+        if analysis.use_covariate_as_response:
+            prior = GaussianPrior(
+                mean=0,
+                variance=100,
+                proper=False,
+            )
+        else:
+            prior = GaussianPrior(
+                mean=metric.prior_mean,
+                variance=pow(metric.prior_stddev, 2),
+                proper=metric.prior_proper,
+            )
         return EffectBayesianABTest(
             stats,
             EffectBayesianConfig(
@@ -372,6 +390,7 @@ def get_configured_test(
                 inverse=metric.inverse,
                 prior_effect=prior,
                 prior_type="relative",
+                alpha=alpha,
             ),
         )
 
@@ -506,6 +525,67 @@ def test_post_strat_eligible(
     ]
 
 
+def get_pre_exposure_statistics(
+    stat_a: TestStatistic,
+    stat_b: TestStatistic,
+) -> Tuple[TestStatistic, TestStatistic]:
+
+    stat_empty = SampleMeanStatistic(
+        n=int(0),
+        sum=0.0,
+        sum_squares=0.0,
+    )
+    pre_stat_a = copy.deepcopy(stat_empty)
+    pre_stat_b = copy.deepcopy(stat_empty)
+
+    if (
+        isinstance(stat_a, RegressionAdjustedStatistic)
+        and isinstance(stat_b, RegressionAdjustedStatistic)
+        and isinstance(stat_a.pre_statistic, SampleMeanStatistic)
+        and isinstance(stat_b.pre_statistic, SampleMeanStatistic)
+    ):
+        pre_stat_a = SampleMeanStatistic(
+            n=stat_a.n,
+            sum=stat_a.pre_statistic.sum,
+            sum_squares=stat_a.pre_statistic.sum_squares,
+        )
+        pre_stat_b = SampleMeanStatistic(
+            n=stat_b.n,
+            sum=stat_b.pre_statistic.sum,
+            sum_squares=stat_b.pre_statistic.sum_squares,
+        )
+    elif (
+        isinstance(stat_a, RegressionAdjustedStatistic)
+        and isinstance(stat_b, RegressionAdjustedStatistic)
+        and isinstance(stat_a.pre_statistic, ProportionStatistic)
+        and isinstance(stat_b.pre_statistic, ProportionStatistic)
+    ):
+        pre_stat_a = ProportionStatistic(
+            n=stat_a.n,
+            sum=stat_a.pre_statistic.sum,
+        )
+        pre_stat_b = ProportionStatistic(
+            n=stat_b.n,
+            sum=stat_b.pre_statistic.sum,
+        )
+    elif isinstance(stat_a, RegressionAdjustedRatioStatistic) and isinstance(
+        stat_b, RegressionAdjustedRatioStatistic
+    ):
+        pre_stat_a = RatioStatistic(
+            n=stat_a.n,
+            m_statistic=stat_a.m_statistic_pre,
+            d_statistic=stat_a.d_statistic_pre,
+            m_d_sum_of_products=stat_a.m_pre_d_pre_sum_of_products,
+        )
+        pre_stat_b = RatioStatistic(
+            n=stat_b.n,
+            m_statistic=stat_b.m_statistic_pre,
+            d_statistic=stat_b.d_statistic_pre,
+            m_d_sum_of_products=stat_b.m_pre_d_pre_sum_of_products,
+        )
+    return pre_stat_a, pre_stat_b
+
+
 # Run A/B test analysis for each variation and dimension
 def analyze_metric_df(
     metric_data: List[DimensionMetricData],
@@ -533,6 +613,10 @@ def analyze_metric_df(
                 stat_variation = variation_statistic_from_metric_row(
                     row, f"v{i}", metric
                 )
+                if analysis.use_covariate_as_response:
+                    stat_control, stat_variation = get_pre_exposure_statistics(
+                        stat_control, stat_variation
+                    )
                 control_stats.append(stat_control)
                 variation_stats.append(stat_variation)
 
@@ -562,7 +646,12 @@ def analyze_metric_df(
                     analysis,
                 )
 
-            metric_response = get_metric_response(d, test.stat_b, i)
+            metric_response = get_metric_response(
+                d,
+                test.stat_b,
+                i,
+                metric.statistic_type in ["quantile_event", "quantile_unit"],
+            )
             # Create base variation response first
             base_variation_response = BaselineResponse(
                 **asdict(metric_response),
@@ -595,12 +684,6 @@ def analyze_metric_df(
             else:
                 raise ValueError(f"Unexpected test result type: {type(res)}")
 
-        # replace count with quantile_n for quantile metrics
-        if metric.statistic_type in ["quantile_event", "quantile_unit"]:
-            for i in range(num_variations):
-                prefix = f"v{i}" if i > 0 else "baseline"
-                d[f"{prefix}_count"] = d[f"{prefix}_quantile_n"]
-
         # TODO check front-end SRM matches this SRM
         srm_p = check_srm(
             [d["baseline_users"].sum()]
@@ -620,7 +703,12 @@ def analyze_metric_df(
             stats = list(zip(control_stats, control_stats))
             stat_a_summed, _ = sum_stats(stats)
             baseline_stat = stat_a_summed
-        baseline_data = get_metric_response(d, baseline_stat, 0)
+        baseline_data = get_metric_response(
+            d,
+            baseline_stat,
+            0,
+            metric.statistic_type in ["quantile_event", "quantile_unit"],
+        )
         variation_data.insert(analysis.baseline_index, baseline_data)
 
         return DimensionResponseIndividual(
@@ -631,13 +719,17 @@ def analyze_metric_df(
 
 
 def get_metric_response(
-    metric_row: pd.DataFrame, statistic: TestStatistic, v: int
+    metric_row: pd.DataFrame, statistic: TestStatistic, v: int, is_quantile: bool
 ) -> BaselineResponse:
     prefix = f"v{v}" if v > 0 else "baseline"
 
+    count = metric_row[f"{prefix}_count"].sum()
+    if is_quantile:
+        # replace count with quantile_n for quantile metrics
+        count = metric_row[f"{prefix}_quantile_n"].sum()
     stats = MetricStats(
         users=metric_row[f"{prefix}_users"].sum(),
-        count=metric_row[f"{prefix}_count"].sum(),
+        count=count,
         stddev=statistic.stddev,
         mean=statistic.unadjusted_mean,
     )

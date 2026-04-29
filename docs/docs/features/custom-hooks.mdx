@@ -1,23 +1,25 @@
 ---
 title: Custom Hooks
 description: Extend GrowthBook with custom feature validation hooks (self-hosted only)
+sidebar_label: Custom Hooks
+slug: /features/custom-hooks
 ---
 
 # Custom Hooks
 
 With self-hosted GrowthBook Enterprise, you can extend GrowthBook's validation logic with Custom Hooks.
 
-Custom Hooks are javascript snippets that are evaluated on the server during validation. For example, you can use this to enforce specific naming conventions for feature flags or to check for the presence of required metadata.
+Custom Hooks are JavaScript snippets that run on the server during validation. Use them to enforce naming conventions for feature flags, check for required metadata, or add other custom validation logic.
 
 ## Using Custom Hooks
 
-To manage Custom Hooks, navigate to **Settings > Custom Hooks** in the GrowthBook UI.
+To manage Custom Hooks, navigate to **Settings → Custom Hooks** in the GrowthBook UI.
 
-:::note Custom Hooks are currently not available on GrowthBook Cloud
+:::note Custom Hooks are only available on self-hosted GrowthBook Enterprise.
 
 :::
 
-Custom Hooks can either be global or scoped to specific projects and you can create multiple hooks of the same type. This allows for flexible and granular validation rules.
+Custom Hooks can be global or scoped to specific projects, and you can create multiple hooks of the same type for flexible, granular validation rules.
 
 ### Limits
 
@@ -34,27 +36,27 @@ The following default limits are in place to prevent abuse and ensure performanc
 
 If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected.
 
-When creating a Custom Hook, there is a built-in test interface where you can tweak the inputs. When you run the test, we will show all errors, console messages, and the return value (if any).
+When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, console messages, and the return value (if any).
 
-We recommend making heavy use of `console.log` statements while developing your hooks. This can help you inspect variables and understand the flow of execution.
+Use `console.log` statements liberally while developing hooks to inspect variables and understand the flow of execution.
 
 ### Incremental Changes
 
-There is an option for each Custom Hook called "Incremental Changes Only". This affects the behavior of the hook during update operations. If the same error was already present before the update, the hook will be skipped.
+Each Custom Hook has an **Incremental Changes Only** option that affects behavior during update operations. When enabled, the hook is skipped if the same error was already present before the update.
 
 This is especially useful for enforcing rules that may be difficult to fix retroactively. For example, if you require all features to have at least one tag, enabling this option will prevent users from being blocked by existing features that violate this rule when they attempt to make unrelated changes.
 
-There are also cases where you would NOT want to enable this option. For example, if you have a hook that prevents publishing changes to "locked" features, you would want this to run every time to ensure the lock is still in place.
+In some cases, you should NOT enable this option. For example, a hook that prevents publishing changes to "locked" features should run every time to ensure the lock is still in place.
 
 **Important**: When using this option, be sure to limit each hook to a single validation check. Otherwise, a failing check early in the hook code may cause later checks to be bypassed unintentionally.
 
 ## Hook Types
 
-GrowthBook supports a few different Custom Hooks. Each hook type is triggered at a different point in the validation process and has different input parameters.
+GrowthBook supports several Custom Hook types. Each is triggered at a different point in the validation process and receives different input parameters.
 
 ### validateFeature
 
-This hook is called whenever a feature is about to be created or updated. It receives the full feature object as input.
+Called whenever a feature is about to be created or updated. Receives the full feature object as input.
 
 Example: Require a non-empty description before the feature is toggled ON in production.
 
@@ -90,7 +92,7 @@ if (feature.valueType === "json" && feature.defaultValue === "{}") {
 
 ### validateFeatureRevision
 
-This hook is called whenever a feature revision is about to be created or updated. It receives the full feature and the revision as inputs.
+Called whenever a feature revision is about to be created or updated. Receives the full feature and the revision as inputs.
 
 Example: Require a comment before publishing a draft.
 

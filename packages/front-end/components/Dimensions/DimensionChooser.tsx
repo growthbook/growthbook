@@ -5,7 +5,7 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { Flex, Text } from "@radix-ui/themes";
-import { getSnapshotAnalysis } from "shared/src/util";
+import { getSnapshotAnalysis } from "shared/util";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { IncrementalRefreshInterface } from "shared/validators";
@@ -321,9 +321,6 @@ export default function DimensionChooser({
           label="Unit Dimension"
           labelClassName={labelClassName}
           options={dimensionOptions}
-          formatGroupLabel={({ label }) => (
-            <div className="pt-2 pb-1 border-bottom">{label}</div>
-          )}
           initialOption="None"
           value={value}
           onChange={handleDimensionChange}

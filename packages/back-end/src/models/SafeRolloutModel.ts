@@ -18,7 +18,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "safeRollout.update",
     deleteEvent: "safeRollout.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   defaultValues: {
     autoSnapshots: true,
   },
@@ -114,11 +114,12 @@ export class SafeRolloutModel extends BaseClass {
         "analysisSummary",
         "pastNotifications",
         "rampUpSchedule",
+        "dateUpdated",
       ];
 
       // Check for disallowed field updates
       for (const [key, value] of Object.entries(updates)) {
-        const typedKey = key as keyof typeof updates;
+        const typedKey = key as keyof SafeRolloutInterface;
 
         // If the field is not allowed and is being changed
         if (

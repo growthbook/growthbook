@@ -1,4 +1,3 @@
-import { PutVisualChangeResponse } from "shared/types/openapi";
 import { putVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -8,7 +7,7 @@ import {
 
 export const putVisualChange = createApiRequestHandler(
   putVisualChangeValidator,
-)(async (req): Promise<PutVisualChangeResponse> => {
+)(async (req) => {
   const changesetId = req.params.id;
   const visualChangeId = req.params.visualChangeId;
   const orgId = req.organization.id;

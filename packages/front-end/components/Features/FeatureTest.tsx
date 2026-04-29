@@ -1,8 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import {
-  FeatureRevisionInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React from "react";
 import { Box } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -14,16 +11,12 @@ export default function FeatureTest({
   baseFeature,
   feature,
   revision,
-  revisions,
   version,
-  setVersion,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface | null;
-  revisions: MinimalFeatureRevisionInterface[];
   version: number | null;
-  setVersion: (v: number) => void;
 }) {
   const { hasCommercialFeature } = useUser();
 
@@ -56,9 +49,6 @@ export default function FeatureTest({
           feature={feature}
           version={currentVersion}
           project={feature.project}
-          setVersion={setVersion}
-          revisions={revisions}
-          baseFeature={baseFeature}
         />
       </Box>
     </>

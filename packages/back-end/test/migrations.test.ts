@@ -1219,7 +1219,6 @@ describe("Feature Migration", () => {
         status: "draft",
         version: 9,
       },
-      hasDrafts: true,
       environmentSettings: {
         dev: {
           enabled: true,
@@ -1515,10 +1514,20 @@ describe("Experiment Migration", () => {
     phases: [
       {
         phase: "main",
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
       {
         phase: "main",
         name: "New Name",
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
     ],
     uid: "1234",
@@ -1565,6 +1574,11 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
       {
         phase: "main",
@@ -1577,6 +1591,11 @@ describe("Experiment Migration", () => {
           name: "",
           range: [0, 1],
         },
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
       },
     ],
     sequentialTestingEnabled: false,
@@ -1724,6 +1743,70 @@ describe("Experiment Migration", () => {
       guardrails: ["met_def"],
     });
   });
+
+  it("Populates missing phase variations from top-level variations", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        phases: exp.phases.map((p: ExperimentPhase) => {
+          const phaseWithoutVariations = { ...p };
+          delete phaseWithoutVariations.variations;
+          return phaseWithoutVariations;
+        }),
+      }),
+    ).toEqual({
+      ...upgraded,
+      phases: upgraded.phases.map((p) => ({
+        ...p,
+        variations: [
+          { id: "0", status: "active" },
+          { id: "1", status: "active" },
+          { id: "foo", status: "active" },
+        ],
+      })),
+    });
+  });
+
+  it("Only backfills phase variations when missing", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        phases: [
+          {
+            ...exp.phases[0],
+            variations: [
+              { id: "0", status: "stopped" },
+              { id: "1", status: "active" },
+            ],
+          },
+          (() => {
+            const phaseWithoutVariations = { ...exp.phases[1] };
+            delete phaseWithoutVariations.variations;
+            return phaseWithoutVariations;
+          })(),
+        ],
+      }),
+    ).toEqual({
+      ...upgraded,
+      phases: [
+        {
+          ...upgraded.phases[0],
+          variations: [
+            { id: "0", status: "stopped" },
+            { id: "1", status: "active" },
+          ],
+        },
+        {
+          ...upgraded.phases[1],
+          variations: [
+            { id: "0", status: "active" },
+            { id: "1", status: "active" },
+            { id: "foo", status: "active" },
+          ],
+        },
+      ],
+    });
+  });
 });
 
 describe("Organization Migration", () => {
@@ -1761,6 +1844,7 @@ describe("Organization Migration", () => {
           limitAccessByEnvironment: false,
         },
         statsEngine: DEFAULT_STATS_ENGINE,
+        restApiBypassesReviews: true,
         environments: [
           {
             id: "dev",
@@ -1775,6 +1859,53 @@ describe("Organization Migration", () => {
         ],
       },
     });
+  });
+
+  it("backfills restApiBypassesReviews=true for orgs missing the setting", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {},
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.restApiBypassesReviews).toBe(true);
+  });
+
+  it("preserves restApiBypassesReviews=false when explicitly set", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: { restApiBypassesReviews: false },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.restApiBypassesReviews).toBe(false);
+  });
+
+  it("new orgs with restApiBypassesReviews=false set at creation are not backfilled to true", () => {
+    // Simulates an org created after the field was introduced — it has false stored
+    // in the DB and the migration must not overwrite it.
+    const testOrg: OrganizationInterface = {
+      id: "org_new",
+      name: "New Org",
+      ownerEmail: "owner@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: { restApiBypassesReviews: false },
+    };
+    const result = upgradeOrganizationDoc(testOrg);
+    expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
   it("migrate approval flow settings", () => {
@@ -1884,6 +2015,7 @@ describe("Snapshot Migration", () => {
       multipleExposures: 5,
       analyses: [
         {
+          analysisKey: expect.any(String),
           dateCreated: now,
           results: results,
           status: "success",
@@ -1896,6 +2028,7 @@ describe("Snapshot Migration", () => {
             sequentialTesting: false,
             sequentialTestingTuningParameter: 5000,
             numGoalMetrics: 1,
+            numGuardrailMetrics: 0,
           },
         },
       ],
@@ -2104,6 +2237,7 @@ describe("Snapshot Migration", () => {
       multipleExposures: 0,
       analyses: [
         {
+          analysisKey: expect.any(String),
           dateCreated: now,
           results,
           settings: {
@@ -2115,6 +2249,7 @@ describe("Snapshot Migration", () => {
             sequentialTesting: false,
             sequentialTestingTuningParameter: 5000,
             numGoalMetrics: 1,
+            numGuardrailMetrics: 0,
           },
           status: "success",
         },
@@ -2174,6 +2309,216 @@ describe("Snapshot Migration", () => {
     expect(
       migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
+  });
+
+  describe("chunkedAnalysesMeta migration", () => {
+    const now = new Date();
+    const entryA = {
+      dimensions: [{ name: "", srm: 0.95, variationUsers: [100, 100] }],
+    };
+    const entryB = {
+      dimensions: [{ name: "foo", srm: 1, variationUsers: [50, 50] }],
+    };
+
+    function buildSnapshot(
+      chunkedAnalysesMeta: unknown,
+      analyses: unknown[],
+    ): LegacyExperimentSnapshotInterface {
+      return {
+        id: "snp_meta_1",
+        organization: "org_1",
+        experiment: "exp_1",
+        phase: 0,
+        dateCreated: now,
+        runStarted: now,
+        queries: [],
+        dimension: "",
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasChunkedAnalyses: true,
+        chunkedAnalysesMeta,
+        analyses,
+        settings: {
+          queryFilter: "",
+          activationMetric: null,
+          attributionModel: "firstExposure",
+          datasourceId: "",
+          dimensions: [],
+          endDate: now,
+          experimentId: "",
+          exposureQueryId: "",
+          goalMetrics: [],
+          secondaryMetrics: [],
+          guardrailMetrics: [],
+          manual: false,
+          metricSettings: [],
+          regressionAdjustmentEnabled: false,
+          segment: "",
+          skipPartialData: false,
+          startDate: now,
+          variations: [],
+          defaultMetricPriorSettings: {
+            override: false,
+            proper: false,
+            mean: 0,
+            stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+          },
+        },
+        status: "success",
+      } as unknown as LegacyExperimentSnapshotInterface;
+    }
+
+    it("converts array-shaped meta to a record keyed by each analysis's analysisKey", () => {
+      const initial = buildSnapshot(
+        [entryA, entryB],
+        [
+          { dateCreated: now, status: "success", settings: {}, results: [] },
+          { dateCreated: now, status: "success", settings: {}, results: [] },
+        ],
+      );
+
+      const migrated = migrateSnapshot(initial);
+
+      const keys = migrated.analyses.map((a) => a.analysisKey);
+      expect(keys).toHaveLength(2);
+      expect(keys[0]).toEqual(expect.any(String));
+      expect(keys[1]).toEqual(expect.any(String));
+      expect(keys[0]).not.toEqual(keys[1]);
+      expect(migrated.chunkedAnalysesMeta).toEqual({
+        [keys[0]]: entryA,
+        [keys[1]]: entryB,
+      });
+    });
+
+    it("preserves pre-existing analysisKey values when converting", () => {
+      const initial = buildSnapshot(
+        [entryA, entryB],
+        [
+          {
+            analysisKey: "an_preset_a",
+            dateCreated: now,
+            status: "success",
+            settings: {},
+            results: [],
+          },
+          {
+            analysisKey: "an_preset_b",
+            dateCreated: now,
+            status: "success",
+            settings: {},
+            results: [],
+          },
+        ],
+      );
+
+      const migrated = migrateSnapshot(initial);
+
+      expect(migrated.analyses.map((a) => a.analysisKey)).toEqual([
+        "an_preset_a",
+        "an_preset_b",
+      ]);
+      expect(migrated.chunkedAnalysesMeta).toEqual({
+        an_preset_a: entryA,
+        an_preset_b: entryB,
+      });
+    });
+
+    it("leaves record-shaped meta untouched (idempotent)", () => {
+      const record = { an_a: entryA, an_b: entryB };
+      const initial = buildSnapshot(record, [
+        {
+          analysisKey: "an_a",
+          dateCreated: now,
+          status: "success",
+          settings: {},
+          results: [],
+        },
+        {
+          analysisKey: "an_b",
+          dateCreated: now,
+          status: "success",
+          settings: {},
+          results: [],
+        },
+      ]);
+
+      const migrated = migrateSnapshot(initial);
+
+      expect(migrated.chunkedAnalysesMeta).toEqual(record);
+    });
+
+    it("converts an empty array to an empty record", () => {
+      const initial = buildSnapshot(
+        [],
+        [
+          {
+            analysisKey: "an_a",
+            dateCreated: now,
+            status: "success",
+            settings: {},
+            results: [],
+          },
+        ],
+      );
+
+      const migrated = migrateSnapshot(initial);
+
+      expect(migrated.chunkedAnalysesMeta).toEqual({});
+    });
+
+    it("converts numeric-string-keyed meta (Mongoose Map-of-array shape) to a record keyed by analysisKey", () => {
+      // When Mongoose reads a BSON array into a Map-typed schema field,
+      // toJSON() produces a POJO with stringified numeric keys rather
+      // than an Array. The migration must still recognize this as legacy.
+      const initial = buildSnapshot({ "0": entryA, "1": entryB }, [
+        { dateCreated: now, status: "success", settings: {}, results: [] },
+        { dateCreated: now, status: "success", settings: {}, results: [] },
+      ]);
+
+      const migrated = migrateSnapshot(initial);
+
+      const keys = migrated.analyses.map((a) => a.analysisKey);
+      expect(keys).toHaveLength(2);
+      expect(keys[0]).not.toEqual(keys[1]);
+      expect(migrated.chunkedAnalysesMeta).toEqual({
+        [keys[0]]: entryA,
+        [keys[1]]: entryB,
+      });
+    });
+
+    it("sorts numeric-string keys numerically before position mapping", () => {
+      // Integer-indexed property keys always enumerate in ascending numeric
+      // order per ECMA-262 §7.3.22 (OrdinaryOwnPropertyKeys) — not insertion
+      // order — so `Object.values` on a record with keys "0".."11" returns
+      // values positioned for index 0..11. Pin this invariant across a
+      // multi-digit range to catch any future code that relies on insertion
+      // order instead.
+      const entries: Record<string, typeof entryA> = {};
+      for (let i = 0; i < 12; i++) {
+        entries[String(i)] = {
+          dimensions: [
+            { name: `dim${i}`, srm: 0.9, variationUsers: [100, 100] },
+          ],
+        };
+      }
+      const analyses = Array.from({ length: 12 }, () => ({
+        dateCreated: now,
+        status: "success",
+        settings: {},
+        results: [],
+      }));
+      const initial = buildSnapshot(entries, analyses);
+
+      const migrated = migrateSnapshot(initial);
+
+      const keys = migrated.analyses.map((a) => a.analysisKey);
+      expect(migrated.chunkedAnalysesMeta[keys[10]]?.dimensions[0].name).toBe(
+        "dim10",
+      );
+      expect(migrated.chunkedAnalysesMeta[keys[11]]?.dimensions[0].name).toBe(
+        "dim11",
+      );
+    });
   });
 });
 

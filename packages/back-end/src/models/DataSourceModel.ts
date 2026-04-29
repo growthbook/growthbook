@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -8,7 +9,7 @@ import {
   DataSourceType,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
-import { ApiDataSource } from "shared/types/openapi";
+import { ApiDataSource } from "shared/validators";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
   encryptParams,
@@ -27,7 +28,16 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
+import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
+
+const audit = createModelAuditLogger({
+  entity: "datasource",
+  createEvent: "datasource.create",
+  updateEvent: "datasource.update",
+  deleteEvent: "datasource.delete",
+  omitDetails: true,
+});
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -101,14 +111,6 @@ export async function _dangerourslyGetAllDatasourcesByOrganizations(
     organization: { $in: organizations },
   });
 
-  return docs.map(toInterface);
-}
-
-// WARNING: This does not restrict by organization
-export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    type: "growthbook_clickhouse",
-  });
   return docs.map(toInterface);
 }
 
@@ -197,7 +199,10 @@ export async function deleteDatasource(
 
     // Also delete the main events fact table
     try {
-      const ft = await getFactTable(context, "ch_events");
+      const ft = await getFactTable(
+        context,
+        MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+      );
       if (ft) {
         await deleteFactTable(context, ft, { bypassManagedByCheck: true });
       }
@@ -209,6 +214,8 @@ export async function deleteDatasource(
     id: datasource.id,
     organization: context.org.id,
   });
+
+  await audit.logDelete(context, datasource);
 }
 
 /**
@@ -294,7 +301,9 @@ export async function createDataSource(
     await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 
-  return toInterface(model);
+  const datasourceInterface = toInterface(model);
+  await audit.logCreate(context, datasourceInterface);
+  return datasourceInterface;
 }
 
 // Add any missing exposure query ids and validate any new, changed, or previously errored queries
@@ -379,6 +388,8 @@ export async function updateDataSource(
       $set: updates,
     },
   );
+
+  await audit.logUpdate(context, datasource, { ...datasource, ...updates });
 }
 
 function isLocked(datasource: DataSourceInterface): boolean {

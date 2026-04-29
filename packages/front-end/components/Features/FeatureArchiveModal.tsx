@@ -1,80 +1,166 @@
-import { useMemo } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import { getDependentExperiments, getDependentFeatures } from "shared/util";
-import { Text } from "@radix-ui/themes";
-import { useFeaturesList } from "@/services/features";
-import { useExperiments } from "@/hooks/useExperiments";
+import { useState } from "react";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import Text from "@/ui/Text";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
+import Checkbox from "@/ui/Checkbox";
+import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import FeatureReferencesList from "./FeatureReferencesList";
 
 interface FeatureArchiveModalProps {
   feature: FeatureInterface;
   close: () => void;
-  onArchive: () => Promise<void>;
-  environments: string[];
+  revisionList: MinimalFeatureRevisionInterface[];
+  mutate: () => void;
+  setVersion?: (v: number) => void;
 }
 
 export default function FeatureArchiveModal({
   feature,
   close,
-  onArchive,
-  environments,
+  revisionList,
+  mutate,
+  setVersion,
 }: FeatureArchiveModalProps) {
-  const { features, loading: featuresLoading } = useFeaturesList({
-    useCurrentProject: false,
-  });
-  const { experiments, loading: experimentsLoading } = useExperiments();
+  const { apiCall } = useAuth();
+  const settings = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
 
-  const dependentFeatures = useMemo(() => {
-    if (featuresLoading || !features) return [];
-    return getDependentFeatures(feature, features, environments);
-  }, [feature, features, environments, featuresLoading]);
-
-  const dependentExperiments = useMemo(() => {
-    if (experimentsLoading || !experiments) return [];
-    return getDependentExperiments(feature, experiments);
-  }, [feature, experiments, experimentsLoading]);
-
-  const dependents = dependentFeatures.length + dependentExperiments.length;
+  const { dependents, loading } = useFeatureDependents(feature.id);
+  const totalDependents =
+    (dependents?.features.length ?? 0) + (dependents?.experiments.length ?? 0);
   const isArchived = feature.archived;
+
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const enabledEnvs = isArchived
+    ? []
+    : getEnabledEnvironments(feature, environments);
+  const hasActiveEnvs = enabledEnvs.length > 0;
+
+  const [confirmEnvBypass, setConfirmEnvBypass] = useState(!hasActiveEnvs);
+
+  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+
+  // Gated by requireReviewOn only, not by metadata or environment review flags
+  const archiveGated: boolean = (() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return true;
+    if (!Array.isArray(raw)) return false;
+    const reviewSetting = getReviewSetting(raw, feature);
+    return !!reviewSetting?.requireReviewOn;
+  })();
+
+  const canAutoPublish = isAdmin || !archiveGated;
+
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  const [mode, setMode] = useState<DraftMode>(archiveGated ? "new" : "publish");
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
+
+  const canSubmit =
+    !loading && totalDependents === 0 && (confirmEnvBypass || !hasActiveEnvs);
 
   return (
     <Modal
       trackingEventModalType=""
       header={isArchived ? "Unarchive Feature" : "Archive Feature"}
+      size="lg"
       close={close}
       open={true}
-      cta={isArchived ? "Unarchive" : "Archive"}
-      submitColor="danger"
+      cta={
+        mode === "publish"
+          ? isArchived
+            ? "Unarchive"
+            : "Archive"
+          : "Save to draft"
+      }
+      submitColor={mode === "publish" ? "danger" : "primary"}
       submit={async () => {
-        await onArchive();
+        // Explicit so the endpoint doesn't have to guess by toggling feature.archived
+        const desiredArchived = !isArchived;
+        const res = await apiCall<{ draftVersion?: number }>(
+          `/feature/${feature.id}/archive`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              archived: desiredArchived,
+              ...(mode === "publish"
+                ? { autoPublish: true }
+                : mode === "existing"
+                  ? { draftVersion: selectedDraft }
+                  : { forceNewDraft: true }),
+            }),
+          },
+        );
+        mutate();
+        const resolvedVersion =
+          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
         close();
       }}
-      ctaEnabled={!featuresLoading && !experimentsLoading && dependents === 0}
+      ctaEnabled={canSubmit}
       useRadixButton={true}
     >
-      {featuresLoading || experimentsLoading ? (
-        <Text color="gray">
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={archiveGated ? "all" : "none"}
+      />
+      {loading ? (
+        <Text color="text-disabled">
           <LoadingSpinner /> Checking feature dependencies...
         </Text>
-      ) : dependents > 0 ? (
+      ) : totalDependents > 0 ? (
         <>
           <Callout status="error" mb="4">
-            <Text as="p" weight="bold" mb="2">
+            <Text as="p" weight="semibold" mb="2">
               Cannot {isArchived ? "unarchive" : "archive"} feature
             </Text>
             <Text as="p" mb="0">
               Before you can {isArchived ? "unarchive" : "archive"} this
               feature, you will need to remove any references to it. Check the
               following item
-              {dependents > 1 && "s"} below:
+              {totalDependents > 1 && "s"} below:
             </Text>
           </Callout>
           <FeatureReferencesList
-            features={dependentFeatures}
-            experiments={dependentExperiments}
+            features={dependents?.features}
+            experiments={dependents?.experiments}
+          />
+        </>
+      ) : hasActiveEnvs ? (
+        <>
+          <Text as="p" mb="4">
+            Are you sure you want to continue? This will completely remove the
+            feature from all SDKs and webhooks.
+          </Text>
+          <Callout status="warning" mb="4">
+            This feature is still active in the following environments:{" "}
+            <strong>{enabledEnvs.join(", ")}</strong>.
+          </Callout>
+          <Checkbox
+            value={confirmEnvBypass}
+            setValue={setConfirmEnvBypass}
+            label="I understand that all environments will be immediately disabled after archiving."
           />
         </>
       ) : isArchived ? (

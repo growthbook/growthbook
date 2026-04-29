@@ -16,10 +16,6 @@ import {
   getUserByEmail,
   updateUser,
 } from "back-end/src/models/UserModel";
-import {
-  deleteWatchedByEntity,
-  upsertWatch,
-} from "back-end/src/models/WatchModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findRecentAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
@@ -175,9 +171,8 @@ export async function postWatchItem(
     throw new Error(`Could not find ${item}`);
   }
 
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: id,
     type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model,
   });
@@ -191,7 +186,8 @@ export async function postUnwatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response,
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { userId } = context;
   const { type, id } = req.params;
 
   if (!isValidWatchEntityType(type)) {
@@ -203,8 +199,7 @@ export async function postUnwatchItem(
   }
 
   try {
-    await deleteWatchedByEntity({
-      organization: org.id,
+    await context.models.watch.deleteWatchedByEntity({
       userId,
       type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model
       item: id,

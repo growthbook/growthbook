@@ -1,15 +1,21 @@
 import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { RampScheduleInterface } from "shared/validators";
 import {
   autoMerge,
+  fillRevisionFromFeature,
+  liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Flex, Box } from "@radix-ui/themes";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import {
   getAffectedRevisionEnvs,
   useEnvironments,
@@ -23,10 +29,14 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
+  type FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
+import Badge from "@/ui/Badge";
+import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
   feature: FeatureInterface;
@@ -36,51 +46,64 @@ export interface Props {
   mutate: () => void;
   onPublish?: () => void;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  rampSchedules?: RampScheduleInterface[];
 }
 
 export function ExpandableDiff({
   title,
   a,
   b,
+  defaultOpen = false,
+  styles,
+  leftTitle,
+  rightTitle,
 }: {
   title: string;
   a: string;
   b: string;
+  defaultOpen?: boolean;
+  styles?: object;
+  leftTitle?: string | React.ReactElement;
+  rightTitle?: string | React.ReactElement;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   if (a === b) return null;
 
   return (
-    <div className="diff-wrapper">
-      <div
-        className="list-group-item list-group-item-action d-flex"
+    <Box className="diff-wrapper appbox bg-light">
+      <Flex
+        align="center"
+        className=""
+        p="3"
+        style={{
+          cursor: "pointer",
+          borderBottom: open ? "1px solid var(--gray-5)" : undefined,
+        }}
         onClick={(e) => {
           e.preventDefault();
           setOpen(!open);
         }}
       >
-        <div className="text-muted mr-2">Changed:</div>
-        <strong>{title}</strong>
-        <div className="ml-auto">
+        <Text mr="2">Changed:</Text>
+        <Text weight="semibold">{title}</Text>
+        <Box style={{ marginLeft: "auto" }}>
           {open ? <FaAngleDown /> : <FaAngleRight />}
-        </div>
-      </div>
+        </Box>
+      </Flex>
       {open && (
-        <div className="list-group-item list-group-item-light">
+        <Box p="3" className="">
           <ReactDiffViewer
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
-            styles={{
-              contentText: {
-                wordBreak: "break-all",
-              },
-            }}
+            styles={styles ?? { contentText: { wordBreak: "break-all" } }}
+            leftTitle={leftTitle}
+            rightTitle={rightTitle}
           />
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
 
@@ -92,6 +115,7 @@ export default function DraftModal({
   mutate,
   onPublish,
   experimentsMap,
+  rampSchedules,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -104,12 +128,18 @@ export default function DraftModal({
     (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
-
   const envIds = environments.map((e) => e.id);
+
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
-  }, [revision, baseRevision, liveRevision, envIds]);
+    return autoMerge(
+      liveRevisionFromFeature(liveRevision, feature),
+      fillRevisionFromFeature(baseRevision, feature),
+      revision,
+      envIds,
+      {},
+    );
+  }, [revision, baseRevision, liveRevision, envIds, feature]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -133,18 +163,150 @@ export default function DraftModal({
           defaultValue:
             mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
           rules: mergeResult.result.rules ?? currentRevisionData.rules,
+          // Only include envelope fields if they were part of the merge result
+          ...(mergeResult.result.environmentsEnabled !== undefined
+            ? { environmentsEnabled: mergeResult.result.environmentsEnabled }
+            : {}),
+          ...(mergeResult.result.prerequisites !== undefined
+            ? { prerequisites: mergeResult.result.prerequisites }
+            : {}),
+          ...("holdout" in mergeResult.result
+            ? { holdout: mergeResult.result.holdout }
+            : {}),
+          ...(mergeResult.result.metadata !== undefined
+            ? {
+                metadata: {
+                  ...currentRevisionData.metadata,
+                  ...mergeResult.result.metadata,
+                },
+              }
+            : {}),
         }
       : currentRevisionData,
   });
 
+  // Exclude no-op diffs (e.g. semantic equality but different raw strings)
+  const resultDiffsWithChanges = useMemo(
+    () => resultDiffs.filter((d) => d.a !== d.b),
+    [resultDiffs],
+  );
+
+  // Activating ramps: pending ramps where this revision's publication triggers the start lifecycle.
+  const activatingRamps = (rampSchedules ?? []).filter(
+    (r) =>
+      r.status === "pending" &&
+      r.targets.some(
+        (t) =>
+          t.entityId === feature.id &&
+          t.activatingRevisionVersion === revision?.version,
+      ),
+  );
+
+  // Build extra diff items so ramp changes appear in badges, custom renders, and JSON diffs.
+  const rampDiffs: FeatureRevisionDiff[] = [
+    ...activatingRamps.map((ramp) => {
+      const rampConfig = {
+        name: ramp.name,
+        targets: ramp.targets,
+        startDate: ramp.startDate,
+        steps: ramp.steps,
+        endCondition: ramp.endCondition,
+      };
+      const startDescription = ramp.startDate
+        ? "Starts at a scheduled date/time."
+        : "Starts automatically on publish.";
+      return {
+        title: `Ramp Schedule – ${ramp.name}`,
+        a: "",
+        b: JSON.stringify(rampConfig, null, 2),
+        customRender: (
+          <p className="mb-0">
+            Activates ramp schedule <strong>{ramp.name}</strong> —{" "}
+            {ramp.steps.length} step{ramp.steps.length !== 1 ? "s" : ""}.{" "}
+            {startDescription}
+          </p>
+        ),
+        badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+      } as FeatureRevisionDiff;
+    }),
+    // Pending ramp actions: create/detach actions queued in the draft
+    ...(revision?.rampActions ?? [])
+      .map((action) => {
+        if (action.mode === "create") {
+          const rampConfig = {
+            name: action.name,
+            environment: action.environment,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            endCondition: action.endCondition,
+          };
+          return {
+            title: `Ramp Schedule – ${action.name} (pending creation)`,
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0">
+                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
+                <code>{action.ruleId}</code> — {action.steps.length} step
+                {action.steps.length !== 1 ? "s" : ""}.
+              </p>
+            ),
+            badges: [
+              {
+                label: `Create ramp: ${action.name}`,
+                action: "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "detach") {
+          return {
+            title: `Remove from Ramp Schedule (pending)`,
+            a: "",
+            b: JSON.stringify(
+              {
+                rampScheduleId: action.rampScheduleId,
+                ruleId: action.ruleId,
+              },
+              null,
+              2,
+            ),
+            customRender: (
+              <p className="mb-0">
+                This rule will be removed from its ramp schedule
+                {action.deleteScheduleWhenEmpty &&
+                  " and the schedule will be deleted if empty"}
+                .
+              </p>
+            ),
+            badges: [
+              {
+                label: "Remove from ramp schedule",
+                action: "remove ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        }
+        return null as unknown as FeatureRevisionDiff;
+      })
+      .filter(Boolean),
+  ];
+
+  // Combined for rendering convenience
+  const linkedRamps = [
+    ...activatingRamps.map((ramp) => ({ ramp, role: "activating" as const })),
+  ];
+
   if (!revision || !mergeResult) return null;
+
+  const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
 
   const hasPermission = permissionsUtil.canPublishFeature(
     feature,
     getAffectedRevisionEnvs(feature, revision, environments),
   );
 
-  const hasChanges = mergeResultHasChanges(mergeResult);
+  const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
   let submitEnabled = !!mergeResult.success && hasChanges;
   if (experimentsStep && experimentData.some((d) => d.failedRequired)) {
@@ -227,6 +389,14 @@ export default function DraftModal({
         </Callout>
       )}
 
+      {linkedRamps.map(({ ramp }) => (
+        <Callout key={ramp.id} status="info" mb="3">
+          Publishing this draft will activate ramp schedule{" "}
+          <strong>{ramp.name}</strong>. The ramp will begin once this revision
+          is live.
+        </Callout>
+      ))}
+
       {!hasChanges && !mergeResult.conflicts.length && (
         <Callout status="info">
           There are no changes to publish. Either discard the draft or add
@@ -237,17 +407,19 @@ export default function DraftModal({
       {mergeResult.success &&
         hasChanges &&
         (experimentsStep ? (
-          <div>
-            <h3>Review &amp; Publish</h3>
-            <p>
+          <Box>
+            <Heading as="h3" size="medium" mb="3">
+              Review &amp; Publish
+            </Heading>
+            <Text as="p" mb="3">
               Please review the <strong>Pre-Launch Checklists</strong> for the
               experiments that will be published along with this draft.
-            </p>
+            </Text>
             {experimentData.map(({ experiment, checklist }) => {
               if (!selectedExperiments.has(experiment.id)) return null;
 
               return (
-                <div key={experiment.id} className="mb-3">
+                <Box key={experiment.id} mb="3">
                   <PreLaunchChecklistFeatureExpRule
                     experiment={experiment}
                     mutateExperiment={mutate}
@@ -258,23 +430,27 @@ export default function DraftModal({
                       linkedFeatures: [],
                     })}
                   />
-                </div>
+                </Box>
               );
             })}
-          </div>
+          </Box>
         ) : (
-          <div>
-            <h3>Review &amp; Publish</h3>
-            <p>
+          <Box>
+            <Heading as="h3" size="medium" mb="3">
+              Review &amp; Publish
+            </Heading>
+            <Text as="p" mb="3">
               The changes below will go live when this draft revision is
               published. You will be able to revert later if needed.
-            </p>
+            </Text>
 
             {experimentData.length > 0 ? (
-              <div className="mb-3">
-                <h4>Start running experiments upon publishing:</h4>
+              <Box mb="3">
+                <Heading as="h4" size="small" mb="2">
+                  Start running experiments upon publishing:
+                </Heading>
                 {experimentData.map(({ experiment }) => (
-                  <div key={experiment.id}>
+                  <Box key={experiment.id}>
                     <Checkbox
                       value={selectedExperiments.has(experiment.id)}
                       setValue={(e) => {
@@ -288,20 +464,84 @@ export default function DraftModal({
                       }}
                       label={experiment.name}
                     />
-                  </div>
+                  </Box>
                 ))}
-              </div>
+              </Box>
             ) : null}
 
-            <h4>Review Diff</h4>
-            <div className="list-group mb-4">
-              {resultDiffs.map((diff) => (
-                <ExpandableDiff {...diff} key={diff.title} />
+            {allDiffsWithChanges.length > 0 && (
+              <>
+                <Heading as="h4" size="small" mb="3">
+                  Summary of changes
+                </Heading>
+                {allDiffsWithChanges.flatMap((d) => d.badges ?? []).length >
+                  0 && (
+                  <Flex wrap="wrap" gap="2" mb="3">
+                    {allDiffsWithChanges
+                      .flatMap((d) => d.badges ?? [])
+                      .map(({ label, action }) => (
+                        <Badge
+                          key={label}
+                          color={logBadgeColor(action)}
+                          variant="soft"
+                          label={label}
+                        />
+                      ))}
+                  </Flex>
+                )}
+                {allDiffsWithChanges.some((d) => d.customRender) && (
+                  <Box
+                    mb="4"
+                    className="appbox bg-light"
+                    style={{
+                      overflow: "hidden",
+                    }}
+                  >
+                    {allDiffsWithChanges
+                      .filter((d) => d.customRender)
+                      .map((d, i, arr) => (
+                        <Box
+                          key={d.title}
+                          p="3"
+                          style={{
+                            borderBottom:
+                              i === arr.length - 1
+                                ? undefined
+                                : "1px solid var(--gray-5)",
+                          }}
+                        >
+                          <Text as="div" weight="semibold" mb="2">
+                            {d.title}
+                          </Text>
+                          {d.customRender}
+                        </Box>
+                      ))}
+                  </Box>
+                )}
+              </>
+            )}
+            <Heading as="h4" size="medium" mb="3">
+              Change details
+            </Heading>
+            <Box
+              mb="4"
+              style={{
+                overflow: "hidden",
+              }}
+            >
+              {allDiffsWithChanges.map((diff) => (
+                <ExpandableDiff
+                  key={diff.title}
+                  title={diff.title}
+                  a={diff.a}
+                  b={diff.b}
+                  styles={COMPACT_DIFF_STYLES}
+                />
               ))}
-            </div>
+            </Box>
             {hasPermission ? (
               <Field
-                label="Add a Comment (optional)"
+                label="Notes (optional)"
                 textarea
                 placeholder="Summary of changes..."
                 value={comment}
@@ -314,7 +554,7 @@ export default function DraftModal({
                 You do not have permission to publish this draft.
               </Callout>
             )}
-          </div>
+          </Box>
         ))}
     </Modal>
   );

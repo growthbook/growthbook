@@ -8,6 +8,7 @@ import {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
+  SignificanceThresholds,
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -20,6 +21,7 @@ import ResultsTable from "@/components/Experiment/ResultsTable";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { filterRowsForMetricDrilldown } from "./helpers";
 
 interface MetricDrilldownSlicesProps {
@@ -37,6 +39,7 @@ interface MetricDrilldownSlicesProps {
   setVariationFilter: (filter: number[] | undefined) => void;
   // Props for ResultsTable
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   variations: ExperimentReportVariation[];
   startDate: string;
@@ -45,7 +48,7 @@ interface MetricDrilldownSlicesProps {
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
   // Initial sorting state (inherited from main table, managed locally)
   initialSortBy: ExperimentSortBy;
   initialSortDirection: "asc" | "desc" | null;
@@ -55,6 +58,9 @@ interface MetricDrilldownSlicesProps {
   // Timeseries state (managed by parent to persist across tab switches)
   visibleTimeSeriesRowIds: string[];
   setVisibleTimeSeriesRowIds: (ids: string[]) => void;
+  // SSR polyfills for public pages
+  ssrPolyfills?: SSRPolyfills;
+  hideTimeSeries?: boolean;
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
@@ -68,6 +74,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   variationFilter,
   setVariationFilter,
   experimentId,
+  significanceThresholds,
   phase,
   variations,
   startDate,
@@ -83,6 +90,8 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setSearchTerm,
   visibleTimeSeriesRowIds,
   setVisibleTimeSeriesRowIds,
+  ssrPolyfills,
+  hideTimeSeries,
 }) => {
   const { hasCommercialFeature } = useUser();
 
@@ -95,7 +104,10 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     mutateSnapshot: mutate,
   } = useSnapshot();
 
-  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  // Check the owning org's features (via SSR data) first, then fall back to current user's org
+  const hasMetricSlicesFeature =
+    ssrPolyfills?.hasCommercialFeature("metric-slices") ||
+    hasCommercialFeature("metric-slices");
   const tableId = `${experimentId}_${metric.id}_slices`;
 
   // TODO: Do we stil need?
@@ -183,6 +195,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
 
       <ResultsTable
         experimentId={experimentId}
+        significanceThresholds={significanceThresholds}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}
@@ -227,7 +240,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         noStickyHeader={true}
         noTooltip={false}
         isBandit={false}
-        showTimeSeriesButton={true}
+        showTimeSeriesButton={!hideTimeSeries}
         isHoldout={false}
         sortBy={sortBy}
         setSortBy={setSortBy}

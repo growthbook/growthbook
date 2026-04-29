@@ -2,8 +2,8 @@ import React, { FC, useMemo, useState } from "react";
 import { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
-import Link from "next/link";
 import { ApiKeyInterface } from "shared/types/apikey";
+import Link from "@/ui/Link";
 import { getEventText } from "@/components/Events/EventsPage/utils";
 import Code from "@/components/SyntaxHighlighting/Code";
 import useApi from "@/hooks/useApi";
@@ -49,9 +49,21 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
             {user?.type === "dashboard" ? (
               <span title={user.email}>{user.name}</span>
             ) : user?.type === "api_key" ? (
-              <span title={apiKeyDescriptions?.[user.apiKey] ?? user.apiKey}>
-                API Key
-              </span>
+              user.email ? (
+                <span title={user.email}>
+                  {user.name || user.email}{" "}
+                  <span className="badge badge-secondary">API</span>
+                </span>
+              ) : (
+                <span title={user.apiKey}>
+                  API Key
+                  {user.name
+                    ? `: ${user.name}`
+                    : apiKeyDescriptions?.[user.apiKey]
+                      ? `: ${apiKeyDescriptions[user.apiKey]}`
+                      : ""}
+                </span>
+              )
             ) : user?.type === "system" ? (
               <span title="An automatic process or background job not associated with a user">
                 System

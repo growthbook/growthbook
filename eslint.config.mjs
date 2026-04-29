@@ -19,18 +19,24 @@ const compat = new FlatCompat({
   recommendedConfig: js.configs.recommended,
   allConfig: js.configs.all,
 });
+// Strip invalid "name" property from Next.js flat config (ESLint 9 rejects it)
+const { name: _nextName, ...nextRecommendedConfig } =
+  nextEslintPluginNext.configs.recommended;
 
 export default defineConfig([
   globalIgnores([
     "**/.next",
     "**/dist",
     "**/coverage",
+    "**/.venv",
+    "**/node_modules",
     "docs/.docusaurus",
     "docs/docusaurus.config.js",
     "docs/build",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
   ]),
+  nextRecommendedConfig,
   {
     extends: fixupConfigRules(
       compat.extends(
@@ -41,7 +47,6 @@ export default defineConfig([
         "plugin:@typescript-eslint/eslint-recommended",
         "plugin:@typescript-eslint/recommended",
         "plugin:prettier/recommended",
-        "plugin:@next/eslint-plugin-next/recommended",
         "plugin:react-hooks/recommended",
       ),
     ),
@@ -50,7 +55,6 @@ export default defineConfig([
       react: fixupPluginRules(react),
       "@typescript-eslint": fixupPluginRules(typescriptEslint),
       prettier: fixupPluginRules(prettier),
-      "@next/next": fixupPluginRules(nextEslintPluginNext),
       "no-async-foreach": noAsyncForeach,
     },
 
@@ -86,7 +90,10 @@ export default defineConfig([
 
         typescript: {
           alwaysTryTypes: true,
-          project: ["packages/*/tsconfig.json"],
+          project: [
+            "packages/*/tsconfig.json",
+            "packages/back-end/test/tsconfig.json",
+          ],
         },
       },
     },
@@ -196,7 +203,9 @@ export default defineConfig([
                 "Callout",
                 "Checkbox",
                 "DataList",
+                "Dialog",
                 "DropdownMenu",
+                "Heading",
                 "Link",
                 "RadioCards",
                 "RadioGroup",
@@ -204,6 +213,7 @@ export default defineConfig([
                 "Switch",
                 "Table",
                 "Tabs",
+                "Text",
               ],
             },
           ],
@@ -215,6 +225,11 @@ export default defineConfig([
             {
               group: ["*back-end*", "**/sdk-{js,react}*"],
               message: "front-end can only import from shared or itself.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
             },
           ],
         },
@@ -328,6 +343,64 @@ export default defineConfig([
               group: ["*front-end*", "**/sdk-{js,react}*"],
               message: "back-end can only import from shared or itself.",
             },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "./packages/back-end/src/controllers/**/*.ts",
+      "./packages/back-end/src/routers/**/*.controller.ts",
+      "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+    ],
+
+    rules: {
+      "import/no-restricted-paths": [
+        "error",
+        {
+          zones: [
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
           ],
         },
       ],
@@ -344,6 +417,11 @@ export default defineConfig([
             {
               group: ["*back-end*", "*front-end*"],
               message: "shared cannot import from back-end or front-end.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Within shared, use relative paths or import from shared without /src/",
             },
           ],
         },
@@ -378,6 +456,12 @@ export default defineConfig([
             "CallExpression[callee.type='MemberExpression'][callee.property.name='default']",
           message:
             "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead.",
+        },
+        {
+          selector:
+            "Property[key.name='owner'] CallExpression[callee.type='MemberExpression'][callee.object.name='z'][callee.property.name='string']",
+          message:
+            "Use ownerField or ownerInputField from 'shared/validators' instead of a bare z.string() for owner properties to ensure consistent API documentation.",
         },
       ],
     },

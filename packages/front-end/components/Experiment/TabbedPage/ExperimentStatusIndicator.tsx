@@ -97,7 +97,7 @@ export function RawExperimentStatusIndicator({
       color={color}
       variant={"solid"}
       radius="full"
-      label={`${label}${isInAnalysisPeriod ? ": Analysis Period" : ""}`}
+      label={`${label}${isInAnalysisPeriod ? ": Analysis Phase" : ""}`}
       style={{
         cursor: tooltip !== undefined ? "default" : undefined,
       }}

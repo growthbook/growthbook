@@ -1,5 +1,4 @@
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import {
@@ -12,18 +11,19 @@ import {
   isBinomialMetric,
   isRatioMetric,
   quantileMetricType,
+  getRowFilterSQL,
 } from "shared/experiments";
-import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_WIN_RISK_THRESHOLD,
-} from "shared/constants";
+import { formatAIRateLimitRetryMessage } from "shared/ai";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { getRowFilterSQL } from "shared/src/experiments";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import Metadata from "@/ui/Metadata";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -32,6 +32,7 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
@@ -197,7 +198,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -224,8 +225,6 @@ export default function FactMetricPage() {
   } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const isMetricSlicesFeatureEnabled =
-    growthbook?.isOn("metric-slices") || false;
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   if (!ready) return <LoadingOverlay />;
@@ -480,7 +479,6 @@ export default function FactMetricPage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="factMetric"
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {
@@ -539,23 +537,23 @@ export default function FactMetricPage() {
           experiments.
         </div>
       )}
-      <div className="row mb-3">
-        <div className="col-auto">
-          <h1 className="mb-0">
+      <Flex align="start" justify="between" gap="2" mb="2">
+        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+          <Heading size="x-large" as="h1" mb="0">
             <MetricName id={factMetric.id} officialBadgePosition="right" />
-          </h1>
-        </div>
-        <div className="ml-auto mr-2">
+          </Heading>
+        </Flex>
+        <Flex align="center" pr="2">
           <DropdownMenu
             trigger={
               <IconButton
                 variant="ghost"
                 color="gray"
                 radius="full"
-                size="3"
+                size="2"
                 highContrast
               >
-                <BsThreeDotsVertical size={18} />
+                <BsThreeDotsVertical size={16} />
               </IconButton>
             }
             menuPlacement="end"
@@ -622,66 +620,86 @@ export default function FactMetricPage() {
               </DropdownMenuItem>
             )}
           </DropdownMenu>
-        </div>
-      </div>
-      <div className="row mb-4">
-        {projects.length > 0 ? (
-          <div className="col-auto">
-            Projects:{" "}
-            {factMetric.projects.length > 0 ? (
-              factMetric.projects.map((p) => (
-                <span className="badge badge-secondary mr-1" key={p}>
-                  {getProjectById(p)?.name || p}
-                </span>
-              ))
-            ) : (
-              <em className="mr-1">All Projects</em>
-            )}
+        </Flex>
+      </Flex>
+      <Flex gap="4" align="center" wrap="wrap">
+        {projects.length > 0 && (
+          <Metadata
+            label="Projects"
+            value={
+              <Flex gap="1" align="center">
+                {factMetric.projects.length > 0 ? (
+                  <Text weight="regular" color="text-mid">
+                    {factMetric.projects
+                      .map((p) => getProjectById(p)?.name || p)
+                      .join(", ")}
+                  </Text>
+                ) : (
+                  <Text weight="regular" color="text-mid" fontStyle="italic">
+                    All Projects
+                  </Text>
+                )}
+                {canEdit && (
+                  <Link
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditProjectsOpen(true);
+                    }}
+                  >
+                    <GBEdit />
+                  </Link>
+                )}
+              </Flex>
+            }
+          />
+        )}
+        <Metadata
+          label="Owner"
+          value={
+            <Flex gap="1" align="center">
+              <Text weight="regular" color="text-mid">
+                {getOwnerDisplay(factMetric.owner) || "None"}
+              </Text>
+              {canEdit && (
+                <Link onClick={() => setEditOwnerModal(true)}>
+                  <GBEdit />
+                </Link>
+              )}
+            </Flex>
+          }
+        />
+        <Metadata
+          label="Data source"
+          value={
+            <Link
+              href={`/datasources/${factMetric.datasource}`}
+              className="font-weight-bold"
+            >
+              {datasource?.name || "Unknown"}
+            </Link>
+          }
+        />
+      </Flex>
+      <Box mt="3" mb="3">
+        {factMetric.tags?.length || canEdit ? (
+          <Flex align="center" gap="1">
+            <Text weight="medium">Tags:</Text>
+            {factMetric.tags?.length ? (
+              <SortedTags
+                tags={factMetric.tags}
+                useFlex
+                shouldShowEllipsis={false}
+                {...tagLinkProps("metrics")}
+              />
+            ) : null}
             {canEdit && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditProjectsOpen(true);
-                }}
-              >
+              <Link onClick={() => setEditTagsModal(true)}>
                 <GBEdit />
-              </a>
+              </Link>
             )}
-          </div>
+          </Flex>
         ) : null}
-        <div className="col-auto">
-          Tags: <SortedTags tags={factMetric.tags} />
-          {canEdit && (
-            <a
-              className="ml-1 cursor-pointer"
-              onClick={() => setEditTagsModal(true)}
-            >
-              <GBEdit />
-            </a>
-          )}
-        </div>
-        <div className="col-auto">
-          Owner:{` ${factMetric.owner ?? ""}`}
-          {canEdit && (
-            <a
-              className="ml-1 cursor-pointer"
-              onClick={() => setEditOwnerModal(true)}
-            >
-              <GBEdit />
-            </a>
-          )}
-        </div>
-        <div className="col-auto">
-          Data source:{" "}
-          <Link
-            href={`/datasources/${factMetric.datasource}`}
-            className="font-weight-bold"
-          >
-            {datasource?.name || "Unknown"}
-          </Link>
-        </div>
-      </div>
+      </Box>
 
       <div className="row">
         <div className="col-12 col-md-8">
@@ -692,23 +710,27 @@ export default function FactMetricPage() {
               canEdit={canEdit}
               value={factMetric.description}
               aiSuggestFunction={async () => {
+                // Only evaluate the feature flag if suggestion is requested
+                const aiTemperature =
+                  growthbook?.getFeatureValue(
+                    "ai-suggestions-temperature",
+                    0.1,
+                  ) || 0.1;
+
                 const res = await apiCall<{
                   status: number;
                   data: {
                     description: string;
                   };
                 }>(
-                  `/metrics/${factMetric.id}/gen-description`,
+                  `/metrics/${factMetric.id}/gen-description?temperature=${aiTemperature}`,
                   {
                     method: "GET",
                   },
                   (responseData) => {
                     if (responseData.status === 429) {
-                      const retryAfter = parseInt(responseData.retryAfter);
-                      const hours = Math.floor(retryAfter / 3600);
-                      const minutes = Math.floor((retryAfter % 3600) / 60);
                       throw new Error(
-                        `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+                        formatAIRateLimitRetryMessage(responseData.retryAfter),
                       );
                     } else if (responseData.message) {
                       throw new Error(responseData.message);
@@ -766,52 +788,46 @@ export default function FactMetricPage() {
               </div>
             ) : null}
 
-            {isMetricSlicesFeatureEnabled && (
-              <div className="appbox p-3 mb-3">
-                <h4>
-                  Auto Slices
-                  <PaidFeatureBadge
-                    commercialFeature="metric-slices"
-                    premiumText="This is an Enterprise feature"
-                    variant="outline"
-                    ml="2"
-                  />
-                </h4>
-                <Text
-                  as="p"
-                  className="mb-2"
-                  style={{ color: "var(--color-text-mid)" }}
-                >
-                  Choose metric breakdowns to automatically analyze in your
-                  experiments.{" "}
-                  <DocLink docSection="autoSlices">
-                    Learn More <PiArrowSquareOut />
-                  </DocLink>
-                </Text>
-                <div className="mt-2">
-                  <FactTableAutoSliceSelector
-                    factMetric={factMetric}
-                    factTableId={factMetric.numerator.factTableId}
-                    canEdit={
-                      permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-                      !factMetric.managedBy &&
-                      hasMetricSlicesFeature
-                    }
-                    onUpdate={async (metricAutoSlices) => {
-                      await apiCall(`/fact-metrics/${factMetric.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          metricAutoSlices,
-                        }),
-                      });
-                      mutateDefinitions();
-                    }}
-                    compactButtons={false}
-                    containerWidth="auto"
-                  />
-                </div>
+            <div className="appbox p-3 mb-3">
+              <h4>
+                Auto Slices
+                <PaidFeatureBadge
+                  commercialFeature="metric-slices"
+                  premiumText="This is an Enterprise feature"
+                  variant="outline"
+                  ml="2"
+                />
+              </h4>
+              <Text as="p" mb="2" color="text-mid">
+                Choose metric breakdowns to automatically analyze in your
+                experiments.{" "}
+                <DocLink docSection="autoSlices">
+                  Learn More <PiArrowSquareOut />
+                </DocLink>
+              </Text>
+              <div className="mt-2">
+                <FactTableAutoSliceSelector
+                  factMetric={factMetric}
+                  factTableId={factMetric.numerator.factTableId}
+                  canEdit={
+                    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+                    !factMetric.managedBy &&
+                    hasMetricSlicesFeature
+                  }
+                  onUpdate={async (metricAutoSlices) => {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        metricAutoSlices,
+                      }),
+                    });
+                    mutateDefinitions();
+                  }}
+                  compactButtons={false}
+                  containerWidth="auto"
+                />
               </div>
-            )}
+            </div>
           </div>
 
           <div className="mb-4">
@@ -980,33 +996,6 @@ export default function FactMetricPage() {
                 </ul>
               </RightRailSectionGroup>
 
-              <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled mb-4">
-                  <li className="mt-3 mb-2">
-                    <span className="uppercase-title lg">Risk Thresholds</span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to Bayesian analyses
-                    </small>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {factMetric?.winRisk * 100 ||
-                        DEFAULT_WIN_RISK_THRESHOLD * 100}
-                      %
-                    </span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {factMetric?.loseRisk * 100 ||
-                        DEFAULT_LOSE_RISK_THRESHOLD * 100}
-                      %
-                    </span>
-                  </li>
-                </ul>
-              </RightRailSectionGroup>
-
               <MetricPriorRightRailSectionGroup
                 metric={factMetric}
                 metricDefaults={metricDefaults}
@@ -1094,12 +1083,10 @@ export default function FactMetricPage() {
             <GBExperiment className="mr-1" />
             Experiments
           </TabsTrigger>
-          {growthbook.isOn("bandits") && (
-            <TabsTrigger value="bandits">
-              <GBBandit className="mr-1" />
-              Bandits
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="bandits">
+            <GBBandit className="mr-1" />
+            Bandits
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis">
@@ -1116,11 +1103,9 @@ export default function FactMetricPage() {
           <MetricExperiments metric={factMetric} />
         </TabsContent>
 
-        {growthbook.isOn("bandits") && (
-          <TabsContent value="bandits">
-            <MetricExperiments metric={factMetric} bandits={true} />
-          </TabsContent>
-        )}
+        <TabsContent value="bandits">
+          <MetricExperiments metric={factMetric} bandits={true} />
+        </TabsContent>
       </Tabs>
     </div>
   );

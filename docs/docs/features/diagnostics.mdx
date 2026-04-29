@@ -2,7 +2,7 @@
 title: Feature Evaluation Diagnostics
 description: Validate feature evaluations with diagnostics
 sidebar_label: Feature Diagnostics
-slug: features/diagnostics
+slug: /features/diagnostics
 ---
 
 # Feature Evaluation Diagnostics
@@ -11,9 +11,9 @@ Feature Evaluation Diagnostics let you inspect recent feature evaluations by que
 
 ## Setup
 
-To use Feature Diagnostics, you need to send feature evaluation events to your data warehouse. The only columns we require are `feature_key` and `timestamp`, but you can include any additional metadata that would be useful for your diagnostics, such as `unit_id`, `value`, `reason`, etc.
+To use Feature Diagnostics, send feature evaluation events to your data warehouse. The only required columns are `feature_key` and `timestamp`, but you can include any additional metadata useful for diagnostics, such as `unit_id`, `value`, `reason`, etc.
 
-Set up your SDK to send feature evaluation events to your data warehouse using our built in `onFeatureUsage` callback, as shown in the example snippet below:
+Set up your SDK to send feature evaluation events to your data warehouse using the built-in `onFeatureUsage` callback, as shown in the example snippet below:
 
 ```javascript
 const gb = new GrowthBookClient({
@@ -30,15 +30,15 @@ const gb = new GrowthBookClient({
 });
 ```
 
-Once you have Feature Evaluation data in your data warehouse, you can set up your feature usage query in GrowthBook. Navigate to the data source you're using and scroll down to **Feature Usage Query** and add the SQL query for your feature evaluation events.
+Once feature evaluation data is in your data warehouse, set up the feature usage query in GrowthBook. Navigate to your data source, scroll down to **Feature Usage Query**, and add the SQL query for your feature evaluation events.
 
-![datasource-usage-query-block.png](/images/features/feature-diagnostics/datasource-usage-query-block.png)
+![Feature Usage Query configuration in data source settings](/images/features/feature-diagnostics/datasource-usage-query-block.png)
 
 ## Feature Diagnostics Tab
 
 View diagnostic events for your feature flag within the **Diagnostics** tab on any feature. Select your data source and click **View recent feature evaluations** to see the latest 100 feature evaluation events.
 
-![diagnostics-tab.png](/images/features/feature-diagnostics/diagnostics-tab.png)
+![Diagnostics tab showing recent feature evaluation events](/images/features/feature-diagnostics/diagnostics-tab.png)
 
 :::tip Query Results Are Not Cached
 Re-run the query whenever you navigate away from the feature page.
@@ -46,17 +46,17 @@ Re-run the query whenever you navigate away from the feature page.
 
 ## Troubleshooting
 
-If you're not seeing evaluation events in the **Diagnostics** tab, here are some things to check:
+If evaluation events aren't appearing in the **Diagnostics** tab, check the following:
 
-### Verify your `onFeatureUsage` callback is firing
+### Verify Your `onFeatureUsage` Callback Is Firing
 
 Make sure your SDK is correctly configured with the `onFeatureUsage` callback and that events are being sent to your analytics pipeline. You can add a `console.log` statement inside the callback to verify it's being triggered when features are evaluated.
 
-### Check your data pipeline
+### Check Your Data Pipeline
 
 Ensure that events from your analytics tool (e.g., Segment) are flowing correctly into your data warehouse tables. There may be a delay between when events are sent and when they appear in your warehouse.
 
-### Optimize for large tables
+### Optimize for Large Tables
 
 If you have a high volume of feature evaluations, query performance can degrade over time. For optimal performance:
 

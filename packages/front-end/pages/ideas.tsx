@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import Link from "next/link";
 import { IdeaInterface } from "shared/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import IdeaForm from "@/components/Ideas/IdeaForm";
@@ -18,7 +18,7 @@ import Button from "@/ui/Button";
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
 
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
     ideas: IdeaInterface[];
@@ -43,7 +43,7 @@ const IdeasPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const canCreateIdeas = permissionsUtil.canViewIdeaModal(project);
+  const canCreateIdeas = permissionsUtil.canViewIdeaModal(project, projects);
 
   if (!data.ideas.length) {
     return (

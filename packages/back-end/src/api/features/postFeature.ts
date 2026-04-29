@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { validateFeatureValue, validateScheduleRules } from "shared/util";
-import { PostFeatureResponse } from "shared/types/openapi";
 import { postFeatureValidator } from "shared/validators";
-import { FeatureInterface, JSONSchemaDef } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -19,8 +20,8 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
-import { logger } from "back-end/src/util/logger";
-import { validateCustomFields } from "./validation";
+import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { validateCustomFields } from "./validations";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -44,33 +45,9 @@ export const validateEnvKeys = (
   }
 };
 
-export const parseJsonSchemaForEnterprise = (
-  org: OrganizationInterface,
-  jsonSchema: string | undefined,
-) => {
-  const jsonSchemaWrapper: JSONSchemaDef = {
-    schemaType: "schema",
-    schema: "",
-    simple: { type: "object", fields: [] },
-    date: new Date(),
-    enabled: false,
-  };
-  if (!jsonSchema) return jsonSchemaWrapper;
-  if (!orgHasPremiumFeature(org, "json-validation")) return jsonSchemaWrapper;
-  try {
-    // ensure the schema is valid JSON
-    jsonSchemaWrapper.schema = JSON.stringify(JSON.parse(jsonSchema));
-    jsonSchemaWrapper.enabled = true;
-    return jsonSchemaWrapper;
-  } catch (e) {
-    logger.error(e, "Failed to parse feature json schema");
-    return jsonSchemaWrapper;
-  }
-};
-
 export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
-): Promise<PostFeatureResponse> => {
+) => {
   if (!req.context.permissions.canCreateFeature(req.body)) {
     req.context.permissions.throwPermissionError();
   }
@@ -136,14 +113,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     }
   }
 
-  // check if the custom fields are valid
-  if (req.body.customFields) {
-    await validateCustomFields(
-      req.body.customFields,
-      req.context,
-      req.body.project,
-    );
-  }
+  await validateCustomFields(
+    req.body.customFields,
+    req.context,
+    req.body.project,
+  );
 
   const tags = req.body.tags || [];
 
@@ -154,7 +128,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   const feature: FeatureInterface = {
     defaultValue: req.body.defaultValue ?? "",
     valueType: req.body.valueType,
-    owner: req.body.owner,
+    owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
     description: req.body.description || "",
     project: req.body.project || "",
     dateCreated: new Date(),
@@ -180,10 +154,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
 
   feature.environmentSettings = environmentSettings;
 
-  const jsonSchema = parseJsonSchemaForEnterprise(
-    req.context.org,
-    req.body.jsonSchema,
-  );
+  const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
 
   feature.jsonSchema = jsonSchema;
 
@@ -231,15 +202,17 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     featureId: feature.id,
     version: feature.version,
   });
-
   return {
-    feature: getApiFeatureObj({
-      feature,
-      organization: req.organization,
-      groupMap,
-      experimentMap,
-      revision,
-      safeRolloutMap,
-    }),
+    feature: await resolveOwnerEmail(
+      getApiFeatureObj({
+        feature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+        revision,
+        safeRolloutMap,
+      }),
+      req.context,
+    ),
   };
 });

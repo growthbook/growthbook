@@ -1147,7 +1147,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
         </p>
         <p>
           Note that our Edge App responds directly to a{" "}
-          <code>viewer-request</code> without forwarding to an origin;
+          <code>viewer_request</code> without forwarding to an origin;
           interaction with CloudFront is minimal (Step 2 in the AWS tutorial).
         </p>
 

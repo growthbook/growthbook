@@ -2,7 +2,10 @@ import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
-import { expandAllSliceMetricsInMap } from "shared/experiments";
+import {
+  expandAllSliceMetricsInMap,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { Queries } from "shared/types/query";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -90,7 +93,7 @@ export async function generateExperimentNotebook(
   snapshotId: string,
 ): Promise<string> {
   // Get snapshot
-  const snapshot = await findSnapshotById(context.org.id, snapshotId);
+  const snapshot = await findSnapshotById(context, snapshotId);
   if (!snapshot) {
     throw new Error("Cannot find snapshot");
   }
@@ -117,7 +120,7 @@ export async function generateExperimentNotebook(
     queryPointers: snapshot.queries,
     snapshotSettings: snapshot.settings,
     analysisSettings: analysis.settings,
-    variationNames: experiment.variations.map((v) => v.name),
+    variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
     url: `/experiment/${experiment.id}`,
     name: experiment.name,
     description: experiment.hypothesis || "",
@@ -213,6 +216,7 @@ export async function generateNotebook({
         analysisSettings,
         snapshotSettings.variations.map((v, i) => ({
           ...v,
+          index: i,
           name: variationNames[i] || v.id,
         })),
         snapshotSettings.coverage ?? 1,

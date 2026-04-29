@@ -8,6 +8,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import {
+  DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
@@ -22,7 +23,6 @@ import {
 } from "shared/constants";
 import { AIModel, EmbeddingModel } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { SegmentInterface } from "shared/types/segment";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -45,6 +45,7 @@ import { DimensionInterface } from "shared/types/dimension";
 import { DataSourceInterface } from "shared/types/datasource";
 import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
+import { getScopedSettings } from "shared/settings";
 import {
   createOrganization,
   findAllOrganizations,
@@ -53,7 +54,7 @@ import {
   findOrganizationsByDomain,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
+import { APP_ORIGIN, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
@@ -99,6 +100,20 @@ export {
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
+}
+
+export async function setLicenseKey(
+  org: OrganizationInterface,
+  licenseKey: string,
+) {
+  if (!IS_CLOUD && IS_MULTI_ORG) {
+    throw new Error(
+      "You must use the LICENSE_KEY environmental variable on multi org sites.",
+    );
+  }
+
+  org.licenseKey = licenseKey;
+  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export function validateLoginMethod(
@@ -169,13 +184,67 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export function getConfidenceLevelsForOrg(context: ReqContext) {
-  const ciUpper = context.org.settings?.confidenceLevel || 0.95;
+async function resolveScopedSettingsForProject(
+  context: ReqContext,
+  projectId: string | undefined,
+) {
+  const project =
+    projectId && projectId.length > 0
+      ? (await context.getProjects()).find((p) => p.id === projectId)
+      : undefined;
+  return getScopedSettings({
+    organization: context.org,
+    project,
+  });
+}
+
+function confidenceLevelsFromScopedSettings(
+  settings: ReturnType<typeof getScopedSettings>["settings"],
+) {
+  const ciUpper = settings.confidenceLevel.value || DEFAULT_CONFIDENCE_LEVEL;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,
     ciUpperDisplay: Math.round(ciUpper * 100) + "%",
     ciLowerDisplay: Math.round((1 - ciUpper) * 100) + "%",
+  };
+}
+
+export async function getConfidenceLevelsForProject(
+  context: ReqContext,
+  projectId: string | undefined,
+) {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return confidenceLevelsFromScopedSettings(settings);
+}
+
+/**
+ * Resolves all significance-related settings (confidence levels, p-value
+ * threshold, p-value correction) with a single call.
+ */
+export async function getSignificanceSettingsForProject(
+  context: ReqContext,
+  projectId: string | undefined,
+): Promise<{
+  ciUpper: number;
+  ciLower: number;
+  ciUpperDisplay: string;
+  ciLowerDisplay: string;
+  pValueThreshold: number;
+  pValueCorrection: PValueCorrection;
+}> {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return {
+    ...confidenceLevelsFromScopedSettings(settings),
+    pValueThreshold:
+      settings.pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD,
+    pValueCorrection: settings.pValueCorrection.value ?? null,
   };
 }
 
@@ -217,10 +286,11 @@ export function getAISettingsForOrg(
     xaiAPIKey: includeKey ? xaiKey : "",
     mistralAPIKey: includeKey ? mistralKey : "",
     googleAPIKey: includeKey ? googleKey : "",
-    defaultAIModel:
-      context.org.settings?.defaultAIModel ||
-      context.org.settings?.openAIDefaultModel ||
-      "gpt-4o-mini",
+    defaultAIModel: IS_CLOUD
+      ? "claude-haiku-4-5-20251001"
+      : context.org.settings?.defaultAIModel ||
+        context.org.settings?.openAIDefaultModel ||
+        "gpt-5.4-mini",
     embeddingModel:
       context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };
@@ -258,14 +328,28 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
   return context.org.settings?.metricDefaults || METRIC_DEFAULTS;
 }
 
-export function getPValueThresholdForOrg(context: ReqContext): number {
-  return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
+export async function getPValueThresholdForProject(
+  context: ReqContext,
+  // undefined project means fall back to org setting
+  projectId: string | undefined,
+): Promise<number> {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return settings.pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD;
 }
 
-export function getPValueCorrectionForOrg(
+export async function getPValueCorrectionForProject(
   context: ReqContext,
-): PValueCorrection {
-  return context.org.settings?.pValueCorrection ?? null;
+  // undefined project means fall back to org setting
+  projectId: string | undefined,
+): Promise<PValueCorrection> {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return settings.pValueCorrection.value ?? null;
 }
 
 export function getRole(
@@ -454,6 +538,12 @@ export async function addMembersToTeam({
   await updateOrganization(organization.id, { members: updatedMembers });
 }
 
+export function getMembersOfTeam(org: OrganizationInterface, teamId: string) {
+  return org.members
+    .filter((member) => member.teams?.includes(teamId))
+    .map((m) => m.id);
+}
+
 export async function convertMemberToManagedByIdp({
   organization,
   userId,
@@ -497,6 +587,8 @@ export async function removeMembersFromTeam({
   });
 
   await updateOrganization(organization.id, { members: updatedMembers });
+  // Also update the organization reference in-memory so the team can be deleted if it's now empty
+  organization.members = updatedMembers;
 }
 
 export async function addPendingMemberToOrg({
@@ -614,9 +706,11 @@ export async function inviteUser({
   limitAccessByEnvironment,
   environments,
   projectRoles,
+  invitedBy,
 }: {
   organization: OrganizationInterface;
   email: string;
+  invitedBy?: string;
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
@@ -662,6 +756,7 @@ export async function inviteUser({
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      invitedBy,
     },
   ];
 
@@ -939,12 +1034,7 @@ export async function importConfig(
         try {
           const existing = await context.models.segments.getById(k);
           if (existing) {
-            const updates: Partial<SegmentInterface> = {
-              ...s,
-            };
-            delete updates.organization;
-
-            await context.models.segments.update(existing, updates);
+            await context.models.segments.update(existing, s);
           } else {
             await context.models.segments.create({
               ...s,

@@ -1,4 +1,11 @@
-// Mock all model dependencies BEFORE importing the features service
+import { ReqContext } from "shared/types/organization";
+import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import {
+  getAllPayloadExperiments,
+  getAllVisualExperiments,
+  getAllURLRedirectExperiments,
+} from "back-end/src/models/ExperimentModel";
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeatures: jest.fn(),
 }));
@@ -9,35 +16,16 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllURLRedirectExperiments: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/SdkPayloadModel", () => ({
-  getSDKPayload: jest.fn(),
-  updateSDKPayload: jest.fn(),
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("mongo"),
+jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
+  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"),
+  SdkConnectionCacheModel: jest.fn(),
 }));
 
-// Now import the features service after mocking its dependencies
-import { ReqContext } from "shared/types/organization";
-import { getFeatureDefinitions } from "back-end/src/services/features";
-
-// Import mocked dependencies
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import {
-  getAllPayloadExperiments,
-  getAllVisualExperiments,
-  getAllURLRedirectExperiments,
-} from "back-end/src/models/ExperimentModel";
-import {
-  getSDKPayload,
-  updateSDKPayload,
-} from "back-end/src/models/SdkPayloadModel";
-
-// Mock shared/util functions
 jest.mock("shared/util", () => ({
   ...jest.requireActual("shared/util"),
   getSavedGroupsValuesFromInterfaces: jest.fn().mockReturnValue({}),
 }));
 
-// Mock config to prevent MongoDB log messages
 jest.mock("back-end/src/init/config", () => ({
   usingFileConfig: false,
   getConfigMetrics: jest.fn().mockReturnValue([]),
@@ -53,7 +41,7 @@ jest.mock("back-end/src/services/python", () => ({
   },
 }));
 
-describe("getFeatureDefinitions - Holdout Tests", () => {
+describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
   const mockContext = {
     org: {
       id: "test-org-id",
@@ -89,8 +77,6 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    (getSDKPayload as jest.Mock).mockResolvedValue(null);
-    (updateSDKPayload as jest.Mock).mockResolvedValue(undefined);
     (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
     (getAllVisualExperiments as jest.Mock).mockResolvedValue([]);
     (getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
@@ -143,14 +129,17 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
                 },
               },
             },
-            experiment: {
+            holdoutExperiment: /* renamed from `experiment` on main */ {
               id: "exp_holdout",
               name: "Holdout Experiment",
+              hashAttribute: "user_id",
+              trackingKey: "holdout-tracking-key",
               phases: [
                 {
                   dateStarted: new Date("2023-01-01"),
                   dateEnded: null,
                   coverage: 0.1,
+                  seed: "holdout-seed",
                   variationWeights: [0.5, 0.5],
                 },
               ],
@@ -160,20 +149,51 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       ]),
     );
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-2"],
+      params: {
+        key: "test-cache-key",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-2"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
-    // Verify holdout is included
-    expect(result.features).toHaveProperty("$holdout:hld_test_holdout");
-    expect(result.features["$holdout:hld_test_holdout"].defaultValue).toBe(
-      "genpop",
-    );
-    // Verify feature has holdout rule
+    // Verify holdout feature def is present and its rule is populated from experiment data
+    // (generateHoldoutsPayload derives coverage/hashAttribute/key/seed from experiment.phases[0] and experiment fields)
+    expect(result.features["$holdout:hld_test_holdout"]).toMatchObject({
+      defaultValue: "genpop",
+      rules: [
+        expect.objectContaining({
+          coverage: 0.1,
+          hashAttribute: "user_id",
+          key: "holdout-tracking-key",
+          seed: "holdout-seed",
+          hashVersion: 2,
+          variations: ["holdoutcontrol", "holdouttreatment"],
+          weights: [0.5, 0.5],
+        }),
+      ],
+    });
+
+    // Verify feature has 2 rules: holdout gate rule first, then original force rule
     expect(result.features["feature-with-holdout"].rules).toHaveLength(2);
+    expect(result.features["feature-with-holdout"].rules?.[0]).toMatchObject({
+      parentConditions: [
+        {
+          id: "$holdout:hld_test_holdout",
+          condition: { value: "holdoutcontrol" },
+        },
+      ],
+      force: "default_value",
+    });
+    expect(result.features["feature-with-holdout"].rules?.[1]).toMatchObject({
+      force: "sample_value",
+    });
   });
 
   it("should NOT include holdout and holdout rule when holdout doesn't have the requested project", async () => {
@@ -223,14 +243,17 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
                 },
               },
             },
-            experiment: {
+            holdoutExperiment: /* renamed from `experiment` on main */ {
               id: "exp_holdout",
               name: "Holdout Experiment",
+              hashAttribute: "user_id",
+              trackingKey: "holdout-tracking-key",
               phases: [
                 {
                   dateStarted: new Date("2023-01-01"),
                   dateEnded: null,
                   coverage: 0.1,
+                  seed: "holdout-seed",
                   variationWeights: [0.5, 0.5],
                 },
               ],
@@ -240,11 +263,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       ]),
     );
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-1"], // Only requesting project-1
+      params: {
+        key: "test-cache-key-2",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-1"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     // Verify holdout is NOT included
@@ -300,14 +330,17 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
                 },
               },
             },
-            experiment: {
+            holdoutExperiment: /* renamed from `experiment` on main */ {
               id: "exp_holdout",
               name: "Holdout Experiment",
+              hashAttribute: "user_id",
+              trackingKey: "holdout-tracking-key",
               phases: [
                 {
                   dateStarted: new Date("2023-01-01"),
                   dateEnded: null,
                   coverage: 0.1,
+                  seed: "holdout-seed",
                   variationWeights: [0.5, 0.5],
                 },
               ],
@@ -317,20 +350,49 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       ]),
     );
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-2"], // Only requesting project-2
+      params: {
+        key: "test-cache-key-3",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-2"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
-    // Verify holdout is included
-    expect(result.features).toHaveProperty("$holdout:hld_test_holdout");
-    expect(result.features["$holdout:hld_test_holdout"].defaultValue).toBe(
-      "genpop",
-    );
-    // Verify feature has holdout rule
+    // Holdout projects ["project-2", "project-3"] includes the requested "project-2"
+    expect(result.features["$holdout:hld_test_holdout"]).toMatchObject({
+      defaultValue: "genpop",
+      rules: [
+        expect.objectContaining({
+          coverage: 0.1,
+          hashAttribute: "user_id",
+          key: "holdout-tracking-key",
+          seed: "holdout-seed",
+          hashVersion: 2,
+          variations: ["holdoutcontrol", "holdouttreatment"],
+          weights: [0.5, 0.5],
+        }),
+      ],
+    });
+
     expect(result.features["feature-with-holdout"].rules).toHaveLength(2);
+    expect(result.features["feature-with-holdout"].rules?.[0]).toMatchObject({
+      parentConditions: [
+        {
+          id: "$holdout:hld_test_holdout",
+          condition: { value: "holdoutcontrol" },
+        },
+      ],
+      force: "default_value",
+    });
+    expect(result.features["feature-with-holdout"].rules?.[1]).toMatchObject({
+      force: "sample_value",
+    });
   });
 
   it("should NOT include holdout rule when holdout feature definition is missing", async () => {
@@ -366,11 +428,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
     ).mockResolvedValue(new Map());
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-1"], // Only requesting project-1
+      params: {
+        key: "test-cache-key-4",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-1"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     // Verify feature does not have holdout rule
@@ -420,14 +489,17 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
                 },
               },
             },
-            experiment: {
+            holdoutExperiment: /* renamed from `experiment` on main */ {
               id: "exp_holdout",
               name: "Holdout Experiment",
+              hashAttribute: "user_id",
+              trackingKey: "holdout-tracking-key",
               phases: [
                 {
                   dateStarted: new Date("2023-01-01"),
                   dateEnded: null,
                   coverage: 0.1,
+                  seed: "holdout-seed",
                   variationWeights: [0.5, 0.5],
                 },
               ],
@@ -437,11 +509,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       ]),
     );
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-1"], // Only requesting project-1
+      params: {
+        key: "test-cache-key-6",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-1"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     // Verify holdout feature definition is not included
@@ -498,11 +577,18 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
       mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
     ).mockResolvedValue(new Map());
 
-    const result = await getFeatureDefinitions({
+    const result = await getFeatureDefinitionsWithCache({
       context: mockContext,
-      capabilities: ["prerequisites"],
-      environment: "production",
-      projects: ["project-1"], // Only requesting project-1
+      params: {
+        key: "test-cache-key-5",
+        organization: mockContext.org.id,
+        environment: "production",
+        projects: ["project-1"],
+        encryptPayload: false,
+        encryptionKey: "",
+        languages: ["javascript"],
+        sdkVersion: "1.0.0",
+      },
     });
 
     expect(result.features).toStrictEqual({
