@@ -97,8 +97,8 @@ export async function getUser(req: AuthRequest, res: Response) {
     }
   });
 
-  // If all of a user's orgs were filtered out, throw an error
-  if (orgs.length && !validOrgs.length) {
+  // If all of a user's enabled orgs were filtered out by login method, throw an error
+  if (enabledOrgs.length && !validOrgs.length) {
     throw new Error(lastError || "Must login with SSO");
   }
 

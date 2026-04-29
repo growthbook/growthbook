@@ -50,11 +50,11 @@ const DeleteOrganizationModal: FC<{
     >
       <div className="alert alert-danger">
         <strong>Warning:</strong> This action cannot be undone. Deleting your
-        organization will immediately delete it and you will be logged out.
+        organization will immediately deactivate it and you will be logged out.
       </div>
       <p>
-        All data associated with <strong>{orgName}</strong> will be deleted.
-        This includes:
+        All data associated with <strong>{orgName}</strong> will be
+        permanently removed. This includes:
       </p>
       <ul>
         <li>All features and experiments</li>

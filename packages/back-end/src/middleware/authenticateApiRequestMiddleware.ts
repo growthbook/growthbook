@@ -115,7 +115,10 @@ export default function authenticateApiRequestMiddleware(
 
       // Check if organization is disabled
       if (org.disabled === true && !req.user?.superAdmin) {
-        throw new Error("This organization has been deleted");
+        res.status(403).json({
+          message: "This organization has been deleted",
+        });
+        return;
       }
 
       req.organization = org;
