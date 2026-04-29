@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   FactTableInterface,
   FactMetricInterface,
@@ -11,8 +12,6 @@ import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit } from "@/components/Icons";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -36,6 +35,13 @@ import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Callout from "@/ui/Callout";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -60,6 +66,9 @@ export default function FactTablePage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(false);
 
   const [duplicateFactTable, setDuplicateFactTable] = useState<
     FactTableInterface | undefined
@@ -208,6 +217,43 @@ export default function FactTablePage() {
           source="fact-table-page"
         />
       )}
+      {auditModal && (
+        <Modal
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type="factTable" id={factTable.id} />
+        </Modal>
+      )}
+      {showDeleteModal && (
+        <Modal
+          trackingEventModalType=""
+          header="Delete Fact Table"
+          close={() => setShowDeleteModal(false)}
+          open={true}
+          cta="Delete"
+          submitColor="danger"
+          submit={async () => {
+            await apiCall(`/fact-tables/${factTable.id}`, {
+              method: "DELETE",
+            });
+            mutateDefinitions();
+            setShowDeleteModal(false);
+            router.push("/fact-tables");
+          }}
+          ctaEnabled={canDelete}
+          increasedElevation={true}
+        >
+          <p>
+            Are you sure you want to delete this fact table? This action cannot
+            be undone.
+          </p>
+        </Modal>
+      )}
       <PageHead
         breadcrumb={[
           { display: "Fact Tables", href: "/fact-tables" },
@@ -248,38 +294,50 @@ export default function FactTablePage() {
             <OfficialBadge type="Fact Table" managedBy={factTable.managedBy} />
           </h1>
         </div>
-        <div className="ml-auto">
-          <MoreMenu>
+        <div className="ml-auto mr-2">
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            menuPlacement="end"
+            open={openDropdown}
+            onOpenChange={setOpenDropdown}
+          >
             {canEdit && (
-              <button
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
                   setEditOpen(true);
                 }}
               >
-                Edit Fact Table
-              </button>
+                Edit
+              </DropdownMenuItem>
             )}
-            {!factTable.managedBy &&
-            canEdit &&
+            {canEdit &&
+            !factTable.managedBy &&
             permissionsUtil.canCreateOfficialResources(factTable) &&
             hasCommercialFeature("manage-official-resources") ? (
-              <button
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
                   setShowConvertToOfficialModal(true);
                 }}
               >
-                Convert to Official Fact Table
-              </button>
+                Convert to Official
+              </DropdownMenuItem>
             ) : null}
             {canDuplicate && (
-              <button
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
                   setDuplicateFactTable({
                     ...factTable,
                     name: `${factTable.name} (Copy)`,
@@ -291,13 +349,22 @@ export default function FactTablePage() {
                   });
                 }}
               >
-                Duplicate Fact Table
-              </button>
+                Duplicate
+              </DropdownMenuItem>
             )}
+            <DropdownMenuItem
+              onClick={() => {
+                setOpenDropdown(false);
+                setAuditModal(true);
+              }}
+            >
+              Audit log
+            </DropdownMenuItem>
+            {canEdit || canDelete ? <DropdownMenuSeparator /> : null}
             {canEdit && (
-              <button
-                className="dropdown-item"
+              <DropdownMenuItem
                 onClick={async () => {
+                  setOpenDropdown(false);
                   await apiCall(
                     `/fact-tables/${factTable.id}/${
                       factTable.archived ? "unarchive" : "archive"
@@ -309,25 +376,21 @@ export default function FactTablePage() {
                   mutateDefinitions();
                 }}
               >
-                {factTable.archived ? "Unarchive" : "Archive"} Fact Table
-              </button>
+                {factTable.archived ? "Unarchive" : "Archive"}
+              </DropdownMenuItem>
             )}
             {canDelete && (
-              <DeleteButton
-                className="dropdown-item"
-                displayName="Fact Table"
-                useIcon={false}
-                text="Delete Fact Table"
-                onClick={async () => {
-                  await apiCall(`/fact-tables/${factTable.id}`, {
-                    method: "DELETE",
-                  });
-                  mutateDefinitions();
-                  router.push("/fact-tables");
+              <DropdownMenuItem
+                color="red"
+                onClick={() => {
+                  setOpenDropdown(false);
+                  setShowDeleteModal(true);
                 }}
-              />
+              >
+                Delete
+              </DropdownMenuItem>
             )}
-          </MoreMenu>
+          </DropdownMenu>
         </div>
       </div>
       <div className="row mb-3">
