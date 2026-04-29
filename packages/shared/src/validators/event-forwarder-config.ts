@@ -9,6 +9,7 @@ const eventForwarderSinkTypeValidator = z.enum([
 const eventForwarderStatusValidator = z.enum([
   "pending",
   "ready",
+  "paused",
   "error",
   "schema_update_error",
 ]);

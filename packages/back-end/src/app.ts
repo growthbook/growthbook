@@ -950,9 +950,21 @@ app.post(
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
 app.get("/datasource/:id", datasourcesController.getDataSource);
+app.get(
+  "/event-forwarder/has-ready",
+  datasourcesController.getHasReadyEventForwarder,
+);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+app.post(
+  "/datasource/:id/event-forwarder/pause",
+  datasourcesController.postPauseEventForwarder,
+);
+app.post(
+  "/datasource/:id/event-forwarder/resume",
+  datasourcesController.postResumeEventForwarder,
+);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.post(
