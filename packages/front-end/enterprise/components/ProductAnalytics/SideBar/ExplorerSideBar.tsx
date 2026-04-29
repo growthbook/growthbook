@@ -130,11 +130,7 @@ export default function ExplorerSideBar({
                   <PaidFeatureBadge
                     commercialFeature="product-analytics-dashboards"
                     useTip={false}
-                    style={{
-                      color: "currentColor",
-                      boxShadow: "inset 0 0 0 1px currentColor",
-                      cursor: "default",
-                    }}
+                    inheritColor
                   />
                   Save to Dashboard
                 </Flex>

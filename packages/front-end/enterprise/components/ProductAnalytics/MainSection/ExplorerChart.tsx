@@ -17,6 +17,8 @@ import {
   getEffectiveShowAs,
   getSharedUnit,
   showAsAppliesTo,
+  formatDateByGranularity,
+  type ResolvedGranularity,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -49,45 +51,6 @@ function formatNumber(value: number): string {
     return `${(value / 1000).toFixed(1)}K`;
   }
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
-
-function formatDateByGranularity(
-  date: Date,
-  granularity: ResolvedGranularity,
-): string {
-  switch (granularity) {
-    case "year":
-      return date.toLocaleDateString(undefined, { year: "numeric" });
-    case "month":
-      return date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-      });
-    case "week":
-      return `Week of ${date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })}`;
-    case "hour":
-      return `${date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })} ${date.toLocaleTimeString(undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`;
-    case "day":
-    default:
-      return date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-  }
 }
 
 function getSeriesTitle(
@@ -391,7 +354,7 @@ export default function ExplorerChart({
               : new Date(String(rawAxisValue));
           const header = formatDateByGranularity(date, resolvedGranularity);
 
-          const rows = items
+          const seriesRows = items
             .map((item) => {
               const numValue = Array.isArray(item.value)
                 ? item.value[1]
@@ -404,7 +367,7 @@ export default function ExplorerChart({
             })
             .join("");
 
-          return `<div><div style="margin-bottom:4px">${header}</div>${rows}</div>`;
+          return `<div><div style="margin-bottom:4px">${header}</div>${seriesRows}</div>`;
         }
       : undefined;
 

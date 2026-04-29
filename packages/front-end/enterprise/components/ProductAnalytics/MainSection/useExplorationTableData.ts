@@ -14,50 +14,12 @@ import {
   getEffectiveShowAs,
   buildExplorationColumns,
   getExplorationCellValue,
+  formatDateByGranularity,
+  type ResolvedGranularity,
   type ExplorationColumn,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
-
-type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
-
-function formatDateByGranularity(
-  dateStr: string,
-  granularity: ResolvedGranularity,
-): string {
-  const d = new Date(dateStr);
-  switch (granularity) {
-    case "year":
-      return d.toLocaleDateString(undefined, { year: "numeric" });
-    case "month":
-      return d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-      });
-    case "week":
-      return `Week of ${d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })}`;
-    case "hour":
-      return `${d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })} ${d.toLocaleTimeString(undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`;
-    case "day":
-    default:
-      return d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-  }
-}
 
 /**
  * Format a raw cell value (from the shared column schema) for display in the
@@ -85,7 +47,10 @@ function formatCellForTable(
       typeof raw === "string" &&
       context.resolvedGranularity
     ) {
-      return formatDateByGranularity(raw, context.resolvedGranularity);
+      return formatDateByGranularity(
+        new Date(raw),
+        context.resolvedGranularity,
+      );
     }
     return raw;
   }
@@ -172,7 +137,7 @@ export default function useExplorationTableData(
     const dateDimension = submittedExploreState.dimensions?.find(
       (d) => d.dimensionType === "date",
     );
-    if (!dateDimension || dateDimension.dimensionType !== "date") return null;
+    if (!dateDimension) return null;
     const dateRange = calculateProductAnalyticsDateRange(
       submittedExploreState.dateRange,
     );
