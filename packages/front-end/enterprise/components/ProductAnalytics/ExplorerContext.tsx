@@ -104,7 +104,12 @@ export function ExplorerProvider({
   trackingSource,
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
-  const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
+  const {
+    getFactTableById,
+    getFactMetricById,
+    datasources,
+    getDatasourceById,
+  } = useDefinitions();
 
   const [, setDefaultDataSourceId] = useLocalStorage<string>(
     LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
@@ -201,11 +206,9 @@ export function ExplorerProvider({
 
   const isManagedWarehouse = useMemo(() => {
     if (!draftExploreState.datasource) return false;
-    const datasource = datasources.find(
-      (d) => d.id === draftExploreState.datasource,
-    );
+    const datasource = getDatasourceById(draftExploreState.datasource);
     return datasource?.type === "growthbook_clickhouse";
-  }, [datasources, draftExploreState.datasource]);
+  }, [getDatasourceById, draftExploreState.datasource]);
 
   const setSubmittedExploreState = useCallback((state: ExplorationConfig) => {
     setExplorerState((prev) => ({
@@ -301,8 +304,7 @@ export function ExplorerProvider({
 
       if (trackingSource) {
         const datasourceType =
-          datasources.find((d) => d.id === configToSubmit.datasource)?.type ??
-          null;
+          getDatasourceById(configToSubmit.datasource)?.type ?? null;
         const errorMessage = fetchError || fetchResult?.error || null;
         const baseProps = {
           source: trackingSource,
@@ -334,7 +336,7 @@ export function ExplorerProvider({
       onRunComplete,
       isManagedWarehouse,
       trackingSource,
-      datasources,
+      getDatasourceById,
     ],
   );
 
@@ -542,10 +544,8 @@ export function ExplorerProvider({
         newDatasourceId &&
         newDatasourceId !== draftExploreState.datasource
       ) {
-        const fromDs = datasources.find(
-          (d) => d.id === draftExploreState.datasource,
-        );
-        const toDs = datasources.find((d) => d.id === newDatasourceId);
+        const fromDs = getDatasourceById(draftExploreState.datasource);
+        const toDs = getDatasourceById(newDatasourceId);
         track("Product Analytics Explorer: Datasource Changed", {
           source: trackingSource,
           type: draftExploreState.type,
@@ -575,6 +575,7 @@ export function ExplorerProvider({
     [
       createDefaultValue,
       datasources,
+      getDatasourceById,
       initialConfig,
       setDefaultDataSourceId,
       trackingSource,
