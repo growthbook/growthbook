@@ -189,6 +189,13 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
+        if (req.organization.suspended && !req.superAdmin) {
+          // Mark the request so getContextFromReq can block it.
+          // The getOrganization controller handles this flag explicitly to
+          // return org data (messages, name, etc.) needed for the suspension UI.
+          req.orgSuspended = true;
+        }
+
         if (
           !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length

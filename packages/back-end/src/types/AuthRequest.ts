@@ -40,6 +40,7 @@ export type AuthRequest<
   name?: string;
   vercelInstallationId?: string;
   superAdmin?: boolean;
+  orgSuspended?: boolean;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
   audit: (

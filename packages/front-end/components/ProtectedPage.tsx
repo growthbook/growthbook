@@ -18,10 +18,10 @@ const LoggedInPageGuard = ({
   children: ReactNode;
   organizationRequired: boolean;
 }) => {
-  const { error, ready, organization } = useUser();
+  const { error, ready, organization, orgSuspended } = useUser();
   const { organizations } = useAuth();
 
-  if (error) {
+  if (error && !orgSuspended) {
     return (
       <div>
         <TopNavLite />
@@ -61,7 +61,7 @@ const LoggedInPageGuard = ({
   }
 
   // Waiting for initial authentication
-  if (!ready) {
+  if (!ready && !orgSuspended) {
     return <LoadingOverlay />;
   }
 
@@ -71,7 +71,11 @@ const LoggedInPageGuard = ({
   }
 
   // Still waiting to fetch current user/org details
-  if ((organizations || []).length > 0 && !Object.keys(organization).length) {
+  if (
+    !orgSuspended &&
+    (organizations || []).length > 0 &&
+    !Object.keys(organization).length
+  ) {
     return <LoadingOverlay />;
   }
 

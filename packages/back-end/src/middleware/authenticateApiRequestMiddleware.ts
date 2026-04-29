@@ -114,6 +114,12 @@ export default function authenticateApiRequestMiddleware(
       }
       req.organization = org;
 
+      if (org.suspended && !req.user?.superAdmin) {
+        throw new Error(
+          "This account has been suspended. Please contact support@growthbook.io for assistance.",
+        );
+      }
+
       // If it's a user API key, verify that the user is part of the organization
       // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned
       if (

@@ -1,6 +1,9 @@
 import { Response } from "express";
 import { parseIntWithDefault } from "shared/util";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationMessage,
+} from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
@@ -85,6 +88,9 @@ export async function _dangerousAdminPutOrganization(
     autoApproveMembers?: boolean;
     enterprise?: boolean;
     freeSeats?: number;
+    disableSelfServeBilling?: boolean;
+    suspended?: boolean;
+    messages?: OrganizationMessage[];
   }>,
   res: Response,
 ) {
@@ -105,6 +111,9 @@ export async function _dangerousAdminPutOrganization(
     autoApproveMembers,
     enterprise,
     freeSeats,
+    disableSelfServeBilling,
+    suspended,
+    messages,
   } = req.body;
   const updates: Partial<OrganizationInterface> = {};
   const orig: Partial<OrganizationInterface> = {};
@@ -149,6 +158,21 @@ export async function _dangerousAdminPutOrganization(
   if (freeSeats !== org.freeSeats) {
     updates.freeSeats = freeSeats;
     orig.freeSeats = org.freeSeats;
+  }
+  if (
+    disableSelfServeBilling !== undefined &&
+    disableSelfServeBilling !== org.disableSelfServeBilling
+  ) {
+    updates.disableSelfServeBilling = disableSelfServeBilling;
+    orig.disableSelfServeBilling = org.disableSelfServeBilling;
+  }
+  if (suspended !== undefined && suspended !== org.suspended) {
+    updates.suspended = suspended;
+    orig.suspended = org.suspended;
+  }
+  if (messages !== undefined) {
+    updates.messages = messages;
+    orig.messages = org.messages;
   }
 
   await updateOrganization(org.id, updates);
@@ -251,6 +275,7 @@ export async function _dangerousAdminEnableOrganization(
     status: 200,
   });
 }
+
 export async function _dangerousAdminGetMembers(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
   res: Response,

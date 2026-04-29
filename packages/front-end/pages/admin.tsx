@@ -181,6 +181,7 @@ function OrganizationRow({
         className={clsx({
           "table-warning": current,
           "table-danger": organization.disabled,
+          "table-secondary": organization.suspended,
         })}
       >
         <td>

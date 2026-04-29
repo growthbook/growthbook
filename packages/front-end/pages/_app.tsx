@@ -11,6 +11,7 @@ import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
+import { OrgSuspendedBannerContainer } from "@/components/OrgSuspendedBanner/OrgSuspendedBanner";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
@@ -35,7 +36,7 @@ import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { growthbook } from "@/services/utils";
-import { UserContextProvider } from "@/services/UserContext";
+import { UserContextProvider, useUser } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
@@ -60,6 +61,14 @@ type ModAppProps = AppProps & {
     mainClassName?: string;
   };
 };
+
+// Renders definitions and page content only when the org is not suspended.
+// Keeps the layout (nav) and banners outside so the org switcher stays usable.
+function OrgPageContent({ children }: { children: React.ReactNode }) {
+  const { orgSuspended } = useUser();
+  if (orgSuspended) return null;
+  return <>{children}</>;
+}
 
 function App({
   Component,
@@ -192,24 +201,34 @@ function App({
                           organizationRequired={organizationRequired}
                         >
                           {organizationRequired ? (
-                            <GetStartedProvider>
-                              <DefinitionsProvider>
-                                <FeatureStaleStatesProvider>
-                                  {liteLayout ? <LayoutLite /> : <Layout />}
-                                  <CommandPaletteLauncher />
-                                  <main className={`main ${parts[0]}`}>
-                                    <GuidedGetStartedBar />
-                                    <OrganizationMessagesContainer />
-                                    <DemoDataSourceGlobalBannerContainer />
-                                    <DefinitionsGuard>
-                                      <Component
-                                        {...{ ...pageProps, envReady: ready }}
-                                      />
-                                    </DefinitionsGuard>
-                                  </main>
-                                </FeatureStaleStatesProvider>
-                              </DefinitionsProvider>
-                            </GetStartedProvider>
+                            <>
+                              {liteLayout ? <LayoutLite /> : <Layout />}
+                              <CommandPaletteLauncher />
+                              <main className={`main ${parts[0]}`}>
+                                <GuidedGetStartedBar />
+                                {/* These two banners intentionally live outside OrgPageContent
+                                    so they render even when the org is suspended. */}
+                                <OrgSuspendedBannerContainer />
+                                <OrganizationMessagesContainer />
+                                <DemoDataSourceGlobalBannerContainer />
+                                <OrgPageContent>
+                                  <GetStartedProvider>
+                                    <DefinitionsProvider>
+                                      <FeatureStaleStatesProvider>
+                                        <DefinitionsGuard>
+                                          <Component
+                                            {...{
+                                              ...pageProps,
+                                              envReady: ready,
+                                            }}
+                                          />
+                                        </DefinitionsGuard>
+                                      </FeatureStaleStatesProvider>
+                                    </DefinitionsProvider>
+                                  </GetStartedProvider>
+                                </OrgPageContent>
+                              </main>
+                            </>
                           ) : (
                             <div>
                               <TopNavLite />

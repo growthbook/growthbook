@@ -847,6 +847,35 @@ export async function getOrganization(
       organization: null,
     });
   }
+
+  // For suspended orgs, return minimal org data needed for the suspension UI
+  // (messages, org name, etc.) without calling getContextFromReq, which would throw.
+  if (req.orgSuspended) {
+    const org = req.organization;
+    const currentUserPermissions = getUserPermissions(req.currentUser, org, []);
+    return res.status(200).json({
+      status: 200,
+      organization: org,
+      members: [],
+      seatsInUse: 0,
+      roles: getRoles(org),
+      agreements: [],
+      apiKeys: [],
+      enterpriseSSO: null,
+      accountPlan: getAccountPlan(org),
+      effectiveAccountPlan: getEffectiveAccountPlan(org),
+      licenseError: getLicenseError(org),
+      commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
+      license: null,
+      installationName: null,
+      subscription: null,
+      currentUserPermissions,
+      teams: [],
+      watching: { experiments: [], features: [] },
+      usage: getUsageFromCache(org),
+    });
+  }
+
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const {
@@ -976,6 +1005,7 @@ export async function getOrganization(
         environments: filteredEnvironments,
       },
       autoApproveMembers: org.autoApproveMembers,
+      suspended: org.suspended,
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
