@@ -36,10 +36,12 @@ export function getExperimentAggregateUnitsQuery(
   const { baseIdType, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
-    identityPlan,
-    settings.startDate,
-    settings.endDate,
-    settings.experimentId,
+    {
+      identityPlan,
+      from: settings.startDate,
+      to: settings.endDate,
+      experimentId: settings.experimentId,
+    },
   );
 
   return format(

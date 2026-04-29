@@ -92,10 +92,12 @@ export function getExperimentFactMetricsQuery(
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
-    identityPlan,
-    settings.startDate,
-    settings.endDate,
-    settings.experimentId,
+    {
+      identityPlan,
+      from: settings.startDate,
+      to: settings.endDate,
+      experimentId: settings.experimentId,
+    },
   );
 
   // Get date range for experiment and analysis

@@ -148,10 +148,7 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
 import { getFreeFormQuery } from "back-end/src/integrations/sql/queries/free-form-query";
-import {
-  getIdentitiesCTE,
-  type IdentityPlan,
-} from "back-end/src/integrations/sql/ctes/identities-cte";
+import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getKllQuantileGridColumns as getKllQuantileGridColumnsFromSql } from "back-end/src/integrations/sql/columns/kll-quantile-grid-columns";
 import { getMetricAnalysisQuery as buildMetricAnalysisQuerySql } from "back-end/src/integrations/sql/queries/metric-analysis-query";
 import { getMetricSourceTableSchema } from "back-end/src/integrations/sql/fact-metrics/metric-source-table-schema";
@@ -185,7 +182,6 @@ export default abstract class SqlIntegration
   context: ReqContext;
   // Metadata set by the individual query runners
   additionalMetadata?: AdditionalQueryMetadata;
-  identityPlan?: IdentityPlan;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
@@ -1561,10 +1557,12 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
-      params.identityPlan,
-      settings.startDate,
-      settings.endDate,
-      settings.experimentId,
+      {
+        identityPlan: params.identityPlan,
+        from: settings.startDate,
+        to: settings.endDate,
+        experimentId: settings.experimentId,
+      },
     );
 
     // TODO(incremental-refresh): activation metric
@@ -1873,10 +1871,12 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
-      params.identityPlan,
-      params.settings.startDate,
-      params.settings.endDate,
-      params.settings.experimentId,
+      {
+        identityPlan: params.identityPlan,
+        from: params.settings.startDate,
+        to: params.settings.endDate,
+        experimentId: params.settings.experimentId,
+      },
     );
 
     const columnNames = this.getMetricSourceCovariateTableColumns(
@@ -2124,10 +2124,12 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
-      params.identityPlan,
-      params.settings.startDate,
-      params.settings.endDate,
-      params.settings.experimentId,
+      {
+        identityPlan: params.identityPlan,
+        from: params.settings.startDate,
+        to: params.settings.endDate,
+        experimentId: params.settings.experimentId,
+      },
     );
 
     const sortedMetrics = params.metrics.sort((a, b) =>
@@ -2337,10 +2339,12 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
-      params.identityPlan,
-      params.settings.startDate,
-      params.settings.endDate,
-      params.settings.experimentId,
+      {
+        identityPlan: params.identityPlan,
+        from: params.settings.startDate,
+        to: params.settings.endDate,
+        experimentId: params.settings.experimentId,
+      },
     );
 
     const unitDimensionCols = unitDimensions.map((d) => ({

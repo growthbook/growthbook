@@ -40,9 +40,11 @@ export function getMetricValueQuery(
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
-    identityPlan,
-    params.from,
-    params.to,
+    {
+      identityPlan,
+      from: params.from,
+      to: params.to,
+    },
   );
 
   const metricStart = getMetricStart(

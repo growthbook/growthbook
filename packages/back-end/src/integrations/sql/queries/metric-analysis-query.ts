@@ -48,9 +48,11 @@ export function getMetricAnalysisQuery(
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
-    identityPlan,
-    settings.startDate,
-    settings.endDate ?? undefined,
+    {
+      identityPlan,
+      from: settings.startDate,
+      to: settings.endDate ?? undefined,
+    },
   );
 
   const factTable = params.factTableMap.get(
