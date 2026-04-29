@@ -680,7 +680,7 @@ export default function FactMetricPage() {
           }
         />
       </Flex>
-      <Box mt="1" mb="3">
+      <Box mt="3" mb="3">
         {factMetric.tags?.length || canEdit ? (
           <Flex align="center" gap="1">
             <Text weight="medium">Tags:</Text>

@@ -227,18 +227,17 @@ export default function FactTablePage() {
       {factTable.projects?.includes(
         getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
-        <Callout status="info" contentsAs="div" mb="2">
-          <Flex align="center" justify="between">
-            <Text>
+        <Callout status="info" mb="4">
+          <Flex align="center" justify="between" gap="3">
+            <div>
               This Fact Table is part of our sample dataset. You can safely
               delete this once you are done exploring.
-            </Text>
-            <Box ml="auto">
-              <DeleteDemoDatasourceButton
-                onDelete={() => router.push("/fact-tables")}
-                source="fact-table"
-              />
-            </Box>
+            </div>
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/fact-tables")}
+              source="fact-table"
+              asLink
+            />
           </Flex>
         </Callout>
       )}
@@ -422,7 +421,7 @@ export default function FactTablePage() {
           }
         />
       </Flex>
-      <Box mt="1" mb="3">
+      <Box mt="3" mb="3">
         {factTable.tags?.length || canEdit ? (
           <Flex align="center" gap="1">
             <Text weight="medium">Tags:</Text>

@@ -26,6 +26,7 @@ import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import ProjectBadges from "@/components/ProjectBadges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/ui/Button";
@@ -459,7 +460,6 @@ const MetricsList = (): React.ReactElement => {
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
-            <th />
             <SortableTH field="name" className="col-3">
               Metric Name
             </SortableTH>
@@ -566,13 +566,6 @@ const MetricsList = (): React.ReactElement => {
                 className={metric.archived ? "text-muted" : ""}
               >
                 <td>
-                  <OfficialBadge
-                    type="metric"
-                    managedBy={metric.managedBy || ""}
-                    leftGap
-                  />
-                </td>
-                <td>
                   <Link
                     href={getMetricLink(metric.id)}
                     className={`${
@@ -581,12 +574,21 @@ const MetricsList = (): React.ReactElement => {
                   >
                     {metric.name}
                   </Link>
+                  <OfficialBadge
+                    type="metric"
+                    managedBy={metric.managedBy || ""}
+                  />
                 </td>
                 <td>{startCase(metric.type)}</td>
                 <td className="col-2">
-                  {metric.projectNames.length === 0
-                    ? null
-                    : metric.projectNames.join(", ")}
+                  {metric.projects.length > 0 ? (
+                    <ProjectBadges
+                      resourceType="metric"
+                      projectIds={metric.projects}
+                    />
+                  ) : (
+                    <ProjectBadges resourceType="metric" />
+                  )}
                 </td>
                 <td className="col-4">
                   <SortedTags
