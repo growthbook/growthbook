@@ -53,8 +53,8 @@ const DeleteOrganizationModal: FC<{
         organization will immediately deactivate it and you will be logged out.
       </div>
       <p>
-        All data associated with <strong>{orgName}</strong> will be
-        permanently removed. This includes:
+        All access to <strong>{orgName}</strong> will be removed. This
+        includes:
       </p>
       <ul>
         <li>All features and experiments</li>
