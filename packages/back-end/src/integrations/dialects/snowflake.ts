@@ -63,7 +63,8 @@ export const snowflakeDialect: SqlDialect = {
       keyExpr: "__col.value:column_name::VARCHAR",
       valueExpr: "__col.value:value::VARCHAR",
       valuePredicateExpr: "__col.value:value::VARCHAR",
-      groupByClause: "column_name, value",
+      groupByClause:
+        "__col.value:column_name::VARCHAR, __col.value:value::VARCHAR",
     };
   },
 };
