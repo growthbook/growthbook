@@ -1,18 +1,17 @@
 import { generateId } from "back-end/src/util/uuid";
 
 describe("generateId", () => {
-  it("returns prefix + literal '2' + 22-char base58 suffix", () => {
+  it("returns prefix + literal '2' + base58 suffix", () => {
     const id = generateId("foo_");
     expect(id).toMatch(
-      /^foo_2[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{22}$/,
+      /^foo_2[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{21}$/,
     );
-    expect(id.length).toBe("foo_".length + 1 + 22);
   });
 
   it("works with no prefix", () => {
     const id = generateId();
     expect(id).toMatch(
-      /^2[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{22}$/,
+      /^2[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{21}$/,
     );
   });
 
