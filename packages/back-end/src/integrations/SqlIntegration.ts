@@ -8,7 +8,6 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { getCappingTailState, ExplorationConfig } from "shared/validators";
 import {
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
@@ -436,10 +435,6 @@ export default abstract class SqlIntegration
           denominator_sum,
           denominator_sum_squares,
           main_denominator_sum_product,
-          main_cap_value,
-          main_cap_value_lower,
-          denominator_cap_value,
-          denominator_cap_value_lower,
           value_min,
           value_max,
         } = row;
@@ -455,32 +450,6 @@ export default abstract class SqlIntegration
           denominator_sum_squares: parseFloat(denominator_sum_squares) || 0,
           main_denominator_sum_product:
             parseFloat(main_denominator_sum_product) || 0,
-          ...(main_cap_value !== undefined && main_cap_value !== null
-            ? {
-                main_cap_value: parseFloat(main_cap_value as string) || 0,
-              }
-            : {}),
-          ...(main_cap_value_lower !== undefined &&
-          main_cap_value_lower !== null
-            ? {
-                main_cap_value_lower:
-                  parseFloat(main_cap_value_lower as string) || 0,
-              }
-            : {}),
-          ...(denominator_cap_value !== undefined &&
-          denominator_cap_value !== null
-            ? {
-                denominator_cap_value:
-                  parseFloat(denominator_cap_value as string) || 0,
-              }
-            : {}),
-          ...(denominator_cap_value_lower !== undefined &&
-          denominator_cap_value_lower !== null
-            ? {
-                denominator_cap_value_lower:
-                  parseFloat(denominator_cap_value_lower as string) || 0,
-              }
-            : {}),
 
           value_min: parseFloat(value_min) || 0,
           value_max: parseFloat(value_max) || 0,
@@ -612,9 +581,7 @@ export default abstract class SqlIntegration
           parseFloatField(row, "denominator_post_denominator_pre_sum_product"),
           // Capping case
           parseNonFloatField(row, "main_cap_value"),
-          parseNonFloatField(row, "main_cap_value_lower"),
           parseNonFloatField(row, "denominator_cap_value"),
-          parseNonFloatField(row, "denominator_cap_value_lower"),
           // Bandits case
           parseFloatField(row, "theta"),
           // Uncapped main case
@@ -1879,7 +1846,7 @@ export default abstract class SqlIntegration
         ...m,
         // turn off capping for covariate value creation as capping will be applied
         // in the statistics query
-        cappingSettings: { type: "" as const },
+        cappingSettings: { type: "" as const, value: 0 },
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
     const paramsMetricsSorted: {
