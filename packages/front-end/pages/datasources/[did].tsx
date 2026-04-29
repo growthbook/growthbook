@@ -172,7 +172,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="2x-large" mb="0">
+          <Heading as="h1" size="x-large" mb="0">
             {d.name}
           </Heading>
           <Badge

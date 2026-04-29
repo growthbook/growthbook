@@ -101,7 +101,7 @@ export default function SDKConnectionPage() {
 
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-          <Heading size="2x-large" as="h1" mb="0">
+          <Heading size="x-large" as="h1" mb="0">
             {connection.name}
           </Heading>
         </Flex>
