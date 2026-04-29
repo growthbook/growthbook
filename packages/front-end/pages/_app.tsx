@@ -201,34 +201,32 @@ function App({
                           organizationRequired={organizationRequired}
                         >
                           {organizationRequired ? (
-                            <>
-                              {liteLayout ? <LayoutLite /> : <Layout />}
-                              <CommandPaletteLauncher />
-                              <main className={`main ${parts[0]}`}>
-                                {/* These banners intentionally live outside OrgPageContent
-                                    so they render even when the org is suspended. */}
-                                <OrgSuspendedBannerContainer />
-                                <OrganizationMessagesContainer />
-                                <DemoDataSourceGlobalBannerContainer />
-                                <OrgPageContent>
-                                  <GetStartedProvider>
-                                    <GuidedGetStartedBar />
-                                    <DefinitionsProvider>
-                                      <FeatureStaleStatesProvider>
-                                        <DefinitionsGuard>
-                                          <Component
-                                            {...{
-                                              ...pageProps,
-                                              envReady: ready,
-                                            }}
-                                          />
-                                        </DefinitionsGuard>
-                                      </FeatureStaleStatesProvider>
-                                    </DefinitionsProvider>
-                                  </GetStartedProvider>
-                                </OrgPageContent>
-                              </main>
-                            </>
+                            <GetStartedProvider>
+                              <DefinitionsProvider>
+                                <FeatureStaleStatesProvider>
+                                  {liteLayout ? <LayoutLite /> : <Layout />}
+                                  <CommandPaletteLauncher />
+                                  <main className={`main ${parts[0]}`}>
+                                    {/* These banners intentionally live outside OrgPageContent
+                                        so they render even when the org is suspended. */}
+                                    <OrgSuspendedBannerContainer />
+                                    <OrganizationMessagesContainer />
+                                    <DemoDataSourceGlobalBannerContainer />
+                                    <OrgPageContent>
+                                      <GuidedGetStartedBar />
+                                      <DefinitionsGuard>
+                                        <Component
+                                          {...{
+                                            ...pageProps,
+                                            envReady: ready,
+                                          }}
+                                        />
+                                      </DefinitionsGuard>
+                                    </OrgPageContent>
+                                  </main>
+                                </FeatureStaleStatesProvider>
+                              </DefinitionsProvider>
+                            </GetStartedProvider>
                           ) : (
                             <div>
                               <TopNavLite />
