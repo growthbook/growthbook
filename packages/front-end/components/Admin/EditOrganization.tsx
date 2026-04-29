@@ -1,5 +1,8 @@
 import { useState, FC } from "react";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationMessage,
+} from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
@@ -26,6 +29,12 @@ const EditOrganization: FC<{
   const [autoApproveMembers, setAutoApproveMembers] = useState(
     currentOrg.autoApproveMembers || false,
   );
+  const [disableSelfServeBilling, setDisableSelfServeBilling] = useState(
+    currentOrg.disableSelfServeBilling || false,
+  );
+  const [messages, setMessages] = useState<OrganizationMessage[]>(
+    currentOrg.messages || [],
+  );
 
   const { apiCall } = useAuth();
 
@@ -45,9 +54,30 @@ const EditOrganization: FC<{
         autoApproveMembers,
         enterprise: legacyEnterprise,
         freeSeats,
+        disableSelfServeBilling,
+        messages,
       }),
     });
     onEdit();
+  };
+
+  const addMessage = () => {
+    setMessages([...messages, { message: "", level: "info" }]);
+  };
+
+  const updateMessage = (
+    index: number,
+    field: keyof OrganizationMessage,
+    value: string,
+  ) => {
+    const updated = messages.map((m, i) =>
+      i === index ? { ...m, [field]: value } : m,
+    );
+    setMessages(updated);
+  };
+
+  const removeMessage = (index: number) => {
+    setMessages(messages.filter((_, i) => i !== index));
   };
 
   return (
@@ -198,6 +228,20 @@ const EditOrganization: FC<{
                 </span>
               </div>
             </div>
+            <div className="mt-3">
+              <Checkbox
+                id="disableSelfServeBilling"
+                label="Disable self-serve billing"
+                value={disableSelfServeBilling}
+                setValue={setDisableSelfServeBilling}
+              />
+              <div>
+                <span className="text-muted small">
+                  Prevents users in this org from managing their own
+                  subscription.
+                </span>
+              </div>
+            </div>
             <div className="p-2 border mt-3">
               <div>
                 <b>Deprecated:</b>
@@ -222,6 +266,62 @@ const EditOrganization: FC<{
                   </span>
                 </div>
               </div>
+            </div>
+            <div className="mt-3">
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <label className="mb-0 font-weight-bold">
+                  Organization Messages
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={addMessage}
+                >
+                  + Add Message
+                </button>
+              </div>
+              <div className="text-muted small mb-2">
+                Banners displayed to all users in this org. Supports Markdown.
+                Useful for maintenance notices or account alerts. Each message
+                will appear on every page, so be mindful of not adding too many.
+              </div>
+              {messages.map((msg, i) => (
+                <div key={i} className="d-flex gap-2 mb-2 align-items-center">
+                  <input
+                    type="text"
+                    className="form-control form-control-sm flex-grow-1"
+                    placeholder="Message text (Markdown supported)"
+                    value={msg.message}
+                    onChange={(e) =>
+                      updateMessage(i, "message", e.target.value)
+                    }
+                  />
+                  <select
+                    className="form-control form-control-sm"
+                    style={{ width: 110, flexShrink: 0 }}
+                    value={msg.level}
+                    onChange={(e) =>
+                      updateMessage(
+                        i,
+                        "level",
+                        e.target.value as OrganizationMessage["level"],
+                      )
+                    }
+                  >
+                    <option value="info">Info</option>
+                    <option value="warning">Warning</option>
+                    <option value="danger">Danger</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => removeMessage(i)}
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
             </div>
           </>
         ) : null}

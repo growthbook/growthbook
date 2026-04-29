@@ -1,6 +1,9 @@
 import { Response } from "express";
 import { parseIntWithDefault } from "shared/util";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationMessage,
+} from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
@@ -85,6 +88,8 @@ export async function _dangerousAdminPutOrganization(
     autoApproveMembers?: boolean;
     enterprise?: boolean;
     freeSeats?: number;
+    disableSelfServeBilling?: boolean;
+    messages?: OrganizationMessage[];
   }>,
   res: Response,
 ) {
@@ -105,6 +110,8 @@ export async function _dangerousAdminPutOrganization(
     autoApproveMembers,
     enterprise,
     freeSeats,
+    disableSelfServeBilling,
+    messages,
   } = req.body;
   const updates: Partial<OrganizationInterface> = {};
   const orig: Partial<OrganizationInterface> = {};
@@ -149,6 +156,31 @@ export async function _dangerousAdminPutOrganization(
   if (freeSeats !== org.freeSeats) {
     updates.freeSeats = freeSeats;
     orig.freeSeats = org.freeSeats;
+  }
+  if (
+    disableSelfServeBilling !== undefined &&
+    disableSelfServeBilling !== org.disableSelfServeBilling
+  ) {
+    updates.disableSelfServeBilling = disableSelfServeBilling;
+    orig.disableSelfServeBilling = org.disableSelfServeBilling;
+  }
+  if (messages !== undefined) {
+    const VALID_LEVELS = new Set(["info", "warning", "danger"]);
+    if (
+      !Array.isArray(messages) ||
+      messages.length > 10 ||
+      messages.some(
+        (m) => typeof m.message !== "string" || !VALID_LEVELS.has(m.level),
+      )
+    ) {
+      return res.status(400).json({
+        status: 400,
+        message:
+          "Invalid messages: each entry must have a string message and a level of 'info', 'warning', or 'danger', with a maximum of 10 messages.",
+      });
+    }
+    updates.messages = messages;
+    orig.messages = org.messages;
   }
 
   await updateOrganization(org.id, updates);
