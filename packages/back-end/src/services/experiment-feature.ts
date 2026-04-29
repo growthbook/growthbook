@@ -34,6 +34,7 @@ import {
   getLiveAndBaseRevisionsForFeature,
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
+import { checkIfRevisionNeedsReview } from "shared/util";
 
 export type ExperimentFeatureUpdatePlan = {
   feature: FeatureInterface;
@@ -275,19 +276,29 @@ export async function validateExperimentFeatureUpdates({
   return plans;
 }
 
+export type PendingDraftPublishResult = {
+  published: { featureId: string; revisionVersion: number }[];
+  failed: { featureId: string; revisionVersion: number; reason: string }[];
+};
+
 // Auto-publish each `experiment.pendingFeatureDrafts` entry that still
-// references an active draft. Stale entries are pruned silently. Best-effort:
-// per-feature failures are logged so a downstream conflict can't block the
-// caller (e.g. an experiment starting).
+// references an active draft. Stale entries are pruned silently.
+// Returns both successful publishes and failures; callers decide whether to
+// treat failures as blocking (UI start) or best-effort (REST API).
 export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
-): Promise<{ featureId: string; revisionVersion: number }[]> {
+): Promise<PendingDraftPublishResult> {
   const drafts = experiment.pendingFeatureDrafts ?? [];
-  if (!drafts.length) return [];
+  if (!drafts.length) return { published: [], failed: [] };
 
   const orgEnvIds = context.environments;
   const published: { featureId: string; revisionVersion: number }[] = [];
+  const failed: {
+    featureId: string;
+    revisionVersion: number;
+    reason: string;
+  }[] = [];
 
   for (const { featureId, revisionVersion } of drafts) {
     try {
@@ -323,13 +334,29 @@ export async function publishPendingFeatureDraftsForExperiment(
         continue;
       }
 
-      // Intentional bypass: permission to start the experiment implicitly covers
-      // publishing its linked draft — approval checks are not re-applied here.
       const { live, base } = await getLiveAndBaseRevisionsForFeature({
         context,
         feature,
         revision,
       });
+
+      // Skip if approval is required but the draft isn't approved yet.
+      const requiresReview = checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: base,
+        revision,
+        allEnvironments: context.environments,
+        settings: context.org.settings,
+        requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+      });
+      if (requiresReview && revision.status !== "approved") {
+        logger.warn(
+          { experimentId: experiment.id, featureId, revisionVersion },
+          "Skipping auto-publish of pending feature draft: approval required but not yet approved",
+        );
+        continue;
+      }
+
       const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
       if (!mergeResult.success) {
         logger.warn(
@@ -339,8 +366,13 @@ export async function publishPendingFeatureDraftsForExperiment(
             revisionVersion,
             conflicts: mergeResult.conflicts,
           },
-          "Skipping auto-publish of pending feature draft due to merge conflicts",
+          "Cannot auto-publish pending feature draft due to merge conflicts",
         );
+        failed.push({
+          featureId,
+          revisionVersion,
+          reason: "merge-conflict",
+        });
         continue;
       }
 
@@ -369,8 +401,13 @@ export async function publishPendingFeatureDraftsForExperiment(
         },
         "Failed to auto-publish pending feature draft on experiment start",
       );
+      failed.push({
+        featureId,
+        revisionVersion,
+        reason: "publish-error",
+      });
     }
   }
 
-  return published;
+  return { published, failed };
 }

@@ -498,6 +498,9 @@ export default function TabbedPage({
           close={() => setFeatureModal(false)}
           mutate={mutate}
           source={trackSource}
+          reAddableFeatureIds={linkedFeatures
+            .filter((f) => f.state === "discarded")
+            .map((f) => f.feature.id)}
         />
       )}
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}

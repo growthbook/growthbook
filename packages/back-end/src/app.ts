@@ -864,6 +864,10 @@ app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
+app.delete(
+  "/experiment/:id/linked-feature/:featureId",
+  experimentsController.deleteExperimentLinkedFeature,
+);
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);

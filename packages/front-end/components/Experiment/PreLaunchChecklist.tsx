@@ -3,13 +3,14 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ReactElement, useEffect, useMemo, useState } from "react";
+import { ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { FaAngleRight, FaCheck } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import NextLink from "next/link";
+import { PiArrowSquareOut } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Link from "@/ui/Link";
 import track from "@/services/track";
@@ -19,10 +20,16 @@ import { useUser } from "@/services/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Frame from "@/ui/Frame";
+import Badge from "@/ui/Badge";
+import {
+  revisionStatusColor,
+  revisionStatusLabel,
+} from "@/components/Features/RevisionStatusBadge";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -32,6 +39,7 @@ export type CheckListItem = {
   type: "auto" | "manual";
   required: boolean;
   warning?: string;
+  hideDescription?: boolean;
 };
 
 export function getChecklistItems({
@@ -164,34 +172,64 @@ export function getChecklistItems({
       });
     }
 
-    // No unpublished feature flags
     if (linkedFeatures.length > 0) {
-      const hasFeatureFlagsErrors = linkedFeatures.some(
-        (f) =>
-          f.state === "draft" ||
-          (f.state === "live" &&
-            !Object.values(f.environmentStates || {}).some(
-              (s) => s === "active",
-            )),
-      );
-      items.push({
-        status: hasFeatureFlagsErrors ? "incomplete" : "complete",
-        type: "auto",
-        display: (
-          <>
-            Publish and enable all{" "}
-            {openSetupTab ? (
-              <a className="a link-purple" role="button" onClick={openSetupTab}>
-                Linked Feature
-              </a>
-            ) : (
-              "Linked Feature"
-            )}{" "}
-            rules.
-          </>
-        ),
-        required: false,
-      });
+      // One item per linked feature draft with a merge conflict.
+      linkedFeatures
+        .filter((f) => f.state === "draft" && f.hasMergeConflict)
+        .forEach((f) => {
+          items.push({
+            status: "incomplete",
+            type: "auto",
+            required: true,
+            hideDescription: true,
+            display: (
+              <>
+                Resolve merge conflict in{" "}
+                <Link
+                  href={`/features/${f.feature.id}${f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""}`}
+                  target="_blank"
+                >
+                  {f.feature.id}
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>{" "}
+                before this experiment can start
+              </>
+            ),
+          });
+        });
+
+      // One item per linked feature draft that requires approval.
+      linkedFeatures
+        .filter((f) => f.pendingApproval)
+        .forEach((f) => {
+          items.push({
+            status:
+              f.draftRevisionStatus === "approved" ? "complete" : "incomplete",
+            type: "auto",
+            required: true,
+            hideDescription: true,
+            display: (
+              <>
+                Approve the feature draft revision in{" "}
+                <Link
+                  href={`/features/${f.feature.id}${f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""}`}
+                  target="_blank"
+                >
+                  {f.feature.id}
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>{" "}
+                {f.draftRevisionStatus && (
+                  <Badge
+                    label={revisionStatusLabel(f.draftRevisionStatus)}
+                    color={revisionStatusColor(f.draftRevisionStatus)}
+                    radius="full"
+                    ml="1"
+                  />
+                )}
+              </>
+            ),
+          });
+        });
     }
 
     // No empty visual changesets
@@ -440,11 +478,11 @@ export function PreLaunchChecklistUI({
               </span>
             }
             description={
-              item.status === "incomplete" && item.type === "auto"
-                ? "GrowthBook will mark this as completed automatically when you finish the task."
-                : item.status === "incomplete"
-                  ? "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
-                  : undefined
+              item.hideDescription || item.status === "complete"
+                ? undefined
+                : item.type === "auto"
+                  ? "GrowthBook will mark this as completed automatically when you finish the task."
+                  : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
             }
             error={item.warning}
             errorLevel="warning"
@@ -475,13 +513,13 @@ export function PreLaunchChecklistUI({
       </h4>
       <div className="flex-1" />
       {showEditChecklistLink ? (
-        <NextLink
+        <Link
           className="mr-3 link-purple"
           href={"/settings?editCheckListModal=true"}
           onClick={(e) => e.stopPropagation()}
         >
           Edit
-        </NextLink>
+        </Link>
       ) : null}
       {collapsible && <FaAngleRight className="chevron" />}
     </div>
@@ -561,6 +599,85 @@ export function PreLaunchChecklistFeatureExpRule({
         </Callout>
       )}{" "}
     </>
+  );
+}
+
+// Checklist for the DraftModal / RequestReviewModal publish flow.
+// Fetches the project-aware /experiment/:id/launch-checklist endpoint so
+// project-scoped custom tasks match what's shown on the experiment page.
+export function PreLaunchChecklistForDraft({
+  experiment,
+  feature,
+  mutateExperiment,
+  envs,
+  onReady,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  feature: FeatureInterface;
+  mutateExperiment: () => unknown | Promise<unknown>;
+  envs: string[];
+  // Called when failedRequired or loading changes so the parent can gate submit.
+  onReady?: (failedRequired: boolean, loading: boolean) => void;
+}) {
+  const { data: checklistData, isLoading } = useApi<{
+    checklist: ExperimentLaunchChecklistInterface;
+  }>(`/experiment/${experiment.id}/launch-checklist`);
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const connections = (sdkConnectionsData?.connections ?? []).filter(
+    (c) => !c.projects.length || c.projects.includes(experiment.project || ""),
+  );
+
+  // Treat the feature as "live" to satisfy "Add at least one linked change".
+  // pendingApproval is intentionally omitted: the draft's approval is handled
+  // by the modal flow itself, not as a checklist item.
+  const syntheticLinkedFeature: LinkedFeatureInfo = useMemo(
+    () => ({
+      feature,
+      state: "live",
+      values: [],
+      valuesFrom: "",
+      inconsistentValues: false,
+      rulesAbove: false,
+      environmentStates: {},
+    }),
+    [feature],
+  );
+
+  const checklist = useMemo(
+    () =>
+      getChecklistItems({
+        experiment,
+        linkedFeatures: [syntheticLinkedFeature],
+        visualChangesets: [],
+        checklist: checklistData?.checklist,
+        checkLinkedChanges: true,
+        connections,
+      }),
+    [experiment, syntheticLinkedFeature, checklistData, connections],
+  );
+
+  const failedRequired = checklist.some(
+    (item) => item.status === "incomplete" && item.required,
+  );
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableOnReady = useCallback(onReady ?? (() => {}), []);
+  useEffect(() => {
+    stableOnReady(failedRequired, !!isLoading);
+  }, [failedRequired, isLoading, stableOnReady]);
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    <PreLaunchChecklistFeatureExpRule
+      experiment={experiment}
+      mutateExperiment={mutateExperiment}
+      checklist={checklist}
+      envs={envs}
+    />
   );
 }
 

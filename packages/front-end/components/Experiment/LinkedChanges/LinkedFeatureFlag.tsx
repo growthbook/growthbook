@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
@@ -16,14 +17,48 @@ import {
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type Props = {
   info: LinkedFeatureInfo;
   experiment: ExperimentInterfaceStringDates;
   open?: boolean;
+  onReAdd?: () => void;
+  mutate?: () => void;
 };
 
-export default function LinkedFeatureFlag({ info, experiment }: Props) {
+export default function LinkedFeatureFlag({
+  info,
+  experiment,
+  onReAdd,
+  mutate,
+}: Props) {
+  const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+  const [removing, setRemoving] = useState(false);
+
+  // canEdit: basic experiment edit permission (no status restriction).
+  const canEdit =
+    !experiment.archived &&
+    permissionsUtil.canViewExperimentModal(experiment.project);
+
+  // canAddLinkedChanges: edit permission + experiment must be in draft.
+  const canAddLinkedChanges = canEdit && experiment.status === "draft";
+
+  const handleRemove = async () => {
+    if (!confirm("Remove this feature flag from the experiment?")) return;
+    setRemoving(true);
+    try {
+      await apiCall(`/experiment/${experiment.id}/linked-feature/${info.feature.id}`, {
+        method: "DELETE",
+      });
+      mutate?.();
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   const variations = getLatestPhaseVariations(experiment);
   const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
@@ -81,20 +116,106 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
         </Callout>
       )}
       {info.state === "discarded" && (
-        <Callout status="info" my="4">
-          This experiment was linked to this feature in the past, but is no
-          longer live.
+        <Callout status="warning" my="4">
+          The draft revision linking this experiment was discarded. The
+          experiment-ref rule is no longer queued.{" "}
+          {canAddLinkedChanges && onReAdd ? (
+            <Link onClick={onReAdd} style={{ cursor: "pointer" }}>
+              Re-add feature flag
+            </Link>
+          ) : (
+            <Link href={`/features/${info.feature?.id}`} target="_blank">
+              Go to feature page <PiArrowSquareOut className="ml-1" />
+            </Link>
+          )}
+          {canEdit && (
+            <>
+              {" · "}
+              <Link
+                onClick={handleRemove}
+                style={{ cursor: removing ? "wait" : "pointer" }}
+              >
+                Remove from experiment
+              </Link>
+            </>
+          )}
         </Callout>
       )}
-      {info.state === "draft" && (
-        <Callout status="info" my="4">
-          Rule changes for this feature are sitting in a <strong>draft</strong>{" "}
-          revision. They will be auto-published when this experiment starts, or
-          you can publish manually now from the{" "}
-          <Link href={`/features/${info.feature?.id}`} target="_blank">
-            Feature Flag detail page <PiArrowSquareOut className="ml-1" />
+      {info.state === "draft" && info.hasMergeConflict && (
+        <Callout
+          status="error"
+          my="4"
+          icon={
+            <Box position="relative" style={{ width: "1.2em", height: "1.2em" }}>
+              <PiGitMerge
+                style={{
+                  position: "absolute",
+                  top: -2,
+                  left: 0,
+                  fontSize: "1.2em",
+                }}
+              />
+              <PiXBold
+                style={{
+                  position: "absolute",
+                  bottom: "-4px",
+                  right: "-3px",
+                  fontSize: "0.75em",
+                }}
+              />
+            </Box>
+          }
+        >
+          This draft has a <strong>merge conflict</strong> with the live
+          revision and cannot be auto-published.{" "}
+          <Link
+            href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
+            target="_blank"
+          >
+            Fix conflicts
+            <PiArrowSquareOut className="ml-1" />
           </Link>
-          .
+        </Callout>
+      )}
+      {info.state === "draft" && !info.hasMergeConflict && (
+        <Callout status="info" my="4" icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}>
+          {info.pendingApproval ? (
+            <>
+              Rule changes for this feature are in a{" "}
+              {info.draftRevisionStatus === "approved" ? (
+                <>
+                  <strong>draft</strong> revision that has been{" "}
+                  <strong>approved</strong>
+                </>
+              ) : (
+                <>
+                  <strong>draft</strong> revision pending approval
+                </>
+              )}
+              . Once approved, they will be auto-published when this experiment
+              starts, or you can publish manually.
+              <Box mt="1">
+                <Link
+                  href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
+                  target="_blank"
+                >
+                  Review and approve draft
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>
+              </Box>
+            </>
+          ) : (
+            <>
+              Rule changes for this feature are in a{" "}
+              <strong>draft</strong> revision. They will be auto-published when
+              this experiment starts, or you can publish manually from the{" "}
+              <Link href={`/features/${info.feature?.id}`} target="_blank">
+                Feature Flag detail page
+                <PiArrowSquareOut className="ml-1" />
+              </Link>
+              .
+            </>
+          )}
         </Callout>
       )}
       {info.state !== "discarded" && info.state !== "archived" && (

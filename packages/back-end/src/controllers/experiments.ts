@@ -73,6 +73,7 @@ import {
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
+  unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
@@ -138,6 +139,7 @@ import {
 } from "back-end/src/services/features";
 import {
   ExperimentLinkedFeatureValueUpdate,
+  PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
@@ -2095,8 +2097,19 @@ export async function postExperimentStatus(
     );
     Object.assign(changes, additionalChanges);
 
-    // Publish any pending feature drafts in lockstep with the start. Best-effort.
-    await publishPendingFeatureDraftsForExperiment(context, experiment);
+    // Publish any pending feature drafts in lockstep with the start.
+    // Abort the experiment start if any drafts cannot be published.
+    const publishResult: PendingDraftPublishResult =
+      await publishPendingFeatureDraftsForExperiment(context, experiment);
+    if (publishResult.failed.length > 0) {
+      const failedIds = publishResult.failed.map((f) => f.featureId).join(", ");
+      res.status(400).json({
+        status: 400,
+        message: `Cannot start experiment: the following feature flag draft${publishResult.failed.length > 1 ? "s" : ""} could not be published due to merge conflicts: ${failedIds}. Please resolve the conflicts and try again.`,
+        failedFeatureDrafts: publishResult.failed,
+      });
+      return;
+    }
   }
   // If starting or drafting a stopped experiment, clear the phase end date
   // and perform any needed bandit cleanup
@@ -3954,4 +3967,26 @@ export async function postExperimentFeatureValues(
     status: 200,
     experiment: experimentForResponse,
   });
+}
+
+export async function deleteExperimentLinkedFeature(
+  req: AuthRequest<null, { id: string; featureId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, featureId } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({ status: 404, message: "Experiment not found" });
+    return;
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  await unlinkFeatureFromExperiment(context, id, featureId);
+
+  res.status(200).json({ status: 200 });
 }

@@ -22,6 +22,7 @@ import {
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
+import { logger } from "back-end/src/util/logger";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
 import {
@@ -257,7 +258,21 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (experiment.status === "draft" && updatedExperiment.status === "running") {
-    await publishPendingFeatureDraftsForExperiment(req.context, experiment);
+    // Best-effort for the REST API: experiment is already saved, so we log
+    // failures but don't roll back the status change.
+    const publishResult = await publishPendingFeatureDraftsForExperiment(
+      req.context,
+      experiment,
+    );
+    if (publishResult.failed.length > 0) {
+      logger.warn(
+        {
+          experimentId: experiment.id,
+          failed: publishResult.failed,
+        },
+        "Some feature drafts could not be auto-published when experiment was started via REST API",
+      );
+    }
   }
 
   await req.audit({

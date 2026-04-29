@@ -56,6 +56,8 @@ export type Props = {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   source?: string;
+  // Feature IDs in "discarded" state that can be re-added.
+  reAddableFeatureIds?: string[];
 };
 
 const genEnvironmentSettings = ({
@@ -143,6 +145,7 @@ export default function FeatureFromExperimentModal({
   experiment,
   mutate,
   source,
+  reAddableFeatureIds = [],
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const selectedProject = experiment.project ?? project;
@@ -177,6 +180,8 @@ export default function FeatureFromExperimentModal({
 
   const validFeatures = features.filter((f) => {
     if (f.archived) return false;
+    // Allow re-adding features whose draft was discarded.
+    if (reAddableFeatureIds.includes(f.id)) return true;
     if (experiment.linkedFeatures?.includes(f.id)) return false;
     return true;
   });

@@ -8,6 +8,7 @@ import {
   BanditEvent,
   ExperimentDecisionFrameworkSettings,
   HoldoutInterface,
+  RevisionStatus,
 } from "shared/validators";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
@@ -252,6 +253,14 @@ export interface LinkedFeatureInfo {
   inconsistentValues: boolean;
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
+  /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
+  pendingApproval?: boolean;
+  /** Version of the matching draft revision (present when state === "draft"). */
+  draftRevisionVersion?: number;
+  /** Status of the matching draft revision (present when state === "draft"). */
+  draftRevisionStatus?: RevisionStatus;
+  /** True when the draft cannot be auto-merged into live due to conflicting changes. */
+  hasMergeConflict?: boolean;
 }
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";

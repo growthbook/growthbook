@@ -165,6 +165,7 @@ import {
   clearPendingFeatureDraftsForRevision,
   clearPendingFeatureDraftsForFeature,
   removePendingFeatureDraftFromExperiment,
+  removeLinkedFeatureFromExperiment,
   unlinkFeatureFromAllExperiments,
   getAllPayloadExperiments,
   getExperimentById,
@@ -2089,18 +2090,26 @@ export async function postFeatureRule(
     { environments: selectedEnvironments },
   );
 
-  // If referencing a new experiment, add it to linkedExperiments
-  if (
-    rule.type === "experiment-ref" &&
-    !feature.linkedExperiments?.includes(rule.experimentId)
-  ) {
-    await addLinkedFeatureToExperiment(context, rule.experimentId, feature.id);
-    await addLinkedExperiment(feature, rule.experimentId);
+  if (rule.type === "experiment-ref") {
+    // Ensure both sides of the linkage are populated.
+    if (!feature.linkedExperiments?.includes(rule.experimentId)) {
+      await addLinkedFeatureToExperiment(context, rule.experimentId, feature.id);
+      await addLinkedExperiment(feature, rule.experimentId);
+    }
+    // Queue the draft for auto-publish when the experiment goes running.
+    const draftVersion =
+      updatedRevisionAfterRuleAdd?.version ?? revision.version;
+    await addPendingFeatureDraftToExperiment(
+      context,
+      rule.experimentId,
+      feature.id,
+      draftVersion,
+    );
   }
 
   res.status(200).json({
     status: 200,
-    version: revision.version,
+    version: updatedRevisionAfterRuleAdd?.version ?? revision.version,
   });
 }
 
@@ -2336,7 +2345,10 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -2422,6 +2434,12 @@ export async function postFeatureExperimentRefRule(
         : "Publish experiment";
   }
 
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: ruleEnvFootprint,
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
   const auditSubject = scopedRule.allEnvironments
     ? "to all environments"
     : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
@@ -2437,7 +2455,7 @@ export async function postFeatureExperimentRefRule(
         subject: auditSubject,
         value: JSON.stringify(scopedRule),
       },
-      false,
+      resetReview,
     )) ?? revision;
   await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
     environments: ruleEnvFootprint,
@@ -3114,9 +3132,24 @@ export async function putFeatureRule(
     }
   }
 
+  // If editing an experiment-ref rule, keep pendingFeatureDrafts in sync.
+  const editedRule = (updatedRevisionAfterRuleEdit ?? revision).rules?.find(
+    (r) => r.id === ruleId,
+  );
+  if (editedRule?.type === "experiment-ref") {
+    const draftVersion =
+      updatedRevisionAfterRuleEdit?.version ?? revision.version;
+    await addPendingFeatureDraftToExperiment(
+      context,
+      editedRule.experimentId,
+      feature.id,
+      draftVersion,
+    );
+  }
+
   res.status(200).json({
     status: 200,
-    version: revision.version,
+    version: updatedRevisionAfterRuleEdit?.version ?? revision.version,
   });
 }
 
@@ -3537,6 +3570,17 @@ export async function deleteFeatureRule(
       feature.id,
       revision.version,
     );
+    // Remove the experiment link when the live revision no longer has the rule.
+    const stillLive = (feature.rules ?? []).some(
+      (r) => r.type === "experiment-ref" && r.experimentId === rule.experimentId,
+    );
+    if (!stillLive) {
+      await removeLinkedFeatureFromExperiment(
+        context,
+        rule.experimentId,
+        feature.id,
+      );
+    }
   }
 
   res.status(200).json({

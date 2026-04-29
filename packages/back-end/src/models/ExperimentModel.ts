@@ -1442,8 +1442,38 @@ export async function removeLinkedFeatureFromExperiment(
   });
 }
 
-// Clear only pendingFeatureDrafts entries for a feature across all experiments,
-// leaving linkedFeatures intact (used for reversible operations like archive).
+// Removes linkedFeatures + pendingFeatureDrafts for one feature from one experiment.
+export async function unlinkFeatureFromExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+) {
+  const experiment = await findExperiment({ experimentId, context });
+  if (!experiment) return;
+
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    { $pull: { linkedFeatures: featureId, pendingFeatureDrafts: { featureId } } },
+  );
+
+  onExperimentUpdate({
+    context,
+    oldExperiment: experiment,
+    newExperiment: {
+      ...experiment,
+      linkedFeatures: (experiment.linkedFeatures || []).filter(
+        (f) => f !== featureId,
+      ),
+      pendingFeatureDrafts: (experiment.pendingFeatureDrafts || []).filter(
+        (d) => d.featureId !== featureId,
+      ),
+    },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload on experiment update");
+  });
+}
+
+// Clears pendingFeatureDrafts but leaves linkedFeatures intact (used for archive).
 export async function clearPendingFeatureDraftsForFeature(
   context: ReqContext | ApiReqContext,
   featureId: string,
@@ -1457,8 +1487,7 @@ export async function clearPendingFeatureDraftsForFeature(
   );
 }
 
-// Remove a feature from all experiments it is linked to: clears both
-// linkedFeatures[] and pendingFeatureDrafts[] entries for that featureId.
+// Clears both linkedFeatures[] and pendingFeatureDrafts[] for a feature (used for delete).
 export async function unlinkFeatureFromAllExperiments(
   context: ReqContext | ApiReqContext,
   featureId: string,
@@ -1477,8 +1506,7 @@ export async function unlinkFeatureFromAllExperiments(
   );
 }
 
-// Track a draft to auto-publish when the experiment goes running. One entry
-// per featureId — the latest draft replaces any prior one.
+// Queues a draft for auto-publish when the experiment goes running. Latest draft per featureId wins.
 export async function addPendingFeatureDraftToExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
@@ -1499,7 +1527,7 @@ export async function addPendingFeatureDraftToExperiment(
   );
 }
 
-// Untrack a draft (e.g. because it was published or discarded manually).
+// Removes a pending draft entry (published or discarded).
 export async function removePendingFeatureDraftFromExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
@@ -1524,8 +1552,7 @@ export async function removePendingFeatureDraftFromExperiment(
   );
 }
 
-// Drop pendingFeatureDrafts entries for every experiment referenced by an
-// experiment-ref rule on the revision. Hook from publish/discard sites.
+// Clears pendingFeatureDrafts for all experiments referenced by the revision's experiment-ref rules.
 export async function clearPendingFeatureDraftsForRevision(
   context: ReqContext | ApiReqContext,
   featureId: string,

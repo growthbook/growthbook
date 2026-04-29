@@ -37,6 +37,7 @@ import {
 } from "back-end/src/util/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
+import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
@@ -947,7 +948,35 @@ export async function updateRevision(
       logger.error(e, "Error creating revisionlog");
     });
 
-  return doc ? toInterface(doc, context, feature) : null;
+  const updatedRevision = doc ? toInterface(doc, context, feature) : null;
+
+  // Fire-and-forget linkage sync whenever draft rules change.
+  if (updatedRevision && "rules" in changes) {
+    FeatureRevisionModel.find({
+      organization: revision.organization,
+      featureId: revision.featureId,
+      status: { $nin: ["discarded"] },
+    })
+      .then((docs) =>
+        syncFeatureExperimentLinkages(
+          context,
+          revision.featureId,
+          docs.map((d) => ({
+            version: d.version,
+            status: d.status,
+            rules: d.rules,
+          })),
+        ),
+      )
+      .catch((e) => {
+        logger.error(
+          e,
+          "syncFeatureExperimentLinkages failed in updateRevision",
+        );
+      });
+  }
+
+  return updatedRevision;
 }
 
 export async function markRevisionAsPublished(
@@ -1129,6 +1158,30 @@ export async function discardRevision(
     })
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
+    });
+
+  // Sync linkages — the discarded revision's rules no longer count as "open drafts".
+  FeatureRevisionModel.find({
+    organization: revision.organization,
+    featureId: revision.featureId,
+    status: { $nin: ["discarded"] },
+  })
+    .then((docs) =>
+      syncFeatureExperimentLinkages(
+        context,
+        revision.featureId,
+        docs.map((d) => ({
+          version: d.version,
+          status: d.status,
+          rules: d.rules,
+        })),
+      ),
+    )
+    .catch((e) => {
+      logger.error(
+        e,
+        "syncFeatureExperimentLinkages failed in discardRevision",
+      );
     });
 }
 

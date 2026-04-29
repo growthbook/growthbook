@@ -13,7 +13,10 @@ import {
   updateFeature as updateFeatureToDb,
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentMapForFeature,
+  addLinkedFeatureToExperiment,
+} from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
   getApiFeatureObjV2,
@@ -262,6 +265,23 @@ export const updateFeatureV2 = createApiRequestHandler(
 
     Object.assign(feature, updatedFeatureFromRevision);
     updates.version = revision.version;
+
+    // Ensure linkedFeatures is set on any experiments referenced by the
+    // newly-live rules. Fire-and-forget; clearPendingFeatureDraftsForRevision
+    // (inside publishRevision) already handles pendingFeatureDrafts cleanup.
+    if (inboundFlatRules) {
+      for (const rule of inboundFlatRules) {
+        if (rule.type === "experiment-ref" || rule.type === "experiment") {
+          addLinkedFeatureToExperiment(
+            req.context,
+            (rule as { experimentId: string }).experimentId,
+            feature.id,
+          ).catch(() => {
+            // best-effort
+          });
+        }
+      }
+    }
   }
 
   const updatedFeature = await updateFeatureToDb(req.context, feature, updates);

@@ -1,11 +1,13 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useState } from "react";
+import { Box } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -78,18 +80,18 @@ export default function StartExperimentModal({
       }
       header={isHoldout ? "Start Holdout" : "Start Experiment"}
     >
-      <div className="p-2">
-        {checklistIncomplete ? (
-          <div className="alert alert-warning">
+      <Box p="2">
+        {checklistIncomplete && (
+          <Callout status="warning" mb="3">
             You have{" "}
-            <strong>
+            <Text weight="semibold">
               {checklistItemsRemaining} task
-              {checklistItemsRemaining > 1 ? "s " : " "}
-            </strong>
+              {checklistItemsRemaining > 1 ? "s" : ""}
+            </Text>{" "}
             left to complete. Review the Pre-Launch Checklist before starting
             this experiment.
-          </div>
-        ) : null}
+          </Callout>
+        )}
 
         {needsVisualEditorUpgrade ? (
           <PremiumCallout
@@ -109,14 +111,15 @@ export default function StartExperimentModal({
             This experiment contains URL redirects, which require a paid plan.
           </PremiumCallout>
         ) : isHoldout ? (
-          <div>
+          <Text as="p">
             Once started, experiments and features can be added to the holdout.
-          </div>
+          </Text>
         ) : (
-          <div>
+          <Text as="p">
             Once started, linked changes will be activated and users will begin
-            to see your experiment variations <strong>immediately</strong>.
-          </div>
+            to see your experiment variations{" "}
+            <Text weight="semibold">immediately</Text>.
+          </Text>
         )}
 
         {startError && (
@@ -124,7 +127,7 @@ export default function StartExperimentModal({
             {startError}
           </Callout>
         )}
-      </div>
+      </Box>
     </Modal>
   );
 }

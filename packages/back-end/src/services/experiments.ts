@@ -20,13 +20,17 @@ import {
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
+  autoMerge,
   DRAFT_REVISION_STATUSES,
+  fillRevisionFromFeature,
   generateVariationId,
   getMatchingRules,
   getNamespaceRanges,
+  getReviewSetting,
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
+  liveRevisionFromFeature,
   MatchingRule,
   validateCondition,
 } from "shared/util";
@@ -163,6 +167,7 @@ import {
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
+import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
@@ -3980,16 +3985,24 @@ export async function getLinkedFeatureInfo(
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;
 
-  const linkedFeatureInfo = features.map((feature) => {
+  const linkedFeatureInfo = await Promise.all(features.map(async (feature) => {
     const revisions = revisionsByFeatureId[feature.id] || [];
 
     const liveMatches = getMatchingRules(feature, filter, environments);
 
-    const draftMatches =
-      revisions
-        .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
-        .map((r) => getMatchingRules(feature, filter, environments, r))
-        .filter((matches) => matches.length > 0)[0] || [];
+    let matchedDraftRevision: (typeof revisions)[0] | undefined;
+    const draftMatches = (() => {
+      for (const r of revisions.filter((r) =>
+        DRAFT_REVISION_STATUSES.includes(r.status),
+      )) {
+        const m = getMatchingRules(feature, filter, environments, r);
+        if (m.length > 0) {
+          matchedDraftRevision = r;
+          return m;
+        }
+      }
+      return [];
+    })();
 
     const lockedMatches =
       revisions
@@ -4013,6 +4026,57 @@ export async function getLinkedFeatureInfo(
     } else if (lockedMatches.length > 0) {
       state = "locked";
       matches = lockedMatches;
+    }
+
+    // Feature-scope approval check: requires review AND draft not yet approved.
+    let pendingApproval: boolean | undefined;
+    if (state === "draft" && matchedDraftRevision) {
+      const requiresReviews = context.org.settings?.requireReviews;
+      const requireApprovalsLicensed = context.hasPremiumFeature(
+        "require-approvals",
+      );
+      const reviewSetting = requireApprovalsLicensed
+        ? Array.isArray(requiresReviews)
+          ? getReviewSetting(requiresReviews, feature)
+          : undefined
+        : undefined;
+      const reviewRequired = requireApprovalsLicensed
+        ? requiresReviews === true ||
+          (!!reviewSetting && reviewSetting.requireReviewOn)
+        : false;
+      if (reviewRequired) {
+        pendingApproval = true;
+      }
+    }
+
+    // Merge-conflict detection: same autoMerge check used on the FF detail
+    // page to gate the publish CTA. Requires the live + base revisions, which
+    // are NOT in the active-drafts-only revisionsByFeatureId map, so we fetch
+    // them separately — mirroring publishPendingFeatureDraftsForExperiment.
+    let hasMergeConflict: boolean | undefined;
+    if (state === "draft" && matchedDraftRevision) {
+      try {
+        const { live, base } = await getLiveAndBaseRevisionsForFeature({
+          context,
+          feature,
+          revision: matchedDraftRevision,
+        });
+        const mergeResult = autoMerge(
+          liveRevisionFromFeature(live, feature),
+          fillRevisionFromFeature(base, feature),
+          matchedDraftRevision,
+          environments,
+          {},
+        );
+        if (!mergeResult.success) {
+          hasMergeConflict = true;
+        }
+      } catch (e) {
+        logger.warn(
+          { featureId: feature.id, err: e },
+          "[getLinkedFeatureInfo] failed to check merge conflicts",
+        );
+      }
     }
 
     const uniqueValues: Set<string> = new Set(
@@ -4048,10 +4112,16 @@ export async function getLinkedFeatureInfo(
       valuesFrom: matches[0]?.environmentId || "",
       rulesAbove: matches.some((m) => m.i > 0),
       inconsistentValues: uniqueValues.size > 1,
+      ...(pendingApproval !== undefined && { pendingApproval }),
+      ...(matchedDraftRevision && {
+        draftRevisionVersion: matchedDraftRevision.version,
+        draftRevisionStatus: matchedDraftRevision.status,
+      }),
+      ...(hasMergeConflict !== undefined && { hasMergeConflict }),
     };
 
     return info;
-  });
+  }));
 
   return linkedFeatureInfo;
 }

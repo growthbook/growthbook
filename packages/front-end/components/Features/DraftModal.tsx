@@ -40,7 +40,7 @@ import {
 } from "@/components/Features/FeatureDiffRenders";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
+import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
@@ -148,14 +148,14 @@ export default function DraftModal({
 
   const [comment, setComment] = useState(revision?.comment || "");
 
-  const { experimentData } = useFeatureExperimentChecklists({
+  const { experiments } = useFeatureExperimentChecklists({
     feature,
     revision,
     experimentsMap,
   });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
-    new Set(experimentData.map((e) => e.experiment.id)),
+    new Set(experiments.map((e) => e.id)),
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
@@ -326,10 +326,9 @@ export default function DraftModal({
 
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
-  let submitEnabled = !!mergeResult.success && hasChanges;
-  if (experimentsStep && experimentData.some((d) => d.failedRequired)) {
-    submitEnabled = false;
-  }
+  // Users who reach DraftModal already have direct publish permission, so the
+  // checklist is advisory — it does not block publishing.
+  const submitEnabled = !!mergeResult.success && hasChanges;
 
   // If we're publishing experiments, next step is to review pre-launch checklists
   const hasNextStep =
@@ -430,18 +429,24 @@ export default function DraftModal({
               Review &amp; Publish
             </Heading>
             <Text as="p" mb="3">
-              Please review the <strong>Pre-Launch Checklists</strong> for the
-              experiments that will be published along with this draft.
+              Please review the{" "}
+              <strong>
+                Pre-Launch Checklist
+                {selectedExperiments.size !== 1 ? "s" : ""}
+              </strong>{" "}
+              for the experiment
+              {selectedExperiments.size !== 1 ? "s" : ""} that will be published
+              along with this draft.
             </Text>
-            {experimentData.map(({ experiment, checklist }) => {
+            {experiments.map((experiment) => {
               if (!selectedExperiments.has(experiment.id)) return null;
 
               return (
                 <Box key={experiment.id} mb="3">
-                  <PreLaunchChecklistFeatureExpRule
+                  <PreLaunchChecklistForDraft
                     experiment={experiment}
+                    feature={feature}
                     mutateExperiment={mutate}
-                    checklist={checklist}
                     envs={getAffectedEnvsForExperiment({
                       experiment,
                       orgEnvironments: allEnvironments,
@@ -462,12 +467,12 @@ export default function DraftModal({
               published. You will be able to revert later if needed.
             </Text>
 
-            {experimentData.length > 0 ? (
+            {experiments.length > 0 ? (
               <Box mb="3">
                 <Heading as="h4" size="small" mb="2">
                   Start running experiments upon publishing:
                 </Heading>
-                {experimentData.map(({ experiment }) => (
+                {experiments.map((experiment) => (
                   <Box key={experiment.id}>
                     <Checkbox
                       value={selectedExperiments.has(experiment.id)}

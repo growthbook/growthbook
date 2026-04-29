@@ -33,7 +33,6 @@ import {
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { SafeRolloutRule } from "shared/validators";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -44,11 +43,6 @@ import useApi from "@/hooks/useApi";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import {
-  CheckListItem,
-  getChecklistItems,
-} from "@/components/Experiment/PreLaunchChecklist";
 import type { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
 import { useDefinitions } from "./DefinitionsContext";
 
@@ -1645,6 +1639,7 @@ export function getNewDraftExperimentsToPublish({
   return [...new Set(draftExperiments)];
 }
 
+// Returns experiments whose draft rules would go live when this revision is published.
 export function useFeatureExperimentChecklists({
   feature,
   revision,
@@ -1656,66 +1651,20 @@ export function useFeatureExperimentChecklists({
 }) {
   const allEnvironments = useEnvironments();
 
-  const { data: checklistData } = useApi<{
-    checklist: ExperimentLaunchChecklistInterface;
-  }>("/experiments/launch-checklist");
+  const experiments = useMemo(
+    () =>
+      revision
+        ? getNewDraftExperimentsToPublish({
+            feature,
+            revision,
+            environments: allEnvironments,
+            experimentsMap,
+          })
+        : [],
+    [feature, revision, allEnvironments, experimentsMap],
+  );
 
-  const settings = useOrgSettings();
-  const orgStickyBucketing = !!settings.useStickyBucketing;
-
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const connections = sdkConnectionsData?.connections || [];
-
-  const experimentData = useMemo(() => {
-    const experimentsAvailableToPublish = revision
-      ? getNewDraftExperimentsToPublish({
-          feature,
-          revision,
-          environments: allEnvironments,
-          experimentsMap,
-        })
-      : [];
-
-    const experimentData: {
-      checklist: CheckListItem[];
-      experiment: ExperimentInterfaceStringDates;
-      failedRequired: boolean;
-    }[] = [];
-    experimentsAvailableToPublish.forEach((exp) => {
-      const projectConnections = connections.filter(
-        (connection) =>
-          !connection.projects.length ||
-          connection.projects.includes(exp.project || ""),
-      );
-
-      const checklist = getChecklistItems({
-        experiment: exp,
-        linkedFeatures: [],
-        visualChangesets: [],
-        checklist: checklistData?.checklist,
-        checkLinkedChanges: false,
-        connections: projectConnections,
-      });
-
-      const failedRequired = checklist.some(
-        (item) => item.status === "incomplete" && item.required,
-      );
-
-      experimentData.push({ checklist, experiment: exp, failedRequired });
-    });
-
-    return experimentData;
-  }, [
-    connections,
-    allEnvironments,
-    orgStickyBucketing,
-    checklistData,
-    revision,
-  ]);
-
-  return {
-    experimentData,
-  };
+  return { experiments };
 }
 
 export function parseDefaultValue(

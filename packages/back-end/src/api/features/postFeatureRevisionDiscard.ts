@@ -48,6 +48,11 @@ export async function discardFeatureRevision(
     revision.rules,
   );
 
+  // linkedFeatures is intentionally preserved on discard — the experiment page
+  // shows a "discarded" callout so the user can re-add or remove manually.
+  // pendingFeatureDrafts is cleared above; syncFeatureExperimentLinkages
+  // (fired from discardRevision) handles any remaining reconciliation.
+
   const updated = await getRevision({
     context: req.context,
     organization: req.organization.id,
