@@ -538,7 +538,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
-        orgSuspended: organization?.suspended === true,
+        orgSuspended: organization?.suspended === true && !data?.superAdmin,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         watching: watching,
         canSubscribe,
