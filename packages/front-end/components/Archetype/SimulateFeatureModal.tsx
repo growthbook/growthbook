@@ -48,10 +48,7 @@ const SimulateFeatureModal: FC<{
   return (
     <DialogLayout
       trackingEventModalType=""
-      close={() => {
-        close();
-      }}
-      includeCloseCta={false}
+      close={close}
       size="lg"
       header="Simulate features"
       open={true}

@@ -4,7 +4,7 @@ import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 const CreateOrganization: FC<{
   onCreate: () => void;
-  close?: () => void;
+  close: () => void;
   showExternalId?: boolean;
 }> = ({ onCreate, close, showExternalId }) => {
   const [company, setCompany] = useState("");
@@ -35,7 +35,6 @@ const CreateOrganization: FC<{
       header={"Create New Organization"}
       cta={"Create"}
       close={close}
-      inline={!close}
     >
       <div className="form-group">
         Company Name

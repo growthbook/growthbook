@@ -5,10 +5,9 @@ const ConfirmButton: FC<{
   onClick: () => Promise<void>;
   modalHeader: string;
   confirmationText?: string | ReactElement;
-  ctaColor?: string;
-  cta?: string | ReactElement;
+  cta?: string;
   ctaEnabled?: boolean;
-  size?: "md" | "lg" | "max" | "fill";
+  size?: "md" | "lg";
   children: ReactNode;
   additionalMessage?: ReactElement | null | string;
   disabled?: boolean;
@@ -19,7 +18,6 @@ const ConfirmButton: FC<{
   cta = "Yes",
   ctaEnabled = true,
   size = "md",
-  ctaColor = "primary",
   children,
   additionalMessage = "",
   disabled = false,
@@ -27,7 +25,7 @@ const ConfirmButton: FC<{
   const [confirming, setConfirming] = useState(false);
   return (
     <>
-      {confirming ? (
+      {confirming && (
         <DialogLayout
           trackingEventModalType=""
           header={modalHeader}
@@ -35,7 +33,7 @@ const ConfirmButton: FC<{
           open={true}
           cta={cta}
           ctaEnabled={ctaEnabled}
-          submitColor={ctaColor}
+          ctaColor="red"
           submit={onClick}
           size={size}
         >
@@ -47,8 +45,6 @@ const ConfirmButton: FC<{
               <p>{additionalMessage}</p>
             ))}
         </DialogLayout>
-      ) : (
-        ""
       )}
       <span
         onClick={(e) => {

@@ -88,7 +88,7 @@ export default function FeatureArchiveModal({
             : "Archive"
           : "Save to draft"
       }
-      submitColor={mode === "publish" ? "danger" : "primary"}
+      ctaColor={mode === "publish" ? "red" : "violet"}
       submit={async () => {
         // Explicit so the endpoint doesn't have to guess by toggling feature.archived
         const desiredArchived = !isArchived;

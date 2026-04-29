@@ -21,7 +21,6 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";
-import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDashboards } from "@/hooks/useDashboards";
@@ -168,24 +167,20 @@ export default function SaveToDashboardModal({
       trackingEventModalType="save-to-dashboard"
       submit={handleSubmit}
       open={true}
-      header={null}
+      header="Save to Dashboard"
       cta={createOrAdd === "existing" ? "Add to Dashboard" : "Create Dashboard"}
       ctaEnabled={ctaEnabled}
-      showHeaderCloseButton={false}
       close={close}
     >
-      <Heading as="h2" mb="5">
-        Save to Dashboard
-      </Heading>
       <Flex direction="column" gap="3">
         <Flex direction="column" gap="2">
-          <Text as="label" weight="medium">
+          <Text as="label" weight="semibold">
             Chart Title
           </Text>
           <Field placeholder="Chart title" {...form.register("chartTitle")} />
         </Flex>
         <Flex direction="column" gap="2">
-          <Text as="label" weight="medium">
+          <Text as="label" weight="semibold">
             Save to...
           </Text>
           <RadioGroup
@@ -230,11 +225,13 @@ export default function SaveToDashboardModal({
           <Flex direction="column">
             <Field
               label="Name"
+              labelClassName="font-weight-bold"
               placeholder="Dashboard name"
               {...form.register("title")}
             />
             <MultiSelectField
               label="Projects"
+              labelClassName="font-weight-bold"
               placeholder="All projects"
               options={projectsOptions}
               value={form.watch("projects")}
@@ -257,6 +254,7 @@ export default function SaveToDashboardModal({
                   <Flex direction="column" gap="4">
                     <SelectField
                       label="View access"
+                      labelClassName="font-weight-bold"
                       containerClassName="mb-0"
                       disabled={!hasSharing}
                       helpText={
@@ -280,6 +278,7 @@ export default function SaveToDashboardModal({
                     />
                     <SelectField
                       label="Edit access"
+                      labelClassName="font-weight-bold"
                       containerClassName="mb-0"
                       disabled={
                         !hasSharing || form.watch("shareLevel") === "private"

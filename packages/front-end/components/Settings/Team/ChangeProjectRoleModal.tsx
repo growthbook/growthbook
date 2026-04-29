@@ -7,7 +7,7 @@ import SingleRoleSelector from "./SingleRoleSelector";
 const ChangeProjectRoleModal: FC<{
   memberName: string;
   projectRole: ProjectMemberRole;
-  close?: () => void;
+  close: () => void;
   onConfirm: (data: ProjectMemberRole) => Promise<void>;
 }> = ({ memberName, projectRole, close, onConfirm }) => {
   const [value, setValue] = useState(projectRole);

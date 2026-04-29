@@ -220,7 +220,6 @@ export default function RampScheduleTemplates() {
                     modalHeader="Delete Template"
                     confirmationText={`Delete "${tmpl.name}"? This cannot be undone.`}
                     cta="Delete"
-                    ctaColor="danger"
                   >
                     <IconButton
                       type="button"

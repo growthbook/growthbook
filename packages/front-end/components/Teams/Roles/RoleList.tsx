@@ -106,7 +106,6 @@ export default function RoleList() {
                           isDeactivated ? "Reactivate" : "Deactivate"
                         } ${r.id}`}
                         disabled={!canManageRoles || isOrgDefault}
-                        ctaColor="danger"
                         confirmationText={
                           <div>
                             {isDeactivated

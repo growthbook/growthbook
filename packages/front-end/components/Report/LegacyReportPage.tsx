@@ -51,6 +51,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
+import Text from "@/ui/Text";
 
 export default function LegacyReportPage({
   report,
@@ -195,11 +196,16 @@ export default function LegacyReportPage({
               setEditModalOpen(false);
             }}
             header="Edit Report"
-            overflowAuto={false}
           >
-            <Field label="Title" {...form.register("title")} />
+            <Field
+              label="Title"
+              labelClassName="font-weight-bold"
+              {...form.register("title")}
+            />
             <div className="form-group">
-              <label>Description</label>
+              <Text as="label" weight="semibold">
+                Description
+              </Text>
               <MarkdownInput
                 setValue={(value) => {
                   form.setValue("description", value);
