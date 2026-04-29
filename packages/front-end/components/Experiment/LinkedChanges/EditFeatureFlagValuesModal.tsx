@@ -9,7 +9,8 @@ import {
 import { ExperimentRefVariation } from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { validateFeatureValue, getReviewSetting } from "shared/util";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -23,7 +24,7 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
 import { decimalToPercent } from "@/services/utils";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 
 export interface Props {
   feature: FeatureInterface;
@@ -206,19 +207,30 @@ export default function EditFeatureFlagValuesModal({
                     Split
                   </Text>
                 </Flex>
-                <MoreMenu useRadix>
-                  <a
-                    href="#"
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
+                <DropdownMenu
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                      style={{ margin: 0 }}
+                    >
+                      <BsThreeDotsVertical size={18} />
+                    </IconButton>
+                  }
+                  menuPlacement="end"
+                  variant="soft"
+                >
+                  <DropdownMenuItem
+                    onClick={() => {
                       // setModalOpen(p);
                     }}
                   >
                     Edit
-                  </a>
-                </MoreMenu>
+                  </DropdownMenuItem>
+                </DropdownMenu>
               </Flex>
               <FeatureValueField
                 id={`variation-${v.id}`}
