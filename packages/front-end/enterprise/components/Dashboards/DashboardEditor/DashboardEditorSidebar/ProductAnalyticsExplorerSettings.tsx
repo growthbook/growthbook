@@ -62,6 +62,7 @@ export default function ProductAnalyticsExplorerSettings({
     <ExplorerProvider
       initialConfig={initialConfig}
       hasExistingResults={!!block.explorerAnalysisId}
+      trackingSource="dashboard-editor"
       onRunComplete={(exploration) => {
         setBlock({
           ...block,

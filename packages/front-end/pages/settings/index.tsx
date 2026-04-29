@@ -158,6 +158,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       banditBurnInValue: settings.banditBurnInValue ?? 1,
       banditBurnInUnit: settings.banditBurnInUnit ?? "days",
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
+      requireUniqueExperimentTrackingKeys:
+        settings.requireUniqueExperimentTrackingKeys ?? false,
       experimentMinLengthDays:
         settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
       experimentMaxLengthDays:

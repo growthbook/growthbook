@@ -203,11 +203,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
 
     // Add optional columns as dimensions
     if (optionalColumns.length > 0) {
-      {
-        optionalColumns.forEach((col) => {
-          form.setValue("dimensions", [...userEnteredDimensions, col]);
-        });
-      }
+      form.setValue("dimensions", [
+        ...userEnteredDimensions,
+        ...optionalColumns,
+      ]);
     }
   };
 

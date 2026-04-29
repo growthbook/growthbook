@@ -5,11 +5,12 @@ import {
   QueryResponse,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
-import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
+import { clickHouseDialect } from "./dialects/clickhouse";
 
 export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
@@ -31,8 +32,8 @@ export default class ClickHouse extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  getFormatDialect(): FormatDialect {
-    return "clickhouse";
+  getSqlDialect(): SqlDialect {
+    return clickHouseDialect;
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {
@@ -63,87 +64,6 @@ export default class ClickHouse extends SqlIntegration {
           }
         : undefined,
     };
-  }
-  toTimestamp(date: Date) {
-    return `toDateTime('${date
-      .toISOString()
-      .substr(0, 19)
-      .replace("T", " ")}', 'UTC')`;
-  }
-  getCurrentTimestamp(): string {
-    return `now()`;
-  }
-  addTime(
-    col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
-    amount: number,
-  ): string {
-    return `date${sign === "+" ? "Add" : "Sub"}(${unit}, ${amount}, ${col})`;
-  }
-  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
-    return `dateTrunc('${granularity}', ${col})`;
-  }
-  dateDiff(startCol: string, endCol: string) {
-    return `dateDiff('day', ${startCol}, ${endCol})`;
-  }
-  formatDate(col: string): string {
-    return `formatDateTime(${col}, '%F')`;
-  }
-  formatDateTimeString(col: string): string {
-    return `formatDateTime(${col}, '%Y-%m-%d %H:%i:%S.%f')`;
-  }
-  ifElse(condition: string, ifTrue: string, ifFalse: string) {
-    return `if(${condition}, ${ifTrue}, ${ifFalse})`;
-  }
-  castToDate(col: string): string {
-    const columType = col === "NULL" ? "Nullable(DATE)" : "DATE";
-    return `CAST(${col} AS ${columType})`;
-  }
-  castToString(col: string): string {
-    return `toString(${col})`;
-  }
-  ensureFloat(col: string): string {
-    return `toFloat64(${col})`;
-  }
-  hasCountDistinctHLL(): boolean {
-    return true;
-  }
-  hllAggregate(col: string): string {
-    return `uniqState(${col})`;
-  }
-  hllReaggregate(col: string): string {
-    return `uniqMergeState(${col})`;
-  }
-  hllCardinality(col: string): string {
-    return `finalizeAggregation(${col})`;
-  }
-  approxQuantile(value: string, quantile: string | number): string {
-    return `quantile(${quantile})(${value})`;
-    // TODO explore gains to using `quantiles`
-  }
-  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
-    if (isNumeric) {
-      return `
-if(
-  toTypeName(${jsonCol}) = 'JSON', 
-  toFloat64(${jsonCol}.${path}),
-  JSONExtractFloat(${jsonCol}, '${path}')
-)
-      `;
-    } else {
-      return `
-if(
-  toTypeName(${jsonCol}) = 'JSON',
-  ${jsonCol}.${path}.:String,
-  JSONExtractString(${jsonCol}, '${path}')
-)
-      `;
-    }
-  }
-  evalBoolean(col: string, value: boolean): string {
-    // Clickhouse does not support `IS TRUE` / `IS FALSE`
-    return `${col} = ${value ? "true" : "false"}`;
   }
 
   getInformationSchemaWhereClause(): string {
@@ -194,7 +114,7 @@ if(
     const res = await this.runQuery(`
 WITH _data as (
 	SELECT
-	  ${this.formatDateTimeString(roundedTimestamp)} as ts,
+	  ${this.getSqlDialect().formatDateTimeString(roundedTimestamp)} as ts,
     environment,
     value,
     source,
@@ -202,8 +122,8 @@ WITH _data as (
     variationId
   FROM feature_usage
 	WHERE
-	  timestamp > ${this.toTimestamp(start)}
-	  AND feature = '${this.escapeStringLiteral(feature)}'
+	  timestamp > ${this.getSqlDialect().toTimestamp(start)}
+	  AND feature = '${this.getSqlDialect().escapeStringLiteral(feature)}'
 )
   SELECT
     ts,

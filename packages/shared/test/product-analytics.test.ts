@@ -1,7 +1,7 @@
 import { generateProductAnalyticsSQL } from "shared/enterprise";
 import { format } from "shared/sql";
 import { ExplorationConfig } from "shared/validators";
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -13,7 +13,7 @@ describe("productAnalytics", () => {
     settings: {},
   };
 
-  const helpers: SqlHelpers = {
+  const helpers: SqlDialect = {
     escapeStringLiteral: (value) => value,
     jsonExtract: (jsonCol, path, isNumeric) =>
       `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
