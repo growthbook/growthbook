@@ -58,56 +58,14 @@ type TopValuesCTEBodyParams = {
 
 function getTopValuesCTEBody(
   dialect: SqlDialect,
-  params: TopValuesCTEBodyParams,
-): string {
-  if (dialect.unpivotLabeledPairs) {
-    return getEfficientTopValuesCTEBody(dialect, params);
-  }
-
-  const { columns, start, limit } = params;
-  // Naive approach: one subquery per column UNION ALL'd together. Each
-  // subquery re-scans __factTable, so this is only suitable for dialects
-  // where we haven't implemented a single-scan unpivot. The maxValueLength
-  // filter is not applied here — non-efficient datasources currently only
-  // fetch explicitly-opted-in columns, and the caller filters over-length
-  // values in TS as a safety net.
-  const columnQueries = columns.map((column, i) => {
-    return `
-  (${dialect.selectStarLimit(
-    `(
-      SELECT
-        ${dialect.castToString(`'${column.column}'`)} AS column_name,
-        ${dialect.castToString(column.column)} AS value,
-        COUNT(*) AS count
-      FROM __factTable
-      WHERE timestamp >= ${dialect.toTimestamp(start)}
-        AND ${column.column} IS NOT NULL
-      GROUP BY ${column.column}
-      ORDER BY count DESC
-    ) c${i}`,
-    limit,
-  )})`;
-  });
-  return columnQueries.join("\n    UNION ALL\n");
-}
-
-function getEfficientTopValuesCTEBody(
-  dialect: SqlDialect,
   { columns, start, limit, maxValueLength }: TopValuesCTEBodyParams,
 ): string {
-  const unpivot = dialect.unpivotLabeledPairs;
-  if (!unpivot) {
-    throw new Error(
-      "getEfficientTopValuesCTEBody requires dialect.unpivotLabeledPairs",
-    );
-  }
-
   const pairs = columns.map((c) => ({
     keyLiteral: c.column.replace(/'/g, "''"),
     valueSql: dialect.castToString(c.column),
   }));
 
-  const u = unpivot(pairs);
+  const u = dialect.unpivotLabeledPairs(pairs);
 
   const lengthFilter =
     maxValueLength !== undefined
@@ -123,21 +81,17 @@ function getEfficientTopValuesCTEBody(
         ${lengthFilter}
       GROUP BY ${u.keyExpr}, ${u.valueExpr}`;
 
-  return getTopNPerColumnQuery(aggQuery, limit);
-}
-
-// Wraps an aggregation query shaped like (column_name, value, count) and
-// returns the top `limit` values per column. Shared across all efficient
-// unpivot implementations so each dialect only has to produce the unpivot+
-// aggregation, not the ranking.
-function getTopNPerColumnQuery(aggQuery: string, limit: number): string {
+  // Wraps an aggregation query shaped like (column_name, value, count) and
+  // returns the top `limit` values per column. Shared across all efficient
+  // unpivot implementations so each dialect only has to produce the unpivot+
+  // aggregation, not the ranking.
   return `
-    SELECT column_name, value, count FROM (
-      SELECT column_name, value, count,
-        ROW_NUMBER() OVER (PARTITION BY column_name ORDER BY count DESC) AS row_num
-      FROM (
-        ${aggQuery}
-      ) __topValuesAgg
-    ) __topValuesRanked
-    WHERE row_num <= ${limit}`;
+  SELECT column_name, value, count FROM (
+    SELECT column_name, value, count,
+      ROW_NUMBER() OVER (PARTITION BY column_name ORDER BY count DESC) AS row_num
+    FROM (
+      ${aggQuery}
+    ) __topValuesAgg
+  ) __topValuesRanked
+  WHERE row_num <= ${limit}`;
 }

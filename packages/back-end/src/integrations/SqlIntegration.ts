@@ -1449,10 +1449,6 @@ export default abstract class SqlIntegration
     return getColumnsTopValuesQuery(this.getSqlDialect(), params);
   }
 
-  public supportsEfficientTopValues(): boolean {
-    return !!this.getSqlDialect().unpivotLabeledPairs;
-  }
-
   public async runColumnsTopValuesQuery(
     sql: string,
   ): Promise<ColumnTopValuesResponse> {

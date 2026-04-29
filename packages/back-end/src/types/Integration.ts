@@ -257,7 +257,6 @@ export interface SourceIntegrationInterface {
   ): Promise<PastExperimentQueryResponse>;
   runColumnsTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
   getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;
-  supportsEfficientTopValues?(): boolean;
   getEventsTrackedByDatasource?: (
     schemaFormat: AutoFactTableSchemas,
     schema?: string,

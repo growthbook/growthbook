@@ -44,12 +44,10 @@ export const TOP_VALUES_CHUNK_SIZE = 25;
 export function selectColumnsForTopValues({
   columns,
   userIdTypes,
-  supportsEfficient,
   maxColumns = MAX_COLUMNS_WITH_TOP_VALUES,
 }: {
   columns: ColumnInterface[];
   userIdTypes: string[];
-  supportsEfficient: boolean;
   maxColumns?: number;
 }): ColumnInterface[] {
   const factTableLike = { columns, userIdTypes };
@@ -64,10 +62,6 @@ export function selectColumnsForTopValues({
   const alwaysCaptured = eligible.filter(
     (c) => c.alwaysInlineFilter || c.isAutoSliceColumn,
   );
-
-  if (!supportsEfficient) {
-    return alwaysCaptured;
-  }
 
   const remainingSlots = Math.max(0, maxColumns - alwaysCaptured.length);
   const newlyCaptured = eligible
@@ -340,12 +334,9 @@ export async function runRefreshColumnsQuery(
     }
   }
 
-  const supportsEfficient = integration.supportsEfficientTopValues?.() ?? false;
-
   const columnsNeedingTopValues = selectColumnsForTopValues({
     columns,
     userIdTypes: factTable.userIdTypes,
-    supportsEfficient,
   });
 
   // Batch query for all columns that need top values. Efficient datasources

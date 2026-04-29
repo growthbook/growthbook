@@ -94,7 +94,7 @@ export interface SqlDialect {
     nEventsCol: string,
     numQuantiles: number,
   ) => string;
-  unpivotLabeledPairs?: (
+  unpivotLabeledPairs: (
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
   stringLength: (column: string) => string;
