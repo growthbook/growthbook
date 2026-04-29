@@ -18,6 +18,7 @@ import {
 } from "back-end/src/models/UserModel";
 import {
   getOrganizationById,
+  isEnterpriseSSO,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -112,6 +113,18 @@ export async function processJWT(
 ): Promise<void> {
   const parsedJWT = getInitialDataFromJWT(req.user);
   const { email, name, verified } = parsedJWT;
+
+  // Enterprise / self-hosted SSO ties access to email (including domain auto-join).
+  // Require a positive email_verified claim so a permissive or malicious IdP cannot
+  // assert arbitrary emails and match or join as an existing user.
+  if (usingOpenId() && isEnterpriseSSO(req.loginMethod) && !verified) {
+    res.status(403).json({
+      status: 403,
+      message:
+        "Your identity provider did not confirm this email address (email_verified). Use a verified account or ask your admin to fix IdP configuration.",
+    });
+    return;
+  }
 
   req.authSubject = parsedJWT.sub || "";
   req.email = email || "";
