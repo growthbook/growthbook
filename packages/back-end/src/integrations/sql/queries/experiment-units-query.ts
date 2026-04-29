@@ -1,4 +1,4 @@
-import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
+import { getDelayWindowHours } from "shared/experiments";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -29,6 +29,7 @@ export function getExperimentUnitsQuery(
     segment,
     activationMetric: activationMetricDoc,
     factTableMap,
+    identityPlan,
   } = params;
 
   const activationMetric = processActivationMetric(
@@ -51,19 +52,10 @@ export function getExperimentUnitsQuery(
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
-    {
-      objects: [
-        [exposureQuery.userIdType],
-        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-        segment ? [segment.userIdType || "user_id"] : [],
-      ],
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId,
-      identityPlan: params.identityPlan,
-    },
+    identityPlan,
+    settings.startDate,
+    settings.endDate,
+    settings.experimentId,
   );
 
   const startDate: Date = settings.startDate;

@@ -714,7 +714,8 @@ describe("identity plan threading", () => {
             },
             {
               ids: ["device_id", "user_id"],
-              query: "SELECT device_id, user_id FROM identity_table_device_user",
+              query:
+                "SELECT device_id, user_id FROM identity_table_device_user",
             },
           ],
         },

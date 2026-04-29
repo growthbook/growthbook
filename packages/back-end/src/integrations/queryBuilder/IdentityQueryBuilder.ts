@@ -1,7 +1,4 @@
-import {
-  ExperimentMetricInterface,
-  getUserIdTypes,
-} from "shared/experiments";
+import { ExperimentMetricInterface, getUserIdTypes } from "shared/experiments";
 import { MetricInterface } from "shared/types/metric";
 import { Dimension } from "shared/types/integrations";
 import { SegmentInterface } from "shared/types/segment";
@@ -25,11 +22,13 @@ export type IdentityQueryBuilderArgs = {
 export class IdentityQueryBuilder {
   constructor(private readonly args: IdentityQueryBuilderArgs) {}
 
-  buildForAnalysis(args: {
-    metrics?: ExperimentMetricInterface[];
-    denominatorMetrics?: MetricInterface[];
-    dimensions?: Dimension[];
-  } = {}): IdentityPlan {
+  buildForAnalysis(
+    args: {
+      metrics?: ExperimentMetricInterface[];
+      denominatorMetrics?: MetricInterface[];
+      dimensions?: Dimension[];
+    } = {},
+  ): IdentityPlan {
     const dimensions = args.dimensions ?? this.args.unitDimensions ?? [];
     const objects: string[][] = [[this.args.exposureQuery.userIdType]];
     const preferredIdTypes = new Set<string>();

@@ -301,8 +301,8 @@ interface ExperimentBaseQueryParams {
   factTableMap: FactTableMap;
   dimensions: Dimension[];
   segment: SegmentInterface | null;
+  identityPlan: IdentityPlan;
   unitsTableFullName?: string;
-  identityPlan?: IdentityPlan;
 }
 
 export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
@@ -315,6 +315,7 @@ export interface CreateExperimentIncrementalUnitsQueryParams {
   dimensions: Dimension[];
   factTableMap: FactTableMap;
   unitsTableFullName: string;
+  identityPlan: IdentityPlan;
 }
 
 export interface UpdateExperimentIncrementalUnitsQueryParams
@@ -359,6 +360,7 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  identityPlan: IdentityPlan;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {
@@ -379,6 +381,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  identityPlan: IdentityPlan;
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {
@@ -392,6 +395,7 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  identityPlan: IdentityPlan;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";

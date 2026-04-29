@@ -4,6 +4,7 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getUserIdTypes,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -53,7 +54,6 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import { IdentityQueryBuilder } from "back-end/src/integrations/queryBuilder/IdentityQueryBuilder";
 import { updateReport } from "back-end/src/models/ReportModel";
 import {
   QueryRunner,
@@ -62,6 +62,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { createIdentityPlanBuilder } from "./buildIdentityPlan";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -172,58 +173,35 @@ export const startExperimentResultQueries = async (
         eligibleDimensionsWithSlices: [],
       };
 
+  const availableIdJoins =
+    integration.datasource.settings?.queries?.identityJoins;
+  const exposureBaseIdType = exposureQuery?.userIdType || "user_id";
+  const unitDimensions = snapshotDimensions.length
+    ? snapshotDimensions
+    : dimensionsForTraffic;
+  const buildRunnerIdentityPlan = createIdentityPlanBuilder({
+    exposureBaseIdType,
+    availableIdJoins,
+    activationIdTypes: activationMetric
+      ? getUserIdTypes(activationMetric, params.factTableMap)
+      : [],
+    segmentUserIdType: segmentObj
+      ? segmentObj.userIdType || "user_id"
+      : undefined,
+    forcedBaseIdType: exposureBaseIdType,
+  });
+
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: snapshotDimensions.length
-      ? snapshotDimensions
-      : dimensionsForTraffic,
+    dimensions: unitDimensions,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
     includeIdJoins: true,
     factTableMap: params.factTableMap,
-  };
-
-  const sqlIntegration =
-    integration instanceof SqlIntegration ? integration : null;
-  const identityBuilder =
-    sqlIntegration && exposureQuery
-      ? new IdentityQueryBuilder({
-          identityJoins: integration.datasource.settings?.queries?.identityJoins,
-          factTableMap: params.factTableMap,
-          exposureQuery,
-          activationMetric,
-          segment: segmentObj,
-          unitDimensions: unitQueryParams.dimensions,
-          forcedBaseIdType: exposureQuery.userIdType,
-        })
-      : null;
-
-  const buildQueryWithIdentityPlan = ({
-    build,
-    metrics = [],
-    denominatorMetrics = [],
-    dimensions,
-  }: {
-    build: () => string;
-    metrics?: ExperimentMetricInterface[];
-    denominatorMetrics?: MetricInterface[];
-    dimensions?: Dimension[];
-  }): string => {
-    if (!sqlIntegration || !identityBuilder) {
-      return build();
-    }
-    const plan = identityBuilder.buildForAnalysis({
-      metrics,
-      denominatorMetrics,
-      dimensions: dimensions || unitQueryParams.dimensions,
-    });
-    sqlIntegration.setIdentityPlan(plan);
-    try {
-      return build();
-    } finally {
-      sqlIntegration.clearIdentityPlan();
-    }
+    identityPlan: buildRunnerIdentityPlan({
+      unitDimensions,
+    }),
   };
 
   if (useUnitsTable) {
@@ -235,10 +213,7 @@ export const startExperimentResultQueries = async (
     }
     unitQuery = await startQuery({
       name: queryParentId,
-      query: buildQueryWithIdentityPlan({
-        build: () => integration.getExperimentUnitsTableQuery(unitQueryParams),
-        dimensions: unitQueryParams.dimensions,
-      }),
+      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
       run: (query, setExternalId, queryMetadata) =>
         integration.runExperimentUnitsQuery(
@@ -274,27 +249,36 @@ export const startExperimentResultQueries = async (
     // regardless of how many dimensions are requested
     const runOverallQuantileAnalysis =
       snapshotType === "standard" && quantileMetricType(m);
+    const analysisDimensions = runOverallQuantileAnalysis
+      ? []
+      : snapshotDimensions;
 
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
+      dimensions: analysisDimensions,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
+      identityPlan: buildRunnerIdentityPlan({
+        metricObjects: [
+          getUserIdTypes(m, params.factTableMap),
+          ...denominatorMetrics.map((dm) =>
+            getUserIdTypes(dm, params.factTableMap, true),
+          ),
+        ],
+        unitDimensions: unitQuery ? [] : analysisDimensions,
+        includeActivation: !unitQuery,
+        includeSegment: !unitQuery,
+      }),
     };
     queries.push(
       await startQuery({
         name: m.id,
-        query: buildQueryWithIdentityPlan({
-          build: () => integration.getExperimentMetricQuery(queryParams),
-          metrics: [m],
-          denominatorMetrics,
-          dimensions: queryParams.dimensions,
-        }),
+        query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
           integration.runExperimentMetricQuery(
@@ -312,16 +296,27 @@ export const startExperimentResultQueries = async (
     // regardless of how many dimensions are requested
     const runOverallQuantileAnalysis =
       snapshotType === "standard" && m.some(quantileMetricType);
+    const analysisDimensions = runOverallQuantileAnalysis
+      ? []
+      : snapshotDimensions;
 
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
+      dimensions: analysisDimensions,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
+      identityPlan: buildRunnerIdentityPlan({
+        metricObjects: m.map((metric) =>
+          getUserIdTypes(metric, params.factTableMap),
+        ),
+        unitDimensions: unitQuery ? [] : analysisDimensions,
+        includeActivation: !unitQuery,
+        includeSegment: !unitQuery,
+      }),
     };
 
     if (
@@ -334,11 +329,7 @@ export const startExperimentResultQueries = async (
     queries.push(
       await startQuery({
         name: `group_${i}`,
-        query: buildQueryWithIdentityPlan({
-          build: () => integration.getExperimentFactMetricsQuery!(queryParams),
-          metrics: m,
-          dimensions: queryParams.dimensions,
-        }),
+        query: integration.getExperimentFactMetricsQuery!(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
@@ -373,14 +364,14 @@ export const startExperimentResultQueries = async (
       : dimensionsForTraffic;
     trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
-      query: buildQueryWithIdentityPlan({
-        build: () =>
-          integration.getExperimentAggregateUnitsQuery({
-            ...unitQueryParams,
-            dimensions: trafficDimensions,
-            useUnitsTable: !!unitQuery,
-          }),
+      query: integration.getExperimentAggregateUnitsQuery({
+        ...unitQueryParams,
         dimensions: trafficDimensions,
+        useUnitsTable: !!unitQuery,
+        identityPlan: buildRunnerIdentityPlan({
+          includeActivation: !unitQuery,
+          includeSegment: !unitQuery,
+        }),
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
       run: (query, setExternalId, queryMetadata) =>

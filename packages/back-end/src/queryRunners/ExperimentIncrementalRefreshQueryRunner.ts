@@ -1,6 +1,7 @@
 import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
+  getUserIdTypes,
   isFactMetric,
   isRegressionAdjusted,
   quantileMetricType,
@@ -61,6 +62,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { createIdentityPlanBuilder } from "./buildIdentityPlan";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
@@ -325,6 +327,19 @@ const startExperimentIncrementalRefreshQueries = async (
   if (!exposureQuery) {
     throw new Error("Exposure query not found");
   }
+  const availableIdJoins =
+    integration.datasource.settings?.queries?.identityJoins;
+  const buildRunnerIdentityPlan = createIdentityPlanBuilder({
+    exposureBaseIdType: exposureQuery.userIdType,
+    availableIdJoins,
+    activationIdTypes: activationMetric
+      ? getUserIdTypes(activationMetric, params.factTableMap)
+      : [],
+    segmentUserIdType: segmentObj
+      ? segmentObj.userIdType || "user_id"
+      : undefined,
+    forcedBaseIdType: exposureQuery.userIdType,
+  });
 
   const {
     eligibleDimensions,
@@ -348,6 +363,9 @@ const startExperimentIncrementalRefreshQueries = async (
     incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
     lastMaxTimestamp: lastMaxTimestamp || null,
+    identityPlan: buildRunnerIdentityPlan({
+      unitDimensions: eligibleDimensions,
+    }),
   };
 
   let createUnitsTableQuery: QueryPointer | null = null;
@@ -578,6 +596,14 @@ const startExperimentIncrementalRefreshQueries = async (
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
       lastMaxTimestamp: existingSource?.maxTimestamp || null,
+      identityPlan: buildRunnerIdentityPlan({
+        metricObjects: [
+          params.factTableMap.get(group.metrics[0].numerator?.factTableId)
+            ?.userIdTypes || [],
+        ],
+        includeActivation: false,
+        includeSegment: false,
+      }),
     };
 
     const insertMetricsSourceDataQuery = await startQuery({
@@ -822,6 +848,11 @@ const startExperimentIncrementalRefreshQueries = async (
         dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
         metricSourceCovariateTableFullName,
+        identityPlan: buildRunnerIdentityPlan({
+          unitDimensions: [],
+          includeActivation: false,
+          includeSegment: false,
+        }),
       }),
       dependencies: [
         insertMetricsSourceDataQuery.query,
@@ -852,6 +883,10 @@ const startExperimentIncrementalRefreshQueries = async (
         ...unitQueryParams,
         dimensions: eligibleDimensionsWithSlices,
         useUnitsTable: true,
+        identityPlan: buildRunnerIdentityPlan({
+          includeActivation: false,
+          includeSegment: false,
+        }),
       }),
       dependencies: [alterUnitsTableQuery.query],
       run: (query, setExternalId, queryMetadata) =>

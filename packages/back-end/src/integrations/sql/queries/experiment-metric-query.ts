@@ -1,7 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import {
   eligibleForUncappedMetric,
-  getUserIdTypes,
   isFunnelMetric,
   isPercentileCappedMetric,
   isRatioMetric,
@@ -24,7 +23,6 @@ import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFunnelUsersCTE } from "back-end/src/integrations/sql/ctes/funnel-users-cte";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
@@ -45,7 +43,7 @@ export function getExperimentMetricQuery(
     denominatorMetrics: denominatorMetricsDocs,
     activationMetric: activationMetricDoc,
     settings,
-    segment,
+    identityPlan,
   } = params;
 
   const factTableMap = params.factTableMap;
@@ -64,15 +62,7 @@ export function getExperimentMetricQuery(
   denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
 
   // Replace any placeholders in the user defined dimension SQL
-  const { unitDimensions } = processDimensions(
-    params.dimensions,
-    settings,
-    activationMetric,
-  );
-
-  const userIdType =
-    params.forcedUserIdType ??
-    getExposureQuery(datasource, settings.exposureQueryId || "").userIdType;
+  processDimensions(params.dimensions, settings, activationMetric);
 
   const denominator =
     denominatorMetrics.length > 0
@@ -196,32 +186,13 @@ export function getExperimentMetricQuery(
     overrideConversionWindows,
   );
 
-  // Get any required identity join queries
-  const idTypeObjects = [
-    [userIdType],
-    getUserIdTypes(metric, factTableMap),
-    ...denominatorMetrics.map((m) => getUserIdTypes(m, factTableMap, true)),
-  ];
-  // add idTypes usually handled in units query here in the case where
-  // we don't have a separate table for the units query
-  if (params.unitsSource === "exposureQuery") {
-    idTypeObjects.push(
-      ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-      segment ? [segment.userIdType || "user_id"] : [],
-      activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-    );
-  }
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
-    {
-      objects: idTypeObjects,
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: userIdType,
-      experimentId: settings.experimentId,
-      identityPlan: params.identityPlan,
-    },
+    identityPlan,
+    settings.startDate,
+    settings.endDate,
+    settings.experimentId,
   );
 
   // Get date range for experiment and analysis

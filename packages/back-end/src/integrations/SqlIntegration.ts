@@ -239,14 +239,6 @@ export default abstract class SqlIntegration
     this.additionalMetadata = additionalQueryMetadata;
   }
 
-  setIdentityPlan(plan: IdentityPlan) {
-    this.identityPlan = plan;
-  }
-
-  clearIdentityPlan() {
-    this.identityPlan = undefined;
-  }
-
   getSourceProperties(): DataSourceProperties {
     return {
       queryLanguage: "sql",
@@ -846,10 +838,7 @@ export default abstract class SqlIntegration
     return buildExperimentUnitsQuerySql(
       this.getSqlDialect(),
       this.datasource,
-      {
-        ...params,
-        identityPlan: this.identityPlan,
-      },
+      params,
     );
   }
   getBanditVariationPeriodWeights(
@@ -865,10 +854,7 @@ export default abstract class SqlIntegration
     return getExperimentAggregateUnitsQueryFromSql(
       this.getSqlDialect(),
       this.datasource,
-      {
-        ...params,
-        identityPlan: this.identityPlan,
-      },
+      params,
     );
   }
 
@@ -976,10 +962,7 @@ export default abstract class SqlIntegration
     return getExperimentFactMetricsQueryFromSql(
       this.getSqlDialect(),
       this.datasource,
-      {
-        ...params,
-        identityPlan: this.identityPlan,
-      },
+      params,
     );
   }
 
@@ -987,10 +970,7 @@ export default abstract class SqlIntegration
     return buildExperimentMetricQuerySql(
       this.getSqlDialect(),
       this.datasource,
-      {
-        ...params,
-        identityPlan: this.identityPlan,
-      },
+      params,
     );
   }
 
@@ -1581,18 +1561,10 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
-      {
-        objects: [
-          [exposureQuery.userIdType],
-          // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-          segment ? [segment.userIdType || "user_id"] : [],
-        ],
-        from: settings.startDate,
-        to: settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
-        experimentId: settings.experimentId,
-        identityPlan: this.identityPlan,
-      },
+      params.identityPlan,
+      settings.startDate,
+      settings.endDate,
+      settings.experimentId,
     );
 
     // TODO(incremental-refresh): activation metric
@@ -1859,12 +1831,6 @@ export default abstract class SqlIntegration
   getInsertMetricSourceCovariateDataQuery(
     params: InsertMetricSourceCovariateDataQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
     // sort metrics and add indices for tracking across sub-queries
     const sortedMetrics = cloneDeep(params.metrics)
       .map((m) => ({
@@ -1907,19 +1873,10 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
-      {
-        objects: [
-          [exposureQuery.userIdType],
-          factTableWithMetricData.factTable?.userIdTypes || [],
-        ],
-        // TODO(incremental-refresh): this gets all identities from history
-        // of experiment, which we think is right, but could be improved
-        from: params.settings.startDate,
-        to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
-        experimentId: params.settings.experimentId,
-        identityPlan: this.identityPlan,
-      },
+      params.identityPlan,
+      params.settings.startDate,
+      params.settings.endDate,
+      params.settings.experimentId,
     );
 
     const columnNames = this.getMetricSourceCovariateTableColumns(
@@ -2156,12 +2113,6 @@ export default abstract class SqlIntegration
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
     const factTableMap = params.factTableMap;
     const factTable = factTableMap.get(
       params.metrics[0].numerator?.factTableId,
@@ -2173,16 +2124,10 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
-      {
-        objects: [[exposureQuery.userIdType], factTable?.userIdTypes || []],
-        // TODO(incremental-refresh): this gets all identities from history
-        // of experiment, which we think is right, but could be improved
-        from: params.settings.startDate,
-        to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
-        experimentId: params.settings.experimentId,
-        identityPlan: this.identityPlan,
-      },
+      params.identityPlan,
+      params.settings.startDate,
+      params.settings.endDate,
+      params.settings.experimentId,
     );
 
     const sortedMetrics = params.metrics.sort((a, b) =>
@@ -2352,12 +2297,6 @@ export default abstract class SqlIntegration
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
     const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
       this.getSqlDialect(),
       {
@@ -2395,22 +2334,13 @@ export default abstract class SqlIntegration
         params.activationMetric,
       );
 
-    const idTypeObjects = [
-      [exposureQuery.userIdType],
-      ...unitDimensions.map((d) => [d.dimension.userIdType]),
-    ];
-
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
-      {
-        objects: idTypeObjects,
-        from: params.settings.startDate,
-        to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
-        experimentId: params.settings.experimentId,
-        identityPlan: this.identityPlan,
-      },
+      params.identityPlan,
+      params.settings.startDate,
+      params.settings.endDate,
+      params.settings.experimentId,
     );
 
     const unitDimensionCols = unitDimensions.map((d) => ({
