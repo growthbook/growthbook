@@ -1,7 +1,6 @@
 import type { DataType } from "shared/types/integrations";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
-import { getTopNPerColumnQuery } from "back-end/src/integrations/sql/queries/top-n-per-column";
 import { baseDialect } from "./base";
 
 export const bigQueryDialect: SqlDialect = {
@@ -91,32 +90,19 @@ export const bigQueryDialect: SqlDialect = {
       metricTable,
       where,
     ),
-  supportsEfficientTopValues: true,
-  getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
-    // Unpivot via UNNEST over an array of STRUCTs, so the fact table is
-    // scanned once regardless of how many columns we're sampling.
-    const structs = columns
+  unpivotLabeledPairs: (pairs) => {
+    const structs = pairs
       .map(
-        (c) =>
-          `STRUCT('${c.column}' AS column_name, ${dialect.castToString(
-            c.column,
-          )} AS value)`,
+        (p) =>
+          `STRUCT('${p.keyLiteral}' AS column_name, ${p.valueSql} AS value)`,
       )
-      .join(",\n        ");
-    const lengthFilter =
-      maxValueLength !== undefined
-        ? `AND ${dialect.stringLength("col.value")} <= ${maxValueLength}`
-        : "";
-    const aggQuery = `
-      SELECT col.column_name, col.value, COUNT(*) AS count
-      FROM __factTable
-      CROSS JOIN UNNEST([
-        ${structs}
-      ]) AS col
-      WHERE timestamp >= ${dialect.toTimestamp(start)}
-        AND col.value IS NOT NULL
-        ${lengthFilter}
-      GROUP BY col.column_name, col.value`;
-    return getTopNPerColumnQuery(aggQuery, limit);
+      .join(", ");
+    return {
+      fromContinuation: `CROSS JOIN UNNEST([${structs}]) AS col`,
+      keyExpr: "col.column_name",
+      valueExpr: "col.value",
+      valuePredicateExpr: "col.value",
+      groupByClause: "col.column_name, col.value",
+    };
   },
 };

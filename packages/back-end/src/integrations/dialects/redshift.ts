@@ -42,4 +42,20 @@ export const redshiftDialect: SqlDialect = {
           })
           .join(",\n        ")}
       `,
+
+  // Single-scan unpivot (Redshift 1.0.14631+ LATERAL + VALUES, PostgreSQL-style).
+  unpivotLabeledPairs: (pairs) => {
+    const valueRows = pairs
+      .map((p) => `('${p.keyLiteral}', ${p.valueSql})`)
+      .join(", ");
+    return {
+      fromContinuation: `CROSS JOIN LATERAL (
+        VALUES ${valueRows}
+      ) AS __col(column_name, value)`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+      valuePredicateExpr: "__col.value",
+      groupByClause: "__col.column_name, __col.value",
+    };
+  },
 };

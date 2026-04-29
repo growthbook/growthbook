@@ -1,7 +1,6 @@
 import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
-import { getTopNPerColumnQuery } from "back-end/src/integrations/sql/queries/top-n-per-column";
 import { baseDialect } from "./base";
 
 export const databricksDialect: SqlDialect = {
@@ -61,28 +60,18 @@ export const databricksDialect: SqlDialect = {
       where,
     ),
 
-  supportsEfficientTopValues: true,
-  getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
-    // Unpivot via LATERAL VIEW STACK so the fact table is scanned once
-    // regardless of how many columns we're sampling. STACK(N, ...) splits
-    // N pairs of (name, value) into N rows.
-    const pairs = columns
-      .map((c) => `'${c.column}', ${dialect.castToString(c.column)}`)
-      .join(",\n        ");
-    const lengthFilter =
-      maxValueLength !== undefined
-        ? `AND ${dialect.stringLength("value")} <= ${maxValueLength}`
-        : "";
-    const aggQuery = `
-      SELECT column_name, value, COUNT(*) AS count
-      FROM __factTable
-      LATERAL VIEW STACK(${columns.length},
-        ${pairs}
-      ) __col AS column_name, value
-      WHERE timestamp >= ${dialect.toTimestamp(start)}
-        AND value IS NOT NULL
-        ${lengthFilter}
-      GROUP BY column_name, value`;
-    return getTopNPerColumnQuery(aggQuery, limit);
+  unpivotLabeledPairs: (pairs) => {
+    const stackPairs = pairs
+      .map((p) => `'${p.keyLiteral}', ${p.valueSql}`)
+      .join(", ");
+    return {
+      fromContinuation: `LATERAL VIEW STACK(${pairs.length},
+        ${stackPairs}
+      ) __col AS column_name, value`,
+      keyExpr: "column_name",
+      valueExpr: "value",
+      valuePredicateExpr: "value",
+      groupByClause: "column_name, value",
+    };
   },
 };

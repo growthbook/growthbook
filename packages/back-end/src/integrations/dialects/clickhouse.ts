@@ -1,6 +1,5 @@
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
-import { getTopNPerColumnQuery } from "back-end/src/integrations/sql/queries/top-n-per-column";
 import { baseDialect } from "./base";
 
 export const clickHouseDialect: SqlDialect = {
@@ -66,30 +65,18 @@ if(
       metricTable,
       where,
     ),
-  supportsEfficientTopValues: true,
-  getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
-    // ARRAY JOIN with two parallel arrays zips them element-wise, so the
-    // fact table is scanned once and we get one output row per (input row,
-    // column) pair.
-    const namesArr = columns.map((c) => `'${c.column}'`).join(", ");
-    const valsArr = columns
-      .map((c) => dialect.castToString(c.column))
-      .join(", ");
-    const lengthFilter =
-      maxValueLength !== undefined
-        ? `AND ${dialect.stringLength("value")} <= ${maxValueLength}`
-        : "";
-    const aggQuery = `
-      SELECT column_name, value, COUNT(*) AS count
-      FROM __factTable
-      ARRAY JOIN
+  unpivotLabeledPairs: (pairs) => {
+    const namesArr = pairs.map((p) => `'${p.keyLiteral}'`).join(", ");
+    const valsArr = pairs.map((p) => p.valueSql).join(", ");
+    return {
+      fromContinuation: `ARRAY JOIN
         [${namesArr}] AS column_name,
-        [${valsArr}] AS value
-      WHERE timestamp >= ${dialect.toTimestamp(start)}
-        AND value IS NOT NULL
-        ${lengthFilter}
-      GROUP BY column_name, value`;
-    return getTopNPerColumnQuery(aggQuery, limit);
+        [${valsArr}] AS value`,
+      keyExpr: "column_name",
+      valueExpr: "value",
+      valuePredicateExpr: "value",
+      groupByClause: "column_name, value",
+    };
   },
 
   // ClickHouse's LENGTH returns bytes (not characters); that's stricter

@@ -1450,7 +1450,7 @@ export default abstract class SqlIntegration
   }
 
   public supportsEfficientTopValues(): boolean {
-    return this.getSqlDialect().supportsEfficientTopValues;
+    return !!this.getSqlDialect().unpivotLabeledPairs;
   }
 
   public async runColumnsTopValuesQuery(

@@ -1,6 +1,5 @@
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
-import { getTopNPerColumnQuery } from "back-end/src/integrations/sql/queries/top-n-per-column";
 import { baseDialect } from "./base";
 
 export const prestoDialect: SqlDialect = {
@@ -29,28 +28,19 @@ export const prestoDialect: SqlDialect = {
   hllCardinality: (col: string) => `CARDINALITY(${col})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(prestoDialect, values, metricTable, where),
-  supportsEfficientTopValues: true,
-  getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
-    // Unpivot via CROSS JOIN UNNEST over an array of ROWs, so the fact
-    // table is scanned once regardless of how many columns we're sampling.
-    const rows = columns
-      .map((c) => `ROW('${c.column}', ${dialect.castToString(c.column)})`)
-      .join(",\n        ");
-    const lengthFilter =
-      maxValueLength !== undefined
-        ? `AND ${dialect.stringLength("__col.value")} <= ${maxValueLength}`
-        : "";
-    const aggQuery = `
-      SELECT __col.column_name, __col.value, COUNT(*) AS count
-      FROM __factTable
-      CROSS JOIN UNNEST(ARRAY[
+
+  unpivotLabeledPairs: (pairs) => {
+    const rows = pairs
+      .map((p) => `ROW('${p.keyLiteral}', ${p.valueSql})`)
+      .join(", ");
+    return {
+      fromContinuation: `CROSS JOIN UNNEST(ARRAY[
         ${rows}
-      ]) AS __col(column_name, value)
-      WHERE timestamp >= ${dialect.toTimestamp(start)}
-        AND __col.value IS NOT NULL
-        ${lengthFilter}
-      GROUP BY __col.column_name, __col.value`;
-    return getTopNPerColumnQuery(aggQuery, limit);
+      ]) AS __col(column_name, value)`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+      valuePredicateExpr: "__col.value",
+      groupByClause: "__col.column_name, __col.value",
+    };
   },
-  stringLength: (column: string) => `LENGTH(${column})`,
 };

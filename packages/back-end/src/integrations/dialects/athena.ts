@@ -28,4 +28,20 @@ export const athenaDialect: SqlDialect = {
   hllCardinality: (col: string) => `CARDINALITY(${col})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(athenaDialect, values, metricTable, where),
+
+  // Amazon Athena 3 (Trino engine) — same unpivot pattern as Presto.
+  unpivotLabeledPairs: (pairs) => {
+    const rows = pairs
+      .map((p) => `ROW('${p.keyLiteral}', ${p.valueSql})`)
+      .join(", ");
+    return {
+      fromContinuation: `CROSS JOIN UNNEST(ARRAY[
+        ${rows}
+      ]) AS __col(column_name, value)`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+      valuePredicateExpr: "__col.value",
+      groupByClause: "__col.column_name, __col.value",
+    };
+  },
 };

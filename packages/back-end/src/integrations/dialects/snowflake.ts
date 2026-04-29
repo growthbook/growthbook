@@ -1,7 +1,6 @@
 import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
-import { getTopNPerColumnQuery } from "back-end/src/integrations/sql/queries/top-n-per-column";
 import { baseDialect } from "./base";
 
 export const snowflakeDialect: SqlDialect = {
@@ -52,35 +51,19 @@ export const snowflakeDialect: SqlDialect = {
       where,
     ),
 
-  supportsEfficientTopValues: true,
-  getTopValuesCTEBody: (dialect, { columns, start, limit, maxValueLength }) => {
-    // Unpivot via LATERAL FLATTEN over an array of OBJECTs so the fact table
-    // is scanned once regardless of how many columns we're sampling.
-    const objects = columns
+  unpivotLabeledPairs: (pairs) => {
+    const objects = pairs
       .map(
-        (c) =>
-          `OBJECT_CONSTRUCT('column_name', '${c.column}', 'value', ${dialect.castToString(
-            c.column,
-          )})`,
+        (p) =>
+          `OBJECT_CONSTRUCT('column_name', '${p.keyLiteral}', 'value', ${p.valueSql})`,
       )
-      .join(",\n        ");
-    const lengthFilter =
-      maxValueLength !== undefined
-        ? `AND ${dialect.stringLength("__col.value:value::VARCHAR")} <= ${maxValueLength}`
-        : "";
-    const aggQuery = `
-      SELECT
-        __col.value:column_name::VARCHAR AS column_name,
-        __col.value:value::VARCHAR AS value,
-        COUNT(*) AS count
-      FROM __factTable,
-      LATERAL FLATTEN(input => ARRAY_CONSTRUCT(
-        ${objects}
-      )) __col
-      WHERE timestamp >= ${dialect.toTimestamp(start)}
-        AND __col.value:value::VARCHAR IS NOT NULL
-        ${lengthFilter}
-      GROUP BY column_name, value`;
-    return getTopNPerColumnQuery(aggQuery, limit);
+      .join(", ");
+    return {
+      fromContinuation: `,\n LATERAL FLATTEN(input => ARRAY_CONSTRUCT(${objects})) __col`,
+      keyExpr: "__col.value:column_name::VARCHAR",
+      valueExpr: "__col.value:value::VARCHAR",
+      valuePredicateExpr: "__col.value:value::VARCHAR",
+      groupByClause: "column_name, value",
+    };
   },
 };

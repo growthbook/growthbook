@@ -136,32 +136,5 @@ export const baseDialect: SqlDialect = {
     );
   },
 
-  supportsEfficientTopValues: false,
-  getTopValuesCTEBody: (dialect, { columns, start, limit }) => {
-    // Naive approach: one subquery per column UNION ALL'd together. Each
-    // subquery re-scans __factTable, so this is only suitable for dialects
-    // where we haven't implemented a single-scan unpivot. The maxValueLength
-    // filter is not applied here — non-efficient datasources currently only
-    // fetch explicitly-opted-in columns, and the caller filters over-length
-    // values in TS as a safety net.
-    const columnQueries = columns.map((column, i) => {
-      return `
-    (${dialect.selectStarLimit(
-      `(
-        SELECT
-          ${dialect.castToString(`'${column.column}'`)} AS column_name,
-          ${dialect.castToString(column.column)} AS value,
-          COUNT(*) AS count
-        FROM __factTable
-        WHERE timestamp >= ${dialect.toTimestamp(start)}
-          AND ${column.column} IS NOT NULL
-        GROUP BY ${column.column}
-        ORDER BY count DESC
-      ) c${i}`,
-      limit,
-    )})`;
-    });
-    return columnQueries.join("\n    UNION ALL\n");
-  },
   stringLength: (column: string) => `LENGTH(${column})`,
 };
