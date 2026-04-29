@@ -4,7 +4,7 @@ import { PiCaretDown } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { dateNoYear } from "shared/dates";
+import { date } from "shared/dates";
 import Text from "@/ui/Text";
 import RevisionLabel, {
   revisionLabelText,
@@ -15,9 +15,9 @@ import RevisionStatusBadge, {
 import {
   DropdownMenu,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
-import EventUser from "@/components/Avatar/EventUser";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 export type DraftMode = "existing" | "new" | "publish";
@@ -101,15 +101,7 @@ export default function DraftSelectorDropdown({
 
   const triggerLabel: React.ReactNode = (() => {
     if (currentOption === "publish") {
-      return isBypass ? (
-        <Text color="text-high">
-          <span style={{ color: "var(--red-11)" }}>
-            Apply now (bypass approval)
-          </span>
-        </Text>
-      ) : (
-        "Apply now"
-      );
+      return isBypass ? "Apply now (bypass approval)" : "Apply now";
     }
     if (currentOption === "this") {
       return "Save to this revision";
@@ -122,9 +114,7 @@ export default function DraftSelectorDropdown({
             !!selectedExistingRevision.title,
           )
         : null;
-      return revLabel
-        ? `Save to existing draft: ${revLabel}`
-        : "Save to existing draft";
+      return revLabel ? revLabel : "Save to existing draft";
     }
     return "Save to new draft";
   })();
@@ -228,15 +218,17 @@ export default function DraftSelectorDropdown({
         )}
 
         {showApplyNow && (
-          <DropdownMenuItem
-            className={
-              currentOption === "publish" ? "selected-item" : undefined
-            }
-            color={isBypass ? "red" : undefined}
-            onClick={handlePickPublish}
-          >
-            {isBypass ? "Apply now (bypass approval)" : "Apply now"}
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className={
+                currentOption === "publish" ? "selected-item" : undefined
+              }
+              onClick={handlePickPublish}
+            >
+              {isBypass ? "Apply now (bypass approval)" : "Apply now"}
+            </DropdownMenuItem>
+          </>
         )}
 
         {showThisRevision && (
@@ -261,7 +253,7 @@ function DraftRow({
 }) {
   const revDate = r.status === "published" ? r.datePublished : r.dateUpdated;
   return (
-    <Flex align="center" justify="between" gap="3" style={{ width: "100%" }}>
+    <Flex align="center" justify="between" gap="3" style={{ width: "452px" }}>
       <Box style={{ flex: 1, minWidth: 0 }}>
         <Text weight="semibold">
           <span
@@ -274,7 +266,11 @@ function DraftRow({
             }}
             title={revisionLabelText(r.version, r.title)}
           >
-            <RevisionLabel version={r.version} title={r.title} />
+            <RevisionLabel
+              version={r.version}
+              title={r.title}
+              numbered={false}
+            />
           </span>
         </Text>
       </Box>
@@ -283,15 +279,9 @@ function DraftRow({
         overflow="hidden"
         style={{ textOverflow: "ellipsis" }}
       >
-        {(r.createdBy || revDate) && (
+        {revDate && (
           <Text size="small" color="text-low" whiteSpace="nowrap">
-            {r.createdBy?.type === "system" ? (
-              <em>generated</em>
-            ) : r.createdBy ? (
-              <EventUser user={r.createdBy} display="name" />
-            ) : null}
-            {r.createdBy && revDate && <> &middot; </>}
-            {revDate && dateNoYear(revDate)}
+            {revDate && "Created " + date(revDate)}
           </Text>
         )}
       </Box>

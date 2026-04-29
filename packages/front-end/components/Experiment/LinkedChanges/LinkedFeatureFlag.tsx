@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
@@ -8,6 +9,7 @@ import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
 import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import EditFeatureFlagValuesModal from "@/components/Experiment/LinkedChanges/EditFeatureFlagValuesModal";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 
@@ -15,9 +17,17 @@ type Props = {
   info: LinkedFeatureInfo;
   experiment: ExperimentInterfaceStringDates;
   open?: boolean;
+  canEdit?: boolean;
+  mutate?: () => void;
 };
 
-export default function LinkedFeatureFlag({ info, experiment }: Props) {
+export default function LinkedFeatureFlag({
+  info,
+  experiment,
+  canEdit = false,
+  mutate,
+}: Props) {
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const variations = getLatestPhaseVariations(experiment);
   const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
@@ -39,78 +49,94 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
     }),
   );
 
+  const showEditButton =
+    canEdit && info.state !== "discarded" && info.state !== "locked";
+
   return (
-    <LinkedChange
-      changeType={"flag"}
-      heading={info.feature?.id || "Feature"}
-      feature={info.feature}
-      state={info.state}
-      additionalBadge={
-        info.state === "live" ? (
-          <Badge label="Live" radius="full" color="teal" />
-        ) : info.state === "draft" ? (
-          <Badge label="Draft" radius="full" color="indigo" />
-        ) : info.state === "locked" ? (
-          <Badge label="Locked" radius="full" color="gray" />
-        ) : info.state === "discarded" ? (
-          <Badge label="Discarded" radius="full" color="red" />
-        ) : null
-      }
-    >
-      <Box className="appbox">
-        <Flex width="100%" gap="4" py="4" px="5" direction="column">
-          {info.state !== "discarded" && (
-            <Box flexGrow="1">
-              <LinkedChangeVariationRows
-                alignContent={
-                  info.feature.valueType === "json" ? "start" : "center"
-                }
-                experiment={experiment}
-                renderContent={(j) => (
-                  <ForceSummary
-                    value={orderedValues[j]}
-                    feature={info.feature}
-                    maxHeight={60}
-                  />
+    <>
+      {editModalOpen && (
+        <EditFeatureFlagValuesModal
+          feature={info.feature}
+          experiment={experiment}
+          info={info}
+          close={() => setEditModalOpen(false)}
+          mutate={() => mutate?.()}
+        />
+      )}
+      <LinkedChange
+        changeType={"flag"}
+        heading={info.feature?.id || "Feature"}
+        feature={info.feature}
+        state={info.state}
+        canEdit={showEditButton}
+        onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
+        additionalBadge={
+          info.state === "live" ? (
+            <Badge label="Live" radius="full" color="teal" />
+          ) : info.state === "draft" ? (
+            <Badge label="Draft" radius="full" color="indigo" />
+          ) : info.state === "locked" ? (
+            <Badge label="Locked" radius="full" color="gray" />
+          ) : info.state === "discarded" ? (
+            <Badge label="Discarded" radius="full" color="red" />
+          ) : null
+        }
+      >
+        <Box className="appbox">
+          <Flex width="100%" gap="4" py="4" px="5" direction="column">
+            {info.state !== "discarded" && (
+              <Box flexGrow="1">
+                <LinkedChangeVariationRows
+                  alignContent={
+                    info.feature.valueType === "json" ? "start" : "center"
+                  }
+                  experiment={experiment}
+                  renderContent={(j) => (
+                    <ForceSummary
+                      value={orderedValues[j]}
+                      feature={info.feature}
+                      maxHeight={60}
+                    />
+                  )}
+                />
+              </Box>
+            )}
+            {info.state === "discarded" && (
+              <Callout status="info">
+                This experiment was linked to this feature in the past, but is
+                no longer live.
+              </Callout>
+            )}
+
+            {(info.state === "live" || info.state === "draft") && (
+              <>
+                {info.inconsistentValues && (
+                  <Callout status="warning">
+                    <strong>Warning:</strong> This experiment is included
+                    multiple times with different values. The values above are
+                    from the first matching experiment in{" "}
+                    <strong>{info.valuesFrom}</strong>.
+                  </Callout>
                 )}
-              />
-            </Box>
-          )}
-          {info.state === "discarded" && (
-            <Callout status="info">
-              This experiment was linked to this feature in the past, but is no
-              longer live.
-            </Callout>
-          )}
 
-          {(info.state === "live" || info.state === "draft") && (
+                {info.rulesAbove && (
+                  <Callout status="info">
+                    <strong>Notice:</strong> There are feature rules above this
+                    experiment so some users might not be included.
+                  </Callout>
+                )}
+              </>
+            )}
+          </Flex>
+
+          {info.state !== "locked" && info.state !== "discarded" && (
             <>
-              {info.inconsistentValues && (
-                <Callout status="warning">
-                  <strong>Warning:</strong> This experiment is included multiple
-                  times with different values. The values above are from the
-                  first matching experiment in{" "}
-                  <strong>{info.valuesFrom}</strong>.
-                </Callout>
-              )}
-
-              {info.rulesAbove && (
-                <Callout status="info">
-                  <strong>Notice:</strong> There are feature rules above this
-                  experiment so some users might not be included.
-                </Callout>
-              )}
+              <Separator size="4" />
+              <EnvironmentStatesGrid environmentStates={environmentStates} />
             </>
           )}
-        </Flex>
-
-        {info.state !== "locked" && info.state !== "discarded" && (
-          <>
-            <Separator size="4" />
-            <EnvironmentStatesGrid environmentStates={environmentStates} />
-          </>
-        )}
-      </Box>
-    </LinkedChange>
+        </Box>
+      </LinkedChange>
+    </>
   );
 }
