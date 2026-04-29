@@ -101,8 +101,6 @@ export const bigQueryDialect: SqlDialect = {
       fromContinuation: `CROSS JOIN UNNEST([${structs}]) AS col`,
       keyExpr: "col.column_name",
       valueExpr: "col.value",
-      valuePredicateExpr: "col.value",
-      groupByClause: "col.column_name, col.value",
     };
   },
 };

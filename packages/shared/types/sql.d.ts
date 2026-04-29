@@ -15,9 +15,6 @@ export type UnpivotLabeledPairsResult = {
   fromContinuation: string;
   keyExpr: string;
   valueExpr: string;
-  /** For IS NULL / LENGTH; may differ from valueExpr (e.g. Snowflake VARIANT). */
-  valuePredicateExpr: string;
-  groupByClause: string;
 };
 
 export type TemplateVariables = {

@@ -74,8 +74,6 @@ if(
         [${valsArr}] AS value`,
       keyExpr: "column_name",
       valueExpr: "value",
-      valuePredicateExpr: "value",
-      groupByClause: "column_name, value",
     };
   },
 

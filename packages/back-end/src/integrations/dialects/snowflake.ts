@@ -62,9 +62,6 @@ export const snowflakeDialect: SqlDialect = {
       fromContinuation: `,\n LATERAL FLATTEN(input => ARRAY_CONSTRUCT(${objects})) __col`,
       keyExpr: "__col.value:column_name::VARCHAR",
       valueExpr: "__col.value:value::VARCHAR",
-      valuePredicateExpr: "__col.value:value::VARCHAR",
-      groupByClause:
-        "__col.value:column_name::VARCHAR, __col.value:value::VARCHAR",
     };
   },
 };

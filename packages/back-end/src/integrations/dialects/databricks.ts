@@ -70,8 +70,6 @@ export const databricksDialect: SqlDialect = {
       ) __col AS column_name, value`,
       keyExpr: "column_name",
       valueExpr: "value",
-      valuePredicateExpr: "value",
-      groupByClause: "column_name, value",
     };
   },
 };

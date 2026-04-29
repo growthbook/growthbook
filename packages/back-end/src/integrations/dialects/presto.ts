@@ -39,8 +39,6 @@ export const prestoDialect: SqlDialect = {
       ]) AS __col(column_name, value)`,
       keyExpr: "__col.column_name",
       valueExpr: "__col.value",
-      valuePredicateExpr: "__col.value",
-      groupByClause: "__col.column_name, __col.value",
     };
   },
 };

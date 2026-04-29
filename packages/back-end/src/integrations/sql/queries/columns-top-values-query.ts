@@ -111,7 +111,7 @@ function getEfficientTopValuesCTEBody(
 
   const lengthFilter =
     maxValueLength !== undefined
-      ? `AND ${dialect.stringLength(u.valuePredicateExpr)} <= ${maxValueLength}`
+      ? `AND ${dialect.stringLength(u.valueExpr)} <= ${maxValueLength}`
       : "";
 
   const aggQuery = `
@@ -119,9 +119,9 @@ function getEfficientTopValuesCTEBody(
       FROM __factTable
       ${u.fromContinuation}
       WHERE timestamp >= ${dialect.toTimestamp(start)}
-        AND ${u.valuePredicateExpr} IS NOT NULL
+        AND ${u.valueExpr} IS NOT NULL
         ${lengthFilter}
-      GROUP BY ${u.groupByClause}`;
+      GROUP BY ${u.keyExpr}, ${u.valueExpr}`;
 
   return getTopNPerColumnQuery(aggQuery, limit);
 }
