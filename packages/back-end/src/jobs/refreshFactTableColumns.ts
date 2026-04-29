@@ -31,16 +31,14 @@ export const TOP_VALUES_CHUNK_SIZE = 25;
 // populated. Columns explicitly opted-in via alwaysInlineFilter or
 // isAutoSliceColumn are always included.
 //
-// - When the datasource supports the efficient single-scan top-values query
-//   (supportsEfficient=true), we fill up to maxColumns total with additional
-//   eligible string columns to give users dropdown filter pickers by default.
-// - When it doesn't, running top-values for every string column would
-//   re-scan the fact table once per column, so we fall back to the legacy
-//   behavior of only populating the explicitly-opted-in columns.
+// We then fill up to maxColumns total with additional eligible string columns
+// to give users dropdown filter pickers by default.
 //
 // The total cap keeps the stored fact-table document well under Mongo's
 // 16MB per-doc limit, and matching it to a multiple of TOP_VALUES_CHUNK_SIZE
-// avoids small trailing chunks in the batch query.
+// avoids small trailing chunks in the batch query. Running top-values for every string column would
+// re-scan the fact table once per column, so we fall back to the legacy
+// behavior of only populating the explicitly-opted-in columns.
 export function selectColumnsForTopValues({
   columns,
   userIdTypes,
@@ -150,13 +148,9 @@ export async function runColumnsTopValuesQuery(
   });
   const result = await integration.runColumnsTopValuesQuery(sql);
 
-  // Group results by column name. Integrations that support efficient
-  // top-values queries drop over-length values in SQL; for the others we
-  // filter here as a safety net to keep the stored fact-table document well
-  // under Mongo's 16MB per-doc limit.
+  // Group results by column name
   const columnValues: Record<string, string[]> = {};
   for (const row of result.rows) {
-    if (row.value.length > MAX_TOP_VALUE_LENGTH) continue;
     if (!columnValues[row.column]) {
       columnValues[row.column] = [];
     }
@@ -339,11 +333,9 @@ export async function runRefreshColumnsQuery(
     userIdTypes: factTable.userIdTypes,
   });
 
-  // Batch query for all columns that need top values. Efficient datasources
-  // can scan the fact table once per chunk, so we batch aggressively (25
-  // columns * ~100 values = ~2500 rows per chunk). Non-efficient datasources
-  // only ever have a small handful of always-captured columns, so chunk size
-  // isn't a concern there.
+  // Batch query for all columns that need top values. Datasources
+  // scan the fact table once per chunk, so we batch aggressively (25
+  // columns * ~100 values = ~2500 rows per chunk).
   if (columnsNeedingTopValues.length > 0) {
     const columnChunks = chunk(columnsNeedingTopValues, TOP_VALUES_CHUNK_SIZE);
 

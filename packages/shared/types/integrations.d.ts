@@ -282,10 +282,6 @@ export type ColumnTopValuesParams = {
   columns: ColumnInterface[];
   limit?: number;
   lookbackDays?: number;
-  // When set, integrations with efficient top-values queries will drop
-  // values longer than this in SQL (filters rows where LENGTH(value) > N).
-  // Non-efficient integrations ignore this; the caller falls back to
-  // filtering in TS.
   maxValueLength?: number;
 };
 export type ColumnTopValuesResponseRow = {
