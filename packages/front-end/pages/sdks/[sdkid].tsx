@@ -2,11 +2,10 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
-import { BsLightningFill } from "react-icons/bs";
+import { BsLightningFill, BsThreeDotsVertical } from "react-icons/bs";
+import { PiPencilSimpleFill } from "react-icons/pi";
+import { Flex, IconButton } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBEdit } from "@/components/Icons";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import SDKConnectionForm from "@/components/Features/SDKConnections/SDKConnectionForm";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
@@ -18,6 +17,14 @@ import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
 import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 export default function SDKConnectionPage() {
@@ -31,6 +38,7 @@ export default function SDKConnectionPage() {
     mode: "edit" | "create" | "closed";
     initialValue?: SDKConnectionInterface;
   }>({ mode: "closed" });
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -40,13 +48,21 @@ export default function SDKConnectionPage() {
   const hasProxy = connection?.proxy?.enabled;
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return (
+      <div className="contents container pagecontents">
+        <Callout status="error">{error.message}</Callout>
+      </div>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
   }
   if (!connection) {
-    return <div className="alert alert-danger">Invalid SDK Connection id</div>;
+    return (
+      <div className="contents container pagecontents">
+        <Callout status="error">Invalid SDK Connection id</Callout>
+      </div>
+    );
   }
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
@@ -83,63 +99,81 @@ export default function SDKConnectionPage() {
         </div>
       ) : null}
 
-      <div className="row align-items-center mb-2">
-        <h1 className="col-auto mb-0">{connection.name}</h1>
-        {canDelete || canUpdate || canDuplicate ? (
-          <>
-            {canUpdate ? (
-              <div className="col-auto ml-auto">
-                <a
-                  role="button"
-                  className="btn btn-outline-primary"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setModalState({
-                      mode: "edit",
-                      initialValue: connection,
-                    });
-                  }}
-                >
-                  <GBEdit /> Edit
-                </a>
-              </div>
-            ) : null}
-            <div className="col-auto">
-              <MoreMenu>
-                {canDuplicate ? (
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
+      <Flex align="start" justify="between" gap="2" mb="2">
+        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+          <Heading size="x-large" as="h1" mb="0">
+            {connection.name}
+          </Heading>
+        </Flex>
+        {(canDelete || canUpdate || canDuplicate) && (
+          <Flex align="center" gap="4" pr="2">
+            {canUpdate && (
+              <Button
+                icon={<PiPencilSimpleFill />}
+                onClick={() =>
+                  setModalState({ mode: "edit", initialValue: connection })
+                }
+              >
+                Edit Connection
+              </Button>
+            )}
+            {(canDuplicate || canDelete) && (
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                  >
+                    <BsThreeDotsVertical size={16} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+                open={dropdownOpen}
+                onOpenChange={setDropdownOpen}
+              >
+                {canDuplicate && (
+                  <DropdownMenuItem
+                    onClick={() => {
                       setModalState({
                         mode: "create",
                         initialValue: connection,
                       });
+                      setDropdownOpen(false);
                     }}
                   >
                     Duplicate
-                  </button>
-                ) : null}
-                {canDelete ? (
-                  <DeleteButton
-                    className="dropdown-item text-danger"
-                    displayName="SDK Connection"
-                    text="Delete"
-                    useIcon={false}
-                    onClick={async () => {
-                      await apiCall(`/sdk-connections/${connection.id}`, {
-                        method: "DELETE",
-                      });
-                      mutate();
-                      router.push(`/sdks`);
-                    }}
-                  />
-                ) : null}
-              </MoreMenu>
-            </div>
-          </>
-        ) : null}
-      </div>
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <>
+                    {canDuplicate && <DropdownMenuSeparator />}
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        confirmationTitle: "Delete SDK Connection",
+                        cta: "Delete",
+                        submit: async () => {
+                          await apiCall(`/sdk-connections/${connection.id}`, {
+                            method: "DELETE",
+                          });
+                          mutate();
+                          router.push(`/sdks`);
+                        },
+                        closeDropdown: () => setDropdownOpen(false),
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenu>
+            )}
+          </Flex>
+        )}
+      </Flex>
 
       <ConnectionDiagram
         connection={connection}

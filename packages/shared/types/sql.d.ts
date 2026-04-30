@@ -50,7 +50,11 @@ export interface SqlDialect {
   ) => string;
   formatDate: (column: string) => string;
   formatDateTimeString: (column: string) => string;
-  selectStarLimit: (table: string, limit: number) => string;
+  selectStarLimit: (
+    from: string,
+    limit: number,
+    additionalClauses?: string,
+  ) => string;
   defaultSchema: string;
   formatDialect: FormatDialect;
   percentileCapSelectClause: (

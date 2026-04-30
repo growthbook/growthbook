@@ -3,7 +3,9 @@ import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { isManagedWarehousePendingQueryError } from "shared/util";
 import Text from "@/ui/Text";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import useExplorationTableData from "./useExplorationTableData";
 
 export default function SimpleExplorationTable({
@@ -22,6 +24,9 @@ export default function SimpleExplorationTable({
   } = useExplorationTableData(exploration, config);
 
   if (exploration?.error) {
+    if (isManagedWarehousePendingQueryError(exploration.error)) {
+      return <ManagedWarehouseNoEventsCallout />;
+    }
     return (
       <Text size="small" color="text-low">
         {exploration.error}

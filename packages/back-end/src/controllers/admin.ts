@@ -174,19 +174,23 @@ export async function _dangerousAdminPutOrganization(
     const VALID_LEVELS = new Set(["info", "warning", "danger"]);
     if (
       !Array.isArray(messages) ||
-      messages.length > 10 ||
       messages.some(
-        (m) => typeof m.message !== "string" || !VALID_LEVELS.has(m.level),
+        (m) =>
+          typeof m.message !== "string" ||
+          m.message.trim() === "" ||
+          !VALID_LEVELS.has(m.level),
       )
     ) {
       return res.status(400).json({
         status: 400,
         message:
-          "Invalid messages: each entry must have a string message and a level of 'info', 'warning', or 'danger', with a maximum of 10 messages.",
+          "Invalid messages: each entry must have a non-empty string message and a level of 'info', 'warning', or 'danger'.",
       });
     }
-    updates.messages = messages;
-    orig.messages = org.messages;
+    if (JSON.stringify(messages) !== JSON.stringify(org.messages ?? [])) {
+      updates.messages = messages;
+      orig.messages = org.messages;
+    }
   }
 
   await updateOrganization(org.id, updates);

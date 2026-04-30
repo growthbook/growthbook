@@ -8,6 +8,8 @@ import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
 
+type MessageWithId = OrganizationMessage & { id: string };
+
 const EditOrganization: FC<{
   onEdit: () => void;
   close?: () => void;
@@ -33,8 +35,11 @@ const EditOrganization: FC<{
     currentOrg.disableSelfServeBilling || false,
   );
   const [suspended, setSuspended] = useState(currentOrg.suspended || false);
-  const [messages, setMessages] = useState<OrganizationMessage[]>(
-    currentOrg.messages || [],
+  const [messages, setMessages] = useState<MessageWithId[]>(
+    (currentOrg.messages || []).map((m) => ({
+      ...m,
+      id: crypto.randomUUID(),
+    })),
   );
 
   const { apiCall } = useAuth();
@@ -57,29 +62,31 @@ const EditOrganization: FC<{
         freeSeats,
         disableSelfServeBilling,
         suspended,
-        messages,
+        messages: messages.map(({ id: _id, ...m }) => m),
       }),
     });
     onEdit();
   };
 
   const addMessage = () => {
-    setMessages([...messages, { message: "", level: "info" }]);
+    setMessages([
+      ...messages,
+      { id: crypto.randomUUID(), message: "", level: "info" },
+    ]);
   };
 
   const updateMessage = (
-    index: number,
+    id: string,
     field: keyof OrganizationMessage,
     value: string,
   ) => {
-    const updated = messages.map((m, i) =>
-      i === index ? { ...m, [field]: value } : m,
+    setMessages(
+      messages.map((m) => (m.id === id ? { ...m, [field]: value } : m)),
     );
-    setMessages(updated);
   };
 
-  const removeMessage = (index: number) => {
-    setMessages(messages.filter((_, i) => i !== index));
+  const removeMessage = (id: string) => {
+    setMessages(messages.filter((m) => m.id !== id));
   };
 
   return (
@@ -297,17 +304,20 @@ const EditOrganization: FC<{
               <div className="text-muted small mb-2">
                 Banners displayed to all users in this org. Supports Markdown.
                 Useful for maintenance notices or account alerts. Each message
-                will appear on every page, so be mindful of not adding too many.
+                will appear on every page.
               </div>
-              {messages.map((msg, i) => (
-                <div key={i} className="d-flex gap-2 mb-2 align-items-center">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="d-flex gap-2 mb-2 align-items-center"
+                >
                   <input
                     type="text"
                     className="form-control form-control-sm flex-grow-1"
                     placeholder="Message text (Markdown supported)"
                     value={msg.message}
                     onChange={(e) =>
-                      updateMessage(i, "message", e.target.value)
+                      updateMessage(msg.id, "message", e.target.value)
                     }
                   />
                   <select
@@ -316,7 +326,7 @@ const EditOrganization: FC<{
                     value={msg.level}
                     onChange={(e) =>
                       updateMessage(
-                        i,
+                        msg.id,
                         "level",
                         e.target.value as OrganizationMessage["level"],
                       )
@@ -330,7 +340,7 @@ const EditOrganization: FC<{
                     type="button"
                     className="btn btn-sm btn-outline-danger"
                     style={{ flexShrink: 0 }}
-                    onClick={() => removeMessage(i)}
+                    onClick={() => removeMessage(msg.id)}
                   >
                     &times;
                   </button>
