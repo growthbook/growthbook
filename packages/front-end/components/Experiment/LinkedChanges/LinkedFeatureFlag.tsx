@@ -202,8 +202,12 @@ export default function LinkedFeatureFlag({
                   <strong>draft</strong> revision pending approval
                 </>
               )}
-              . Once approved, they will be auto-published when this experiment
-              starts, or you can publish manually.
+              .{" "}
+              {info.draftRevisionStatus === "approved"
+                ? "They"
+                : "Once approved, they"}{" "}
+              will be auto-published when this experiment starts, or you can
+              publish manually.
               <Box mt="1">
                 <Link
                   href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
