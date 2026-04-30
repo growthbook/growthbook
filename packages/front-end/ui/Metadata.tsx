@@ -13,7 +13,7 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
   ref,
 ) {
   return (
-    <Flex gap="1" style={style} {...props} ref={ref}>
+    <Flex gap="1" align="center" style={style} {...props} ref={ref}>
       <Text weight="medium" color="text-high">
         {label}:
       </Text>

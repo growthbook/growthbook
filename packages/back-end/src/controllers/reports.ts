@@ -57,7 +57,7 @@ export async function postReportFromSnapshot(
 
   const reportArgs = req.body || {};
 
-  const snapshot = await findSnapshotById(org.id, req.params.snapshot);
+  const snapshot = await findSnapshotById(context, req.params.snapshot);
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
@@ -94,6 +94,9 @@ export async function postReportFromSnapshot(
   if (!analysis) {
     throw new Error("Missing analysis settings");
   }
+
+  // Enforce a single analysis per snapshot for reports
+  snapshot.analyses = [analysis];
 
   const phaseIndex = snapshot.phase ?? (experiment.phases?.length || 1) - 1;
   const _experimentAnalysisSettings: ExperimentReportAnalysisSettings = {
@@ -151,7 +154,7 @@ export async function postReportFromSnapshot(
 
   // Save the snapshot
   snapshot.report = doc.id;
-  await createExperimentSnapshotModel({ data: snapshot });
+  await createExperimentSnapshotModel({ context, data: snapshot });
 
   await req.audit({
     event: "experiment.analysis",
@@ -263,18 +266,24 @@ export async function getReportPublic(
 
   const snapshot =
     report.type === "experiment-snapshot"
-      ? (await findSnapshotById(report.organization, report.snapshot)) ||
-        undefined
+      ? (await findSnapshotById(context, report.snapshot)) || undefined
       : undefined;
 
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined
     : undefined;
-  const experiment = pick(_experiment, ["id", "name", "type", "uid"]);
+  const experiment = pick(_experiment, [
+    "id",
+    "name",
+    "type",
+    "uid",
+    "project",
+  ]);
 
   const ssrData = await generateExperimentReportSSRData({
     context,
     organization: report.organization,
+    project: _experiment?.project,
     snapshot,
   });
 
@@ -352,8 +361,7 @@ export async function refreshReport(
     }
 
     const snapshot =
-      (await findSnapshotById(report.organization, report.snapshot)) ||
-      undefined;
+      (await findSnapshotById(context, report.snapshot)) || undefined;
 
     try {
       const newSnapshot = await createReportSnapshot({
@@ -614,10 +622,8 @@ export async function cancelReport(
 
   if (report.type === "experiment-snapshot") {
     const snapshot = report.snapshot
-      ? (await findLatestRunningSnapshotByReportId(
-          report.organization,
-          report.id,
-        )) || undefined
+      ? (await findLatestRunningSnapshotByReportId(context, report.id)) ||
+        undefined
       : undefined;
     if (!snapshot) {
       return res.status(400).json({

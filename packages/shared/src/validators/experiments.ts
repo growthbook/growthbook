@@ -8,7 +8,7 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -265,6 +265,11 @@ export const experimentAnalysisSummaryHealth = z.object({
         additionalDaysNeeded: z.number(),
       }),
     ])
+    .optional(),
+  covariateImbalance: z
+    .object({
+      isImbalanced: z.boolean(),
+    })
     .optional(),
 });
 export type ExperimentAnalysisSummaryHealth = z.infer<
@@ -633,7 +638,10 @@ const apiExperimentPhase = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
-      range: z.array(z.number()).min(2).max(2),
+      enabled: z.boolean().optional(),
+      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+      range: z.array(z.number()).min(2).max(2).optional(),
+      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
   targetingCondition: z.string(),
@@ -693,6 +701,7 @@ const apiExperimentShape = z.object({
   description: z.string(),
   tags: z.array(z.string()),
   owner: ownerField,
+  ownerEmail: ownerEmailField,
   archived: z.boolean(),
   status: z.string(),
   autoRefresh: z.boolean(),
@@ -913,8 +922,10 @@ const apiPhaseInput = z.object({
   namespace: z
     .object({
       namespaceId: z.string(),
-      range: z.array(z.number()).min(2).max(2),
       enabled: z.boolean().optional(),
+      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+      range: z.array(z.number()).min(2).max(2).optional(),
+      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
   targetingCondition: z.string().optional(),
@@ -958,7 +969,7 @@ const postExperimentBody = z
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow creating an experiment even if another experiment with the same tracking key already exists",
+        "If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule.",
       )
       .optional(),
     name: z.string().describe("Name of the experiment"),
@@ -1072,7 +1083,7 @@ const updateExperimentBody = z
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow updating the tracking key even if another experiment with the same tracking key already exists",
+        "If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule.",
       )
       .optional(),
     name: z.string().describe("Name of the experiment").optional(),
@@ -1271,12 +1282,18 @@ export const listExperimentsValidator = {
       ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       datasourceId: z.string().describe("Filter by Data Source").optional(),
+      trackingKey: z
+        .string()
+        .describe("Filter by experiment tracking key")
+        .optional(),
       experimentId: z
         .string()
         .describe(
-          "Filter the returned list by the experiment tracking key (id)",
+          "Filter the returned list by the experiment tracking key (not the internal experiment ID). Note, this was deprecated to help reduce confusion, consider using `trackingKey` instead, which is functionally identical. You cannot use both params at the same time.",
         )
-        .optional(),
+        .optional()
+        .meta({ deprecated: true }),
+
       status: z.enum(experimentStatus).optional(),
     })
     .strict(),

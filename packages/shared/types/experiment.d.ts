@@ -85,6 +85,7 @@ export type ExperimentUnhealthyData = {
     multipleExposedUsers: number;
   };
   lowPowered?: boolean;
+  covariateImbalance?: boolean;
 };
 
 export type ExperimentResultStatus =
@@ -247,6 +248,10 @@ export interface LinkedFeatureInfo {
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
 }
+
+export type LinkedChangeEnvState = "active" | "no-sdk-connection";
+
+export type LinkedChangeEnvStates = Record<string, LinkedChangeEnvState>;
 
 export type ExperimentHealthSettings = {
   decisionFrameworkEnabled: boolean;

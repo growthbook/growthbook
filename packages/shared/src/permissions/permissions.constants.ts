@@ -191,6 +191,10 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     policies: ["IdeasFullAccess", "PresentationsFullAccess"],
   },
   {
+    name: "Product Analytic Dashboards",
+    policies: ["GeneralDashboardsFullAccess"],
+  },
+  {
     name: "SDK Configuration",
     policies: [
       "SDKPayloadPublish",
@@ -219,6 +223,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "BillingFullAccess",
       "AuditLogsFullAccess",
       "DecisionCriteriaFullAccess",
+      "CustomHooksFullAccess",
     ],
   },
 ];

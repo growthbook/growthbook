@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -54,6 +55,8 @@ const BanditExperimentPage = (): ReactElement => {
     linkedFeatures: LinkedFeatureInfo[];
     envs: string[];
     urlRedirects: URLRedirectInterface[];
+    visualChangesetEnvStates?: LinkedChangeEnvStates;
+    urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${bid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
@@ -84,6 +87,8 @@ const BanditExperimentPage = (): ReactElement => {
     visualChangesets = [],
     linkedFeatures = [],
     urlRedirects = [],
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   } = data;
 
   const canEditExperiment =
@@ -291,6 +296,8 @@ const BanditExperimentPage = (): ReactElement => {
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
+          visualChangesetEnvStates={visualChangesetEnvStates}
+          urlRedirectEnvStates={urlRedirectEnvStates}
         />
       </SnapshotProvider>
     </>

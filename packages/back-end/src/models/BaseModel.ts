@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { v4 as uuidv4 } from "uuid";
-import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { AnyBulkWriteOperation, Collection } from "mongodb";
 import omit from "lodash/omit";
@@ -32,7 +31,12 @@ import {
 } from "back-end/src/api/ApiModel";
 import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import { generateId } from "back-end/src/util/uuid";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -417,7 +421,7 @@ export abstract class BaseModel<
     const { id } = req.params as { id: string };
     const doc = await this.getById(id);
     if (!doc) req.context.throwNotFoundError();
-    return this.toApiInterface(doc);
+    return resolveOwnerEmail(this.toApiInterface(doc), this.context);
   }
   public async handleApiCreate(
     req: ApiRequest<
@@ -429,7 +433,10 @@ export abstract class BaseModel<
   ): Promise<z.infer<ApiT>> {
     const rawBody = req.body;
     const toCreate = await this.processApiCreateBody(rawBody);
-    return this.toApiInterface(await this.create(toCreate));
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.create(toCreate)),
+      this.context,
+    );
   }
   protected async processApiCreateBody(
     rawBody: unknown,
@@ -444,7 +451,10 @@ export abstract class BaseModel<
       ExtractCrudSchema<CVO, "list", "querySchema">
     >,
   ): Promise<z.infer<ApiT>[]> {
-    return (await this.getAll()).map(this.toApiInterface.bind(this));
+    return resolveOwnerEmails(
+      (await this.getAll()).map((doc) => this.toApiInterface(doc)),
+      this.context,
+    );
   }
   public async handleApiDelete(
     req: ApiRequest<
@@ -469,7 +479,10 @@ export abstract class BaseModel<
     const { id } = req.params as { id: string };
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);
-    return this.toApiInterface(await this.updateById(id, toUpdate));
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
+    );
   }
   protected async processApiUpdateBody(
     rawBody: unknown,
@@ -603,7 +616,7 @@ export abstract class BaseModel<
    * Internal methods that can be used by subclasses
    ***************/
   protected _generateId() {
-    return uniqid(this.config.idPrefix);
+    return generateId(this.config.idPrefix);
   }
   protected _generateUid() {
     return uuidv4().replace(/-/g, "");

@@ -9,6 +9,7 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
@@ -50,14 +51,17 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
       })
     : undefined;
   return {
-    feature: getApiFeatureObj({
-      feature,
-      organization: req.organization,
-      groupMap,
-      experimentMap,
-      revision,
-      revisions,
-      safeRolloutMap,
-    }),
+    feature: await resolveOwnerEmail(
+      getApiFeatureObj({
+        feature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+        revision,
+        revisions,
+        safeRolloutMap,
+      }),
+      req.context,
+    ),
   };
 });

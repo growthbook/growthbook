@@ -2,13 +2,29 @@ import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
 
-export const namespaceValue = z
-  .object({
-    enabled: z.boolean(),
-    name: z.string(),
-    range: z.tuple([z.number(), z.number()]),
-  })
-  .strict();
+// Legacy format (single range, inherits experiment's hashAttribute)
+const legacyNamespaceValue = z.object({
+  enabled: z.boolean(),
+  name: z.string(),
+  range: z.tuple([z.number(), z.number()]),
+  format: z.literal("legacy").optional(),
+});
+
+// MultiRange format (multiple ranges, own hashAttribute, and hashVersion defined in the namespace itself)
+const multiRangeNamespaceValue = z.object({
+  enabled: z.boolean(),
+  name: z.string(),
+  ranges: z.array(z.tuple([z.number(), z.number()])),
+  hashAttribute: z.string().optional(),
+  hashVersion: z.number().optional(),
+  format: z.literal("multiRange"),
+});
+
+// Union type to support both formats for backward compatibility
+export const namespaceValue = z.union([
+  legacyNamespaceValue,
+  multiRangeNamespaceValue,
+]);
 export type NamespaceValue = z.infer<typeof namespaceValue>;
 
 export const featurePrerequisite = z
@@ -61,4 +77,28 @@ export const paginationQueryFields = {
     )
     .optional()
     .meta({ default: 0 }),
+};
+
+/**
+ * Self-hosted escape hatch for GitOps-style bulk exports. Honored only when
+ * API_ALLOW_SKIP_PAGINATION is set on the server.
+ */
+export const skipPaginationQueryField = {
+  skipPagination: z
+    .union([
+      z.literal("true"),
+      z.literal("false"),
+      z.literal("0"),
+      z.literal("1"),
+      z.boolean(),
+    ])
+    .describe(
+      "If true, return all matching items and ignore limit/offset.\nSelf-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.",
+    )
+    .meta({
+      default: false,
+      "x-selfHostedOnly": true,
+      "x-requiresEnv": "API_ALLOW_SKIP_PAGINATION",
+    })
+    .optional(),
 };

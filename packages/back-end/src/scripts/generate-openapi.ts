@@ -9,12 +9,14 @@ const openApiTags = [
   "projects",
   "environments",
   "features",
+  "feature-revisions",
   "ramp-schedules",
   "data-sources",
   "fact-tables",
   "fact-metrics",
   "metrics",
   "experiments",
+  "namespaces",
   "snapshots",
   "dimensions",
   "segments",
@@ -48,6 +50,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Feature Flags",
     description: "Control your feature flags programatically",
   },
+  "feature-revisions": {
+    display: "Feature Revisions",
+    description:
+      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nThese endpoints are in beta and are subject to change.",
+  },
   "ramp-schedules": {
     display: "Ramp Schedules",
     description:
@@ -74,6 +81,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   experiments: {
     display: "Experiments",
     description: "Experiments (A/B Tests)",
+  },
+  namespaces: {
+    display: "Namespaces",
+    description:
+      "Namespaces partition your user population into buckets so that experiments using the same hash attribute do not overlap unintentionally. Each namespace defines a 0–1 range and individual experiments claim sub-ranges within it.",
   },
   snapshots: {
     display: "Experiment Snapshots",

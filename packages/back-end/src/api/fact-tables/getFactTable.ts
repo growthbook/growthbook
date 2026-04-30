@@ -3,6 +3,7 @@ import {
   getFactTable as findFactTableById,
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFactTable = createApiRequestHandler(getFactTableValidator)(
@@ -13,7 +14,10 @@ export const getFactTable = createApiRequestHandler(getFactTableValidator)(
     }
 
     return {
-      factTable: toFactTableApiInterface(factTable),
+      factTable: await resolveOwnerEmail(
+        toFactTableApiInterface(factTable),
+        req.context,
+      ),
     };
   },
 );

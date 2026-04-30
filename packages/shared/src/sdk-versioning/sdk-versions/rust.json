@@ -22,6 +22,7 @@
       "capabilities": [
         "encryption",
         "looseUnmarshalling",
+        "namespacesV2",
         "prerequisites",
         "semverTargeting",
         "bucketingV2"

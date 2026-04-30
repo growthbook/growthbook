@@ -2,6 +2,7 @@ import { SegmentInterface } from "shared/types/segment";
 import { UpdateProps } from "shared/types/base-model";
 import { updateSegmentValidator } from "shared/validators";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTable } from "back-end/src/models/FactTableModel";
@@ -89,7 +90,10 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
     const segment = await req.context.models.segments.update(existing, updates);
 
     return {
-      segment: toSegmentApiInterface(segment),
+      segment: await resolveOwnerEmail(
+        toSegmentApiInterface(segment),
+        req.context,
+      ),
     };
   },
 );

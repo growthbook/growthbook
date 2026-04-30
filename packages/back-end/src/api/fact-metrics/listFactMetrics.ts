@@ -1,4 +1,5 @@
 import { listFactMetricsValidator } from "shared/validators";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -17,8 +18,11 @@ export const listFactMetrics = createApiRequestHandler(
   const { filtered, returnFields } = applyPagination(factMetrics, req.query);
 
   return {
-    factMetrics: filtered.map((factMetric) =>
-      req.context.models.factMetrics.toApiInterface(factMetric),
+    factMetrics: await resolveOwnerEmails(
+      filtered.map((factMetric) =>
+        req.context.models.factMetrics.toApiInterface(factMetric),
+      ),
+      req.context,
     ),
     ...returnFields,
   };

@@ -27,9 +27,9 @@ import {
   type RampStep,
   type FeatureRulePatch,
   type TemplateEndPatch,
+  type RevisionRampCreateAction,
 } from "shared/validators";
-import type { RevisionRampCreateAction } from "shared/src/validators/features";
-import { date as formatDate } from "shared/src/dates";
+import { date as formatDate } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import {
@@ -1635,7 +1635,7 @@ export function createActionToSectionState(
   const endPatch = reconstructUIEndPatch(action.endActions);
   return {
     mode: "create",
-    name: action.name,
+    name: action.name ?? "",
     startDate: action.startDate ? new Date(action.startDate).toISOString() : "",
     steps: action.steps.map(reconstructUIStep),
     endScheduleAt:

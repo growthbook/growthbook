@@ -19,6 +19,7 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
@@ -43,8 +44,6 @@ import {
   useDomain,
 } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
@@ -70,6 +69,7 @@ import VariationChooserColumnLabel from "./VariationChooserColumnLabel";
 export type ResultsTableProps = {
   id: string;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -154,6 +154,7 @@ export enum RowError {
 export default function ResultsTable({
   id,
   experimentId,
+  significanceThresholds,
   isLatestPhase,
   phase,
   status,
@@ -299,15 +300,11 @@ export default function ResultsTable({
     ssrPolyfills?.useOrganizationMetricDefaults?.() ||
     _useOrganizationMetricDefaults;
 
-  const _confidenceLevels = useConfidenceLevels();
-  const _pValueThreshold = usePValueThreshold();
   const _displayCurrency = useCurrency();
   const _orgSettings = useOrgSettings();
 
-  const { ciUpper, ciLower } =
-    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
   const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
 
@@ -1099,6 +1096,7 @@ export default function ResultsTable({
                                                 resultsHighlightClassname,
                                               )}
                                               metric={row.metric}
+                                              pValueThreshold={pValueThreshold}
                                               differenceType={differenceType}
                                               statsEngine={statsEngine}
                                               ssrPolyfills={ssrPolyfills}
@@ -1128,6 +1126,7 @@ export default function ResultsTable({
                                                 resultsHighlightClassname,
                                               )}
                                               metric={row.metric}
+                                              pValueThreshold={pValueThreshold}
                                               differenceType={differenceType}
                                               statsEngine={statsEngine}
                                               ssrPolyfills={ssrPolyfills}
@@ -1148,6 +1147,9 @@ export default function ResultsTable({
                                       <td className="graph-cell">
                                         {j > 0 ? (
                                           <PercentGraph
+                                            significanceThresholds={
+                                              significanceThresholds
+                                            }
                                             barType={
                                               statsEngine === "frequentist"
                                                 ? "pill"
@@ -1232,6 +1234,7 @@ export default function ResultsTable({
                                         {j > 0 ? (
                                           <ChangeColumn
                                             metric={row.metric}
+                                            pValueThreshold={pValueThreshold}
                                             stats={stats}
                                             rowResults={rowResults}
                                             differenceType={differenceType}
@@ -1287,6 +1290,7 @@ export default function ResultsTable({
                                       <div className={styles.timeSeriesCell}>
                                         <ExperimentMetricTimeSeriesGraphWrapper
                                           experimentId={experimentId}
+                                          pValueThreshold={pValueThreshold}
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}
@@ -1473,7 +1477,7 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? " all dimension values, goal metrics, and variations"
             : " all goal metrics and variations"}
-          . The unadjusted p-values are returned in the tooltip.
+          .
         </div>
       )}
     </>

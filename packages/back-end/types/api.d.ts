@@ -40,6 +40,10 @@ export type ApiRequestLocals = PermissionFunctions & {
 
 export interface ApiErrorResponse {
   message: string;
+  // Populated on 409 ConflictError responses from endpoints that need to return
+  // a structured conflict list (e.g. feature revision publish/rebase) so
+  // clients can auto-resolve programmatically.
+  conflicts?: unknown[];
 }
 
 /**

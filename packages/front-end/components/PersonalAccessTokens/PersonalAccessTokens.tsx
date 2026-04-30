@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { FaKey } from "react-icons/fa";
-import Link from "next/link";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import Link from "@/ui/Link";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
@@ -12,6 +12,10 @@ type PersonalAccessTokensProps = {
   accessTokens: ApiKeyInterface[];
   onDelete: (keyId: string | undefined) => () => Promise<void>;
   onReveal: (keyId: string | undefined) => () => Promise<string>;
+  onToggleDisabled: (
+    keyId: string | undefined,
+    disabled: boolean,
+  ) => () => Promise<void>;
   onCreate: () => void;
 };
 
@@ -19,6 +23,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   accessTokens,
   onDelete,
   onReveal,
+  onToggleDisabled,
   onCreate,
 }) => {
   const [open, setOpen] = useState(false);
@@ -47,6 +52,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             canCreateKeys
             canDeleteKeys
             onReveal={onReveal}
+            onToggleDisabled={onToggleDisabled}
           />
         )}
         <button
@@ -112,12 +118,25 @@ export const PersonalAccessTokensContainer = () => {
     [mutate, apiCall],
   );
 
+  const onToggleDisabled = useCallback(
+    (keyId: string | undefined, disabled: boolean) => async () => {
+      if (!keyId) return;
+      await apiCall(`/keys/${keyId}/disabled`, {
+        method: "PUT",
+        body: JSON.stringify({ disabled }),
+      });
+      mutate();
+    },
+    [apiCall, mutate],
+  );
+
   return (
     <PersonalAccessTokens
       onDelete={onDelete}
       accessTokens={userKeys}
       onCreate={mutate}
       onReveal={onReveal}
+      onToggleDisabled={onToggleDisabled}
     />
   );
 };

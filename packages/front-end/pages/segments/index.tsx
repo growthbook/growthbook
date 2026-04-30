@@ -3,9 +3,9 @@ import { FaPencilAlt } from "react-icons/fa";
 import { SegmentInterface } from "shared/types/segment";
 import { IdeaInterface } from "shared/types/idea";
 import { MetricInterface } from "shared/types/metric";
-import Link from "next/link";
 import clsx from "clsx";
 import { ago } from "shared/dates";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";
@@ -80,11 +80,7 @@ const SegmentPage: FC = () => {
                 : res.metrics.length + " metrics",
             );
             res.metrics.forEach((m) => {
-              metricLinks.push(
-                <Link href={`/metric/${m.id}`} className="">
-                  {m.name}
-                </Link>,
-              );
+              metricLinks.push(<Link href={`/metric/${m.id}`}>{m.name}</Link>);
             });
           }
           if (res.ideas && res.ideas.length) {

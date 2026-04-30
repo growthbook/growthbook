@@ -3,7 +3,7 @@ import { Queries } from "shared/types/query";
 import {
   errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
-  findStalledRunningSnapshots,
+  dangerousFindStalledRunningSnapshotsFromAllOrgs,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
@@ -60,14 +60,13 @@ const expireOldQueries = async () => {
     updateQueryStatus(snapshot.queries, queryIds);
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     await updateSnapshot({
-      organization: snapshot.organization,
+      context,
       id: snapshot.id,
       updates: {
         error: "Queries were interupted. Please try updating results again.",
         status: "error",
         queries: snapshot.queries,
       },
-      context,
     });
 
     // Release the incremental refresh lock if this snapshot held it.
@@ -149,7 +148,7 @@ const expireOldQueries = async () => {
 
 async function reapStalledSnapshots() {
   const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
-  const candidates = await findStalledRunningSnapshots(
+  const candidates = await dangerousFindStalledRunningSnapshotsFromAllOrgs(
     stalledBefore,
     STALLED_SNAPSHOT_REAP_LIMIT,
   );
@@ -178,22 +177,18 @@ async function reapStalledSnapshots() {
       q.status = statusById.get(q.query) ?? q.status;
     });
 
-    const reaped = await errorSnapshotIfStillRunning(
-      snapshot.organization,
-      snapshot.id,
-      {
-        queries: snapshot.queries,
-        error:
-          "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.",
-      },
-    );
+    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+    const reaped = await errorSnapshotIfStillRunning(context, snapshot.id, {
+      queries: snapshot.queries,
+      error:
+        "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.",
+    });
     if (!reaped) continue;
 
     logger.info(
       `Reaped stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
     );
 
-    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     await context.models.incrementalRefresh
       .releaseLock(snapshot.experiment, snapshot.id)
       .catch((e) =>

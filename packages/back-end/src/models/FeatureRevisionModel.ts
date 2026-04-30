@@ -5,6 +5,7 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
+  RevisionChanges,
 } from "shared/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
 import { OrganizationInterface } from "shared/types/organization";
@@ -107,12 +108,34 @@ function toInterface(
 
 export async function countDocuments(
   organization: string,
-  featureId: string,
-): Promise<number> {
-  return FeatureRevisionModel.countDocuments({
-    organization,
+  {
     featureId,
-  });
+    featureIds,
+    status,
+    author,
+    involvedUserId,
+  }: {
+    featureId?: string;
+    featureIds?: string[];
+    status?: string | string[];
+    author?: string;
+    involvedUserId?: string;
+  } = {},
+): Promise<number> {
+  const filter: Record<string, unknown> = { organization };
+  if (featureId) filter.featureId = featureId;
+  else if (featureIds) filter.featureId = { $in: featureIds };
+  if (status) {
+    filter.status = Array.isArray(status) ? { $in: status } : status;
+  }
+  if (author) filter["createdBy.id"] = author;
+  if (involvedUserId) {
+    filter.$or = [
+      { "createdBy.id": involvedUserId },
+      { "contributors.id": involvedUserId },
+    ];
+  }
+  return FeatureRevisionModel.countDocuments(filter);
 }
 
 export async function getMinimalRevisions(
@@ -124,7 +147,9 @@ export async function getMinimalRevisions(
     organization,
     featureId,
   })
-    .select("version datePublished dateUpdated createdBy status comment title")
+    .select(
+      "version datePublished dateUpdated createdBy status comment title contributors",
+    )
     .sort({ version: -1 })
     .limit(200);
 
@@ -136,6 +161,7 @@ export async function getMinimalRevisions(
     status: m.status,
     comment: m.comment || "",
     ...(m.title ? { title: m.title } : {}),
+    ...(m.contributors?.length ? { contributors: m.contributors } : {}),
   }));
 }
 
@@ -229,34 +255,73 @@ export async function getFeatureRevisionsByStatus({
   context,
   organization,
   featureId,
+  featureIds,
   status,
+  author,
+  involvedUserId,
   limit = 10,
   offset = 0,
   sort = "desc",
+  skipPagination = false,
 }: {
   context: ReqContext;
   organization: string;
-  featureId: string;
+  featureId?: string;
+  featureIds?: string[];
   status?: string | string[];
+  author?: string;
+  involvedUserId?: string;
   limit?: number;
   offset?: number;
   sort?: "asc" | "desc";
+  skipPagination?: boolean;
 }): Promise<FeatureRevisionInterface[]> {
-  const statusFilter = Array.isArray(status)
-    ? { status: { $in: status } }
-    : status
-      ? { status }
-      : {};
-  const docs = await FeatureRevisionModel.find({
+  const filter: Record<string, unknown> = { organization };
+  if (featureId) filter.featureId = featureId;
+  else if (featureIds) filter.featureId = { $in: featureIds };
+  if (status) {
+    filter.status = Array.isArray(status) ? { $in: status } : status;
+  }
+  if (author) filter["createdBy.id"] = author;
+  if (involvedUserId) {
+    filter.$or = [
+      { "createdBy.id": involvedUserId },
+      { "contributors.id": involvedUserId },
+    ];
+  }
+  let query = FeatureRevisionModel.find(filter)
+    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
+    .sort({ version: sort === "desc" ? -1 : 1 });
+  if (!skipPagination) {
+    query = query.skip(offset).limit(limit);
+  }
+  const docs = await query;
+  return docs.map((m) => toInterface(m, context));
+}
+
+// Returns the most recently updated active draft for a feature, or null.
+export async function getLatestActiveDraftForFeature(
+  context: ReqContext | ApiReqContext,
+  organization: string,
+  featureId: string,
+  { involvedUserId }: { involvedUserId?: string } = {},
+): Promise<FeatureRevisionInterface | null> {
+  const filter: Record<string, unknown> = {
     organization,
     featureId,
-    ...statusFilter,
-  })
-    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-    .sort({ version: sort === "desc" ? -1 : 1 })
-    .skip(offset)
-    .limit(limit);
-  return docs.map((m) => toInterface(m, context));
+    status: { $in: ACTIVE_DRAFT_STATUSES },
+  };
+  if (involvedUserId) {
+    filter.$or = [
+      { "createdBy.id": involvedUserId },
+      { "contributors.id": involvedUserId },
+    ];
+  }
+  const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
+    dateUpdated: -1,
+  });
+
+  return doc ? toInterface(doc, context) : null;
 }
 
 export async function getRevision({
@@ -577,22 +642,7 @@ export async function updateRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  changes: Partial<
-    Pick<
-      FeatureRevisionInterface,
-      | "title"
-      | "comment"
-      | "defaultValue"
-      | "rules"
-      | "baseVersion"
-      | "environmentsEnabled"
-      | "prerequisites"
-      | "archived"
-      | "metadata"
-      | "holdout"
-      | "rampActions"
-    >
-  >,
+  changes: RevisionChanges,
   log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
 ) {

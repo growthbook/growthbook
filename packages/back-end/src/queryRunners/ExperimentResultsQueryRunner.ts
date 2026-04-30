@@ -1,4 +1,5 @@
 import { analyzeExperimentPower } from "shared/enterprise";
+import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
@@ -304,7 +305,7 @@ export const startExperimentResultQueries = async (
     const snapshotDimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
       [];
     snapshotDimensions.forEach((d) => {
-      if (d.type === "experiment" && d.specifiedSlices !== undefined) {
+      if (d.type === "experiment" && d.specifiedSlices?.length) {
         snapshotDimensionsForTraffic.push({
           ...d,
           specifiedSlices: d.specifiedSlices,
@@ -468,13 +469,26 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           variationsSettings: this.model.settings.variations,
         });
       }
+      const analysisForCovariateImbalance = this.model.analyses.find(
+        (a) => a.settings.useCovariateAsResponse === true,
+      );
+      const isEligibleForCovariateImbalanceAnalysis =
+        !!analysisForCovariateImbalance;
+      if (isEligibleForCovariateImbalanceAnalysis) {
+        result.health.covariateImbalance = tabulateCovariateImbalance(
+          analysisForCovariateImbalance,
+          this.model.settings.goalMetrics,
+          this.model.settings.guardrailMetrics,
+          this.model.settings.secondaryMetrics,
+          this.model.settings.metricSettings,
+        );
+      }
     }
-
     return result;
   }
 
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
-    const obj = await findSnapshotById(this.model.organization, this.model.id);
+    const obj = await findSnapshotById(this.context, this.model.id);
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
@@ -506,10 +520,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             : "success",
     };
     await updateSnapshot({
-      organization: this.model.organization,
+      context: this.context,
       id: this.model.id,
       updates,
-      context: this.context,
     });
     if (
       this.model.report &&
