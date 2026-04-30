@@ -54,7 +54,6 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import {
-  getLicense,
   isAirGappedLicenseKey,
   notifyLicenseServerExperimentStarted,
 } from "back-end/src/enterprise/licenseUtil";
@@ -1882,17 +1881,16 @@ const onExperimentUpdate = async ({
       organization: context.org,
     });
 
-  const rawLicenseKey = context.org.licenseKey || process.env.LICENSE_KEY;
-  const licenseId = getLicense(rawLicenseKey)?.id;
+  const licenseKey = context.org.licenseKey || process.env.LICENSE_KEY;
 
   if (
     oldExperiment.status !== "running" &&
     newExperiment.status === "running" &&
-    licenseId &&
-    !isAirGappedLicenseKey(rawLicenseKey)
+    licenseKey &&
+    !isAirGappedLicenseKey(licenseKey)
   ) {
     notifyLicenseServerExperimentStarted(
-      licenseId,
+      licenseKey,
       newExperiment.id,
       new Date().toISOString(),
     ).catch((e) => {
