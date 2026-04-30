@@ -37,6 +37,7 @@ export function getExperimentUnitsQuery(
   );
 
   const { experimentDimensions, unitDimensions } = processDimensions(
+    dialect,
     params.dimensions,
     settings,
     activationMetric,
@@ -77,13 +78,17 @@ export function getExperimentUnitsQuery(
   return `
     ${params.includeIdJoins ? idJoinSQL : ""}
     __rawExperiment AS (
-      ${compileSqlTemplate(exposureQuery.query, {
-        startDate: settings.startDate,
-        endDate: settings.endDate,
-        experimentId: settings.experimentId,
-        phase: settings.phase,
-        customFields: settings.customFields,
-      })}
+      ${compileSqlTemplate(
+        exposureQuery.query,
+        {
+          startDate: settings.startDate,
+          endDate: settings.endDate,
+          experimentId: settings.experimentId,
+          phase: settings.phase,
+          customFields: settings.customFields,
+        },
+        dialect,
+      )}
     ),
     __experimentExposures AS (
       -- Viewed Experiment

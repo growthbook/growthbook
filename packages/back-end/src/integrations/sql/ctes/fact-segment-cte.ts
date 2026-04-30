@@ -66,5 +66,5 @@ export function getFactSegmentCTE(
       ${join}
       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
   `;
-  return sqlVars ? compileSqlTemplate(baseSql, sqlVars) : baseSql;
+  return sqlVars ? compileSqlTemplate(baseSql, sqlVars, dialect) : baseSql;
 }

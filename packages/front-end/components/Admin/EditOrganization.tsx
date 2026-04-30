@@ -1,9 +1,14 @@
 import { useState, FC } from "react";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationMessage,
+} from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
+
+type MessageWithId = OrganizationMessage & { id: string };
 
 const EditOrganization: FC<{
   onEdit: () => void;
@@ -26,6 +31,15 @@ const EditOrganization: FC<{
   const [autoApproveMembers, setAutoApproveMembers] = useState(
     currentOrg.autoApproveMembers || false,
   );
+  const [disableSelfServeBilling, setDisableSelfServeBilling] = useState(
+    currentOrg.disableSelfServeBilling || false,
+  );
+  const [messages, setMessages] = useState<MessageWithId[]>(
+    (currentOrg.messages || []).map((m) => ({
+      ...m,
+      id: crypto.randomUUID(),
+    })),
+  );
 
   const { apiCall } = useAuth();
 
@@ -45,9 +59,32 @@ const EditOrganization: FC<{
         autoApproveMembers,
         enterprise: legacyEnterprise,
         freeSeats,
+        disableSelfServeBilling,
+        messages: messages.map(({ id: _id, ...m }) => m),
       }),
     });
     onEdit();
+  };
+
+  const addMessage = () => {
+    setMessages([
+      ...messages,
+      { id: crypto.randomUUID(), message: "", level: "info" },
+    ]);
+  };
+
+  const updateMessage = (
+    id: string,
+    field: keyof OrganizationMessage,
+    value: string,
+  ) => {
+    setMessages(
+      messages.map((m) => (m.id === id ? { ...m, [field]: value } : m)),
+    );
+  };
+
+  const removeMessage = (id: string) => {
+    setMessages(messages.filter((m) => m.id !== id));
   };
 
   return (
@@ -198,6 +235,20 @@ const EditOrganization: FC<{
                 </span>
               </div>
             </div>
+            <div className="mt-3">
+              <Checkbox
+                id="disableSelfServeBilling"
+                label="Disable self-serve billing"
+                value={disableSelfServeBilling}
+                setValue={setDisableSelfServeBilling}
+              />
+              <div>
+                <span className="text-muted small">
+                  Prevents users in this org from managing their own
+                  subscription.
+                </span>
+              </div>
+            </div>
             <div className="p-2 border mt-3">
               <div>
                 <b>Deprecated:</b>
@@ -222,6 +273,65 @@ const EditOrganization: FC<{
                   </span>
                 </div>
               </div>
+            </div>
+            <div className="mt-3">
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <label className="mb-0 font-weight-bold">
+                  Organization Messages
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={addMessage}
+                >
+                  + Add Message
+                </button>
+              </div>
+              <div className="text-muted small mb-2">
+                Banners displayed to all users in this org. Supports Markdown.
+                Useful for maintenance notices or account alerts. Each message
+                will appear on every page.
+              </div>
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="d-flex gap-2 mb-2 align-items-center"
+                >
+                  <input
+                    type="text"
+                    className="form-control form-control-sm flex-grow-1"
+                    placeholder="Message text (Markdown supported)"
+                    value={msg.message}
+                    onChange={(e) =>
+                      updateMessage(msg.id, "message", e.target.value)
+                    }
+                  />
+                  <select
+                    className="form-control form-control-sm"
+                    style={{ width: 110, flexShrink: 0 }}
+                    value={msg.level}
+                    onChange={(e) =>
+                      updateMessage(
+                        msg.id,
+                        "level",
+                        e.target.value as OrganizationMessage["level"],
+                      )
+                    }
+                  >
+                    <option value="info">Info</option>
+                    <option value="warning">Warning</option>
+                    <option value="danger">Danger</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => removeMessage(msg.id)}
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
             </div>
           </>
         ) : null}

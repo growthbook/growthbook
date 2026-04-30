@@ -30,10 +30,12 @@ import { datetime } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import { FaBoltLightning } from "react-icons/fa6";
 import { PiCaretRightBold, PiXBold } from "react-icons/pi";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Modal from "@/components/Modal";
@@ -139,11 +141,13 @@ const featureUsageContext = createContext<{
   featureUsage: FeatureUsageData | undefined;
   sparkFeatureUsage: FeatureUsageData | undefined;
   showFeatureUsage: boolean;
+  managedWarehouseAwaitingProvisioning: boolean;
   mutateFeatureUsage: () => void;
 }>({
   lookback: "15minute",
   setLookback: () => {},
   showFeatureUsage: false,
+  managedWarehouseAwaitingProvisioning: false,
   featureUsage: undefined,
   sparkFeatureUsage: undefined,
   mutateFeatureUsage: () => {},
@@ -165,15 +169,22 @@ export function FeatureUsageProvider({
   );
 
   const { datasources } = useDefinitions();
-  const hasGrowthbookClickhouseDatasource = !!datasources.find(
+  const growthbookManagedDatasource = datasources.find(
     (ds) => ds.type === "growthbook_clickhouse",
   );
-  const showFeatureUsage = useDummyData || hasGrowthbookClickhouseDatasource;
+  const managedWarehouseAwaitingProvisioning = growthbookManagedDatasource
+    ? isManagedWarehouseAwaitingProvisioning(growthbookManagedDatasource)
+    : false;
+  const showFeatureUsage = useDummyData || !!growthbookManagedDatasource;
 
   const { data, mutate: mutateFeatureUsage } = useApi<{
     usage: FeatureUsageData;
   }>(`/feature/${feature?.id}/usage?lookback=${lookback}`, {
-    shouldRun: () => !!feature && showFeatureUsage && !useDummyData,
+    shouldRun: () =>
+      !!feature &&
+      showFeatureUsage &&
+      !useDummyData &&
+      !managedWarehouseAwaitingProvisioning,
   });
 
   const { data: sparkData, mutate: mutateSparkData } = useApi<{
@@ -183,6 +194,7 @@ export function FeatureUsageProvider({
       !!feature &&
       showFeatureUsage &&
       !useDummyData &&
+      !managedWarehouseAwaitingProvisioning &&
       lookback !== SPARK_LOOKBACK,
   });
 
@@ -202,6 +214,8 @@ export function FeatureUsageProvider({
   );
 
   useEffect(() => {
+    if (managedWarehouseAwaitingProvisioning) return;
+
     const hasData =
       (featureUsage?.bySource?.length ?? 0) > 0 ||
       (sparkFeatureUsage?.bySource?.length ?? 0) > 0;
@@ -223,6 +237,7 @@ export function FeatureUsageProvider({
     featureUsage,
     sparkFeatureUsage,
     featureUsageAutoRefreshInterval,
+    managedWarehouseAwaitingProvisioning,
     mutateFeatureUsage,
     mutateSparkData,
   ]);
@@ -233,6 +248,7 @@ export function FeatureUsageProvider({
         lookback,
         setLookback,
         showFeatureUsage,
+        managedWarehouseAwaitingProvisioning,
         featureUsage,
         sparkFeatureUsage,
         mutateFeatureUsage,
@@ -257,7 +273,16 @@ export function FeatureUsageContainer({
   initialTab?: "source" | "value" | "rule";
 }) {
   const [tab, setTab] = useState<"source" | "value" | "rule">(initialTab);
-  const { featureUsage, lookback, setLookback } = useFeatureUsage();
+  const {
+    featureUsage,
+    lookback,
+    setLookback,
+    managedWarehouseAwaitingProvisioning,
+  } = useFeatureUsage();
+
+  if (managedWarehouseAwaitingProvisioning) {
+    return <ManagedWarehouseNoEventsCallout />;
+  }
 
   // Post-unification `revision.rules` is a flat `FeatureRule[]` rather than
   // `Record<env, rule[]>`. SDK payloads emit the STEM id on telemetry rows
@@ -1073,10 +1098,14 @@ export function FeatureUsageSparkline({
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
 }) {
-  const { sparkFeatureUsage, showFeatureUsage } = useFeatureUsage();
+  const {
+    sparkFeatureUsage,
+    showFeatureUsage,
+    managedWarehouseAwaitingProvisioning,
+  } = useFeatureUsage();
   const [modalOpen, setModalOpen] = useState(false);
 
-  if (!showFeatureUsage) return null;
+  if (!showFeatureUsage || managedWarehouseAwaitingProvisioning) return null;
 
   const defaultBin = "default";
   const overrideBin = "override";
