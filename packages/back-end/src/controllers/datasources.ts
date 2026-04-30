@@ -1510,10 +1510,7 @@ export async function postRecreateManagedWarehouse(
     );
   }
 
-  await dangerousRecreateClickhouseTables(
-    context.org.id,
-    datasource.settings.materializedColumns || [],
-  );
+  await dangerousRecreateClickhouseTables(context.org.id);
 
   res.status(200).json({
     status: 200,

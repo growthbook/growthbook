@@ -2,10 +2,7 @@
  * Delegates managed ClickHouse provisioning to central-license-server
  * (see managed-clickhouse/* routes there).
  */
-import type {
-  DataSourceParams,
-  MaterializedColumn,
-} from "shared/types/datasource";
+import type { MaterializedColumn } from "shared/types/datasource";
 import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
@@ -123,25 +120,10 @@ async function postManagedClickhouse(
   return res;
 }
 
-export async function createClickhouseUser(
-  orgId: string,
-  materializedColumns: MaterializedColumn[] = [],
-): Promise<DataSourceParams> {
-  const res = await postManagedClickhouse("provision", {
-    orgId,
-    materializedColumns,
-  });
-  return (await res.json()) as DataSourceParams;
-}
-
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
-  materializedColumns: MaterializedColumn[] = [],
 ): Promise<void> {
-  await postManagedClickhouse("recreate-tables", {
-    orgId,
-    materializedColumns,
-  });
+  await postManagedClickhouse("recreate-tables", { orgId });
 }
 
 export async function deleteClickhouseUser(orgId: string): Promise<void> {
