@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
+import { EventForwarderAccessTestResponse } from "shared/validators";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
@@ -10,6 +11,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import EventForwarderTableNameField from "./EventForwarderTableNameField";
 
 const BigQueryForm: FC<{
@@ -21,6 +23,10 @@ const BigQueryForm: FC<{
     eventForwarderConfig: EventForwarderConfigDraft | null,
   ) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
+  datasourceId?: string;
+  projects?: string[];
+  eventForwarderAccessSignature: string;
+  setValidatedEventForwarderSignature?: (signature: string | null) => void;
 }> = ({
   params,
   eventForwarderConfig,
@@ -28,11 +34,19 @@ const BigQueryForm: FC<{
   setEventForwarderConfig,
   existing,
   onParamChange,
+  datasourceId,
+  projects,
+  eventForwarderAccessSignature,
+  setValidatedEventForwarderSignature,
 }) => {
   const [testConnectionResults, setTestConnectionResults] = useState<{
     status: "success" | "danger" | "warning";
     message: string;
     datasetOptions: string[];
+  } | null>(null);
+  const [eventForwarderTestResult, setEventForwarderTestResult] = useState<{
+    status: "success" | "error";
+    message: string;
   } | null>(null);
   const { apiCall } = useAuth();
 
@@ -73,6 +87,48 @@ const BigQueryForm: FC<{
         status: "danger",
         message: e.message,
         datasetOptions: [],
+      });
+    }
+  }
+
+  async function testEventForwarderAccess() {
+    if (eventForwarderConfig?.sinkType !== "bigquery") return;
+
+    setEventForwarderTestResult(null);
+    setValidatedEventForwarderSignature?.(null);
+    const endpoint =
+      existing && datasourceId
+        ? `/datasource/${datasourceId}/event-forwarder/test-access`
+        : "/datasources/event-forwarder/test-access";
+    const body =
+      existing && datasourceId
+        ? {
+            params,
+            eventForwarderConfig,
+          }
+        : {
+            type: "bigquery",
+            params,
+            projects,
+            eventForwarderConfig,
+          };
+
+    const response = await apiCall<EventForwarderAccessTestResponse>(endpoint, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    const sinkWrite = response.results.sinkWrite;
+    if (sinkWrite.result === "success") {
+      setValidatedEventForwarderSignature?.(eventForwarderAccessSignature);
+      setEventForwarderTestResult({
+        status: "success",
+        message: "Event Forwarder write access verified.",
+      });
+    } else {
+      setEventForwarderTestResult({
+        status: "error",
+        message:
+          sinkWrite.resultMessage || "Event Forwarder write access failed.",
       });
     }
   }
@@ -261,6 +317,24 @@ const BigQueryForm: FC<{
                   tooltip="Defaults to gb_events. If that table already exists, GrowthBook will reuse it for the event forwarder."
                   helpText="Letters, numbers, and underscores (Unicode allowed). Hyphens and spaces are normalized to underscores when saving."
                 />
+                <div>
+                  <Button
+                    color="primary"
+                    disabled={!params.defaultDataset}
+                    onClick={testEventForwarderAccess}
+                  >
+                    Test Event Forwarder Access
+                  </Button>
+                </div>
+                {eventForwarderTestResult ? (
+                  <Callout
+                    status={eventForwarderTestResult.status}
+                    mt="0"
+                    mb="0"
+                  >
+                    {eventForwarderTestResult.message}
+                  </Callout>
+                ) : null}
               </Flex>
             )}
           </div>

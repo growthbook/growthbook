@@ -916,8 +916,16 @@ app.get(
   datasourcesController.getHasReadyEventForwarder,
 );
 app.post("/datasources", datasourcesController.postDataSources);
+app.post(
+  "/datasources/event-forwarder/test-access",
+  datasourcesController.postTestEventForwarderAccessForCreate,
+);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+app.post(
+  "/datasource/:id/event-forwarder/test-access",
+  datasourcesController.postTestEventForwarderAccessForDatasource,
+);
 app.post(
   "/datasource/:id/event-forwarder/pause",
   datasourcesController.postPauseEventForwarder,

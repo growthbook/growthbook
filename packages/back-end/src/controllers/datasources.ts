@@ -10,10 +10,18 @@ import {
   type PipelineValidationResults,
 } from "shared/enterprise";
 import { TemplateVariables } from "shared/types/sql";
-import { factTableColumnTypes } from "shared/validators";
+import {
+  eventForwarderAccessTestCreateBodySchema,
+  eventForwarderAccessTestEditBodySchema,
+  factTableColumnTypes,
+} from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
-import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
+import {
+  BigQueryEventForwarderStoredConfig,
+  EventForwarderConfigDraft,
+  SnowflakeEventForwarderStoredConfig,
+} from "shared/types/event-forwarder";
 import {
   DataSourceParams,
   DataSourceType,
@@ -31,6 +39,7 @@ import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -47,12 +56,15 @@ import {
   runUserExposureQuery,
 } from "back-end/src/services/datasource";
 import {
+  buildNormalizedEventForwarderSinkPayloadForTest,
   getEventForwarderConfigForDatasource,
   getEventForwarderConfigWithMetadataForDatasource,
   hasReadyEventForwarderConfig,
   refreshEventForwarderConfigCredentials,
   syncEventForwarderConfigFromDatasource,
+  toEventForwarderConfigDraft,
 } from "back-end/src/services/eventForwarderConfig";
+import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
 import {
   pauseEventForwarderThroughLicenseServer,
   provisionEventForwarderThroughLicenseServer,
@@ -113,6 +125,31 @@ function getEventForwarderDatasourceParams(
     default:
       return undefined;
   }
+}
+
+function getCandidateDatasource({
+  context,
+  type,
+  params,
+  projects,
+}: {
+  context: ReturnType<typeof getContextFromReq>;
+  type: "bigquery" | "snowflake" | "databricks";
+  params: DataSourceParams;
+  projects?: string[];
+}): DataSourceInterface {
+  return {
+    id: "event-forwarder-access-test",
+    name: "Event Forwarder Access Test",
+    description: "",
+    organization: context.org.id,
+    dateCreated: null,
+    dateUpdated: null,
+    params: encryptParams(params),
+    projects,
+    settings: {},
+    type,
+  } as DataSourceInterface;
 }
 
 export async function deleteDataSource(
@@ -624,6 +661,164 @@ export async function putDataSource(
       message: e.message || "An error occurred",
     });
   }
+}
+
+export async function postTestEventForwarderAccessForCreate(
+  req: AuthRequest,
+  res: Response,
+) {
+  const parsed = eventForwarderAccessTestCreateBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const { type, eventForwarderConfig, projects } = parsed.data;
+  const params = parsed.data.params as unknown as DataSourceParams;
+  const eventForwarderProjects = projects ?? [];
+
+  if (!context.permissions.canCreateDataSource({ projects, type })) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    !context.permissions.canCreateEventForwarderConfig({
+      projects: eventForwarderProjects,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const datasource = getCandidateDatasource({
+    context,
+    type,
+    params,
+    projects,
+  });
+  const datasourceParams = getEventForwarderDatasourceParams(type, params);
+  const databricksParams = params as DatabricksConnectionParams;
+  const normalized = buildNormalizedEventForwarderSinkPayloadForTest(
+    eventForwarderConfig as EventForwarderConfigDraft,
+    datasourceParams,
+    null,
+  );
+
+  const result =
+    eventForwarderConfig.sinkType === "bigquery"
+      ? await testEventForwarderWriteAccess(context, {
+          sinkType: "bigquery",
+          datasource,
+          params: datasourceParams as BigQueryConnectionParams,
+          config: normalized as BigQueryEventForwarderStoredConfig,
+        })
+      : eventForwarderConfig.sinkType === "snowflake"
+        ? await testEventForwarderWriteAccess(context, {
+            sinkType: "snowflake",
+            datasource,
+            params: datasourceParams as SnowflakeConnectionParams,
+            config: normalized as SnowflakeEventForwarderStoredConfig,
+          })
+        : await testEventForwarderWriteAccess(context, {
+            sinkType: "databricks",
+            datasource,
+            params: databricksParams,
+            config: normalized as Record<string, string>,
+          });
+
+  res.status(200).json(result);
+}
+
+export async function postTestEventForwarderAccessForDatasource(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response,
+) {
+  const parsed = eventForwarderAccessTestEditBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Cannot find data source" });
+  }
+
+  if (
+    !context.permissions.canUpdateDataSourceSettings(datasource) ||
+    !context.permissions.canRunPipelineValidationQueries(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    parsed.data.params &&
+    !context.permissions.canUpdateDataSourceParams(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+  if (parsed.data.params) {
+    mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
+  }
+
+  const existingEventForwarderConfig =
+    await getEventForwarderConfigForDatasource(context, datasource.id);
+  const draft =
+    (parsed.data.eventForwarderConfig as
+      | EventForwarderConfigDraft
+      | undefined) ?? toEventForwarderConfigDraft(existingEventForwarderConfig);
+  if (!draft) {
+    return res.status(400).json({
+      status: 400,
+      message: "Event Forwarder is not configured for this data source.",
+    });
+  }
+
+  const candidateDatasource = {
+    ...datasource,
+    params: encryptParams(integration.params as DataSourceParams),
+  } as DataSourceInterface;
+  const datasourceParams = getEventForwarderDatasourceParams(
+    datasource.type,
+    integration.params as DataSourceParams,
+  );
+  const databricksParams = integration.params as DatabricksConnectionParams;
+  const normalized = buildNormalizedEventForwarderSinkPayloadForTest(
+    draft,
+    datasourceParams,
+    existingEventForwarderConfig,
+  );
+
+  const result =
+    draft.sinkType === "bigquery"
+      ? await testEventForwarderWriteAccess(context, {
+          sinkType: "bigquery",
+          datasource: candidateDatasource,
+          params: datasourceParams as BigQueryConnectionParams,
+          config: normalized as BigQueryEventForwarderStoredConfig,
+        })
+      : draft.sinkType === "snowflake"
+        ? await testEventForwarderWriteAccess(context, {
+            sinkType: "snowflake",
+            datasource: candidateDatasource,
+            params: datasourceParams as SnowflakeConnectionParams,
+            config: normalized as SnowflakeEventForwarderStoredConfig,
+          })
+        : await testEventForwarderWriteAccess(context, {
+            sinkType: "databricks",
+            datasource: candidateDatasource,
+            params: databricksParams,
+            config: normalized as Record<string, string>,
+          });
+
+  res.status(200).json(result);
 }
 
 export async function postPauseEventForwarder(

@@ -2,11 +2,15 @@ import { FC, ChangeEventHandler, useState } from "react";
 import { DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME } from "shared/util";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { EventForwarderAccessTestResponse } from "shared/validators";
+import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
 import FileInput from "@/components/FileInput";
+import Button from "@/components/Button";
+import Callout from "@/ui/Callout";
 import EventForwarderTableNameField from "./EventForwarderTableNameField";
 
 const SnowflakeForm: FC<{
@@ -18,6 +22,10 @@ const SnowflakeForm: FC<{
   ) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   onManualParamChange: (name: string, value: string) => void;
+  datasourceId?: string;
+  projects?: string[];
+  eventForwarderAccessSignature: string;
+  setValidatedEventForwarderSignature?: (signature: string | null) => void;
 }> = ({
   params,
   eventForwarderConfig,
@@ -25,9 +33,18 @@ const SnowflakeForm: FC<{
   existing,
   onParamChange,
   onManualParamChange,
+  datasourceId,
+  projects,
+  eventForwarderAccessSignature,
+  setValidatedEventForwarderSignature,
 }) => {
+  const { apiCall } = useAuth();
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
   const [originalAuthMethod] = useState(params.authMethod);
+  const [eventForwarderTestResult, setEventForwarderTestResult] = useState<{
+    status: "success" | "error";
+    message: string;
+  } | null>(null);
   // Convenience variable for the auth method to handle undefined
   const authMethod = params.authMethod ?? "password";
   const canEnableEventForwarder = authMethod === "key-pair";
@@ -35,6 +52,48 @@ const SnowflakeForm: FC<{
     eventForwarderConfig?.sinkType === "snowflake"
       ? eventForwarderConfig
       : null;
+
+  async function testEventForwarderAccess() {
+    if (!snowflakeEventForwarderConfig) return;
+
+    setEventForwarderTestResult(null);
+    setValidatedEventForwarderSignature?.(null);
+    const endpoint =
+      existing && datasourceId
+        ? `/datasource/${datasourceId}/event-forwarder/test-access`
+        : "/datasources/event-forwarder/test-access";
+    const body =
+      existing && datasourceId
+        ? {
+            params,
+            eventForwarderConfig: snowflakeEventForwarderConfig,
+          }
+        : {
+            type: "snowflake",
+            params,
+            projects,
+            eventForwarderConfig: snowflakeEventForwarderConfig,
+          };
+
+    const response = await apiCall<EventForwarderAccessTestResponse>(endpoint, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    const sinkWrite = response.results.sinkWrite;
+    if (sinkWrite.result === "success") {
+      setValidatedEventForwarderSignature?.(eventForwarderAccessSignature);
+      setEventForwarderTestResult({
+        status: "success",
+        message: "Event Forwarder write access verified.",
+      });
+    } else {
+      setEventForwarderTestResult({
+        status: "error",
+        message:
+          sinkWrite.resultMessage || "Event Forwarder write access failed.",
+      });
+    }
+  }
 
   return (
     <div className="row">
@@ -218,6 +277,22 @@ const SnowflakeForm: FC<{
                   }
                 />
               </div>
+              <div className="form-group col-md-12">
+                <Button color="primary" onClick={testEventForwarderAccess}>
+                  Test Event Forwarder Access
+                </Button>
+              </div>
+              {eventForwarderTestResult ? (
+                <div className="form-group col-md-12">
+                  <Callout
+                    status={eventForwarderTestResult.status}
+                    mt="0"
+                    mb="0"
+                  >
+                    {eventForwarderTestResult.message}
+                  </Callout>
+                </div>
+              ) : null}
             </>
           )}
         </>
