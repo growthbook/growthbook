@@ -3,7 +3,7 @@ import {
   eligibleForUncappedMetric,
   getUserIdTypes,
   isFunnelMetric,
-  isPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
 } from "shared/experiments";
@@ -63,6 +63,15 @@ export function getExperimentMetricQuery(
   applyMetricOverrides(metric, settings);
   denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
 
+  // Lower-tail *percentile* caps are not implemented on this legacy experiment SQL path.
+  const stripLowerPercentileCap = (m: MetricInterface) => {
+    if (m.cappingSettings?.type === "percentile") {
+      delete (m.cappingSettings as { lowerValue?: number }).lowerValue;
+    }
+  };
+  stripLowerPercentileCap(metric);
+  denominatorMetrics.forEach(stripLowerPercentileCap);
+
   // Replace any placeholders in the user defined dimension SQL
   const { unitDimensions } = processDimensions(
     params.dimensions,
@@ -106,11 +115,11 @@ export function getExperimentMetricQuery(
     settings.attributionModel === "lookbackOverride";
 
   // Get capping settings and final coalesce statement
-  const isPercentileCapped = isPercentileCappedMetric(metric);
+  const isUpperPercentileCapped = isUpperPercentileCappedMetric(metric);
   const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
-  const denominatorIsPercentileCapped = denominator
-    ? isPercentileCappedMetric(denominator)
+  const denominatorIsUpperPercentileCapped = denominator
+    ? isUpperPercentileCappedMetric(denominator)
     : false;
 
   const denominatorComputeUncappedMetric = denominator
@@ -264,6 +273,10 @@ export function getExperimentMetricQuery(
     );
   }
 
+  const denominatorCapJoinsForAggSql = denominatorIsUpperPercentileCapped
+    ? "CROSS JOIN __capValueDenominator capd"
+    : "";
+
   return format(
     `-- ${metric.name} (${metric.type})
 WITH
@@ -393,7 +406,7 @@ WITH
       , umj.${baseIdType}
   )
   ${
-    isPercentileCapped
+    isUpperPercentileCapped
       ? `
     , __capValue AS (
         ${dialect.percentileCapSelectClause(
@@ -447,7 +460,7 @@ WITH
             , d.${baseIdType}
         )
         ${
-          denominator && denominatorIsPercentileCapped
+          denominator && denominatorIsUpperPercentileCapped
             ? `
           , __capValueDenominator AS (
             ${dialect.percentileCapSelectClause(
@@ -468,7 +481,8 @@ WITH
           )
           `
             : ""
-        }`
+        }
+      `
       : ""
   }
   ${
@@ -508,7 +522,8 @@ WITH
               id: metric.id,
               ratioMetric,
               regressionAdjusted,
-              isPercentileCapped,
+              isUpperPercentileCapped,
+              isLowerPercentileCapped: false,
               capCoalesceMetric,
               capCoalesceCovariate,
               capCoalesceDenominator,
@@ -518,9 +533,9 @@ WITH
           ],
           dimensionCols,
           hasRegressionAdjustment: regressionAdjusted,
-          hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
-          denominatorIsPercentileCapped,
+          denominatorIsUpperPercentileCapped,
+          denominatorIsLowerPercentileCapped: false,
         })
       : `
   -- One row per variation/dimension with aggregations
@@ -533,7 +548,7 @@ ${
     ? `, SUM(${uncappedCoalesceMetric}) AS main_sum_uncapped
        , SUM(POWER(${uncappedCoalesceMetric}, 2)) AS main_sum_squares_uncapped
        ${
-         isPercentileCapped
+         isUpperPercentileCapped
            ? `
        , MAX(COALESCE(cap.value_cap, 0)) as main_cap_value`
            : ""
@@ -551,7 +566,7 @@ ${
          , SUM(POWER(${uncappedCoalesceDenominator}, 2)) AS denominator_sum_squares_uncapped
          , SUM(${uncappedCoalesceMetric} * ${uncappedCoalesceDenominator}) AS main_denominator_sum_product_uncapped
          ${
-           denominatorIsPercentileCapped
+           denominatorIsUpperPercentileCapped
              ? `
          , MAX(COALESCE(capd.value_cap, 0)) as denominator_cap_value`
              : ""
@@ -587,11 +602,7 @@ __userMetricAgg m
       ? `LEFT JOIN __userDenominatorAgg d ON (
       d.${baseIdType} = m.${baseIdType}
     )
-    ${
-      denominatorIsPercentileCapped
-        ? "CROSS JOIN __capValueDenominator capd"
-        : ""
-    }`
+    ${denominatorCapJoinsForAggSql}`
       : ""
   }
   ${
@@ -602,7 +613,7 @@ __userMetricAgg m
   `
       : ""
   }
-  ${isPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
+  ${isUpperPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
   ${"ignoreNulls" in metric && metric.ignoreNulls ? `WHERE m.value != 0` : ""}
   GROUP BY
 m.variation

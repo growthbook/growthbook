@@ -125,8 +125,6 @@ export type FactMetricData = {
   isUpperPercentileCapped: boolean;
   /** Lower-tail percentile capping enabled. */
   isLowerPercentileCapped: boolean;
-  /** Build percentile cap CTE and join when upper or lower uses percentile. */
-  needsPercentileCapJoin: boolean;
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
@@ -175,14 +173,13 @@ export type FactMetricQuantileData = {
   metricQuantileSettings: MetricQuantileSettings;
 };
 
+/** One quantile column for `SqlDialect.percentileCapSelectClause` (fact metric experiment SQL). */
 export type FactMetricPercentileData = {
   valueCol: string;
   outputCol: string;
   sourceIndex: number;
-  upperPercentile?: number;
-  lowerPercentile?: number;
-  /** Ignore zeros when computing percentile cap(s); applies to upper and/or lower tail on this column. */
-  ignoreZeros?: boolean;
+  percentile: number;
+  ignoreZeros: boolean;
 };
 
 export type BanditMetricData = Pick<
@@ -193,7 +190,6 @@ export type BanditMetricData = Pick<
   | "regressionAdjusted"
   | "isUpperPercentileCapped"
   | "isLowerPercentileCapped"
-  | "needsPercentileCapJoin"
   | "capCoalesceMetric"
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"

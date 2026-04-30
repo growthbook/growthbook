@@ -183,7 +183,9 @@ export const cappingSettingsValidator = z
      */
     lowerValue: z.number().optional(),
   })
-  .strict();
+  // Strip unknown keys (e.g. legacy or client-only fields) so Mongo updates do not
+  // fail strict validation when saving fact metrics from the app.
+  .strip();
 
 /** Minimal shape for evaluating which capping tails are active (API, DB, forms). */
 export type CappingSettingsTailInput = {

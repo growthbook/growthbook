@@ -11,19 +11,30 @@ export function getBanditStatisticsCTE(
     metricData,
     dimensionCols,
     hasRegressionAdjustment,
-    hasCapping,
     ignoreNulls,
-    denominatorIsPercentileCapped,
+    denominatorIsUpperPercentileCapped,
+    denominatorIsLowerPercentileCapped,
   }: {
     baseIdType: string;
     metricData: BanditMetricData[];
     dimensionCols: DimensionColumnData[];
     hasRegressionAdjustment: boolean;
-    hasCapping: boolean;
     ignoreNulls?: boolean;
-    denominatorIsPercentileCapped?: boolean;
+    denominatorIsUpperPercentileCapped?: boolean;
+    denominatorIsLowerPercentileCapped?: boolean;
   },
 ): string {
+  const denominatorCapJoinsSql = [
+    denominatorIsUpperPercentileCapped
+      ? "CROSS JOIN __capValueDenominator capd"
+      : "",
+    denominatorIsLowerPercentileCapped
+      ? "CROSS JOIN __capValueDenominatorLower capd_lower"
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n          ");
+
   return `-- One row per variation/dimension with aggregations
   , __banditPeriodStatistics AS (
     SELECT
@@ -36,8 +47,13 @@ export function getBanditStatisticsCTE(
           const alias = data.alias;
           return `
         ${
-          data.isPercentileCapped
+          data.isUpperPercentileCapped
             ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
+            : ""
+        }
+        ${
+          data.isLowerPercentileCapped
+            ? `, MAX(COALESCE(cap.${alias}value_cap_lower, 0)) AS ${alias}main_cap_value_lower`
             : ""
         }
         , ${dialect.castToFloat(
@@ -50,7 +66,7 @@ export function getBanditStatisticsCTE(
           data.ratioMetric
             ? `
           ${
-            denominatorIsPercentileCapped
+            denominatorIsUpperPercentileCapped
               ? `, MAX(COALESCE(capd.${alias}value_cap, 0)) as ${alias}denominator_cap_value`
               : ""
           }
@@ -90,11 +106,7 @@ export function getBanditStatisticsCTE(
         ? `LEFT JOIN __userDenominatorAgg d ON (
             d.${baseIdType} = m.${baseIdType}
           )
-          ${
-            denominatorIsPercentileCapped
-              ? "CROSS JOIN __capValueDenominator capd"
-              : ""
-          }`
+          ${denominatorCapJoinsSql}`
         : ""
     }
     ${
@@ -105,7 +117,8 @@ export function getBanditStatisticsCTE(
         `
         : ""
     }
-    ${hasCapping ? `CROSS JOIN __capValue cap` : ""}
+    ${metricData.some((d) => d.isUpperPercentileCapped) ? `CROSS JOIN __capValue cap` : ""}
+    ${metricData.some((d) => d.isLowerPercentileCapped) ? `CROSS JOIN __capValueLower cap_lower` : ""}
     ${ignoreNulls ? `WHERE m.value != 0` : ""}
     GROUP BY
       m.variation

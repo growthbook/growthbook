@@ -42,8 +42,13 @@ export function getBanditStatisticsFactMetricCTE(
                 : data.denominatorSourceIndex;
             return `
           ${
-            data.isPercentileCapped
+            data.isUpperPercentileCapped
               ? `, MAX(COALESCE(cap${numeratorSourceSuffix}.${alias}value_cap, 0)) AS ${alias}main_cap_value`
+              : ""
+          }
+          ${
+            data.isLowerPercentileCapped
+              ? `, MAX(COALESCE(cap${numeratorSourceSuffix}.${alias}value_cap_lower, 0)) AS ${alias}main_cap_value_lower`
               : ""
           }
           , ${dialect.castToFloat(
@@ -56,8 +61,13 @@ export function getBanditStatisticsFactMetricCTE(
             data.ratioMetric
               ? `
             ${
-              data.isPercentileCapped
+              data.isUpperPercentileCapped
                 ? `, MAX(COALESCE(cap${denominatorSourceSuffix}.${alias}denominator_cap, 0)) as ${alias}denominator_cap_value`
+                : ""
+            }
+            ${
+              data.isLowerPercentileCapped
+                ? `, MAX(COALESCE(cap${denominatorSourceSuffix}.${alias}denominator_cap_lower, 0)) as ${alias}denominator_cap_value_lower`
                 : ""
             }
             , ${dialect.castToFloat(
