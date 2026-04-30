@@ -66,6 +66,7 @@ export default function ProjectTagBar({
   const showRuntime =
     experiment.phases?.length > 0 &&
     experiment.status !== "draft" &&
+    experiment.status !== "scheduled" &&
     latestPhase?.dateStarted;
 
   const renderRuntime = () => {

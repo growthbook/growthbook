@@ -1,7 +1,7 @@
 import { FC } from "react";
 import clsx from "clsx";
 import { ExperimentStatus } from "shared/types/experiment";
-import { FaArchive, FaPlay, FaStop } from "react-icons/fa";
+import { FaArchive, FaClock, FaPlay, FaStop } from "react-icons/fa";
 import { BsConeStriped } from "react-icons/bs";
 import styles from "./StatusIndicator.module.scss";
 
@@ -35,6 +35,13 @@ const StatusIndicator: FC<{
           Running
         </div>
       );
+    case "scheduled":
+      return (
+        <div className={clsx(styles.container, className, "text-info")}>
+          <FaClock className="mr-1" />
+          Scheduled
+        </div>
+      );
     case "stopped":
       return (
         <div className={clsx(styles.container, className, "text-secondary")}>
@@ -42,6 +49,8 @@ const StatusIndicator: FC<{
           Stopped
         </div>
       );
+    default:
+      return null;
   }
 };
 

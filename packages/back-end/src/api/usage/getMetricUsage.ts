@@ -80,8 +80,13 @@ export const getMetricUsage = createApiRequestHandler(getMetricUsageValidator)(
 
       // Build the experiments array for the response
       const experimentList = matchingExperiments.map((exp) => ({
+        // External API currently treats scheduled experiments as draft.
+        // This keeps the public schema backward-compatible.
+        experimentStatus:
+          exp.status === "scheduled"
+            ? "draft"
+            : (exp.status as Exclude<ExperimentStatus, "scheduled">),
         experimentId: exp.id,
-        experimentStatus: exp.status as ExperimentStatus,
         lastSnapshotAttempt: exp.lastSnapshotAttempt
           ? exp.lastSnapshotAttempt.toISOString()
           : null,

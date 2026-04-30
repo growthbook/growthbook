@@ -104,7 +104,12 @@ export const experimentPhase = z
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
 
-export const experimentStatus = ["draft", "running", "stopped"] as const;
+export const experimentStatus = [
+  "draft",
+  "scheduled",
+  "running",
+  "stopped",
+] as const;
 export type ExperimentStatus = (typeof experimentStatus)[number];
 
 export const screenshot = z
@@ -353,6 +358,15 @@ export const experimentInterface = z
     variations: z.array(variation),
     archived: z.boolean(),
     status: z.enum(experimentStatus),
+    schedule: z
+      .object({
+        date: z.string(),
+        endDate: z.string().optional(),
+        endAction: z.enum(["stop", "rollout"]).optional(),
+        rolloutVariationId: z.string().optional(),
+      })
+      .strict()
+      .optional(),
     phases: z.array(experimentPhase),
     results: z.enum(experimentResultsType).optional(),
     winner: z.number().optional(),
@@ -1007,7 +1021,7 @@ const postExperimentBody = z
       .optional(),
     owner: ownerInputField.optional(),
     archived: z.boolean().optional(),
-    status: z.enum(["draft", "running", "stopped"]).optional(),
+    status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -1115,7 +1129,7 @@ const updateExperimentBody = z
       .optional(),
     owner: ownerInputField.optional(),
     archived: z.boolean().optional(),
-    status: z.enum(["draft", "running", "stopped"]).optional(),
+    status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),

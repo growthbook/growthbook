@@ -48,7 +48,10 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
       healthSettings,
       decisionCriteria,
     );
-    const enhancedStatus = { status, detailedStatus };
+    const enhancedStatus = {
+      status: status === "Scheduled" ? "Draft" : status,
+      detailedStatus,
+    };
 
     const apiExperiment = await resolveOwnerEmail(
       await toExperimentApiInterface(

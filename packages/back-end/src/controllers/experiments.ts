@@ -628,6 +628,7 @@ export async function getExperimentsFrequencyMonth(
   // create stubs for each month by all the statuses:
   const dataByStatus = {
     draft: JSON.parse(JSON.stringify(allData)),
+    scheduled: JSON.parse(JSON.stringify(allData)),
     running: JSON.parse(JSON.stringify(allData)),
     stopped: JSON.parse(JSON.stringify(allData)),
   };
@@ -1619,6 +1620,7 @@ export async function postExperiment(
     "decisionFrameworkSettings",
     "variations",
     "status",
+    "schedule",
     "results",
     "analysis",
     "winner",
@@ -1670,6 +1672,7 @@ export async function postExperiment(
       key === "metricOverrides" ||
       key === "lookbackOverride" ||
       key === "variations" ||
+      key === "schedule" ||
       key === "customFields" ||
       key === "customMetricSlices"
     ) {

@@ -31,7 +31,7 @@ export const getNamespaceMemberships = createApiRequestHandler(
     id: e.id,
     name: e.name,
     trackingKey: e.trackingKey,
-    status: e.status,
+    status: e.status === "scheduled" ? "draft" : e.status,
     ranges: getLastPhaseNamespaceRanges(e),
   }));
 

@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { format } from "date-fns";
 import { useState } from "react";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
@@ -13,6 +14,7 @@ export interface Props {
   startExperiment: () => Promise<void>;
   checklistItemsRemaining: number;
   isHoldout?: boolean;
+  scheduledDate?: string;
 }
 
 export default function StartExperimentModal({
@@ -21,8 +23,11 @@ export default function StartExperimentModal({
   startExperiment,
   checklistItemsRemaining,
   isHoldout,
+  scheduledDate,
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
+  const parsedScheduledDate = scheduledDate ? new Date(scheduledDate) : null;
+  const isScheduleStart = !!parsedScheduledDate;
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -59,7 +64,13 @@ export default function StartExperimentModal({
       open={true}
       size="md"
       submit={startExperiment}
-      cta="Start Now"
+      cta={
+        isScheduleStart && parsedScheduledDate
+          ? `Start ${
+              isHoldout ? "Holdout" : "Experiment"
+            } on ${format(parsedScheduledDate, "MMM d")}`
+          : "Start Now"
+      }
       ctaEnabled={!checklistIncomplete && !needsUpgrade}
       close={close}
       useRadixButton={true}
@@ -72,11 +83,19 @@ export default function StartExperimentModal({
             setError={setStartError}
             type="button"
           >
-            Start Anyway
+            {isScheduleStart && parsedScheduledDate
+              ? `Schedule Anyway`
+              : "Start Anyway"}
           </Button>
         ) : null
       }
-      header={isHoldout ? "Start Holdout" : "Start Experiment"}
+      header={
+        isScheduleStart
+          ? `Schedule ${isHoldout ? "Holdout" : "Experiment"}`
+          : isHoldout
+            ? "Start Holdout"
+            : "Start Experiment"
+      }
     >
       <div className="p-2">
         {checklistIncomplete ? (
@@ -108,6 +127,15 @@ export default function StartExperimentModal({
           >
             This experiment contains URL redirects, which require a paid plan.
           </PremiumCallout>
+        ) : isScheduleStart && parsedScheduledDate ? (
+          <div>
+            This will move the {isHoldout ? "holdout" : "experiment"} to{" "}
+            <strong>Scheduled</strong> and set it to start on{" "}
+            <strong>
+              {format(parsedScheduledDate, "MMM d, yyyy 'at' h:mm a")}
+            </strong>
+            .
+          </div>
         ) : isHoldout ? (
           <div>
             Once started, experiments and features can be added to the holdout.

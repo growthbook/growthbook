@@ -184,6 +184,13 @@ const experimentSchema = new mongoose.Schema({
   attributionModel: String,
   archived: Boolean,
   status: String,
+  schedule: {
+    _id: false,
+    date: String,
+    endDate: String,
+    endAction: String,
+    rolloutVariationId: String,
+  },
   results: String,
   analysis: String,
   winner: Number,

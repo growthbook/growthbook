@@ -3,7 +3,11 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
+import {
+  FaAngleRight,
+  FaExclamationTriangle,
+  FaPencilAlt,
+} from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -53,6 +57,7 @@ import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import ScheduleExperimentModal from "@/components/Experiment/TabbedPage/ScheduleExperimentModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
@@ -212,6 +217,7 @@ export default function ExperimentHeader({
   const hasMultiplePhases = phases.length > 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
@@ -284,6 +290,10 @@ export default function ExperimentHeader({
     }
   }, [shouldHideTabs, setTab]);
 
+  useEffect(() => {
+    setShowStartExperiment(false);
+  }, [experiment.status]);
+
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
       `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
@@ -330,6 +340,20 @@ export default function ExperimentHeader({
       action: "main CTA",
     });
     setTab("results");
+  }
+
+  async function scheduleExperiment() {
+    await apiCall(`/experiment/${experiment.id}`, {
+      method: "POST",
+      body: JSON.stringify({
+        status: "scheduled",
+      }),
+    });
+    await mutate();
+    track("Schedule experiment", {
+      source: "experiment-start-banner",
+      action: "main CTA",
+    });
   }
 
   useEffect(() => {
@@ -416,6 +440,11 @@ export default function ExperimentHeader({
     Object.values(holdout?.statusUpdateSchedule ?? {}).some(
       (value) => value !== null,
     );
+  const hasExperimentSchedule = !!experiment.schedule?.date;
+  const scheduledStartDate = hasExperimentSchedule
+    ? new Date(experiment.schedule?.date || "")
+    : null;
+  const checklistReady = checklistItemsRemaining === 0;
 
   const runningExperimentDecisionBanner =
     experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
@@ -644,11 +673,21 @@ export default function ExperimentHeader({
         <StartExperimentModal
           experiment={experiment}
           close={() => setShowStartExperiment(false)}
-          startExperiment={startExperiment}
+          startExperiment={
+            hasExperimentSchedule ? scheduleExperiment : startExperiment
+          }
           checklistItemsRemaining={checklistItemsRemaining || 0}
           isHoldout={isHoldout}
+          scheduledDate={experiment.schedule?.date}
         />
       )}
+      {showScheduleModal && !isHoldout ? (
+        <ScheduleExperimentModal
+          experiment={experiment}
+          close={() => setShowScheduleModal(false)}
+          mutate={mutate}
+        />
+      ) : null}
       {showTemplateForm && (
         <TemplateForm
           onClose={() => setShowTemplateForm(false)}
@@ -783,10 +822,9 @@ export default function ExperimentHeader({
                     }
                     body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
-                    <button
-                      className="btn btn-teal"
-                      onClick={(e) => {
-                        e.preventDefault();
+                    <Button
+                      variant={checklistReady ? "solid" : "soft"}
+                      onClick={() => {
                         setShowStartExperiment(true);
                       }}
                       disabled={
@@ -796,11 +834,27 @@ export default function ExperimentHeader({
                           linkedFeatures,
                         )
                       }
+                      icon={<MdRocketLaunch />}
                     >
-                      Start {holdout ? "Holdout" : "Experiment"}{" "}
-                      <MdRocketLaunch />
-                    </button>
+                      Start {holdout ? "Holdout" : "Experiment"}
+                      {hasExperimentSchedule && scheduledStartDate
+                        ? ` on ${format(scheduledStartDate, "MMM d")}`
+                        : ""}
+                    </Button>
                   </Tooltip>
+                ) : experiment.status === "scheduled" &&
+                  hasExperimentSchedule &&
+                  scheduledStartDate ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    Starts{" "}
+                    {format(scheduledStartDate, "MMM d,yyyy 'at' h:mm a")}{" "}
+                    <FaPencilAlt />
+                  </Button>
                 ) : null}
                 {experiment.status === "stopped" && experiment.results ? (
                   <>
@@ -878,6 +932,18 @@ export default function ExperimentHeader({
                     {holdoutHasSchedule ? "Edit " : "Add "} Schedule
                   </DropdownMenuItem>
                 )}
+                {canEditExperiment &&
+                  !isHoldout &&
+                  experiment.status !== "running" && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowScheduleModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      {hasExperimentSchedule ? "Edit " : "Add "}schedule
+                    </DropdownMenuItem>
+                  )}
                 {canEditExperiment &&
                   !isHoldout &&
                   holdoutsEnabled &&
