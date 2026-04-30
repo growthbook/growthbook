@@ -229,7 +229,7 @@ export async function getDailyUsageForOrg(
   start: Date,
   end: Date,
 ): Promise<DailyUsage[]> {
-  const json = await postManagedClickhouseJson<{ days: DailyUsage[] }>(
+  const json = await postManagedClickhouseJson<{ days?: unknown }>(
     "daily-usage-for-org",
     {
       orgId,
@@ -237,5 +237,10 @@ export async function getDailyUsageForOrg(
       end: end.toISOString(),
     },
   );
-  return json.days;
+  if (!Array.isArray(json?.days)) {
+    throw new Error(
+      "Unexpected response shape from daily-usage-for-org endpoint",
+    );
+  }
+  return json.days as DailyUsage[];
 }
