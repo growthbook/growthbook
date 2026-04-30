@@ -203,6 +203,8 @@ export async function runRefreshColumnsQuery(
     throw new Error("Testing not supported on this data source");
   }
 
+  const timestampColumn = "timestamp";
+
   const sql = integration.getTestQuery({
     query: factTable.sql,
     templateVariables: {
@@ -210,11 +212,12 @@ export async function runRefreshColumnsQuery(
     },
     testDays: context.org.settings?.testQueryDays,
     limit: 20,
+    timestampColumn,
   });
 
   const result = await integration.runTestQuery(
     sql,
-    ["timestamp"],
+    [timestampColumn],
     "factTableValidation",
   );
 

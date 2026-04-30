@@ -190,5 +190,6 @@ export function getFactMetricCTE(
       phase,
       customFields,
     },
+    dialect,
   );
 }

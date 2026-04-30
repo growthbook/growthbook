@@ -5,8 +5,11 @@ import { baseDialect } from "./base";
 export const mssqlDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "tsql",
-  selectStarLimit: (table: string, limit: number) =>
-    `SELECT TOP ${limit} * FROM ${table}`,
+  selectStarLimit: (
+    from: string,
+    limit: number,
+    additionalClauses: string = "",
+  ) => `SELECT TOP ${limit} * FROM ${from} ${additionalClauses}`,
   addTime: (
     col: string,
     unit: "hour" | "minute",

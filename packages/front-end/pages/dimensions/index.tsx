@@ -172,7 +172,7 @@ const DimensionsPage: FC = () => {
               <SortableTH field="dimension">Name</SortableTH>
               <SortableTH field="datasourceName">Data Source</SortableTH>
               <SortableTH field="identifierTypes">Identifier Types</SortableTH>
-              <th></th>
+              <th style={{ width: 30 }} className="text-right"></th>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -193,7 +193,7 @@ const DimensionsPage: FC = () => {
                   >
                     {item.identifierTypes.join(", ")}
                   </TableCell>
-                  <TableCell>
+                  <TableCell style={{ width: 30 }} className="text-right">
                     <MoreMenu useRadix={true}>
                       <NextLink
                         className="dropdown-item"
@@ -249,7 +249,7 @@ const DimensionsPage: FC = () => {
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
                   <th>Date Updated</th>
-                  <th></th>
+                  <th style={{ width: 30 }} className="text-right"></th>
                 </tr>
               </thead>
               <tbody>
@@ -304,7 +304,7 @@ const DimensionsPage: FC = () => {
                         {s.dateUpdated ? ago(s.dateUpdated) : <span>-</span>}
                       </td>
                       {!s.managedBy ? (
-                        <td>
+                        <td style={{ width: 30 }} className="text-right">
                           {hasEditDimensionPermission ? (
                             <a
                               href="#"
@@ -334,7 +334,7 @@ const DimensionsPage: FC = () => {
                           ) : null}
                         </td>
                       ) : (
-                        <td></td>
+                        <td style={{ width: 30 }}></td>
                       )}
                     </tr>
                   );

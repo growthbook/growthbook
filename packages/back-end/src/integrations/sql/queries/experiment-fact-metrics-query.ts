@@ -48,6 +48,7 @@ export function getExperimentFactMetricsQuery(
   });
   // Replace any placeholders in the user defined dimension SQL
   const { unitDimensions } = processDimensions(
+    dialect,
     params.dimensions,
     settings,
     activationMetric,

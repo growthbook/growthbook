@@ -10,6 +10,9 @@ import {
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
+import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
+import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
+import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
@@ -246,6 +249,24 @@ describe("bigquery integration", () => {
   it("escape single quotes and backslash correctly", () => {
     expect(bigQueryDialect.escapeStringLiteral(`test\\'string`)).toEqual(
       `test\\\\\\'string`,
+    );
+  });
+
+  it("escapes backslash and single quotes for MySQL", () => {
+    expect(mysqlDialect.escapeStringLiteral(`test\\'string`)).toEqual(
+      `test\\\\''string`,
+    );
+  });
+
+  it("escapes backslash and single quotes for ClickHouse", () => {
+    expect(clickHouseDialect.escapeStringLiteral(`test\\'string`)).toEqual(
+      `test\\\\''string`,
+    );
+  });
+
+  it("escapes backslash and single quotes for Snowflake", () => {
+    expect(snowflakeDialect.escapeStringLiteral(`test\\'string`)).toEqual(
+      `test\\\\''string`,
     );
   });
 

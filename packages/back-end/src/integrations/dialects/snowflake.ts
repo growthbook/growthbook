@@ -6,6 +6,8 @@ import { baseDialect } from "./base";
 export const snowflakeDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "snowflake",
+  escapeStringLiteral: (value: string) =>
+    value.replace(/\\/g, "\\\\").replace(/'/g, "''"),
   formatDate: (col: string) => `TO_VARCHAR(${col}, 'YYYY-MM-DD')`,
   formatDateTimeString: (col: string) =>
     `TO_VARCHAR(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`,
