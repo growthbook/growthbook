@@ -31,7 +31,10 @@ import {
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import track from "@/services/track";
 import { useExploreData, CacheOption } from "./useExploreData";
+
+const MAX_TRACKED_ERROR_LENGTH = 500;
 
 type SetDraftStateAction =
   | ExplorationConfig
@@ -51,6 +54,7 @@ export interface ExplorerContextValue {
   needsUpdate: boolean;
   isSubmittable: boolean;
   managedWarehouseAwaitingProvisioning: boolean;
+  trackingSource: string | undefined;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
@@ -91,6 +95,7 @@ interface ExplorerProviderProps {
   initialConfig: ExplorationConfig;
   hasExistingResults?: boolean;
   onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
+  trackingSource?: string;
 }
 
 export function ExplorerProvider({
@@ -98,9 +103,15 @@ export function ExplorerProvider({
   initialConfig,
   hasExistingResults = false,
   onRunComplete,
+  trackingSource,
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
-  const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
+  const {
+    getFactTableById,
+    getFactMetricById,
+    datasources,
+    getDatasourceById,
+  } = useDefinitions();
 
   const [, setDefaultDataSourceId] = useLocalStorage<string>(
     LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
@@ -197,11 +208,9 @@ export function ExplorerProvider({
 
   const isManagedWarehouse = useMemo(() => {
     if (!draftExploreState.datasource) return false;
-    const datasource = datasources.find(
-      (d) => d.id === draftExploreState.datasource,
-    );
+    const datasource = getDatasourceById(draftExploreState.datasource);
     return datasource?.type === "growthbook_clickhouse";
-  }, [datasources, draftExploreState.datasource]);
+  }, [getDatasourceById, draftExploreState.datasource]);
 
   const managedWarehouseAwaitingProvisioning = useMemo(() => {
     if (!draftExploreState.datasource) return false;
@@ -271,12 +280,14 @@ export function ExplorerProvider({
       hasEverFetchedRef.current = true;
       const requestId = ++submitRequestIdRef.current;
 
+      const startTime = Date.now();
       // Do the fetch (we keep previous exploration/submitted state visible until result arrives)
       const {
         data: fetchResult,
         query,
         error: fetchError,
       } = await fetchData(configToSubmit, { cache });
+      const durationMs = Date.now() - startTime;
 
       // Ignore out-of-order responses from older in-flight requests.
       if (requestId !== submitRequestIdRef.current) return;
@@ -306,6 +317,33 @@ export function ExplorerProvider({
         error: fetchError || fetchResult?.error || null,
       }));
       if (fetchResult) onRunComplete?.(fetchResult);
+
+      if (trackingSource) {
+        const datasourceType =
+          getDatasourceById(configToSubmit.datasource)?.type ?? null;
+        const errorMessage = fetchError || fetchResult?.error || null;
+        const baseProps = {
+          source: trackingSource,
+          type: configToSubmit.type,
+          chart_type: configToSubmit.chartType,
+          datasource_type: datasourceType,
+          duration_ms: durationMs,
+          cache,
+          num_values: configToSubmit.dataset?.values?.length ?? 0,
+          num_dimensions: configToSubmit.dimensions?.length ?? 0,
+        };
+        if (errorMessage) {
+          track("Product Analytics Explorer: Refresh Failure", {
+            ...baseProps,
+            error_message: errorMessage.slice(0, MAX_TRACKED_ERROR_LENGTH),
+          });
+        } else if (fetchResult) {
+          track("Product Analytics Explorer: Refresh Success", {
+            ...baseProps,
+            row_count: fetchResult.result?.rows?.length ?? 0,
+          });
+        }
+      }
     },
     [
       draftExploreState,
@@ -314,6 +352,8 @@ export function ExplorerProvider({
       onRunComplete,
       isManagedWarehouse,
       managedWarehouseAwaitingProvisioning,
+      trackingSource,
+      getDatasourceById,
     ],
   );
 
@@ -457,6 +497,14 @@ export function ExplorerProvider({
 
   const changeChartType = useCallback(
     (chartType: ExplorationConfig["chartType"]) => {
+      if (trackingSource && draftExploreState.chartType !== chartType) {
+        track("Product Analytics Explorer: Chart Type Changed", {
+          source: trackingSource,
+          type: draftExploreState.type,
+          from_chart_type: draftExploreState.chartType,
+          to_chart_type: chartType,
+        });
+      }
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
         let dataset = prev.dataset;
@@ -494,7 +542,12 @@ export function ExplorerProvider({
         return { ...prev, chartType, dimensions, dataset } as ExplorationConfig;
       });
     },
-    [setDraftExploreState],
+    [
+      setDraftExploreState,
+      trackingSource,
+      draftExploreState.chartType,
+      draftExploreState.type,
+    ],
   );
 
   const clearAllDatasets = useCallback(
@@ -503,6 +556,21 @@ export function ExplorerProvider({
       setIsStale(false);
       if (datasourceId) {
         setDefaultDataSourceId(datasourceId);
+      }
+
+      if (
+        trackingSource &&
+        newDatasourceId &&
+        newDatasourceId !== draftExploreState.datasource
+      ) {
+        const fromDs = getDatasourceById(draftExploreState.datasource);
+        const toDs = getDatasourceById(newDatasourceId);
+        track("Product Analytics Explorer: Datasource Changed", {
+          source: trackingSource,
+          type: draftExploreState.type,
+          from_datasource_type: fromDs?.type ?? null,
+          to_datasource_type: toDs?.type ?? null,
+        });
       }
 
       setExplorerState((prev) => {
@@ -523,7 +591,16 @@ export function ExplorerProvider({
         };
       });
     },
-    [createDefaultValue, datasources, initialConfig, setDefaultDataSourceId],
+    [
+      createDefaultValue,
+      datasources,
+      getDatasourceById,
+      initialConfig,
+      setDefaultDataSourceId,
+      trackingSource,
+      draftExploreState.datasource,
+      draftExploreState.type,
+    ],
   );
 
   const value = useMemo<ExplorerContextValue>(
@@ -548,6 +625,7 @@ export function ExplorerProvider({
       managedWarehouseAwaitingProvisioning,
       clearAllDatasets,
       query,
+      trackingSource,
     }),
     [
       draftExploreState,
@@ -570,6 +648,7 @@ export function ExplorerProvider({
       managedWarehouseAwaitingProvisioning,
       clearAllDatasets,
       query,
+      trackingSource,
     ],
   );
 

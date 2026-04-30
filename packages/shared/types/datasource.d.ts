@@ -95,6 +95,11 @@ export interface SchemaInterface {
   experimentDimensions: string[];
   userIdTypes: string[];
   getMetricSQL(type: MetricType, tablePrefix: string): string;
+  getFactTableSQL(
+    tablePrefix: string,
+    userIdTypes: string[],
+    options?: GetExperimentSqlOptions,
+  ): string;
 }
 
 export interface SchemaFormatConfig {
