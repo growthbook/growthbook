@@ -93,16 +93,22 @@ export interface Props {
   rampSchedules?: RampScheduleInterface[];
 }
 
+// Backfill envelope fields from `fallback` (the parent feature's current
+// state) when the revision doesn't store them. Pre-snapshot legacy revisions
+// only persisted defaultValue/rules; comparing one against a freshly created
+// draft (which now snapshots the full envelope) would otherwise produce
+// phantom "added" diffs for metadata, env toggles, prerequisites, and holdout.
 function revisionToDiffInput(
   r: FeatureRevisionInterface,
+  fallback?: FeatureRevisionDiffInput,
 ): FeatureRevisionDiffInput {
   return {
     defaultValue: r.defaultValue,
     rules: Array.isArray(r.rules) ? r.rules : [],
-    environmentsEnabled: r.environmentsEnabled,
-    prerequisites: r.prerequisites,
-    holdout: r.holdout ?? null,
-    metadata: normalizeRevisionMetadata(r.metadata),
+    environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
+    prerequisites: r.prerequisites ?? fallback?.prerequisites,
+    holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
+    metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
     rampActions: r.rampActions ?? undefined,
   };
 }
@@ -1504,12 +1510,23 @@ export default function CompareRevisionsModal({
           : [];
   const displayLoading = displayVersions.some((v) => loadingVersions.has(v));
   const displayFailed = displayVersions.filter((v) => isVersionFailed(v));
+
+  // Backfill source for legacy revisions that don't store envelope fields
+  // (metadata, env toggles, prerequisites, holdout). Without this, comparing
+  // a pre-snapshot live revision against a freshly created draft produces
+  // phantom diffs for every field the draft now snapshots from the feature.
+  const liveBase = baseFeature ?? feature;
+  const liveBaseInput = useMemo(
+    () => featureToFeatureRevisionDiffInput(liveBase),
+    [liveBase],
+  );
+
   const stepDiffs = useFeatureRevisionDiff({
     current: stepRevA
-      ? revisionToDiffInput(stepRevA)
+      ? revisionToDiffInput(stepRevA, liveBaseInput)
       : { defaultValue: "", rules: [] },
     draft: stepRevB
-      ? revisionToDiffInput(stepRevB)
+      ? revisionToDiffInput(stepRevB, liveBaseInput)
       : { defaultValue: "", rules: [] },
   });
 
@@ -1521,23 +1538,17 @@ export default function CompareRevisionsModal({
       : null;
   const mergedDiffs = useFeatureRevisionDiff({
     current: singleRevFirst
-      ? revisionToDiffInput(singleRevFirst)
+      ? revisionToDiffInput(singleRevFirst, liveBaseInput)
       : { defaultValue: "", rules: [] },
     draft: singleRevLast
-      ? revisionToDiffInput(singleRevLast)
+      ? revisionToDiffInput(singleRevLast, liveBaseInput)
       : { defaultValue: "", rules: [] },
   });
 
-  // Use baseFeature for the left side so environmentsEnabled is dense rather than the sparse delta on the live revision
   const previewLiveRev =
     previewDraftVersion !== null ? getFullRevision(liveVersion) : null;
   const previewDraftRev =
     previewDraftVersion !== null ? getFullRevision(previewDraftVersion) : null;
-  const liveBase = baseFeature ?? feature;
-  const liveBaseInput = useMemo(
-    () => featureToFeatureRevisionDiffInput(liveBase),
-    [liveBase],
-  );
   const previewDiffs = useFeatureRevisionDiff({
     current:
       previewDraftVersion !== null
@@ -1546,7 +1557,7 @@ export default function CompareRevisionsModal({
     draft: previewDraftRev
       ? {
           // Merge environmentsEnabled on top of the live base so every env is explicit
-          ...revisionToDiffInput(previewDraftRev),
+          ...revisionToDiffInput(previewDraftRev, liveBaseInput),
           environmentsEnabled: {
             ...liveBaseInput.environmentsEnabled,
             ...(previewDraftRev.environmentsEnabled ?? {}),
