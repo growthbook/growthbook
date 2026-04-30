@@ -1,12 +1,13 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   FactTableInterface,
   FactMetricInterface,
 } from "shared/types/fact-table";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -32,14 +33,17 @@ import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
-import { useUser } from "@/services/UserContext";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import Metadata from "@/ui/Metadata";
 import {
   DropdownMenu,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { useUser } from "@/services/UserContext";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 
@@ -66,9 +70,8 @@ export default function FactTablePage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState(false);
 
   const [duplicateFactTable, setDuplicateFactTable] = useState<
     FactTableInterface | undefined
@@ -229,31 +232,6 @@ export default function FactTablePage() {
           <HistoryTable type="factTable" id={factTable.id} />
         </Modal>
       )}
-      {showDeleteModal && (
-        <Modal
-          trackingEventModalType=""
-          header="Delete Fact Table"
-          close={() => setShowDeleteModal(false)}
-          open={true}
-          cta="Delete"
-          submitColor="danger"
-          submit={async () => {
-            await apiCall(`/fact-tables/${factTable.id}`, {
-              method: "DELETE",
-            });
-            mutateDefinitions();
-            setShowDeleteModal(false);
-            router.push("/fact-tables");
-          }}
-          ctaEnabled={canDelete}
-          increasedElevation={true}
-        >
-          <p>
-            Are you sure you want to delete this fact table? This action cannot
-            be undone.
-          </p>
-        </Modal>
-      )}
       <PageHead
         breadcrumb={[
           { display: "Fact Tables", href: "/fact-tables" },
@@ -264,18 +242,17 @@ export default function FactTablePage() {
       {factTable.projects?.includes(
         getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
-        <Callout status="info" contentsAs="div" mb="2">
-          <Flex align="center" justify="between">
-            <Text>
+        <Callout status="info" mb="4">
+          <Flex align="center" justify="between" gap="3">
+            <div>
               This Fact Table is part of our sample dataset. You can safely
               delete this once you are done exploring.
-            </Text>
-            <Box ml="auto">
-              <DeleteDemoDatasourceButton
-                onDelete={() => router.push("/fact-tables")}
-                source="fact-table"
-              />
-            </Box>
+            </div>
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/fact-tables")}
+              source="fact-table"
+              asLink
+            />
           </Flex>
         </Callout>
       )}
@@ -287,172 +264,209 @@ export default function FactTablePage() {
           Table to new experiments.
         </div>
       )}
-      <div className="row mb-3">
-        <div className="col-auto">
-          <h1 className="mb-0">
-            {factTable.name}{" "}
-            <OfficialBadge type="Fact Table" managedBy={factTable.managedBy} />
-          </h1>
-        </div>
-        <div className="ml-auto mr-2">
+      <Flex align="start" justify="between" gap="2" mb="2">
+        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+          <Heading size="x-large" as="h1" mb="0">
+            {factTable.name}
+            <OfficialBadge
+              ml="2"
+              type="Fact Table"
+              managedBy={factTable.managedBy}
+            />
+          </Heading>
+        </Flex>
+        <Flex align="center" pr="2">
           <DropdownMenu
             trigger={
               <IconButton
                 variant="ghost"
                 color="gray"
                 radius="full"
-                size="3"
+                size="2"
                 highContrast
               >
-                <BsThreeDotsVertical size={18} />
+                <BsThreeDotsVertical size={16} />
               </IconButton>
             }
+            open={dropdownOpen}
+            onOpenChange={setDropdownOpen}
             menuPlacement="end"
-            open={openDropdown}
-            onOpenChange={setOpenDropdown}
           >
-            {canEdit && (
+            <DropdownMenuGroup>
+              {canEdit && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEditOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Edit Fact Table
+                </DropdownMenuItem>
+              )}
+              {!factTable.managedBy &&
+                canEdit &&
+                permissionsUtil.canCreateOfficialResources(factTable) &&
+                hasCommercialFeature("manage-official-resources") && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowConvertToOfficialModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Convert to Official Fact Table
+                  </DropdownMenuItem>
+                )}
+              {canDuplicate && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDuplicateFactTable({
+                      ...factTable,
+                      name: `${factTable.name} (Copy)`,
+                      managedBy:
+                        factTable.managedBy === "admin" &&
+                        permissionsUtil.canCreateOfficialResources(factTable)
+                          ? "admin"
+                          : "",
+                    });
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Duplicate Fact Table
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => {
-                  setOpenDropdown(false);
-                  setEditOpen(true);
+                  setAuditModal(true);
+                  setDropdownOpen(false);
                 }}
               >
-                Edit
+                Audit log
               </DropdownMenuItem>
-            )}
-            {canEdit &&
-            !factTable.managedBy &&
-            permissionsUtil.canCreateOfficialResources(factTable) &&
-            hasCommercialFeature("manage-official-resources") ? (
-              <DropdownMenuItem
-                onClick={() => {
-                  setOpenDropdown(false);
-                  setShowConvertToOfficialModal(true);
-                }}
-              >
-                Convert to Official
-              </DropdownMenuItem>
-            ) : null}
-            {canDuplicate && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setOpenDropdown(false);
-                  setDuplicateFactTable({
-                    ...factTable,
-                    name: `${factTable.name} (Copy)`,
-                    managedBy:
-                      factTable.managedBy === "admin" &&
-                      permissionsUtil.canCreateOfficialResources(factTable)
-                        ? "admin"
-                        : "",
-                  });
-                }}
-              >
-                Duplicate
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              onClick={() => {
-                setOpenDropdown(false);
-                setAuditModal(true);
-              }}
-            >
-              Audit log
-            </DropdownMenuItem>
-            {canEdit || canDelete ? <DropdownMenuSeparator /> : null}
-            {canEdit && (
-              <DropdownMenuItem
-                onClick={async () => {
-                  setOpenDropdown(false);
-                  await apiCall(
-                    `/fact-tables/${factTable.id}/${
-                      factTable.archived ? "unarchive" : "archive"
-                    }`,
-                    {
-                      method: "POST",
-                    },
-                  );
-                  mutateDefinitions();
-                }}
-              >
-                {factTable.archived ? "Unarchive" : "Archive"}
-              </DropdownMenuItem>
-            )}
+              {canEdit && (
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await apiCall(
+                      `/fact-tables/${factTable.id}/${
+                        factTable.archived ? "unarchive" : "archive"
+                      }`,
+                      {
+                        method: "POST",
+                      },
+                    );
+                    mutateDefinitions();
+                    setDropdownOpen(false);
+                  }}
+                >
+                  {factTable.archived ? "Unarchive" : "Archive"} Fact Table
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuGroup>
             {canDelete && (
-              <DropdownMenuItem
-                color="red"
-                onClick={() => {
-                  setOpenDropdown(false);
-                  setShowDeleteModal(true);
-                }}
-              >
-                Delete
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    color="red"
+                    confirmation={{
+                      confirmationTitle: "Delete Fact Table",
+                      cta: "Delete",
+                      submit: async () => {
+                        await apiCall(`/fact-tables/${factTable.id}`, {
+                          method: "DELETE",
+                        });
+                        mutateDefinitions();
+                        router.push("/fact-tables");
+                      },
+                      closeDropdown: () => setDropdownOpen(false),
+                    }}
+                  >
+                    Delete Fact Table
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
             )}
           </DropdownMenu>
-        </div>
-      </div>
-      <div className="row mb-3">
-        {projects.length > 0 ? (
-          <div className="col-auto">
-            Projects:{" "}
-            {factTable.projects.length > 0 ? (
-              factTable.projects.map((p) => (
-                <span className="badge badge-secondary mr-1" key={p}>
-                  {getProjectById(p)?.name || p}
-                </span>
-              ))
-            ) : (
-              <em className="mr-1">All Projects</em>
-            )}
-            {canEdit && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditProjectsOpen(true);
-                }}
-              >
-                <GBEdit />
-              </a>
-            )}
-          </div>
-        ) : null}
-        <div className="col-auto">
-          Tags: <SortedTags tags={factTable.tags} />
-          {canEdit && (
-            <a
-              className="ml-1 cursor-pointer"
-              onClick={() => setEditTagsModal(true)}
-            >
-              <GBEdit />
-            </a>
-          )}
-        </div>
-        {(factTable.owner || canEdit) && (
-          <div className="col-auto">
-            Owner: {getOwnerDisplay(factTable.owner) || "None"}
-            {canEdit && (
-              <a
-                className="ml-1 cursor-pointer"
-                onClick={() => setEditOwnerModal(true)}
-              >
-                <GBEdit />
-              </a>
-            )}
-          </div>
+        </Flex>
+      </Flex>
+      <Flex gap="4" align="center" wrap="wrap">
+        {projects.length > 0 && (
+          <Metadata
+            label="Projects"
+            value={
+              <Flex gap="1" align="center">
+                {factTable.projects.length > 0 ? (
+                  <Text weight="regular" color="text-mid">
+                    {factTable.projects
+                      .map((p) => getProjectById(p)?.name || p)
+                      .join(", ")}
+                  </Text>
+                ) : (
+                  <Text weight="regular" color="text-mid" fontStyle="italic">
+                    All Projects
+                  </Text>
+                )}
+                {canEdit && (
+                  <Link
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditProjectsOpen(true);
+                    }}
+                  >
+                    <GBEdit />
+                  </Link>
+                )}
+              </Flex>
+            }
+          />
         )}
-        <div className="col-auto">
-          Data source:{" "}
-          <Link
-            href={`/datasources/${factTable.datasource}`}
-            className="font-weight-bold"
-          >
-            {getDatasourceById(factTable.datasource)?.name || "Unknown"}
-          </Link>
-        </div>
-      </div>
+        {(factTable.owner || canEdit) && (
+          <Metadata
+            label="Owner"
+            value={
+              <Flex gap="1" align="center">
+                <Text weight="regular" color="text-mid">
+                  {getOwnerDisplay(factTable.owner) || "None"}
+                </Text>
+                {canEdit && (
+                  <Link onClick={() => setEditOwnerModal(true)}>
+                    <GBEdit />
+                  </Link>
+                )}
+              </Flex>
+            }
+          />
+        )}
+        <Metadata
+          label="Data source"
+          value={
+            <Link
+              href={`/datasources/${factTable.datasource}`}
+              className="font-weight-bold"
+            >
+              {getDatasourceById(factTable.datasource)?.name || "Unknown"}
+            </Link>
+          }
+        />
+      </Flex>
+      <Box mt="3" mb="3">
+        {factTable.tags?.length || canEdit ? (
+          <Flex align="center" gap="1">
+            <Text weight="medium">Tags:</Text>
+            {factTable.tags?.length ? (
+              <SortedTags
+                tags={factTable.tags}
+                useFlex
+                shouldShowEllipsis={false}
+              />
+            ) : null}
+            {canEdit && (
+              <Link onClick={() => setEditTagsModal(true)}>
+                <GBEdit />
+              </Link>
+            )}
+          </Flex>
+        ) : null}
+      </Box>
 
       <Frame px="5" pt="3" pb="4">
         <MarkdownInlineEdit
@@ -536,7 +550,7 @@ export default function FactTablePage() {
           <TabsContent value="metrics">
             <h3>Metrics</h3>
             <div className="mb-5">
-              <Text as="div" mb="2" color="gray">
+              <Text as="div" mb="2" color="text-mid">
                 Metrics are built on top of Columns and Filters. These are what
                 you use as Goals and Guardrails in experiments. This page only
                 shows metrics tied to this Fact Table.{" "}
@@ -550,7 +564,7 @@ export default function FactTablePage() {
 
           <TabsContent value="filters">
             <h3>Row Filters</h3>
-            <Text as="div" mb="2" color="gray">
+            <Text as="div" mb="2" color="text-mid">
               Row Filters let you write SQL to limit the rows that are included
               in a metric. Save commonly used filters here and reuse them across
               multiple metrics.

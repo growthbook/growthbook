@@ -93,9 +93,11 @@ export async function deleteDemoDatasource(
 export function DeleteDemoDatasourceButton({
   onDelete,
   source,
+  asLink,
 }: {
   onDelete: () => void;
   source: string;
+  asLink?: boolean;
 }) {
   const { organization } = useUser();
   const { apiCall } = useAuth();
@@ -115,7 +117,8 @@ export function DeleteDemoDatasourceButton({
       displayName="Sample Data"
       title="Sample Data"
       text="Delete Sample Data"
-      useRadix={true}
+      useRadix={!asLink}
+      link={asLink}
       onClick={async () => {
         track("Delete Sample Project", {
           source,

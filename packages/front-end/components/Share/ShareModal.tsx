@@ -853,6 +853,7 @@ const ShareModal = ({
                                                       tags={Object.values(
                                                         e.tags,
                                                       )}
+                                                      useFlex
                                                     />
                                                   </td>
                                                   <td className="nowrap">
