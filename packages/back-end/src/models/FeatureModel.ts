@@ -46,6 +46,7 @@ import {
   getNextScheduledUpdate,
   getSavedGroupMap,
   queueSDKPayloadRefresh,
+  synthesizeRuleId,
 } from "back-end/src/services/features";
 import { remapTemplateActions } from "back-end/src/services/rampSchedule";
 import {
@@ -181,6 +182,15 @@ export function migrateRawFeatureToV2(
   // v0 is identified by the absence of `environmentSettings`.
   const hasEnvSettings = !!raw.environmentSettings;
 
+  // Capture the v0-style top-level `environments` array BEFORE the omit
+  // below strips it. Used for hybrid-v0/v1 docs where
+  // `environmentSettings.<env>` was authored without `enabled`.
+  const v0EnvironmentsArray: string[] = Array.isArray(
+    (raw as { environments?: unknown }).environments,
+  )
+    ? ((raw as { environments?: string[] }).environments as string[])
+    : [];
+
   // Post-v0-normalization doc; v1-vs-v2 classification is still pending and
   // happens via `hasNoV1EnvRules` below.
   let postV0Doc: V1FeatureInterface;
@@ -218,19 +228,41 @@ export function migrateRawFeatureToV2(
       ("allEnvironments" in r || "environments" in r),
   );
 
-  // Mirror origin/main's `updateEnvironmentSettings`: backfill legacy
-  // top-level rules into `dev` and `production` only. Other envs without a
-  // `rules` key are left untouched. v2-shaped top-level rules never backfill.
-  if (!topLevelRulesAreV2Shaped && topLevelRules.length > 0) {
+  // Mirror origin/main's `updateEnvironmentSettings` for dev/production:
+  //   • rules:    backfill from top-level rules (only if v0-shaped).
+  //   • enabled:  backfill from the v0 `environments` array.
+  // Hybrid v0/v1 docs need the `enabled` half: an env listed in the v0 array
+  // but absent from envSettings would otherwise read as `enabled: false` and
+  // silently disable a previously-live env.
+  const shouldBackfillRulesFromTopLevel =
+    !topLevelRulesAreV2Shaped && topLevelRules.length > 0;
+  const shouldBackfillEnabled = v0EnvironmentsArray.length > 0;
+  if (shouldBackfillRulesFromTopLevel || shouldBackfillEnabled) {
+    let envSettingsTouched = false;
     for (const envId of ["dev", "production"]) {
-      const settings = envSettings[envId] ?? {};
-      if (!("rules" in settings)) {
-        (settings as { rules?: V1FeatureRule[] }).rules =
-          topLevelRules as unknown as V1FeatureRule[];
+      const existing = envSettings[envId];
+      if (
+        !existing &&
+        !shouldBackfillRulesFromTopLevel &&
+        !shouldBackfillEnabled
+      ) {
+        continue;
+      }
+      const settings = (existing ?? {}) as Partial<FeatureEnvironment> & {
+        rules?: V1FeatureRule[];
+      };
+      if (shouldBackfillRulesFromTopLevel && !("rules" in settings)) {
+        settings.rules = topLevelRules as unknown as V1FeatureRule[];
+      }
+      if (shouldBackfillEnabled && !("enabled" in settings)) {
+        settings.enabled = v0EnvironmentsArray.includes(envId);
       }
       envSettings[envId] = settings as FeatureEnvironment;
+      envSettingsTouched = true;
     }
-    postV0Doc.environmentSettings = envSettings;
+    if (envSettingsTouched) {
+      postV0Doc.environmentSettings = envSettings;
+    }
   }
 
   if (!hasNoV1EnvRules(envSettings) || !topLevelRulesAreV2Shaped) {
@@ -242,9 +274,17 @@ export function migrateRawFeatureToV2(
     const inheritedSettings = applyEnvironmentInheritance(orgEnvs, envSettings);
     const rulesByEnv: V1RulesByEnv = {};
     for (const [envId, envObj] of Object.entries(inheritedSettings)) {
-      rulesByEnv[envId] = (envObj?.rules || []).map(
-        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
-      );
+      rulesByEnv[envId] = (envObj?.rules || []).map((r) => {
+        const upgraded = upgradeFeatureRule(r as FeatureRule) as V1FeatureRule;
+        // Legacy rules occasionally land here without an id; without one
+        // `flattenV1ToV2Rules` would skip them. Hash from content so the
+        // synthesized id is stable across re-reads and identical-content
+        // rules across envs still merge.
+        if (!upgraded.id) {
+          upgraded.id = synthesizeRuleId(upgraded);
+        }
+        return upgraded;
+      });
     }
     const applicableEnvs = getApplicableEnvIds(orgEnvs, postV0Doc.project);
     const v2 = postV0Doc as unknown as FeatureInterface;
@@ -278,6 +318,11 @@ export function migrateRawFeatureToV2(
   );
   v2.rules = (v2.rules || []).map((r) => {
     const upgraded = upgradeFeatureRule(r as FeatureRule);
+    // Defensive — v2 docs we author always carry ids, but imports and
+    // hand-edited backups can land here unstamped.
+    if (!upgraded.id) {
+      upgraded.id = synthesizeRuleId(upgraded);
+    }
     return expandRuleEnvsForInheritance(upgraded, childrenByAncestor);
   });
   v2.environmentSettings = scrubEnvRules(inheritedEnvSettings) as Record<

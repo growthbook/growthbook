@@ -19,7 +19,7 @@
  * Outputs land alongside the input as `<stem>_v1.json` / `<stem>_v2.json`.
  *
  * Data files (PII): set GB_TEST_FEATURES_DATA_DIR to an absolute path outside the repo
- * (optional leading `~/` is expanded). Defaults to ~/Downloads/. Never commit dumps.
+ * (optional leading `~/` is expanded). Defaults to ~/Downloads/features-diff/. Never commit dumps.
  *
  * Usage (from packages/back-end):
  *   pnpm exec tsx src/scripts/diff-features.ts fetch --uri "mongodb://..."
@@ -27,6 +27,9 @@
  *   pnpm exec tsx src/scripts/diff-features.ts run2 [--in sample.json]
  *   pnpm exec tsx src/scripts/diff-features.ts diff [--in sample.json]
  *                                                   [--v1 a.json --v2 b.json]
+ *   pnpm exec tsx src/scripts/diff-features.ts diff --explain --key "org::ff" \
+ *                                                   --features raw.json --out out.json
+ *   pnpm exec tsx src/scripts/diff-features.ts diff --signal --out signal.json
  */
 
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from "node:fs";
@@ -194,6 +197,12 @@ export function sortKeysDeep(value: unknown): unknown {
     if (Array.isArray(value)) {
       return value.map(sortKeysDeep);
     }
+    // Preserve Date / RegExp / Buffer / etc. — Object.keys returns [] on
+    // these and we'd otherwise emit a useless `{}`. JSON.stringify will
+    // fall back to their .toJSON()/.toString() when we serialize.
+    if (value instanceof Date || value instanceof RegExp) {
+      return value;
+    }
     const obj = value as Record<string, unknown>;
     const keys = Object.keys(obj).sort((a, b) => a.localeCompare(b, "en"));
     const out: Record<string, unknown> = {};
@@ -348,7 +357,7 @@ async function cmdFetch(args: string[]) {
     `Writing dumps to:\n  ${paths.dir}\n${
       fromEnv
         ? `  (from ${ENV_TEST_FEATURES_DATA_DIR})`
-        : `  (default: ~/Downloads; set ${ENV_TEST_FEATURES_DATA_DIR} to override)`
+        : `  (default: ~/Downloads/features-diff/; set ${ENV_TEST_FEATURES_DATA_DIR} to override)`
     }`,
   );
 
@@ -451,8 +460,78 @@ async function runApiObj(suffix: "v1" | "v2", args: string[]) {
   console.log(
     `${suffix}: features ${paths.featuresPath}\n${suffix}: orgs     ${paths.orgsPath ?? "(none)"}\n${suffix}: output   ${paths.outPath}`,
   );
-  const { FeatureModel, toInterface } = await import("../models/FeatureModel");
+  const featureModelMod = (await import("../models/FeatureModel")) as Record<
+    string,
+    unknown
+  >;
+  const { FeatureModel } = featureModelMod as {
+    FeatureModel: typeof import("../models/FeatureModel").FeatureModel;
+  };
   const { getApiFeatureObj } = await import("../services/features");
+
+  // origin/main: `toInterface` is a non-exported `const` and the v0→v1
+  // migration lives in a separate `upgradeFeatureInterface(toInterface(…))`
+  // wrapper at every callsite. We replicate both steps so run1 on main
+  // matches what production emits — otherwise run2 on this branch (where
+  // the migration is folded into the exported `toInterface` /
+  // `migrateRawFeatureToV2`) would diff against a pre-migration v0 doc and
+  // spuriously flag every legacy feature.
+  type FeatureInterfaceT = import("shared/types/feature").FeatureInterface;
+  type LegacyT = import("shared/types/feature").LegacyFeatureInterface;
+  type FeatureDoc = InstanceType<typeof FeatureModel>;
+
+  const exportedToInterface = featureModelMod.toInterface as
+    | ((doc: FeatureDoc, context: ReqContext) => FeatureInterfaceT)
+    | undefined;
+
+  const { applyEnvironmentInheritance } = (await import(
+    "../util/features"
+  )) as {
+    applyEnvironmentInheritance: (
+      envs: unknown[],
+      envSettings: Record<string, unknown>,
+    ) => Record<string, unknown>;
+  };
+
+  // Mirrors origin/main's local `toInterface`: omit __v/_id, then apply
+  // environment inheritance. Used as a fallback when the export is missing.
+  const fallbackToInterface = (
+    doc: FeatureDoc,
+    context: ReqContext,
+  ): FeatureInterfaceT => {
+    const json = (
+      doc as unknown as { toJSON: () => Record<string, unknown> }
+    ).toJSON();
+    const featureInterface = { ...json } as Record<string, unknown>;
+    delete featureInterface.__v;
+    delete featureInterface._id;
+    const orgEnvs =
+      (context.org.settings?.environments as unknown[] | undefined) ?? [];
+    featureInterface.environmentSettings = applyEnvironmentInheritance(
+      orgEnvs,
+      (featureInterface.environmentSettings as Record<string, unknown>) ?? {},
+    );
+    return featureInterface as unknown as FeatureInterfaceT;
+  };
+
+  const toInterfaceFn = exportedToInterface ?? fallbackToInterface;
+
+  // Soft-import the v0→v1 migration. Exists on origin/main; gone on this
+  // branch (folded into toInterface). Wrapper is a no-op when absent.
+  type UpgradeFeatureFn = (f: LegacyT | FeatureInterfaceT) => FeatureInterfaceT;
+  let upgradeFeatureInterface: UpgradeFeatureFn | null = null;
+  try {
+    const migrations = (await import("../util/migrations")) as Record<
+      string,
+      unknown
+    >;
+    if (typeof migrations.upgradeFeatureInterface === "function") {
+      upgradeFeatureInterface =
+        migrations.upgradeFeatureInterface as UpgradeFeatureFn;
+    }
+  } catch {
+    // Not exported on this branch — toInterface already migrates.
+  }
 
   if (!existsSync(paths.featuresPath)) {
     console.error(`Missing features file: ${paths.featuresPath}`);
@@ -521,7 +600,10 @@ async function runApiObj(suffix: "v1" | "v2", args: string[]) {
     const context = { org } as ReqContext;
 
     try {
-      const feature = toInterface(new FeatureModel(raw), context);
+      let feature = toInterfaceFn(new FeatureModel(raw), context);
+      if (upgradeFeatureInterface) {
+        feature = upgradeFeatureInterface(feature);
+      }
       out[key] = getApiFeatureObj({
         feature,
         organization: org,
@@ -640,7 +722,308 @@ function formatDiff(ops: DiffOp[]): string {
   return lines.join("\n");
 }
 
+/**
+ * `diff --explain --key=<orgId::featureId>` — emit a focused per-feature
+ * payload containing the raw legacy doc plus its v1/v2 API outputs, so a
+ * single failure can be inspected without grepping through full dumps.
+ *
+ * Path resolution:
+ *   • v1/v2:    same rules as plain `diff` — `--in <stem>` finds sibling
+ *               `<stem>_v1.json` / `<stem>_v2.json`; or pass `--v1` / `--v2`
+ *               explicitly; defaults to `~/Downloads/features-diff/v{1,2}.json`.
+ *   • feature:  `--features <legacy-features.json>` (bare array or
+ *               `{ features, orgs }` envelope). Falls back to `--in` for
+ *               convenience, then to the canonical
+ *               `prod-sample-features.generated.json` dump. Missing/empty
+ *               source is non-fatal — `payload.feature` stays null.
+ */
+async function cmdExplain(args: string[]) {
+  const key = readFlag(args, "--key");
+  const outPath = readFlag(args, "--out");
+  const stripKeys = readCsvSetFlag(args, "--stripOutputFields");
+
+  if (!key) {
+    console.error(
+      "Usage: tsx src/scripts/diff-features.ts diff --explain --key <orgId::featureId>\n" +
+        "       [--out <path>] [--features <raw-features.json>] [--in <stem>] [--v1 …] [--v2 …]",
+    );
+    process.exit(1);
+  }
+
+  const sep = key.indexOf("::");
+  if (sep === -1) {
+    console.error(
+      `--key must be of form "<orgId>::<featureId>" (got: "${key}")`,
+    );
+    process.exit(1);
+  }
+  const orgId = key.slice(0, sep);
+  const featureId = key.slice(sep + 2);
+
+  const { v1Path, v2Path } = resolveDiffPaths(args);
+  if (!existsSync(v1Path) || !existsSync(v2Path)) {
+    console.error(
+      `Missing v1/v2 input(s):\n  ${v1Path} ${existsSync(v1Path) ? "✓" : "✗"}\n  ${v2Path} ${existsSync(v2Path) ? "✓" : "✗"}\n` +
+        `(diff outputs default to ${getTestFeaturesDumpPaths().v1Json} / v2.json — pass \`--in <stem>\` only if you generated siblings via \`run1/run2 --in <stem>.json\`, otherwise omit it or use \`--v1\`/\`--v2\`.)`,
+    );
+    process.exit(1);
+  }
+
+  const v1 = loadJson<Record<string, unknown>>(v1Path);
+  const v2 = loadJson<Record<string, unknown>>(v2Path);
+  const beforeRaw = stripKeys.size
+    ? (stripFields(v1[key], stripKeys) as unknown)
+    : v1[key];
+  const afterRaw = stripKeys.size
+    ? (stripFields(v2[key], stripKeys) as unknown)
+    : v2[key];
+
+  // Resolve the raw-feature source:  --features  >  --in  >  canonical dump.
+  // --features is the explicit explain-only flag; --in fallback keeps the
+  // single-flag flow working for users who DID generate sibling outputs.
+  const featuresFlag = readFlag(args, "--features");
+  const inFlag = readFlag(args, "--in");
+  const featuresPath = featuresFlag
+    ? resolveInputPath(featuresFlag)
+    : inFlag
+      ? resolveInputPath(inFlag)
+      : getTestFeaturesDumpPaths().featuresJson;
+
+  let feature: unknown = null;
+  if (existsSync(featuresPath)) {
+    try {
+      const peek = loadJson<unknown>(featuresPath);
+      const arr: unknown[] = Array.isArray(peek)
+        ? peek
+        : isPlainObject(peek) && Array.isArray(peek.features)
+          ? peek.features
+          : [];
+      feature =
+        arr.find(
+          (f): f is Record<string, unknown> =>
+            isPlainObject(f) && f.organization === orgId && f.id === featureId,
+        ) ?? null;
+    } catch (e) {
+      console.warn(
+        `explain: could not parse features source ${featuresPath}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+  } else {
+    console.warn(
+      `explain: features source not found at ${featuresPath}; payload.feature will be null`,
+    );
+  }
+
+  if (beforeRaw === undefined) {
+    console.warn(`explain: key not present in v1 (${v1Path})`);
+  }
+  if (afterRaw === undefined) {
+    console.warn(`explain: key not present in v2 (${v2Path})`);
+  }
+  if (!feature) {
+    console.warn(
+      `explain: raw feature for "${key}" not found in ${featuresPath}; payload.feature will be null`,
+    );
+  }
+
+  const payload = {
+    feature,
+    before: beforeRaw ?? null,
+    after: afterRaw ?? null,
+  };
+  const text = JSON.stringify(sortKeysDeep(payload), null, 2);
+
+  if (outPath) {
+    writeFileSync(outPath, text, "utf8");
+    console.log(`explain: ${key} → ${outPath}`);
+  } else {
+    console.log(text);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Noise filters for `diff --signal`
+// ---------------------------------------------------------------------------
+
+/**
+ * Last meaningful segment of a diff path. Strips a trailing array index so
+ * `"rules[3]"` and `"rules[3].id"` resolve to `"rules"` and `"id"` respectively.
+ */
+function lastPathSegment(path: string): string {
+  const noIndex = path.replace(/\[\d+\]$/, "");
+  const dot = noIndex.lastIndexOf(".");
+  const bracket = noIndex.lastIndexOf("[");
+  const cut = Math.max(dot, bracket);
+  return cut === -1 ? noIndex : noIndex.slice(cut + 1);
+}
+
+/** Pull the env id out of a path like `environments.dev.rules[0].id`. */
+function envFromPath(path: string): string | null {
+  const m = path.match(/(?:^|\.)environments\.([^.[]+)\./);
+  return m ? m[1] : null;
+}
+
+/**
+ * Diff ops we treat as "noise" for `--signal`:
+ *
+ *  1. Mongoose phantom defaults — `before` had `savedGroups: []`,
+ *     `scheduleRules: []`, or `variations: []` only because the typed sub-
+ *     schema auto-initialized them; `after` correctly omits the field.
+ *  2. Rule-id env-suffix renames — this branch's flat-rules model
+ *     disambiguates a per-env duplicate ID by suffixing `__<env>`. The
+ *     before/after IDs differ by exactly that suffix.
+ *  3. Empty-id legacy rules → synthesized hash ids — legacy rules with
+ *     `id: ""` used to fall through `flattenV1ToV2Rules`'s skip; this
+ *     branch synthesizes a deterministic `fr_h_<hex>` id so they survive.
+ *     The diff is a pure id swap; the rule body and footprint are
+ *     unchanged.
+ *  4. JSON-equivalent stringified payloads — e.g. SDK `definition` strings
+ *     that differ only in object key order. Both sides are already passed
+ *     through `sortKeysDeep` on write so this is a belt-and-suspenders check.
+ */
+function isSuperficialOp(op: DiffOp): boolean {
+  if (op.op === "-") {
+    const leaf = lastPathSegment(op.path);
+    const isMongoosePhantom =
+      leaf === "savedGroups" ||
+      leaf === "scheduleRules" ||
+      leaf === "variations";
+    if (
+      isMongoosePhantom &&
+      Array.isArray(op.before) &&
+      op.before.length === 0
+    ) {
+      return true;
+    }
+  }
+
+  if (
+    op.op === "~" &&
+    lastPathSegment(op.path) === "id" &&
+    /\.rules\[\d+\]\.id$/.test(op.path) &&
+    typeof op.before === "string" &&
+    typeof op.after === "string"
+  ) {
+    const env = envFromPath(op.path);
+    if (env && op.after === `${op.before}__${env}`) {
+      return true;
+    }
+    if (op.before === "" && /^fr_h_[a-f0-9]{16}$/.test(op.after)) {
+      return true;
+    }
+  }
+
+  if (
+    op.op === "~" &&
+    typeof op.before === "string" &&
+    typeof op.after === "string"
+  ) {
+    try {
+      const b = JSON.parse(op.before);
+      const a = JSON.parse(op.after);
+      if (JSON.stringify(sortKeysDeep(b)) === JSON.stringify(sortKeysDeep(a))) {
+        return true;
+      }
+    } catch {
+      // not JSON-encoded; fall through and keep the op
+    }
+  }
+
+  return false;
+}
+
+/**
+ * `diff --signal` — walk every feature key, diff each subtree independently
+ * (so paths are relative to the feature), drop the noise classes above, and
+ * emit `{ key, ops, before, after }` for every key that still has material
+ * differences. The `before`/`after` chunks mirror `--explain`'s shape so a
+ * single output file is enough context to investigate any flagged feature.
+ *
+ * Pass `--ops-only` to suppress the full chunks (smaller output if you only
+ * need the delta paths).
+ */
+async function cmdSignal(args: string[]) {
+  const { v1Path, v2Path } = resolveDiffPaths(args);
+  const outPath = readFlag(args, "--out");
+  const opsOnly = hasFlag(args, "--ops-only");
+  const stripKeys = readCsvSetFlag(args, "--stripOutputFields");
+
+  if (!existsSync(v1Path) || !existsSync(v2Path)) {
+    console.error(
+      `Missing v1/v2 input(s):\n  ${v1Path} ${existsSync(v1Path) ? "✓" : "✗"}\n  ${v2Path} ${existsSync(v2Path) ? "✓" : "✗"}`,
+    );
+    process.exit(1);
+  }
+
+  const v1Raw = loadJson<Record<string, unknown>>(v1Path);
+  const v2Raw = loadJson<Record<string, unknown>>(v2Path);
+  const v1 = stripKeys.size
+    ? (stripFields(v1Raw, stripKeys) as Record<string, unknown>)
+    : v1Raw;
+  const v2 = stripKeys.size
+    ? (stripFields(v2Raw, stripKeys) as Record<string, unknown>)
+    : v2Raw;
+
+  const allKeys = new Set<string>([...Object.keys(v1), ...Object.keys(v2)]);
+  type SignalEntry = {
+    key: string;
+    ops: DiffOp[];
+    before?: unknown;
+    after?: unknown;
+  };
+  const result: SignalEntry[] = [];
+  let droppedNoise = 0;
+
+  for (const key of [...allKeys].sort()) {
+    const ops: DiffOp[] = [];
+    jsonDiff(v1[key], v2[key], "", ops);
+    const totalOps = ops.length;
+    const realOps = ops.filter((op) => !isSuperficialOp(op));
+    droppedNoise += totalOps - realOps.length;
+    if (realOps.length === 0) continue;
+
+    // Build the entry with explicit key order — `key` and `ops` first so a
+    // reader (or agent) can scan the curated delta without descending into
+    // the full chunks. `before`/`after` are key-sorted internally for
+    // stable inspection but the entry's own top-level order is preserved.
+    const entry: SignalEntry = { key, ops: realOps };
+    if (!opsOnly) {
+      entry.before = sortKeysDeep(v1[key] ?? null);
+      entry.after = sortKeysDeep(v2[key] ?? null);
+    }
+    result.push(entry);
+  }
+
+  console.log(`signal: ${v1Path}`);
+  console.log(`    →: ${v2Path}`);
+  if (stripKeys.size) {
+    console.log(`signal: stripped fields: ${[...stripKeys].sort().join(", ")}`);
+  }
+  console.log(
+    `signal: ${result.length}/${allKeys.size} key(s) have material diffs (filtered ${droppedNoise} noise op${droppedNoise === 1 ? "" : "s"})${opsOnly ? "; ops only" : ""}`,
+  );
+
+  const text = JSON.stringify(result, null, 2);
+  if (outPath) {
+    writeFileSync(outPath, text, "utf8");
+    console.log(`signal: wrote → ${outPath}`);
+  } else if (text) {
+    console.log(text);
+  }
+}
+
 async function cmdDiff(args: string[]) {
+  if (hasFlag(args, "--explain")) {
+    await cmdExplain(args);
+    return;
+  }
+  if (hasFlag(args, "--signal")) {
+    await cmdSignal(args);
+    return;
+  }
+
   const { v1Path, v2Path } = resolveDiffPaths(args);
   const outPath = readFlag(args, "--out");
   const summaryOnly = hasFlag(args, "--summary");
@@ -729,6 +1112,14 @@ async function main() {
                                         [--stripOutputFields <key1,key2,...>]
   tsx src/scripts/diff-features.ts diff [--in <features.json>] [--out <diff.txt>] [--summary]
                                         [--v1 <a.json> --v2 <b.json>]
+                                        [--stripOutputFields <key1,key2,...>]
+  tsx src/scripts/diff-features.ts diff --explain --key <orgId::featureId>
+                                        [--features <raw-features.json>]
+                                        [--out <payload.json>]
+                                        [--in <stem>] [--v1 <a.json> --v2 <b.json>]
+                                        [--stripOutputFields <key1,key2,...>]
+  tsx src/scripts/diff-features.ts diff --signal [--out <signal.json>] [--ops-only]
+                                        [--in <stem>] [--v1 <a.json> --v2 <b.json>]
                                         [--stripOutputFields <key1,key2,...>]
 
 \`--in\` accepts a \`LegacyFeatureInterface[]\` array OR a self-contained

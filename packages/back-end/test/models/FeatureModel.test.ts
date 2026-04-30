@@ -428,6 +428,164 @@ describe("migrateRawFeatureToV2", () => {
     });
   });
 
+  // ================= 4c. enabled backfill from v0 environments array =================
+  //
+  // Hybrid v0/v1 docs (v0 `environments: [...]` array + sparse v1
+  // `environmentSettings`) used to silently flip `enabled: false` on envs
+  // listed in the v0 array but missing from envSettings, breaking per-env
+  // toggling on read.
+
+  describe("enabled backfill (hybrid v0/v1 docs, sparse envSettings)", () => {
+    it("backfills enabled=true for production listed in v0 array but missing from envSettings", () => {
+      const hybrid = {
+        ...BASE_META,
+        environments: ["dev", "production"],
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          // production omitted on purpose — listed in `environments` only.
+        },
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(hybrid, mockContext());
+      expect(out.environmentSettings.production?.enabled).toBe(true);
+      expect(out.environmentSettings.dev?.enabled).toBe(true);
+    });
+
+    it("backfills enabled=false for dev when v0 array lists production only", () => {
+      const hybrid = {
+        ...BASE_META,
+        environments: ["production"],
+        environmentSettings: {},
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(hybrid, mockContext());
+      expect(out.environmentSettings.production?.enabled).toBe(true);
+      expect(out.environmentSettings.dev?.enabled).toBe(false);
+    });
+
+    it("preserves an explicit envSettings.enabled=false even when v0 array lists the env", () => {
+      const hybrid = {
+        ...BASE_META,
+        environments: ["dev", "production"],
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          production: { enabled: false, rules: [] },
+        },
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(hybrid, mockContext());
+      expect(out.environmentSettings.production?.enabled).toBe(false);
+      expect(out.environmentSettings.dev?.enabled).toBe(true);
+    });
+
+    it("does not materialize dev/production entries when there is no v0 array and no top-level rules", () => {
+      const pureV1 = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+        },
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(pureV1, mockContext());
+      expect(out.environmentSettings.dev?.enabled).toBe(true);
+      expect(out.environmentSettings.production).toBeUndefined();
+    });
+  });
+
+  // ================= 4d. hash-based id synthesis for legacy rules =================
+  //
+  // Legacy rules without an id (older exports, hand-edited configs) used to
+  // fall through `flattenV1ToV2Rules`'s `!rule.id` skip and silently
+  // disappear. We synthesize a stable content-hash id (`fr_h_<hex>`) before
+  // flattening so the rule survives.
+
+  describe("hash-based id synthesis (legacy rules without an id)", () => {
+    it("synthesizes a deterministic id for a rule with id: ''", () => {
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: {
+            enabled: true,
+            rules: [
+              v1Rule("", { value: "X", description: "force X" }) as FeatureRule,
+            ],
+          },
+          production: { enabled: true, rules: [] },
+        },
+      } as LegacyFeatureInterface;
+
+      const a = migrateRawFeatureToV2(v1, mockContext());
+      const b = migrateRawFeatureToV2(v1, mockContext());
+
+      expect(a.rules).toHaveLength(1);
+      expect(a.rules[0].id).toMatch(/^fr_h_[a-f0-9]{16}$/);
+      expect(b.rules[0].id).toBe(a.rules[0].id);
+    });
+
+    it("generates the same id for byte-identical content across envs (so they merge)", () => {
+      const sameContent = { value: "X", description: "shared" };
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: {
+            enabled: true,
+            rules: [v1Rule("", sameContent) as FeatureRule],
+          },
+          production: {
+            enabled: true,
+            rules: [v1Rule("", sameContent) as FeatureRule],
+          },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(v1, mockContext());
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toMatch(/^fr_h_[a-f0-9]{16}$/);
+      expect(out.rules[0].allEnvironments).toBe(true);
+    });
+
+    it("generates different ids for content-divergent rules across envs (so they split)", () => {
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: {
+            enabled: true,
+            rules: [v1Rule("", { value: "A" }) as FeatureRule],
+          },
+          production: {
+            enabled: true,
+            rules: [v1Rule("", { value: "B" }) as FeatureRule],
+          },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(v1, mockContext());
+      expect(out.rules).toHaveLength(2);
+      const ids = out.rules.map((r) => r.id);
+      expect(new Set(ids).size).toBe(2);
+      ids.forEach((id) => expect(id).toMatch(/^fr_h_[a-f0-9]{16}/));
+    });
+
+    it("suffixes within-env duplicates whose synthesized ids collide", () => {
+      // Identical rules in the same env hash to the same id and fall through
+      // to flatten's `dupInEnvIds` env+occurrence suffix path.
+      const dup = v1Rule("", { value: "X" }) as FeatureRule;
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: { enabled: true, rules: [dup, dup] },
+          production: { enabled: true, rules: [] },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(v1, mockContext());
+      expect(out.rules).toHaveLength(2);
+      const ids = out.rules.map((r) => r.id);
+      ids.forEach((id) => expect(id).toContain("__dev"));
+      expect(new Set(ids).size).toBe(2);
+    });
+  });
+
   // ================= 4a. version backfill from legacy embedded revision =================
   //
   // Sparse legacy v1 docs store `version` only on the embedded
