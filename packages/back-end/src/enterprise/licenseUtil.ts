@@ -327,6 +327,12 @@ export async function callLicenseServer({
     );
   }
 
+  if (
+    serverResult.status === 204 ||
+    serverResult.headers.get("content-length") === "0"
+  ) {
+    return;
+  }
   return await serverResult.json();
 }
 

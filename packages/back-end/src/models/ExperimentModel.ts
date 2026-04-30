@@ -1882,16 +1882,17 @@ const onExperimentUpdate = async ({
       organization: context.org,
     });
 
-  const licenseKey = getLicense(context.org.licenseKey)?.id;
+  const rawLicenseKey = context.org.licenseKey;
+  const licenseId = getLicense(rawLicenseKey)?.id;
 
   if (
     oldExperiment.status !== "running" &&
     newExperiment.status === "running" &&
-    licenseKey &&
-    !isAirGappedLicenseKey(licenseKey)
+    licenseId &&
+    !isAirGappedLicenseKey(rawLicenseKey)
   ) {
     notifyLicenseServerExperimentStarted(
-      licenseKey,
+      licenseId,
       newExperiment.id,
       new Date().toISOString(),
     ).catch((e) => {
