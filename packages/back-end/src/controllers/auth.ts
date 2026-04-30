@@ -47,6 +47,10 @@ export async function getHasOrganizations(req: Request, res: Response) {
 
 const auth = getAuthConnection();
 
+function getSsoConnectionIdForResponse(req: Request) {
+  return SSOConnectionIdCookie.getValue(req) || undefined;
+}
+
 export async function postRefresh(req: Request, res: Response) {
   // First try getting the idToken from cookies
   const idToken = IdTokenCookie.getValue(req);
@@ -54,6 +58,7 @@ export async function postRefresh(req: Request, res: Response) {
     return res.json({
       status: 200,
       token: idToken,
+      ssoConnectionId: getSsoConnectionIdForResponse(req),
     });
   }
 
@@ -77,6 +82,7 @@ export async function postRefresh(req: Request, res: Response) {
     return res.json({
       status: 200,
       token: idToken,
+      ssoConnectionId: getSsoConnectionIdForResponse(req),
     });
   } catch (e) {
     // Could not refresh

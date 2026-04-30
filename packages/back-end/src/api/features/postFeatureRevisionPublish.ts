@@ -23,6 +23,7 @@ import {
   ConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { canBypassReviewChecks } from "./reviewBypass";
 
 export const postFeatureRevisionPublish = createApiRequestHandler(
   postFeatureRevisionPublishValidator,
@@ -97,10 +98,9 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
       req.context.hasPremiumFeature("require-approvals"),
   });
 
-  // Bypass via restApiBypassesReviews or bypassApprovalChecks.
-  const canBypass =
-    !!req.organization.settings?.restApiBypassesReviews ||
-    req.context.permissions.canBypassApprovalChecks(feature);
+  // JWT-backed REST calls should behave like dashboard actions: the org-level
+  // REST bypass setting only applies to API keys/PATs.
+  const canBypass = canBypassReviewChecks(req, feature);
 
   if (requiresReview && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(

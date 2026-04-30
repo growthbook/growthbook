@@ -3,6 +3,8 @@ import { z, ZodTypeAny } from "zod";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import { useAuth } from "@/services/auth";
 
+const SSO_CONNECTION_ID_HEADER = "X-SSO-Connection-ID";
+
 type AnyEndpointSpec = ApiEndpointSpec<
   ZodTypeAny,
   ZodTypeAny,
@@ -42,7 +44,7 @@ type CallArgs<T extends AnyEndpointSpec> =
  * header, and silent-refresh behavior.
  */
 export function useRestApiCall() {
-  const { fetchRaw } = useAuth();
+  const { fetchRaw, ssoConnectionId } = useAuth();
 
   return useCallback(
     async <T extends AnyEndpointSpec, ResponseSchema extends ZodTypeAny>(
@@ -82,9 +84,17 @@ export function useRestApiCall() {
         if (qsStr) url += `?${qsStr}`;
       }
 
+      const headers: Record<string, string> = {};
+      if (ssoConnectionId) {
+        headers[SSO_CONNECTION_ID_HEADER] = ssoConnectionId;
+      }
+
       const response = await fetchRaw(url, {
         method: spec.method.toUpperCase(),
         body: body ? JSON.stringify(body) : undefined,
+        headers,
+        // We aren't using cookies, only auth headers
+        credentials: "omit",
       });
 
       if (!response.ok) {
@@ -109,6 +119,6 @@ export function useRestApiCall() {
         return responseData as z.infer<ResponseSchema>;
       }
     },
-    [fetchRaw],
+    [fetchRaw, ssoConnectionId],
   );
 }

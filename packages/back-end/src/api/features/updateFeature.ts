@@ -30,6 +30,7 @@ import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fie
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
+import { canBypassReviewChecks } from "./reviewBypass";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req) => {
@@ -220,12 +221,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       );
     }
 
-    // Callers can skip the review gate either because the org has opted in
-    // to unrestricted REST API writes, or because their token/role grants
-    // the bypassApprovalChecks permission for this feature's project.
-    const canBypass =
-      !!req.context.org.settings?.restApiBypassesReviews ||
-      req.context.permissions.canBypassApprovalChecks(feature);
+    // JWT-backed REST calls should behave like dashboard actions: the org-level
+    // REST bypass setting only applies to API keys/PATs.
+    const canBypass = canBypassReviewChecks(req, feature);
 
     // Tags go into the revision metadata; capture them before stripping from updates.
     const newTagsForDiff = updates.tags;

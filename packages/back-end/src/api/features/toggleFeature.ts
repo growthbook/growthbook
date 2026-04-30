@@ -21,6 +21,7 @@ import {
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { canBypassReviewChecks } from "./reviewBypass";
 
 export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
   async (req) => {
@@ -88,12 +89,9 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       };
     }
 
-    // Callers bypass the review gate via either the org-level
-    // restApiBypassesReviews setting or a role/token that grants the
-    // bypassApprovalChecks permission on this feature's project.
-    const canBypass =
-      !!req.context.org.settings?.restApiBypassesReviews ||
-      req.context.permissions.canBypassApprovalChecks(feature);
+    // JWT-backed REST calls should behave like dashboard actions: the org-level
+    // REST bypass setting only applies to API keys/PATs.
+    const canBypass = canBypassReviewChecks(req, feature);
     // Build a minimal fake revision to check whether these toggle changes need review
     const liveRevision = await getRevision({
       context: req.context,

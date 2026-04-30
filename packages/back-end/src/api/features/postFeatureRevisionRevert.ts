@@ -26,6 +26,7 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { canBypassReviewChecks } from "./reviewBypass";
 
 export const postFeatureRevisionRevert = createApiRequestHandler(
   postFeatureRevisionRevertValidator,
@@ -252,10 +253,9 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     return { revision: revisionToApiInterface(newDraft) };
   }
 
-  // Bypass review gate via restApiBypassesReviews or bypassApprovalChecks.
-  const canBypass =
-    !!req.context.org.settings?.restApiBypassesReviews ||
-    req.context.permissions.canBypassApprovalChecks(feature);
+  // JWT-backed REST calls should behave like dashboard actions: the org-level
+  // REST bypass setting only applies to API keys/PATs.
+  const canBypass = canBypassReviewChecks(req, feature);
 
   if (!canBypass) {
     const liveRevision = await getRevision({

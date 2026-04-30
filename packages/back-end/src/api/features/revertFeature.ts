@@ -23,6 +23,7 @@ import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { canBypassReviewChecks } from "./reviewBypass";
 
 export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
   async (req) => {
@@ -181,10 +182,9 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       }
     }
 
-    // Bypass via restApiBypassesReviews or bypassApprovalChecks.
-    const canBypass =
-      !!req.context.org.settings?.restApiBypassesReviews ||
-      req.context.permissions.canBypassApprovalChecks(feature);
+    // JWT-backed REST calls should behave like dashboard actions: the org-level
+    // REST bypass setting only applies to API keys/PATs.
+    const canBypass = canBypassReviewChecks(req, feature);
 
     if (!canBypass) {
       const liveRevision = await getRevision({

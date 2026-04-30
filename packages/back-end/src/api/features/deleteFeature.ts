@@ -5,6 +5,7 @@ import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export const deleteFeatureById = createApiRequestHandler(
   deleteFeatureValidator,
@@ -38,9 +39,7 @@ export const deleteFeatureById = createApiRequestHandler(
   // bypassApprovalChecks permission intentionally does NOT authorize this path:
   // it is a review-workflow bypass, not a destructive-action override.
   if (!feature.archived) {
-    const apiBypassesReviews =
-      !!req.context.org.settings?.restApiBypassesReviews;
-    if (!apiBypassesReviews) {
+    if (!canUseRestApiBypassSetting(req)) {
       throw new PermissionError(
         "Cannot delete a live feature via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
           "Archive the feature first, or enable the bypass setting in organization settings.",
