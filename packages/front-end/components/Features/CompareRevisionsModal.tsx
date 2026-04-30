@@ -2247,7 +2247,7 @@ export default function CompareRevisionsModal({
                 style={{ borderBottom: "1px solid var(--gray-5)" }}
               >
                 <Flex align="start" justify="between" gap="4" wrap="wrap">
-                  <Flex align="start" gap="4">
+                  <Flex align="center" gap="4">
                     {diffViewMode === "steps" && (
                       <>
                         <Heading as="h2" size="small" mb="0">

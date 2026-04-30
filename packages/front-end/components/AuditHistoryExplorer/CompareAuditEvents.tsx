@@ -830,7 +830,7 @@ export default function CompareAuditEvents<T>({
               mb="3"
               style={{ borderBottom: "1px solid var(--gray-5)" }}
             >
-              <Flex align="center" justify="between" gap="4" wrap="wrap">
+              <Flex align="start" justify="between" gap="4" wrap="wrap">
                 <Flex align="center" gap="4">
                   {diffViewMode === "steps" && (
                     <>
