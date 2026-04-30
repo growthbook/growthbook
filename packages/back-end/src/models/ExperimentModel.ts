@@ -187,9 +187,6 @@ const experimentSchema = new mongoose.Schema({
   schedule: {
     _id: false,
     date: String,
-    endDate: String,
-    endAction: String,
-    rolloutVariationId: String,
   },
   results: String,
   analysis: String,

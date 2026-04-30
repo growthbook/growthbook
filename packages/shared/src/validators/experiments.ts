@@ -361,9 +361,6 @@ export const experimentInterface = z
     schedule: z
       .object({
         date: z.string(),
-        endDate: z.string().optional(),
-        endAction: z.enum(["stop", "rollout"]).optional(),
-        rolloutVariationId: z.string().optional(),
       })
       .strict()
       .optional(),
