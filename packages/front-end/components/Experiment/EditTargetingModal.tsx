@@ -238,12 +238,11 @@ export default function EditTargetingModal({
         }));
       }
 
-      const remaining = next.filter((v) => v.state !== "removed");
-      const equal = getEqualWeights(remaining.length, 4);
-      let i = 0;
+      // Keep existing/original weights when switching into re-randomize mode.
+      // Weight redistribution happens only when users explicitly change selections/splits.
       return next.map((v) => {
         if (v.state === "removed") return { ...v, weight: 0 };
-        return { ...v, weight: equal[i++] ?? 0 };
+        return { ...v, weight: v.weight ?? v.originalWeight };
       });
     });
   }, [changeType, removeVariationMode]);

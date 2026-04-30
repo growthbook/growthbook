@@ -14,6 +14,9 @@ import Table, {
 import { decimalToPercent, floatRound, rebalance } from "@/services/utils";
 import styles from "@/components/Features/VariationsInput.module.scss";
 
+const SPLIT_COLUMN_WIDTH = 220;
+const SUFFIX_COLUMN_WIDTH = 96;
+
 export interface VariationSplitTableProps<TRow> {
   label?: string;
   rows: TRow[];
@@ -140,7 +143,7 @@ export default function VariationSplitTable<TRow>({
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Variation</TableColumnHeader>
-            <TableColumnHeader>
+            <TableColumnHeader justify="end" style={{ width: SPLIT_COLUMN_WIDTH }}>
               Split
               {!disableCustomSplit && !editingSplits && (
                 <Tooltip
@@ -178,7 +181,10 @@ export default function VariationSplitTable<TRow>({
               )}
             </TableColumnHeader>
             {renderSuffixCell ? (
-              <TableColumnHeader justify="center">
+              <TableColumnHeader
+                justify="center"
+                style={{ width: SUFFIX_COLUMN_WIDTH }}
+              >
                 {suffixColumnHeader ?? ""}
               </TableColumnHeader>
             ) : null}
@@ -195,7 +201,7 @@ export default function VariationSplitTable<TRow>({
             return (
               <TableRow key={getRowKey(row)}>
                 <TableCell>{renderVariationCell(row)}</TableCell>
-                <TableCell>
+                <TableCell justify="end" style={{ width: SPLIT_COLUMN_WIDTH }}>
                   {rowCanEdit ? (
                     <SplitPercentInput
                       weightIndex={wi}
@@ -205,11 +211,16 @@ export default function VariationSplitTable<TRow>({
                       rebalanceFn={rebalanceFn}
                     />
                   ) : (
-                    <span>{decimalToPercent(w)}%</span>
+                    <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                      {decimalToPercent(w)}%
+                    </span>
                   )}
                 </TableCell>
                 {renderSuffixCell ? (
-                  <TableCell justify="center">
+                  <TableCell
+                    justify="center"
+                    style={{ width: SUFFIX_COLUMN_WIDTH }}
+                  >
                     {renderSuffixCell(row)}
                   </TableCell>
                 ) : null}

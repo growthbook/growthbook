@@ -21,6 +21,7 @@ export type Props = {
   disabled?: boolean;
   columns?: "1" | "2" | "3" | "4" | "5" | "6";
   width?: string;
+  wrapText?: boolean;
   options: RadioOptions;
   align?: "start" | "center" | "end";
   icon?: ReactElement;
@@ -38,6 +39,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     disabled,
     columns = "1",
     width = "auto",
+    wrapText = false,
     options,
     value,
     setValue,
@@ -81,8 +83,16 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                         <Text
                           weight={labelWeight}
                           size={labelSize}
-                          className="main-text truncate"
-                          style={{ minWidth: 0 }}
+                          className={wrapText ? "main-text" : "main-text truncate"}
+                          style={{
+                            minWidth: 0,
+                            ...(wrapText
+                              ? {
+                                  whiteSpace: "normal",
+                                  overflowWrap: "anywhere",
+                                }
+                              : {}),
+                          }}
                         >
                           {label || value}
                         </Text>
@@ -92,8 +102,16 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                         <Text
                           weight={descriptionWeight}
                           size={descriptionSize}
-                          className="truncate"
-                          style={{ minWidth: 0 }}
+                          className={wrapText ? undefined : "truncate"}
+                          style={{
+                            minWidth: 0,
+                            ...(wrapText
+                              ? {
+                                  whiteSpace: "normal",
+                                  overflowWrap: "anywhere",
+                                }
+                              : {}),
+                          }}
                         >
                           {description}
                         </Text>

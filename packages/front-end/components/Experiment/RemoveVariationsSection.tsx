@@ -1,11 +1,10 @@
 import { Dispatch, SetStateAction } from "react";
 import { Flex } from "@radix-ui/themes";
 import { getEqualWeights } from "shared/experiments";
-import RadioGroup from "@/ui/RadioGroup";
+import RadioCards from "@/ui/RadioCards";
 import Checkbox from "@/ui/Checkbox";
 import VariationSplitTable from "@/components/Experiment/VariationSplitTable";
 import { rebalance } from "@/services/utils";
-import Link from "@/ui/Link";
 
 function rebalanceExcludingRemoved(
   weights: number[],
@@ -62,7 +61,6 @@ export default function RemoveVariationsSection({
   setVariations,
   mode,
   setMode,
-  usedViaRemoveVariation = false,
 }: Props) {
   const removableVariations = variations.filter((v) => !v.locked);
   const maxRemovals = Math.max(0, removableVariations.length - 2);
@@ -72,11 +70,17 @@ export default function RemoveVariationsSection({
       : v.state === "removed",
   ).length;
 
-  const modeRadiosDisabled = selectedCount === 0;
-
   const applyEqualSplitForRerandomize = (
     next: RemoveVariationDraftVariation[],
   ): RemoveVariationDraftVariation[] => {
+    const removedCount = next.filter((v) => v.state === "removed").length;
+    if (removedCount === 0) {
+      return next.map((v) => ({
+        ...v,
+        weight: v.originalWeight,
+      }));
+    }
+
     const remaining = next.filter((v) => v.state !== "removed");
     const equal = getEqualWeights(remaining.length, 4);
     let i = 0;
@@ -94,26 +98,46 @@ export default function RemoveVariationsSection({
           (v) => Math.abs(v.weight - activeVariations[0].weight) < 0.0001,
         );
 
-  const weightsDifferFromOriginal =
-    usedViaRemoveVariation &&
-    variations.some((v) => {
-      if (v.state === "removed") return false;
-      return Math.abs(v.weight - v.originalWeight) >= 0.0001;
-    });
-
-  const resetVariationWeights = () => {
+  const resetSelection = () => {
     setVariations((current) =>
       current.map((v) => ({
         ...v,
-        weight: v.state === "removed" ? 0 : v.originalWeight,
+        state: v.locked ? "passThrough" : "active",
+        weight: v.originalWeight,
       })),
     );
   };
 
   return (
     <>
+      <RadioCards
+        mb="5"
+        columns="2"
+        wrapText={true}
+        value={mode}
+        setValue={(v) => {
+          const nextMode = v as RemoveVariationMode;
+          if (nextMode === mode) return;
+          resetSelection();
+          setMode(nextMode);
+        }}
+        options={[
+          {
+            value: "same-phase-skip",
+            label: "Disable and Skip Variations",
+            description:
+              "Units assigned to disabled variations will skip the experiment. Keep existing data for other variations.",
+          },
+          {
+            value: "new-phase-rerandomize",
+            label: "Remove Variations and Reallocate Traffic",
+            description:
+              "Remove selected variations and reallocate traffic to other variations, re-randomizing all traffic.",
+          },
+        ]}
+      />
       <VariationSplitTable
-        label="Variations to remove"
+        label="Select Variations to Disable"
         rows={removableVariations}
         getRowKey={(v) => v.id}
         getWeightIndex={(row) => variations.findIndex((v) => v.id === row.id)}
@@ -173,7 +197,7 @@ export default function RemoveVariationsSection({
             </span>
           </Flex>
         )}
-        suffixColumnHeader="Delete"
+        suffixColumnHeader={mode === "same-phase-skip" ? "Disable" : "Remove"}
         renderSuffixCell={(v) => {
           const toDelete =
             mode === "same-phase-skip"
@@ -211,41 +235,6 @@ export default function RemoveVariationsSection({
           );
         }}
         startEditingSplits={false}
-      />
-      <RadioGroup
-        value={mode}
-        setValue={(v: RemoveVariationMode) => setMode(v)}
-        options={[
-          {
-            label:
-              "Have disabled variation traffic skip experiment (same phase)",
-            value: "same-phase-skip",
-            disabled: modeRadiosDisabled || weightsDifferFromOriginal,
-            description: weightsDifferFromOriginal ? (
-              <span
-                style={{ pointerEvents: "auto" }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <Link
-                  className="link-purple font-weight-bold"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    resetVariationWeights();
-                  }}
-                >
-                  Reset variation weights
-                </Link>{" "}
-                to match the current phase split to use this option.
-              </span>
-            ) : undefined,
-          },
-          {
-            label: "Re-allocate traffic, restart experiment (new phase)",
-            value: "new-phase-rerandomize",
-            disabled: modeRadiosDisabled,
-          },
-        ]}
       />
     </>
   );
