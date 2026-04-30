@@ -20,7 +20,10 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { stemRuleId } from "shared/util";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  stemRuleId,
+} from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -30,7 +33,6 @@ import { datetime } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import { FaBoltLightning } from "react-icons/fa6";
 import { PiCaretRightBold, PiXBold } from "react-icons/pi";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
