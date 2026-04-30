@@ -78,7 +78,7 @@ describe("eventForwarderAvro", () => {
     expect(summary.recordName).toBe(EVENT_FORWARDER_AVRO_RECORD_NAME);
     expect(summary.namespace).toBe(EVENT_FORWARDER_AVRO_NAMESPACE);
     expect(summary.fieldNames).toContain("event_name");
-    expect(summary.fieldNames).toContain("attributes");
+    expect(summary.fieldNames).toContain("additional_attributes");
     expect(summary.fieldNames.length).toBe(
       EVENT_FORWARDER_AVRO_DEFAULT_FIELDS.length,
     );
