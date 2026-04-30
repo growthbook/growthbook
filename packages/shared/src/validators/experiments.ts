@@ -1530,7 +1530,7 @@ export const listExperimentResultsValidator = {
   ),
   summary: "Get latest results for many experiments",
   description:
-    "Returns the latest non-dimension snapshot for each experiment matching the filters. Use this to scan results across a portfolio in a single call. Experiments without a completed snapshot are omitted from `experimentResults` but still occupy a slot in pagination, so `experimentResults.length` may be less than the page `count`. Use the per-experiment `GET /experiments/{id}/results` endpoint to inspect specific phases or dimensions.",
+    "Returns the latest non-dimension snapshot for each experiment matching the filters. Use this to scan results across a portfolio in a single call. Experiments without a completed snapshot are omitted from `experimentResults`; `count` reflects the returned array length, while `total` is the count of experiments matching the filters (some of which may have been omitted). Pages may have `count: 0` while `hasMore: true` if every experiment on that slice lacked a snapshot. Use the per-experiment `GET /experiments/{id}/results` endpoint to inspect specific phases or dimensions.",
   operationId: "listExperimentResults",
   tags: ["experiments"],
   method: "get" as const,

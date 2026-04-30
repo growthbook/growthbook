@@ -2030,11 +2030,10 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body.experimentResults).toHaveLength(1);
       expect(res.body.experimentResults[0].experimentId).toBe("exp_a");
-      // `count` reflects the page slice from applyPagination (experiments
-      // inspected this page), not experimentResults.length — the omitted
-      // experiment still occupies a slot in pagination.
+      // `count` is overridden in the handler to match the response array
+      // length; `total` still reflects experiments matching the filter.
       expect(res.body.total).toBe(2);
-      expect(res.body.count).toBe(2);
+      expect(res.body.count).toBe(1);
     });
 
     it("returns an empty page when no experiments match", async () => {
