@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual, merge } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -198,7 +199,9 @@ export async function deleteDatasource(
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   if (datasource.type === "growthbook_clickhouse") {
-    await deleteClickhouseUser(context.org.id);
+    if (!isManagedWarehouseAwaitingProvisioning(datasource)) {
+      await deleteClickhouseUser(context.org.id);
+    }
 
     // Also delete the main events fact table
     try {
@@ -281,7 +284,12 @@ export async function createDataSource(
     projects,
   };
 
-  await testDataSourceConnection(context, datasource);
+  const skipManagedWarehouseConnection =
+    isManagedWarehouseAwaitingProvisioning(datasource);
+
+  if (!skipManagedWarehouseConnection) {
+    await testDataSourceConnection(context, datasource);
+  }
 
   assertExposureQueriesTargetingAttributeColumnsValid(
     context.org.settings?.attributeSchema,
@@ -302,6 +310,7 @@ export async function createDataSource(
 
   const integration = getSourceIntegrationObject(context, datasource);
   if (
+    !skipManagedWarehouseConnection &&
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
@@ -325,6 +334,14 @@ export async function validateExposureQueriesAndAddMissingIds(
   if (updatesCopy.queries?.exposure) {
     await Promise.all(
       updatesCopy.queries.exposure.map(async (exposure) => {
+        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+          if (!exposure.id) {
+            exposure.id = uniqid("exq_");
+          }
+          exposure.error = undefined;
+          return;
+        }
+
         let checkValidity = forceCheckValidity;
         if (!exposure.id) {
           exposure.id = uniqid("exq_");

@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
@@ -254,13 +254,13 @@ export default function AnalysisSettings({
                   {goalsWithTargetMDE.map((metric, i) => {
                     if (isBandit && i > 0) return null;
                     return (
-                      <>
-                        <li key={`goal-${i}`}>
+                      <Fragment key={metric.id}>
+                        <li>
                           <Link href={getMetricLink(metric.id)}>
                             {metric.name}
                           </Link>
                         </li>
-                        <li key={`goal-${i}-conversion-window`}>
+                        <li>
                           {isBandit &&
                             experiment.banditConversionWindowValue &&
                             experiment.banditConversionWindowUnit && (
@@ -276,7 +276,7 @@ export default function AnalysisSettings({
                               </Text>
                             )}
                         </li>
-                      </>
+                      </Fragment>
                     );
                   })}
                 </ul>

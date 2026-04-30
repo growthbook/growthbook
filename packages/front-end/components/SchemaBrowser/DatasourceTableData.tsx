@@ -1,8 +1,10 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { InformationSchemaTablesInterface } from "shared/types/integrations";
 import { useEffect, useMemo, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -25,9 +27,14 @@ export default function DatasourceSchema({
   setError,
   canRunQueries,
 }: Props) {
+  const managedWarehousePending =
+    isManagedWarehouseAwaitingProvisioning(datasource);
+
   const { data, mutate } = useApi<{
     table: InformationSchemaTablesInterface;
-  }>(`/datasource/${datasourceId}/schema/table/${tableId}`);
+  }>(`/datasource/${datasourceId}/schema/table/${tableId}`, {
+    shouldRun: () => !!tableId && !managedWarehousePending,
+  });
 
   const table = data?.table;
   const [fetching, setFetching] = useState(false);
@@ -79,6 +86,20 @@ export default function DatasourceSchema({
     setFetching(false);
     setColumnFilter("");
   }, [tableId]);
+
+  if (managedWarehousePending) {
+    return (
+      <div
+        className="p-2"
+        style={{
+          height: "50%",
+          flex: 1,
+        }}
+      >
+        <ManagedWarehouseNoEventsCallout />
+      </div>
+    );
+  }
 
   if (tableId && !table)
     return (
