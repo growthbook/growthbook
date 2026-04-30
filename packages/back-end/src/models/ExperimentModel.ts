@@ -1508,6 +1508,27 @@ export async function unlinkFeatureFromAllExperiments(
   );
 }
 
+// Returns just linkedFeatures + pendingFeatureDrafts for one experiment,
+// using the raw driver to avoid Mongoose hydration. Used by the linkage sync
+// path which only needs these two arrays.
+export async function getExperimentLinkagesById(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+): Promise<{
+  linkedFeatures?: string[];
+  pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
+} | null> {
+  const doc = await getCollection(COLLECTION).findOne(
+    { id: experimentId, organization: context.org.id },
+    { projection: { linkedFeatures: 1, pendingFeatureDrafts: 1 } },
+  );
+  if (!doc) return null;
+  return {
+    linkedFeatures: doc.linkedFeatures,
+    pendingFeatureDrafts: doc.pendingFeatureDrafts,
+  };
+}
+
 // Queues a draft for auto-publish when the experiment goes running.
 // Optimistic CAS so concurrent callers can't double-insert the same featureId;
 // syncFeatureExperimentLinkages self-heals on the next revision write.
@@ -1521,17 +1542,16 @@ export async function addPendingFeatureDraftToExperiment(
 ) {
   const filter = { id: experimentId, organization: context.org.id };
   for (let attempt = 0; attempt < 5; attempt++) {
-    const exp = await ExperimentModel.findOne(filter, {
-      pendingFeatureDrafts: 1,
-      __v: 1,
-    }).lean<{
-      pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
-      __v?: number;
-    }>();
+    const exp = await getCollection(COLLECTION).findOne(filter, {
+      projection: { pendingFeatureDrafts: 1, __v: 1 },
+    });
     if (!exp) return;
-    const next = (exp.pendingFeatureDrafts ?? []).filter(
-      (d) => d.featureId !== featureId,
-    );
+    const next = (
+      (exp.pendingFeatureDrafts ?? []) as {
+        featureId: string;
+        revisionVersion: number;
+      }[]
+    ).filter((d) => d.featureId !== featureId);
     next.push({ featureId, revisionVersion });
     const result = await ExperimentModel.updateOne(
       { ...filter, __v: exp.__v },

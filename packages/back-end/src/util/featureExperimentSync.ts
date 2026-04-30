@@ -6,6 +6,7 @@ import {
   ExperimentModel,
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
+  getExperimentLinkagesById,
 } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 
@@ -17,12 +18,25 @@ const OPEN_DRAFT_STATUSES = new Set([
 ]);
 
 function getExperimentIdsFromRules(
-  rules: FeatureRevisionInterface["rules"],
+  rules: FeatureRevisionInterface["rules"] | unknown,
 ): string[] {
-  return (rules ?? [])
-    .filter((r) => r.type === "experiment-ref")
-    .map((r) => (r as ExperimentRefRule).experimentId)
-    .filter(Boolean);
+  // Accept both v2 (FeatureRule[]) and legacy v1 (Record<envId, FeatureRule[]>)
+  // shapes. getNonDiscardedRevisionSummaries reads raw docs, so v1 records
+  // reach here untouched until the v2 migration finishes.
+  const flat: unknown[] = Array.isArray(rules)
+    ? rules
+    : rules && typeof rules === "object"
+      ? Object.values(rules as Record<string, unknown[]>).flat()
+      : [];
+  return flat
+    .filter(
+      (r): r is ExperimentRefRule =>
+        !!r &&
+        typeof r === "object" &&
+        (r as { type?: string }).type === "experiment-ref",
+    )
+    .map((r) => r.experimentId)
+    .filter((id): id is string => !!id);
 }
 
 /**
@@ -60,19 +74,16 @@ export async function syncFeatureExperimentLinkages(
     const allExpIds = new Set([...liveExpIds, ...draftVersionByExp.keys()]);
 
     for (const experimentId of allExpIds) {
-      const experiment = await ExperimentModel.findOne({
-        id: experimentId,
-        organization: context.org.id,
-      });
+      // Raw driver read of just the two arrays we need — spreading a
+      // Mongoose doc downstream loses schema-level fields (dateCreated, etc.)
+      // and breaks toExperimentApiInterface in the SDK refresh.
+      const experiment = await getExperimentLinkagesById(context, experimentId);
       if (!experiment) continue;
 
       if (!experiment.linkedFeatures?.includes(featureId)) {
-        await addLinkedFeatureToExperiment(
-          context,
-          experimentId,
-          featureId,
-          experiment,
-        );
+        // Don't forward the projected read — addLinkedFeatureToExperiment
+        // re-fetches a fully-shaped ExperimentInterface via findExperiment.
+        await addLinkedFeatureToExperiment(context, experimentId, featureId);
       }
 
       const desiredVersion = draftVersionByExp.get(experimentId);
