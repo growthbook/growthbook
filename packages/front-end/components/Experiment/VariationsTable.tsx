@@ -4,7 +4,7 @@ import {
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FC, useState, useRef, useCallback } from "react";
-import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Grid, Heading } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
@@ -12,6 +12,7 @@ import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 
@@ -60,9 +61,9 @@ const ScreenshotCarousel: FC<{
             color: "var(--slate-a9)",
           }}
         >
-          <Text size="8">
-            <PiCameraLight />
-          </Text>
+          <Box>
+            <PiCameraLight size="32px" />
+          </Box>
         </Flex>
       );
     },
@@ -131,9 +132,13 @@ function NoImageBox({
         color: "var(--slate-a9)",
       }}
     >
-      <Text size="8">
-        {canEdit ? <PiCameraPlusLight /> : <PiCameraLight />}
-      </Text>
+      <Box>
+        {canEdit ? (
+          <PiCameraPlusLight size="32px" />
+        ) : (
+          <PiCameraLight size="32px" />
+        )}
+      </Box>
     </Flex>
   );
 }
@@ -241,7 +246,9 @@ export function VariationBox({
           )}
         </Box>
         <Box>
-          {showDescription ? <Box>{v.description}</Box> : null}
+          {showDescription ? (
+            <Box>{v.description || <Text color="text-mid">--</Text>}</Box>
+          ) : null}
           {showIds ? <code className="small">ID: {v.key}</code> : null}
           <Flex align="center" justify="between">
             <Box>
@@ -253,7 +260,7 @@ export function VariationBox({
             {allowImages && (
               <Flex align="center" justify="end" gap="2">
                 {v.screenshots.length > 0 ? (
-                  <Text className="text-muted">
+                  <Text color="text-mid">
                     {v.screenshots.length} image
                     {v.screenshots.length > 1 ? "s" : ""}
                   </Text>

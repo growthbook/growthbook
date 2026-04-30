@@ -210,13 +210,19 @@ export default function AnalysisSettings({
           <div className="row">
             <div className="col-4 mb-4">
               <div className="h5">Data Source</div>
-              <div>{datasource ? datasource.name : <em>none</em>}</div>
+              <div>
+                <Text color="text-mid">
+                  {datasource ? datasource.name : "--"}
+                </Text>
+              </div>
             </div>
 
             <div className="col-4 mb-4">
               <div className="h5">Experiment Assignment Table</div>
               <div>
-                {assignmentQuery ? assignmentQuery.name : <em>none</em>}
+                <Text color="text-mid">
+                  {assignmentQuery ? assignmentQuery.name : "--"}
+                </Text>
               </div>
             </div>
 
@@ -224,7 +230,9 @@ export default function AnalysisSettings({
               <div className="col-4 mb-4">
                 <div className="h5">Activation Metric</div>
                 <div>
-                  {getExperimentMetricById(experiment.activationMetric)?.name}
+                  <Text color="text-mid">
+                    {getExperimentMetricById(experiment.activationMetric)?.name}
+                  </Text>
                 </div>
               </div>
             )}
@@ -232,11 +240,11 @@ export default function AnalysisSettings({
               <div className="col-4 mb-4">
                 <div className="h5">Segment</div>
                 <div>
-                  {experiment.segment ? (
-                    <>{getSegmentById(experiment.segment)?.name}</>
-                  ) : (
-                    <em>none (all users)</em>
-                  )}
+                  <Text color="text-mid">
+                    {experiment.segment
+                      ? getSegmentById(experiment.segment)?.name
+                      : "all users"}
+                  </Text>
                 </div>
               </div>
             )}
@@ -264,7 +272,7 @@ export default function AnalysisSettings({
                           {isBandit &&
                             experiment.banditConversionWindowValue &&
                             experiment.banditConversionWindowUnit && (
-                              <Text size="small">
+                              <Text size="small" color="text-mid">
                                 Conversion Window:{" "}
                                 {experiment.banditConversionWindowValue}{" "}
                                 {experiment.banditConversionWindowValue === 1
@@ -281,7 +289,7 @@ export default function AnalysisSettings({
                   })}
                 </ul>
               ) : (
-                <em>none</em>
+                <Text color="text-mid">--</Text>
               )}
             </div>
           </div>
@@ -298,7 +306,7 @@ export default function AnalysisSettings({
                   ))}
                 </ul>
               ) : (
-                <em>none</em>
+                <Text color="text-mid">--</Text>
               )}
             </div>
           </div>
@@ -317,7 +325,7 @@ export default function AnalysisSettings({
                     ))}
                   </ul>
                 ) : (
-                  <em>none</em>
+                  <Text color="text-mid">--</Text>
                 )}
               </div>
             </div>
@@ -333,14 +341,16 @@ export default function AnalysisSettings({
                     {goalsWithTargetMDE.map((metric, i) => {
                       return (
                         <li key={`goal-mde-${i}`}>
-                          {metric.name} (
-                          {percentFormatter.format(metric.computedTargetMDE)})
+                          <Text color="text-mid">
+                            {metric.name} (
+                            {percentFormatter.format(metric.computedTargetMDE)})
+                          </Text>
                         </li>
                       );
                     })}
                   </ul>
                 ) : (
-                  <em>none</em>
+                  <Text color="text-mid">--</Text>
                 )}
               </div>
               {canEditAnalysisSettings ? (
@@ -358,7 +368,7 @@ export default function AnalysisSettings({
             <div className="col-4">
               <div className="h5">Decision Criteria</div>
               <div>
-                <Text weight="regular">{decisionCriteria.name}</Text>
+                <Text color="text-mid">{decisionCriteria.name}</Text>
                 <Text color="text-mid">{`: ${decisionCriteria.description}`}</Text>
               </div>
               <div className="mt-1">
@@ -378,21 +388,25 @@ export default function AnalysisSettings({
             <div className="col-4">
               <div className="h5">Exploratory Stage</div>
               <div>
-                {experiment.banditBurnInValue ?? 1}{" "}
-                {(experiment.banditBurnInUnit ?? "days") === "days"
-                  ? "day"
-                  : "hour"}
-                {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
+                <Text color="text-mid">
+                  {experiment.banditBurnInValue ?? 1}{" "}
+                  {(experiment.banditBurnInUnit ?? "days") === "days"
+                    ? "day"
+                    : "hour"}
+                  {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
+                </Text>
               </div>
             </div>
 
             <div className="col-4">
               <div className="h5">Update Cadence</div>
               <div>
-                Every {experiment.banditScheduleValue ?? 1}{" "}
-                {(experiment.banditScheduleUnit ?? "days") === "days"
-                  ? "days"
-                  : "hours"}
+                <Text color="text-mid">
+                  Every {experiment.banditScheduleValue ?? 1}{" "}
+                  {(experiment.banditScheduleUnit ?? "days") === "days"
+                    ? "days"
+                    : "hours"}
+                </Text>
               </div>
             </div>
           </div>

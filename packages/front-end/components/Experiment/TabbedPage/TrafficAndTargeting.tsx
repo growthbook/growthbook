@@ -10,6 +10,7 @@ import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetin
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBInfo } from "@/components/Icons";
+import Text from "@/ui/Text";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -67,34 +68,43 @@ export default function TrafficAndTargeting({
                 <div className="h5">Traffic</div>
                 {!isHoldout && (
                   <div>
-                    {Math.floor(phase.coverage * 100)}% included
-                    {experiment.type !== "multi-armed-bandit" && (
-                      <>
-                        , {formatTrafficSplit(phase.variationWeights, 2)} split
-                      </>
-                    )}
+                    <Text color="text-mid">
+                      {Math.floor(phase.coverage * 100)}% included
+                      {experiment.type !== "multi-armed-bandit" && (
+                        <>
+                          , {formatTrafficSplit(phase.variationWeights, 2)}{" "}
+                          split
+                        </>
+                      )}
+                    </Text>
                   </div>
                 )}
                 {isHoldout && (
                   <>
                     <div>
-                      {Math.floor(
-                        phase.coverage * phase.variationWeights[0] * 100,
-                      )}
-                      % in holdout
+                      <Text color="text-mid">
+                        {Math.floor(
+                          phase.coverage * phase.variationWeights[0] * 100,
+                        )}
+                        % in holdout
+                      </Text>
                     </div>
                     <div>
-                      {Math.floor(
-                        phase.coverage * phase.variationWeights[0] * 100,
-                      )}
-                      % not in holdout (for measurement)
+                      <Text color="text-mid">
+                        {Math.floor(
+                          phase.coverage * phase.variationWeights[0] * 100,
+                        )}
+                        % not in holdout (for measurement)
+                      </Text>
                     </div>
                     <div>
-                      {Math.floor(
-                        (1 - phase.coverage * phase.variationWeights[0] * 2) *
-                          100,
-                      )}
-                      % not in holdout (not for measurement)
+                      <Text color="text-mid">
+                        {Math.floor(
+                          (1 - phase.coverage * phase.variationWeights[0] * 2) *
+                            100,
+                        )}
+                        % not in holdout (not for measurement)
+                      </Text>
                     </div>
                   </>
                 )}
@@ -133,7 +143,9 @@ export default function TrafficAndTargeting({
                 </div>
                 {!isHoldout && experiment.disableStickyBucketing ? (
                   <div className="mt-1">
-                    Sticky bucketing: <em>disabled</em>
+                    <Text color="text-mid">
+                      Sticky bucketing: <em>disabled</em>
+                    </Text>
                   </div>
                 ) : null}
               </div>
@@ -151,14 +163,12 @@ export default function TrafficAndTargeting({
                   </div>
                   <div>
                     {hasNamespace ? (
-                      <>
-                        {namespaceName}{" "}
-                        <span className="text-muted">
-                          ({percentFormatter.format(namespaceRange)})
-                        </span>
-                      </>
+                      <Text color="text-mid">
+                        {namespaceName} (
+                        {percentFormatter.format(namespaceRange)})
+                      </Text>
                     ) : (
-                      <em>Global (all users)</em>
+                      <Text color="text-mid">Global (all users)</Text>
                     )}
                   </div>
                 </div>
@@ -185,7 +195,7 @@ export default function TrafficAndTargeting({
                   {phase.condition && phase.condition !== "{}" ? (
                     <ConditionDisplay condition={phase.condition} />
                   ) : (
-                    <em>None</em>
+                    <Text color="text-mid">--</Text>
                   )}
                 </div>
               </div>
@@ -198,7 +208,7 @@ export default function TrafficAndTargeting({
                       savedGroups={phase.savedGroups}
                     />
                   ) : (
-                    <em>None</em>
+                    <Text color="text-mid">--</Text>
                   )}
                 </div>
               </div>
@@ -210,7 +220,7 @@ export default function TrafficAndTargeting({
                     {phase.prerequisites?.length ? (
                       <ConditionDisplay prerequisites={phase.prerequisites} />
                     ) : (
-                      <em>None</em>
+                      <Text color="text-mid">--</Text>
                     )}
                   </div>
                 </div>

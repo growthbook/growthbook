@@ -437,7 +437,7 @@
   },
   "packages/front-end/components/Experiment/VariationsTable.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {
