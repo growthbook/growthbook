@@ -22,9 +22,11 @@ import {
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
-import { logger } from "back-end/src/util/logger";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
+import {
+  formatPendingDraftFailureMessage,
+  publishPendingFeatureDraftsForExperiment,
+} from "back-end/src/services/experiment-feature";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -239,40 +241,38 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
-  const updatedExperiment = await updateExperimentToDb({
-    context: req.context,
-    experiment: experiment,
-    changes: updateExperimentApiPayloadToInterface(
-      {
-        ...req.body,
-        ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
-      },
-      experiment,
-      map,
-      req.organization,
-    ),
-  });
+  const changes = updateExperimentApiPayloadToInterface(
+    {
+      ...req.body,
+      ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+    },
+    experiment,
+    map,
+    req.organization,
+  );
 
-  if (updatedExperiment === null) {
-    throw new Error("Error happened during updating experiment.");
-  }
-
-  if (experiment.status === "draft" && updatedExperiment.status === "running") {
-    // Best-effort for the REST API: experiment is already saved, so we log
-    // failures but don't roll back the status change.
+  // If the request transitions the experiment from draft → running, publish
+  // any pending feature drafts BEFORE persisting the status change. This
+  // mirrors the UI controller (postExperimentStatus) so the REST API can't
+  // bypass approval/conflict gates that would otherwise block the start.
+  if (experiment.status === "draft" && changes.status === "running") {
     const publishResult = await publishPendingFeatureDraftsForExperiment(
       req.context,
       experiment,
     );
     if (publishResult.failed.length > 0) {
-      logger.warn(
-        {
-          experimentId: experiment.id,
-          failed: publishResult.failed,
-        },
-        "Some feature drafts could not be auto-published when experiment was started via REST API",
-      );
+      throw new Error(formatPendingDraftFailureMessage(publishResult.failed));
     }
+  }
+
+  const updatedExperiment = await updateExperimentToDb({
+    context: req.context,
+    experiment: experiment,
+    changes,
+  });
+
+  if (updatedExperiment === null) {
+    throw new Error("Error happened during updating experiment.");
   }
 
   await req.audit({

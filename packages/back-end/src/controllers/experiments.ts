@@ -142,6 +142,7 @@ import {
 } from "back-end/src/services/features";
 import {
   ExperimentLinkedFeatureValueUpdate,
+  formatPendingDraftFailureMessage,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
   updateExperimentRefVariations,
@@ -2120,25 +2121,9 @@ export async function postExperimentStatus(
     const publishResult: PendingDraftPublishResult =
       await publishPendingFeatureDraftsForExperiment(context, experiment);
     if (publishResult.failed.length > 0) {
-      const plural = publishResult.failed.length > 1 ? "s" : "";
-      const conflictIds = publishResult.failed
-        .filter((f) => f.reason === "merge-conflict")
-        .map((f) => f.featureId);
-      const errorIds = publishResult.failed
-        .filter((f) => f.reason !== "merge-conflict")
-        .map((f) => f.featureId);
-      const parts: string[] = [];
-      if (conflictIds.length)
-        parts.push(
-          `merge conflict${conflictIds.length > 1 ? "s" : ""} in: ${conflictIds.join(", ")}`,
-        );
-      if (errorIds.length)
-        parts.push(
-          `unexpected publish error${errorIds.length > 1 ? "s" : ""} in: ${errorIds.join(", ")}`,
-        );
       res.status(400).json({
         status: 400,
-        message: `Cannot start experiment: feature flag draft${plural} could not be published (${parts.join("; ")}). Resolve the issue${plural} and try again.`,
+        message: formatPendingDraftFailureMessage(publishResult.failed),
         failedFeatureDrafts: publishResult.failed,
       });
       return;

@@ -180,6 +180,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import {
+  formatPendingDraftFailureMessage,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
@@ -1437,28 +1438,18 @@ export async function postFeaturePublish(
 
     // Publish remaining pending drafts (other linked features). Abort if any
     // fail — mirrors the blocking behavior of postExperimentStatus.
+    //
+    // Residual exposure: the current feature is already live by this point.
+    // Phase-1 pre-flight above caught merge conflicts and approval gaps for
+    // the OTHER drafts before we published this one, so the only remaining
+    // failure modes here are transient infra errors during publishRevision.
+    // Throwing aborts the experiment status transition; the already-published
+    // current feature stays live. Closing this gap fully would require cross-
+    // collection transactions.
     const publishResult: PendingDraftPublishResult =
       await publishPendingFeatureDraftsForExperiment(context, reloadedExp);
     if (publishResult.failed.length > 0) {
-      const plural = publishResult.failed.length > 1 ? "s" : "";
-      const conflictIds = publishResult.failed
-        .filter((f) => f.reason === "merge-conflict")
-        .map((f) => f.featureId);
-      const errorIds = publishResult.failed
-        .filter((f) => f.reason !== "merge-conflict")
-        .map((f) => f.featureId);
-      const parts: string[] = [];
-      if (conflictIds.length)
-        parts.push(
-          `merge conflict${conflictIds.length > 1 ? "s" : ""} in: ${conflictIds.join(", ")}`,
-        );
-      if (errorIds.length)
-        parts.push(
-          `unexpected publish error${errorIds.length > 1 ? "s" : ""} in: ${errorIds.join(", ")}`,
-        );
-      throw new Error(
-        `Cannot start experiment: feature flag draft${plural} could not be published (${parts.join("; ")}). Resolve the issue${plural} and try again.`,
-      );
+      throw new Error(formatPendingDraftFailureMessage(publishResult.failed));
     }
 
     const updated = await updateExperiment({

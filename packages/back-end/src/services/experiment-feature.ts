@@ -276,10 +276,51 @@ export async function validateExperimentFeatureUpdates({
   return plans;
 }
 
+export type PendingDraftFailureReason =
+  | "merge-conflict"
+  | "needs-approval"
+  | "publish-error";
+
+export type PendingDraftFailure = {
+  featureId: string;
+  revisionVersion: number;
+  reason: PendingDraftFailureReason;
+};
+
 export type PendingDraftPublishResult = {
   published: { featureId: string; revisionVersion: number }[];
-  failed: { featureId: string; revisionVersion: number; reason: string }[];
+  failed: PendingDraftFailure[];
 };
+
+// Build a human-readable error explaining why pending drafts could not be
+// auto-published, grouped by failure reason. Used by both the UI and REST
+// API start paths so error copy stays consistent.
+export function formatPendingDraftFailureMessage(
+  failed: PendingDraftFailure[],
+): string {
+  const ids = (reason: PendingDraftFailureReason) =>
+    failed.filter((f) => f.reason === reason).map((f) => f.featureId);
+  const conflictIds = ids("merge-conflict");
+  const approvalIds = ids("needs-approval");
+  const errorIds = ids("publish-error");
+
+  const plural = failed.length > 1 ? "s" : "";
+  const parts: string[] = [];
+  if (conflictIds.length) {
+    parts.push(
+      `merge conflict${conflictIds.length > 1 ? "s" : ""} in: ${conflictIds.join(", ")}`,
+    );
+  }
+  if (approvalIds.length) {
+    parts.push(`pending approval on: ${approvalIds.join(", ")}`);
+  }
+  if (errorIds.length) {
+    parts.push(
+      `unexpected publish error${errorIds.length > 1 ? "s" : ""} on: ${errorIds.join(", ")}`,
+    );
+  }
+  return `Cannot start experiment: feature flag draft${plural} could not be published (${parts.join("; ")}). Resolve the issue${plural} and try again.`;
+}
 
 type ResolvedDraft = {
   featureId: string;
@@ -290,15 +331,20 @@ type ResolvedDraft = {
 };
 
 // Auto-publish each `experiment.pendingFeatureDrafts` entry that still
-// references an active draft. Stale entries are pruned silently.
+// references an active draft. Stale entries (deleted feature, already
+// published, discarded) are pruned silently.
 //
-// Two-phase to avoid partial publishes on detectable merge conflicts:
-//   Phase 1 — resolve every draft and run autoMerge on all of them. If any
-//              fail the merge check, return immediately with no publishes.
-//   Phase 2 — all merge checks passed; publish each draft in turn.
+// Two-phase to avoid partial publishes on detectable failures:
+//   Phase 1 — resolve every draft, check approval state, and run autoMerge on
+//              all of them. If any fail (needs-approval or merge-conflict),
+//              return immediately with no publishes.
+//   Phase 2 — all checks passed; publish each draft in turn. Per-draft
+//              publishRevision errors fall into failed[] with reason
+//              "publish-error" (transient infra failures only — most
+//              correctness issues are caught in phase 1).
 //
-// Returns { published, failed }; callers decide whether to treat failures as
-// blocking (UI start) or best-effort (REST API).
+// Returns { published, failed }; callers MUST gate the experiment-state
+// transition on `failed.length === 0`.
 export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -307,11 +353,7 @@ export async function publishPendingFeatureDraftsForExperiment(
   if (!drafts.length) return { published: [], failed: [] };
 
   const orgEnvIds = context.environments;
-  const failed: {
-    featureId: string;
-    revisionVersion: number;
-    reason: string;
-  }[] = [];
+  const failed: PendingDraftFailure[] = [];
 
   // ── Phase 1: resolve + merge-check all drafts ─────────────────────────────
   const ready: ResolvedDraft[] = [];
@@ -367,8 +409,9 @@ export async function publishPendingFeatureDraftsForExperiment(
     if (requiresReview && revision.status !== "approved") {
       logger.warn(
         { experimentId: experiment.id, featureId, revisionVersion },
-        "Skipping auto-publish of pending feature draft: approval required but not yet approved",
+        "Cannot auto-publish pending feature draft: approval required but not yet approved",
       );
+      failed.push({ featureId, revisionVersion, reason: "needs-approval" });
       continue;
     }
 
