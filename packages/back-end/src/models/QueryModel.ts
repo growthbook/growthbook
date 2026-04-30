@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
-import uniqid from "uniqid";
 import { QueryInterface, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
 import { ApiQuery } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
+import { generateId } from "back-end/src/util/uuid";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -297,7 +297,7 @@ export async function createNewQuery({
     createdAt: new Date(),
     datasource,
     heartbeat: new Date(),
-    id: uniqid("qry_"),
+    id: generateId("qry_"),
     language,
     organization,
     query,
@@ -325,7 +325,7 @@ export async function createNewQueryFromCached({
     createdAt: new Date(),
     datasource: existing.datasource,
     heartbeat: new Date(),
-    id: uniqid("qry_"),
+    id: generateId("qry_"),
     displayTitle: existing.displayTitle,
     language: existing.language,
     organization: existing.organization,
