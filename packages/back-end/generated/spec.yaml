@@ -9486,10 +9486,11 @@ paths:
       description: >-
         Returns the latest non-dimension snapshot for each experiment matching
         the filters. Use this to scan results across a portfolio in a single
-        call. Per-page count may be less than `limit` because experiments
-        without a completed snapshot are omitted (use the per-experiment `GET
-        /experiments/{id}/results` endpoint to inspect specific phases or
-        dimensions).
+        call. Experiments without a completed snapshot are omitted from
+        `experimentResults` but still occupy a slot in pagination, so
+        `experimentResults.length` may be less than the page `count`. Use the
+        per-experiment `GET /experiments/{id}/results` endpoint to inspect
+        specific phases or dimensions.
       tags:
         - experiments
       parameters:
