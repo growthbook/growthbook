@@ -12,15 +12,6 @@ import {
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 
-const mockCommand = jest.fn();
-const mockClickhouseClient = {
-  command: mockCommand,
-};
-
-jest.mock("@clickhouse/client", () => ({
-  createClient: jest.fn(() => mockClickhouseClient),
-}));
-
 jest.mock("back-end/src/util/secrets", () => ({
   CLICKHOUSE_HOST: "http://localhost:8123",
   CLICKHOUSE_ADMIN_USER: "admin",
@@ -29,7 +20,6 @@ jest.mock("back-end/src/util/secrets", () => ({
   CLICKHOUSE_MAIN_TABLE: "events",
   ENVIRONMENT: "development",
   IS_CLOUD: false,
-  CLICKHOUSE_DEV_PREFIX: "dev_",
   CLICKHOUSE_OVERAGE_TABLE: "overage",
 }));
 
@@ -87,7 +77,6 @@ describe("updateMaterializedColumns", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCommand.mockResolvedValue(undefined);
     mockUpdateFactTableColumns.mockResolvedValue(undefined as never);
   });
 
@@ -146,7 +135,6 @@ describe("updateMaterializedColumns", () => {
       originalColumns: [],
     });
 
-    expect(mockCommand).not.toHaveBeenCalled();
     expect(mockUpdateMaterializedColumnsLicense).not.toHaveBeenCalled();
   });
 
