@@ -1511,6 +1511,32 @@ export const getExperimentResultsValidator = {
   path: "/experiments/:id/results",
 };
 
+export const listExperimentResultsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+      projectId: z.string().describe("Filter by project id").optional(),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
+      status: z.enum(experimentStatus).optional(),
+    })
+    .strict(),
+  paramsSchema: z.never(),
+  responseSchema: z.intersection(
+    z.object({
+      experimentResults: z.array(apiExperimentResultsValidator),
+    }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "Get latest results for many experiments",
+  description:
+    "Returns the latest non-dimension snapshot for each experiment matching the filters. Use this to scan results across a portfolio in a single call. Per-page count may be less than `limit` because experiments without a completed snapshot are omitted (use the per-experiment `GET /experiments/{id}/results` endpoint to inspect specific phases or dimensions).",
+  operationId: "listExperimentResults",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/results",
+};
+
 export const getExperimentSnapshotValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

@@ -9479,6 +9479,54 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/results:
+    get:
+      operationId: listExperimentResults
+      summary: Get latest results for many experiments
+      description: >-
+        Returns the latest non-dimension snapshot for each experiment matching
+        the filters. Use this to scan results across a portfolio in a single
+        call. Per-page count may be less than `limit` because experiments
+        without a completed snapshot are omitted (use the per-experiment `GET
+        /experiments/{id}/results` endpoint to inspect specific phases or
+        dimensions).
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/datasourceId'
+        - name: status
+          in: query
+          description: ''
+          schema:
+            type: string
+            enum:
+              - draft
+              - running
+              - stopped
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      experimentResults:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ExperimentResults'
+                    required:
+                      - experimentResults
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/experiments/results' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}:
     get:
       operationId: getExperiment
@@ -25898,6 +25946,136 @@ components:
         - metricId
         - overrides
       additionalProperties: false
+    ExperimentResults:
+      type: object
+      properties:
+        id:
+          type: string
+        dateUpdated:
+          type: string
+        experimentId:
+          type: string
+        phase:
+          type: string
+        dateStart:
+          type: string
+        dateEnd:
+          type: string
+        dimension:
+          type: object
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+          required:
+            - type
+          additionalProperties: false
+        settings:
+          $ref: '#/components/schemas/ExperimentAnalysisSettings'
+        queryIds:
+          type: array
+          items:
+            type: string
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              dimension:
+                type: string
+              totalUsers:
+                type: number
+              checks:
+                type: object
+                properties:
+                  srm:
+                    type: number
+                required:
+                  - srm
+                additionalProperties: false
+              metrics:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    metricId:
+                      type: string
+                    variations:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationId:
+                            type: string
+                          users:
+                            type: number
+                          analyses:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                engine:
+                                  type: string
+                                  enum:
+                                    - bayesian
+                                    - frequentist
+                                numerator:
+                                  type: number
+                                denominator:
+                                  type: number
+                                mean:
+                                  type: number
+                                stddev:
+                                  type: number
+                                percentChange:
+                                  type: number
+                                ciLow:
+                                  type: number
+                                ciHigh:
+                                  type: number
+                                pValue:
+                                  type: number
+                                risk:
+                                  type: number
+                                chanceToBeatControl:
+                                  type: number
+                              required:
+                                - engine
+                                - numerator
+                                - denominator
+                                - mean
+                                - stddev
+                                - percentChange
+                                - ciLow
+                                - ciHigh
+                              additionalProperties: false
+                        required:
+                          - variationId
+                          - analyses
+                        additionalProperties: false
+                  required:
+                    - metricId
+                    - variations
+                  additionalProperties: false
+            required:
+              - dimension
+              - totalUsers
+              - checks
+              - metrics
+            additionalProperties: false
+      required:
+        - id
+        - dateUpdated
+        - experimentId
+        - phase
+        - dateStart
+        - dateEnd
+        - dimension
+        - settings
+        - queryIds
+        - results
+      additionalProperties: false
     ExperimentWithEnhancedStatus:
       allOf:
         - type: object
@@ -26215,136 +26393,6 @@ components:
                 - status
               additionalProperties: false
           additionalProperties: false
-    ExperimentResults:
-      type: object
-      properties:
-        id:
-          type: string
-        dateUpdated:
-          type: string
-        experimentId:
-          type: string
-        phase:
-          type: string
-        dateStart:
-          type: string
-        dateEnd:
-          type: string
-        dimension:
-          type: object
-          properties:
-            type:
-              type: string
-            id:
-              type: string
-          required:
-            - type
-          additionalProperties: false
-        settings:
-          $ref: '#/components/schemas/ExperimentAnalysisSettings'
-        queryIds:
-          type: array
-          items:
-            type: string
-        results:
-          type: array
-          items:
-            type: object
-            properties:
-              dimension:
-                type: string
-              totalUsers:
-                type: number
-              checks:
-                type: object
-                properties:
-                  srm:
-                    type: number
-                required:
-                  - srm
-                additionalProperties: false
-              metrics:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    metricId:
-                      type: string
-                    variations:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          variationId:
-                            type: string
-                          users:
-                            type: number
-                          analyses:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                engine:
-                                  type: string
-                                  enum:
-                                    - bayesian
-                                    - frequentist
-                                numerator:
-                                  type: number
-                                denominator:
-                                  type: number
-                                mean:
-                                  type: number
-                                stddev:
-                                  type: number
-                                percentChange:
-                                  type: number
-                                ciLow:
-                                  type: number
-                                ciHigh:
-                                  type: number
-                                pValue:
-                                  type: number
-                                risk:
-                                  type: number
-                                chanceToBeatControl:
-                                  type: number
-                              required:
-                                - engine
-                                - numerator
-                                - denominator
-                                - mean
-                                - stddev
-                                - percentChange
-                                - ciLow
-                                - ciHigh
-                              additionalProperties: false
-                        required:
-                          - variationId
-                          - analyses
-                        additionalProperties: false
-                  required:
-                    - metricId
-                    - variations
-                  additionalProperties: false
-            required:
-              - dimension
-              - totalUsers
-              - checks
-              - metrics
-            additionalProperties: false
-      required:
-        - id
-        - dateUpdated
-        - experimentId
-        - phase
-        - dateStart
-        - dateEnd
-        - dimension
-        - settings
-        - queryIds
-        - results
-      additionalProperties: false
     VisualChangeset:
       type: object
       properties:
