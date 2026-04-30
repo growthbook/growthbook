@@ -9,7 +9,7 @@ import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
-import { CLOUD_SECRET } from "back-end/src/util/secrets";
+import { CLOUD_SECRET, IS_CLOUD } from "back-end/src/util/secrets";
 
 const MAX_SENTRY_RESPONSE_BODY_LENGTH = 16_000;
 /** Long cap so outbound requests cannot hang indefinitely (e.g. black-holed TCP). */
@@ -188,7 +188,7 @@ export async function updateMaterializedColumnsInClickhouse({
   });
 }
 
-export async function logCloudAIUsageViaLicenseServer({
+export async function logCloudAIUsage({
   organization,
   type,
   model,
@@ -205,18 +205,26 @@ export async function logCloudAIUsageViaLicenseServer({
   temperature?: number;
   usedDefaultPrompt: boolean;
 }): Promise<void> {
-  await postManagedClickhouse("log-ai-usage", {
-    organization,
-    type,
-    model,
-    temperature,
-    numPromptTokensUsed,
-    numCompletionTokensUsed,
-    usedDefaultPrompt,
-  });
+  if (!IS_CLOUD) {
+    return;
+  }
+
+  try {
+    await postManagedClickhouse("log-ai-usage", {
+      organization,
+      type,
+      model,
+      temperature,
+      numPromptTokensUsed,
+      numCompletionTokensUsed,
+      usedDefaultPrompt,
+    });
+  } catch (e) {
+    logger.error(e, "Failed to log AI usage to Clickhouse");
+  }
 }
 
-export async function getDailyUsageForOrgViaLicenseServer(
+export async function getDailyUsageForOrg(
   orgId: string,
   start: Date,
   end: Date,

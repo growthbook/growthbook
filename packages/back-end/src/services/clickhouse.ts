@@ -1,23 +1,15 @@
-import { AIPromptType } from "shared/ai";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import {
   GrowthbookClickhouseDataSource,
   MaterializedColumn,
 } from "shared/types/datasource";
-import { DailyUsage } from "shared/types/organization";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import type { ReqContext } from "back-end/types/request";
-import { logger } from "back-end/src/util/logger";
 import {
   getFactTablesForDatasource,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
-import {
-  getDailyUsageForOrgViaLicenseServer,
-  logCloudAIUsageViaLicenseServer,
-  updateMaterializedColumnsInClickhouse,
-} from "back-end/src/services/licenseServerManagedClickhouse";
+import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 
 type ClickHouseDataType =
   | "DateTime"
@@ -47,52 +39,6 @@ export function getReservedColumnNames(): Set<string> {
       ...Object.keys(REMAINING_COLUMNS_SCHEMA),
     ].map((col) => col.toLowerCase()),
   );
-}
-
-// In order to monitor usage and quality of AI responses on cloud we log each request to AI agents
-export async function logCloudAIUsage({
-  organization,
-  type,
-  model,
-  temperature,
-  numPromptTokensUsed,
-  numCompletionTokensUsed,
-  usedDefaultPrompt,
-}: {
-  organization: string;
-  model: string;
-  numPromptTokensUsed?: number;
-  numCompletionTokensUsed?: number;
-  type: AIPromptType;
-  temperature?: number;
-  usedDefaultPrompt: boolean;
-}): Promise<void> {
-  if (!IS_CLOUD) {
-    // This is only for cloud
-    return;
-  }
-
-  try {
-    await logCloudAIUsageViaLicenseServer({
-      organization,
-      type,
-      model,
-      numPromptTokensUsed,
-      numCompletionTokensUsed,
-      temperature,
-      usedDefaultPrompt,
-    });
-  } catch (e) {
-    logger.error(e, "Failed to log AI usage to Clickhouse");
-  }
-}
-
-export async function getDailyUsageForOrg(
-  orgId: string,
-  start: Date,
-  end: Date,
-): Promise<DailyUsage[]> {
-  return getDailyUsageForOrgViaLicenseServer(orgId, start, end);
 }
 
 export async function updateMaterializedColumns({
