@@ -3749,13 +3749,13 @@ export async function getExperimentTimeSeries(
     throw new Error("Invalid phase");
   }
 
-  if (!Array.isArray(dimensions)) {
+  if (!!dimensions && !Array.isArray(dimensions)) {
     throw new Error(
       "dimensions must be an array containing id and optionally value objects",
     );
   }
 
-  if (dimensions && dimensions.length > 50) {
+  if (!!dimensions && dimensions.length > 50) {
     throw new Error("dimensions cannot contain more than 50 values");
   }
 
