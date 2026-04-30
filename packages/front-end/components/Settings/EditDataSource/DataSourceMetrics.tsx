@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { FaArchive, FaChevronRight, FaPlus } from "react-icons/fa";
-import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { DocLink } from "@/components/DocLink";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import MoreMenu from "@/components/Dropdown/MoreMenu";

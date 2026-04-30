@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Flex, Box } from "@radix-ui/themes";
+import { Flex, Box, IconButton } from "@radix-ui/themes";
 import {
   DatasetType,
   FactTableValue,
   ExplorationConfig,
 } from "shared/validators";
-import { PiArrowsClockwise } from "react-icons/pi";
+import { PiArrowsClockwise, PiLink } from "react-icons/pi";
+import ShareUrlPopover from "@/ui/ShareUrlPopover";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
@@ -19,13 +20,18 @@ import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSe
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
-import { createEmptyValue } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  createEmptyValue,
+  showAsAppliesTo,
+} from "@/enterprise/components/ProductAnalytics/util";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import track from "@/services/track";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
 import GroupBySection from "./GroupBySection";
+import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
@@ -47,8 +53,9 @@ export default function ExplorerSideBar({
     isSubmittable,
     isStale,
     error,
+    trackingSource,
   } = useExplorerContext();
-  const { factTables, project } = useDefinitions();
+  const { factTables, getFactMetricById, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
   // Check if the user can create dashboards for the current project or globally
   const canCreateDashboards =
@@ -91,6 +98,7 @@ export default function ExplorerSideBar({
           close={() => setShowSaveToDashboardModal(false)}
           config={draftExploreState}
           exploration={exploration}
+          trackingSource={trackingSource}
         />
       )}
       {showUpgradeModal && (
@@ -103,33 +111,62 @@ export default function ExplorerSideBar({
       {error && renderingInDashboardSidebar ? (
         <Callout status="error">{error}</Callout>
       ) : null}
-      <Flex justify="end" height="32px" py="2">
+      <Flex justify="end" align="center" height="32px" py="2" gap="2">
         {!renderingInDashboardSidebar ? (
-          <Tooltip
-            body={saveToDashboardDisabledReason || ""}
-            shouldDisplay={!!saveToDashboardDisabledReason}
-          >
-            <Button
-              size="sm"
-              ml="auto"
-              disabled={!!saveToDashboardDisabledReason}
-              onClick={() => {
-                if (!hasDashboardsFeature) {
-                  setShowUpgradeModal(true);
-                } else {
-                  setShowSaveToDashboardModal(true);
-                }
-              }}
+          <>
+            <Tooltip
+              body={saveToDashboardDisabledReason || ""}
+              shouldDisplay={!!saveToDashboardDisabledReason}
             >
-              <Flex align="center" justify="center" gap="2">
-                <PaidFeatureBadge
-                  commercialFeature="product-analytics-dashboards"
-                  useTip={false}
-                />
-                Save to Dashboard
-              </Flex>
-            </Button>
-          </Tooltip>
+              <Button
+                size="sm"
+                disabled={!!saveToDashboardDisabledReason}
+                onClick={() => {
+                  if (!hasDashboardsFeature) {
+                    setShowUpgradeModal(true);
+                  } else {
+                    setShowSaveToDashboardModal(true);
+                  }
+                }}
+              >
+                <Flex align="center" justify="center" gap="2">
+                  <PaidFeatureBadge
+                    commercialFeature="product-analytics-dashboards"
+                    useTip={false}
+                  />
+                  Save to Dashboard
+                </Flex>
+              </Button>
+            </Tooltip>
+            <ShareUrlPopover
+              title="Share this exploration"
+              description="Anyone in your organization with read access to the Data Source this exploration uses, can open this exploration."
+              trigger={
+                <IconButton
+                  size="2"
+                  variant="solid"
+                  color="violet"
+                  aria-label="Share exploration link"
+                  style={{ height: 32, width: 32 }}
+                >
+                  <PiLink size={20} />
+                </IconButton>
+              }
+              side="bottom"
+              align="end"
+              onCopy={
+                trackingSource
+                  ? () => {
+                      track("Product Analytics Explorer: Copy Link Clicked", {
+                        source: trackingSource,
+                        type: draftExploreState.type,
+                        chart_type: draftExploreState.chartType,
+                      });
+                    }
+                  : undefined
+              }
+            />
+          </>
         ) : (
           <Flex direction="row" align="center" justify="between" width="100%">
             <DataSourceDropdown />
@@ -271,6 +308,9 @@ export default function ExplorerSideBar({
         {activeType === "data_source" && <DatasourceTabContent />}
       </Box>
 
+      {showAsAppliesTo(draftExploreState, getFactMetricById) && (
+        <ShowAsSection />
+      )}
       {dataset?.values?.length > 0 && <GroupBySection />}
     </Flex>
   );

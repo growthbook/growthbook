@@ -14,13 +14,19 @@ import {
 export const listExperiments = createApiRequestHandler(
   listExperimentsValidator,
 )(async (req) => {
+  if (req.query.trackingKey && req.query.experimentId) {
+    throw new Error(
+      "Cannot use both trackingKey and experimentId query parameters. Use trackingKey instead.",
+    );
+  }
+
   // Filter and sort at the database level for better performance
   // Note: type is not specified, which defaults to excluding holdouts
   const experiments = await getAllExperiments(req.context, {
     includeArchived: true,
     project: req.query.projectId,
     datasourceId: req.query.datasourceId,
-    trackingKey: req.query.experimentId,
+    trackingKey: req.query.trackingKey ?? req.query.experimentId,
     status: req.query.status,
     sortBy: { dateCreated: 1 },
   });

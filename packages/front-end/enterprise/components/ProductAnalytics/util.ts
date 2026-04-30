@@ -13,6 +13,7 @@ import type {
   ExplorationDataset,
   ExplorationConfig,
   ProductAnalyticsResultRow,
+  ShowAs,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
@@ -21,7 +22,22 @@ import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   mapDatabaseTypeToEnum,
+  getMetricMixClass,
+  getEffectiveMetricValue,
 } from "shared/enterprise";
+export {
+  getMetricMixClass,
+  inferShowAs,
+  getEffectiveShowAs,
+  clearInapplicableShowAs,
+  getEffectiveMetricValue,
+  getSharedUnit,
+  showAsAppliesTo,
+  getIsRatioByIndex,
+  buildExplorationColumns,
+  getExplorationCellValue,
+} from "shared/enterprise";
+export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
 import { dateGranularity, explorationConfigValidator } from "shared/validators";
 
 export { mapDatabaseTypeToEnum };
@@ -265,6 +281,47 @@ export function validateDimensions(
     : config;
 }
 
+/**
+ * Fills in a default `unit` for metric values that have a resolved metric but
+ * no unit selected. Defaults to the numerator fact table's first userIdType.
+ *
+ * Without a unit, the SQL layer doesn't emit a denominator column, which breaks
+ * the per_unit branch of the showAs toggle and silently degrades ratio-like
+ * metrics. Applied when loading a config from any source (URL, AI agent, saved
+ * exploration) so users don't end up in that state.
+ *
+ * Skips:
+ * - fact_table / data_source datasets (their unit semantics are user-driven).
+ * - Metric values whose unit is already set.
+ * - Metric values whose metricId is empty or can't be resolved.
+ * - Metrics whose fact table has no userIdTypes (nothing to default to).
+ */
+export function fillMissingUnits(
+  config: ExplorationConfig,
+  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): ExplorationConfig {
+  if (!config.dataset || config.dataset.type !== "metric") return config;
+
+  let changed = false;
+  const newValues = config.dataset.values.map((v) => {
+    if (v.unit || !v.metricId) return v;
+    const metric = getFactMetricById(v.metricId);
+    if (!metric) return v;
+    const factTable = getFactTableById(metric.numerator.factTableId);
+    const defaultUnit = factTable?.userIdTypes?.[0];
+    if (!defaultUnit) return v;
+    changed = true;
+    return { ...v, unit: defaultUnit };
+  });
+
+  if (!changed) return config;
+  return {
+    ...config,
+    dataset: { ...config.dataset, values: newValues },
+  } as ExplorationConfig;
+}
+
 function hasNonEmptyValues(values: string[] | undefined): boolean {
   return (values ?? []).some((v) => v !== "");
 }
@@ -367,8 +424,10 @@ function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
 
 /** Strips fields that only affect rendering, not data fetching. */
 function toFetchKey(config: ExplorationConfig): unknown {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { showAs, ...rest } = config;
   return {
-    ...config,
+    ...rest,
     chartType: getChartCategory(config.chartType),
     dataset: {
       ...config.dataset,
@@ -462,29 +521,52 @@ export function shouldChartSectionShow(params: {
   return true;
 }
 
-// --- Shared sorting helpers for chart & table ---
-
-export function getEffectiveMetricValue(v: {
-  numerator: number | null;
-  denominator: number | null;
-}): number {
-  const num = v.numerator ?? 0;
-  return v.denominator ? num / v.denominator : num;
+/**
+ * Given the other already-selected metrics in the dataset (excluding the slot
+ * being edited), return the class any newly selected metric must match — or
+ * null if any class is allowed.
+ *
+ * Unknown/unselected slots are ignored.
+ */
+export function getLockedMixClass(
+  otherMetricTypes: (string | null | undefined)[],
+): "ratio" | "quantile" | "standard" | null {
+  for (const t of otherMetricTypes) {
+    const c = getMetricMixClass(t);
+    if (c !== "unknown") return c;
+  }
+  return null;
 }
 
-function getRowTotal(row: ProductAnalyticsResultRow): number {
-  return row.values.reduce((sum, v) => sum + getEffectiveMetricValue(v), 0);
+export interface RenderOpts {
+  showAs: ShowAs;
+  // Indexed by the metric value's position in the dataset.values array.
+  // Ratio metrics always render as numerator/denominator regardless of showAs.
+  isRatioByIndex: boolean[];
+}
+
+function getRowTotal(row: ProductAnalyticsResultRow, opts: RenderOpts): number {
+  return row.values.reduce(
+    (sum, v, i) =>
+      sum +
+      getEffectiveMetricValue(v, {
+        showAs: opts.showAs,
+        isRatio: opts.isRatioByIndex[i] ?? false,
+      }),
+    0,
+  );
 }
 
 /** Compute the sum of all metric values grouped by a specific dimension index. */
 export function computeDimensionTotals(
   rows: ProductAnalyticsResultRow[],
   dimIndex: number,
+  opts: RenderOpts,
 ): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const row of rows) {
     const key = row.dimensions[dimIndex] ?? "";
-    totals[key] = (totals[key] ?? 0) + getRowTotal(row);
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
   }
   return totals;
 }
@@ -492,11 +574,12 @@ export function computeDimensionTotals(
 /** Compute the sum of all metric values grouped by the "group key" (all dimensions after the first). */
 export function computeGroupTotals(
   rows: ProductAnalyticsResultRow[],
+  opts: RenderOpts,
 ): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const row of rows) {
     const key = row.dimensions.slice(1).join(" - ");
-    totals[key] = (totals[key] ?? 0) + getRowTotal(row);
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
   }
   return totals;
 }
@@ -534,11 +617,12 @@ export const explorationConfigParser = createParser<ExplorationConfig>({
 export function sortExplorationRows(
   rows: ProductAnalyticsResultRow[],
   isTimeseries: boolean,
+  opts: RenderOpts,
 ): ProductAnalyticsResultRow[] {
   if (rows.length === 0) return rows;
 
-  const dim0Totals = computeDimensionTotals(rows, 0);
-  const groupTotals = computeGroupTotals(rows);
+  const dim0Totals = computeDimensionTotals(rows, 0, opts);
+  const groupTotals = computeGroupTotals(rows, opts);
 
   return [...rows].sort((a, b) => {
     const dim0A = a.dimensions[0] ?? "";

@@ -1,11 +1,14 @@
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import Link from "next/link";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -15,8 +18,6 @@ import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDat
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
-import ProjectBadges from "@/components/ProjectBadges";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -26,7 +27,11 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
@@ -49,10 +54,12 @@ const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const router = useRouter();
 
   const {
     getDatasourceById,
+    getProjectById,
     mutateDefinitions,
     ready,
     error,
@@ -69,6 +76,9 @@ const DataSourcePage: FC = () => {
   const { organization, hasCommercialFeature } = useUser();
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
+  const managedWarehouseAwaitingProvisioning = d
+    ? isManagedWarehouseAwaitingProvisioning(d)
+    : false;
 
   const queryString = new URLSearchParams(
     `q=datasource:"${d?.name}"`,
@@ -167,7 +177,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="2x-large" mb="0">
+          <Heading as="h1" size="x-large" mb="0">
             {d.name}
           </Heading>
           <Badge
@@ -182,70 +192,93 @@ const DataSourcePage: FC = () => {
             radius="full"
           />
         </Flex>
-        <Box>
-          {(canUpdateConnectionParams ||
-            canUpdateDataSourceSettings ||
-            canDelete) && (
-            <MoreMenu useRadix={true}>
+        {(canUpdateConnectionParams ||
+          canUpdateDataSourceSettings ||
+          canDelete) && (
+          <Flex align="center" pr="2">
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              open={dropdownOpen}
+              onOpenChange={setDropdownOpen}
+            >
               {canUpdateConnectionParams && (
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <DropdownMenuItem
+                  onClick={() => {
                     setEditConn(true);
+                    setDropdownOpen(false);
                   }}
                 >
                   Edit Connection Info
-                </a>
+                </DropdownMenuItem>
               )}
-              <hr className="m-2" />
-              <DocLink
-                className="dropdown-item"
-                docSection={d.type as DocSection}
-                fallBackSection="datasources"
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  // DocLink usually navigates externally; close the dropdown first.
+                  setDropdownOpen(false);
+                }}
               >
-                View Documentation
-              </DocLink>
+                <DocLink
+                  docSection={d.type as DocSection}
+                  fallBackSection="datasources"
+                >
+                  View Documentation
+                </DocLink>
+              </DropdownMenuItem>
               {d?.properties?.supportsInformationSchema && (
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
+                <DropdownMenuItem
+                  onClick={() => {
                     setViewSqlExplorer(true);
+                    setDropdownOpen(false);
                   }}
                 >
                   View SQL Explorer
-                </a>
+                </DropdownMenuItem>
               )}
-              <Link
-                href={`/datasources/queries/${did}`}
-                className="dropdown-item"
+              <DropdownMenuItem
+                onClick={() => {
+                  setDropdownOpen(false);
+                  router.push(`/datasources/queries/${did}`);
+                }}
               >
                 View Queries
-              </Link>
+              </DropdownMenuItem>
               {canDelete && (
                 <>
-                  <hr className="m-2" />
-                  <DeleteButton
-                    displayName={d.name}
-                    className="dropdown-item text-danger"
-                    useIcon={false}
-                    text={`Delete "${d.name}" Datasource`}
-                    onClick={async () => {
-                      await apiCall(`/datasource/${d.id}`, {
-                        method: "DELETE",
-                      });
-                      mutateDefinitions({});
-                      router.push("/datasources");
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    color="red"
+                    confirmation={{
+                      confirmationTitle: `Delete "${d.name}" Datasource`,
+                      cta: "Delete",
+                      submit: async () => {
+                        await apiCall(`/datasource/${d.id}`, {
+                          method: "DELETE",
+                        });
+                        mutateDefinitions({});
+                        router.push("/datasources");
+                      },
+                      closeDropdown: () => setDropdownOpen(false),
                     }}
-                  />
+                  >
+                    Delete
+                  </DropdownMenuItem>
                 </>
               )}
-            </MoreMenu>
-          )}
-        </Box>
+            </DropdownMenu>
+          </Flex>
+        )}
       </Flex>
       <Flex align="center" gap="4" my="2">
         <Text color="text-mid">
@@ -278,10 +311,14 @@ const DataSourcePage: FC = () => {
           <Text color="text-mid" weight="medium">
             Projects:{" "}
           </Text>
-          {d?.projects?.length || 0 > 0 ? (
-            <ProjectBadges resourceType="data source" projectIds={d.projects} />
+          {d?.projects?.length ? (
+            <Text color="text-mid">
+              {d.projects.map((p) => getProjectById(p)?.name || p).join(", ")}
+            </Text>
           ) : (
-            <ProjectBadges resourceType="data source" />
+            <Text color="text-mid" fontStyle="italic">
+              All Projects
+            </Text>
           )}
         </Box>
       </Flex>
@@ -358,28 +395,32 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         {supportsSQL && (
           <>
             {isManagedWarehouse ? (
-              <>
-                <Frame>
-                  <Heading as="h3" size="medium" mb="2">
-                    Sending Events
-                  </Heading>
-                  <Text>
-                    <DocLink docSection="managedWarehouseTracking">
-                      Read our full docs
-                    </DocLink>{" "}
-                    with instructions on how to send events from your app to
-                    GrowthBook.
-                  </Text>
-                </Frame>
-                <Frame>
-                  <ClickhouseMaterializedColumns
-                    dataSource={d}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                    mutate={mutateDefinitions}
-                  />
-                </Frame>
-              </>
+              managedWarehouseAwaitingProvisioning ? (
+                <ManagedWarehouseNoEventsCallout />
+              ) : (
+                <>
+                  <Frame>
+                    <Heading as="h3" size="medium" mb="2">
+                      Sending Events
+                    </Heading>
+                    <Text>
+                      <DocLink docSection="managedWarehouseTracking">
+                        Read our full docs
+                      </DocLink>{" "}
+                      with instructions on how to send events from your app to
+                      GrowthBook.
+                    </Text>
+                  </Frame>
+                  <Frame>
+                    <ClickhouseMaterializedColumns
+                      dataSource={d}
+                      onCancel={() => undefined}
+                      canEdit={canUpdateDataSourceSettings}
+                      mutate={mutateDefinitions}
+                    />
+                  </Frame>
+                </>
+              )
             ) : (
               <>
                 {d.dateUpdated === d.dateCreated &&

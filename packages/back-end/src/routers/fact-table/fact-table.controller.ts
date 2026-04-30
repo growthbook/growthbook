@@ -75,6 +75,8 @@ async function testFilterQuery(
     throw new Error("Testing not supported on this data source");
   }
 
+  const timestampColumn = "timestamp";
+
   const sql = integration.getTestQuery({
     // Must have a newline after factTable sql in case it ends with a comment
     query: `SELECT * FROM (
@@ -84,12 +86,13 @@ async function testFilterQuery(
       eventName: factTable.eventName,
     },
     testDays: context.org.settings?.testQueryDays,
+    timestampColumn,
   });
 
   try {
     const results = await integration.runTestQuery(
       sql,
-      undefined,
+      [timestampColumn],
       "factTableValidation",
     );
     return {
@@ -184,17 +187,20 @@ export async function refreshColumns(
     !forceColumnRefresh &&
     integration.supportsLimitZeroColumnValidation?.()
   ) {
+    const timestampColumn = "timestamp";
+
     // Fast path: LIMIT 0 query
     const sql = integration.getTestQuery({
       query: factTable.sql,
       templateVariables: { eventName: factTable.eventName },
       testDays: context.org.settings?.testQueryDays,
       limit: 0,
+      timestampColumn,
     });
 
     const result = await integration.runTestQuery(
       sql,
-      ["timestamp"],
+      [timestampColumn],
       "factTableValidation",
     );
 

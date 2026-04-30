@@ -60,6 +60,7 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ProjectInterface } from "shared/types/project";
 import { accountFeatures, CommercialFeature } from "shared/enterprise";
+import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -579,17 +580,16 @@ export async function createReportSnapshot({
     unknownVariations: [],
     multipleExposures: 0,
     hasChunkedAnalyses: false,
-    chunkedAnalysesMeta: [],
-    analyses: snapshotData.analyses.map((analysis) => ({
-      ...analysis,
-      dateCreated: new Date(),
-      results: [],
-      status: "running",
-      settings: {
-        ...analysis.settings,
-        ...analysisSettings,
+    chunkedAnalysesMeta: {},
+    analyses: [
+      {
+        analysisKey: buildAnalysisKey(),
+        dateCreated: new Date(),
+        results: [],
+        status: "running",
+        settings: analysisSettings,
       },
-    })),
+    ],
   };
   if (
     snapshotData?.health?.traffic &&

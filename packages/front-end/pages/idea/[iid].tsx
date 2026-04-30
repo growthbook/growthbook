@@ -7,7 +7,6 @@ import {
   FaChartLine,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import Link from "next/link";
 import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import {
   ExperimentInterfaceStringDates,
@@ -15,6 +14,7 @@ import {
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { date } from "shared/dates";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";

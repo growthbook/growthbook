@@ -1,4 +1,4 @@
-import { FormatDialect } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   InformationSchema,
@@ -10,6 +10,7 @@ import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import SqlIntegration from "./SqlIntegration";
+import { verticaDialect } from "./dialects/vertica";
 
 export default class Vertica extends SqlIntegration {
   params!: PostgresConnectionParams;
@@ -19,8 +20,11 @@ export default class Vertica extends SqlIntegration {
     this.params =
       decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
-  getFormatDialect(): FormatDialect {
-    return "postgresql";
+  getSqlDialect(): SqlDialect {
+    return {
+      ...verticaDialect,
+      defaultSchema: this.params.defaultSchema || "",
+    };
   }
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];
@@ -28,27 +32,8 @@ export default class Vertica extends SqlIntegration {
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(this.params, sql);
   }
-  getSchema(): string {
-    return this.params.defaultSchema || "";
-  }
-  dateDiff(startCol: string, endCol: string) {
-    return `${endCol}::DATE - ${startCol}::DATE`;
-  }
-  ensureFloat(col: string): string {
-    return `${col}::float`;
-  }
-  formatDate(col: string) {
-    return `to_char(${col}, 'YYYY-MM-DD')`;
-  }
-  formatDateTimeString(col: string): string {
-    return `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
-  }
   getDefaultDatabase(): string {
     return this.params.database;
-  }
-  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
-    const raw = `MAPLOOKUP(MapJSONExtractor(${jsonCol}), '${path}')`;
-    return isNumeric ? this.ensureFloat(raw) : raw;
   }
 
   getInformationSchemaTable(schema?: string, database?: string): string {
@@ -69,16 +54,14 @@ export default class Vertica extends SqlIntegration {
     WHERE ${this.getInformationSchemaWhereClause()}
     GROUP BY table_name, table_schema, '${this.getDefaultDatabase()}'`;
 
-    const results = await this.runQuery(format(sql, this.getFormatDialect()));
+    const results = await this.runQuery(
+      format(sql, this.getSqlDialect().formatDialect),
+    );
 
     if (!results.rows.length) {
       throw new Error(`No tables found.`);
     }
 
     return formatInformationSchema(results.rows as RawInformationSchema[]);
-  }
-  // may be able to optimize with using a string of multiple quantiles
-  approxQuantile(value: string, quantile: string | number): string {
-    return `APPROXIMATE_PERCENTILE(${value} USING PARAMETERS percentiles='${quantile}')`;
   }
 }

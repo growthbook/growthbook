@@ -9,7 +9,7 @@ import {
   createOrganization,
   hasOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { IS_CLOUD, IS_LOCALHOST } from "back-end/src/util/secrets";
 import {
   deleteAuthCookies,
   getAuthConnection,
@@ -38,7 +38,7 @@ import {
 import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 
 export async function getHasOrganizations(req: Request, res: Response) {
-  const hasOrg = IS_CLOUD ? true : await hasOrganization();
+  const hasOrg = IS_CLOUD && !IS_LOCALHOST ? true : await hasOrganization();
   return res.json({
     status: 200,
     hasOrganizations: hasOrg,
