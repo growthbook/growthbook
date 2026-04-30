@@ -1,17 +1,102 @@
-import { FactTableInterface } from "shared/types/fact-table";
+import {
+  FactTableInterface,
+  FactFilterInterface,
+} from "shared/types/fact-table";
 import { useState } from "react";
+import { IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import FactFilterModal from "./FactFilterModal";
+
+function FactFilterRowMenu({
+  filter,
+  factTableId,
+  canEdit,
+  canDelete,
+  onEdit,
+}: {
+  filter: FactFilterInterface;
+  factTableId: string;
+  canEdit: boolean;
+  canDelete: boolean;
+  onEdit: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { apiCall } = useAuth();
+  const { mutateDefinitions } = useDefinitions();
+
+  return (
+    <DropdownMenu
+      trigger={
+        <IconButton
+          variant="ghost"
+          color="gray"
+          radius="full"
+          size="2"
+          highContrast
+        >
+          <BsThreeDotsVertical size={16} />
+        </IconButton>
+      }
+      open={open}
+      onOpenChange={setOpen}
+      menuPlacement="end"
+    >
+      <DropdownMenuGroup>
+        {canEdit && (
+          <DropdownMenuItem
+            onClick={() => {
+              onEdit();
+              setOpen(false);
+            }}
+          >
+            Edit
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuGroup>
+      {canDelete && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              color="red"
+              confirmation={{
+                confirmationTitle: "Delete Filter",
+                cta: "Delete",
+                getConfirmationContent: async () =>
+                  "This will remove the filter from all metrics that are using it.",
+                submit: async () => {
+                  await apiCall(
+                    `/fact-tables/${factTableId}/filter/${filter.id}`,
+                    { method: "DELETE" },
+                  );
+                  mutateDefinitions();
+                },
+                closeDropdown: () => setOpen(false),
+              }}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </>
+      )}
+    </DropdownMenu>
+  );
+}
 
 export interface Props {
   factTable: FactTableInterface;
@@ -20,10 +105,6 @@ export interface Props {
 export default function FactFilterList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
-
-  const { mutateDefinitions } = useDefinitions();
-
-  const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -108,39 +189,13 @@ export default function FactFilterList({ factTable }: Props) {
                     </div>
                   </td>
                   <td style={{ verticalAlign: "top" }}>
-                    <MoreMenu>
-                      {canAddAndEdit && !filter.managedBy ? (
-                        <button
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setEditOpen(filter.id);
-                          }}
-                        >
-                          Edit
-                        </button>
-                      ) : null}
-                      {canDelete && !filter.managedBy ? (
-                        <DeleteButton
-                          displayName="Filter"
-                          className="dropdown-item text-danger"
-                          useIcon={false}
-                          text="Delete"
-                          additionalMessage={
-                            "This will remove the filter from all metrics that are using it."
-                          }
-                          onClick={async () => {
-                            await apiCall(
-                              `/fact-tables/${factTable.id}/filter/${filter.id}`,
-                              {
-                                method: "DELETE",
-                              },
-                            );
-                            mutateDefinitions();
-                          }}
-                        />
-                      ) : null}
-                    </MoreMenu>
+                    <FactFilterRowMenu
+                      filter={filter}
+                      factTableId={factTable.id}
+                      canEdit={canAddAndEdit && !filter.managedBy}
+                      canDelete={canDelete && !filter.managedBy}
+                      onEdit={() => setEditOpen(filter.id)}
+                    />
                   </td>
                 </tr>
               ))}

@@ -78,7 +78,7 @@ export default function EmptyState() {
   return (
     <Box m="7">
       <Flex align="center">
-        <Heading as="h1" size="2x-large" weight="medium">
+        <Heading as="h1" size="x-large" weight="medium">
           Product Analytics
         </Heading>
         <Badge color="indigo" label="Beta" ml="2" variant="solid" />

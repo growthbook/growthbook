@@ -42,6 +42,10 @@ const authController = wrapController(authControllerRaw);
 
 import * as vercelControllerRaw from "./routers/vercel-native-integration/vercel-native-integration.controller";
 const vercelController = wrapController(vercelControllerRaw);
+import {
+  VERCEL_CLIENT_ID,
+  VERCEL_CLIENT_SECRET,
+} from "./services/vercel-native-integration.service";
 
 import * as datasourcesControllerRaw from "./controllers/datasources";
 const datasourcesController = wrapController(datasourcesControllerRaw);
@@ -385,7 +389,7 @@ if (CORS_ORIGIN_REGEX) {
   origins.push(CORS_ORIGIN_REGEX);
 }
 
-if (IS_CLOUD) {
+if (IS_CLOUD && VERCEL_CLIENT_ID && VERCEL_CLIENT_SECRET) {
   app.use(
     "/vercel",
     cors({

@@ -101,11 +101,12 @@ export default function ValueCard({
     const factMetric = getFactMetricById(
       draftExploreState.dataset.values[index].metricId ?? "",
     );
-    if (factMetric?.metricType === "proportion") {
-      supportsUnitSelection = true;
-    } else if (factMetric?.metricType === "retention") {
-      supportsUnitSelection = true;
-    } else if (factMetric?.metricType === "dailyParticipation") {
+    if (
+      factMetric?.metricType === "mean" ||
+      factMetric?.metricType === "proportion" ||
+      factMetric?.metricType === "retention" ||
+      factMetric?.metricType === "dailyParticipation"
+    ) {
       supportsUnitSelection = true;
     } else if (factMetric?.metricType === "ratio") {
       if (factMetric.numerator.column === "$$distinctUsers") {
