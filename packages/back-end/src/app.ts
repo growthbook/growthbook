@@ -42,6 +42,10 @@ const authController = wrapController(authControllerRaw);
 
 import * as vercelControllerRaw from "./routers/vercel-native-integration/vercel-native-integration.controller";
 const vercelController = wrapController(vercelControllerRaw);
+import {
+  VERCEL_CLIENT_ID,
+  VERCEL_CLIENT_SECRET,
+} from "./services/vercel-native-integration.service";
 
 import * as datasourcesControllerRaw from "./controllers/datasources";
 const datasourcesController = wrapController(datasourcesControllerRaw);
@@ -357,20 +361,16 @@ app.get(
   uploadController.getSignedPublicImageToken,
 );
 
-// Accept cross-origin requests from the frontend app
-const origins: (string | RegExp)[] = [APP_ORIGIN];
-if (CORS_ORIGIN_REGEX) {
-  origins.push(CORS_ORIGIN_REGEX);
-}
-
-// Secret API routes. Restrict browser CORS to the app's own origin allowlist
-// so JWT requests from the front-end work; server-side API-key consumers
-// (curl, backends) don't send Origin headers and are unaffected by CORS.
+// Secret API routes (no JWT or CORS)
 app.use(
   "/api/v1",
+  // Reflect the request origin and allow credentials so the front-end's
+  // fetchRaw (which sends `credentials: "include"`) isn't blocked by the
+  // browser. API key / JWT auth are both header-based, so reflecting the
+  // origin does not weaken auth.
   cors({
     credentials: true,
-    origin: origins,
+    origin: true,
   }),
   apiRouter,
 );
@@ -387,7 +387,13 @@ app.use(
   scimRouter,
 );
 
-if (IS_CLOUD) {
+// Accept cross-origin requests from the frontend app
+const origins: (string | RegExp)[] = [APP_ORIGIN];
+if (CORS_ORIGIN_REGEX) {
+  origins.push(CORS_ORIGIN_REGEX);
+}
+
+if (IS_CLOUD && VERCEL_CLIENT_ID && VERCEL_CLIENT_SECRET) {
   app.use(
     "/vercel",
     cors({
