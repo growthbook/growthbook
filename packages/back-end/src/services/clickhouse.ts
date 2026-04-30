@@ -482,8 +482,6 @@ export async function _dangerousRecreateClickhouseTables(
 ): Promise<void> {
   const orgId = context.org.id;
 
-  // Backfilling data can take a while, so lock the datasource for 30 minutes
-  await lockDataSource(context, datasource, 1800);
   try {
     if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
       await dangerousRecreateClickhouseTablesViaLicenseServer(
@@ -491,6 +489,9 @@ export async function _dangerousRecreateClickhouseTables(
         datasource.settings.materializedColumns || [],
       );
     } else {
+      // Backfilling data can take a while, so lock the datasource for 30 minutes
+      await lockDataSource(context, datasource, 1800);
+
       const client = createAdminClickhouseClient();
       const user = clickhouseUserId(orgId);
       const database = user;
@@ -733,9 +734,6 @@ export async function updateMaterializedColumns({
   }
   const orgId = datasource.organization;
 
-  // We can only process one materialized column update at a time.
-  // This should be quick, but lock it 5 minutes just in case.
-  await lockDataSource(context, datasource, 300);
   try {
     if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
       await updateMaterializedColumnsInClickhouseViaLicenseServer({
@@ -747,6 +745,10 @@ export async function updateMaterializedColumns({
         originalColumns,
       });
     } else {
+      // We can only process one materialized column update at a time.
+      // This should be quick, but lock it 5 minutes just in case.
+      await lockDataSource(context, datasource, 300);
+
       const client = createAdminClickhouseClient();
 
       const addClauses = columnsToAdd
