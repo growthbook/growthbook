@@ -13,7 +13,9 @@ import {
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
   filterProjectsByEnvironmentWithNull,
+  getRulesForEnvironment,
   isDefined,
+  MergeResultChanges,
   PrerequisiteStateResult,
   toApiNamespace,
   validateCondition,
@@ -95,10 +97,12 @@ import {
 import {
   applyNamespaceToPayload,
   buildPayloadMetadata,
+  getEnabledEnvironments,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
+import { getEnabledEnvironments as getEnabledHoldoutEnvironments } from "back-end/src/util/holdouts";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -2825,6 +2829,95 @@ export async function getLiveAndBaseRevisionsForFeature({
   }
 
   return { live, base };
+}
+
+/**
+ * Returns the env list to permission-check publish against. Global field
+ * changes (defaultValue, prerequisites, archived, metadata) widen to all
+ * enabled envs; holdout assignment widens to each transitioning holdout's
+ * enabled envs; per-env rule/toggle changes contribute only their envs.
+ * Empty contributors fall back to all enabled envs (defensive).
+ *
+ * Ramp actions intentionally not included — rule diffs cover them, and
+ * rule-less ramp-only drafts hit the all-enabled fallback.
+ */
+export async function getMergeResultPublishEnvs({
+  context,
+  feature,
+  filledLiveRules,
+  result,
+  environmentIds,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  filledLiveRules: FeatureRule[];
+  result: MergeResultChanges;
+  environmentIds: string[];
+}): Promise<string[]> {
+  const allEnabledEnvs = Array.from(
+    getEnabledEnvironments(feature, environmentIds),
+  );
+
+  const hasGlobalChange =
+    result.defaultValue !== undefined ||
+    !!result.prerequisites ||
+    result.archived !== undefined ||
+    !!result.metadata;
+  if (hasGlobalChange) return allEnabledEnvs;
+
+  const changedRuleEnvs =
+    result.rules === undefined
+      ? []
+      : environmentIds.filter(
+          (env) =>
+            !isEqual(
+              getRulesForEnvironment(filledLiveRules, env),
+              getRulesForEnvironment(result.rules!, env),
+            ),
+        );
+  const changedToggleEnvs = Object.keys(result.environmentsEnabled || {});
+  const holdoutEnvs = await collectHoldoutAffectedEnvs(
+    context,
+    feature,
+    environmentIds,
+    result.holdout,
+  );
+
+  const envScoped = Array.from(
+    new Set([...changedRuleEnvs, ...changedToggleEnvs, ...holdoutEnvs]),
+  );
+  return envScoped.length > 0 ? envScoped : allEnabledEnvs;
+}
+
+// `undefined` = merge didn't touch holdout. Otherwise unions the active
+// envs of the prior (when changing/clearing) and incoming holdouts.
+async function collectHoldoutAffectedEnvs(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  environmentIds: string[],
+  newHoldout: { id: string; value: string } | null | undefined,
+): Promise<string[]> {
+  if (newHoldout === undefined) return [];
+
+  const envs = new Set<string>();
+  const prevId = feature.holdout?.id;
+  if (prevId && prevId !== newHoldout?.id) {
+    const prev = await context.models.holdout.getById(prevId);
+    if (prev) {
+      getEnabledHoldoutEnvironments(prev, environmentIds).forEach((e) =>
+        envs.add(e),
+      );
+    }
+  }
+  if (newHoldout?.id) {
+    const next = await context.models.holdout.getById(newHoldout.id);
+    if (next) {
+      getEnabledHoldoutEnvironments(next, environmentIds).forEach((e) =>
+        envs.add(e),
+      );
+    }
+  }
+  return [...envs];
 }
 
 // Throws if the draft requires approval and the caller cannot bypass.

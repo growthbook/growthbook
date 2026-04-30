@@ -4,10 +4,8 @@ import {
   checkIfRevisionNeedsReview,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
-  getRulesForEnvironment,
   liveRevisionFromFeature,
 } from "shared/util";
-import { isEqual } from "lodash";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -16,11 +14,11 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getLiveAndBaseRevisionsForFeature,
+  getMergeResultPublishEnvs,
   toApiRevision,
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   BadRequestError,
   ConflictError,
@@ -118,41 +116,13 @@ export async function publishFeatureRevision(
     );
   }
 
-  // Publish-permission scope: env-scoped for env-only changes (rules and/or
-  // toggles); all enabled envs otherwise (other fields aren't env-scoped).
-  const allEnabledEnvs = Array.from(
-    getEnabledEnvironments(feature, environmentIds),
-  );
-  // `mergeResult.result.rules`, when present, is the full merged flat array.
-  // Compute changed envs by diffing the per-env projection against live so
-  // callers with env-scoped publish permissions get checked only for envs
-  // whose visible rule sequence actually changed.
-  const mergedRules = mergeResult.result.rules ?? filledLive.rules;
-  const changedRuleEnvs =
-    mergeResult.result.rules === undefined
-      ? []
-      : environmentIds.filter(
-          (env) =>
-            !isEqual(
-              getRulesForEnvironment(filledLive.rules, env),
-              getRulesForEnvironment(mergedRules, env),
-            ),
-        );
-  const changedToggleEnvs = Object.keys(
-    mergeResult.result.environmentsEnabled || {},
-  );
-  const changedEnvs = Array.from(
-    new Set([...changedRuleEnvs, ...changedToggleEnvs]),
-  );
-  const isEnvScopedOnlyChange =
-    mergeResult.result.defaultValue === undefined &&
-    !mergeResult.result.prerequisites &&
-    mergeResult.result.archived === undefined &&
-    !mergeResult.result.metadata;
-  const envsToCheck =
-    isEnvScopedOnlyChange && changedEnvs.length > 0
-      ? changedEnvs
-      : allEnabledEnvs;
+  const envsToCheck = await getMergeResultPublishEnvs({
+    context: req.context,
+    feature,
+    filledLiveRules: filledLive.rules,
+    result: mergeResult.result,
+    environmentIds,
+  });
   if (!req.context.permissions.canPublishFeature(feature, envsToCheck)) {
     req.context.permissions.throwPermissionError();
   }

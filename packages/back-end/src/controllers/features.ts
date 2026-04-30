@@ -101,6 +101,7 @@ import {
   FeatureDefinitionSDKPayload,
   generateRuleId,
   getFeatureDefinitions,
+  getMergeResultPublishEnvs,
   getSavedGroupMap,
   getLiveAndBaseRevisionsForFeature,
   getDraftRevision,
@@ -1274,35 +1275,15 @@ export async function postFeaturePublish(
     throw new Error("Please resolve conflicts before publishing");
   }
 
-  // If changing the default value, it affects all enabled environments
-  if (mergeResult.result.defaultValue !== undefined) {
-    if (
-      !context.permissions.canPublishFeature(
-        feature,
-        Array.from(getEnabledEnvironments(feature, environmentIds)),
-      )
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  }
-  // Otherwise only check envs whose per-env rule projection actually changed.
-  else {
-    const mergedRules = mergeResult.result.rules;
-    if (mergedRules) {
-      const liveRulesFlat: FeatureRule[] = filledLive.rules ?? [];
-      const changedEnvs = environmentIds.filter(
-        (env) =>
-          !isEqual(
-            getRulesForEnvironment(mergedRules, env),
-            getRulesForEnvironment(liveRulesFlat, env),
-          ),
-      );
-      if (changedEnvs.length > 0) {
-        if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
-          context.permissions.throwPermissionError();
-        }
-      }
-    }
+  const envsToCheck = await getMergeResultPublishEnvs({
+    context,
+    feature,
+    filledLiveRules: filledLive.rules ?? [],
+    result: mergeResult.result,
+    environmentIds,
+  });
+  if (!context.permissions.canPublishFeature(feature, envsToCheck)) {
+    context.permissions.throwPermissionError();
   }
 
   // If publishing experiments along with this draft, ensure they are valid
