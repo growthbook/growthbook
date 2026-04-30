@@ -2393,7 +2393,7 @@ export async function postFeatureExperimentRefRule(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
+  const { org, environments } = context;
   const { id } = req.params;
   const { rule, autoPublish, draftVersion, forceNewDraft } = req.body;
 
