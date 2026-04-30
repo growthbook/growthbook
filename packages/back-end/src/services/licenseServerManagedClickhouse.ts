@@ -123,7 +123,7 @@ async function postManagedClickhouse(
   return res;
 }
 
-export async function createClickhouseUserViaLicenseServer(
+export async function createClickhouseUser(
   orgId: string,
   materializedColumns: MaterializedColumn[] = [],
 ): Promise<DataSourceParams> {
@@ -134,7 +134,7 @@ export async function createClickhouseUserViaLicenseServer(
   return (await res.json()) as DataSourceParams;
 }
 
-export async function dangerousRecreateClickhouseTablesViaLicenseServer(
+export async function dangerousRecreateClickhouseTables(
   orgId: string,
   materializedColumns: MaterializedColumn[] = [],
 ): Promise<void> {
@@ -144,13 +144,11 @@ export async function dangerousRecreateClickhouseTablesViaLicenseServer(
   });
 }
 
-export async function deleteClickhouseUserViaLicenseServer(
-  orgId: string,
-): Promise<void> {
+export async function deleteClickhouseUser(orgId: string): Promise<void> {
   await postManagedClickhouse("delete", { orgId });
 }
 
-export async function addCloudSDKMappingViaLicenseServer(
+export async function addCloudSDKMapping(
   key: string,
   organization: string,
 ): Promise<void> {
@@ -160,13 +158,13 @@ export async function addCloudSDKMappingViaLicenseServer(
   });
 }
 
-export async function migrateOverageEventsForOrgIdViaLicenseServer(
+export async function migrateOverageEventsForOrgId(
   orgId: string,
 ): Promise<void> {
   await postManagedClickhouse("migrate-overage", { orgId });
 }
 
-export async function updateMaterializedColumnsInClickhouseViaLicenseServer({
+export async function updateMaterializedColumnsInClickhouse({
   orgId,
   columnsToAdd,
   columnsToDelete,
