@@ -106,7 +106,6 @@ const DataSourceQueries = (): React.ReactElement => {
           close={() => setModalData(null)}
           size="lg"
           header={"Inspect query"}
-          includeCloseCta={false}
         >
           <ExpandableQuery query={modalData} i={0} total={1} />{" "}
         </DialogLayout>

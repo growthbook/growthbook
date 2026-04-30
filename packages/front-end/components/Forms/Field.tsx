@@ -10,7 +10,6 @@ import {
 import TextareaAutosize, {
   TextareaAutosizeProps,
 } from "react-textarea-autosize";
-import Text from "@/ui/Text";
 
 export type SelectOptions =
   | (
@@ -227,12 +226,10 @@ const Field = forwardRef(
       >
         <div className="d-flex flex-row justify-content-between">
           {label && (
-            <Text as="label" weight="semibold" className={labelClassName}>
-              <label htmlFor={fieldId} className={clsx(labelClassName)}>
-                {label}
-                {markRequired && <span className="text-danger ml-1">*</span>}
-              </label>
-            </Text>
+            <label htmlFor={fieldId} className={clsx(labelClassName)}>
+              {label}
+              {markRequired && <span className="text-danger ml-1">*</span>}
+            </label>
           )}
           {otherProps.currentLength !== undefined && otherProps.maxLength ? (
             <div className="font-weight-light">
