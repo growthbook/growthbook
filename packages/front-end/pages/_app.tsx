@@ -40,6 +40,9 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
+import SkipToContent, {
+  MAIN_CONTENT_ID,
+} from "@/components/Layout/SkipToContent";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -125,7 +128,7 @@ function App({
           {preAuthTopNav ? (
             <>
               <TopNavLite />
-              <main className="container">
+              <main className="container" id={MAIN_CONTENT_ID} tabIndex={-1}>
                 <Component {...{ ...pageProps, envReady: ready }} />
               </main>
             </>
@@ -144,7 +147,11 @@ function App({
               {preAuthTopNav || progressiveAuthTopNav ? (
                 <>
                   <TopNavLite />
-                  <main className={`main lite ${parts[0]}`}>
+                  <main
+                    className={`main lite ${parts[0]}`}
+                    id={MAIN_CONTENT_ID}
+                    tabIndex={-1}
+                  >
                     <Component {...{ ...pageProps, envReady: ready }} />
                   </main>
                 </>
@@ -179,6 +186,7 @@ function App({
       {ready || noLoadingOverlay ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
+            <SkipToContent />
             <HoverTooltipProvider>
               <SidebarOpenProvider>
                 <GrowthBookProvider growthbook={growthbook}>
@@ -197,7 +205,11 @@ function App({
                                 <FeatureStaleStatesProvider>
                                   {liteLayout ? <LayoutLite /> : <Layout />}
                                   <CommandPaletteLauncher />
-                                  <main className={`main ${parts[0]}`}>
+                                  <main
+                                    className={`main ${parts[0]}`}
+                                    id={MAIN_CONTENT_ID}
+                                    tabIndex={-1}
+                                  >
                                     <GuidedGetStartedBar />
                                     <OrganizationMessagesContainer />
                                     <DemoDataSourceGlobalBannerContainer />
@@ -213,7 +225,11 @@ function App({
                           ) : (
                             <div>
                               <TopNavLite />
-                              <main className="container">
+                              <main
+                                className="container"
+                                id={MAIN_CONTENT_ID}
+                                tabIndex={-1}
+                              >
                                 <Component
                                   {...{ ...pageProps, envReady: ready }}
                                 />
