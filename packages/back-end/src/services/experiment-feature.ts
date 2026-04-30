@@ -292,9 +292,7 @@ export type PendingDraftPublishResult = {
   failed: PendingDraftFailure[];
 };
 
-// Build a human-readable error explaining why pending drafts could not be
-// auto-published, grouped by failure reason. Used by both the UI and REST
-// API start paths so error copy stays consistent.
+// Shared between UI and REST API start paths so error copy stays consistent.
 export function formatPendingDraftFailureMessage(
   failed: PendingDraftFailure[],
 ): string {
@@ -330,21 +328,10 @@ type ResolvedDraft = {
   mergeResult: ReturnType<typeof autoMerge> & { success: true };
 };
 
-// Auto-publish each `experiment.pendingFeatureDrafts` entry that still
-// references an active draft. Stale entries (deleted feature, already
-// published, discarded) are pruned silently.
-//
-// Two-phase to avoid partial publishes on detectable failures:
-//   Phase 1 — resolve every draft, check approval state, and run autoMerge on
-//              all of them. If any fail (needs-approval or merge-conflict),
-//              return immediately with no publishes.
-//   Phase 2 — all checks passed; publish each draft in turn. Per-draft
-//              publishRevision errors fall into failed[] with reason
-//              "publish-error" (transient infra failures only — most
-//              correctness issues are caught in phase 1).
-//
-// Returns { published, failed }; callers MUST gate the experiment-state
-// transition on `failed.length === 0`.
+// Auto-publishes pendingFeatureDrafts entries in two phases: pre-flight
+// every draft (approval + autoMerge), then publish only if all pass. Stale
+// entries (missing feature, already published/discarded) are pruned silently.
+// Callers must gate the experiment transition on `failed.length === 0`.
 export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -397,7 +384,6 @@ export async function publishPendingFeatureDraftsForExperiment(
       revision,
     });
 
-    // Skip if approval is required but the draft isn't approved yet.
     const requiresReview = checkIfRevisionNeedsReview({
       feature,
       baseRevision: base,
@@ -439,9 +425,6 @@ export async function publishPendingFeatureDraftsForExperiment(
     });
   }
 
-  // If any draft failed the pre-flight, return without publishing anything —
-  // prevents a partial-publish state where some rules go live but the
-  // experiment doesn't start.
   if (failed.length > 0) {
     return { published: [], failed };
   }
@@ -464,7 +447,7 @@ export async function publishPendingFeatureDraftsForExperiment(
         mergeResult.result,
         `Experiment "${experiment.name}" started`,
       );
-      // publishRevision sweeps via experiment-ref rules; cover the no-rules edge case.
+      // Cover the no-experiment-ref-rules edge case missed by publishRevision's sweep.
       await removePendingFeatureDraftFromExperiment(
         context,
         experiment.id,

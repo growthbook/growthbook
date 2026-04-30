@@ -1508,24 +1508,41 @@ export async function unlinkFeatureFromAllExperiments(
   );
 }
 
-// Queues a draft for auto-publish when the experiment goes running. Latest draft per featureId wins.
+// Queues a draft for auto-publish when the experiment goes running.
+// Optimistic CAS so concurrent callers can't double-insert the same featureId;
+// syncFeatureExperimentLinkages self-heals on the next revision write.
+// TODO: revisit once we commit to a MongoDB 4.2+ floor — a $filter +
+// $concatArrays pipeline update would collapse this into a single op.
 export async function addPendingFeatureDraftToExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
   featureId: string,
   revisionVersion: number,
 ) {
-  // Upsert via two sequential ops: pull any existing entry for this featureId,
-  // then push the new one. Not a single-document atomic operation, but the
-  // window between the two writes is tiny and syncFeatureExperimentLinkages
-  // self-heals any duplicate that slips through.
   const filter = { id: experimentId, organization: context.org.id };
-  await ExperimentModel.updateOne(filter, {
-    $pull: { pendingFeatureDrafts: { featureId } },
-  });
-  await ExperimentModel.updateOne(filter, {
-    $push: { pendingFeatureDrafts: { featureId, revisionVersion } },
-  });
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const exp = await ExperimentModel.findOne(filter, {
+      pendingFeatureDrafts: 1,
+      __v: 1,
+    }).lean<{
+      pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
+      __v?: number;
+    }>();
+    if (!exp) return;
+    const next = (exp.pendingFeatureDrafts ?? []).filter(
+      (d) => d.featureId !== featureId,
+    );
+    next.push({ featureId, revisionVersion });
+    const result = await ExperimentModel.updateOne(
+      { ...filter, __v: exp.__v },
+      { $set: { pendingFeatureDrafts: next }, $inc: { __v: 1 } },
+    );
+    if (result.matchedCount === 1) return;
+  }
+  logger.warn(
+    { experimentId, featureId, revisionVersion },
+    "addPendingFeatureDraftToExperiment: CAS retry budget exhausted",
+  );
 }
 
 // Removes a pending draft entry (published or discarded).

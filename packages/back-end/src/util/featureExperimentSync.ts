@@ -9,7 +9,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 
-// Revision statuses that represent an open draft (not yet published/discarded).
 const OPEN_DRAFT_STATUSES = new Set([
   "draft",
   "pending-review",
@@ -17,7 +16,6 @@ const OPEN_DRAFT_STATUSES = new Set([
   "changes-requested",
 ]);
 
-// Extracts experiment IDs referenced by experiment-ref rules in a rule list.
 function getExperimentIdsFromRules(
   rules: FeatureRevisionInterface["rules"],
 ): string[] {
@@ -29,18 +27,10 @@ function getExperimentIdsFromRules(
 
 /**
  * Reconciles experiment.linkedFeatures and experiment.pendingFeatureDrafts
- * for a given feature after any revision write (add rule, edit rule, publish,
- * discard). Designed to be called fire-and-forget; logs errors but never throws.
- *
- * Runtime safety: only writes to experiment documents via direct Mongoose calls.
- * None of those writes trigger hooks that write back to feature revisions, so
- * there is no runtime feedback loop.
- *
- * Compile-time circular imports: FeatureRevisionModel and FeatureModel import
- * this file; this file imports ExperimentModel; ExperimentModel imports
- * FeatureModel; FeatureModel imports FeatureRevisionModel. Node.js resolves this
- * correctly because all imported symbols are functions used lazily (never at
- * module initialisation time).
+ * after any feature revision write. Fire-and-forget: logs errors, never
+ * throws. Only writes to experiments, so the circular import chain
+ * (FeatureRevisionModel ↔ FeatureModel ↔ ExperimentModel ↔ here) resolves
+ * lazily at runtime without a feedback loop.
  */
 export async function syncFeatureExperimentLinkages(
   context: ReqContext | ApiReqContext,
@@ -48,17 +38,15 @@ export async function syncFeatureExperimentLinkages(
   revisions: Pick<FeatureRevisionInterface, "version" | "status" | "rules">[],
 ): Promise<void> {
   try {
-    // Newest draft first — first match wins for pendingFeatureDrafts version.
+    // Newest draft first — first match per experimentId wins.
     const openDrafts = revisions
       .filter((r) => OPEN_DRAFT_STATUSES.has(r.status))
       .sort((a, b) => b.version - a.version);
 
-    // The highest-version published revision is always the live one.
     const liveRevision = revisions
       .filter((r) => r.status === "published")
       .sort((a, b) => b.version - a.version)[0];
 
-    // experimentId → latest open-draft version that contains an experiment-ref rule.
     const draftVersionByExp = new Map<string, number>();
     for (const rev of openDrafts) {
       for (const expId of getExperimentIdsFromRules(rev.rules)) {
@@ -71,16 +59,13 @@ export async function syncFeatureExperimentLinkages(
     const liveExpIds = new Set(getExperimentIdsFromRules(liveRevision?.rules));
     const allExpIds = new Set([...liveExpIds, ...draftVersionByExp.keys()]);
 
-    // Fix each experiment that has a live or draft rule for this feature.
     for (const experimentId of allExpIds) {
-      // Fetch via raw model so we don't need to export findExperiment.
       const experiment = await ExperimentModel.findOne({
         id: experimentId,
         organization: context.org.id,
       });
       if (!experiment) continue;
 
-      // Ensure the feature appears in linkedFeatures.
       if (!experiment.linkedFeatures?.includes(featureId)) {
         await addLinkedFeatureToExperiment(
           context,
@@ -91,13 +76,17 @@ export async function syncFeatureExperimentLinkages(
       }
 
       const desiredVersion = draftVersionByExp.get(experimentId);
-      const currentEntry = experiment.pendingFeatureDrafts?.find(
+      const matchingEntries = (experiment.pendingFeatureDrafts ?? []).filter(
         (d) => d.featureId === featureId,
       );
 
       if (desiredVersion !== undefined) {
-        // There is an open draft — ensure pendingFeatureDrafts is up to date.
-        if (currentEntry?.revisionVersion !== desiredVersion) {
+        // Rewrite on version drift or stale duplicates; the helper collapses
+        // to a single entry.
+        const upToDate =
+          matchingEntries.length === 1 &&
+          matchingEntries[0].revisionVersion === desiredVersion;
+        if (!upToDate) {
           await addPendingFeatureDraftToExperiment(
             context,
             experimentId,
@@ -105,8 +94,7 @@ export async function syncFeatureExperimentLinkages(
             desiredVersion,
           );
         }
-      } else if (currentEntry) {
-        // Rule is live-only; no open draft remains — remove stale pending entry.
+      } else if (matchingEntries.length) {
         await ExperimentModel.updateOne(
           { id: experimentId, organization: context.org.id },
           { $pull: { pendingFeatureDrafts: { featureId } } },
@@ -114,15 +102,12 @@ export async function syncFeatureExperimentLinkages(
       }
     }
 
-    // Remove pendingFeatureDrafts entries on experiments that are no longer
-    // referenced by any live or draft rule. We do NOT touch linkedFeatures
-    // here — that removal is a user-driven action (the "Remove from experiment"
-    // CTA on the discarded callout).
+    // Strip pendingFeatureDrafts on experiments no longer referenced by any
+    // live or draft rule. linkedFeatures is preserved — removal is user-driven.
     await ExperimentModel.updateMany(
       {
         organization: context.org.id,
         "pendingFeatureDrafts.featureId": featureId,
-        // Only target experiments not already handled above.
         id: { $nin: Array.from(allExpIds) },
       },
       { $pull: { pendingFeatureDrafts: { featureId } } },
