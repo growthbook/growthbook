@@ -5,6 +5,10 @@ import {
   QueryResponse,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  ManagedWarehousePendingError,
+} from "shared/util";
 import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
@@ -36,7 +40,17 @@ export default class ClickHouse extends SqlIntegration {
     return clickHouseDialect;
   }
 
+  async testConnection(): Promise<boolean> {
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      return true;
+    }
+    return super.testConnection();
+  }
+
   async runQuery(sql: string): Promise<QueryResponse> {
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      throw new ManagedWarehousePendingError();
+    }
     const client = createClient({
       url: getHost(this.params.url, this.params.port),
       username: this.params.username,

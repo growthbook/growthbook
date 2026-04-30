@@ -177,7 +177,7 @@ const ProjectPage: FC = () => {
         ) : null}
         <Flex align="center" justify="between" width="100%">
           <Flex align="start" direction="column">
-            <Heading size="2x-large" as="h1">
+            <Heading size="x-large" as="h1">
               {p.name}
             </Heading>
             <Flex gap="6" mb="4">

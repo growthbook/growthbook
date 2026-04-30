@@ -16,6 +16,7 @@ import {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   cleanConfigForSubmission,
@@ -52,6 +53,7 @@ export interface ExplorerContextValue {
   needsFetch: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
+  managedWarehouseAwaitingProvisioning: boolean;
   trackingSource: string | undefined;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
@@ -210,6 +212,16 @@ export function ExplorerProvider({
     return datasource?.type === "growthbook_clickhouse";
   }, [getDatasourceById, draftExploreState.datasource]);
 
+  const managedWarehouseAwaitingProvisioning = useMemo(() => {
+    if (!draftExploreState.datasource) return false;
+    const datasource = datasources.find(
+      (d) => d.id === draftExploreState.datasource,
+    );
+    return datasource
+      ? isManagedWarehouseAwaitingProvisioning(datasource)
+      : false;
+  }, [datasources, draftExploreState.datasource]);
+
   const setSubmittedExploreState = useCallback((state: ExplorationConfig) => {
     setExplorerState((prev) => ({
       ...prev,
@@ -249,6 +261,10 @@ export function ExplorerProvider({
         options?.config ?? draftExploreState,
       );
       if (!isSubmittableConfig(configToSubmit)) return;
+
+      if (managedWarehouseAwaitingProvisioning) {
+        return;
+      }
 
       let cache: CacheOption;
       if (options?.cache) {
@@ -335,6 +351,7 @@ export function ExplorerProvider({
       fetchData,
       onRunComplete,
       isManagedWarehouse,
+      managedWarehouseAwaitingProvisioning,
       trackingSource,
       getDatasourceById,
     ],
@@ -362,6 +379,7 @@ export function ExplorerProvider({
 
   /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
+    if (managedWarehouseAwaitingProvisioning) return;
     if (!isSubmittable) return;
     if (skipNextAutoSubmitRef.current) {
       skipNextAutoSubmitRef.current = false;
@@ -379,6 +397,7 @@ export function ExplorerProvider({
     cleanedDraftExploreState,
     setSubmittedExploreState,
     isSubmittable,
+    managedWarehouseAwaitingProvisioning,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */
@@ -603,6 +622,7 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       isSubmittable,
+      managedWarehouseAwaitingProvisioning,
       clearAllDatasets,
       query,
       trackingSource,
@@ -625,6 +645,7 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       isSubmittable,
+      managedWarehouseAwaitingProvisioning,
       clearAllDatasets,
       query,
       trackingSource,

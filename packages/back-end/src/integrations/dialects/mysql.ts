@@ -70,4 +70,6 @@ export const mysqlDialect: SqlDialect = {
     const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;
     return isNumeric ? mysqlDialect.castToFloat(raw) : raw;
   },
+  escapeStringLiteral: (value: string) =>
+    value.replace(/\\/g, "\\\\").replace(/'/g, "''"),
 };
