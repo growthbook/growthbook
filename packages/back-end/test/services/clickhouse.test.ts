@@ -34,6 +34,7 @@ jest.mock("back-end/src/util/secrets", () => ({
   IS_CLOUD: false,
   CLICKHOUSE_DEV_PREFIX: "dev_",
   CLICKHOUSE_OVERAGE_TABLE: "overage",
+  MANAGED_CLICKHOUSE_USE_LICENSE_SERVER: false,
 }));
 
 jest.mock("back-end/src/models/FactTableModel", () => ({
@@ -132,6 +133,26 @@ describe("updateMaterializedColumns", () => {
     expect(changes.columns.find((c) => c.column === "user_id")?.deleted).toBe(
       false,
     );
+  });
+
+  it("does not call ClickHouse when managed warehouse has not been provisioned yet", async () => {
+    const unprovisionedDs = {
+      ...datasource,
+      settings: { hasBeenProvisioned: false },
+    } as unknown as GrowthbookClickhouseDataSource;
+
+    await updateMaterializedColumns({
+      context,
+      datasource: unprovisionedDs,
+      columnsToAdd: [],
+      columnsToDelete: [],
+      columnsToRename: [],
+      finalColumns: [],
+      originalColumns: [],
+    });
+
+    expect(mockLockDataSource).not.toHaveBeenCalled();
+    expect(mockCommand).not.toHaveBeenCalled();
   });
 
   it("restores deleted rename destination and tombstones source when destination name already exists", async () => {

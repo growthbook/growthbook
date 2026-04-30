@@ -3,7 +3,6 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement, useState } from "react";
-import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
@@ -25,6 +24,7 @@ import {
   HoldoutInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import RampTimeline, {
@@ -999,7 +999,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         )}
                         {safeRollout?.startedAt && (
                           <Flex direction="column" mt="4" gap="4">
-                            <SafeRolloutDetails safeRollout={safeRollout} />
+                            <SafeRolloutDetails
+                              safeRollout={safeRollout}
+                              projectId={feature.project}
+                            />
                           </Flex>
                         )}
                         {!safeRollout?.startedAt && (

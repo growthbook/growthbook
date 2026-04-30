@@ -137,6 +137,13 @@ tags:
   - name: experiments
     x-displayName: Experiments
     description: Experiments (A/B Tests)
+  - name: namespaces
+    x-displayName: Namespaces
+    description: >-
+      Namespaces partition your user population into buckets so that experiments
+      using the same hash attribute do not overlap unintentionally. Each
+      namespace defines a 0–1 range and individual experiments claim sub-ranges
+      within it.
   - name: snapshots
     x-displayName: Experiment Snapshots
     description: Experiment Snapshots (the individual updates of an experiment)
@@ -351,6 +358,14 @@ tags:
   - name: MetricUsage_model
     x-displayName: MetricUsage
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricUsage" />
+  - name: Namespace_model
+    x-displayName: Namespace
+    description: <SchemaDefinition schemaRef="#/components/schemas/Namespace" />
+  - name: NamespaceExperimentMember_model
+    x-displayName: NamespaceExperimentMember
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/NamespaceExperimentMember" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -4860,6 +4875,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/trackingKey'
         - $ref: '#/components/parameters/experimentId'
         - name: status
           in: query
@@ -4919,7 +4935,9 @@ paths:
                 bypassDuplicateKeyCheck:
                   description: >-
                     If true, allow creating an experiment even if another
-                    experiment with the same tracking key already exists
+                    experiment with the same tracking key already exists. This
+                    is ignored if the organization requires unique tracking keys
+                    as a rule.
                   type: boolean
                 name:
                   description: Name of the experiment
@@ -5139,17 +5157,23 @@ paths:
                         properties:
                           namespaceId:
                             type: string
+                          enabled:
+                            type: boolean
                           range:
                             minItems: 2
                             maxItems: 2
                             type: array
                             items:
                               type: number
-                          enabled:
-                            type: boolean
+                          ranges:
+                            type: array
+                            items:
+                              type: array
+                              prefixItems:
+                                - type: number
+                                - type: number
                         required:
                           - namespaceId
-                          - range
                         additionalProperties: false
                       targetingCondition:
                         type: string
@@ -5426,7 +5450,9 @@ paths:
                 bypassDuplicateKeyCheck:
                   description: >-
                     If true, allow updating the tracking key even if another
-                    experiment with the same tracking key already exists
+                    experiment with the same tracking key already exist. This is
+                    ignored if the organization requires unique tracking keys as
+                    a rule.
                   type: boolean
                 name:
                   description: Name of the experiment
@@ -7720,12 +7746,22 @@ paths:
                     Auto-generated from name if not provided.
                   type: string
                 settings:
-                  description: Project settings.
+                  description: >-
+                    Project stats settings that, when set, override the
+                    organization settings.
                   type: object
                   properties:
                     statsEngine:
                       description: Stats engine.
                       type: string
+                    confidenceLevel:
+                      description: >-
+                        Bayesian chance-to-win threshold (stored as decimal,
+                        e.g. 0.95).
+                      type: number
+                    pValueThreshold:
+                      description: Frequentist p-value threshold (e.g. 0.05).
+                      type: number
                   additionalProperties: false
               required:
                 - name
@@ -7798,12 +7834,22 @@ paths:
                   description: URL-safe slug (lowercase letters, numbers, dashes).
                   type: string
                 settings:
-                  description: Project settings.
+                  description: >-
+                    Project stats settings that, when set, override the
+                    organization settings.
                   type: object
                   properties:
                     statsEngine:
                       description: Stats engine.
                       type: string
+                    confidenceLevel:
+                      description: >-
+                        Bayesian chance-to-win threshold (stored as decimal,
+                        e.g. 0.95).
+                      type: number
+                    pValueThreshold:
+                      description: Frequentist p-value threshold (e.g. 0.05).
+                      type: number
                   additionalProperties: false
               additionalProperties: false
       responses:
@@ -11258,6 +11304,12 @@ paths:
                               - ''
                               - api
                               - admin
+                          archived:
+                            description: >-
+                              Set to true to archive the metric. Archived
+                              metrics are hidden by default in the UI and
+                              excluded from new experiments.
+                            type: boolean
                           metricAutoSlices:
                             description: >-
                               Array of slice column names that will be
@@ -12455,6 +12507,315 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/eject-target'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /namespaces:
+    get:
+      operationId: listNamespaces
+      summary: Get all namespaces
+      tags:
+        - namespaces
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      namespaces:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Namespace'
+                    required:
+                      - namespaces
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/namespaces' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postNamespace
+      summary: Create a namespace
+      tags:
+        - namespaces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  description: >-
+                    Human-readable display name. Must be unique within the
+                    organization.
+                  type: string
+                description:
+                  type: string
+                status:
+                  type: string
+                  enum:
+                    - active
+                    - inactive
+                format:
+                  description: >-
+                    Namespace format. Defaults to 'multiRange', which supports
+                    multiple ranges per experiment and a configurable hash
+                    attribute.
+                  type: string
+                  enum:
+                    - legacy
+                    - multiRange
+                hashAttribute:
+                  description: >-
+                    Required when format is 'multiRange'. The user attribute
+                    (e.g. 'id', 'device_id') used to assign users to namespace
+                    buckets.
+                  type: string
+              required:
+                - displayName
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  namespace:
+                    $ref: '#/components/schemas/Namespace'
+                required:
+                  - namespace
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/namespaces' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"displayName":"Checkout Flow","description":"Experiments on the checkout funnel","format":"multiRange","hashAttribute":"id"}'
+  /namespaces/{id}:
+    get:
+      operationId: getNamespace
+      summary: Get a single namespace
+      tags:
+        - namespaces
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique id of the namespace
+          schema:
+            description: The unique id of the namespace
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  namespace:
+                    $ref: '#/components/schemas/Namespace'
+                required:
+                  - namespace
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET 'https://api.growthbook.io/api/v1/namespaces/ns-abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: putNamespace
+      summary: Update a namespace
+      tags:
+        - namespaces
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique id of the namespace
+          schema:
+            description: The unique id of the namespace
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  description: Human-readable display name.
+                  type: string
+                description:
+                  description: Namespace description.
+                  type: string
+                status:
+                  description: Set to 'inactive' to disable the namespace.
+                  type: string
+                  enum:
+                    - active
+                    - inactive
+                hashAttribute:
+                  description: >-
+                    Only applies to multiRange namespaces. Changes which user
+                    attribute is used for bucket hashing going forward.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  namespace:
+                    $ref: '#/components/schemas/Namespace'
+                required:
+                  - namespace
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT 'https://api.growthbook.io/api/v1/namespaces/ns-abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"displayName":"Checkout v2","status":"inactive"}'
+    delete:
+      operationId: deleteNamespace
+      summary: Delete a namespace
+      description: >-
+        Permanently removes a namespace from the organization. Returns a 409
+        error if any active experiments currently reference this namespace —
+        disable or remove those references first.
+      tags:
+        - namespaces
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique id of the namespace
+          schema:
+            description: The unique id of the namespace
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    description: The ID of the deleted namespace.
+                    example: ns-abc123
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/namespaces/ns-abc123' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /namespaces/{id}/memberships:
+    get:
+      operationId: getNamespaceMemberships
+      summary: Get namespace membership
+      tags:
+        - namespaces
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique id of the namespace
+          schema:
+            description: The unique id of the namespace
+            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      experiments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NamespaceExperimentMember'
+                    required:
+                      - experiments
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/namespaces/ns-abc123/memberships'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /namespaces/{id}/rotateSeed:
+    post:
+      operationId: postNamespaceRotateSeed
+      summary: Rotate namespace seed
+      description: >-
+        ⚠️ Dangerous: sets a new seed for a multiRange namespace. Every user's
+        bucket position within the namespace is re-computed immediately, which
+        re-randomizes traffic eligibility for **all** experiments currently
+        using this namespace. Only do this if you intentionally want to
+        reshuffle all allocations across experiments. This could be useful when
+        re-using a namespace for a new set of experiments.
+      tags:
+        - namespaces
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique id of the namespace
+          schema:
+            description: The unique id of the namespace
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seed:
+                  description: >-
+                    A specific value to use as the new seed. If omitted, a
+                    random value is generated.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  namespace:
+                    $ref: '#/components/schemas/Namespace'
+                required:
+                  - namespace
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/namespaces/ns-abc123/rotateSeed' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /transform-copy:
     post:
@@ -13707,6 +14068,11 @@ paths:
                                     required:
                                       - predefined
                                     additionalProperties: false
+                                  showAs:
+                                    type: string
+                                    enum:
+                                      - total
+                                      - per_unit
                                   type:
                                     type: string
                                     const: metric
@@ -13988,6 +14354,11 @@ paths:
                                     required:
                                       - predefined
                                     additionalProperties: false
+                                  showAs:
+                                    type: string
+                                    enum:
+                                      - total
+                                      - per_unit
                                   type:
                                     type: string
                                     const: fact_table
@@ -14278,6 +14649,11 @@ paths:
                                     required:
                                       - predefined
                                     additionalProperties: false
+                                  showAs:
+                                    type: string
+                                    enum:
+                                      - total
+                                      - per_unit
                                   type:
                                     type: string
                                     const: data_source
@@ -16647,6 +17023,11 @@ paths:
                   required:
                     - predefined
                   additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
                 type:
                   type: string
                   const: metric
@@ -16979,6 +17360,11 @@ paths:
                                 required:
                                   - predefined
                                 additionalProperties: false
+                              showAs:
+                                type: string
+                                enum:
+                                  - total
+                                  - per_unit
                               type:
                                 type: string
                                 const: metric
@@ -17280,6 +17666,11 @@ paths:
                   required:
                     - predefined
                   additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
                 type:
                   type: string
                   const: fact_table
@@ -17621,6 +18012,11 @@ paths:
                                 required:
                                   - predefined
                                 additionalProperties: false
+                              showAs:
+                                type: string
+                                enum:
+                                  - total
+                                  - per_unit
                               type:
                                 type: string
                                 const: fact_table
@@ -17931,6 +18327,11 @@ paths:
                   required:
                     - predefined
                   additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
                 type:
                   type: string
                   const: data_source
@@ -18289,6 +18690,11 @@ paths:
                                 required:
                                   - predefined
                                 additionalProperties: false
+                              showAs:
+                                type: string
+                                enum:
+                                  - total
+                                  - per_unit
                               type:
                                 type: string
                                 const: data_source
@@ -19436,12 +19842,28 @@ components:
       schema:
         description: Filter by Data Source
         type: string
+    trackingKey:
+      name: trackingKey
+      in: query
+      description: Filter by experiment tracking key
+      schema:
+        description: Filter by experiment tracking key
+        type: string
     experimentId:
       name: experimentId
       in: query
-      description: Filter the returned list by the experiment tracking key (id)
+      description: >-
+        Filter the returned list by the experiment tracking key (not the
+        internal experiment ID). Note, this was deprecated to help reduce
+        confusion, consider using `trackingKey` instead, which is functionally
+        identical. You cannot use both params at the same time.
       schema:
-        description: Filter the returned list by the experiment tracking key (id)
+        deprecated: true
+        description: >-
+          Filter the returned list by the experiment tracking key (not the
+          internal experiment ID). Note, this was deprecated to help reduce
+          confusion, consider using `trackingKey` instead, which is functionally
+          identical. You cannot use both params at the same time.
         type: string
     phase:
       name: phase
@@ -19634,6 +20056,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         project:
           type: string
@@ -20511,6 +20938,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         isPublic:
           type: boolean
         attributes:
@@ -20564,6 +20996,11 @@ components:
             type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         archived:
           type: boolean
@@ -20646,15 +21083,23 @@ components:
                 properties:
                   namespaceId:
                     type: string
+                  enabled:
+                    type: boolean
                   range:
                     minItems: 2
                     maxItems: 2
                     type: array
                     items:
                       type: number
+                  ranges:
+                    type: array
+                    items:
+                      type: array
+                      prefixItems:
+                        - type: number
+                        - type: number
                 required:
                   - namespaceId
-                  - range
                 additionalProperties: false
               targetingCondition:
                 type: string
@@ -21086,6 +21531,11 @@ components:
                 The userId of the owner (or raw owner name/email for legacy
                 records)
               type: string
+            ownerEmail:
+              description: >-
+                The email address of the owner, when the owner can be resolved
+                to a known user.
+              type: string
             archived:
               type: boolean
             status:
@@ -21167,15 +21617,23 @@ components:
                     properties:
                       namespaceId:
                         type: string
+                      enabled:
+                        type: boolean
                       range:
                         minItems: 2
                         maxItems: 2
                         type: array
                         items:
                           type: number
+                      ranges:
+                        type: array
+                        items:
+                          type: array
+                          prefixItems:
+                            - type: number
+                            - type: number
                     required:
                       - namespaceId
-                      - range
                     additionalProperties: false
                   targetingCondition:
                     type: string
@@ -21582,6 +22040,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         datasourceId:
           type: string
         name:
@@ -21910,6 +22373,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         datasourceId:
           type: string
         identifierType:
@@ -21969,6 +22437,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         datasourceId:
           type: string
         identifierType:
@@ -22023,6 +22496,10 @@ components:
           properties:
             statsEngine:
               type: string
+            confidenceLevel:
+              type: number
+            pValueThreshold:
+              type: number
           additionalProperties: false
       required:
         - id
@@ -22426,6 +22903,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         condition:
           description: >-
             When type = 'condition', this is the JSON-encoded condition for the
@@ -22485,6 +22967,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         projects:
           type: array
@@ -22681,6 +23168,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         projects:
           type: array
@@ -23891,6 +24383,84 @@ components:
         - currentStepIndex
         - nextStepAt
       additionalProperties: false
+    Namespace:
+      type: object
+      properties:
+        id:
+          description: The unique internal identifier for the namespace (e.g. 'ns-abc123').
+          type: string
+        displayName:
+          description: Human-readable display name.
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+        format:
+          description: >-
+            Namespace format. 'multiRange' supports multiple ranges per
+            experiment and a configurable hash attribute.
+          type: string
+          enum:
+            - legacy
+            - multiRange
+        hashAttribute:
+          description: >-
+            The user attribute used to assign bucket membership. Only present on
+            multiRange namespaces.
+          type: string
+        seed:
+          description: >-
+            The seed used for bucket hashing. Changing this re-randomizes which
+            traffic is eligible for which experiment. Use the rotateSeed
+            endpoint to change it.
+          type: string
+      required:
+        - id
+        - displayName
+        - description
+        - status
+        - format
+      additionalProperties: false
+    NamespaceExperimentMember:
+      type: object
+      properties:
+        id:
+          description: The internal experiment ID.
+          type: string
+        name:
+          description: Display name of the experiment.
+          type: string
+        trackingKey:
+          description: The experiment tracking key used by the SDK.
+          type: string
+        status:
+          description: The current status of the experiment.
+          type: string
+          enum:
+            - draft
+            - running
+            - stopped
+        ranges:
+          description: >-
+            The ranges claimed within this namespace, as [start, end] pairs
+            between 0 and 1.
+          type: array
+          items:
+            type: array
+            prefixItems:
+              - type: number
+              - type: number
+      required:
+        - id
+        - name
+        - trackingKey
+        - status
+        - ranges
+      additionalProperties: false
     Dashboard:
       type: object
       properties:
@@ -24640,6 +25210,11 @@ components:
                         required:
                           - predefined
                         additionalProperties: false
+                      showAs:
+                        type: string
+                        enum:
+                          - total
+                          - per_unit
                       type:
                         type: string
                         const: metric
@@ -24921,6 +25496,11 @@ components:
                         required:
                           - predefined
                         additionalProperties: false
+                      showAs:
+                        type: string
+                        enum:
+                          - total
+                          - per_unit
                       type:
                         type: string
                         const: fact_table
@@ -25211,6 +25791,11 @@ components:
                         required:
                           - predefined
                         additionalProperties: false
+                      showAs:
+                        type: string
+                        enum:
+                          - total
+                          - per_unit
                       type:
                         type: string
                         const: data_source
@@ -25460,6 +26045,11 @@ components:
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         name:
           type: string
         description:
@@ -25601,6 +26191,11 @@ components:
           type: string
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         templateMetadata:
           type: object
@@ -26345,6 +26940,11 @@ components:
                   required:
                     - predefined
                   additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
                 type:
                   type: string
                   const: metric
@@ -26596,6 +27196,11 @@ components:
                   required:
                     - predefined
                   additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
                 type:
                   type: string
                   const: fact_table
@@ -26856,6 +27461,11 @@ components:
                   required:
                     - predefined
                   additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
                 type:
                   type: string
                   const: data_source
@@ -27387,22 +27997,52 @@ components:
                     minBucketVersion:
                       type: number
                     namespace:
-                      type: object
-                      properties:
-                        enabled:
-                          type: boolean
-                        name:
-                          type: string
-                        range:
-                          type: array
-                          prefixItems:
-                            - type: number
-                            - type: number
-                      required:
-                        - enabled
-                        - name
-                        - range
-                      additionalProperties: false
+                      anyOf:
+                        - type: object
+                          properties:
+                            enabled:
+                              type: boolean
+                            name:
+                              type: string
+                            range:
+                              type: array
+                              prefixItems:
+                                - type: number
+                                - type: number
+                            format:
+                              type: string
+                              const: legacy
+                          required:
+                            - enabled
+                            - name
+                            - range
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            enabled:
+                              type: boolean
+                            name:
+                              type: string
+                            ranges:
+                              type: array
+                              items:
+                                type: array
+                                prefixItems:
+                                  - type: number
+                                  - type: number
+                            hashAttribute:
+                              type: string
+                            hashVersion:
+                              type: number
+                            format:
+                              type: string
+                              const: multiRange
+                          required:
+                            - enabled
+                            - name
+                            - ranges
+                            - format
+                          additionalProperties: false
                     coverage:
                       type: number
                     datasource:
@@ -27847,6 +28487,7 @@ x-tagGroups:
       - fact-metrics
       - metrics
       - experiments
+      - namespaces
       - snapshots
       - dimensions
       - segments
@@ -27912,6 +28553,8 @@ x-tagGroups:
       - MetricAnalysis_model
       - MetricGroup_model
       - MetricUsage_model
+      - Namespace_model
+      - NamespaceExperimentMember_model
       - Organization_model
       - PaginationFields_model
       - Project_model

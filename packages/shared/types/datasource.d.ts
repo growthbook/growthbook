@@ -96,6 +96,11 @@ export interface SchemaInterface {
   experimentDimensions: string[];
   userIdTypes: string[];
   getMetricSQL(type: MetricType, tablePrefix: string): string;
+  getFactTableSQL(
+    tablePrefix: string,
+    userIdTypes: string[],
+    options?: GetExperimentSqlOptions,
+  ): string;
 }
 
 export interface SchemaFormatConfig {
@@ -291,6 +296,8 @@ export type DataSourceSettings = {
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
+  /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
+  hasBeenProvisioned?: boolean;
   materializedColumns?: MaterializedColumn[];
 }
 

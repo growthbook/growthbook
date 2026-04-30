@@ -3,6 +3,7 @@ import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   experimentHasLinkedChanges,
+  getNamespaceRanges,
   parseIntWithDefaultCapped,
 } from "shared/util";
 import {
@@ -21,6 +22,7 @@ import {
   CreateOrganizationPostBody,
   Invite,
   MemberRoleWithProjects,
+  NamespaceFormat,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
@@ -106,6 +108,7 @@ import { ConfigFile } from "back-end/src/init/config";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
+import { buildNamespace } from "back-end/src/util/namespaces";
 import {
   deleteUser,
   getUserById,
@@ -1041,16 +1044,19 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
         )
         .forEach((r) => {
           const expRule = r as ExperimentRule;
-          const { name, range } = expRule.namespace as NamespaceValue;
-          namespaces[name] = namespaces[name] || [];
-          namespaces[name].push({
-            link: `/features/${f.id}`,
-            name: f.id,
-            id: f.id,
-            trackingKey: expRule.trackingKey || f.id,
-            start: range[0],
-            end: range[1],
-            environment: env,
+          const ns = expRule.namespace as NamespaceValue;
+          namespaces[ns.name] = namespaces[ns.name] || [];
+
+          getNamespaceRanges(ns).forEach((range) => {
+            namespaces[ns.name].push({
+              link: `/features/${f.id}`,
+              name: f.id,
+              id: f.id,
+              trackingKey: expRule.trackingKey || f.id,
+              start: range[0],
+              end: range[1],
+              environment: env,
+            });
           });
         });
     });
@@ -1077,16 +1083,19 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     if (!phase) return;
     if (!phase.namespace || !phase.namespace.enabled) return;
 
-    const { name, range } = phase.namespace;
-    namespaces[name] = namespaces[name] || [];
-    namespaces[name].push({
-      link: `/experiment/${e.id}`,
-      name: e.name,
-      id: e.trackingKey,
-      trackingKey: e.trackingKey,
-      start: range[0],
-      end: range[1],
-      environment: "",
+    const ns = phase.namespace as NamespaceValue;
+    namespaces[ns.name] = namespaces[ns.name] || [];
+
+    getNamespaceRanges(ns).forEach((range) => {
+      namespaces[ns.name].push({
+        link: `/experiment/${e.id}`,
+        name: e.name,
+        id: e.trackingKey,
+        trackingKey: e.trackingKey,
+        start: range[0],
+        end: range[1],
+        environment: "",
+      });
     });
   });
 
@@ -1102,10 +1111,18 @@ export async function postNamespaces(
     label: string;
     description: string;
     status: "active" | "inactive";
+    hashAttribute?: string;
+    format?: NamespaceFormat;
   }>,
   res: Response,
 ) {
-  const { label, description, status } = req.body;
+  const {
+    label,
+    description,
+    status,
+    hashAttribute,
+    format = "multiRange",
+  } = req.body;
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateNamespace()) {
@@ -1125,10 +1142,20 @@ export async function postNamespaces(
   // up later, but for now, 'name' is the unique identifier, and 'label' is
   // the display name.
   const name = uniqid("ns-");
+
+  const newNamespace = buildNamespace({
+    name,
+    label,
+    description,
+    status,
+    format,
+    hashAttribute,
+  });
+
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      namespaces: [...namespaces, { name, label, description, status }],
+      namespaces: [...namespaces, newNamespace],
     },
   });
 
@@ -1142,7 +1169,7 @@ export async function postNamespaces(
       { settings: { namespaces } },
       {
         settings: {
-          namespaces: [...namespaces, { name, description, status }],
+          namespaces: [...namespaces, newNamespace],
         },
       },
     ),
@@ -1159,12 +1186,14 @@ export async function putNamespaces(
       label: string;
       description: string;
       status: "active" | "inactive";
+      hashAttribute?: string;
+      format?: NamespaceFormat;
     },
     { name: string }
   >,
   res: Response,
 ) {
-  const { label, description, status } = req.body;
+  const { label, description, status, hashAttribute } = req.body;
   const { name } = req.params;
 
   const context = getContextFromReq(req);
@@ -1183,11 +1212,25 @@ export async function putNamespaces(
   }
 
   const updatedNamespaces = namespaces.map((n) => {
-    if (n.name === name) {
-      // cannot update the 'name' (id) of a namespace
-      return { label, name: n.name, description, status };
-    }
-    return n;
+    if (n.name !== name) return n;
+
+    const existingHashAttribute =
+      n.format === "multiRange" ? n.hashAttribute : undefined;
+    const existingSeed = n.format === "multiRange" ? n.seed : undefined;
+
+    // Treat missing fields as "leave alone" — partial PUTs (e.g. the
+    // Disable/Enable toggle on the namespaces page) should not blank out
+    // existing display fields on the namespace.
+    return buildNamespace({
+      name: n.name,
+      label: label ?? n.label ?? n.name,
+      description: description ?? n.description ?? "",
+      status: status ?? n.status ?? "active",
+      format: n.format ?? "legacy",
+      hashAttribute: hashAttribute ?? existingHashAttribute,
+      existingHashAttribute,
+      existingSeed,
+    });
   });
 
   await updateOrganization(org.id, {

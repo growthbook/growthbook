@@ -23,6 +23,7 @@ import {
   DRAFT_REVISION_STATUSES,
   generateVariationId,
   getMatchingRules,
+  getNamespaceRanges,
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
@@ -52,6 +53,7 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
+import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -107,6 +109,7 @@ import {
 } from "shared/types/experiment";
 import {
   ExperimentUpdateSchedule,
+  Namespaces,
   OrganizationInterface,
   OrganizationSettings,
 } from "shared/types/organization";
@@ -182,11 +185,9 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import {
-  getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
-  getPValueCorrectionForOrg,
-  getPValueThresholdForOrg,
+  getSignificanceSettingsForProject,
 } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
@@ -302,6 +303,7 @@ export function getDefaultExperimentAnalysisSettings({
   regressionAdjustmentEnabled,
   postStratificationEnabled,
   dimension,
+  pValueThreshold,
   metricGroups = [],
 }: {
   statsEngine: StatsEngine;
@@ -310,6 +312,7 @@ export function getDefaultExperimentAnalysisSettings({
   regressionAdjustmentEnabled?: boolean;
   postStratificationEnabled?: boolean;
   dimension?: string;
+  pValueThreshold?: number;
   metricGroups?: MetricGroupInterface[];
 }): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
@@ -344,7 +347,9 @@ export function getDefaultExperimentAnalysisSettings({
     baselineVariationIndex: 0,
     differenceType: "relative",
     pValueThreshold:
-      organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+      pValueThreshold ??
+      organization.settings?.pValueThreshold ??
+      DEFAULT_P_VALUE_THRESHOLD,
     numGoalMetrics: expandMetricGroups(
       experiment.goalMetrics ?? [],
       metricGroups,
@@ -1373,6 +1378,7 @@ export async function planSnapshot({
     multipleExposures: 0,
     analyses: [
       {
+        analysisKey: buildAnalysisKey(),
         dateCreated: new Date(),
         results: [],
         settings: defaultAnalysisSettings,
@@ -1382,6 +1388,7 @@ export async function planSnapshot({
         .filter((a) => isAnalysisAllowed(snapshotSettings, a))
         .map((a) => {
           const analysis: ExperimentSnapshotAnalysis = {
+            analysisKey: buildAnalysisKey(),
             dateCreated: new Date(),
             results: [],
             settings: a,
@@ -1874,6 +1881,7 @@ export async function planExperimentSnapshot({
     regressionAdjustmentEnabled,
     postStratificationEnabled,
     dimension,
+    pValueThreshold: settings.pValueThreshold.value,
     metricGroups,
   });
 
@@ -1973,6 +1981,7 @@ async function getSnapshotAnalyses(
       return;
     }
     const analysis: ExperimentSnapshotAnalysis = {
+      analysisKey: buildAnalysisKey(),
       results: [],
       status: "running",
       settings: analysisSettings,
@@ -2071,6 +2080,7 @@ export async function createSnapshotAnalysis(
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
+    analysisKey: buildAnalysisKey(),
     results: [],
     status: "running",
     settings: analysisSettings,
@@ -2188,7 +2198,7 @@ export async function toExperimentApiInterface(
   const experimentType = experiment.type || "standard";
 
   const activationMetric = experiment.activationMetric;
-  return {
+  const apiExperiment: ApiExperiment = {
     id: experiment.id,
     trackingKey: experiment.trackingKey,
     name: experiment.name || "",
@@ -2244,10 +2254,14 @@ export async function toExperimentApiInterface(
         savedGroups: s.ids,
       })),
       namespace: p.namespace?.enabled
-        ? {
-            namespaceId: p.namespace.name,
-            range: p.namespace.range,
-          }
+        ? (() => {
+            const ranges = getNamespaceRanges(p.namespace);
+            return {
+              namespaceId: p.namespace.name,
+              range: ranges[0] ?? [0, 0],
+              ranges,
+            };
+          })()
         : undefined,
     })),
     settings: {
@@ -2340,6 +2354,14 @@ export async function toExperimentApiInterface(
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
   };
+  return apiExperiment;
+}
+
+// Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
+// that break many real-world JSON parsers.
+function safeFloat(n: number | undefined, fallback = 0): number {
+  if (n == null || !isFinite(n)) return fallback;
+  return parseFloat(n.toFixed(20));
 }
 
 export function toSnapshotApiInterface(
@@ -2438,16 +2460,16 @@ export function toSnapshotApiInterface(
                 {
                   engine:
                     analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-                  numerator: data?.value || 0,
-                  denominator: data?.denominator || data?.users || 0,
-                  mean: data?.stats?.mean || 0,
-                  stddev: data?.stats?.stddev || 0,
-                  percentChange: data?.expected || 0,
-                  ciLow: data?.ci?.[0] ?? 0,
-                  ciHigh: data?.ci?.[1] ?? 0,
-                  pValue: data?.pValue || 0,
-                  risk: data?.risk?.[1] || 0,
-                  chanceToBeatControl: data?.chanceToWin || 0,
+                  numerator: safeFloat(data?.value),
+                  denominator: safeFloat(data?.denominator ?? data?.users),
+                  mean: safeFloat(data?.stats?.mean),
+                  stddev: safeFloat(data?.stats?.stddev),
+                  percentChange: safeFloat(data?.expected),
+                  ciLow: safeFloat(data?.ci?.[0]),
+                  ciHigh: safeFloat(data?.ci?.[1]),
+                  pValue: safeFloat(data?.pValue),
+                  risk: safeFloat(data?.risk?.[1]),
+                  chanceToBeatControl: safeFloat(data?.chanceToWin),
                 },
               ],
             };
@@ -3253,6 +3275,65 @@ export const toNamespaceRange = (
 ): [number, number] => [raw?.[0] ?? 0, raw?.[1] ?? 1];
 
 /**
+ * Converts an API namespace input to the internal NamespaceValue shape.
+ *
+ * Transparent to callers: if only the legacy `range` field is provided and the
+ * org namespace is multiRange, the single range is promoted automatically. If
+ * `ranges` is provided it is used as-is. Legacy namespaces always use `range`.
+ */
+function toPhaseNamespaceValue(
+  apiNs:
+    | {
+        namespaceId: string;
+        range?: number[];
+        ranges?: [number, number][];
+        enabled?: boolean;
+      }
+    | null
+    | undefined,
+  orgNamespaces: Namespaces[] | undefined,
+): ExperimentPhase["namespace"] {
+  if (!apiNs) {
+    return { enabled: false, name: "", range: [0, 1] };
+  }
+  const name = apiNs.namespaceId;
+  const enabled = apiNs.enabled ?? false;
+  const orgNs = orgNamespaces?.find((n) => n.name === name);
+
+  if (name && orgNamespaces?.length && !orgNs) {
+    throw new Error(
+      `Namespace "${name}" not found. Verify the namespaceId matches an existing namespace in your organization settings.`,
+    );
+  }
+
+  if (orgNs?.format === "multiRange") {
+    const ranges: [number, number][] =
+      apiNs.ranges ?? (apiNs.range ? [toNamespaceRange(apiNs.range)] : []);
+    return {
+      enabled,
+      name,
+      format: "multiRange",
+      hashAttribute: orgNs.hashAttribute,
+      ranges,
+    };
+  }
+
+  // Legacy namespace: multiple ranges are not supported.
+  if (apiNs.ranges && apiNs.ranges.length > 1) {
+    throw new Error(
+      `Namespace "${name}" uses the legacy single-range format and does not support multiple ranges. ` +
+        `Use a multiRange namespace or provide a single range via the "range" field.`,
+    );
+  }
+
+  return {
+    enabled,
+    name,
+    range: toNamespaceRange(apiNs.range ?? apiNs.ranges?.[0]),
+  };
+}
+
+/**
  * Converts an API lookbackOverride payload to the internal representation.
  * Validates that "date" values are strings (not raw numbers) and that
  * "window" values are non-negative numbers with a valid unit.
@@ -3336,11 +3417,10 @@ export function postExperimentApiPayloadToInterface(
         match: s.matchType,
         ids: s.savedGroups,
       })),
-      namespace: {
-        name: p.namespace?.namespaceId || "",
-        range: toNamespaceRange(p.namespace?.range),
-        enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
-      },
+      namespace: toPhaseNamespaceValue(
+        p.namespace,
+        organization.settings?.namespaces,
+      ),
       variationWeights:
         p.variationWeights ||
         payload.variations.map(() => 1 / payload.variations.length),
@@ -3537,6 +3617,7 @@ function resolveExperimentUpdateVariationsAndPhases(
   phases: UpdateExperimentApiPayload["phases"],
   variations: UpdateExperimentApiPayload["variations"],
   experiment: ExperimentInterface,
+  orgNamespaces: Namespaces[] | undefined,
 ): Partial<ExperimentInterface> {
   const hasPhasePayload = phases !== undefined;
   const hasVariationPayload = variations !== undefined;
@@ -3590,11 +3671,7 @@ function resolveExperimentUpdateVariationsAndPhases(
           match: s.matchType,
           ids: s.savedGroups,
         })),
-        namespace: {
-          name: p.namespace?.namespaceId || "",
-          range: toNamespaceRange(p.namespace?.range),
-          enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
-        },
+        namespace: toPhaseNamespaceValue(p.namespace, orgNamespaces),
         variationWeights,
         variations: phaseVariations,
       };
@@ -3735,6 +3812,7 @@ export function updateExperimentApiPayloadToInterface(
       phases,
       variations,
       experiment,
+      organization.settings?.namespaces,
     ),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
@@ -4234,10 +4312,13 @@ export async function computeResultsStatus({
   experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
-  const pValueCorrection = getPValueCorrectionForOrg(context);
-  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const projectId =
+    "project" in experiment && typeof experiment.project === "string"
+      ? experiment.project
+      : undefined;
+  const { ciUpper, ciLower, pValueCorrection, pValueThreshold } =
+    await getSignificanceSettingsForProject(context, projectId);
   const metricDefaults = getMetricDefaultsForOrg(context);
-  const pValueThreshold = getPValueThresholdForOrg(context);
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 

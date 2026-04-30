@@ -29,11 +29,13 @@ export * from "./strings";
 export * from "./bigquery-table-name";
 export * from "./snowflake-table-name";
 export * from "./features";
+export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./numbers";
 export * from "./types";
 export * from "./errors";
+export * from "./namespaces";
 export * from "./custom-fields";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];

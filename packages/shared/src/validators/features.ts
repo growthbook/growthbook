@@ -10,7 +10,7 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import {
   featureRulePatch,
   rampTrigger,
@@ -847,6 +847,7 @@ export const apiFeatureValidator = namedSchema(
       archived: z.boolean(),
       description: z.string(),
       owner: ownerField,
+      ownerEmail: ownerEmailField,
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),

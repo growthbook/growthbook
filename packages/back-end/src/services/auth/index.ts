@@ -9,7 +9,7 @@ import {
   EventUserLoggedIn,
 } from "shared/types/events/event-types";
 import { logger } from "back-end/src/util/logger";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { IS_CLOUD, IS_LOCALHOST } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   hasUser,
@@ -165,7 +165,13 @@ export async function processJWT(
     // require all future logins to be verified too.
     // This stops someone from creating an unverified email/password account and gaining access to
     // an account using "Login with Google"
-    if (IS_CLOUD && !req.loginMethod?.id && user.verified && !req.verified) {
+    if (
+      IS_CLOUD &&
+      !IS_LOCALHOST &&
+      !req.loginMethod?.id &&
+      user.verified &&
+      !req.verified
+    ) {
       res.status(406).json({
         status: 406,
         message: "You must log in via SSO to use GrowthBook",
@@ -319,7 +325,7 @@ export async function isNewInstallation() {
 }
 
 export function usingOpenId() {
-  if (IS_CLOUD) return true;
+  if (IS_CLOUD && !IS_LOCALHOST) return true;
   if (SSO_CONFIG) return true;
   return false;
 }

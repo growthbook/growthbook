@@ -8,7 +8,8 @@ import React from "react";
 import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { PiArrowSquareOut, PiFolderDuotone } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
@@ -40,6 +41,7 @@ export function OfficialBadge({
   showOfficialLabel,
   color,
   leftGap,
+  ...marginProps
 }: {
   type: string;
   managedBy?: "" | "config" | "api" | "admin";
@@ -47,15 +49,22 @@ export function OfficialBadge({
   showOfficialLabel?: boolean;
   color?: string;
   leftGap?: boolean;
-}) {
+} & MarginProps) {
   if (!managedBy) {
     if (leftGap)
-      return <div className="d-inline-block ml-1" style={{ width: 17 }} />;
+      return (
+        <Box
+          display="inline-block"
+          ml="1"
+          style={{ width: 17 }}
+          {...marginProps}
+        />
+      );
     return null;
   }
 
   return (
-    <span className="text-purple mr-1">
+    <Box display="inline" className="text-purple mr-1" {...marginProps}>
       <Tooltip
         body={
           disableTooltip ? (
@@ -110,7 +119,7 @@ export function OfficialBadge({
           <span className="ml-1 badge badge-purple">Official</span>
         ) : null}
       </Tooltip>
-    </span>
+    </Box>
   );
 }
 

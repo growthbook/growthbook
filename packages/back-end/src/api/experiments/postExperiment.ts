@@ -17,7 +17,10 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
+import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   assertExperimentPayloadCommercialFeatures,
@@ -150,16 +153,26 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
-    // check if tracking key is unique
-    if (!payload.bypassDuplicateKeyCheck) {
+    // check if tracking key is unique (skip the lookup entirely if the caller
+    // is bypassing the duplicate check and the org doesn't require uniqueness)
+    const requireUniqueTrackingKeys =
+      !!req.organization.settings?.requireUniqueExperimentTrackingKeys;
+    if (requireUniqueTrackingKeys || !payload.bypassDuplicateKeyCheck) {
       const existingByTrackingKey = await getExperimentByTrackingKey(
         req.context,
         payload.trackingKey,
       );
       if (existingByTrackingKey) {
-        throw new Error(
-          `Experiment with tracking key already exists: ${payload.trackingKey}`,
-        );
+        if (requireUniqueTrackingKeys) {
+          throw new Error(
+            `Experiment with tracking key already exists: ${payload.trackingKey}. Your organization requires unique experiment tracking keys and bypassDuplicateKeyCheck is ignored.`,
+          );
+        }
+        if (!payload.bypassDuplicateKeyCheck) {
+          throw new Error(
+            `Experiment with tracking key already exists: ${payload.trackingKey}.`,
+          );
+        }
       }
     }
 
@@ -277,9 +290,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       });
     }
 
-    const apiExperiment = await toExperimentApiInterface(
+    const apiExperiment = await resolveOwnerEmail(
+      await toExperimentApiInterface(
+        req.context,
+        experiment as ExperimentInterfaceExcludingHoldouts,
+      ),
       req.context,
-      experiment as ExperimentInterfaceExcludingHoldouts,
     );
     return {
       experiment: apiExperiment,

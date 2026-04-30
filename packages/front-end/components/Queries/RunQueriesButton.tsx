@@ -218,8 +218,6 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                 icon={buttonIcon}
                 style={{
                   minWidth: 110,
-                  paddingLeft: 2,
-                  paddingRight: 2,
                 }}
               >
                 {status === "running" ? (
@@ -227,7 +225,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                     {loadingText} ({getTimeDisplay(elapsed)})
                   </Text>
                 ) : (
-                  cta
+                  <Text>{cta}</Text>
                 )}
               </Button>
             ) : (

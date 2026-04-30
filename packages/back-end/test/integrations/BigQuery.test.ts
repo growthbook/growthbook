@@ -1,6 +1,7 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
@@ -84,40 +85,37 @@ describe("BigQuery KLL quantile sketch methods", () => {
   });
 
   it("maps kll data type to BYTES", () => {
-    expect(integration.getDataType("kll")).toBe("BYTES");
+    expect(integration.getSqlDialect().getDataType("kll")).toBe("BYTES");
   });
 
   it("generates KLL INIT with hardcoded precision 1000", () => {
-    expect(integration.kllInit("m.value")).toBe(
+    expect(integration.getSqlDialect().kllInit("m.value")).toBe(
       "KLL_QUANTILES.INIT_FLOAT64(m.value, 1000)",
     );
   });
 
   it("generates KLL MERGE_PARTIAL", () => {
-    expect(integration.kllMergePartial("sketch_col")).toBe(
+    expect(integration.getSqlDialect().kllMergePartial("sketch_col")).toBe(
       "KLL_QUANTILES.MERGE_PARTIAL(sketch_col)",
     );
   });
 
   it("generates KLL EXTRACT_POINT", () => {
-    expect(integration.kllExtractPoint("sketch_col", 0.95)).toBe(
-      "KLL_QUANTILES.EXTRACT_POINT_FLOAT64(sketch_col, 0.95)",
-    );
+    expect(
+      integration.getSqlDialect().kllExtractPoint("sketch_col", 0.95),
+    ).toBe("KLL_QUANTILES.EXTRACT_POINT_FLOAT64(sketch_col, 0.95)");
   });
 
   it("generates KLL EXTRACT (quantile array)", () => {
-    expect(integration.kllExtractQuantiles("sketch_col", 100)).toBe(
-      "KLL_QUANTILES.EXTRACT_FLOAT64(sketch_col, 100)",
-    );
+    expect(
+      integration.getSqlDialect().kllExtractQuantiles("sketch_col", 100),
+    ).toBe("KLL_QUANTILES.EXTRACT_FLOAT64(sketch_col, 100)");
   });
 
   it("generates rank approximation via CDF counting", () => {
-    const sql = integration.kllRankApprox(
-      "m.sketch",
-      "qm.q_hat",
-      "m.n_events",
-      100,
-    );
+    const sql = integration
+      .getSqlDialect()
+      .kllRankApprox("m.sketch", "qm.q_hat", "m.n_events", 100);
     // 100 quantiles → 101 points at levels {0, 1/100, ..., 1}.
     // count of points strictly below percentile p is ≈100p, so divide by 100
     // (not 101) for an unbiased estimate.
@@ -155,7 +153,7 @@ describe("BigQuery KLL quantile sketch methods", () => {
       quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
       numerator: { factTableId: "ft1", column: "amount" },
     });
-    const metadata = integration.getAggregationMetadata({
+    const metadata = getAggregationMetadata(integration.getSqlDialect(), {
       metric,
       useDenominator: false,
     });
@@ -229,16 +227,16 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   };
 
   beforeEach(() => {
-    // @ts-expect-error -- context/datasource not needed for this unit test
-    integration = new BigQuery("", {});
-    jest
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .spyOn(integration as any, "getExposureQuery")
-      .mockReturnValue(exposureQuery);
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
+    // @ts-expect-error -- context not needed for this unit test; exposure list
+    // satisfies getExposureQuery(settings.exposureQueryId === "exposure") without
+    // jest.spyOn (non-configurable export under @swc/jest).
+    integration = new BigQuery("", {
+      settings: {
+        queries: {
+          exposure: [exposureQuery],
+        },
+      },
+    });
   });
 
   it("getCreateMetricSourceTableQuery emits BYTES sketch + INT64 n_events columns", () => {
