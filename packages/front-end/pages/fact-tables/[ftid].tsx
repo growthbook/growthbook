@@ -328,25 +328,27 @@ export default function FactTablePage() {
             {canEdit || canDelete || canDuplicate ? (
               <>
                 <DropdownMenuSeparator />
-                {canDuplicate && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDuplicateFactTable({
-                        ...factTable,
-                        name: `${factTable.name} (Copy)`,
-                        managedBy:
-                          factTable.managedBy === "admin" &&
-                          permissionsUtil.canCreateOfficialResources(factTable)
-                            ? "admin"
-                            : "",
-                      });
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuGroup>
+                  {canDuplicate && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDuplicateFactTable({
+                          ...factTable,
+                          name: `${factTable.name} (Copy)`,
+                          managedBy:
+                            factTable.managedBy === "admin" &&
+                            permissionsUtil.canCreateOfficialResources(
+                              factTable,
+                            )
+                              ? "admin"
+                              : "",
+                        });
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Duplicate
+                    </DropdownMenuItem>
+                  )}
                   {canEdit && (
                     <DropdownMenuItem
                       onClick={async () => {
