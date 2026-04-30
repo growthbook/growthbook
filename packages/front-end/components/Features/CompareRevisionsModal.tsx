@@ -149,7 +149,11 @@ function RevisionCompareLabel({
                 maxWidth={250}
                 title={revisionLabelText(versionA, revA?.title)}
               >
-                <RevisionLabel version={versionA} title={revA?.title} />
+                <RevisionLabel
+                  version={versionA}
+                  title={revA?.title}
+                  minWidth={0}
+                />
               </OverflowText>
             </Text>
           </Flex>
@@ -207,7 +211,11 @@ function RevisionCompareLabel({
                 maxWidth={250}
                 title={revisionLabelText(versionB, revB?.title)}
               >
-                <RevisionLabel version={versionB} title={revB?.title} />
+                <RevisionLabel
+                  version={versionB}
+                  title={revB?.title}
+                  minWidth={0}
+                />
               </OverflowText>
             </Text>
           </Flex>

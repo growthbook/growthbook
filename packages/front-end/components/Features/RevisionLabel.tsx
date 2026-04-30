@@ -12,10 +12,12 @@ export default function RevisionLabel({
   version,
   title,
   numbered = true,
+  minWidth = "1.9em",
 }: {
   version: number;
   title?: string | null;
   numbered?: boolean;
+  minWidth?: string | number;
 }) {
   return (
     <>
@@ -23,7 +25,7 @@ export default function RevisionLabel({
         <span
           style={{
             display: "inline-block",
-            minWidth: "1.9em",
+            minWidth,
             paddingRight: ".4em",
             fontVariantNumeric: "tabular-nums",
           }}

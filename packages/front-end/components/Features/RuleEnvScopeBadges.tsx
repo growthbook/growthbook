@@ -44,6 +44,7 @@ function disallowedEnvBadge(envId: string) {
       body="This environment is not available for this feature. The rule will not apply here."
       tipPosition="top"
       innerClassName="p-2"
+      style={{ display: "inline-flex", alignItems: "center" }}
     >
       <Badge
         label={<span style={{ textDecoration: "line-through" }}>{envId}</span>}
@@ -92,12 +93,13 @@ export default function RuleEnvScopeBadges({
   const overflow = ordered.slice(MAX_VISIBLE_BADGES);
 
   return (
-    <Flex gap="2" wrap="wrap" my={my} {...marginProps}>
+    <Flex gap="2" wrap="wrap" align="center" my={my} {...marginProps}>
       {noActiveEnvs ? (
         <Tooltip
           body="Rule is not scoped to any environment and will not apply anywhere"
           tipPosition="top"
           innerClassName="p-2"
+          style={{ display: "inline-flex", alignItems: "center" }}
         >
           <Badge
             label="No environments"

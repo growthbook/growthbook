@@ -2041,6 +2041,7 @@ export default function FeaturesOverview({
                           revisions.find((r) => r.version === feature.version)
                             ?.title
                         }
+                        minWidth={0}
                       />
                     </OverflowText>
                   </Text>

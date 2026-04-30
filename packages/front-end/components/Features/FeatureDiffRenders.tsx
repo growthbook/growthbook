@@ -196,7 +196,7 @@ function RuleEnvScope({
     );
   }
   return (
-    <Flex gap="1" wrap="wrap">
+    <Flex gap="1" wrap="wrap" align="center">
       {rule.environments.map((env) => {
         const deleted = !liveEnvIds.has(env);
         const badge = (
@@ -213,6 +213,7 @@ function RuleEnvScope({
             key={env}
             body="Environment no longer exists"
             tipPosition="top"
+            style={{ display: "inline-flex", alignItems: "center" }}
           >
             {badge}
           </Tooltip>

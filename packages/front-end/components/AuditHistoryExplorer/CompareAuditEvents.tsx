@@ -384,13 +384,15 @@ export default function CompareAuditEvents<T>({
               />
             )}
           </Flex>
-          <Box mt="2">
-            <AuditEntryAuthor user={entry.user} display="avatar-name" />
-          </Box>
-          <Text as="div">
+          <Text size="small" color="text-low">
             {entry.count > 1
               ? datetime(entry.dateEnd)
-              : datetime(entry.dateStart)}
+              : datetime(entry.dateStart)}{" "}
+            ·{" "}
+            <EventUser
+              user={auditUserInfoToEventUser(entry.user)}
+              display="name"
+            />
           </Text>
           {entry.count > 1 && (
             <Box mt="1">
