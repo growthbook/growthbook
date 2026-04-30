@@ -198,6 +198,11 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   });
 
   const factTableMap = new Map([["ft_events", factTable]]);
+  const identityPlan = {
+    baseIdType: "user_id",
+    joinsRequired: [],
+    idJoinMap: {},
+  };
 
   const settings: ExperimentSnapshotSettings = {
     manual: false,
@@ -261,6 +266,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [eventQuantileMetric],
       lastMaxTimestamp: null,
+      identityPlan,
     });
     // Partial aggregation builds the sketch
     expect(sql).toContain("KLL_QUANTILES.INIT_FLOAT64");
@@ -280,6 +286,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [eventQuantileMetric],
       lastMaxTimestamp: null,
+      identityPlan,
     });
 
     // Pass 1: per-variation sketch merge

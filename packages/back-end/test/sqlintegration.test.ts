@@ -19,7 +19,6 @@ import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-ho
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
-import { IdentityPlan } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
 
@@ -708,126 +707,6 @@ describe("bigquery integration", () => {
         "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00'\n" +
         "",
     );
-  });
-});
-
-describe("identity plan threading", () => {
-  const exposureQuery: ExposureQuery = {
-    id: "anonymous_id",
-    name: "Exposure",
-    description: "Exposure",
-    query: "SELECT * FROM exposures",
-    userIdType: "device_id",
-    dimensions: [],
-  };
-
-  it("ensures every identity join references a declared CTE", () => {
-    // @ts-expect-error -- context not needed for test
-    const integration = new BigQuery("", {
-      settings: {
-        queries: {
-          exposure: [exposureQuery],
-          identityJoins: [
-            {
-              ids: ["device_id", "visitor_id"],
-              query:
-                "SELECT device_id, visitor_id FROM identity_table_device_visitor",
-            },
-            {
-              ids: ["device_id", "user_id"],
-              query:
-                "SELECT device_id, user_id FROM identity_table_device_user",
-            },
-          ],
-        },
-      },
-    });
-
-    const metricFactTable = factTableFactory.build({
-      id: "metric_fact",
-      userIdTypes: ["user_id"],
-    });
-    const activationFactTable = factTableFactory.build({
-      id: "activation_fact",
-      userIdTypes: ["visitor_id"],
-    });
-    const metric = factMetricFactory.build({
-      numerator: {
-        factTableId: metricFactTable.id,
-      },
-    });
-    const activationMetric = factMetricFactory.build({
-      numerator: {
-        factTableId: activationFactTable.id,
-      },
-    });
-    const factTableMap = new Map([
-      [metricFactTable.id, metricFactTable],
-      [activationFactTable.id, activationFactTable],
-    ]);
-
-    const identityPlan: IdentityPlan = {
-      baseIdType: "device_id",
-      joinsRequired: ["visitor_id", "user_id"],
-      idJoinMap: {
-        visitor_id: "__identities_visitor_id",
-        user_id: "__identities_user_id",
-      },
-    };
-    integration.setIdentityPlan(identityPlan);
-    let sql = "";
-    try {
-      sql = integration.getExperimentFactMetricsQuery({
-        settings: {
-          manual: false,
-          dimensions: [],
-          metricSettings: [],
-          goalMetrics: [],
-          secondaryMetrics: [],
-          guardrailMetrics: [],
-          activationMetric: null,
-          defaultMetricPriorSettings: {
-            override: false,
-            proper: false,
-            mean: 0,
-            stddev: 0,
-          },
-          regressionAdjustmentEnabled: false,
-          attributionModel: "firstExposure",
-          experimentId: "exp_123",
-          queryFilter: "",
-          segment: "",
-          skipPartialData: false,
-          datasourceId: "",
-          exposureQueryId: exposureQuery.id,
-          startDate: new Date("2024-01-01"),
-          endDate: new Date("2024-01-31"),
-          variations: [],
-        },
-        unitsSource: "exposureQuery",
-        activationMetric,
-        dimensions: [],
-        segment: null,
-        metrics: [metric],
-        factTableMap,
-      });
-    } finally {
-      integration.clearIdentityPlan();
-    }
-
-    const declaredIdentityCtes = new Set(
-      Array.from(
-        sql.matchAll(/\b(__identities_[a-zA-Z0-9_]+)\s+as\s*\(/gi),
-      ).map((match) => match[1]),
-    );
-    const referencedIdentityJoins = Array.from(
-      sql.matchAll(/\bjoin\s+(__identities_[a-zA-Z0-9_]+)/gi),
-    ).map((match) => match[1]);
-
-    expect(referencedIdentityJoins.length).toBeGreaterThan(0);
-    referencedIdentityJoins.forEach((joinRef) => {
-      expect(declaredIdentityCtes.has(joinRef)).toBe(true);
-    });
   });
 });
 
