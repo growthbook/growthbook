@@ -1614,6 +1614,13 @@ export async function postFeatureRevert(
     }
   }
 
+  // No diff against live — refuse before creating an empty "Locked" revision.
+  if (Object.keys(mergeChanges).length === 0) {
+    throw new Error(
+      `Nothing to revert: the live feature already matches revision #${revision.version}.`,
+    );
+  }
+
   // Build the full state of the target revision for the new revision document.
   // Sparse legacy revisions fall back to the feature's own rules.
   const revisionChanges: Partial<FeatureRevisionInterface> = {

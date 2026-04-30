@@ -188,6 +188,13 @@ export async function revertFeatureCore(
     }
   }
 
+  // No diff against live — refuse before creating an empty "Locked" revision.
+  if (Object.keys(changes).length === 0) {
+    throw new Error(
+      `Nothing to revert: the live feature already matches revision #${version}.`,
+    );
+  }
+
   // Bypass via restApiBypassesReviews or bypassApprovalChecks.
   const canBypass =
     !!context.org.settings?.restApiBypassesReviews ||

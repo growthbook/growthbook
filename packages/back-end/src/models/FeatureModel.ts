@@ -1474,18 +1474,15 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  // When a draft only activates a ramp schedule (no feature content changes),
-  // there's nothing to write to the feature document — just return it as-is so
-  // the caller can still mark the revision as published and trigger lifecycle hooks.
+  // No content delta against the live feature (sparse legacy revert target,
+  // no-op toggle, ramp-only draft, …). Still advance the version pointer so
+  // a revision marked published always coincides with feature.version —
+  // otherwise markRevisionAsPublished creates a "Locked" revision while
+  // feature.version stays stale, which traps subsequent reverts/publishes.
   if (!hasChanges) {
-    // However, if we have pending ramp actions to execute, we still need to update
-    // the feature version so the live pointer advances correctly
-    if (revision.rampActions && revision.rampActions.length > 0) {
-      changes.version = revision.version;
-      changes.dateUpdated = new Date();
-      return await updateFeature(context, feature, changes);
-    }
-    return feature;
+    changes.version = revision.version;
+    changes.dateUpdated = new Date();
+    return await updateFeature(context, feature, changes);
   }
 
   if (changes.rules !== undefined) {
