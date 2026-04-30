@@ -4935,7 +4935,9 @@ paths:
                 bypassDuplicateKeyCheck:
                   description: >-
                     If true, allow creating an experiment even if another
-                    experiment with the same tracking key already exists
+                    experiment with the same tracking key already exists. This
+                    is ignored if the organization requires unique tracking keys
+                    as a rule.
                   type: boolean
                 name:
                   description: Name of the experiment
@@ -5448,7 +5450,9 @@ paths:
                 bypassDuplicateKeyCheck:
                   description: >-
                     If true, allow updating the tracking key even if another
-                    experiment with the same tracking key already exists
+                    experiment with the same tracking key already exist. This is
+                    ignored if the organization requires unique tracking keys as
+                    a rule.
                   type: boolean
                 name:
                   description: Name of the experiment
@@ -11471,6 +11475,12 @@ paths:
                               - ''
                               - api
                               - admin
+                          archived:
+                            description: >-
+                              Set to true to archive the metric. Archived
+                              metrics are hidden by default in the UI and
+                              excluded from new experiments.
+                            type: boolean
                           metricAutoSlices:
                             description: >-
                               Array of slice column names that will be

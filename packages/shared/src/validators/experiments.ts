@@ -969,7 +969,7 @@ const postExperimentBody = z
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow creating an experiment even if another experiment with the same tracking key already exists",
+        "If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule.",
       )
       .optional(),
     name: z.string().describe("Name of the experiment"),
@@ -1083,7 +1083,7 @@ const updateExperimentBody = z
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow updating the tracking key even if another experiment with the same tracking key already exists",
+        "If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule.",
       )
       .optional(),
     name: z.string().describe("Name of the experiment").optional(),

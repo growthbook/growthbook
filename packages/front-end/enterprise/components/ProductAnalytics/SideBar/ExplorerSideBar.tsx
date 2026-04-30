@@ -26,6 +26,7 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import track from "@/services/track";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
@@ -52,6 +53,7 @@ export default function ExplorerSideBar({
     isSubmittable,
     isStale,
     error,
+    trackingSource,
   } = useExplorerContext();
   const { factTables, getFactMetricById, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
@@ -96,6 +98,7 @@ export default function ExplorerSideBar({
           close={() => setShowSaveToDashboardModal(false)}
           config={draftExploreState}
           exploration={exploration}
+          trackingSource={trackingSource}
         />
       )}
       {showUpgradeModal && (
@@ -151,6 +154,17 @@ export default function ExplorerSideBar({
               }
               side="bottom"
               align="end"
+              onCopy={
+                trackingSource
+                  ? () => {
+                      track("Product Analytics Explorer: Copy Link Clicked", {
+                        source: trackingSource,
+                        type: draftExploreState.type,
+                        chart_type: draftExploreState.chartType,
+                      });
+                    }
+                  : undefined
+              }
             />
           </>
         ) : (
