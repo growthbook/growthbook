@@ -190,10 +190,14 @@ export async function processJWT(
 
       if (req.organization) {
         if (req.organization.suspended && !req.superAdmin) {
-          // Mark the request so getContextFromReq can block it.
-          // The getOrganization controller handles this flag explicitly to
-          // return org data (messages, name, etc.) needed for the suspension UI.
-          req.orgSuspended = true;
+          if (!(req.method === "GET" && req.path === "/organization")) {
+            res.status(403).json({
+              status: 403,
+              message:
+                "Account Suspended. Please contact your account executive or support@growthbook.io for assistance.",
+            });
+            return;
+          }
         }
 
         if (

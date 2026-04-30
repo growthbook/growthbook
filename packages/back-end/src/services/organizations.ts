@@ -164,11 +164,6 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   if (!req.userId || !req.email) {
     throw new Error("Must be logged in");
   }
-  if (req.orgSuspended) {
-    throw new Error(
-      "This account has been suspended. Please contact support@growthbook.io for assistance.",
-    );
-  }
 
   return new ReqContextClass({
     org: req.organization,
