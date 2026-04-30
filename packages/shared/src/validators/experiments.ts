@@ -71,9 +71,7 @@ export const banditEvent = z
 export type BanditResult = z.infer<typeof banditResult>;
 export type BanditEvent = z.infer<typeof banditEvent>;
 
-// TODO(phase-update): allow "passThrough" e.g. forcibly skip a range
-// and send users to the next feature rule
-export const variationStatus = ["active"] as const;
+export const variationStatus = ["active", "passThrough"] as const;
 export type VariationStatus = (typeof variationStatus)[number];
 
 export const phaseVariation = z

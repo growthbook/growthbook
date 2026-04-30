@@ -22,8 +22,6 @@ type VariationWithIndexAndStatus = Variation & {
 
 /**
  * Returns the variations for the current/latest phase of an experiment.
- * Today this just returns experiment.variations directly. In the future,
- * this will merge phase-level variation status with top-level metadata.
  */
 export function getLatestPhaseVariations(
   experiment: ExperimentWithVariationsAndPhases,

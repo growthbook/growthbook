@@ -73,7 +73,7 @@ export default function ReleaseChangesForm({
   // set the release plan selector to the recommended value
   useEffect(() => {
     if (releasePlan) return; // only set if use hasn't interacted
-    if (changeType === "phase") return;
+    if (changeType === "phase" || changeType === "remove-variation") return;
     if (recommendedRolloutData.actualReleasePlan) {
       setReleasePlan(recommendedRolloutData.actualReleasePlan);
     }
@@ -130,65 +130,76 @@ export default function ReleaseChangesForm({
 
   return (
     <div className="mt-4 mb-2">
-      <SelectField
-        label="Release plan"
-        value={releasePlan || ""}
-        options={getReleasePlanOptions({
-          experiment,
-          changeType,
-          recommendedRolloutData,
-        })}
-        onChange={(v) => {
-          const requiresStickyBucketing =
-            !isBandit &&
-            (v === "same-phase-sticky" || v === "new-phase-block-sticky");
-          const disabled = requiresStickyBucketing && !usingStickyBucketing;
-          if (disabled) return;
-          setReleasePlan(v as ReleasePlan);
-        }}
-        sort={false}
-        isSearchable={false}
-        formatOptionLabel={({ value, label }) => {
-          const requiresStickyBucketing =
-            !isBandit &&
-            (value === "same-phase-sticky" ||
-              value === "new-phase-block-sticky");
-          const recommended = isBandit
-            ? value === recommendedRolloutData.recommendedReleasePlan &&
-              changeType !== "phase"
-            : value === recommendedRolloutData.recommendedReleasePlan;
-          const disabled = requiresStickyBucketing && !usingStickyBucketing;
-          return (
-            <div
-              className={clsx({
-                "cursor-disabled": disabled,
-              })}
-            >
-              <span style={{ opacity: disabled ? 0.5 : 1 }}>{label} </span>
-              {requiresStickyBucketing && (
-                <Tooltip
-                  body={`${
-                    usingStickyBucketing ? "Uses" : "Requires"
-                  } Sticky Bucketing`}
-                  className="mr-2"
-                >
-                  <span className="text-info small ml-2">
-                    (Sticky Bucketing)
+      {changeType === "remove-variation" ? (
+        <div className="mb-4">
+          <label className="mb-1">Release plan</label>
+          <div className="font-weight-semibold">
+            {releasePlan === "new-phase"
+              ? "New Phase, re-randomize traffic"
+              : "Same Phase, keep existing phase assignments"}
+          </div>
+        </div>
+      ) : (
+        <SelectField
+          label="Release plan"
+          value={releasePlan || ""}
+          options={getReleasePlanOptions({
+            experiment,
+            changeType,
+            recommendedRolloutData,
+          })}
+          onChange={(v) => {
+            const requiresStickyBucketing =
+              !isBandit &&
+              (v === "same-phase-sticky" || v === "new-phase-block-sticky");
+            const disabled = requiresStickyBucketing && !usingStickyBucketing;
+            if (disabled) return;
+            setReleasePlan(v as ReleasePlan);
+          }}
+          sort={false}
+          isSearchable={false}
+          formatOptionLabel={({ value, label }) => {
+            const requiresStickyBucketing =
+              !isBandit &&
+              (value === "same-phase-sticky" ||
+                value === "new-phase-block-sticky");
+            const recommended = isBandit
+              ? value === recommendedRolloutData.recommendedReleasePlan &&
+                changeType !== "phase"
+              : value === recommendedRolloutData.recommendedReleasePlan;
+            const disabled = requiresStickyBucketing && !usingStickyBucketing;
+            return (
+              <div
+                className={clsx({
+                  "cursor-disabled": disabled,
+                })}
+              >
+                <span style={{ opacity: disabled ? 0.5 : 1 }}>{label} </span>
+                {requiresStickyBucketing && (
+                  <Tooltip
+                    body={`${
+                      usingStickyBucketing ? "Uses" : "Requires"
+                    } Sticky Bucketing`}
+                    className="mr-2"
+                  >
+                    <span className="text-info small ml-2">
+                      (Sticky Bucketing)
+                    </span>
+                  </Tooltip>
+                )}
+                {recommended && (
+                  <span
+                    className="text-muted uppercase-title float-right position-relative"
+                    style={{ top: 3 }}
+                  >
+                    recommended
                   </span>
-                </Tooltip>
-              )}
-              {recommended && (
-                <span
-                  className="text-muted uppercase-title float-right position-relative"
-                  style={{ top: 3 }}
-                >
-                  recommended
-                </span>
-              )}
-            </div>
-          );
-        }}
-      />
+                )}
+              </div>
+            );
+          }}
+        />
+      )}
 
       <div className="mt-4 mb-3">
         <label className="mb-1">Impact</label>
@@ -316,7 +327,13 @@ function ImpactTooltips({
     !["same-phase-sticky", "new-phase-block-sticky"].includes(releasePlan);
   const riskLevel = recommendedRolloutData.riskLevels[releasePlan];
   const variationHopping = recommendedRolloutData.variationHopping[releasePlan];
+  const samePhaseBlockingWithoutSticky =
+    !usingStickyBucketing &&
+    releasePlan === "same-phase-everyone" &&
+    !!recommendedRolloutData.reasons.disableVariation;
 
+  console.log("recommendedRolloutData", recommendedRolloutData);
+  console.log("samePhaseBlockingWithoutSticky", releasePlan);
   let recommendStickyBucketing = false;
   if (riskLevel !== "safe") {
     if (
@@ -442,7 +459,14 @@ function ImpactTooltips({
           "text-warning-muted": variationHopping,
         })}
       >
-        {variationHopping ? (
+        {samePhaseBlockingWithoutSticky ? (
+          <div className="font-weight-semibold">
+            <BsExclamationCircle className="mr-1" /> Users in disabled
+            variations will switch from that variation&apos;s values to values
+            from subsequent rules in the feature list or to the default feature
+            value.
+          </div>
+        ) : variationHopping ? (
           <div className="font-weight-semibold">
             <BsExclamationCircle className="mr-1" /> Some users may change their
             assigned variation.
@@ -546,7 +570,7 @@ function getRecommendedRolloutData({
   let decreaseNamespaceRange = false;
   const otherNamespaceChanges = false;
   let changeVariationWeights = false;
-  const disableVariation = false;
+  let disableVariation = false;
 
   // Assign decision variables (1-8)
   // ===============================
@@ -632,8 +656,26 @@ function getRecommendedRolloutData({
     changeVariationWeights = true;
   }
 
-  // // 8. Disable variation?
-  // todo: blocked variations not implemented yet
+  // 8. Disable variation?
+  const previousStatuses = new Map(
+    (lastPhase.variations || []).map((v) => [v.id, v.status]),
+  );
+  const currentStatuses = new Map(
+    (data.variations || []).map((v) => [v.id, v.status]),
+  );
+  const variationIds = new Set([
+    ...Array.from(previousStatuses.keys()),
+    ...Array.from(currentStatuses.keys()),
+  ]);
+
+  variationIds.forEach((id) => {
+    if (
+      (previousStatuses.get(id) || "active") !==
+      (currentStatuses.get(id) || "active")
+    ) {
+      disableVariation = true;
+    }
+  });
 
   // Make recommendations, control available options
   // --> based on decision variables (1-8) and sticky bucketing support
@@ -661,14 +703,14 @@ function getRecommendedRolloutData({
       // B. Calculate recommendations as if sticky bucketing is enabled
       // (We will override these later if it is not. Calculating this allows us to
       // show the user the benefits of enabling sticky bucketing)
-      if (moreRestrictiveTargeting || decreaseCoverage || disableVariation) {
+      if (moreRestrictiveTargeting || decreaseCoverage) {
         // safe
         recommendedReleasePlan = "same-phase-sticky";
         actualReleasePlan = recommendedReleasePlan;
         riskLevels = {
           "new-phase": "safe",
           "same-phase-sticky": "safe",
-          "same-phase-everyone": disableVariation ? "danger" : "warning",
+          "same-phase-everyone": "warning",
           "new-phase-block-sticky": "safe",
         };
         variationHopping["same-phase-everyone"] = true;
@@ -678,6 +720,18 @@ function getRecommendedRolloutData({
           decreaseCoverage,
           disableVariation,
         };
+      }
+      if (disableVariation) {
+        // Recommend actually letting people to change to stop showing them the loser
+        recommendedReleasePlan = "same-phase-everyone";
+        actualReleasePlan = recommendedReleasePlan;
+        riskLevels = {
+          "new-phase": "safe",
+          "same-phase-sticky": "safe",
+          "same-phase-everyone": "safe",
+          "new-phase-block-sticky": "safe",
+        };
+        variationHopping["same-phase-everyone"] = true;
       }
       if (otherTargetingChanges) {
         // warning
@@ -753,8 +807,7 @@ function getRecommendedRolloutData({
           decreaseNamespaceRange ||
           otherNamespaceChanges ||
           otherTargetingChanges ||
-          changeVariationWeights ||
-          disableVariation
+          changeVariationWeights
         ) {
           // danger
           actualReleasePlan = "new-phase";
@@ -771,8 +824,19 @@ function getRecommendedRolloutData({
             otherTargetingChanges,
             otherNamespaceChanges,
             changeVariationWeights,
-            disableVariation,
           };
+        }
+        if (disableVariation) {
+          // no bias concerns, but users can change experience without sticky bucketing
+          actualReleasePlan = "same-phase-everyone";
+          disableSamePhase = false;
+          riskLevels = {
+            "new-phase": "safe",
+            "same-phase-sticky": "safe",
+            "same-phase-everyone": "danger",
+            "new-phase-block-sticky": "safe",
+          };
+          variationHopping["same-phase-everyone"] = true;
         }
       }
     }

@@ -6,7 +6,7 @@ import {
 } from "shared/types/experiment";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { Flex, Box, Text, Separator } from "@radix-ui/themes";
@@ -40,6 +40,10 @@ import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import RemoveVariationsSection, {
+  RemoveVariationDraftVariation,
+  RemoveVariationMode,
+} from "@/components/Experiment/RemoveVariationsSection";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -50,7 +54,8 @@ export type ChangeType =
   | "weights"
   | "namespace"
   | "advanced"
-  | "phase";
+  | "phase"
+  | "remove-variation";
 
 export type ReleasePlan =
   | "new-phase"
@@ -80,6 +85,11 @@ export default function EditTargetingModal({
   const [changeType, setChangeType] = useState<ChangeType | undefined>();
   const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
   const [changesConfirmed, setChangesConfirmed] = useState(false);
+  const [removeVariationMode, setRemoveVariationMode] =
+    useState<RemoveVariationMode>("same-phase-skip");
+  const [removeVariationDraft, setRemoveVariationDraft] = useState<
+    RemoveVariationDraftVariation[]
+  >([]);
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -98,7 +108,10 @@ export default function EditTargetingModal({
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
-  const lastPhaseVariations = getLatestPhaseVariations(experiment);
+  const lastPhaseVariations = useMemo(
+    () => getLatestPhaseVariations(experiment),
+    [experiment],
+  );
 
   const defaultValues = {
     condition: lastPhase?.condition ?? "",
@@ -167,15 +180,162 @@ export default function EditTargetingModal({
   }, [changeType, form]);
 
   useEffect(() => {
+    if (changeType !== "remove-variation") return;
+    const baseWeights =
+      lastPhase?.variationWeights ??
+      getEqualWeights(lastPhaseVariations.length, 4);
+    setRemoveVariationDraft((current) => {
+      const currentById = new Map(current.map((v) => [v.id, v]));
+      return lastPhaseVariations.map((v, i) => {
+        const existing = currentById.get(v.id);
+        const locked = v.status === "passThrough";
+        if (!existing) {
+          return {
+            id: v.id,
+            index: v.index,
+            name: v.name || `Variation ${v.index}`,
+            key: v.key || v.index + "",
+            originalWeight: baseWeights[i] ?? 0,
+            weight: baseWeights[i] ?? 0,
+            state: locked ? "passThrough" : "active",
+            locked,
+          };
+        }
+        return {
+          ...existing,
+          index: v.index,
+          name: v.name || `Variation ${v.index}`,
+          key: v.key || v.index + "",
+          originalWeight: existing.originalWeight ?? baseWeights[i] ?? 0,
+          weight: existing.weight ?? baseWeights[i] ?? 0,
+          state: locked ? "passThrough" : existing.state,
+          locked,
+        };
+      });
+    });
+  }, [changeType, lastPhase, lastPhaseVariations]);
+
+  useEffect(() => {
+    if (changeType !== "remove-variation") return;
+    setRemoveVariationDraft((current) => {
+      const next = current.map((v) => {
+        if (v.locked) return v;
+        if (
+          removeVariationMode === "same-phase-skip" &&
+          v.state === "removed"
+        ) {
+          return { ...v, state: "passThrough" as const };
+        }
+        if (
+          removeVariationMode === "new-phase-rerandomize" &&
+          v.state === "passThrough"
+        ) {
+          return { ...v, state: "removed" as const };
+        }
+        return v;
+      });
+
+      if (removeVariationMode === "same-phase-skip") {
+        return next.map((v) => ({
+          ...v,
+          weight: v.originalWeight,
+        }));
+      }
+
+      const remaining = next.filter((v) => v.state !== "removed");
+      const equal = getEqualWeights(remaining.length, 4);
+      let i = 0;
+      return next.map((v) => {
+        if (v.state === "removed") return { ...v, weight: 0 };
+        return { ...v, weight: equal[i++] ?? 0 };
+      });
+    });
+  }, [changeType, removeVariationMode]);
+
+  useEffect(() => {
+    if (changeType !== "remove-variation") return;
+    if (!removeVariationDraft.length) return;
+
+    const selected = removeVariationDraft.filter(
+      (v) =>
+        v.state === "passThrough" ||
+        (removeVariationMode === "new-phase-rerandomize" &&
+          v.state === "removed"),
+    );
+    if (!selected.length) {
+      form.setValue(
+        "variations",
+        lastPhase?.variations ??
+          lastPhaseVariations.map((v) => ({
+            id: v.id,
+            status: "active" as const,
+          })),
+      );
+      form.setValue(
+        "variationWeights",
+        lastPhase?.variationWeights ??
+          getEqualWeights(lastPhaseVariations.length, 4),
+      );
+      return;
+    }
+
+    if (removeVariationMode === "same-phase-skip") {
+      const nextVariations = removeVariationDraft.map((v) => ({
+        id: v.id,
+        status:
+          v.state === "passThrough"
+            ? ("passThrough" as const)
+            : ("active" as const),
+      }));
+
+      form.setValue("variations", nextVariations, { shouldDirty: true });
+      form.setValue(
+        "variationWeights",
+        removeVariationDraft.map((v) => v.weight),
+        {
+          shouldDirty: true,
+        },
+      );
+    } else {
+      const remaining = removeVariationDraft.filter(
+        (v) => v.state !== "removed",
+      );
+      const nextVariations = remaining.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      }));
+      const weights = remaining.map((v) => v.weight);
+
+      form.setValue("variations", nextVariations, { shouldDirty: true });
+      form.setValue("variationWeights", weights, {
+        shouldDirty: true,
+      });
+    }
+  }, [
+    changeType,
+    form,
+    lastPhaseVariations,
+    removeVariationDraft,
+    removeVariationMode,
+    lastPhase,
+  ]);
+
+  useEffect(() => {
     if (step !== lastStepNumber) {
       if (changeType === "phase") {
         setReleasePlan("new-phase");
+      } else if (changeType === "remove-variation") {
+        setReleasePlan(
+          removeVariationMode === "new-phase-rerandomize"
+            ? "new-phase"
+            : "same-phase-everyone",
+        );
       } else {
         setReleasePlan("");
       }
       setChangesConfirmed(false);
     }
-  }, [changeType, step, lastStepNumber, setReleasePlan]);
+  }, [changeType, step, lastStepNumber, removeVariationMode, setReleasePlan]);
 
   const onSubmit = form.handleSubmit(async (value) => {
     validateSavedGroupTargeting(value.savedGroups);
@@ -233,6 +393,10 @@ export default function EditTargetingModal({
           form={form}
           safeToEdit={true}
           conditionKey={conditionKey}
+          removeVariationMode={removeVariationMode}
+          setRemoveVariationMode={setRemoveVariationMode}
+          removeVariationDraft={removeVariationDraft}
+          setRemoveVariationDraft={setRemoveVariationDraft}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
       </DialogLayout>
@@ -347,6 +511,10 @@ export default function EditTargetingModal({
               safeToEdit={false}
               changeType={changeType}
               conditionKey={conditionKey}
+              removeVariationMode={removeVariationMode}
+              setRemoveVariationMode={setRemoveVariationMode}
+              removeVariationDraft={removeVariationDraft}
+              setRemoveVariationDraft={setRemoveVariationDraft}
               setPrerequisiteTargetingSdkIssues={
                 setPrerequisiteTargetingSdkIssues
               }
@@ -380,6 +548,9 @@ function ChangeTypeSelector({
   setChangeType: (changeType: ChangeType) => void;
 }) {
   const { namespaces } = useOrgSettings();
+  const removableVariations = getLatestPhaseVariations(experiment).filter(
+    (v) => v.status !== "passThrough",
+  );
 
   const options: RadioOptions = [
     { label: "Start a New Phase", value: "phase" },
@@ -395,6 +566,10 @@ function ChangeTypeSelector({
     { label: "Traffic Percent", value: "traffic" },
     ...(experiment.type !== "multi-armed-bandit"
       ? [{ label: "Variation Weights", value: "weights" }]
+      : []),
+    ...(experiment.type !== "multi-armed-bandit" &&
+    removableVariations.length > 2
+      ? [{ label: "Remove Variations", value: "remove-variation" }]
       : []),
     {
       label: "Advanced: multiple changes at once",
@@ -429,6 +604,10 @@ function TargetingForm({
   safeToEdit,
   changeType = "advanced",
   conditionKey,
+  removeVariationMode,
+  setRemoveVariationMode,
+  removeVariationDraft,
+  setRemoveVariationDraft,
   setPrerequisiteTargetingSdkIssues,
 }: {
   experiment: ExperimentInterfaceStringDates;
@@ -436,6 +615,12 @@ function TargetingForm({
   safeToEdit: boolean;
   changeType?: ChangeType;
   conditionKey: number;
+  removeVariationMode: RemoveVariationMode;
+  setRemoveVariationMode: (v: RemoveVariationMode) => void;
+  removeVariationDraft: RemoveVariationDraftVariation[];
+  setRemoveVariationDraft: React.Dispatch<
+    React.SetStateAction<RemoveVariationDraftVariation[]>
+  >;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
 }) {
   const hasLinkedChanges =
@@ -636,6 +821,15 @@ function TargetingForm({
                 : "Traffic Percentage & Variation Weights"
           }
           startEditingSplits={true}
+        />
+      )}
+
+      {changeType === "remove-variation" && (
+        <RemoveVariationsSection
+          variations={removeVariationDraft}
+          setVariations={setRemoveVariationDraft}
+          mode={removeVariationMode}
+          setMode={setRemoveVariationMode}
         />
       )}
     </div>

@@ -672,8 +672,15 @@ export function getFeatureDefinition({
             rule.key = exp.trackingKey;
             const phaseVariations = getLatestPhaseVariations(exp);
             rule.meta = includeExperimentNames
-              ? phaseVariations.map((v) => ({ key: v.key, name: v.name }))
-              : phaseVariations.map((v) => ({ key: v.key }));
+              ? phaseVariations.map((v) => ({
+                  key: v.key,
+                  name: v.name,
+                  ...(v.status === "passThrough" ? { passthrough: true } : {}),
+                }))
+              : phaseVariations.map((v) => ({
+                  key: v.key,
+                  ...(v.status === "passThrough" ? { passthrough: true } : {}),
+                }));
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
           }

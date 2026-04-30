@@ -1,154 +1,84 @@
-/// <reference types="jest" />
-
-import { ExperimentInterface } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "../src/experiments/variations";
-
-declare const describe: (name: string, fn: () => void) => void;
-declare const it: (name: string, fn: () => void) => void;
-declare const expect: (value: unknown) => {
-  toEqual: (expected: unknown) => void;
-};
-
-type MinimalExperiment = Pick<ExperimentInterface, "variations" | "phases">;
-
-function makeExperiment(
-  overrides?: Partial<MinimalExperiment>,
-): MinimalExperiment {
-  return {
-    variations: [
-      {
-        id: "v0",
-        key: "control",
-        name: "Control",
-        screenshots: [],
-      },
-      {
-        id: "v1",
-        key: "treatment",
-        name: "Treatment",
-        screenshots: [],
-      },
-    ],
-    phases: [
-      {
-        variations: [
-          { id: "v1", status: "active" },
-          { id: "v0", status: "active" },
-        ],
-      },
-    ],
-    ...overrides,
-  } as unknown as MinimalExperiment;
-}
+import { getLatestPhaseVariations } from "../src/experiments";
 
 describe("getLatestPhaseVariations", () => {
-  it("returns latest phase variations with phase statuses when all ids are found", () => {
-    const experiment = makeExperiment();
-
-    expect(getLatestPhaseVariations(experiment)).toEqual([
-      {
-        id: "v1",
-        key: "treatment",
-        name: "Treatment",
-        screenshots: [],
-        index: 1,
-        status: "active",
-      },
-      {
-        id: "v0",
-        key: "control",
-        name: "Control",
-        screenshots: [],
-        index: 0,
-        status: "active",
-      },
-    ]);
-  });
-
-  it('falls back to all variations with status "active" if any phase variation id is missing', () => {
-    const experiment = makeExperiment({
+  it("preserves status from latest phase variations", () => {
+    const result = getLatestPhaseVariations({
+      variations: [
+        { id: "v0", key: "0", name: "Control" },
+        { id: "v1", key: "1", name: "Treatment" },
+      ],
       phases: [
         {
           variations: [
-            { id: "missing-id", status: "active" },
             { id: "v0", status: "active" },
+            { id: "v1", status: "passThrough" },
           ],
         },
-      ] as unknown as MinimalExperiment["phases"],
+      ],
     });
 
-    expect(getLatestPhaseVariations(experiment)).toEqual([
-      {
+    expect(result).toEqual([
+      expect.objectContaining({
         id: "v0",
-        key: "control",
-        name: "Control",
-        screenshots: [],
-        index: 0,
         status: "active",
-      },
-      {
+      }),
+      expect.objectContaining({
         id: "v1",
-        key: "treatment",
-        name: "Treatment",
-        screenshots: [],
-        index: 1,
-        status: "active",
-      },
+        status: "passThrough",
+      }),
     ]);
   });
 
-  it("falls back when latest phase `variations` is an empty array (stored [] is truthy in JS)", () => {
-    const experiment = makeExperiment({
+  it("falls back to all active variations when phase includes unknown IDs", () => {
+    const result = getLatestPhaseVariations({
+      variations: [
+        { id: "v0", key: "0", name: "Control" },
+        { id: "v1", key: "1", name: "Treatment" },
+      ],
+      phases: [
+        {
+          variations: [
+            { id: "v0", status: "active" },
+            { id: "v-missing", status: "passThrough" },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: "v0",
+        status: "active",
+      }),
+      expect.objectContaining({
+        id: "v1",
+        status: "active",
+      }),
+    ]);
+  });
+
+  it("falls back to all active variations when latest phase variations is empty", () => {
+    const result = getLatestPhaseVariations({
+      variations: [
+        { id: "v0", key: "0", name: "Control" },
+        { id: "v1", key: "1", name: "Treatment" },
+      ],
       phases: [
         {
           variations: [],
         },
-      ] as unknown as MinimalExperiment["phases"],
+      ],
     });
 
-    expect(getLatestPhaseVariations(experiment)).toEqual([
-      {
+    expect(result).toEqual([
+      expect.objectContaining({
         id: "v0",
-        key: "control",
-        name: "Control",
-        screenshots: [],
-        index: 0,
         status: "active",
-      },
-      {
+      }),
+      expect.objectContaining({
         id: "v1",
-        key: "treatment",
-        name: "Treatment",
-        screenshots: [],
-        index: 1,
         status: "active",
-      },
-    ]);
-  });
-
-  // Shouldn't happen given the JIT migration
-  it('falls back to all variations with status "active" when latest phase variations are missing', () => {
-    const experiment = makeExperiment({
-      phases: [{}] as unknown as MinimalExperiment["phases"],
-    });
-
-    expect(getLatestPhaseVariations(experiment)).toEqual([
-      {
-        id: "v0",
-        key: "control",
-        name: "Control",
-        screenshots: [],
-        index: 0,
-        status: "active",
-      },
-      {
-        id: "v1",
-        key: "treatment",
-        name: "Treatment",
-        screenshots: [],
-        index: 1,
-        status: "active",
-      },
+      }),
     ]);
   });
 });

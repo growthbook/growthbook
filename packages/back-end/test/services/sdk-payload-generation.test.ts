@@ -467,6 +467,93 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
 });
 
 describe("SDK payload generation (scenario-specific)", () => {
+  it("includes passthrough metadata from passThrough experiment phases", async () => {
+    const ctx = minimalContext();
+    const exp: ExperimentInterface = {
+      id: "exp-pass",
+      organization: "org-1",
+      project: "p1",
+      name: "Passthrough Exp",
+      hypothesis: "",
+      status: "running",
+      hashVersion: 2,
+      phases: [
+        {
+          phase: "main",
+          coverage: 1,
+          variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "v0", status: "active" },
+            { id: "v1", status: "passThrough" },
+          ],
+        },
+      ],
+      variations: [
+        { id: "v0", key: "0", name: "Control" },
+        { id: "v1", key: "1", name: "Treatment" },
+      ],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      trackingKey: "pass-key",
+      archived: false,
+      hasVisualChangesets: true,
+    } as ExperimentInterface;
+
+    const feature: FeatureInterface = {
+      id: "f-pass",
+      project: "p1",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      defaultValue: true,
+      organization: "org-1",
+      owner: "",
+      valueType: "boolean",
+      archived: false,
+      description: "",
+      version: 1,
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              id: "rule-pass",
+              enabled: true,
+              experimentId: "exp-pass",
+              variations: [
+                { variationId: "v0", value: "v0", key: "0", name: "Control" },
+                { variationId: "v1", value: "v1", key: "1", name: "Treatment" },
+              ],
+            },
+          ],
+        },
+      },
+    } as FeatureInterface;
+
+    const out = await buildSDKPayloadForConnection({
+      context: ctx,
+      connection: {
+        capabilities: ["looseUnmarshalling", "bucketingV2"],
+        environment: "production",
+        projects: ["p1"],
+        includeExperimentNames: true,
+      },
+      data: minimalRawData({
+        features: [feature],
+        experimentMap: new Map([["exp-pass", exp]]),
+      }),
+    });
+
+    const rules = out.features["f-pass"]?.rules as
+      | Record<string, unknown>[]
+      | undefined;
+    expect(rules?.length).toBeGreaterThan(0);
+    expect(rules?.[0]?.meta).toEqual([
+      { key: "0", name: "Control" },
+      { key: "1", name: "Treatment", passthrough: true },
+    ]);
+  });
+
   it("holdout definitions merged when prerequisites capability", async () => {
     const ctx = minimalContext();
     const holdout: HoldoutInterface = {
