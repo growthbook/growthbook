@@ -361,6 +361,12 @@ describe("autoAttributesPlugin", () => {
       });
     });
 
+    afterAll(() => {
+      if (originalCookieDescriptor) {
+        Object.defineProperty(document, "cookie", originalCookieDescriptor);
+      }
+    });
+
     beforeEach(() => {
       cookieSetCalls = [];
     });
@@ -533,7 +539,7 @@ describe("autoAttributesPlugin", () => {
     });
 
     it("respects cookie settings when persisting via growthbookpersist event", () => {
-      let localCookieSetCalls: string[] = [];
+      const localCookieSetCalls: string[] = [];
       const originalCookieDescriptor = Object.getOwnPropertyDescriptor(
         document,
         "cookie",
