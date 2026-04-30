@@ -16,10 +16,13 @@ import {
 import { formatAIRateLimitRetryMessage } from "shared/ai";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -534,23 +537,23 @@ export default function FactMetricPage() {
           experiments.
         </div>
       )}
-      <div className="row mb-3">
-        <div className="col-auto">
-          <h1 className="mb-0">
+      <Flex align="start" justify="between" gap="2" mb="2">
+        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+          <Heading size="x-large" as="h1" mb="0">
             <MetricName id={factMetric.id} officialBadgePosition="right" />
-          </h1>
-        </div>
-        <div className="ml-auto mr-2">
+          </Heading>
+        </Flex>
+        <Flex align="center" pr="2">
           <DropdownMenu
             trigger={
               <IconButton
                 variant="ghost"
                 color="gray"
                 radius="full"
-                size="3"
+                size="2"
                 highContrast
               >
-                <BsThreeDotsVertical size={18} />
+                <BsThreeDotsVertical size={16} />
               </IconButton>
             }
             menuPlacement="end"
@@ -617,67 +620,86 @@ export default function FactMetricPage() {
               </DropdownMenuItem>
             )}
           </DropdownMenu>
-        </div>
-      </div>
-      <div className="row mb-4">
-        {projects.length > 0 ? (
-          <div className="col-auto">
-            Projects:{" "}
-            {factMetric.projects.length > 0 ? (
-              factMetric.projects.map((p) => (
-                <span className="badge badge-secondary mr-1" key={p}>
-                  {getProjectById(p)?.name || p}
-                </span>
-              ))
-            ) : (
-              <em className="mr-1">All Projects</em>
-            )}
+        </Flex>
+      </Flex>
+      <Flex gap="4" align="center" wrap="wrap">
+        {projects.length > 0 && (
+          <Metadata
+            label="Projects"
+            value={
+              <Flex gap="1" align="center">
+                {factMetric.projects.length > 0 ? (
+                  <Text weight="regular" color="text-mid">
+                    {factMetric.projects
+                      .map((p) => getProjectById(p)?.name || p)
+                      .join(", ")}
+                  </Text>
+                ) : (
+                  <Text weight="regular" color="text-mid" fontStyle="italic">
+                    All Projects
+                  </Text>
+                )}
+                {canEdit && (
+                  <Link
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditProjectsOpen(true);
+                    }}
+                  >
+                    <GBEdit />
+                  </Link>
+                )}
+              </Flex>
+            }
+          />
+        )}
+        <Metadata
+          label="Owner"
+          value={
+            <Flex gap="1" align="center">
+              <Text weight="regular" color="text-mid">
+                {getOwnerDisplay(factMetric.owner) || "None"}
+              </Text>
+              {canEdit && (
+                <Link onClick={() => setEditOwnerModal(true)}>
+                  <GBEdit />
+                </Link>
+              )}
+            </Flex>
+          }
+        />
+        <Metadata
+          label="Data source"
+          value={
+            <Link
+              href={`/datasources/${factMetric.datasource}`}
+              className="font-weight-bold"
+            >
+              {datasource?.name || "Unknown"}
+            </Link>
+          }
+        />
+      </Flex>
+      <Box mt="3" mb="3">
+        {factMetric.tags?.length || canEdit ? (
+          <Flex align="center" gap="1">
+            <Text weight="medium">Tags:</Text>
+            {factMetric.tags?.length ? (
+              <SortedTags
+                tags={factMetric.tags}
+                useFlex
+                shouldShowEllipsis={false}
+                {...tagLinkProps("metrics")}
+              />
+            ) : null}
             {canEdit && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditProjectsOpen(true);
-                }}
-              >
+              <Link onClick={() => setEditTagsModal(true)}>
                 <GBEdit />
-              </a>
+              </Link>
             )}
-          </div>
+          </Flex>
         ) : null}
-        <div className="col-auto">
-          Tags:{" "}
-          <SortedTags tags={factMetric.tags} {...tagLinkProps("metrics")} />
-          {canEdit && (
-            <a
-              className="ml-1 cursor-pointer"
-              onClick={() => setEditTagsModal(true)}
-            >
-              <GBEdit />
-            </a>
-          )}
-        </div>
-        <div className="col-auto">
-          Owner: {getOwnerDisplay(factMetric.owner) || "None"}
-          {canEdit && (
-            <a
-              className="ml-1 cursor-pointer"
-              onClick={() => setEditOwnerModal(true)}
-            >
-              <GBEdit />
-            </a>
-          )}
-        </div>
-        <div className="col-auto">
-          Data source:{" "}
-          <Link
-            href={`/datasources/${factMetric.datasource}`}
-            className="font-weight-bold"
-          >
-            {datasource?.name || "Unknown"}
-          </Link>
-        </div>
-      </div>
+      </Box>
 
       <div className="row">
         <div className="col-12 col-md-8">
@@ -776,11 +798,7 @@ export default function FactMetricPage() {
                   ml="2"
                 />
               </h4>
-              <Text
-                as="p"
-                className="mb-2"
-                style={{ color: "var(--color-text-mid)" }}
-              >
+              <Text as="p" mb="2" color="text-mid">
                 Choose metric breakdowns to automatically analyze in your
                 experiments.{" "}
                 <DocLink docSection="autoSlices">

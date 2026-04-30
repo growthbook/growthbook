@@ -135,6 +135,26 @@ describe("updateMaterializedColumns", () => {
     );
   });
 
+  it("does not call ClickHouse when managed warehouse has not been provisioned yet", async () => {
+    const unprovisionedDs = {
+      ...datasource,
+      settings: { hasBeenProvisioned: false },
+    } as unknown as GrowthbookClickhouseDataSource;
+
+    await updateMaterializedColumns({
+      context,
+      datasource: unprovisionedDs,
+      columnsToAdd: [],
+      columnsToDelete: [],
+      columnsToRename: [],
+      finalColumns: [],
+      originalColumns: [],
+    });
+
+    expect(mockLockDataSource).not.toHaveBeenCalled();
+    expect(mockCommand).not.toHaveBeenCalled();
+  });
+
   it("restores deleted rename destination and tombstones source when destination name already exists", async () => {
     const ft = makeFactTable([
       makeFactTableColumn("userId"),

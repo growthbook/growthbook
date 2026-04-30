@@ -45,7 +45,7 @@ export function getExperimentFactMetricsQuery(
     applyMetricOverrides(m.metric, settings);
   });
   // Replace any placeholders in the user defined dimension SQL
-  processDimensions(params.dimensions, settings, activationMetric);
+  processDimensions(dialect, params.dimensions, settings, activationMetric);
 
   const factTableMap = params.factTableMap;
 

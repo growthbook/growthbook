@@ -62,7 +62,7 @@ export function getExperimentMetricQuery(
   denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
 
   // Replace any placeholders in the user defined dimension SQL
-  processDimensions(params.dimensions, settings, activationMetric);
+  processDimensions(dialect, params.dimensions, settings, activationMetric);
 
   const denominator =
     denominatorMetrics.length > 0

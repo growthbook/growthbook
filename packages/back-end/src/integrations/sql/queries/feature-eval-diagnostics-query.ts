@@ -17,9 +17,13 @@ export function getFeatureEvalDiagnosticsQuery(
     ? datasource.settings.queries.featureUsage[0].query
     : "";
 
-  const compiledFeatureEvalQuery = compileSqlTemplate(featureEvalQuery, {
-    startDate: oneWeekAgo,
-  });
+  const compiledFeatureEvalQuery = compileSqlTemplate(
+    featureEvalQuery,
+    {
+      startDate: oneWeekAgo,
+    },
+    dialect,
+  );
 
   return format(
     `-- Feature Evaluation Diagnostics Query

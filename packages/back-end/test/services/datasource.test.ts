@@ -59,7 +59,7 @@ describe("testQueryValidity", () => {
       expect(result).toBe("No rows returned");
       expect(
         mockDataSourceIntegration.getTestValidityQuery,
-      ).toHaveBeenCalledWith(query.query, undefined);
+      ).toHaveBeenCalledWith(query.query, undefined, undefined, "timestamp");
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
@@ -97,7 +97,7 @@ describe("testQueryValidity", () => {
       );
       expect(
         mockDataSourceIntegration.getTestValidityQuery,
-      ).toHaveBeenCalledWith(query.query, undefined);
+      ).toHaveBeenCalledWith(query.query, undefined, undefined, "timestamp");
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
@@ -137,7 +137,7 @@ describe("testQueryValidity", () => {
       expect(result).toBeUndefined();
       expect(
         mockDataSourceIntegration.getTestValidityQuery,
-      ).toHaveBeenCalledWith(query.query, undefined);
+      ).toHaveBeenCalledWith(query.query, undefined, undefined, "timestamp");
       expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
         "SELECT * FROM experiments",
         undefined,
@@ -253,6 +253,8 @@ describe("testQueryValidity", () => {
     expect(mockDataSourceIntegration.getTestValidityQuery).toHaveBeenCalledWith(
       query.query,
       undefined,
+      undefined,
+      "timestamp",
     );
     expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
       "SELECT * FROM experiments",

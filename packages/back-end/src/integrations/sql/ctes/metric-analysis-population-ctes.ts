@@ -32,10 +32,14 @@ export function getMetricAnalysisPopulationCTEs(
 
     return `
       __rawExperiment AS (
-        ${compileSqlTemplate(exposureQuery.query, {
-          startDate: settings.startDate,
-          endDate: settings.endDate ?? undefined,
-        })}
+        ${compileSqlTemplate(
+          exposureQuery.query,
+          {
+            startDate: settings.startDate,
+            endDate: settings.endDate ?? undefined,
+          },
+          dialect,
+        )}
       ),
       __population AS (
         -- All recent users
