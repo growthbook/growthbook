@@ -263,6 +263,25 @@ export async function countDocuments(
   return FeatureRevisionModel.countDocuments(filter);
 }
 
+/** Returns the version/status/rules of all non-discarded revisions for a feature.
+ * Used by syncFeatureExperimentLinkages callers that don't already have the
+ * Mongoose model in scope. */
+export async function getNonDiscardedRevisionSummaries(
+  organization: string,
+  featureId: string,
+): Promise<Pick<FeatureRevisionInterface, "version" | "status" | "rules">[]> {
+  const docs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    status: { $nin: ["discarded"] },
+  }).select("version status rules");
+  return docs.map((d) => ({
+    version: d.version,
+    status: d.status,
+    rules: d.rules,
+  }));
+}
+
 export async function getMinimalRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,

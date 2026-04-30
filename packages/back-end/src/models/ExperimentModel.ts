@@ -1453,7 +1453,9 @@ export async function unlinkFeatureFromExperiment(
 
   await ExperimentModel.updateOne(
     { id: experimentId, organization: context.org.id },
-    { $pull: { linkedFeatures: featureId, pendingFeatureDrafts: { featureId } } },
+    {
+      $pull: { linkedFeatures: featureId, pendingFeatureDrafts: { featureId } },
+    },
   );
 
   onExperimentUpdate({
@@ -1513,18 +1515,17 @@ export async function addPendingFeatureDraftToExperiment(
   featureId: string,
   revisionVersion: number,
 ) {
-  const experiment = await findExperiment({ experimentId, context });
-  if (!experiment) return;
-
-  const others = (experiment.pendingFeatureDrafts || []).filter(
-    (e) => e.featureId !== featureId,
-  );
-  const next = [...others, { featureId, revisionVersion }];
-
-  await ExperimentModel.updateOne(
-    { id: experimentId, organization: context.org.id },
-    { $set: { pendingFeatureDrafts: next } },
-  );
+  // Upsert via two sequential ops: pull any existing entry for this featureId,
+  // then push the new one. Not a single-document atomic operation, but the
+  // window between the two writes is tiny and syncFeatureExperimentLinkages
+  // self-heals any duplicate that slips through.
+  const filter = { id: experimentId, organization: context.org.id };
+  await ExperimentModel.updateOne(filter, {
+    $pull: { pendingFeatureDrafts: { featureId } },
+  });
+  await ExperimentModel.updateOne(filter, {
+    $push: { pendingFeatureDrafts: { featureId, revisionVersion } },
+  });
 }
 
 // Removes a pending draft entry (published or discarded).
@@ -1534,21 +1535,12 @@ export async function removePendingFeatureDraftFromExperiment(
   featureId: string,
   revisionVersion?: number,
 ) {
-  const experiment = await findExperiment({ experimentId, context });
-  if (!experiment) return;
-  if (!experiment.pendingFeatureDrafts?.length) return;
-
-  const next = experiment.pendingFeatureDrafts.filter((e) =>
-    revisionVersion != null
-      ? !(e.featureId === featureId && e.revisionVersion === revisionVersion)
-      : e.featureId !== featureId,
-  );
-
-  if (next.length === experiment.pendingFeatureDrafts.length) return;
+  const pullFilter =
+    revisionVersion != null ? { featureId, revisionVersion } : { featureId };
 
   await ExperimentModel.updateOne(
     { id: experimentId, organization: context.org.id },
-    { $set: { pendingFeatureDrafts: next } },
+    { $pull: { pendingFeatureDrafts: pullFilter } },
   );
 }
 

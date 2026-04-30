@@ -4,6 +4,7 @@ import {
   getMatchingRules,
   MatchingRule,
   resetReviewOnChange,
+  checkIfRevisionNeedsReview,
 } from "shared/util";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -34,7 +35,6 @@ import {
   getLiveAndBaseRevisionsForFeature,
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
-import { checkIfRevisionNeedsReview } from "shared/util";
 
 export type ExperimentFeatureUpdatePlan = {
   feature: FeatureInterface;
@@ -281,10 +281,24 @@ export type PendingDraftPublishResult = {
   failed: { featureId: string; revisionVersion: number; reason: string }[];
 };
 
+type ResolvedDraft = {
+  featureId: string;
+  revisionVersion: number;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  mergeResult: ReturnType<typeof autoMerge> & { success: true };
+};
+
 // Auto-publish each `experiment.pendingFeatureDrafts` entry that still
 // references an active draft. Stale entries are pruned silently.
-// Returns both successful publishes and failures; callers decide whether to
-// treat failures as blocking (UI start) or best-effort (REST API).
+//
+// Two-phase to avoid partial publishes on detectable merge conflicts:
+//   Phase 1 — resolve every draft and run autoMerge on all of them. If any
+//              fail the merge check, return immediately with no publishes.
+//   Phase 2 — all merge checks passed; publish each draft in turn.
+//
+// Returns { published, failed }; callers decide whether to treat failures as
+// blocking (UI start) or best-effort (REST API).
 export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -293,89 +307,113 @@ export async function publishPendingFeatureDraftsForExperiment(
   if (!drafts.length) return { published: [], failed: [] };
 
   const orgEnvIds = context.environments;
-  const published: { featureId: string; revisionVersion: number }[] = [];
   const failed: {
     featureId: string;
     revisionVersion: number;
     reason: string;
   }[] = [];
 
+  // ── Phase 1: resolve + merge-check all drafts ─────────────────────────────
+  const ready: ResolvedDraft[] = [];
+
   for (const { featureId, revisionVersion } of drafts) {
+    const feature = await getFeature(context, featureId);
+    if (!feature) {
+      await removePendingFeatureDraftFromExperiment(
+        context,
+        experiment.id,
+        featureId,
+        revisionVersion,
+      );
+      continue;
+    }
+
+    const revision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: revisionVersion,
+    });
+    if (
+      !revision ||
+      revision.status === "published" ||
+      revision.status === "discarded"
+    ) {
+      await removePendingFeatureDraftFromExperiment(
+        context,
+        experiment.id,
+        featureId,
+        revisionVersion,
+      );
+      continue;
+    }
+
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision,
+    });
+
+    // Skip if approval is required but the draft isn't approved yet.
+    const requiresReview = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision: base,
+      revision,
+      allEnvironments: context.environments,
+      settings: context.org.settings,
+      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    });
+    if (requiresReview && revision.status !== "approved") {
+      logger.warn(
+        { experimentId: experiment.id, featureId, revisionVersion },
+        "Skipping auto-publish of pending feature draft: approval required but not yet approved",
+      );
+      continue;
+    }
+
+    const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+    if (!mergeResult.success) {
+      logger.warn(
+        {
+          experimentId: experiment.id,
+          featureId,
+          revisionVersion,
+          conflicts: mergeResult.conflicts,
+        },
+        "Cannot auto-publish pending feature draft due to merge conflicts",
+      );
+      failed.push({ featureId, revisionVersion, reason: "merge-conflict" });
+      continue;
+    }
+
+    ready.push({
+      featureId,
+      revisionVersion,
+      feature,
+      revision,
+      mergeResult: mergeResult as ResolvedDraft["mergeResult"],
+    });
+  }
+
+  // If any draft failed the pre-flight, return without publishing anything —
+  // prevents a partial-publish state where some rules go live but the
+  // experiment doesn't start.
+  if (failed.length > 0) {
+    return { published: [], failed };
+  }
+
+  // ── Phase 2: publish all pre-flighted drafts ──────────────────────────────
+  const published: { featureId: string; revisionVersion: number }[] = [];
+
+  for (const {
+    featureId,
+    revisionVersion,
+    feature,
+    revision,
+    mergeResult,
+  } of ready) {
     try {
-      const feature = await getFeature(context, featureId);
-      if (!feature) {
-        await removePendingFeatureDraftFromExperiment(
-          context,
-          experiment.id,
-          featureId,
-          revisionVersion,
-        );
-        continue;
-      }
-
-      const revision = await getRevision({
-        context,
-        organization: feature.organization,
-        featureId: feature.id,
-        feature,
-        version: revisionVersion,
-      });
-      if (
-        !revision ||
-        revision.status === "published" ||
-        revision.status === "discarded"
-      ) {
-        await removePendingFeatureDraftFromExperiment(
-          context,
-          experiment.id,
-          featureId,
-          revisionVersion,
-        );
-        continue;
-      }
-
-      const { live, base } = await getLiveAndBaseRevisionsForFeature({
-        context,
-        feature,
-        revision,
-      });
-
-      // Skip if approval is required but the draft isn't approved yet.
-      const requiresReview = checkIfRevisionNeedsReview({
-        feature,
-        baseRevision: base,
-        revision,
-        allEnvironments: context.environments,
-        settings: context.org.settings,
-        requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-      });
-      if (requiresReview && revision.status !== "approved") {
-        logger.warn(
-          { experimentId: experiment.id, featureId, revisionVersion },
-          "Skipping auto-publish of pending feature draft: approval required but not yet approved",
-        );
-        continue;
-      }
-
-      const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
-      if (!mergeResult.success) {
-        logger.warn(
-          {
-            experimentId: experiment.id,
-            featureId,
-            revisionVersion,
-            conflicts: mergeResult.conflicts,
-          },
-          "Cannot auto-publish pending feature draft due to merge conflicts",
-        );
-        failed.push({
-          featureId,
-          revisionVersion,
-          reason: "merge-conflict",
-        });
-        continue;
-      }
-
       await publishRevision(
         context,
         feature,
@@ -383,7 +421,7 @@ export async function publishPendingFeatureDraftsForExperiment(
         mergeResult.result,
         `Experiment "${experiment.name}" started`,
       );
-      // publishRevision sweeps via experiment-ref rules; cover the no-rules edge case here.
+      // publishRevision sweeps via experiment-ref rules; cover the no-rules edge case.
       await removePendingFeatureDraftFromExperiment(
         context,
         experiment.id,
@@ -393,19 +431,10 @@ export async function publishPendingFeatureDraftsForExperiment(
       published.push({ featureId, revisionVersion });
     } catch (err) {
       logger.error(
-        {
-          err,
-          experimentId: experiment.id,
-          featureId,
-          revisionVersion,
-        },
+        { err, experimentId: experiment.id, featureId, revisionVersion },
         "Failed to auto-publish pending feature draft on experiment start",
       );
-      failed.push({
-        featureId,
-        revisionVersion,
-        reason: "publish-error",
-      });
+      failed.push({ featureId, revisionVersion, reason: "publish-error" });
     }
   }
 

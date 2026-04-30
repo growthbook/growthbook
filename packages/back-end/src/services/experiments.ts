@@ -3985,143 +3985,144 @@ export async function getLinkedFeatureInfo(
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;
 
-  const linkedFeatureInfo = await Promise.all(features.map(async (feature) => {
-    const revisions = revisionsByFeatureId[feature.id] || [];
+  const linkedFeatureInfo = await Promise.all(
+    features.map(async (feature) => {
+      const revisions = revisionsByFeatureId[feature.id] || [];
 
-    const liveMatches = getMatchingRules(feature, filter, environments);
+      const liveMatches = getMatchingRules(feature, filter, environments);
 
-    let matchedDraftRevision: (typeof revisions)[0] | undefined;
-    const draftMatches = (() => {
-      for (const r of revisions.filter((r) =>
-        DRAFT_REVISION_STATUSES.includes(r.status),
-      )) {
-        const m = getMatchingRules(feature, filter, environments, r);
-        if (m.length > 0) {
-          matchedDraftRevision = r;
-          return m;
+      let matchedDraftRevision: (typeof revisions)[0] | undefined;
+      const draftMatches = (() => {
+        for (const r of revisions.filter((r) =>
+          DRAFT_REVISION_STATUSES.includes(r.status),
+        )) {
+          const m = getMatchingRules(feature, filter, environments, r);
+          if (m.length > 0) {
+            matchedDraftRevision = r;
+            return m;
+          }
+        }
+        return [];
+      })();
+
+      const lockedMatches =
+        revisions
+          .filter(
+            (r) => r.status === "published" && r.version !== feature.version,
+          )
+          .sort((a, b) => b.version - a.version)
+          .map((r) => getMatchingRules(feature, filter, environments, r))
+          .filter((matches) => matches.length > 0)[0] || [];
+
+      let state: LinkedFeatureState = "discarded";
+      let matches: MatchingRule[] = [];
+      if (feature.archived) {
+        state = "archived";
+      } else if (liveMatches.length > 0) {
+        state = "live";
+        matches = liveMatches;
+      } else if (draftMatches.length > 0) {
+        state = "draft";
+        matches = draftMatches;
+      } else if (lockedMatches.length > 0) {
+        state = "locked";
+        matches = lockedMatches;
+      }
+
+      // Feature-scope approval check: requires review AND draft not yet approved.
+      let pendingApproval: boolean | undefined;
+      if (state === "draft" && matchedDraftRevision) {
+        const requiresReviews = context.org.settings?.requireReviews;
+        const requireApprovalsLicensed =
+          context.hasPremiumFeature("require-approvals");
+        const reviewSetting = requireApprovalsLicensed
+          ? Array.isArray(requiresReviews)
+            ? getReviewSetting(requiresReviews, feature)
+            : undefined
+          : undefined;
+        const reviewRequired = requireApprovalsLicensed
+          ? requiresReviews === true ||
+            (!!reviewSetting && reviewSetting.requireReviewOn)
+          : false;
+        if (reviewRequired) {
+          pendingApproval = true;
         }
       }
-      return [];
-    })();
 
-    const lockedMatches =
-      revisions
-        .filter(
-          (r) => r.status === "published" && r.version !== feature.version,
-        )
-        .sort((a, b) => b.version - a.version)
-        .map((r) => getMatchingRules(feature, filter, environments, r))
-        .filter((matches) => matches.length > 0)[0] || [];
-
-    let state: LinkedFeatureState = "discarded";
-    let matches: MatchingRule[] = [];
-    if (feature.archived) {
-      state = "archived";
-    } else if (liveMatches.length > 0) {
-      state = "live";
-      matches = liveMatches;
-    } else if (draftMatches.length > 0) {
-      state = "draft";
-      matches = draftMatches;
-    } else if (lockedMatches.length > 0) {
-      state = "locked";
-      matches = lockedMatches;
-    }
-
-    // Feature-scope approval check: requires review AND draft not yet approved.
-    let pendingApproval: boolean | undefined;
-    if (state === "draft" && matchedDraftRevision) {
-      const requiresReviews = context.org.settings?.requireReviews;
-      const requireApprovalsLicensed = context.hasPremiumFeature(
-        "require-approvals",
-      );
-      const reviewSetting = requireApprovalsLicensed
-        ? Array.isArray(requiresReviews)
-          ? getReviewSetting(requiresReviews, feature)
-          : undefined
-        : undefined;
-      const reviewRequired = requireApprovalsLicensed
-        ? requiresReviews === true ||
-          (!!reviewSetting && reviewSetting.requireReviewOn)
-        : false;
-      if (reviewRequired) {
-        pendingApproval = true;
-      }
-    }
-
-    // Merge-conflict detection: same autoMerge check used on the FF detail
-    // page to gate the publish CTA. Requires the live + base revisions, which
-    // are NOT in the active-drafts-only revisionsByFeatureId map, so we fetch
-    // them separately — mirroring publishPendingFeatureDraftsForExperiment.
-    let hasMergeConflict: boolean | undefined;
-    if (state === "draft" && matchedDraftRevision) {
-      try {
-        const { live, base } = await getLiveAndBaseRevisionsForFeature({
-          context,
-          feature,
-          revision: matchedDraftRevision,
-        });
-        const mergeResult = autoMerge(
-          liveRevisionFromFeature(live, feature),
-          fillRevisionFromFeature(base, feature),
-          matchedDraftRevision,
-          environments,
-          {},
-        );
-        if (!mergeResult.success) {
-          hasMergeConflict = true;
+      // Merge-conflict detection: same autoMerge check used on the FF detail
+      // page to gate the publish CTA. Requires the live + base revisions, which
+      // are NOT in the active-drafts-only revisionsByFeatureId map, so we fetch
+      // them separately — mirroring publishPendingFeatureDraftsForExperiment.
+      let hasMergeConflict: boolean | undefined;
+      if (state === "draft" && matchedDraftRevision) {
+        try {
+          const { live, base } = await getLiveAndBaseRevisionsForFeature({
+            context,
+            feature,
+            revision: matchedDraftRevision,
+          });
+          const mergeResult = autoMerge(
+            liveRevisionFromFeature(live, feature),
+            fillRevisionFromFeature(base, feature),
+            matchedDraftRevision,
+            environments,
+            {},
+          );
+          if (!mergeResult.success) {
+            hasMergeConflict = true;
+          }
+        } catch (e) {
+          logger.warn(
+            { featureId: feature.id, err: e },
+            "[getLinkedFeatureInfo] failed to check merge conflicts",
+          );
         }
-      } catch (e) {
-        logger.warn(
-          { featureId: feature.id, err: e },
-          "[getLinkedFeatureInfo] failed to check merge conflicts",
-        );
       }
-    }
 
-    const uniqueValues: Set<string> = new Set(
-      matches.map((m) =>
-        JSON.stringify(
-          (m.rule as ExperimentRefRule).variations.sort((a, b) =>
-            b.variationId.localeCompare(a.variationId),
+      const uniqueValues: Set<string> = new Set(
+        matches.map((m) =>
+          JSON.stringify(
+            [...(m.rule as ExperimentRefRule).variations].sort((a, b) =>
+              b.variationId.localeCompare(a.variationId),
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    const environmentStates: Record<string, LinkedFeatureEnvState> = {};
-    environments.forEach((env) => (environmentStates[env] = "missing"));
-    matches.forEach((match) => {
-      if (!match.environmentEnabled) {
-        environmentStates[match.environmentId] = "disabled-env";
-      } else if (
-        match.rule.enabled === false &&
-        environmentStates[match.environmentId] !== "active"
-      ) {
-        environmentStates[match.environmentId] = "disabled-rule";
-      } else if (match.rule.enabled !== false) {
-        environmentStates[match.environmentId] = "active";
-      }
-    });
+      const environmentStates: Record<string, LinkedFeatureEnvState> = {};
+      environments.forEach((env) => (environmentStates[env] = "missing"));
+      matches.forEach((match) => {
+        if (!match.environmentEnabled) {
+          environmentStates[match.environmentId] = "disabled-env";
+        } else if (
+          match.rule.enabled === false &&
+          environmentStates[match.environmentId] !== "active"
+        ) {
+          environmentStates[match.environmentId] = "disabled-rule";
+        } else if (match.rule.enabled !== false) {
+          environmentStates[match.environmentId] = "active";
+        }
+      });
 
-    const info: LinkedFeatureInfo = {
-      feature,
-      state,
-      environmentStates,
-      values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
-      valuesFrom: matches[0]?.environmentId || "",
-      rulesAbove: matches.some((m) => m.i > 0),
-      inconsistentValues: uniqueValues.size > 1,
-      ...(pendingApproval !== undefined && { pendingApproval }),
-      ...(matchedDraftRevision && {
-        draftRevisionVersion: matchedDraftRevision.version,
-        draftRevisionStatus: matchedDraftRevision.status,
-      }),
-      ...(hasMergeConflict !== undefined && { hasMergeConflict }),
-    };
+      const info: LinkedFeatureInfo = {
+        feature,
+        state,
+        environmentStates,
+        values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
+        valuesFrom: matches[0]?.environmentId || "",
+        rulesAbove: matches.some((m) => m.i > 0),
+        inconsistentValues: uniqueValues.size > 1,
+        ...(pendingApproval !== undefined && { pendingApproval }),
+        ...(matchedDraftRevision && {
+          draftRevisionVersion: matchedDraftRevision.version,
+          draftRevisionStatus: matchedDraftRevision.status,
+        }),
+        ...(hasMergeConflict !== undefined && { hasMergeConflict }),
+      };
 
-    return info;
-  }));
+      return info;
+    }),
+  );
 
   return linkedFeatureInfo;
 }

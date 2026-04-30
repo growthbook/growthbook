@@ -23,7 +23,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 type Props = {
   info: LinkedFeatureInfo;
   experiment: ExperimentInterfaceStringDates;
-  open?: boolean;
   onReAdd?: () => void;
   mutate?: () => void;
 };
@@ -38,21 +37,25 @@ export default function LinkedFeatureFlag({
   const permissionsUtil = usePermissionsUtil();
   const [removing, setRemoving] = useState(false);
 
-  // canEdit: basic experiment edit permission (no status restriction).
+  // canViewExperimentModal is the permission gate for experiment mutations
+  // (covers update, not just view despite the name).
   const canEdit =
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project);
 
-  // canAddLinkedChanges: edit permission + experiment must be in draft.
+  // canAddLinkedChanges: same gate + experiment must still be in draft.
   const canAddLinkedChanges = canEdit && experiment.status === "draft";
 
   const handleRemove = async () => {
     if (!confirm("Remove this feature flag from the experiment?")) return;
     setRemoving(true);
     try {
-      await apiCall(`/experiment/${experiment.id}/linked-feature/${info.feature.id}`, {
-        method: "DELETE",
-      });
+      await apiCall(
+        `/experiment/${experiment.id}/linked-feature/${info.feature.id}`,
+        {
+          method: "DELETE",
+        },
+      );
       mutate?.();
     } finally {
       setRemoving(false);
@@ -146,7 +149,10 @@ export default function LinkedFeatureFlag({
           status="error"
           my="4"
           icon={
-            <Box position="relative" style={{ width: "1.2em", height: "1.2em" }}>
+            <Box
+              position="relative"
+              style={{ width: "1.2em", height: "1.2em" }}
+            >
               <PiGitMerge
                 style={{
                   position: "absolute",
@@ -166,8 +172,8 @@ export default function LinkedFeatureFlag({
             </Box>
           }
         >
-          This draft has a <strong>merge conflict</strong> with the live
-          revision and cannot be auto-published.{" "}
+          This feature draft has a <strong>merge conflict</strong> and cannot be
+          auto-published.{" "}
           <Link
             href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
             target="_blank"
@@ -178,7 +184,11 @@ export default function LinkedFeatureFlag({
         </Callout>
       )}
       {info.state === "draft" && !info.hasMergeConflict && (
-        <Callout status="info" my="4" icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}>
+        <Callout
+          status="info"
+          my="4"
+          icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}
+        >
           {info.pendingApproval ? (
             <>
               Rule changes for this feature are in a{" "}
@@ -206,9 +216,9 @@ export default function LinkedFeatureFlag({
             </>
           ) : (
             <>
-              Rule changes for this feature are in a{" "}
-              <strong>draft</strong> revision. They will be auto-published when
-              this experiment starts, or you can publish manually from the{" "}
+              Rule changes for this feature are in a <strong>draft</strong>{" "}
+              revision. They will be auto-published when this experiment starts,
+              or you can publish manually from the{" "}
               <Link href={`/features/${info.feature?.id}`} target="_blank">
                 Feature Flag detail page
                 <PiArrowSquareOut className="ml-1" />

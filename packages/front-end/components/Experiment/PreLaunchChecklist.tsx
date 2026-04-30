@@ -198,9 +198,10 @@ export function getChecklistItems({
           });
         });
 
-      // One item per linked feature draft that requires approval.
+      // One item per linked feature draft that requires approval (and has no
+      // merge conflict — the conflict item already blocks and takes precedence).
       linkedFeatures
-        .filter((f) => f.pendingApproval)
+        .filter((f) => f.pendingApproval && !f.hasMergeConflict)
         .forEach((f) => {
           items.push({
             status:
@@ -619,18 +620,25 @@ export function PreLaunchChecklistForDraft({
   // Called when failedRequired or loading changes so the parent can gate submit.
   onReady?: (failedRequired: boolean, loading: boolean) => void;
 }) {
-  const { data: checklistData, isLoading } = useApi<{
+  const { data: checklistData, isLoading: checklistLoading } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
   }>(`/experiment/${experiment.id}/launch-checklist`);
+
+  // Fetch linked feature info so other features' merge conflicts surface in the
+  // checklist. The current feature is replaced by a synthetic "live" entry so
+  // the "Add at least one linked change" item stays green.
+  const { data: experimentData, isLoading: expLoading } = useApi<{
+    linkedFeatures: LinkedFeatureInfo[];
+  }>(`/experiment/${experiment.id}`);
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = (sdkConnectionsData?.connections ?? []).filter(
     (c) => !c.projects.length || c.projects.includes(experiment.project || ""),
   );
 
-  // Treat the feature as "live" to satisfy "Add at least one linked change".
-  // pendingApproval is intentionally omitted: the draft's approval is handled
-  // by the modal flow itself, not as a checklist item.
+  // Synthetic entry for the current feature: treat as "live" so the checklist
+  // passes the "Add at least one linked change" item. pendingApproval is
+  // intentionally omitted — approval is handled by the modal flow itself.
   const syntheticLinkedFeature: LinkedFeatureInfo = useMemo(
     () => ({
       feature,
@@ -644,17 +652,28 @@ export function PreLaunchChecklistForDraft({
     [feature],
   );
 
+  // Combine: synthetic entry for the current feature + real info for all other
+  // linked features (so their hasMergeConflict / pendingApproval states show).
+  const linkedFeatures: LinkedFeatureInfo[] = useMemo(() => {
+    const others = (experimentData?.linkedFeatures ?? []).filter(
+      (f) => f.feature.id !== feature.id,
+    );
+    return [syntheticLinkedFeature, ...others];
+  }, [experimentData, feature.id, syntheticLinkedFeature]);
+
+  const isLoading = checklistLoading || expLoading;
+
   const checklist = useMemo(
     () =>
       getChecklistItems({
         experiment,
-        linkedFeatures: [syntheticLinkedFeature],
+        linkedFeatures,
         visualChangesets: [],
         checklist: checklistData?.checklist,
         checkLinkedChanges: true,
         connections,
       }),
-    [experiment, syntheticLinkedFeature, checklistData, connections],
+    [experiment, linkedFeatures, checklistData, connections],
   );
 
   const failedRequired = checklist.some(

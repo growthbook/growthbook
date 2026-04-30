@@ -119,9 +119,12 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
+  getFeature,
   getFeaturesByIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
+import { getNonDiscardedRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
@@ -1929,7 +1932,6 @@ export async function postExperimentArchive(
       changes,
     });
 
-    // TODO: audit
     res.status(200).json({
       status: 200,
     });
@@ -1989,7 +1991,6 @@ export async function postExperimentUnarchive(
       changes,
     });
 
-    // TODO: audit
     res.status(200).json({
       status: 200,
     });
@@ -2001,6 +2002,23 @@ export async function postExperimentUnarchive(
         id: experiment.id,
       },
     });
+
+    // Restore pendingFeatureDrafts: archive clears them, so re-sync each
+    // linked feature's revisions to rebuild the queue. Fire-and-forget.
+    const linkedFeatureIds = experiment.linkedFeatures ?? [];
+    if (linkedFeatureIds.length > 0) {
+      Promise.all(
+        linkedFeatureIds.map(async (featureId) => {
+          const revisions = await getNonDiscardedRevisionSummaries(
+            context.org.id,
+            featureId,
+          );
+          return syncFeatureExperimentLinkages(context, featureId, revisions);
+        }),
+      ).catch((e) => {
+        logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");
+      });
+    }
   } catch (e) {
     res.status(400).json({
       status: 400,
@@ -2102,10 +2120,25 @@ export async function postExperimentStatus(
     const publishResult: PendingDraftPublishResult =
       await publishPendingFeatureDraftsForExperiment(context, experiment);
     if (publishResult.failed.length > 0) {
-      const failedIds = publishResult.failed.map((f) => f.featureId).join(", ");
+      const plural = publishResult.failed.length > 1 ? "s" : "";
+      const conflictIds = publishResult.failed
+        .filter((f) => f.reason === "merge-conflict")
+        .map((f) => f.featureId);
+      const errorIds = publishResult.failed
+        .filter((f) => f.reason !== "merge-conflict")
+        .map((f) => f.featureId);
+      const parts: string[] = [];
+      if (conflictIds.length)
+        parts.push(
+          `merge conflict${conflictIds.length > 1 ? "s" : ""} in: ${conflictIds.join(", ")}`,
+        );
+      if (errorIds.length)
+        parts.push(
+          `unexpected publish error${errorIds.length > 1 ? "s" : ""} in: ${errorIds.join(", ")}`,
+        );
       res.status(400).json({
         status: 400,
-        message: `Cannot start experiment: the following feature flag draft${publishResult.failed.length > 1 ? "s" : ""} could not be published due to merge conflicts: ${failedIds}. Please resolve the conflicts and try again.`,
+        message: `Cannot start experiment: feature flag draft${plural} could not be published (${parts.join("; ")}). Resolve the issue${plural} and try again.`,
         failedFeatureDrafts: publishResult.failed,
       });
       return;
@@ -3983,6 +4016,13 @@ export async function deleteExperimentLinkedFeature(
   }
 
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Also require feature-side edit rights — unlinking cancels a queued
+  // autopublish that the feature team may be managing.
+  const feature = await getFeature(context, featureId);
+  if (feature && !context.permissions.canUpdateFeature(feature, {})) {
     context.permissions.throwPermissionError();
   }
 

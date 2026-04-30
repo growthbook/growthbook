@@ -179,6 +179,10 @@ import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import {
+  PendingDraftPublishResult,
+  publishPendingFeatureDraftsForExperiment,
+} from "back-end/src/services/experiment-feature";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
@@ -1346,6 +1350,49 @@ export async function postFeaturePublish(
         throw new Error(`Cannot publish experiment: ${e.message}`);
       }
     }
+
+    // Pre-flight: check for merge conflicts in OTHER pending feature drafts
+    // for each experiment being started. The current feature's conflict is
+    // already guarded above by the mergeResult.success check.
+    for (const experiment of experiments) {
+      const otherDrafts = (experiment.pendingFeatureDrafts ?? []).filter(
+        (d) => d.featureId !== feature.id,
+      );
+      for (const { featureId, revisionVersion } of otherDrafts) {
+        const otherFeature = await getFeature(context, featureId);
+        if (!otherFeature) continue;
+        const otherRevision = await getRevision({
+          context,
+          organization: otherFeature.organization,
+          featureId: otherFeature.id,
+          feature: otherFeature,
+          version: revisionVersion,
+        });
+        if (
+          !otherRevision ||
+          otherRevision.status === "published" ||
+          otherRevision.status === "discarded"
+        )
+          continue;
+        const { live, base } = await getLiveAndBaseRevisionsForFeature({
+          context,
+          feature: otherFeature,
+          revision: otherRevision,
+        });
+        const otherMerge = autoMerge(
+          liveRevisionFromFeature(live, otherFeature),
+          fillRevisionFromFeature(base, otherFeature),
+          otherRevision,
+          environmentIds,
+          {},
+        );
+        if (!otherMerge.success) {
+          throw new Error(
+            `Feature "${otherFeature.id}" has a merge conflict in its pending draft. Resolve the conflict before starting experiment "${experiment.name}".`,
+          );
+        }
+      }
+    }
   }
 
   const updatedFeature = await publishRevision(
@@ -1384,6 +1431,36 @@ export async function postFeaturePublish(
   );
 
   for (const { experiment, changes } of experimentsToUpdate) {
+    // Reload so pendingFeatureDrafts reflects the just-published feature.
+    const reloadedExp =
+      (await getExperimentById(context, experiment.id)) ?? experiment;
+
+    // Publish remaining pending drafts (other linked features). Abort if any
+    // fail — mirrors the blocking behavior of postExperimentStatus.
+    const publishResult: PendingDraftPublishResult =
+      await publishPendingFeatureDraftsForExperiment(context, reloadedExp);
+    if (publishResult.failed.length > 0) {
+      const plural = publishResult.failed.length > 1 ? "s" : "";
+      const conflictIds = publishResult.failed
+        .filter((f) => f.reason === "merge-conflict")
+        .map((f) => f.featureId);
+      const errorIds = publishResult.failed
+        .filter((f) => f.reason !== "merge-conflict")
+        .map((f) => f.featureId);
+      const parts: string[] = [];
+      if (conflictIds.length)
+        parts.push(
+          `merge conflict${conflictIds.length > 1 ? "s" : ""} in: ${conflictIds.join(", ")}`,
+        );
+      if (errorIds.length)
+        parts.push(
+          `unexpected publish error${errorIds.length > 1 ? "s" : ""} in: ${errorIds.join(", ")}`,
+        );
+      throw new Error(
+        `Cannot start experiment: feature flag draft${plural} could not be published (${parts.join("; ")}). Resolve the issue${plural} and try again.`,
+      );
+    }
+
     const updated = await updateExperiment({
       context,
       experiment,
@@ -2093,7 +2170,11 @@ export async function postFeatureRule(
   if (rule.type === "experiment-ref") {
     // Ensure both sides of the linkage are populated.
     if (!feature.linkedExperiments?.includes(rule.experimentId)) {
-      await addLinkedFeatureToExperiment(context, rule.experimentId, feature.id);
+      await addLinkedFeatureToExperiment(
+        context,
+        rule.experimentId,
+        feature.id,
+      );
       await addLinkedExperiment(feature, rule.experimentId);
     }
     // Queue the draft for auto-publish when the experiment goes running.
@@ -3572,7 +3653,8 @@ export async function deleteFeatureRule(
     );
     // Remove the experiment link when the live revision no longer has the rule.
     const stillLive = (feature.rules ?? []).some(
-      (r) => r.type === "experiment-ref" && r.experimentId === rule.experimentId,
+      (r) =>
+        r.type === "experiment-ref" && r.experimentId === rule.experimentId,
     );
     if (!stillLive) {
       await removeLinkedFeatureFromExperiment(
