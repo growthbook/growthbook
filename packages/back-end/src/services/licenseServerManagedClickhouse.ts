@@ -1,8 +1,10 @@
 /**
- * Delegates managed ClickHouse provisioning to central-license-server
+ * Delegates managed ClickHouse operations to central-license-server
  * (see managed-clickhouse/* routes there).
  */
+import type { AIPromptType } from "shared/ai";
 import type { MaterializedColumn } from "shared/types/datasource";
+import type { DailyUsage } from "shared/types/organization";
 import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
@@ -120,6 +122,21 @@ async function postManagedClickhouse(
   return res;
 }
 
+async function postManagedClickhouseJson<T>(
+  path: string,
+  body: unknown,
+): Promise<T> {
+  const res = await postManagedClickhouse(path, body);
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      "The managed warehouse service returned invalid JSON. Please try again or contact support if this continues.",
+    );
+  }
+}
+
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
 ): Promise<void> {
@@ -169,4 +186,48 @@ export async function updateMaterializedColumnsInClickhouse({
     finalColumns,
     originalColumns,
   });
+}
+
+export async function logCloudAIUsageViaLicenseServer({
+  organization,
+  type,
+  model,
+  temperature,
+  numPromptTokensUsed,
+  numCompletionTokensUsed,
+  usedDefaultPrompt,
+}: {
+  organization: string;
+  type: AIPromptType;
+  model: string;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
+  temperature?: number;
+  usedDefaultPrompt: boolean;
+}): Promise<void> {
+  await postManagedClickhouse("log-ai-usage", {
+    organization,
+    type,
+    model,
+    temperature,
+    numPromptTokensUsed,
+    numCompletionTokensUsed,
+    usedDefaultPrompt,
+  });
+}
+
+export async function getDailyUsageForOrgViaLicenseServer(
+  orgId: string,
+  start: Date,
+  end: Date,
+): Promise<DailyUsage[]> {
+  const json = await postManagedClickhouseJson<{ days: DailyUsage[] }>(
+    "daily-usage-for-org",
+    {
+      orgId,
+      start: start.toISOString(),
+      end: end.toISOString(),
+    },
+  );
+  return json.days;
 }
