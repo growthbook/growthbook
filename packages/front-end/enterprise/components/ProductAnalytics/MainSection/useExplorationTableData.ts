@@ -3,6 +3,10 @@ import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import {
+  calculateProductAnalyticsDateRange,
+  getDateGranularity,
+} from "shared/enterprise";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
@@ -10,23 +14,12 @@ import {
   getEffectiveShowAs,
   buildExplorationColumns,
   getExplorationCellValue,
+  formatDateByGranularity,
+  type ResolvedGranularity,
   type ExplorationColumn,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
-
-function shouldShowTime(
-  submittedExploreState: {
-    dimensions?: { dimensionType?: string; dateGranularity?: string }[];
-  } | null,
-) {
-  if (!submittedExploreState || !submittedExploreState.dimensions) return false;
-  const dateDimension = submittedExploreState.dimensions.find(
-    (d) => d.dimensionType === "date",
-  );
-  if (!dateDimension) return false;
-  return dateDimension.dateGranularity === "hour";
-}
 
 /**
  * Format a raw cell value (from the shared column schema) for display in the
@@ -37,8 +30,9 @@ function formatCellForTable(
   raw: string | number | null,
   col: ExplorationColumn,
   context: {
+    resolvedGranularity: ResolvedGranularity | null;
     submittedExploreState: {
-      dimensions?: { dimensionType?: string; dateGranularity?: string }[];
+      dimensions?: { dimensionType?: string }[];
     } | null;
     hasNoDimensions: boolean;
   },
@@ -48,20 +42,15 @@ function formatCellForTable(
       return context.hasNoDimensions ? "Total" : "";
     }
     const d = context.submittedExploreState?.dimensions?.[col.dimIndex];
-    if (d?.dimensionType === "date" && typeof raw === "string") {
-      const date = new Date(raw);
-      let dateString = date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-      if (shouldShowTime(context.submittedExploreState)) {
-        dateString += ` ${date.toLocaleTimeString(undefined, {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}`;
-      }
-      return dateString;
+    if (
+      d?.dimensionType === "date" &&
+      typeof raw === "string" &&
+      context.resolvedGranularity
+    ) {
+      return formatDateByGranularity(
+        new Date(raw),
+        context.resolvedGranularity,
+      );
     }
     return raw;
   }
@@ -143,6 +132,18 @@ export default function useExplorationTableData(
     return { row1, row2Labels };
   }, [hasAnyRatio, columns, submittedExploreState]);
 
+  const resolvedGranularity = useMemo((): ResolvedGranularity | null => {
+    if (!submittedExploreState) return null;
+    const dateDimension = submittedExploreState.dimensions?.find(
+      (d) => d.dimensionType === "date",
+    );
+    if (!dateDimension) return null;
+    const dateRange = calculateProductAnalyticsDateRange(
+      submittedExploreState.dateRange,
+    );
+    return getDateGranularity(dateDimension.dateGranularity, dateRange);
+  }, [submittedExploreState]);
+
   const rowData = useMemo(() => {
     const rawRows = exploration?.result?.rows ?? [];
     const isTimeseries =
@@ -160,6 +161,7 @@ export default function useExplorationTableData(
         return [
           col.key,
           formatCellForTable(raw, col, {
+            resolvedGranularity,
             submittedExploreState,
             hasNoDimensions,
           }),
@@ -167,7 +169,13 @@ export default function useExplorationTableData(
       });
       return Object.fromEntries(entries) as Record<string, unknown>;
     });
-  }, [exploration?.result?.rows, columns, renderOpts, submittedExploreState]);
+  }, [
+    exploration?.result?.rows,
+    columns,
+    renderOpts,
+    resolvedGranularity,
+    submittedExploreState,
+  ]);
 
   const explorationReturnedNoData = useMemo(() => {
     if (!exploration?.result?.rows?.length) return true;
