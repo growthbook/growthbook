@@ -3723,13 +3723,17 @@ export async function getExperimentTimeSeries(
   req: AuthRequest<
     null,
     { id: string },
-    { phase: string; metricIds: string[] }
+    {
+      phase: string;
+      metricIds: string[];
+      dimensions?: { id: string; value?: string }[];
+    }
   >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { phase, metricIds } = req.query;
+  const { phase, metricIds, dimensions } = req.query;
   const phaseIndex = parseInt(phase, 10);
 
   const experiment = await getExperimentById(context, id);
@@ -3745,12 +3749,23 @@ export async function getExperimentTimeSeries(
     throw new Error("Invalid phase");
   }
 
+  if (!Array.isArray(dimensions)) {
+    throw new Error(
+      "dimensions must be an array containing id and optionally value objects",
+    );
+  }
+
+  if (dimensions && dimensions.length > 50) {
+    throw new Error("dimensions cannot contain more than 50 values");
+  }
+
   const timeSeries =
     await context.models.metricTimeSeries.getBySourceAndMetricIds({
       source: "experiment",
       sourceId: id,
       sourcePhase: phaseIndex,
       metricIds,
+      dimensions,
     });
 
   res.status(200).json({
