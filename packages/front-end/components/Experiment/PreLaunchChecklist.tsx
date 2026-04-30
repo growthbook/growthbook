@@ -12,6 +12,7 @@ import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { PiArrowSquareOut } from "react-icons/pi";
 import Collapsible from "react-collapsible";
+import clsx from "clsx";
 import Link from "@/ui/Link";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -30,6 +31,7 @@ import {
   revisionStatusColor,
   revisionStatusLabel,
 } from "@/components/Features/RevisionStatusBadge";
+import styles from "./PreLaunchChecklist.module.scss";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -137,7 +139,6 @@ export function getChecklistItems({
           ) : (
             "Linked Feature, Visual Editor change, or URL Redirect"
           )}
-          .
         </>
       ),
       required: true,
@@ -163,7 +164,7 @@ export function getChecklistItems({
             ) : (
               "Choose"
             )}{" "}
-            a Decision Metric and update cadence.
+            a Decision Metric and update cadence
           </>
         ),
         status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
@@ -198,10 +199,11 @@ export function getChecklistItems({
           });
         });
 
-      // One item per linked feature draft that requires approval (and has no
-      // merge conflict — the conflict item already blocks and takes precedence).
+      // One item per linked feature draft that requires approval. Surfaced
+      // independently of merge conflicts so a draft that needs both shows
+      // both items rather than hiding one behind the other.
       linkedFeatures
-        .filter((f) => f.pendingApproval && !f.hasMergeConflict)
+        .filter((f) => f.pendingApproval)
         .forEach((f) => {
           items.push({
             status:
@@ -249,7 +251,6 @@ export function getChecklistItems({
             ) : (
               "Visual Editor"
             )}
-            .
           </>
         ),
         status: hasSomeVisualChanges ? "complete" : "incomplete",
@@ -279,7 +280,7 @@ export function getChecklistItems({
         ) : (
           "Configure"
         )}{" "}
-        variation assignment and targeting behavior.
+        variation assignment and targeting behavior
       </>
     ),
     status: hasPhases ? "complete" : "incomplete",
@@ -294,7 +295,7 @@ export function getChecklistItems({
     status: connections.length ? "complete" : "incomplete",
     display: (
       <>
-        Integrate GrowthBook into your app by adding an SDK Connection.{" "}
+        Integrate GrowthBook into your app by adding an SDK Connection{" "}
         {!setShowSdkForm && !verifiedConnections ? (
           <Link href="/sdks">Manage SDK Connections</Link>
         ) : connections.length === 0 && setShowSdkForm ? (
@@ -450,46 +451,55 @@ export function PreLaunchChecklistUI({
     <LoadingSpinner />
   ) : (
     <div className="pt-2">
-      {checklist.map((item, i) => (
-        <div key={i} className="mb-2">
-          <Checkbox
-            value={item.status === "complete"}
-            setValue={(checked) => {
-              if (item.type === "auto") return;
-              if (item.type === "manual" && updatingChecklist) return;
-              updateTaskStatus(!!checked, item.key);
-            }}
-            disabled={!canEditExperiment}
-            disabledMessage={
-              !canEditExperiment
-                ? "You don't have permission to mark this as completed"
-                : undefined
-            }
-            label={
-              <span
-                style={{
-                  textDecoration:
-                    item.status === "complete" ? "line-through" : "none",
-                }}
-              >
-                {item.display}
-                {!item.required && (
-                  <small className="text-muted ml-1">(optional)</small>
-                )}
-              </span>
-            }
-            description={
-              item.hideDescription || item.status === "complete"
-                ? undefined
-                : item.type === "auto"
-                  ? "GrowthBook will mark this as completed automatically when you finish the task."
-                  : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
-            }
-            error={item.warning}
-            errorLevel="warning"
-          />
-        </div>
-      ))}
+      {checklist.map((item, i) => {
+        // Auto items can't be toggled by the user.
+        const isReadonly = item.type === "auto";
+        const isReadonlyIncomplete = isReadonly && item.status === "incomplete";
+        return (
+          <div key={i} className="mb-2">
+            <Checkbox
+              value={item.status === "complete"}
+              setValue={(checked) => {
+                if (item.type === "auto") return;
+                if (item.type === "manual" && updatingChecklist) return;
+                updateTaskStatus(!!checked, item.key);
+              }}
+              disabled={!canEditExperiment}
+              disabledMessage={
+                !canEditExperiment
+                  ? "You don't have permission to mark this as completed"
+                  : undefined
+              }
+              containerClassName={clsx({
+                [styles.readonly]: isReadonly,
+                [styles.readonlyIncomplete]: isReadonlyIncomplete,
+              })}
+              label={
+                <span
+                  style={{
+                    textDecoration:
+                      item.status === "complete" ? "line-through" : "none",
+                  }}
+                >
+                  {item.display}
+                  {!item.required && (
+                    <small className="text-muted ml-1">(optional)</small>
+                  )}
+                </span>
+              }
+              description={
+                item.hideDescription || item.status === "complete"
+                  ? undefined
+                  : item.type === "auto"
+                    ? "GrowthBook will mark this as completed automatically when you finish the task."
+                    : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+              }
+              error={item.warning}
+              errorLevel="warning"
+            />
+          </div>
+        );
+      })}
     </div>
   );
 
