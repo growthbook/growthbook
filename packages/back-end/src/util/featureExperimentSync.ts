@@ -6,7 +6,7 @@ import {
   ExperimentModel,
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
-  getExperimentLinkagesById,
+  getExperimentById,
 } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 
@@ -74,16 +74,16 @@ export async function syncFeatureExperimentLinkages(
     const allExpIds = new Set([...liveExpIds, ...draftVersionByExp.keys()]);
 
     for (const experimentId of allExpIds) {
-      // Raw driver read of just the two arrays we need — spreading a
-      // Mongoose doc downstream loses schema-level fields (dateCreated, etc.)
-      // and breaks toExperimentApiInterface in the SDK refresh.
-      const experiment = await getExperimentLinkagesById(context, experimentId);
+      const experiment = await getExperimentById(context, experimentId);
       if (!experiment) continue;
 
       if (!experiment.linkedFeatures?.includes(featureId)) {
-        // Don't forward the projected read — addLinkedFeatureToExperiment
-        // re-fetches a fully-shaped ExperimentInterface via findExperiment.
-        await addLinkedFeatureToExperiment(context, experimentId, featureId);
+        await addLinkedFeatureToExperiment(
+          context,
+          experimentId,
+          featureId,
+          experiment,
+        );
       }
 
       const desiredVersion = draftVersionByExp.get(experimentId);

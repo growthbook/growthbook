@@ -1508,30 +1508,13 @@ export async function unlinkFeatureFromAllExperiments(
   );
 }
 
-// Returns just linkedFeatures + pendingFeatureDrafts for one experiment,
-// using the raw driver to avoid Mongoose hydration. Used by the linkage sync
-// path which only needs these two arrays.
-export async function getExperimentLinkagesById(
-  context: ReqContext | ApiReqContext,
-  experimentId: string,
-): Promise<{
-  linkedFeatures?: string[];
-  pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
-} | null> {
-  const doc = await getCollection(COLLECTION).findOne(
-    { id: experimentId, organization: context.org.id },
-    { projection: { linkedFeatures: 1, pendingFeatureDrafts: 1 } },
-  );
-  if (!doc) return null;
-  return {
-    linkedFeatures: doc.linkedFeatures,
-    pendingFeatureDrafts: doc.pendingFeatureDrafts,
-  };
-}
-
 // Queues a draft for auto-publish when the experiment goes running.
 // Optimistic CAS so concurrent callers can't double-insert the same featureId;
 // syncFeatureExperimentLinkages self-heals on the next revision write.
+// Reads via the raw driver (not toInterface/getExperimentById) because we need
+// the Mongoose `__v` field for CAS, and toInterface deliberately strips it
+// via removeMongooseFields. This is the only legitimate reason to bypass the
+// canonical interface boundary in this file.
 // TODO: revisit once we commit to a MongoDB 4.2+ floor — a $filter +
 // $concatArrays pipeline update would collapse this into a single op.
 export async function addPendingFeatureDraftToExperiment(
