@@ -444,16 +444,18 @@ export default function FactTablesPage() {
                   className="cursor-pointer"
                 >
                   <td>
-                    <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
-                    <OfficialBadge
-                      type="fact table"
-                      managedBy={f.managedBy}
-                      leftGap={true}
-                    />
+                    <Link href={`/fact-tables/${f.id}`}>
+                      {f.name}
+                      <OfficialBadge
+                        type="fact table"
+                        leftGap={true}
+                        managedBy={f.managedBy}
+                      />
+                    </Link>
                   </td>
                   <td>{f.datasourceName}</td>
                   <td>
-                    <SortedTags tags={f.tags} />
+                    <SortedTags tags={f.tags} useFlex />
                   </td>
                   <td className="col-2">
                     {f.projects.length > 0 ? (
@@ -465,13 +467,7 @@ export default function FactTablesPage() {
                       <ProjectBadges resourceType="fact table" />
                     )}
                   </td>
-                  <td>
-                    {f.userIdTypes.map((t) => (
-                      <span className="badge badge-secondary mr-1" key={t}>
-                        {t}
-                      </span>
-                    ))}
-                  </td>
+                  <td>{f.userIdTypes.join(", ")}</td>
                   <td>{f.numMetrics}</td>
                   <td>{f.numAutoSlices}</td>
                   <td>{f.numFilters}</td>

@@ -5,6 +5,7 @@ import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { isManagedWarehousePendingQueryError } from "shared/util";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
@@ -28,6 +29,7 @@ import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 
 const CHART_ID = "explorer-chart";
 
@@ -439,7 +441,11 @@ export default function ExplorerChart({
     >
       {error ? (
         <Box p="4">
-          <Callout status="error">{error}</Callout>
+          {isManagedWarehousePendingQueryError(error) ? (
+            <ManagedWarehouseNoEventsCallout />
+          ) : (
+            <Callout status="error">{error}</Callout>
+          )}
         </Box>
       ) : !exploration ? (
         <Flex

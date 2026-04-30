@@ -23,7 +23,7 @@ export function getSegmentCTE(
       );
     }
     segmentSql = sqlVars
-      ? compileSqlTemplate(segment.sql, sqlVars)
+      ? compileSqlTemplate(segment.sql, sqlVars, dialect)
       : segment.sql;
   } else {
     if (!segment.factTableId) {

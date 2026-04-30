@@ -109,13 +109,13 @@ SELECT
 FROM events
 WHERE
   1=1
-  {{#if customFields.region}} AND region = '{{customFields.region}}' {{/if}}
+  {{#if customFields.region}} AND region = {{sqlstring customFields.region}} {{/if}}
 ```
 
 The `1=1` part is a common SQL trick to make appending additional `AND` conditions easier. When the Custom Field is unavailable, the WHERE clause will simple be `WHERE 1=1`, which is always true and does not filter out any data.
 
 :::note
 
-Similar to dates, you must add surrounding quotes yourself when using string Custom Fields (e.g. use `'{{customFields.region}}'` instead of `{{customFields.region}}`).
+Because Custom Field values are user-supplied, use the `sqlstring` helper (e.g. `{{sqlstring customFields.region}}`) to safely quote string values. It wraps the value in single quotes and escapes any embedded single quotes, preventing SQL injection and query errors on values like `it's`. Do not manually wrap the value in quotes (e.g. `'{{customFields.region}}'`) as this is unsafe.
 
 :::

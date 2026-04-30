@@ -794,16 +794,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/fact-metrics/[fmid].tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/fact-tables/[ftid].tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/interactions.tsx": {
     "no-restricted-imports": {
       "count": 1
