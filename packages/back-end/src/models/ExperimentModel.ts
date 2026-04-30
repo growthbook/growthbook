@@ -1882,7 +1882,7 @@ const onExperimentUpdate = async ({
       organization: context.org,
     });
 
-  const rawLicenseKey = context.org.licenseKey;
+  const rawLicenseKey = context.org.licenseKey || process.env.LICENSE_KEY;
   const licenseId = getLicense(rawLicenseKey)?.id;
 
   if (
