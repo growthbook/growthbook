@@ -144,7 +144,7 @@ function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="medium">
+            <Text weight="semibold" size="large">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionA, revA?.title)}
@@ -153,6 +153,7 @@ function RevisionCompareLabel({
                   version={versionA}
                   title={revA?.title}
                   minWidth={0}
+                  numberSize="inherit"
                 />
               </OverflowText>
             </Text>
@@ -206,7 +207,7 @@ function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="medium">
+            <Text weight="semibold" size="large">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionB, revB?.title)}
@@ -215,6 +216,7 @@ function RevisionCompareLabel({
                   version={versionB}
                   title={revB?.title}
                   minWidth={0}
+                  numberSize="inherit"
                 />
               </OverflowText>
             </Text>

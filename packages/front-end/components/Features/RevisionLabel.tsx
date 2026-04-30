@@ -13,11 +13,13 @@ export default function RevisionLabel({
   title,
   numbered = true,
   minWidth = "1.9em",
+  numberSize = "small",
 }: {
   version: number;
   title?: string | null;
   numbered?: boolean;
   minWidth?: string | number;
+  numberSize?: "small" | "medium" | "large" | "x-large" | "inherit";
 }) {
   return (
     <>
@@ -30,7 +32,7 @@ export default function RevisionLabel({
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          <Text as="span" color="text-mid" size="small">
+          <Text as="span" color="text-mid" size={numberSize}>
             {version}.
           </Text>
         </span>

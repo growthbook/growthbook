@@ -87,7 +87,7 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="large">
             {labelA}
           </Text>
         </Flex>
@@ -109,7 +109,7 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="large">
             {labelB}
           </Text>
         </Flex>
@@ -877,7 +877,7 @@ export default function CompareAuditEvents<T>({
                               />
                             </Tooltip>
                           )}
-                          <Text weight="semibold" size="medium">
+                          <Text weight="semibold" size="large">
                             {getEntryLabel(singleEntryFirst)}
                           </Text>
                         </Flex>
