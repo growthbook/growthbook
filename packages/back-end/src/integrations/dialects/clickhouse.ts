@@ -5,6 +5,8 @@ import { baseDialect } from "./base";
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "clickhouse",
+  escapeStringLiteral: (value: string) =>
+    value.replace(/\\/g, "\\\\").replace(/'/g, "''"),
   toTimestamp: (date: Date) =>
     `toDateTime('${date
       .toISOString()

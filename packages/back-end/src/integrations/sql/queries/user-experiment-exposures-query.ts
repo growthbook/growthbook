@@ -42,9 +42,13 @@ export function getUserExperimentExposuresQuery(
 
             return `
               SELECT timestamp, experiment_id, variation_id, ${dimensionSelectString} FROM (
-                ${compileSqlTemplate(exposureQuery.query, {
-                  startDate: startDate,
-                })}
+                ${compileSqlTemplate(
+                  exposureQuery.query,
+                  {
+                    startDate: startDate,
+                  },
+                  dialect,
+                )}
               ) ${tableAlias}
               WHERE ${dialect.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${dialect.toTimestamp(startDate)}
             `;
