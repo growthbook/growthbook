@@ -10,7 +10,7 @@ import {
   createExperimentSnapshotModel,
   updateSnapshot,
   addOrUpdateSnapshotAnalysis,
-  addOrUpdateSnapshotAnalyses,
+  addOrUpdateSnapshotMultipleAnalysis,
   updateSnapshotAnalysis,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -1141,7 +1141,7 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       await createExperimentSnapshotModel({ data: snapshot, context });
-      await addOrUpdateSnapshotAnalyses({
+      await addOrUpdateSnapshotMultipleAnalysis({
         context,
         id: snapshot.id,
         analyses: [
@@ -1630,12 +1630,12 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       await Promise.all([
-        addOrUpdateSnapshotAnalyses({
+        addOrUpdateSnapshotMultipleAnalysis({
           context,
           id: snapshot.id,
           analyses: [makeAnalysis({ settings, value: 10 })],
         }),
-        addOrUpdateSnapshotAnalyses({
+        addOrUpdateSnapshotMultipleAnalysis({
           context,
           id: snapshot.id,
           analyses: [makeAnalysis({ settings, value: 20 })],

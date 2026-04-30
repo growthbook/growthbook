@@ -1912,6 +1912,25 @@ export type SnapshotAnalysisParams = {
   snapshot: ExperimentSnapshotInterface;
 };
 
+export function getPrecomputedDimensionAnalysisSettings({
+  baseSettings,
+  dimensionId,
+  differenceTypes = ["relative", "absolute", "scaled"],
+  baselineVariationIndex = baseSettings.baselineVariationIndex ?? 0,
+}: {
+  baseSettings: ExperimentSnapshotAnalysisSettings;
+  dimensionId: string;
+  differenceTypes?: ExperimentSnapshotAnalysisSettings["differenceType"][];
+  baselineVariationIndex?: number;
+}): ExperimentSnapshotAnalysisSettings[] {
+  return differenceTypes.map((differenceType) => ({
+    ...baseSettings,
+    differenceType,
+    baselineVariationIndex,
+    dimensions: [dimensionId],
+  }));
+}
+
 export async function getOrCreatePrecomputedDimensionSnapshotAnalyses(
   context: ReqContext | ApiReqContext,
   {
@@ -1933,14 +1952,10 @@ export async function getOrCreatePrecomputedDimensionSnapshotAnalyses(
     throw new Error("Snapshot missing base analysis for precomputed dimension");
   }
 
-  const allAnalysisSettings = (["relative", "absolute", "scaled"] as const).map(
-    (differenceType) => ({
-      ...baseAnalysis.settings,
-      differenceType,
-      baselineVariationIndex: baseAnalysis.settings.baselineVariationIndex ?? 0,
-      dimensions: [dimensionId],
-    }),
-  );
+  const allAnalysisSettings = getPrecomputedDimensionAnalysisSettings({
+    baseSettings: baseAnalysis.settings,
+    dimensionId,
+  });
 
   // NB: safe guard but this should never happen as this is called
   // immediately after the base analysis is created

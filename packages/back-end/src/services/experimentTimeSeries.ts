@@ -170,14 +170,10 @@ export async function updateExperimentAnalysisTimeSeries({
     );
   }
 
-  const analysesByDifferenceType = new Map(
-    analyses
-      .filter((analysis) => analysis.results.length > 0)
-      .map((analysis) => [analysis.settings.differenceType, analysis]),
-  );
-  const baseAnalysis =
-    analysesByDifferenceType.get("relative") ??
-    Array.from(analysesByDifferenceType.values())[0];
+  const relativeAnalysis = getAnalysisByDifferenceType(analyses, "relative");
+  const absoluteAnalysis = getAnalysisByDifferenceType(analyses, "absolute");
+  const scaledAnalysis = getAnalysisByDifferenceType(analyses, "scaled");
+  const baseAnalysis = relativeAnalysis ?? absoluteAnalysis ?? scaledAnalysis;
   if (!baseAnalysis) {
     throw new Error("No base analysis found for time series");
   }
@@ -190,18 +186,9 @@ export async function updateExperimentAnalysisTimeSeries({
 
   for (const dimensionValue of dimensionValues) {
     const resultsByDifferenceType = {
-      relative: getAnalysisResult(
-        analysesByDifferenceType.get("relative"),
-        dimensionValue,
-      ),
-      absolute: getAnalysisResult(
-        analysesByDifferenceType.get("absolute"),
-        dimensionValue,
-      ),
-      scaled: getAnalysisResult(
-        analysesByDifferenceType.get("scaled"),
-        dimensionValue,
-      ),
+      relative: getAnalysisResult(relativeAnalysis, dimensionValue),
+      absolute: getAnalysisResult(absoluteAnalysis, dimensionValue),
+      scaled: getAnalysisResult(scaledAnalysis, dimensionValue),
     };
     const baseResult =
       resultsByDifferenceType.relative ??
@@ -290,6 +277,17 @@ function getAnalysisResult(
   if (!analysis) return undefined;
   if (dimensionValue === undefined) return analysis.results[0];
   return analysis.results.find((result) => result.name === dimensionValue);
+}
+
+function getAnalysisByDifferenceType(
+  analyses: ExperimentSnapshotAnalysis[],
+  differenceType: ExperimentSnapshotAnalysisSettings["differenceType"],
+): ExperimentSnapshotAnalysis | undefined {
+  return analyses.find(
+    (analysis) =>
+      analysis.results.length > 0 &&
+      analysis.settings.differenceType === differenceType,
+  );
 }
 
 function convertMetricToMetricValue(
