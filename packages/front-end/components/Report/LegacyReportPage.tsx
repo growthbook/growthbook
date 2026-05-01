@@ -197,11 +197,7 @@ export default function LegacyReportPage({
             }}
             header="Edit Report"
           >
-            <Field
-              label="Title"
-              labelClassName="font-weight-bold"
-              {...form.register("title")}
-            />
+            <Field label="Title" {...form.register("title")} />
             <div className="form-group">
               <Text as="label" weight="semibold">
                 Description

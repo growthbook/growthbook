@@ -238,13 +238,11 @@ export default function SaveToDashboardModal({
           <Flex direction="column">
             <Field
               label="Name"
-              labelClassName="font-weight-bold"
               placeholder="Dashboard name"
               {...form.register("title")}
             />
             <MultiSelectField
               label="Projects"
-              labelClassName="font-weight-bold"
               placeholder="All projects"
               options={projectsOptions}
               value={form.watch("projects")}
@@ -267,7 +265,6 @@ export default function SaveToDashboardModal({
                   <Flex direction="column" gap="4">
                     <SelectField
                       label="View access"
-                      labelClassName="font-weight-bold"
                       containerClassName="mb-0"
                       disabled={!hasSharing}
                       helpText={
@@ -291,7 +288,6 @@ export default function SaveToDashboardModal({
                     />
                     <SelectField
                       label="Edit access"
-                      labelClassName="font-weight-bold"
                       containerClassName="mb-0"
                       disabled={
                         !hasSharing || form.watch("shareLevel") === "private"
