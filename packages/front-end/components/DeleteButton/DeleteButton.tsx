@@ -9,9 +9,9 @@ import {
 import clsx from "clsx";
 import { PiTrashFill } from "react-icons/pi";
 import { Box } from "@radix-ui/themes";
-import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const DeleteButton: FC<{
   onClick: () => void | Promise<void>;
@@ -65,18 +65,17 @@ const DeleteButton: FC<{
   return (
     <>
       {confirming ? (
-        <Modal
+        <ModalStandard
           trackingEventModalType=""
           header={`Delete ${displayName}`}
           close={() => setConfirming(false)}
           open={true}
           cta="Delete"
-          submitColor="danger"
+          ctaColor="red"
           submit={onClick}
           ctaEnabled={canDelete}
-          increasedElevation={true}
         >
-          <Box px="4">
+          <Box>
             {dynamicContent ? (
               dynamicContent
             ) : isValidElement(deleteMessage) ? (
@@ -95,7 +94,7 @@ const DeleteButton: FC<{
                 </Text>
               ))}
           </Box>
-        </Modal>
+        </ModalStandard>
       ) : (
         ""
       )}
