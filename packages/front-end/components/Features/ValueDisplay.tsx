@@ -153,12 +153,12 @@ export default function ValueDisplay({
           sizeY="max"
           secondaryCTA={
             copySuccess ? (
-              <Button style={{ width: 100 }} icon={<PiCheck />} color="gray">
+              <Button width="100px" icon={<PiCheck />} color="gray">
                 Copied
               </Button>
             ) : (
               <Button
-                style={{ width: 100 }}
+                width="100px"
                 icon={<PiCopy />}
                 onClick={() => {
                   if (!copySuccess) performCopy(value);

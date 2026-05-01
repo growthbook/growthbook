@@ -5,15 +5,14 @@ import Text from "@/ui/Text";
 type Props = {
   label: string;
   value: React.ReactNode | string;
-  style?: React.CSSProperties;
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
-  { label, value, style, ...props },
+  { label, value, ...props },
   ref,
 ) {
   return (
-    <Flex gap="1" align="center" style={style} {...props} ref={ref}>
+    <Flex gap="1" align="center" {...props} ref={ref}>
       <Text weight="medium" color="text-high">
         {label}:
       </Text>

@@ -207,7 +207,7 @@ export default function ReportMetaInfo({
 
   const shareLinkButton =
     report.shareLevel !== "public" ? null : copySuccess ? (
-      <Button style={{ width: 130 }} icon={<PiCheck />}>
+      <Button width="130px" icon={<PiCheck />}>
         Link copied
       </Button>
     ) : (
@@ -222,7 +222,7 @@ export default function ReportMetaInfo({
             action: "normal button",
           });
         }}
-        style={{ width: 130 }}
+        width="130px"
       >
         Copy Link
       </Button>

@@ -370,7 +370,7 @@ export default function ExperimentHeader({
 
   const shareLinkButton =
     experiment.shareLevel !== "public" ? null : copySuccess ? (
-      <Button style={{ width: 130 }} icon={<PiCheck />}>
+      <Button width="130px" icon={<PiCheck />}>
         Link copied
       </Button>
     ) : (

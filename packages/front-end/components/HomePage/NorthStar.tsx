@@ -1,5 +1,5 @@
 import React, { FC, useEffect, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -81,75 +81,77 @@ const NorthStar: FC<{
   return (
     <>
       {hasNorthStar && (
-        <Frame className="position-relative">
-          {showEdit && permissionsUtil.canManageNorthStarMetric() && (
-            <a
-              role="button"
-              className="p-1"
-              style={{
-                position: "absolute",
-                top: "10px",
-                right: "10px",
-                zIndex: 1,
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                setOpenNorthStarModal(true);
-              }}
-            >
-              <BsGear size={16} />
-            </a>
-          )}
-          <div className="row">
-            <div className="col">
-              {showTitle && (
-                <h2>
-                  {titleToShow
-                    ? titleToShow
-                    : `North Star Metric${
-                        (selectedMetrics?.length || 0) > 1 ? "s" : ""
-                      }`}
-                </h2>
-              )}
-            </div>
-            <div className="col" style={{ position: "relative" }}>
-              {(selectedMetrics?.length || 0) > 0 && (
-                <Flex
-                  className="float-right"
-                  style={{ position: "relative", top: 40 }}
-                >
-                  <label
-                    className="small my-0 mr-2 text-right align-middle"
-                    htmlFor="toggle-group-smooth-by"
-                  >
-                    Smoothing
-                    <br />
-                    (7 day trailing)
-                  </label>
-                  <Switch
-                    size="3"
-                    value={smoothBy === "week"}
-                    onChange={() =>
-                      setSmoothBy(smoothBy === "week" ? "day" : "week")
-                    }
-                    id="toggle-group-smooth-by"
-                  />
-                </Flex>
-              )}
-            </div>
-          </div>
-          {(selectedMetrics?.length || 0) > 0 &&
-            selectedMetrics?.map((mid) => (
-              <div key={mid}>
-                <NorthStarMetricDisplay
-                  metricId={mid}
-                  window={northStar?.window}
-                  smoothBy={smoothBy}
-                  hoverDate={northstarHoverDate}
-                  onHoverCallback={onNorthstarHoverCallback}
-                />
+        <Frame>
+          <Box position="relative">
+            {showEdit && permissionsUtil.canManageNorthStarMetric() && (
+              <a
+                role="button"
+                className="p-1"
+                style={{
+                  position: "absolute",
+                  top: "10px",
+                  right: "10px",
+                  zIndex: 1,
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpenNorthStarModal(true);
+                }}
+              >
+                <BsGear size={16} />
+              </a>
+            )}
+            <div className="row">
+              <div className="col">
+                {showTitle && (
+                  <h2>
+                    {titleToShow
+                      ? titleToShow
+                      : `North Star Metric${
+                          (selectedMetrics?.length || 0) > 1 ? "s" : ""
+                        }`}
+                  </h2>
+                )}
               </div>
-            ))}
+              <div className="col" style={{ position: "relative" }}>
+                {(selectedMetrics?.length || 0) > 0 && (
+                  <Flex
+                    className="float-right"
+                    style={{ position: "relative", top: 40 }}
+                  >
+                    <label
+                      className="small my-0 mr-2 text-right align-middle"
+                      htmlFor="toggle-group-smooth-by"
+                    >
+                      Smoothing
+                      <br />
+                      (7 day trailing)
+                    </label>
+                    <Switch
+                      size="3"
+                      value={smoothBy === "week"}
+                      onChange={() =>
+                        setSmoothBy(smoothBy === "week" ? "day" : "week")
+                      }
+                      id="toggle-group-smooth-by"
+                    />
+                  </Flex>
+                )}
+              </div>
+            </div>
+            {(selectedMetrics?.length || 0) > 0 &&
+              selectedMetrics?.map((mid) => (
+                <div key={mid}>
+                  <NorthStarMetricDisplay
+                    metricId={mid}
+                    window={northStar?.window}
+                    smoothBy={smoothBy}
+                    hoverDate={northstarHoverDate}
+                    onHoverCallback={onNorthstarHoverCallback}
+                  />
+                </div>
+              ))}
+          </Box>
         </Frame>
       )}
       {openNorthStarModal && (

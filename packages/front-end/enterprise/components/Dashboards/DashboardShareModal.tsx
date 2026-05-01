@@ -146,7 +146,7 @@ export default function DashboardShareModal({
   };
 
   const shareLinkButton = copySuccess ? (
-    <Button style={{ width: 130 }} icon={<PiCheck />}>
+    <Button width="130px" icon={<PiCheck />}>
       Link copied
     </Button>
   ) : (

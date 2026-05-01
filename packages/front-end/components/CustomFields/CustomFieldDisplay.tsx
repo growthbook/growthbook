@@ -36,7 +36,6 @@ const CustomFieldDisplay: FC<{
   label?: string;
   canEdit?: boolean;
   mutate?: () => void;
-  className?: string;
   section: CustomFieldSection;
   target: ExperimentInterfaceStringDates | FeatureInterface;
   mt?: "1" | "2" | "3" | "4" | "5" | "6";
@@ -46,7 +45,6 @@ const CustomFieldDisplay: FC<{
   label = "Additional Fields",
   canEdit = true,
   mutate,
-  className = "",
   section,
   target,
   mt,
@@ -258,7 +256,7 @@ const CustomFieldDisplay: FC<{
             <DataList data={displayFieldsObj} maxColumns={3} />
           </>
         ) : (
-          <Frame className={className} my="3">
+          <Frame my="3">
             <Box>
               <Flex justify="between" align="center">
                 <Heading as="h4" size="3">

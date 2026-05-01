@@ -1,7 +1,6 @@
 import { Select as RadixSelect, Text, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactNode } from "react";
-import clsx from "clsx";
 import HelperText from "./HelperText";
 
 type SelectProps = {
@@ -16,8 +15,6 @@ type SelectProps = {
   size?: "1" | "2" | "3";
   placeholder?: string;
   variant?: "classic" | "surface" | "soft" | "ghost";
-  style?: React.CSSProperties;
-  triggerClassName?: string;
   align?: "start" | "center" | "end";
 } & MarginProps;
 
@@ -34,7 +31,6 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     size = "3",
     placeholder,
     variant = "surface",
-    triggerClassName,
     align = "start",
     ...containerProps
   }: SelectProps,
@@ -58,7 +54,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       >
         <RadixSelect.Trigger
           placeholder={placeholder}
-          className={clsx(triggerClassName, { error: error })}
+          className={error ? "error" : undefined}
           disabled={disabled}
           variant={variant}
         />

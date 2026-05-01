@@ -255,7 +255,7 @@ export default function DashboardEditorSidebar({
           ) : (
             <div style={{ width: "440px", padding: "20px" }}>
               <Text>This block type requires an experiment to edit.</Text>
-              <Button onClick={cancel} style={{ marginTop: "10px" }}>
+              <Button onClick={cancel} mt="2">
                 Cancel
               </Button>
             </div>

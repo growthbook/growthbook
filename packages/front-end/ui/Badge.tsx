@@ -10,8 +10,6 @@ type Props = {
   variant?: "solid" | "soft" | "outline";
   radius?: "none" | "small" | "medium" | "large" | "full";
   size?: Size;
-  style?: CSSProperties;
-  className?: string;
 } & MarginProps;
 
 export type Size = "xs" | "sm" | "md" | "lg";
@@ -22,6 +20,7 @@ const sizeMap: Partial<Record<Size, "1" | "2" | "3">> = {
   md: "2",
   lg: "3",
 };
+
 const xsStyle: CSSProperties = {
   fontSize: "10px",
   lineHeight: "12px",
@@ -31,11 +30,11 @@ const xsStyle: CSSProperties = {
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Badge(
-  { label, title, size, style, ...props }: Props,
+  { label, title, size, ...props }: Props,
   ref,
 ) {
   const resolvedSize = size ? sizeMap[size] : undefined;
-  const resolvedStyle = size === "xs" ? { ...xsStyle, ...style } : style;
+  const resolvedStyle = size === "xs" ? xsStyle : undefined;
 
   return (
     <RadixBadge

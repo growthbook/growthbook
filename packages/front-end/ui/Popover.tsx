@@ -31,7 +31,6 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   disableDismiss?: boolean;
   anchorOnly?: boolean;
   contentStyle?: React.CSSProperties;
-  contentClassName?: string;
 } & MarginProps;
 
 export function Popover({
@@ -45,7 +44,6 @@ export function Popover({
   disableDismiss = false,
   anchorOnly = false,
   contentStyle,
-  contentClassName,
   ...props
 }: PopoverProps) {
   const appliedContentStyle = {
@@ -82,7 +80,7 @@ export function Popover({
             <RadixPopover.Content
               side={side}
               align={align}
-              className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
+              className={styles.Content}
               style={appliedContentStyle}
               onEscapeKeyDown={
                 disableDismiss ? (e) => e.preventDefault() : undefined

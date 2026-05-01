@@ -1,7 +1,6 @@
 import React, { FC } from "react";
 import ReactPaginate from "react-paginate";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
-import clsx from "clsx";
 import styles from "./Pagination.module.scss";
 
 type PaginationProps = {
@@ -9,7 +8,6 @@ type PaginationProps = {
   perPage: number;
   currentPage: number;
   onPageChange: (page: number) => void;
-  className?: string;
 };
 
 const Pagination: FC<PaginationProps> = ({
@@ -17,10 +15,9 @@ const Pagination: FC<PaginationProps> = ({
   perPage,
   currentPage,
   onPageChange,
-  className = "",
 }) => {
   return (
-    <div className={clsx(styles.root, className)}>
+    <div className={styles.root}>
       <ReactPaginate
         previousLabel={
           <span className={styles.arrow}>

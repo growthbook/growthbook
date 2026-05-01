@@ -4,7 +4,7 @@ import {
   TooltipProps as RadixTooltipProps,
 } from "@radix-ui/themes";
 
-type TooltipProps = RadixTooltipProps & {
+type TooltipProps = Omit<RadixTooltipProps, "style" | "className"> & {
   enabled?: boolean;
 };
 

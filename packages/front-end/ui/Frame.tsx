@@ -6,21 +6,15 @@ export default forwardRef<
   {
     children: ReactNode;
     noBackground?: boolean;
-    className?: string;
   } & BoxProps
->(function Frame(
-  { children, noBackground, className, ...containerProps },
-  ref,
-) {
+>(function Frame({ children, noBackground, ...containerProps }, ref) {
   return (
     <Box
       ref={ref}
       mb="4"
       py="5"
       px="6"
-      className={`appbox ${noBackground ? "nobg" : ""} ${
-        className ? className : ""
-      }`}
+      className={`appbox ${noBackground ? "nobg" : ""}`}
       {...containerProps}
     >
       {children}

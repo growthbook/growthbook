@@ -193,7 +193,6 @@ export function DropdownSubMenu({
 
 type DropdownItemProps = {
   children: AllowedChildren;
-  className?: string;
   disabled?: boolean;
   onClick?: (event: Event) => Promise<void> | void;
   color?: "red" | "default";
@@ -208,7 +207,6 @@ type DropdownItemProps = {
     showDropdown?: () => void;
     closeDropdown?: () => void;
   };
-  style?: React.CSSProperties;
 } & MarginProps;
 
 export function DropdownMenuItem({

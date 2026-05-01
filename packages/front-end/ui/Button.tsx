@@ -1,13 +1,13 @@
-import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
 import {
-  CSSProperties,
-  ForwardedRef,
-  forwardRef,
-  ReactNode,
-  useState,
-} from "react";
+  Box,
+  Button as RadixButton,
+  ButtonProps,
+  Text,
+} from "@radix-ui/themes";
+import { ForwardedRef, forwardRef, ReactNode, useState } from "react";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { WidthProps } from "@radix-ui/themes/dist/esm/props/width.props.js";
 
 export type Color = "violet" | "red" | "gray";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
@@ -28,10 +28,10 @@ export type Props = {
   stopPropagation?: boolean;
   preventDefault?: boolean;
   children: string | string[] | ReactNode;
-  style?: CSSProperties;
+  width?: WidthProps["width"];
   tabIndex?: number;
 } & MarginProps &
-  Pick<ButtonProps, "title" | "type" | "aria-label" | "className">;
+  Pick<ButtonProps, "title" | "type" | "aria-label">;
 
 export function getRadixSize(size: Size): Responsive<"1" | "2" | "3" | "4"> {
   switch (size) {
@@ -62,6 +62,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       preventDefault = true,
       type = "button",
       children,
+      width,
       ...otherProps
     },
     ref: ForwardedRef<HTMLButtonElement>,
@@ -69,7 +70,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
     const [_internalLoading, setLoading] = useState(false);
     const loading = _externalLoading || _internalLoading;
 
-    return (
+    const button = (
       <RadixButton
         ref={ref}
         {...otherProps}
@@ -102,12 +103,20 @@ const Button = forwardRef<HTMLButtonElement, Props>(
         {icon && iconPosition === "right" ? icon : null}
       </RadixButton>
     );
+
+    return width !== undefined ? (
+      <Box asChild width={width}>
+        {button}
+      </Box>
+    ) : (
+      button
+    );
   },
 );
 Button.displayName = "Button";
 export default Button;
 
-type WhiteButtonProps = Omit<Props, "color">;
+type WhiteButtonProps = Omit<Props, "color" | "width">;
 export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
   function WhiteButton(
     {
