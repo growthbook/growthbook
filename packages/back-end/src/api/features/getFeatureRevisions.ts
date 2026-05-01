@@ -53,7 +53,6 @@ export async function loadFeatureRevisionsPage(
       context,
       organization: organizationId,
       featureId,
-      feature,
       status: status as Parameters<
         typeof getFeatureRevisionsByStatus
       >[0]["status"],

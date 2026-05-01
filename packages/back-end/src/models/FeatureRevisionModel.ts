@@ -566,16 +566,6 @@ export async function getRevisionsByStatus(
     .map((r) => toInterface(r, context, featuresByFeatureId?.[r.featureId]));
 }
 
-export async function getDistinctFeatureIdsForStatuses(
-  context: ReqContext,
-  statuses: string[],
-): Promise<string[]> {
-  return FeatureRevisionModel.distinct("featureId", {
-    organization: context.org.id,
-    status: { $in: statuses },
-  }) as unknown as Promise<string[]>;
-}
-
 /**
  * Normalize a `rules` input to the canonical v2 `FeatureRule[]` shape. v2
  * arrays pass through; v1 records get env inheritance applied before

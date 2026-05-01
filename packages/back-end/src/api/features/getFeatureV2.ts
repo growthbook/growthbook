@@ -42,7 +42,6 @@ async function loadFeatureForApiV2(
         context,
         organization: feature.organization,
         featureId: feature.id,
-        feature,
         status:
           revisionFilter === "drafts"
             ? "draft"
