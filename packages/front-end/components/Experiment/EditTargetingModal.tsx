@@ -39,7 +39,7 @@ import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
-import ModalLayout from "@/ui/Modal/Patterns/ModalLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -219,7 +219,7 @@ export default function EditTargetingModal({
 
   if (safeToEdit) {
     return (
-      <ModalLayout
+      <ModalStandard
         trackingEventModalType=""
         open={true}
         close={close}
@@ -235,7 +235,7 @@ export default function EditTargetingModal({
           conditionKey={conditionKey}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
-      </ModalLayout>
+      </ModalStandard>
     );
   }
 

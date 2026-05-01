@@ -281,7 +281,7 @@ const Close = Dialog.Close;
 // Namespace export.
 //
 // Consumers use <Modal.Root>, <Modal.Header>, <Modal.Title>, etc. — see
-// ui/Modal/Patterns/ModalLayout for a reference composition, and the Base UI
+// ui/Modal/Patterns/ModalStandard for a reference composition, and the Base UI
 // / Radix Themes Dialog docs for the design intent. Form semantics live in
 // ui/Modal/ModalForm; import <ModalForm> from there directly.
 // ---------------------------------------------------------------------------

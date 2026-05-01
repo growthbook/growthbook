@@ -4,7 +4,7 @@ import { ExperimentType } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import ModalLayout from "@/ui/Modal/Patterns/ModalLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 
 interface Props {
@@ -50,7 +50,7 @@ export default function EditDescriptionModal({
   });
 
   return (
-    <ModalLayout
+    <ModalStandard
       trackingEventModalSource={source}
       trackingEventModalType="edit-experiment-description-modal"
       header="Edit Description"
@@ -88,6 +88,6 @@ export default function EditDescriptionModal({
         setValue={(value) => form.setValue("description", value)}
         placeholder={getExperimentDescriptionPlaceholder(experimentType)}
       />
-    </ModalLayout>
+    </ModalStandard>
   );
 }

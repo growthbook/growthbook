@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import ModalLayout from "@/ui/Modal/Patterns/ModalLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -34,7 +34,7 @@ export default function RemoveFromHoldoutModal({
   };
 
   return (
-    <ModalLayout
+    <ModalStandard
       header="Remove from holdout"
       close={close}
       open={true}
@@ -60,6 +60,6 @@ export default function RemoveFromHoldoutModal({
           </Text>
         </Callout>
       )}
-    </ModalLayout>
+    </ModalStandard>
   );
 }

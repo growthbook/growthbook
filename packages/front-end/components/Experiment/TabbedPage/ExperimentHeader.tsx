@@ -57,7 +57,7 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
-import ModalLayout from "@/ui/Modal/Patterns/ModalLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
@@ -555,7 +555,7 @@ export default function ExperimentHeader({
         </Modal>
       ) : null}
       {showDeleteModal ? (
-        <ModalLayout
+        <ModalStandard
           header={`Delete ${isHoldout ? "Holdout" : "Experiment"}`}
           trackingEventModalType="delete-experiment"
           trackingEventModalSource="experiment-more-menu"
@@ -600,10 +600,10 @@ export default function ExperimentHeader({
               </Callout>
             ) : null}
           </Box>
-        </ModalLayout>
+        </ModalStandard>
       ) : null}
       {showArchiveModal ? (
-        <ModalLayout
+        <ModalStandard
           header={`${experiment.archived ? "Unarchive" : "Archive"} ${
             isHoldout ? "Holdout" : "Experiment"
           }`}
@@ -640,7 +640,7 @@ export default function ExperimentHeader({
               </Callout>
             ) : null}
           </Box>
-        </ModalLayout>
+        </ModalStandard>
       ) : null}
       {showStartExperiment && experiment.status === "draft" && (
         <StartExperimentModal

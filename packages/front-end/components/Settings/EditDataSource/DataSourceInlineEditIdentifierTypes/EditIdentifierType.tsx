@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import ModalLayout from "@/ui/Modal/Patterns/ModalLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 
 type EditIdentifierTypeProps = {
@@ -93,7 +93,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
     : "";
 
   return (
-    <ModalLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       submit={handleSubmit}
@@ -139,6 +139,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           />
         )}
       </>
-    </ModalLayout>
+    </ModalStandard>
   );
 };

@@ -41,11 +41,11 @@ export type Props = TrackingEventModalProps & {
   children: ReactNode;
 };
 
-// ModalLayout is the opinionated wrapper around the composable Modal
+// ModalStandard is the opinionated wrapper around the composable Modal
 // primitives: header + scrollable body + Cancel / Save footer, optionally
 // wired to a form submit. New modals with one-off layouts should compose
 // <Modal.Root> primitives directly instead of reaching for more props here.
-export default function ModalLayout({
+export default function ModalStandard({
   open,
   header,
   headerAction,

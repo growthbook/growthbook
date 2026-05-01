@@ -3,7 +3,7 @@ import { ExposureQuery } from "shared/types/datasource";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
-import ModalLayout from "@/ui/Modal/Patterns/ModalLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import {
   CustomDimensionMetadata,
@@ -63,7 +63,7 @@ export const UpdateDimensionMetadataModal: FC<
 
   return (
     <>
-      <ModalLayout
+      <ModalStandard
         trackingEventModalType=""
         open={true}
         close={close}
@@ -95,7 +95,7 @@ export const UpdateDimensionMetadataModal: FC<
             setDimensionSlicesId={setDimensionSlicesId}
           />
         </Flex>
-      </ModalLayout>
+      </ModalStandard>
     </>
   );
 };

@@ -5,7 +5,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
-import ModalLayout from "@/ui/Modal/Patterns/ModalLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Table, {
   TableBody,
   TableCell,
@@ -84,7 +84,7 @@ export default function EditPhasesModal({
     );
   }
   return (
-    <ModalLayout
+    <ModalStandard
       trackingEventModalType="edit-phases-modal"
       trackingEventModalSource={source}
       open={true}
@@ -184,6 +184,6 @@ export default function EditPhasesModal({
           New Phase
         </Button>
       )}
-    </ModalLayout>
+    </ModalStandard>
   );
 }
