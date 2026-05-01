@@ -99,7 +99,7 @@ export default forwardRef<
         <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
       ) : null}
       {contentsAs === "div" ? (
-        <Box>
+        <Box width="100%">
           <div>{children}</div>
         </Box>
       ) : (
