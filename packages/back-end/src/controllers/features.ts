@@ -1176,6 +1176,7 @@ async function repairFeatureDriftIfNeeded(
   feature: FeatureInterface,
   live: FeatureRevisionInterface | undefined,
   environmentIds: string[],
+  { throwOnFailure = false }: { throwOnFailure?: boolean } = {},
 ): Promise<void> {
   if (!live) return;
 
@@ -1213,6 +1214,16 @@ async function repairFeatureDriftIfNeeded(
       { err: e, featureId: feature.id, orgId: context.org.id },
       "Failed to repair feature drift",
     );
+    // Write callers (publish, revert) MUST abort if the repair fails —
+    // otherwise the subsequent diff runs against the stale `feature.rules`
+    // and the operation silently no-ops or produces an incorrect merge
+    // (the exact failure this helper exists to prevent). Read callers
+    // (e.g. getFeatureById) tolerate the stale response.
+    if (throwOnFailure) {
+      throw new Error(
+        "Could not reconcile feature with its live revision. Please retry.",
+      );
+    }
   }
 }
 
@@ -1277,7 +1288,9 @@ export async function postFeaturePublish(
   // true live state. Without this, a feature stuck at a prior version's
   // rules (e.g. via the legacy env.rules JIT-migration shadow) would make
   // the merge produce phantom "changes" or silently no-op.
-  await repairFeatureDriftIfNeeded(context, feature, live, environmentIds);
+  await repairFeatureDriftIfNeeded(context, feature, live, environmentIds, {
+    throwOnFailure: true,
+  });
 
   // Compute merge result first so the review check can diff the merged outcome
   // against live — the same approach the frontend uses. This prevents spurious
@@ -1564,6 +1577,7 @@ export async function postFeatureRevert(
     feature,
     liveRevisionForRepair,
     environmentIds,
+    { throwOnFailure: true },
   );
 
   const mergeChanges: MergeResultChanges = {};
