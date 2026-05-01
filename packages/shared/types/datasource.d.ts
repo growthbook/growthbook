@@ -309,7 +309,6 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
-  lockUntil?: Date | null;
   type: DataSourceType;
 }
 
