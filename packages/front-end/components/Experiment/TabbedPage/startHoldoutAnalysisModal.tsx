@@ -7,7 +7,10 @@ export interface Props {
   startAnalysis: () => Promise<void>;
 }
 
-export default function StartAnalysisModal({ close, startAnalysis }: Props) {
+export default function StartHoldoutAnalysisModal({
+  close,
+  startAnalysis,
+}: Props) {
   return (
     <ModalStandard
       trackingEventModalType="start-holdout"
