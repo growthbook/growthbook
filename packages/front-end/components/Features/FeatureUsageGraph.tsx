@@ -20,6 +20,10 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { FeatureUsageLookback } from "shared/types/integrations";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  stemRuleId,
+} from "shared/util";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -29,7 +33,6 @@ import { datetime } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import { FaBoltLightning } from "react-icons/fa6";
 import { PiCaretRightBold, PiXBold } from "react-icons/pi";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
@@ -86,22 +89,21 @@ function getDummyData(
   const ruleIds = new Set<string>();
   const sources = new Set<string>(["defaultValue"]);
   const values = new Set<string>([feature.defaultValue]);
-  Object.values(feature.environmentSettings).forEach((env) => {
-    env.rules.forEach((rule) => {
-      if (rule.id) ruleIds.add(rule.id);
-      if (rule.type === "force") {
-        sources.add("force");
-        values.add(rule.value);
-      } else if (rule.type === "rollout") {
-        sources.add("rollout");
-        values.add(rule.value);
-      } else if (rule.type === "experiment-ref") {
-        sources.add("experiment");
-        rule.variations.forEach((v) => {
-          if (v.value) values.add(v.value);
-        });
-      }
-    });
+  (feature.rules ?? []).forEach((rule) => {
+    // Match real SDK telemetry: stem-stripped rule ids (see getFeatureDefinition)
+    if (rule.id) ruleIds.add(stemRuleId(rule.id));
+    if (rule.type === "force") {
+      sources.add("force");
+      values.add(rule.value);
+    } else if (rule.type === "rollout") {
+      sources.add("rollout");
+      values.add(rule.value);
+    } else if (rule.type === "experiment-ref") {
+      sources.add("experiment");
+      rule.variations.forEach((v) => {
+        if (v.value) values.add(v.value);
+      });
+    }
   });
   return {
     total: Math.floor(Math.random() * 500),
@@ -266,12 +268,10 @@ export function useFeatureUsage() {
 export function FeatureUsageContainer({
   valueType,
   revision,
-  environments,
   initialTab = "value",
 }: {
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
-  environments?: string[];
   initialTab?: "source" | "value" | "rule";
 }) {
   const [tab, setTab] = useState<"source" | "value" | "rule">(initialTab);
@@ -286,11 +286,24 @@ export function FeatureUsageContainer({
     return <ManagedWarehouseNoEventsCallout />;
   }
 
+  // Post-unification `revision.rules` is a flat `FeatureRule[]` rather than
+  // `Record<env, rule[]>`. SDK payloads emit the STEM id on telemetry rows
+  // (see `getFeatureDefinition` rule-id comment), so we key the label map by
+  // stem — otherwise rows whose rule id was `__env`-suffixed at flatten time
+  // would never match any entry and get filtered out of the graph.
   const ruleLabelMapping = new Map<string, string>();
-  environments?.forEach((env) => {
-    revision?.rules?.[env]?.forEach((rule, i) => {
-      ruleLabelMapping.set(rule.id, `${env} #${i + 1}`);
-    });
+  const rules = Array.isArray(revision?.rules) ? revision.rules : [];
+  // Holdout occupies rule slot #1 (matches Rule.tsx).
+  const ruleNumberOffset = revision?.holdout ? 2 : 1;
+  rules.forEach((rule, i) => {
+    if (!rule.id) return;
+    const stem = stemRuleId(rule.id);
+    if (!ruleLabelMapping.has(stem)) {
+      ruleLabelMapping.set(
+        stem,
+        rule.description?.trim() || `Rule #${i + ruleNumberOffset}`,
+      );
+    }
   });
 
   return (
@@ -1083,11 +1096,9 @@ export default function FeatureUsageGraph({
 export function FeatureUsageSparkline({
   valueType,
   revision,
-  environments,
 }: {
   valueType: FeatureValueType;
   revision?: FeatureRevisionInterface;
-  environments?: string[];
 }) {
   const {
     sparkFeatureUsage,
@@ -1303,7 +1314,6 @@ export function FeatureUsageSparkline({
           <FeatureUsageContainer
             valueType={valueType}
             revision={revision}
-            environments={environments}
             initialTab={valueType === "boolean" ? "value" : "source"}
           />
         </Modal>

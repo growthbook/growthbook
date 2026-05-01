@@ -11,6 +11,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagRowMenu from "@/components/Tags/TagRowMenu";
+import Callout from "@/ui/Callout";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -38,9 +39,9 @@ const TagsPage: FC = () => {
   if (!canManageTags) {
     return (
       <div className="container-fluid pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }

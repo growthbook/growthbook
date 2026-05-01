@@ -409,17 +409,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/CompareEnvironmentsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/CompareRevisionsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/CopyRuleModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -495,11 +485,6 @@
     }
   },
   "packages/front-end/components/Features/FeatureReferencesList.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/FeatureRules.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

@@ -1,6 +1,7 @@
 import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
 import { getReviewSetting } from "shared/util";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { ApiRequestLocals } from "back-end/types/api";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -11,15 +12,21 @@ import {
   submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
 
-const actionToReviewType: Record<string, ReviewSubmittedType> = {
+export const actionToReviewType: Record<string, ReviewSubmittedType> = {
   approve: "Approved",
   "request-changes": "Requested Changes",
   comment: "Comment",
 };
 
-export const postFeatureRevisionSubmitReview = createApiRequestHandler(
-  postFeatureRevisionSubmitReviewValidator,
-)(async (req) => {
+export async function submitRevisionReview(
+  req: Pick<ApiRequestLocals, "context" | "organization"> & {
+    params: { id: string; version: number };
+    body: {
+      action?: "approve" | "request-changes" | "comment";
+      comment?: string;
+    };
+  },
+) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -31,6 +38,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    feature,
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
@@ -90,6 +98,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    feature,
     version: req.params.version,
   });
   const finalRevision = updated ?? revision;
@@ -110,5 +119,12 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
     reviewer,
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  return { feature, revision: finalRevision };
+}
+
+export const postFeatureRevisionSubmitReview = createApiRequestHandler(
+  postFeatureRevisionSubmitReviewValidator,
+)(async (req) => {
+  const { feature, revision } = await submitRevisionReview(req);
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

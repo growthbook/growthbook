@@ -53,6 +53,9 @@ import {
   useCustomFields,
 } from "@/hooks/useCustomFields";
 import HelperText from "@/ui/HelperText";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
@@ -93,6 +96,7 @@ export default function ExperimentRefNewFields({
   setCustomFields,
   isTemplate = false,
   holdoutHashAttribute,
+  envScope,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -126,6 +130,7 @@ export default function ExperimentRefNewFields({
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
   holdoutHashAttribute?: string;
+  envScope?: EnvScopeProps;
 }) {
   const form = useFormContext();
 
@@ -353,6 +358,8 @@ export default function ExperimentRefNewFields({
             {...form.register("description")}
             placeholder="Short human-readable description of the Experiment"
           />
+
+          {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
 
           {hasCommercialFeature("custom-metadata") &&
             !!customFields?.length && (

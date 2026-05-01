@@ -2,10 +2,7 @@
  * Delegates managed ClickHouse provisioning to central-license-server
  * (see managed-clickhouse/* routes there).
  */
-import type {
-  DataSourceParams,
-  MaterializedColumn,
-} from "shared/types/datasource";
+import type { MaterializedColumn } from "shared/types/datasource";
 import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
@@ -123,34 +120,17 @@ async function postManagedClickhouse(
   return res;
 }
 
-export async function createClickhouseUserViaLicenseServer(
-  orgId: string,
-  materializedColumns: MaterializedColumn[] = [],
-): Promise<DataSourceParams> {
-  const res = await postManagedClickhouse("provision", {
-    orgId,
-    materializedColumns,
-  });
-  return (await res.json()) as DataSourceParams;
-}
-
-export async function dangerousRecreateClickhouseTablesViaLicenseServer(
-  orgId: string,
-  materializedColumns: MaterializedColumn[] = [],
-): Promise<void> {
-  await postManagedClickhouse("recreate-tables", {
-    orgId,
-    materializedColumns,
-  });
-}
-
-export async function deleteClickhouseUserViaLicenseServer(
+export async function dangerousRecreateClickhouseTables(
   orgId: string,
 ): Promise<void> {
+  await postManagedClickhouse("recreate-tables", { orgId });
+}
+
+export async function deleteClickhouseUser(orgId: string): Promise<void> {
   await postManagedClickhouse("delete", { orgId });
 }
 
-export async function addCloudSDKMappingViaLicenseServer(
+export async function addCloudSDKMapping(
   key: string,
   organization: string,
 ): Promise<void> {
@@ -160,13 +140,13 @@ export async function addCloudSDKMappingViaLicenseServer(
   });
 }
 
-export async function migrateOverageEventsForOrgIdViaLicenseServer(
+export async function migrateOverageEventsForOrgId(
   orgId: string,
 ): Promise<void> {
   await postManagedClickhouse("migrate-overage", { orgId });
 }
 
-export async function updateMaterializedColumnsInClickhouseViaLicenseServer({
+export async function updateMaterializedColumnsInClickhouse({
   orgId,
   columnsToAdd,
   columnsToDelete,

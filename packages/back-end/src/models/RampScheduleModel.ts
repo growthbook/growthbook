@@ -1,3 +1,4 @@
+import escapeRegExp from "lodash/escapeRegExp";
 import { v4 as uuidv4 } from "uuid";
 import { UpdateProps } from "shared/types/base-model";
 import type { FeatureInterface } from "shared/types/feature";
@@ -8,6 +9,7 @@ import {
   RampStepAction,
   rampScheduleValidator,
 } from "shared/validators";
+import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -16,6 +18,10 @@ import {
 } from "back-end/src/services/rampSchedule";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { applyPagination } from "back-end/src/util/handler";
+import {
+  rampTargetsEquivalent,
+  resolveRampTargets,
+} from "back-end/src/util/flattenRules";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -269,7 +275,7 @@ export class RampScheduleModel extends BaseClass {
       );
     }
 
-    const hasTarget = !!(body.featureId && body.ruleId && body.environment);
+    const hasTarget = !!(body.featureId && body.ruleId);
 
     let targetId: string | undefined;
     let feature: FeatureInterface | null = null;
@@ -282,24 +288,48 @@ export class RampScheduleModel extends BaseClass {
     }
 
     if (hasTarget) {
-      const envRules =
-        feature!.environmentSettings?.[body.environment!]?.rules ?? [];
-      const rule = envRules.find((r) => r.id === body.ruleId);
+      const envSuffix = body.environment
+        ? ` in environment '${body.environment}'`
+        : "";
+      const matches = resolveRampTargets(
+        { ruleId: body.ruleId!, environment: body.environment ?? null },
+        feature!.rules ?? [],
+      );
+      const rule = matches[0];
       if (!rule) {
         throw new Error(
-          `Rule '${body.ruleId}' not found in environment '${body.environment}'. ` +
+          `Rule '${body.ruleId}' not found${envSuffix}. ` +
             `The rule must be published before attaching a ramp schedule.`,
+        );
+      }
+      // Post-unification, a stem may have multiple sibling rules (one per env)
+      // if it was split via the non-mergeable migration path. Require an
+      // `environment` to disambiguate in that case so we never silently attach
+      // a ramp to an arbitrary sibling.
+      if (matches.length > 1 && !body.environment) {
+        const siblingEnvs = Array.from(
+          new Set(
+            matches.flatMap((r) =>
+              r.allEnvironments
+                ? ["(all environments)"]
+                : (r.environments ?? []),
+            ),
+          ),
+        ).sort();
+        throw new Error(
+          `Rule '${body.ruleId}' is ambiguous — it matches ${matches.length} sibling rules (${siblingEnvs.join(", ")}). ` +
+            `Specify an 'environment' to disambiguate.`,
         );
       }
 
       const conflicting = await this.findByTargetRule(
         body.ruleId!,
-        body.environment!,
+        body.environment ?? undefined,
       );
       if (conflicting.length > 0) {
         throw new Error(
-          `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}' ` +
-            `in environment '${body.environment}'. Delete it first before creating a new one.`,
+          `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}'${envSuffix}. ` +
+            `Delete it first before creating a new one.`,
         );
       }
 
@@ -369,7 +399,10 @@ export class RampScheduleModel extends BaseClass {
           {
             targetType: "feature-rule" as const,
             targetId: targetId!,
-            patch: { ruleId: body.ruleId!, ...template.endPatch },
+            patch: {
+              ruleId: body.ruleId!,
+              ...template.endPatch,
+            },
           },
         ];
       }
@@ -398,7 +431,11 @@ export class RampScheduleModel extends BaseClass {
               entityType: "feature",
               entityId: body.featureId!,
               ruleId: body.ruleId,
-              environment: body.environment,
+              // `environment` is deliberately omitted on new targets. Post-v2
+              // `rule.id` is uniquely sufficient within a feature's unified
+              // rule list; env is a deprecated pre-v2 disambiguator. The
+              // resolver and DB-side lookup still honor stored `environment`
+              // for legacy targets. See `rampTarget` in shared/validators.
               status: "active",
             },
           ]
@@ -578,18 +615,41 @@ export class RampScheduleModel extends BaseClass {
   // is optional: when omitted, any env matches; when provided, targets scoped
   // to that env OR to a wildcard (null/empty env) both match, since a wildcard
   // target applies to every environment.
+  //
+  // Stem-based matching: the caller may pass either the public rule id
+  // (`fr_abc`) or a migration-suffixed id (`fr_abc__production`). Both forms
+  // resolve to the same underlying rule via `stemRuleId`. On the DB side we
+  // use an anchored regex that matches any stored ruleId sharing that stem
+  // (bare stem OR stem followed by the env-suffix delimiter), then
+  // re-validate in memory as defense in depth. This parallels the
+  // symmetric stem matching done on the feature side by `resolveRampTarget`
+  // so a ramp authored pre-migration continues to resolve post-migration,
+  // and vice versa.
   public async findByTargetRule(
     ruleId: string,
     environment?: string | null,
   ): Promise<RampScheduleInterface[]> {
-    const targetMatch: Record<string, unknown> = { ruleId };
-    if (environment) {
-      targetMatch.environment = { $in: [environment, null, ""] };
-    }
-    return this._find({
+    const stem = stemRuleId(ruleId);
+    // Broad stem prefix match at the DB layer — cheap and correct, as ramp
+    // schedules are scoped per-feature in practice. All env-precision nuance
+    // (bare-vs-suffixed id, wildcard-env semantics, suffix-derived env) is
+    // applied uniformly in-memory via `rampTargetsEquivalent`.
+    //
+    // Rule ids are alphanumeric + `_` by construction, but escape regex
+    // metachars defensively so a pathological legacy id can't break the
+    // query or leak into the regex engine.
+    const stemRegex = new RegExp(
+      `^${escapeRegExp(stem)}(?:${RULE_ID_ENV_SUFFIX_DELIMITER}|$)`,
+    );
+    const candidates = await this._find({
       status: { $nin: ["completed", "rolled-back"] },
-      targets: { $elemMatch: targetMatch },
+      targets: { $elemMatch: { ruleId: { $regex: stemRegex } } },
     });
+
+    const query = { ruleId, environment: environment ?? null };
+    return candidates.filter((s) =>
+      s.targets.some((t) => rampTargetsEquivalent(t, query)),
+    );
   }
 
   public async getActiveSchedules(): Promise<RampScheduleInterface[]> {

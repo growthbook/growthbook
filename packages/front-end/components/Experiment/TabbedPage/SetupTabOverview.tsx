@@ -46,6 +46,7 @@ export interface Props {
   disableEditing?: boolean;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
+  setChecklistHardBlockerCount?: (value: number) => void;
   envs: string[];
   editHoldoutSchedule?: (() => void) | null;
 }
@@ -62,6 +63,7 @@ export default function SetupTabOverview({
   disableEditing,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  setChecklistHardBlockerCount,
   envs,
   editHoldoutSchedule,
 }: Props) {
@@ -163,6 +165,7 @@ export default function SetupTabOverview({
             connections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
+            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
           />
         ) : null}
         {isHoldout && holdout && holdoutHasSchedule && editHoldoutSchedule ? (
