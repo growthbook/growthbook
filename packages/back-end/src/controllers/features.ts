@@ -4423,10 +4423,14 @@ export async function getFeatureById(
         "Repairing feature drift against live revision",
       );
       try {
-        feature = await updateFeature(context, feature, {
+        const repaired = await updateFeature(context, feature, {
           ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
           rules: liveRulesFlat,
         });
+        // Mutate the local feature so all downstream consumers in this
+        // request (audit, codeRefs, response body, SDK refresh hooks) see
+        // the repaired state without needing a re-read.
+        Object.assign(feature, repaired);
       } catch (e) {
         logger.error(
           { err: e, featureId: feature.id, orgId: org.id },
