@@ -110,7 +110,6 @@ export default function FeatureArchiveModal({
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
         if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
-        close();
       }}
       ctaEnabled={canSubmit}
     >

@@ -11,6 +11,7 @@ const ConfirmButton: FC<{
   children: ReactNode;
   additionalMessage?: ReactElement | null | string;
   disabled?: boolean;
+  isDestructive?: boolean;
 }> = ({
   onClick,
   modalHeader,
@@ -21,6 +22,7 @@ const ConfirmButton: FC<{
   children,
   additionalMessage = "",
   disabled = false,
+  isDestructive = false,
 }) => {
   const [confirming, setConfirming] = useState(false);
   return (
@@ -33,7 +35,7 @@ const ConfirmButton: FC<{
           open={true}
           cta={cta}
           ctaEnabled={ctaEnabled}
-          ctaColor="red"
+          ctaColor={isDestructive ? "red" : "violet"}
           submit={onClick}
           size={size}
         >

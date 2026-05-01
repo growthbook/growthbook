@@ -101,7 +101,6 @@ const AddToHoldoutModal = ({
                 res.draftVersion ??
                 (mode === "existing" ? selectedDraft : null);
               if (resolvedVersion != null) setVersion(resolvedVersion);
-              close();
             })
           : undefined
       }

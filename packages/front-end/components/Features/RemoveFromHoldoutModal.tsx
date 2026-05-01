@@ -67,7 +67,6 @@ export default function RemoveFromHoldoutModal({
     const resolvedVersion =
       res.draftVersion ?? (mode === "existing" ? selectedDraft : null);
     if (resolvedVersion != null) setVersion(resolvedVersion);
-    close();
   };
 
   return (
