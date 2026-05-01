@@ -6,6 +6,7 @@ import {
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   postPauseEventForwarderToLicenseServer,
   postProvisionEventForwarderToLicenseServer,
@@ -16,8 +17,21 @@ import {
 } from "back-end/src/enterprise/licenseUtil";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
 import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
+import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
+
+function assertEventForwarderWriteAccessResult(
+  result: Awaited<ReturnType<typeof testEventForwarderWriteAccess>>,
+): void {
+  const sinkWrite = result.results.sinkWrite;
+  if (sinkWrite.result !== "success") {
+    throw new Error(
+      sinkWrite.resultMessage ||
+        "Event Forwarder write access validation failed",
+    );
+  }
+}
 
 /**
  * Provisions Confluent resources for a BigQuery event forwarder via the central license server.
@@ -38,6 +52,13 @@ export async function provisionEventForwarderThroughLicenseServer(
 
   try {
     const attributeSchema = context.org.settings?.attributeSchema ?? [];
+    const datasource = await getDataSourceById(
+      context,
+      eventForwarderConfig.datasourceId,
+    );
+    if (!datasource) {
+      throw new Error("Cannot find data source for event forwarder");
+    }
     let result: {
       schemaId: number;
       connectorName: string;
@@ -67,6 +88,15 @@ export async function provisionEventForwarderThroughLicenseServer(
           eventForwarderConfig,
         );
 
+      assertEventForwarderWriteAccessResult(
+        await testEventForwarderWriteAccess(context, {
+          sinkType: "bigquery",
+          datasource,
+          params: bigqueryConnectionParams as BigQueryConnectionParams,
+          config: decrypted,
+        }),
+      );
+
       result = await postProvisionEventForwarderToLicenseServer({
         organizationId: context.org.id,
         datasourceId: eventForwarderConfig.datasourceId,
@@ -85,6 +115,15 @@ export async function provisionEventForwarderThroughLicenseServer(
         decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
           eventForwarderConfig,
         );
+
+      assertEventForwarderWriteAccessResult(
+        await testEventForwarderWriteAccess(context, {
+          sinkType: "snowflake",
+          datasource,
+          params: datasourceParams as SnowflakeConnectionParams,
+          config: decrypted,
+        }),
+      );
 
       result = await postProvisionEventForwarderToLicenseServer({
         organizationId: context.org.id,

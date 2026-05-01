@@ -7,6 +7,7 @@ import {
 } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { computeEventForwarderAccessSignature } from "shared/util";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/components/Button";
 import SelectField from "@/components/Forms/SelectField";
@@ -54,6 +55,10 @@ const DataSourceForm: FC<{
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams> | undefined
   >();
+  const [
+    validatedEventForwarderSignature,
+    setValidatedEventForwarderSignature,
+  ] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
@@ -95,6 +100,22 @@ const DataSourceForm: FC<{
     }
   }, [data, dirty]);
 
+  const eventForwarderAccessSignature = computeEventForwarderAccessSignature(
+    datasource || {},
+  );
+  const eventForwarderSaveBlocked =
+    !!datasource?.eventForwarderConfig &&
+    validatedEventForwarderSignature !== eventForwarderAccessSignature;
+
+  useEffect(() => {
+    if (
+      validatedEventForwarderSignature &&
+      validatedEventForwarderSignature !== eventForwarderAccessSignature
+    ) {
+      setValidatedEventForwarderSignature(null);
+    }
+  }, [eventForwarderAccessSignature, validatedEventForwarderSignature]);
+
   if (!datasource) {
     return null;
   }
@@ -106,6 +127,11 @@ const DataSourceForm: FC<{
     try {
       if (!datasource.type) {
         throw new Error("Please select a data source type");
+      }
+      if (eventForwarderSaveBlocked) {
+        throw new Error(
+          "Test Event Forwarder access before saving this datasource.",
+        );
       }
 
       let id = data.id;
@@ -186,11 +212,13 @@ const DataSourceForm: FC<{
       cta={cta}
       size="lg"
       secondaryCTA={secondaryCTA}
-      ctaEnabled={!isSampleData}
+      ctaEnabled={!isSampleData && !eventForwarderSaveBlocked}
       disabledMessage={
         isSampleData
           ? "You cannot edit the sample data source connection."
-          : undefined
+          : eventForwarderSaveBlocked
+            ? "Test Event Forwarder access before saving this datasource."
+            : undefined
       }
     >
       {importSampleData && !datasource.type && (
@@ -302,6 +330,10 @@ const DataSourceForm: FC<{
         hasError={hasError}
         setDatasource={setDatasource}
         setDirty={setDirty}
+        eventForwarderAccessSignature={eventForwarderAccessSignature}
+        setValidatedEventForwarderSignature={
+          setValidatedEventForwarderSignature
+        }
       />
       <EditSchemaOptions
         datasource={datasource}
