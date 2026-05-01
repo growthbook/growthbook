@@ -20,6 +20,8 @@ export interface Props {
   hasError: boolean;
   setDirty?: (dirty: boolean) => void;
   setDatasource: (newVal: Partial<DataSourceInterfaceWithParams>) => void;
+  eventForwarderAccessSignature?: string;
+  setValidatedEventForwarderSignature?: (signature: string | null) => void;
 }
 
 export default function ConnectionSettings({
@@ -28,6 +30,8 @@ export default function ConnectionSettings({
   setDatasource,
   setDirty,
   hasError,
+  eventForwarderAccessSignature = "",
+  setValidatedEventForwarderSignature,
 }: Props) {
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
@@ -180,6 +184,12 @@ export default function ConnectionSettings({
           params={datasource?.params || {}}
           eventForwarderConfig={datasource.eventForwarderConfig || null}
           setEventForwarderConfig={setEventForwarderConfig}
+          datasourceId={datasource.id}
+          projects={datasource.projects}
+          eventForwarderAccessSignature={eventForwarderAccessSignature}
+          setValidatedEventForwarderSignature={
+            setValidatedEventForwarderSignature
+          }
         />
       );
       break;
@@ -202,6 +212,12 @@ export default function ConnectionSettings({
           eventForwarderConfig={datasource.eventForwarderConfig || null}
           setEventForwarderConfig={setEventForwarderConfig}
           onParamChange={onParamChange}
+          datasourceId={datasource.id}
+          projects={datasource.projects}
+          eventForwarderAccessSignature={eventForwarderAccessSignature}
+          setValidatedEventForwarderSignature={
+            setValidatedEventForwarderSignature
+          }
         />
       );
       break;

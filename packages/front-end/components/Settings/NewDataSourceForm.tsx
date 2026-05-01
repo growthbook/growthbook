@@ -11,6 +11,7 @@ import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
 } from "shared/types/datasource";
+import { computeEventForwarderAccessSignature } from "shared/util";
 import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
@@ -106,6 +107,10 @@ const NewDataSourceForm: FC<{
     projects: project ? [project] : [],
     ...initial,
   });
+  const [
+    validatedEventForwarderSignature,
+    setValidatedEventForwarderSignature,
+  ] = useState<string | null>(null);
 
   // Cloud, no managed warehouse yet, and is either free OR on a usage-based paid plan
   const showManagedWarehouse =
@@ -135,6 +140,21 @@ const NewDataSourceForm: FC<{
     .map((s) => s.value);
 
   const [lastError, setLastError] = useState("");
+  const eventForwarderAccessSignature =
+    computeEventForwarderAccessSignature(connectionInfo);
+  const eventForwarderSaveBlocked =
+    step === "connection" &&
+    !!connectionInfo.eventForwarderConfig &&
+    validatedEventForwarderSignature !== eventForwarderAccessSignature;
+
+  useEffect(() => {
+    if (
+      validatedEventForwarderSignature &&
+      validatedEventForwarderSignature !== eventForwarderAccessSignature
+    ) {
+      setValidatedEventForwarderSignature(null);
+    }
+  }, [eventForwarderAccessSignature, validatedEventForwarderSignature]);
 
   const setSchemaSettings = useCallback(
     (s: eventSchema) => {
@@ -216,6 +236,11 @@ const NewDataSourceForm: FC<{
       try {
         if (!connectionInfo.type || !connectionInfo.params) {
           throw new Error("Please select a data source type");
+        }
+        if (eventForwarderSaveBlocked) {
+          throw new Error(
+            "Test Event Forwarder access before saving this datasource.",
+          );
         }
 
         if (connectionInfo.settings && eventTracker) {
@@ -634,6 +659,10 @@ const NewDataSourceForm: FC<{
           existing={false}
           hasError={!!lastError}
           setDatasource={setConnectionInfo}
+          eventForwarderAccessSignature={eventForwarderAccessSignature}
+          setValidatedEventForwarderSignature={
+            setValidatedEventForwarderSignature
+          }
         />
       </div>
     );
@@ -731,6 +760,12 @@ const NewDataSourceForm: FC<{
     !connectionInfo.params?.defaultDataset
   ) {
     ctaEnabled = false;
+  }
+
+  if (eventForwarderSaveBlocked) {
+    ctaEnabled = false;
+    disabledMessage =
+      "Test Event Forwarder access before saving this datasource.";
   }
 
   if (step === "initial" && !connectionInfo.type) {
