@@ -8,6 +8,8 @@ import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
 const openApiTags = [
   "projects",
   "environments",
+  "features-v2",
+  "feature-revisions-v2",
   "features",
   "feature-revisions",
   "ramp-schedules",
@@ -47,13 +49,24 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
       "GrowthBook comes with one environment by default (production), but you can add as many as you need. When used with feature flags, you can enable/disable feature flags on a per-environment basis.",
   },
   features: {
-    display: "Feature Flags",
-    description: "Control your feature flags programatically",
+    display: "Feature Flags (legacy)",
+    description:
+      "Control your feature flags programatically.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Flags endpoints, which expose a unified per-rule environment scope instead of per-environment rule arrays.",
   },
   "feature-revisions": {
+    display: "Feature Revisions (legacy)",
+    description:
+      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Revisions endpoints.",
+  },
+  "features-v2": {
+    display: "Feature Flags",
+    description:
+      "Control your feature flags programatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
+  },
+  "feature-revisions-v2": {
     display: "Feature Revisions",
     description:
-      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nThese endpoints are in beta and are subject to change.",
+      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nRevision `rules` is a flat array with per-rule scope fields.",
   },
   "ramp-schedules": {
     display: "Ramp Schedules",
@@ -226,7 +239,7 @@ function buildCurlSample(
   example: { params?: unknown; body?: unknown; query?: unknown },
 ): string {
   // Substitute path params into the URL
-  let url = `https://api.growthbook.io/api/v1${fullPath}`;
+  let url = `https://api.growthbook.io/api${fullPath}`;
   if (example.params && typeof example.params === "object") {
     for (const [key, value] of Object.entries(
       example.params as Record<string, unknown>,
@@ -294,6 +307,7 @@ type Path = {
   operationId: string;
   summary?: string;
   description?: string;
+  deprecated?: boolean;
   tags?: string[];
   parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
@@ -344,7 +358,16 @@ async function run() {
 
 Request data can use either JSON or Form data encoding (with proper \`Content-Type\` headers). All response bodies are JSON-encoded.
 
-The API base URL for GrowthBook Cloud is \`https://api.growthbook.io\`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to \`http://localhost:3100\`). The rest of these docs will assume you are using GrowthBook Cloud.
+The API base URL for GrowthBook Cloud is \`https://api.growthbook.io/api\`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to \`http://localhost:3100/api\`). The rest of these docs will assume you are using GrowthBook Cloud.
+
+## Versioning
+
+Endpoints are versioned by path prefix:
+
+- \`/v1/...\` — stable, widely-supported endpoints
+- \`/v2/...\` — updated endpoints with improved shapes (e.g. unified per-rule environment scope for feature flags)
+
+New integrations should prefer v2 where available.
 
 ## Authentication
 
@@ -358,14 +381,14 @@ You first need to generate a new API Key in GrowthBook. Different keys have diff
 If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank (when using curl, add \`:\` at the end of the secret to indicate an empty password)
 
 \`\`\`bash
-curl https://api.growthbook.io/api/v1 \\
+curl https://api.growthbook.io/api/v1/features \\
   -u secret_abc123DEF456:
 \`\`\`
 
 If using Bearer auth, pass the Secret Key as the token:
 
 \`\`\`bash
-curl https://api.growthbook.io/api/v1 \\
+curl https://api.growthbook.io/api/v1/features \\
 -H "Authorization: Bearer secret_abc123DEF456"
 \`\`\`
 
@@ -388,11 +411,11 @@ The response body will be a JSON object with the following properties:
     },
     servers: [
       {
-        url: "https://api.growthbook.io/api/v1",
+        url: "https://api.growthbook.io/api",
         description: "GrowthBook Cloud",
       },
       {
-        url: "https://{domain}/api/v1",
+        url: "https://{domain}/api",
         description: "Self-hosted GrowthBook",
       },
     ],
@@ -412,7 +435,7 @@ The response body will be a JSON object with the following properties:
           scheme: "bearer",
           description: `If using Bearer auth, pass the Secret Key as the token:
 \`\`\`bash
-curl https://api.growthbook.io/api/v1 \
+curl https://api.growthbook.io/api/v1/features \
   -H "Authorization: Bearer secret_abc123DEF456"
 \`\`\`
 `,
@@ -422,7 +445,7 @@ curl https://api.growthbook.io/api/v1 \
           scheme: "basic",
           description: `If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
 \`\`\`bash
-curl https://api.growthbook.io/api/v1 \
+curl https://api.growthbook.io/api/v1/features \
   -u secret_abc123DEF456:
 # The ":" at the end stops curl from asking for a password
 \`\`\`
@@ -452,6 +475,8 @@ curl https://api.growthbook.io/api/v1 \
       method,
       path,
       exampleRequest,
+      version,
+      deprecated,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -641,8 +666,9 @@ curl https://api.growthbook.io/api/v1 \
       },
     };
 
-    // Relace express style path parameters with OpenAPI style path parameters
-    const fullPath = path.replace(/:(\w+)/g, "{$1}");
+    // Replace express style path parameters with OpenAPI style path parameters,
+    // and prefix with the version segment so the spec uses /v1/... or /v2/...
+    const fullPath = `/${version ?? "v1"}` + path.replace(/:(\w+)/g, "{$1}");
 
     // Build code samples from example data
     const codeSamples: CodeSample[] = [
@@ -657,6 +683,7 @@ curl https://api.growthbook.io/api/v1 \
       operationId,
       summary,
       ...(description !== undefined && { description }),
+      ...(deprecated && { deprecated: true }),
       tags,
       ...(parameters.length > 0 && { parameters }),
       ...(requestBody !== undefined && { requestBody }),

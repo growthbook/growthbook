@@ -17,6 +17,7 @@ import {
   getFeatureHoldoutBadges,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
+import { useEnvironments } from "@/services/features";
 
 // Helper
 // Normalize nullable metadata fields to canonical empty values so that
@@ -46,15 +47,11 @@ export const featureToFeatureRevisionDiffInput = (
 
   return {
     defaultValue: feature.defaultValue,
-    rules: Object.fromEntries(
-      Object.entries(feature.environmentSettings).map(([envId, env]) => [
-        envId,
-        env.rules,
-      ]),
-    ),
+    rules: feature.rules ?? [],
     environmentsEnabled,
     prerequisites: feature.prerequisites,
     holdout: feature.holdout ?? null,
+    rampActions: undefined,
     metadata: normalizeRevisionMetadata({
       description: feature.description,
       owner: feature.owner,
@@ -94,15 +91,49 @@ export type FeatureRevisionDiffInput = Pick<
   | "prerequisites"
   | "metadata"
   | "holdout"
->;
+> & {
+  // Optional pending ramp-schedule actions on the draft side. When set,
+  // rule diffs annotate affected rules with a "Pending Ramp Schedule" block.
+  rampActions?: FeatureRevisionInterface["rampActions"];
+};
 
 export type FeatureRevisionDiff = {
   title: string;
   a: string;
   b: string;
   customRender?: ReactNode;
+  // Rendered inline next to the title in the customRender section heading
+  // (e.g. a "[pending publish]" badge for ramp-schedule diffs).
+  titleSuffix?: ReactNode;
   badges?: DiffBadge[];
 };
+
+// Mirrors backend `applyEnvironmentInheritance`: fill missing env entries by
+// walking each env's parent chain. Avoids phantom toggle diffs on inheriting
+// envs that have no explicit entry on either side.
+function fillEnabledByInheritance(
+  enabled: Record<string, boolean> | undefined,
+  envs: { id: string; parent?: string }[],
+): Record<string, boolean> {
+  const out: Record<string, boolean> = { ...(enabled || {}) };
+  const parentOf = new Map<string, string | undefined>();
+  for (const e of envs) parentOf.set(e.id, e.parent);
+  for (const e of envs) {
+    if (e.id in out) continue;
+    let ancestor = parentOf.get(e.id);
+    const visited = new Set<string>([e.id]);
+    while (ancestor && !(ancestor in out)) {
+      if (visited.has(ancestor)) {
+        ancestor = undefined;
+        break;
+      }
+      visited.add(ancestor);
+      ancestor = parentOf.get(ancestor);
+    }
+    if (ancestor) out[e.id] = out[ancestor];
+  }
+  return out;
+}
 
 export function useFeatureRevisionDiff({
   current,
@@ -111,6 +142,7 @@ export function useFeatureRevisionDiff({
   current: FeatureRevisionDiffInput;
   draft: FeatureRevisionDiffInput;
 }): FeatureRevisionDiff[] {
+  const orgEnvs = useEnvironments();
   return useMemo(() => {
     const diffs: FeatureRevisionDiff[] = [];
 
@@ -175,29 +207,28 @@ export function useFeatureRevisionDiff({
       }
     }
 
-    // 2. Environment toggles (kill switches)
+    // 2. Environment toggles (kill switches). Apply inheritance to both sides
+    // so a missing entry compares against its ancestor's value (avoids phantom
+    // "disabled → enabled" diffs). Orphan envs fall back to `false`.
+    const inheritedCurrent = fillEnabledByInheritance(
+      current.environmentsEnabled,
+      orgEnvs,
+    );
+    const inheritedDraft = fillEnabledByInheritance(
+      draft.environmentsEnabled,
+      orgEnvs,
+    );
     const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
     draftEnabledEnvs.forEach((envId) => {
-      const currentVal = current.environmentsEnabled?.[envId];
-      const draftVal = draft.environmentsEnabled?.[envId];
+      const currentVal = inheritedCurrent[envId] ?? false;
+      const draftVal = inheritedDraft[envId] ?? false;
       if (currentVal !== draftVal) {
-        // When the older revision didn't explicitly set this env, infer the
-        // previous state as the opposite of the new state. This is guaranteed
-        // correct here because currentVal !== draftVal already filtered out
-        // no-ops — if draftVal is false the env must have been true before,
-        // and vice versa.
-        const resolvedCurrentVal =
-          currentVal !== undefined ? currentVal : !draftVal;
         const direction = draftVal ? "on" : "off";
         diffs.push({
           title: `Environment Toggle - ${envId}`,
-          a: String(resolvedCurrentVal),
-          b: draftVal !== undefined ? String(draftVal) : "",
-          customRender: renderEnvironmentsEnabled(
-            envId,
-            resolvedCurrentVal,
-            draftVal,
-          ),
+          a: String(currentVal),
+          b: String(draftVal),
+          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
           badges: [
             {
               label: `Toggled ${envId} ${direction}`,
@@ -264,25 +295,48 @@ export function useFeatureRevisionDiff({
       });
     }
 
-    // 6. Rules (per environment)
-    const draftEnvironments = Object.keys(draft.rules || {});
-    draftEnvironments.forEach((envId) => {
-      const currentRules = current.rules?.[envId] || [];
-      const draftRules = draft.rules?.[envId] || [];
-
-      if (!isEqual(currentRules, draftRules)) {
-        diffs.push({
-          title: `Rules - ${envId}`,
-          a: JSON.stringify(normalizeFeatureRules(currentRules), null, 2),
-          b: JSON.stringify(normalizeFeatureRules(draftRules), null, 2),
-          customRender: renderFeatureRules(currentRules, draftRules),
-          badges: featureRuleChangeBadges(currentRules, draftRules, envId),
-        });
-      }
-    });
+    // 6. Rules — single flat diff, NOT bucketed by environment.
+    //
+    // Post-unification `rules` is a `FeatureRule[]` whose members carry their
+    // own env scope. Rule cards render the scope inline (see `RuleEnvScope`),
+    // so a single rules section captures every change (adds, removes,
+    // modifications, reorderings, and scope flips) including rules whose
+    // footprint is empty (`environments: []`, pending) or universal
+    // (`allEnvironments: true`) — all of which were invisible in the old
+    // per-env projection layout.
+    const draftRulesArr = Array.isArray(draft.rules) ? draft.rules : [];
+    const currentRulesArr = Array.isArray(current.rules) ? current.rules : [];
+    const draftRampActions = draft.rampActions ?? undefined;
+    // Force the Rules section to render when an unchanged rule has a pending
+    // ramp create action queued — without this, a draft whose only change is
+    // "add ramp schedule to an existing rule" wouldn't surface in the diff.
+    const hasPendingRampOnUnchangedRule =
+      Array.isArray(draftRampActions) &&
+      draftRampActions.some(
+        (a) =>
+          a.mode === "create" &&
+          draftRulesArr.some((r) => r.id === a.ruleId) &&
+          currentRulesArr.some((r) => r.id === a.ruleId),
+      );
+    if (
+      !isEqual(currentRulesArr, draftRulesArr) ||
+      hasPendingRampOnUnchangedRule
+    ) {
+      diffs.push({
+        title: "Rules",
+        a: JSON.stringify(normalizeFeatureRules(currentRulesArr), null, 2),
+        b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
+        customRender: renderFeatureRules(currentRulesArr, draftRulesArr, {
+          pendingRampActions: draftRampActions,
+          preHasHoldout: !!current.holdout,
+          postHasHoldout: !!draft.holdout,
+        }),
+        badges: featureRuleChangeBadges(currentRulesArr, draftRulesArr),
+      });
+    }
 
     return diffs;
-  }, [current, draft]);
+  }, [current, draft, orgEnvs]);
 }
 
 /**

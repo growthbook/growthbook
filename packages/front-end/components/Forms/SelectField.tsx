@@ -8,6 +8,7 @@ import {
 } from "react";
 import ReactSelect, {
   components,
+  ClearIndicatorProps,
   InputProps,
   FormatOptionLabelMeta,
   StylesConfig,
@@ -15,8 +16,8 @@ import ReactSelect, {
 } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
+import { PiXBold, PiCaretDown } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
-import { PiCaretDown } from "react-icons/pi";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/ui/HelperText";
@@ -119,6 +120,14 @@ const Input = (props: InputProps) => {
   const { onPaste } = props.selectProps;
   return <components.Input onPaste={onPaste} {...props} />;
 };
+
+function CustomClearIndicator(props: ClearIndicatorProps<SingleValue, false>) {
+  return (
+    <components.ClearIndicator {...props}>
+      <PiXBold />
+    </components.ClearIndicator>
+  );
+}
 
 export const ReactSelectProps = {
   // See react-select.scss and apply styles with CSS
@@ -449,6 +458,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     Input,
                     DropdownIndicator: CustomDropdownIndicator,
                     IndicatorSeparator: () => null,
+                    ClearIndicator: CustomClearIndicator,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),
@@ -486,6 +496,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     Input,
                     DropdownIndicator: CustomDropdownIndicator,
                     IndicatorSeparator: () => null,
+                    ClearIndicator: CustomClearIndicator,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),

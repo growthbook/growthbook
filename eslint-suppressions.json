@@ -239,11 +239,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/CompareEnvironmentsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -265,11 +260,6 @@
     }
   },
   "packages/front-end/components/Features/FeatureReferencesList.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/FeatureRules.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -790,16 +780,6 @@
     }
   },
   "packages/front-end/pages/experiments/templates.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/fact-metrics/[fmid].tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/fact-tables/[ftid].tsx": {
     "no-restricted-imports": {
       "count": 1
     }
