@@ -7,6 +7,7 @@ import {
   addLinkedFeatureToExperiment,
   addPendingFeatureDraftToExperiment,
   getExperimentById,
+  removePendingFeatureDraftFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 
@@ -20,9 +21,9 @@ const OPEN_DRAFT_STATUSES = new Set([
 function getExperimentIdsFromRules(
   rules: FeatureRevisionInterface["rules"] | unknown,
 ): string[] {
-  // Accept both v2 (FeatureRule[]) and legacy v1 (Record<envId, FeatureRule[]>)
-  // shapes. getNonDiscardedRevisionSummaries reads raw docs, so v1 records
-  // reach here untouched until the v2 migration finishes.
+  // Accept v2 (FeatureRule[]) and legacy v1 (Record<envId, FeatureRule[]>):
+  // raw-doc readers (e.g. getNonDiscardedRevisionSummaries) hand us v1 shapes
+  // until the migration completes.
   const flat: unknown[] = Array.isArray(rules)
     ? rules
     : rules && typeof rules === "object"
@@ -42,7 +43,7 @@ function getExperimentIdsFromRules(
 /**
  * Reconciles experiment.linkedFeatures and experiment.pendingFeatureDrafts
  * after any feature revision write. Fire-and-forget: logs errors, never
- * throws. Only writes to experiments, so the circular import chain
+ * throws. Writes only to experiments so the circular import chain
  * (FeatureRevisionModel ↔ FeatureModel ↔ ExperimentModel ↔ here) resolves
  * lazily at runtime without a feedback loop.
  */
@@ -52,26 +53,28 @@ export async function syncFeatureExperimentLinkages(
   revisions: Pick<FeatureRevisionInterface, "version" | "status" | "rules">[],
 ): Promise<void> {
   try {
-    // Newest draft first — first match per experimentId wins.
-    const openDrafts = revisions
-      .filter((r) => OPEN_DRAFT_STATUSES.has(r.status))
-      .sort((a, b) => b.version - a.version);
-
+    const openDrafts = revisions.filter((r) =>
+      OPEN_DRAFT_STATUSES.has(r.status),
+    );
     const liveRevision = revisions
       .filter((r) => r.status === "published")
       .sort((a, b) => b.version - a.version)[0];
 
-    const draftVersionByExp = new Map<string, number>();
+    // (expId -> set of open-draft versions referencing it). Multiple drafts
+    // of this feature referencing the same experiment all stay tracked — they
+    // get applied sequentially on experiment start.
+    const draftVersionsByExp = new Map<string, Set<number>>();
     for (const rev of openDrafts) {
       for (const expId of getExperimentIdsFromRules(rev.rules)) {
-        if (!draftVersionByExp.has(expId)) {
-          draftVersionByExp.set(expId, rev.version);
+        if (!draftVersionsByExp.has(expId)) {
+          draftVersionsByExp.set(expId, new Set());
         }
+        draftVersionsByExp.get(expId)!.add(rev.version);
       }
     }
 
     const liveExpIds = new Set(getExperimentIdsFromRules(liveRevision?.rules));
-    const allExpIds = new Set([...liveExpIds, ...draftVersionByExp.keys()]);
+    const allExpIds = new Set([...liveExpIds, ...draftVersionsByExp.keys()]);
 
     for (const experimentId of allExpIds) {
       const experiment = await getExperimentById(context, experimentId);
@@ -86,30 +89,32 @@ export async function syncFeatureExperimentLinkages(
         );
       }
 
-      const desiredVersion = draftVersionByExp.get(experimentId);
-      const matchingEntries = (experiment.pendingFeatureDrafts ?? []).filter(
-        (d) => d.featureId === featureId,
+      const desired = draftVersionsByExp.get(experimentId) ?? new Set<number>();
+      const current = new Set(
+        (experiment.pendingFeatureDrafts ?? [])
+          .filter((d) => d.featureId === featureId)
+          .map((d) => d.revisionVersion),
       );
 
-      if (desiredVersion !== undefined) {
-        // Rewrite on version drift or stale duplicates; the helper collapses
-        // to a single entry.
-        const upToDate =
-          matchingEntries.length === 1 &&
-          matchingEntries[0].revisionVersion === desiredVersion;
-        if (!upToDate) {
+      for (const version of desired) {
+        if (!current.has(version)) {
           await addPendingFeatureDraftToExperiment(
             context,
             experimentId,
             featureId,
-            desiredVersion,
+            version,
           );
         }
-      } else if (matchingEntries.length) {
-        await ExperimentModel.updateOne(
-          { id: experimentId, organization: context.org.id },
-          { $pull: { pendingFeatureDrafts: { featureId } } },
-        );
+      }
+      for (const version of current) {
+        if (!desired.has(version)) {
+          await removePendingFeatureDraftFromExperiment(
+            context,
+            experimentId,
+            featureId,
+            version,
+          );
+        }
       }
     }
 

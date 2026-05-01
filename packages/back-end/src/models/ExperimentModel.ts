@@ -1508,47 +1508,28 @@ export async function unlinkFeatureFromAllExperiments(
   );
 }
 
-// Queues a draft for auto-publish when the experiment goes running.
-// Optimistic CAS so concurrent callers can't double-insert the same featureId;
-// syncFeatureExperimentLinkages self-heals on the next revision write.
-// Reads via the raw driver (not toInterface/getExperimentById) because we need
-// the Mongoose `__v` field for CAS, and toInterface deliberately strips it
-// via removeMongooseFields. This is the only legitimate reason to bypass the
-// canonical interface boundary in this file.
-// TODO: revisit once we commit to a MongoDB 4.2+ floor — a $filter +
-// $concatArrays pipeline update would collapse this into a single op.
+// Queues a draft for auto-publish when the experiment transitions to running.
+// $addToSet is atomic and idempotent on exact (featureId, revisionVersion)
+// pairs. Multiple drafts of the same feature are intentionally allowed and
+// applied sequentially at start (publishPendingFeatureDraftsForExperiment).
 export async function addPendingFeatureDraftToExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
   featureId: string,
   revisionVersion: number,
 ) {
-  const filter = { id: experimentId, organization: context.org.id };
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const exp = await getCollection(COLLECTION).findOne(filter, {
-      projection: { pendingFeatureDrafts: 1, __v: 1 },
-    });
-    if (!exp) return;
-    const next = (
-      (exp.pendingFeatureDrafts ?? []) as {
-        featureId: string;
-        revisionVersion: number;
-      }[]
-    ).filter((d) => d.featureId !== featureId);
-    next.push({ featureId, revisionVersion });
-    const result = await ExperimentModel.updateOne(
-      { ...filter, __v: exp.__v },
-      { $set: { pendingFeatureDrafts: next }, $inc: { __v: 1 } },
-    );
-    if (result.matchedCount === 1) return;
-  }
-  logger.warn(
-    { experimentId, featureId, revisionVersion },
-    "addPendingFeatureDraftToExperiment: CAS retry budget exhausted",
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    {
+      $addToSet: {
+        pendingFeatureDrafts: { featureId, revisionVersion },
+      },
+    },
   );
 }
 
-// Removes a pending draft entry (published or discarded).
+// Removes pending draft entries. Pass `revisionVersion` to drop one specific
+// row; omit it to drop every row for the feature (used by archive/unlink).
 export async function removePendingFeatureDraftFromExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,

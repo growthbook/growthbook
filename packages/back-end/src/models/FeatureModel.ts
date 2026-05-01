@@ -1474,11 +1474,9 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  // No content delta against the live feature (sparse legacy revert target,
-  // no-op toggle, ramp-only draft, …). Still advance the version pointer so
-  // a revision marked published always coincides with feature.version —
-  // otherwise markRevisionAsPublished creates a "Locked" revision while
-  // feature.version stays stale, which traps subsequent reverts/publishes.
+  // No content delta — still advance feature.version so the revision we're
+  // about to mark published becomes live. Skipping this leaves a "Locked"
+  // revision behind a stale feature.version, which traps subsequent reverts.
   if (!hasChanges) {
     changes.version = revision.version;
     changes.dateUpdated = new Date();
