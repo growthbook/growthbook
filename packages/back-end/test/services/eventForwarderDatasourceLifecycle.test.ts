@@ -1,6 +1,9 @@
 import type { EventForwarderConfigInterface } from "shared/validators";
 import type { DataSourceInterface } from "shared/types/datasource";
-import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarderDatasourceLifecycle";
+import {
+  deleteEventForwarderConfigForDatasource,
+  syncEventForwarderAfterDatasourceDeleted,
+} from "back-end/src/services/eventForwarderDatasourceLifecycle";
 import * as configInit from "back-end/src/init/config";
 import * as provisioning from "back-end/src/services/eventForwarderProvisioning";
 
@@ -292,5 +295,57 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
         }),
       }),
     );
+  });
+});
+
+describe("deleteEventForwarderConfigForDatasource", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedTeardownRemote.mockResolvedValue(undefined);
+  });
+
+  it("permission-deletes the row before license-server teardown", async () => {
+    const existing: EventForwarderConfigInterface = {
+      id: "efc_delete",
+      organization: "org1",
+      datasourceId: "ds_delete",
+      projects: ["p1"],
+      topic: "topic-delete",
+      schemaId: 1,
+      sinkType: "bigquery",
+      config: "{}",
+      status: "ready",
+      connectorName: "connector-delete",
+      connectorId: "lcc-delete",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const deleteConfig = jest.fn().mockResolvedValue(undefined);
+    const context = {
+      org: { id: "org1" },
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      models: {
+        eventForwarderConfigs: {
+          delete: deleteConfig,
+        },
+      },
+    };
+
+    await deleteEventForwarderConfigForDatasource(
+      context as never,
+      bqDatasource("ds_delete"),
+      existing,
+    );
+
+    expect(deleteConfig).toHaveBeenCalledWith(existing);
+    expect(mockedTeardownRemote).toHaveBeenCalledWith({
+      organizationId: "org1",
+      datasourceId: "ds_delete",
+      sinkType: "bigquery",
+      topic: "topic-delete",
+      connectorName: "connector-delete",
+      connectorId: "lcc-delete",
+    });
   });
 });

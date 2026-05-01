@@ -1,4 +1,5 @@
 import { DataSourceInterface } from "shared/types/datasource";
+import { EventForwarderConfigInterface } from "shared/validators";
 import { usingFileConfig } from "back-end/src/init/config";
 import { getEventForwarderSinkTypeForDatasource } from "back-end/src/services/eventForwarderConfig";
 import { teardownBigQueryEventForwarderInfrastructureRemote } from "back-end/src/services/eventForwarderProvisioning";
@@ -6,60 +7,19 @@ import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 
-/**
- * After removing a datasource: if a per-datasource event forwarder row exists for this id,
- * delete the Mongo row first, then tear down Confluent resources via the license server.
- */
-export async function syncEventForwarderAfterDatasourceDeleted(
-  context: ReqContext | ApiReqContext,
-  datasource: DataSourceInterface,
-): Promise<void> {
-  logger.info(
-    {
-      organizationId: context.org.id,
-      datasourceId: datasource.id,
-      datasourceType: datasource.type,
-    },
-    "Event forwarder sync after datasource delete: starting",
-  );
-
-  if (usingFileConfig()) {
-    logger.info(
-      {
-        organizationId: context.org.id,
-        datasourceId: datasource.id,
-      },
-      "Event forwarder sync after datasource delete: skipped (config.yml / file config mode)",
-    );
-    return;
-  }
-
+async function deleteEventForwarderAndTeardown({
+  context,
+  datasource,
+  existing,
+  deleteExisting,
+}: {
+  context: ReqContext | ApiReqContext;
+  datasource: DataSourceInterface;
+  existing: EventForwarderConfigInterface;
+  deleteExisting: () => Promise<void>;
+}): Promise<void> {
   const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
   if (!sinkType) {
-    logger.info(
-      {
-        organizationId: context.org.id,
-        datasourceId: datasource.id,
-        datasourceType: datasource.type,
-      },
-      "Event forwarder sync after datasource delete: datasource type has no event-forwarder sink (no Confluent row to reconcile)",
-    );
-    return;
-  }
-
-  const existing =
-    await context.models.eventForwarderConfigs.dangerousGetByDatasourceIdBypassPermission(
-      datasource.id,
-    );
-  if (!existing) {
-    logger.info(
-      {
-        organizationId: context.org.id,
-        datasourceId: datasource.id,
-        sinkType,
-      },
-      "Event forwarder sync after datasource delete: no event forwarder config for this datasource — skipping teardown and cascade delete",
-    );
     return;
   }
 
@@ -73,19 +33,7 @@ export async function syncEventForwarderAfterDatasourceDeleted(
     eventForwarderConfigId: existing.id,
   };
 
-  logger.info(
-    {
-      organizationId: context.org.id,
-      datasourceId: datasource.id,
-      sinkType,
-      eventForwarderConfigId: existing.id,
-    },
-    "Event forwarder sync after datasource delete: removing event forwarder row before license-server teardown",
-  );
-
-  await context.models.eventForwarderConfigs.deleteForDatasourceCascade(
-    existing,
-  );
+  await deleteExisting();
 
   if (sinkType === "bigquery" || sinkType === "snowflake") {
     logger.info(
@@ -161,4 +109,98 @@ export async function syncEventForwarderAfterDatasourceDeleted(
       "Event forwarder sync: skipping Confluent teardown for sink type",
     );
   }
+}
+
+export async function deleteEventForwarderConfigForDatasource(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  existing: EventForwarderConfigInterface,
+): Promise<void> {
+  await deleteEventForwarderAndTeardown({
+    context,
+    datasource,
+    existing,
+    deleteExisting: async () => {
+      await context.models.eventForwarderConfigs.delete(existing);
+    },
+  });
+}
+
+/**
+ * After removing a datasource: if a per-datasource event forwarder row exists for this id,
+ * delete the Mongo row first, then tear down Confluent resources via the license server.
+ */
+export async function syncEventForwarderAfterDatasourceDeleted(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
+): Promise<void> {
+  logger.info(
+    {
+      organizationId: context.org.id,
+      datasourceId: datasource.id,
+      datasourceType: datasource.type,
+    },
+    "Event forwarder sync after datasource delete: starting",
+  );
+
+  if (usingFileConfig()) {
+    logger.info(
+      {
+        organizationId: context.org.id,
+        datasourceId: datasource.id,
+      },
+      "Event forwarder sync after datasource delete: skipped (config.yml / file config mode)",
+    );
+    return;
+  }
+
+  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
+  if (!sinkType) {
+    logger.info(
+      {
+        organizationId: context.org.id,
+        datasourceId: datasource.id,
+        datasourceType: datasource.type,
+      },
+      "Event forwarder sync after datasource delete: datasource type has no event-forwarder sink (no Confluent row to reconcile)",
+    );
+    return;
+  }
+
+  const existing =
+    await context.models.eventForwarderConfigs.dangerousGetByDatasourceIdBypassPermission(
+      datasource.id,
+    );
+  if (!existing) {
+    logger.info(
+      {
+        organizationId: context.org.id,
+        datasourceId: datasource.id,
+        sinkType,
+      },
+      "Event forwarder sync after datasource delete: no event forwarder config for this datasource — skipping teardown and cascade delete",
+    );
+    return;
+  }
+
+  logger.info(
+    {
+      organizationId: context.org.id,
+      datasourceId: datasource.id,
+      sinkType,
+      eventForwarderConfigId: existing.id,
+    },
+    "Event forwarder sync after datasource delete: removing event forwarder row before license-server teardown",
+  );
+
+  await deleteEventForwarderAndTeardown({
+    context,
+    datasource,
+    existing,
+    deleteExisting: async () => {
+      await context.models.eventForwarderConfigs.deleteForDatasourceCascade(
+        existing,
+      );
+    },
+  });
 }
