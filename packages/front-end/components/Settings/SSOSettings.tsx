@@ -3,6 +3,7 @@ import { useState } from "react";
 import { isDefined } from "shared/util";
 import { isCloud } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Link from "@/ui/Link";
 
 export interface Props {
   ssoConnection: Partial<SSOConnectionInterface> | null;
@@ -48,15 +49,9 @@ export default function SSOSettings({ ssoConnection }: Props) {
           )}
         </div>
         <div className="ml-auto pl-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpanded(!expanded);
-            }}
-          >
+          <Link onClick={() => setExpanded(!expanded)}>
             {expanded ? "hide" : "view"} details
-          </a>
+          </Link>
         </div>
       </div>
       {expanded && (

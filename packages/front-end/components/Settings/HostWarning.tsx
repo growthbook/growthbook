@@ -1,4 +1,5 @@
 import { isCloud } from "@/services/env";
+import Link from "@/ui/Link";
 
 export default function HostWarning({
   host,
@@ -24,26 +25,12 @@ export default function HostWarning({
     return (
       <div className="alert alert-danger">
         GrowthBook runs inside Docker. To connect to localhost, you should use{" "}
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setHost("host.docker.internal");
-          }}
-        >
+        <Link onClick={() => setHost("host.docker.internal")}>
           host.docker.internal
-        </a>{" "}
+        </Link>{" "}
         (on Mac) or{" "}
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setHost("172.17.0.1");
-          }}
-        >
-          172.17.0.1
-        </a>{" "}
-        (on Linux).
+        <Link onClick={() => setHost("172.17.0.1")}>172.17.0.1</Link> (on
+        Linux).
       </div>
     );
   }

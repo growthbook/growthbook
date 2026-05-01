@@ -18,6 +18,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -136,16 +137,12 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
               />
             </div>
           ) : (
-            <a
-              href="#"
+            <Link
               className="badge badge-light badge-pill mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowDescription(true);
-              }}
+              onClick={() => setShowDescription(true)}
             >
               + description
-            </a>
+            </Link>
           )}
 
           <Field
@@ -157,16 +154,10 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
               <>
                 When this filter is added to a metric, this will be inserted
                 into the WHERE clause.{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowExamples(!showExamples);
-                  }}
-                >
+                <Link onClick={() => setShowExamples(!showExamples)}>
                   {showExamples ? "Hide" : "Show"} examples{" "}
                   {showExamples ? <FaAngleDown /> : <FaAngleRight />}
-                </a>
+                </Link>
               </>
             }
             {...form.register("value")}

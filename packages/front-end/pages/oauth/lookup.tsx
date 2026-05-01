@@ -4,6 +4,7 @@ import Field from "@/components/Forms/Field";
 import { redirectWithTimeout, safeLogout } from "@/services/auth";
 import { getApiHost, isCloud } from "@/services/env";
 import WelcomeFrame from "@/components/Auth/WelcomeFrame";
+import Link from "@/ui/Link";
 
 export async function lookupByEmail(email: string) {
   if (!isCloud()) {
@@ -91,16 +92,14 @@ export default function OAuthLookup() {
       <div className="text-center mt-3">
         <p>
           Not using SSO?{" "}
-          <a
-            href="#"
-            onClick={async (e) => {
-              e.preventDefault();
+          <Link
+            onClick={async () => {
               setLoading(true);
               await safeLogout();
             }}
           >
             Go back to login
-          </a>
+          </Link>
         </p>
         <div>
           <br />

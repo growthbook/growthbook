@@ -518,33 +518,33 @@ export default function FeatureSettings() {
                             keys and scans your codebase to provide a JSON
                             output of code references, which you can supply to
                             our code references{" "}
-                            <a
+                            <Link
                               href="https://docs.growthbook.io/api#tag/code-references"
                               target="_blank"
                               rel="noreferrer"
                             >
                               REST API endpoint
-                            </a>
+                            </Link>
                             .
                           </Text>
                         </Box>
                         <Box>
                           <Text wrap="nowrap">
-                            <a
+                            <Link
                               href="https://github.com/growthbook/gb-find-code-refs"
                               target="_blank"
                               rel="noreferrer"
                             >
                               CLI Utility
-                            </a>{" "}
+                            </Link>{" "}
                             |{" "}
-                            <a
+                            <Link
                               href="https://hub.docker.com/r/growthbook/gb-find-code-refs"
                               target="_blank"
                               rel="noreferrer"
                             >
                               Docker Image
-                            </a>
+                            </Link>
                           </Text>
                         </Box>
                       </Flex>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { GithubIntegrationInterface } from "shared/types/github";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 export default function GithubIntegrationConnect({
   code,
@@ -37,9 +38,9 @@ export default function GithubIntegrationConnect({
           <strong>Feature Flag Code References</strong> to help identify where
           in your codebase a feature flag is being used.
         </p>
-        <a href="https://github.com/apps/growthbook-github-integration/installations/new">
+        <Link href="https://github.com/apps/growthbook-github-integration/installations/new">
           Install the GitHub Integration
-        </a>
+        </Link>
       </div>
     );
   }

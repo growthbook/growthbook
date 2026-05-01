@@ -1,8 +1,9 @@
 import router from "next/router";
 import { useEffect, useState } from "react";
 import Modal from "@/components/Modal";
-import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import Link from "@/ui/Link";
 import LicenseSuccessModal from "./LicenseSuccessModal";
 import UpgradeModal from ".";
 
@@ -81,14 +82,13 @@ export default function VerifyingEmailModal() {
         <div>
           <span>
             There was an error trying to verify your email. Please{" "}
-            <a
-              href="#"
+            <Link
               onClick={() => {
                 setShowUpgradeModal(true);
               }}
             >
               try again.
-            </a>
+            </Link>
           </span>
           <div className="alert alert-danger">{verifyEmailError}</div>
         </div>

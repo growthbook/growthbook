@@ -1,3 +1,5 @@
+import Link from "@/ui/Link";
+
 export type IssueValue = {
   label: string;
   value: string;
@@ -18,14 +20,14 @@ export const IssueTags = ({ issues }: Props) => {
       <div className="flex-wrap">
         {issues.map((issue) => {
           return (
-            <a
+            <Link
               className={"badge badge-pill border mx-2 badge-warning"}
               key={issue.value}
               href={`#${issue.value}`}
               style={{ marginBottom: "12px" }}
             >
               {issue.label}
-            </a>
+            </Link>
           );
         })}
       </div>
