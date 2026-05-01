@@ -348,4 +348,50 @@ describe("deleteEventForwarderConfigForDatasource", () => {
       connectorId: "lcc-delete",
     });
   });
+
+  it("still deletes and tears down when datasource type no longer maps to a sink", async () => {
+    const existing: EventForwarderConfigInterface = {
+      id: "efc_orphan",
+      organization: "org1",
+      datasourceId: "ds_orphan",
+      projects: ["p1"],
+      topic: "topic-orphan",
+      schemaId: 1,
+      sinkType: "bigquery",
+      config: "{}",
+      status: "ready",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const deleteConfig = jest.fn().mockResolvedValue(undefined);
+    const context = {
+      org: { id: "org1" },
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      models: {
+        eventForwarderConfigs: {
+          delete: deleteConfig,
+        },
+      },
+    };
+
+    await deleteEventForwarderConfigForDatasource(
+      context as never,
+      {
+        ...bqDatasource("ds_orphan"),
+        type: "postgres",
+      },
+      existing,
+    );
+
+    expect(deleteConfig).toHaveBeenCalledWith(existing);
+    expect(mockedTeardownRemote).toHaveBeenCalledWith({
+      organizationId: "org1",
+      datasourceId: "ds_orphan",
+      sinkType: "bigquery",
+      topic: "topic-orphan",
+      connectorName: undefined,
+      connectorId: undefined,
+    });
+  });
 });

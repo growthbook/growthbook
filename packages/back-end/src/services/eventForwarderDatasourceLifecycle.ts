@@ -18,9 +18,19 @@ async function deleteEventForwarderAndTeardown({
   existing: EventForwarderConfigInterface;
   deleteExisting: () => Promise<void>;
 }): Promise<void> {
-  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
-  if (!sinkType) {
-    return;
+  const datasourceSinkType = getEventForwarderSinkTypeForDatasource(datasource);
+  const sinkType = datasourceSinkType ?? existing.sinkType;
+  if (!datasourceSinkType) {
+    logger.warn(
+      {
+        organizationId: context.org.id,
+        datasourceId: datasource.id,
+        datasourceType: datasource.type,
+        sinkType,
+        eventForwarderConfigId: existing.id,
+      },
+      "Event forwarder sync: datasource type has no event-forwarder sink; falling back to config sink type before deletion",
+    );
   }
 
   const snapshot = {

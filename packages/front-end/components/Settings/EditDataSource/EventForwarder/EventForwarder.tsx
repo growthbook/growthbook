@@ -113,10 +113,16 @@ function getEventForwarderDraft(
 }
 
 function getEventForwarderParamsForSubmit(
-  dataSource: EventForwarderDatasourceDraft,
+  dataSource: DataSourceInterfaceWithParams,
+  draft: EventForwarderDatasourceDraft,
 ): Partial<DataSourceParams> | undefined {
-  if (dataSource.type !== "bigquery") return undefined;
-  const params = dataSource.params as Partial<BigQueryConnectionParams>;
+  if (draft.type !== "bigquery") return undefined;
+  const originalParams = dataSource.params as Partial<BigQueryConnectionParams>;
+  const params = draft.params as Partial<BigQueryConnectionParams>;
+  if ((params.defaultDataset || "") === (originalParams.defaultDataset || "")) {
+    return undefined;
+  }
+
   return {
     defaultDataset: params.defaultDataset || "",
   } as Partial<DataSourceParams>;
@@ -185,6 +191,10 @@ function EventForwarderModal({
     ? "Edit Event Forwarder"
     : "Set Up Event Forwarder";
   const params = datasourceDraft.params || {};
+  const eventForwarderParamsForSubmit = getEventForwarderParamsForSubmit(
+    dataSource,
+    datasourceDraft,
+  );
 
   return (
     <Modal
@@ -196,8 +206,8 @@ function EventForwarderModal({
           method: "PUT",
           body: JSON.stringify({
             eventForwarderConfig,
-            ...(getEventForwarderParamsForSubmit(datasourceDraft)
-              ? { params: getEventForwarderParamsForSubmit(datasourceDraft) }
+            ...(eventForwarderParamsForSubmit
+              ? { params: eventForwarderParamsForSubmit }
               : {}),
           }),
         });
@@ -221,7 +231,7 @@ function EventForwarderModal({
       {eventForwarderConfig?.sinkType === "bigquery" ? (
         <BigQueryEventForwarderForm
           params={params as Partial<BigQueryConnectionParams>}
-          accessTestParams={getEventForwarderParamsForSubmit(datasourceDraft)}
+          accessTestParams={eventForwarderParamsForSubmit}
           eventForwarderConfig={eventForwarderConfig}
           existing={true}
           setParams={setParams}
@@ -374,31 +384,33 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
-      <Card>
-        <Flex direction="column" gap="3" p="2">
-          <Flex direction="column" gap="4">
-            <Box>
-              <Text weight="medium">Table Name: </Text>
-              {tableName ? (
-                <code>{tableName}</code>
-              ) : (
-                <Text color="text-low">None</Text>
-              )}
-            </Box>
-          </Flex>
+      {eventForwarderConfig ? (
+        <Card>
+          <Flex direction="column" gap="3" p="2">
+            <Flex direction="column" gap="4">
+              <Box>
+                <Text weight="medium">Table Name: </Text>
+                {tableName ? (
+                  <code>{tableName}</code>
+                ) : (
+                  <Text color="text-low">None</Text>
+                )}
+              </Box>
+            </Flex>
 
-          {eventForwarderConfig?.lastProvisioningError ? (
-            <Callout status="error" mb="0">
-              {eventForwarderConfig.lastProvisioningError}
-            </Callout>
-          ) : null}
-          {error ? (
-            <Callout status="error" mb="0">
-              {error}
-            </Callout>
-          ) : null}
-        </Flex>
-      </Card>
+            {eventForwarderConfig.lastProvisioningError ? (
+              <Callout status="error" mb="0">
+                {eventForwarderConfig.lastProvisioningError}
+              </Callout>
+            ) : null}
+            {error ? (
+              <Callout status="error" mb="0">
+                {error}
+              </Callout>
+            ) : null}
+          </Flex>
+        </Card>
+      ) : null}
       {showEditModal ? (
         <EventForwarderModal
           dataSource={dataSource}
