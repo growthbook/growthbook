@@ -68,10 +68,10 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
     <DialogLayout
       open={true}
       header="Edit Target MDEs"
-      submit={() => {
+      submit={async () => {
         const newOverrides: DecisionFrameworkMetricOverrides[] =
           Object.values(overrides);
-        apiCall(`/experiment/${experiment.id}`, {
+        await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({
             decisionFrameworkSettings: {
@@ -79,9 +79,8 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
               decisionFrameworkMetricOverrides: newOverrides,
             },
           }),
-        }).then(() => {
-          onSubmit();
         });
+        onSubmit();
       }}
       close={onClose}
       size="md"
