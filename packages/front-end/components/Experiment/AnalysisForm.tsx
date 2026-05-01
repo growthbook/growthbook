@@ -38,7 +38,7 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
@@ -293,7 +293,7 @@ const AnalysisForm: FC<{
       hasMetrics);
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
       header={isHoldout ? "Analysis Settings" : "Experiment Settings"}
@@ -1063,7 +1063,7 @@ const AnalysisForm: FC<{
           </>
         )}
       </Box>
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

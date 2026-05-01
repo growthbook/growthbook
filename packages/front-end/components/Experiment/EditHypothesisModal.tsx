@@ -19,7 +19,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import OptInModal from "@/components/License/OptInModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 
@@ -107,7 +107,7 @@ export default function EditHypothesisModal({
 
   return (
     <>
-      <DialogLayout
+      <ModalStandard
         trackingEventModalType="edit-hypothesis-modal"
         trackingEventModalSource={source}
         header={"Edit Hypothesis"}
@@ -249,7 +249,7 @@ export default function EditHypothesisModal({
             </Box>
           )}
         </Box>
-      </DialogLayout>
+      </ModalStandard>
       {aiAgreementModal && (
         <OptInModal
           agreement="ai"

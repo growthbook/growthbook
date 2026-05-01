@@ -19,7 +19,7 @@ import { createPortal } from "react-dom";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 type AllowedChildren = string | React.ReactNode;
 
@@ -201,9 +201,9 @@ type DropdownItemProps = {
   confirmation?: {
     submit: () => Promise<void> | void;
     getConfirmationContent?: () => Promise<string | ReactElement | null>;
-    confirmationTitle: string | ReactElement;
+    confirmationTitle: string;
     cta: string;
-    submitColor?: string;
+    ctaColor?: "red" | "violet";
     hideDropdown?: () => void;
     showDropdown?: () => void;
     closeDropdown?: () => void;
@@ -258,22 +258,17 @@ export function DropdownMenuItem({
   return (
     <>
       {confirmation && confirming && (
-        <Modal
+        <ModalStandard
           trackingEventModalType=""
           header={confirmation.confirmationTitle}
           close={handleClose}
           open={true}
           cta={confirmation.cta}
-          submitColor={confirmation.submitColor ?? "danger"}
-          submit={async () => {
-            await confirmation.submit();
-            handleClose();
-          }}
-          increasedElevation={true}
-          useRadixButton={true}
+          ctaColor={confirmation.ctaColor ?? "red"}
+          submit={confirmation.submit}
         >
           {confirmationContent ?? "Are you sure? This action cannot be undone."}
-        </Modal>
+        </ModalStandard>
       )}
       <RadixDropdownMenu.Item
         disabled={disabled || !!error || !!loading}
