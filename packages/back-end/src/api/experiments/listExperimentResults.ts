@@ -10,32 +10,33 @@ import {
 export const listExperimentResults = createApiRequestHandler(
   listExperimentResultsValidator,
 )(async (req) => {
+  // Filter and sort at the database level for better performance
   const experiments = await getAllExperiments(req.context, {
     includeArchived: true,
     project: req.query.projectId,
     datasourceId: req.query.datasourceId,
+    trackingKey: req.query.trackingKey,
     status: req.query.status,
     sortBy: { dateCreated: 1 },
   });
 
+  // TODO: Move pagination (limit/offset) to database for better performance
   const { filtered, returnFields } = applyPagination(experiments, req.query);
 
-  // Build a single batched query for all experiments on this page that have at
-  // least one phase. `getLatestSnapshotMultipleExperiments` does one Mongo
-  // aggregation across the lot, so we avoid the 1+N pattern.
+  // Build one batched lookup for the page. `getLatestSnapshotMultipleExperiments`
+  // runs a single Mongo aggregation, so we avoid an N+1 over experiments.
   const experimentPhaseMap = new Map<string, number>();
   for (const experiment of filtered) {
     if (experiment.phases.length > 0) {
-      experimentPhaseMap.set(experiment.id, experiment.phases.length - 1);
+      const latestPhaseIndex = experiment.phases.length - 1;
+      experimentPhaseMap.set(experiment.id, latestPhaseIndex);
     }
   }
 
-  const snapshots = experimentPhaseMap.size
-    ? await getLatestSnapshotMultipleExperiments(
-        req.context,
-        experimentPhaseMap,
-      )
-    : [];
+  const snapshots = await getLatestSnapshotMultipleExperiments(
+    req.context,
+    experimentPhaseMap,
+  );
 
   const snapshotsByExperiment = new Map(
     snapshots.map((snapshot) => [snapshot.experiment, snapshot]),

@@ -1518,6 +1518,10 @@ export const listExperimentResultsValidator = {
       ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       datasourceId: z.string().describe("Filter by Data Source").optional(),
+      trackingKey: z
+        .string()
+        .describe("Filter by experiment tracking key")
+        .optional(),
       status: z.enum(experimentStatus).optional(),
     })
     .strict(),
@@ -1529,8 +1533,17 @@ export const listExperimentResultsValidator = {
     apiPaginationFieldsValidator,
   ),
   summary: "Get latest results for many experiments",
-  description:
-    "Returns the latest non-dimension snapshot for each experiment matching the filters. Use this to scan results across a portfolio in a single call. Experiments without a completed snapshot are omitted from `experimentResults`; `count` reflects the returned array length, while `total` is the count of experiments matching the filters (some of which may have been omitted). Pages may have `count: 0` while `hasMore: true` if every experiment on that slice lacked a snapshot. Use the per-experiment `GET /experiments/{id}/results` endpoint to inspect specific phases or dimensions.",
+  description: [
+    "Returns the latest non-dimension snapshot for each experiment matching the filters. Use this to scan results across a portfolio in one call.",
+    "",
+    "Pagination semantics:",
+    "- `total` is the count of experiments matching the filters.",
+    "- `count` is the length of the returned `experimentResults` array.",
+    "- Experiments without a completed snapshot are omitted from `experimentResults`, so `count` may be less than the page slice and a page may legitimately return `count: 0` while `hasMore: true`.",
+    "- `hasMore` and `nextOffset` advance over experiments matching the filters, not over returned results.",
+    "",
+    "Use the per-experiment `GET /experiments/{id}/results` endpoint to inspect specific phases or dimensions.",
+  ].join("\n"),
   operationId: "listExperimentResults",
   tags: ["experiments"],
   method: "get" as const,

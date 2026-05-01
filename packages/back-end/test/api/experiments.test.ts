@@ -2038,6 +2038,7 @@ describe("experiments API", () => {
 
     it("returns an empty page when no experiments match", async () => {
       (getAllExperiments as jest.Mock).mockResolvedValue([]);
+      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([]);
 
       const res = await request(app)
         .get("/api/v1/experiments/results")
@@ -2046,15 +2047,15 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body.experimentResults).toEqual([]);
       expect(res.body.total).toBe(0);
-      expect(getLatestSnapshotMultipleExperiments).not.toHaveBeenCalled();
+      expect(res.body.count).toBe(0);
     });
 
-    it("forwards projectId, datasourceId, and status filters", async () => {
+    it("forwards projectId, datasourceId, status, and trackingKey filters", async () => {
       (getAllExperiments as jest.Mock).mockResolvedValue([]);
 
       await request(app)
         .get(
-          "/api/v1/experiments/results?status=running&projectId=proj_1&datasourceId=ds_123",
+          "/api/v1/experiments/results?status=running&projectId=proj_1&datasourceId=ds_123&trackingKey=my-exp",
         )
         .set("Authorization", "Bearer foo");
 
@@ -2064,6 +2065,7 @@ describe("experiments API", () => {
           project: "proj_1",
           datasourceId: "ds_123",
           status: "running",
+          trackingKey: "my-exp",
           includeArchived: true,
         }),
       );
@@ -2093,6 +2095,28 @@ describe("experiments API", () => {
         .calls[0][1] as Map<string, number>;
       expect(phaseMap.has("exp_a")).toBe(true);
       expect(phaseMap.has("exp_c")).toBe(false);
+    });
+
+    it("returns count:0 with hasMore:true when a one-item page lacks a snapshot", async () => {
+      // Two experiments matching the filter, page size 1, first one has no
+      // snapshot. Page 0 returns count:0 (nothing dropped through). hasMore is
+      // true so the consumer keeps paginating.
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        experimentA,
+        experimentB,
+      ]);
+      (getLatestSnapshotMultipleExperiments as jest.Mock).mockResolvedValue([]);
+
+      const res = await request(app)
+        .get("/api/v1/experiments/results?limit=1&offset=0")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experimentResults).toEqual([]);
+      expect(res.body.count).toBe(0);
+      expect(res.body.total).toBe(2);
+      expect(res.body.hasMore).toBe(true);
+      expect(res.body.nextOffset).toBe(1);
     });
   });
 
