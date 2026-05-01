@@ -4,7 +4,6 @@ import type { ApiReqContext } from "back-end/types/api";
 import {
   getFeatureRevisionsByStatus,
   countDocuments,
-  RevisionFeatureContext,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getAllFeatures, getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -73,9 +72,6 @@ export async function loadRevisionsPage(
 
   let featureIds: string[] | undefined;
   let singleFeature: Awaited<ReturnType<typeof getFeature>> | undefined;
-  let featuresByFeatureId:
-    | Record<string, RevisionFeatureContext | undefined>
-    | undefined;
   if (featureId) {
     singleFeature = await getFeature(context, featureId);
     if (!singleFeature) return emptyListResponse(limit, offset);
@@ -94,16 +90,6 @@ export async function loadRevisionsPage(
       if (featureIds.length === 0) {
         return emptyListResponse(limit, offset);
       }
-      featuresByFeatureId = Object.fromEntries(
-        scopedFeatures.map((f) => [f.id, f]),
-      );
-    } else {
-      const allFeatures = await getAllFeatures(context, {
-        includeArchived: true,
-      });
-      featuresByFeatureId = Object.fromEntries(
-        allFeatures.map((f) => [f.id, f]),
-      );
     }
   }
 
@@ -113,8 +99,6 @@ export async function loadRevisionsPage(
       organization: organizationId,
       featureId,
       featureIds,
-      feature: singleFeature ?? undefined,
-      featuresByFeatureId,
       status: status as Parameters<
         typeof getFeatureRevisionsByStatus
       >[0]["status"],

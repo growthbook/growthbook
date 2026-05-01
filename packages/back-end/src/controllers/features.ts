@@ -139,8 +139,6 @@ import {
   getRevisionsByVersions,
   getFeaturePageRevisions,
   getRevisionsByStatus,
-  getDistinctFeatureIdsForStatuses,
-  RevisionFeatureContext,
   markRevisionAsReviewRequested,
   normalizeRulesInputToV2,
   ReviewSubmittedType,
@@ -3535,28 +3533,11 @@ export async function getDraftandReviewRevisions(
 ) {
   const context = getContextFromReq(req);
   const sparse = req.query.sparse === "true";
-  const STATUSES = [
-    "draft",
-    "approved",
-    "changes-requested",
-    "pending-review",
-  ] as const;
-
-  let featuresByFeatureId:
-    | Record<string, RevisionFeatureContext | undefined>
-    | undefined;
-  if (!sparse) {
-    const distinctFeatureIds = await getDistinctFeatureIdsForStatuses(context, [
-      ...STATUSES,
-    ]);
-    const features = await getFeaturesByIds(context, distinctFeatureIds);
-    featuresByFeatureId = Object.fromEntries(features.map((f) => [f.id, f]));
-  }
-
-  const revisions = await getRevisionsByStatus(context, [...STATUSES], {
-    sparse,
-    featuresByFeatureId,
-  });
+  const revisions = await getRevisionsByStatus(
+    context,
+    ["draft", "approved", "changes-requested", "pending-review"],
+    { sparse },
+  );
 
   const featureIds = Array.from(new Set(revisions.map((r) => r.featureId)));
   const featureMeta = await getFeatureMetaInfoByIds(context, featureIds);
@@ -4414,26 +4395,49 @@ export async function getFeatureById(
   // Sanity check to make sure the published revision values and rules match what's stored in the feature
   const live = fullRevisions.find((r) => r.version === feature.version);
   if (live) {
-    if (live.defaultValue !== feature.defaultValue) {
-      logger.error(
-        `Published revision defaultValue does not match feature ${org.id}.${feature.id}`,
-      );
-    }
-    // Compare per-env projections to pinpoint which env drifted.
     const liveRulesFlat: FeatureRule[] = live.rules ?? [];
     const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
-    environments.forEach((env) => {
-      if (
+    const defaultValueDrift = live.defaultValue !== feature.defaultValue;
+    const driftedEnvs = environments.filter(
+      (env) =>
         !isEqual(
           getRulesForEnvironment(featureRulesFlat, env),
           getRulesForEnvironment(liveRulesFlat, env),
-        )
-      ) {
+        ),
+    );
+
+    if (defaultValueDrift || driftedEnvs.length > 0) {
+      // Drift here means a prior publish silently failed (typically because
+      // a pre-v2 doc still carried `environmentSettings.{env}.rules`, which
+      // flipped the read-time JIT migration into the v1 path and shadowed
+      // the new top-level rules we tried to persist). The live revision is
+      // the source of truth — repair the feature in place so subsequent
+      // reads, SDK payloads, and audits all agree.
+      logger.warn(
+        {
+          featureId: feature.id,
+          orgId: org.id,
+          defaultValueDrift,
+          driftedEnvs,
+        },
+        "Repairing feature drift against live revision",
+      );
+      try {
+        const repaired = await updateFeature(context, feature, {
+          ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
+          rules: liveRulesFlat,
+        });
+        // Mutate the local feature so all downstream consumers in this
+        // request (audit, codeRefs, response body, SDK refresh hooks) see
+        // the repaired state without needing a re-read.
+        Object.assign(feature, repaired);
+      } catch (e) {
         logger.error(
-          `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`,
+          { err: e, featureId: feature.id, orgId: org.id },
+          "Failed to repair feature drift",
         );
       }
-    });
+    }
   }
 
   // find code references

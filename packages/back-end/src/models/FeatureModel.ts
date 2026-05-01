@@ -964,6 +964,21 @@ export async function updateFeature(
     original: feature,
   });
 
+  // When persisting a new top-level v2 `rules` array, also force-scrub any
+  // legacy `environmentSettings.{env}.rules` from the doc. Pre-migration docs
+  // that still carry per-env `rules` flip the JIT read-time migration into
+  // the v1 path (`hasNoV1EnvRules` returns false), which rebuilds rules from
+  // those stale env arrays and silently shadows our top-level write. Inject
+  // a scrubbed `environmentSettings` payload so `buildFeatureUpdate`'s scrub
+  // path overwrites them.
+  if (
+    Array.isArray(allUpdates.rules) &&
+    allUpdates.environmentSettings === undefined &&
+    feature.environmentSettings
+  ) {
+    allUpdates.environmentSettings = { ...feature.environmentSettings };
+  }
+
   const normalizedUpdates = buildFeatureUpdate(allUpdates);
 
   if (Array.isArray(normalizedUpdates.rules)) {
