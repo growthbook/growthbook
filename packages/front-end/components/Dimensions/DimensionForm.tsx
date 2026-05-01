@@ -6,7 +6,7 @@ import { isProjectListValidForProject } from "shared/util";
 import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
@@ -70,7 +70,7 @@ const DimensionForm: FC<{
           }}
         />
       )}
-      <Modal
+      <DialogLayout
         trackingEventModalType=""
         close={close}
         open={true}
@@ -154,7 +154,7 @@ const DimensionForm: FC<{
           <strong>Important:</strong> Please limit dimensions to at most 50
           unique values.
         </p>
-      </Modal>
+      </DialogLayout>
     </>
   );
 };

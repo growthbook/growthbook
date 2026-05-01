@@ -40,7 +40,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { Select, SelectItem } from "@/ui/Select";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
@@ -1302,13 +1302,11 @@ export function FeatureUsageSparkline({
         </Flex>
       </Tooltip>
       {modalOpen && (
-        <Modal
+        <DialogLayout
           trackingEventModalType="feature-usage-sparkline"
           open={true}
           close={() => setModalOpen(false)}
           header="Usage Analytics"
-          submit={undefined}
-          closeCta="Close"
           size="lg"
         >
           <FeatureUsageContainer
@@ -1316,7 +1314,7 @@ export function FeatureUsageSparkline({
             revision={revision}
             initialTab={valueType === "boolean" ? "value" : "source"}
           />
-        </Modal>
+        </DialogLayout>
       )}
     </>
   );

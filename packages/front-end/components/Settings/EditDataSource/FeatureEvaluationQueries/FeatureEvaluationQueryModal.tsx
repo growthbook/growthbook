@@ -9,7 +9,7 @@ import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 
 type FeatureEvaluationQueryProps = {
@@ -98,7 +98,7 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
         />
       )}
 
-      <Modal
+      <DialogLayout
         trackingEventModalType=""
         open={true}
         submit={handleSubmit}
@@ -146,7 +146,7 @@ export const FeatureEvaluationQueryModal: FC<FeatureEvaluationQueryProps> = ({
             </div>
           </div>
         </div>
-      </Modal>
+      </DialogLayout>
     </>
   );
 };

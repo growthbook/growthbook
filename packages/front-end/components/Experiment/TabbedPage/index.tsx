@@ -22,7 +22,7 @@ import {
 } from "@/services/experiments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import {
   getBrowserDevice,
   openVisualEditor,
@@ -445,19 +445,18 @@ export default function TabbedPage({
         />
       )}
       {watchersModal && (
-        <Modal
+        <DialogLayout
           trackingEventModalType=""
           open={true}
           header="Experiment Watchers"
           close={() => setWatchersModal(false)}
-          closeCta="Close"
         >
           <ul>
             {usersWatching.map((u, i) => (
               <li key={i}>{u}</li>
             ))}
           </ul>
-        </Modal>
+        </DialogLayout>
       )}
       {visualEditorModal && (
         <VisualChangesetModal

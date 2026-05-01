@@ -15,7 +15,7 @@ import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ConditionInput from "@/components/Features/ConditionInput";
@@ -118,15 +118,14 @@ const NewPhaseForm: FC<{
     !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType="new-phase-form"
       trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
       close={close}
       open={true}
       submit={submit}
-      cta={"Start"}
-      closeCta="Cancel"
+      cta="Start"
       size="lg"
     >
       {hasLinkedChanges && experiment.status !== "stopped" && (
@@ -207,7 +206,7 @@ const NewPhaseForm: FC<{
           fallbackAttribute={experiment.fallbackAttribute}
         />
       )}
-    </Modal>
+    </DialogLayout>
   );
 };
 

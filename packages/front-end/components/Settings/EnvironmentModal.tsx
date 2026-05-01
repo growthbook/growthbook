@@ -9,7 +9,7 @@ import { useUser } from "@/services/UserContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
@@ -67,7 +67,7 @@ export default function EnvironmentModal({
   }));
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       open={true}
       close={close}
@@ -232,6 +232,6 @@ export default function EnvironmentModal({
           form.setValue("toggleOnList", value);
         }}
       />
-    </Modal>
+    </DialogLayout>
   );
 }

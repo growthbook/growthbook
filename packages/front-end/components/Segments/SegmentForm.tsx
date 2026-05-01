@@ -7,7 +7,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -135,11 +135,11 @@ const SegmentForm: FC<{
           save={async (sql) => form.setValue("sql", sql)}
         />
       )}
-      <Modal
+      <DialogLayout
         trackingEventModalType=""
         close={close}
         open={true}
-        size={"lg"}
+        size="lg"
         ctaEnabled={!isReadOnly}
         cta={current.id ? "Update Segment" : "Create Segment"}
         header={current.id ? "Edit Segment" : "New Segment"}
@@ -303,7 +303,7 @@ const SegmentForm: FC<{
             }
           />
         )}
-      </Modal>
+      </DialogLayout>
     </>
   );
 };

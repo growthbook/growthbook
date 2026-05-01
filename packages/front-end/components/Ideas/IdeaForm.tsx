@@ -3,7 +3,7 @@ import { IdeaInterface } from "shared/types/idea";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import TagsInput from "@/components/Tags/TagsInput";
 import Field from "@/components/Forms/Field";
 
@@ -42,14 +42,13 @@ const IdeaForm: FC<{
   });
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       header={edit ? "Edit Idea" : "New Idea"}
       close={close}
       open={true}
       submit={submit}
       cta={edit ? "Save" : "Create"}
-      closeCta="Cancel"
     >
       <Field
         required
@@ -71,7 +70,7 @@ const IdeaForm: FC<{
           onChange={(tags) => form.setValue("tags", tags)}
         />
       </div>
-    </Modal>
+    </DialogLayout>
   );
 };
 

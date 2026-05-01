@@ -14,7 +14,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
@@ -558,19 +558,18 @@ export default function FeaturesHeader({
         />
       )}
       {watchersModal && (
-        <Modal
+        <DialogLayout
           trackingEventModalType=""
           open={true}
           header="Feature Watchers"
           close={() => setWatchersModal(false)}
-          closeCta="Close"
         >
           <ul>
             {usersWatching.map((u, i) => (
               <li key={i}>{u}</li>
             ))}
           </ul>
-        </Modal>
+        </DialogLayout>
       )}
       {duplicateModal && (
         <FeatureModal

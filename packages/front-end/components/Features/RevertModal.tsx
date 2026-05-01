@@ -9,7 +9,7 @@ import { Flex, Box } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";
 import {
   useFeatureRevisionDiff,
@@ -131,7 +131,7 @@ export default function RevertModal({
   const canSubmit = mode === "new" ? canCreateDraft : canAutoPublish;
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       open={true}
       header="Revert"
@@ -164,7 +164,6 @@ export default function RevertModal({
       }
       cta={mode === "publish" ? "Publish Now" : "Create Revert Draft"}
       close={close}
-      closeCta="Cancel"
       size="lg"
     >
       <DraftSelectorForChanges
@@ -213,6 +212,6 @@ export default function RevertModal({
           setComment(e.target.value);
         }}
       />
-    </Modal>
+    </DialogLayout>
   );
 }

@@ -5,7 +5,7 @@ import {
   DataSourceInterfaceWithParams,
 } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 
 type DataSourceEditExperimentEventPropertiesProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -46,7 +46,7 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<
   );
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       open={true}
       submit={handleSubmit}
@@ -55,7 +55,6 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<
       header="Edit Query Settings"
       cta="Save"
       ctaEnabled={saveEnabled}
-      autoFocusSelector="#id-modal-identify-joins-heading"
     >
       <div className="my-2">
         <div className="row">
@@ -92,6 +91,6 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<
           </div>
         </div>
       </div>
-    </Modal>
+    </DialogLayout>
   );
 };

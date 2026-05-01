@@ -12,7 +12,7 @@ import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
@@ -229,7 +229,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         />
       )}
 
-      <Modal
+      <DialogLayout
         trackingEventModalType=""
         open={true}
         submit={handleSubmit}
@@ -238,7 +238,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         header={modalTitle}
         cta="Save"
         ctaEnabled={saveEnabled}
-        autoFocusSelector="#id-modal-identify-joins-heading"
       >
         <div className="my-2 ml-3 mr-3">
           <div className="row">
@@ -329,7 +328,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
             </div>
           </div>
         </div>
-      </Modal>
+      </DialogLayout>
     </>
   );
 };

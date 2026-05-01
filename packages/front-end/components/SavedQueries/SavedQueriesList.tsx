@@ -16,7 +16,7 @@ import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useAllDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Tooltip from "@/ui/Tooltip";
 import DashboardReferencesList from "@/components/SavedQueries/DashboardReferencesList";
 
@@ -111,19 +111,17 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
             .map((id) => dashboardsMap.get(id))
             .filter((d): d is NonNullable<typeof d> => d != null);
           return (
-            <Modal
+            <DialogLayout
               header={`'${selectedQuery.name}' References`}
               trackingEventModalType="show-saved-query-references"
               close={() => setShowReferencesModal(null)}
               open={true}
-              useRadixButton={true}
-              closeCta="Close"
             >
               <Text as="p" mb="3">
                 This saved query is referenced by the following dashboards.
               </Text>
               <DashboardReferencesList dashboards={modalDashboards} />
-            </Modal>
+            </DialogLayout>
           );
         })()}
 

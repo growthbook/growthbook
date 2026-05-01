@@ -55,7 +55,7 @@ import {
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";
 import DraftModal from "@/components/Features/DraftModal";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -1938,15 +1938,13 @@ export default function FeaturesOverview({
           />
         )}
         {confirmDiscard && (
-          <Modal
+          <DialogLayout
             trackingEventModalType=""
             open={true}
             close={() => setConfirmDiscard(false)}
             header="Discard Draft"
-            cta={"Discard"}
-            submitColor="danger"
-            closeCta={"Cancel"}
-            useRadixButton={true}
+            cta="Discard"
+            ctaColor="red"
             submit={async () => {
               try {
                 await apiCall(
@@ -1967,10 +1965,10 @@ export default function FeaturesOverview({
               Are you sure you want to discard this draft? This action cannot be
               undone.
             </p>
-          </Modal>
+          </DialogLayout>
         )}
         {confirmNewDraft && (
-          <Modal
+          <DialogLayout
             trackingEventModalType="create-new-draft"
             open={true}
             close={() => {
@@ -1983,8 +1981,6 @@ export default function FeaturesOverview({
             }}
             header="Create New Draft"
             cta="Create Draft"
-            loading={creatingDraft}
-            useRadixButton={true}
             submit={async () => {
               setCreatingDraft(true);
               try {
@@ -2150,7 +2146,7 @@ export default function FeaturesOverview({
                 </Link>
               )}
             </Flex>
-          </Modal>
+          </DialogLayout>
         )}
         {editCommentModel && revision && (
           <EditRevisionCommentModal

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ProxyTestResult } from "shared/types/sdk-connection";
 import { BsArrowRepeat } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Button from "@/components/Button";
 import Code from "@/components/SyntaxHighlighting/Code";
 
@@ -29,12 +29,11 @@ export default function ProxyTestButton({
   return (
     <>
       {proxyTestResult && (
-        <Modal
+        <DialogLayout
           trackingEventModalType=""
           header="Proxy Status"
           open={true}
           close={() => setProxyTestResult(null)}
-          closeCta="Close"
         >
           {proxyTestResult.error ? (
             <div>
@@ -72,7 +71,7 @@ export default function ProxyTestButton({
               <strong>{proxyTestResult.version}</strong>.
             </div>
           )}
-        </Modal>
+        </DialogLayout>
       )}
       {showButton && (
         <Button

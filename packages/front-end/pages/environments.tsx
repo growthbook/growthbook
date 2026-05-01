@@ -13,7 +13,7 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import EnvironmentConnectionsList from "@/components/Settings/EnvironmentConnectionsList";
@@ -85,13 +85,11 @@ const EnvironmentsPage: FC = () => {
       )}
       {showConnectionsModal !== null &&
         filteredEnvironments[showConnectionsModal] && (
-          <Modal
+          <DialogLayout
             header={`'${filteredEnvironments[showConnectionsModal].id}' SDK Connections`}
             trackingEventModalType="show-environment-connections"
             close={() => setShowConnectionsModal(null)}
             open={true}
-            useRadixButton={true}
-            closeCta="Close"
           >
             <Text as="p" mb="3">
               The following SDK connections use this environment.
@@ -105,7 +103,7 @@ const EnvironmentsPage: FC = () => {
                 ).includes(c.id),
               )}
             />
-          </Modal>
+          </DialogLayout>
         )}
       <Flex align="center" justify="between" mb="1">
         <Heading as="h1" size="x-large" mb="0">

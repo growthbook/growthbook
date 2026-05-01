@@ -6,7 +6,7 @@ import { validateFeatureValue, getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -62,11 +62,10 @@ export default function EditDefaultValueModal({
       : feature.version;
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       header="Edit Default Value"
       cta="Save to draft"
-      useRadixButton={true}
       submit={form.handleSubmit(async (value) => {
         const newDefaultValue = validateFeatureValue(
           feature,
@@ -118,6 +117,6 @@ export default function EditDefaultValueModal({
           showFullscreenButton={true}
         />
       </div>
-    </Modal>
+    </DialogLayout>
   );
 }

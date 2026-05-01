@@ -6,7 +6,7 @@ import {
 } from "shared/types/experiment";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { useForm } from "react-hook-form";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
 import { Select, SelectItem } from "@/ui/Select";
@@ -57,12 +57,12 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
   });
 
   return (
-    <Modal
+    <DialogLayout
       open={true}
       submit={
         canEdit
           ? form.handleSubmit(async (value) => {
-              apiCall(`/experiment/${experiment.id}`, {
+              await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
                 body: JSON.stringify({
                   decisionFrameworkSettings: {
@@ -70,9 +70,8 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
                     decisionCriteriaId: value.decisionCriteriaId,
                   },
                 }),
-              }).then(() => {
-                onSubmit();
               });
+              onSubmit();
             })
           : undefined
       }
@@ -123,7 +122,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
           </>
         )}
       </Flex>
-    </Modal>
+    </DialogLayout>
   );
 };
 

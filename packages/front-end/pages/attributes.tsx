@@ -6,7 +6,7 @@ import { SDKAttribute } from "shared/types/organization";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
@@ -398,13 +398,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
       </div>
       {showReferencesModal !== null &&
         attributeSchema?.[showReferencesModal] && (
-          <Modal
+          <DialogLayout
             header={`'${attributeSchema[showReferencesModal].property}' References`}
             trackingEventModalType="show-attribute-references"
             close={() => setShowReferencesModal(null)}
             open={true}
-            useRadixButton={true}
-            closeCta="Close"
           >
             <Text as="p" mb="3">
               This attribute is referenced by the following features,
@@ -424,7 +422,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   ?.savedGroups ?? []
               }
             />
-          </Modal>
+          </DialogLayout>
         )}
       {modalData !== null && (
         <AttributeModal

@@ -22,7 +22,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PrerequisiteFeatureSelector from "@/components/Features/PrerequisiteFeatureSelector";
 import PrerequisiteAlerts from "@/components/Features/PrerequisiteAlerts";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
@@ -257,7 +257,7 @@ export default function PrerequisiteModal({
   const featureProject = feature?.project || "";
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       open={true}
       close={close}
@@ -373,6 +373,6 @@ export default function PrerequisiteModal({
           environments={envs}
         />
       )}
-    </Modal>
+    </DialogLayout>
   );
 }

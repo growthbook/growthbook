@@ -17,7 +17,7 @@ import DecisionCriteriaTable from "@/components/DecisionCriteria/DecisionCriteri
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { useAuth } from "@/services/auth";
 
 const DecisionFrameworkSettings = () => {
@@ -64,27 +64,22 @@ const DecisionFrameworkSettings = () => {
       )}
 
       {criteriaToDelete && (
-        <Modal
+        <DialogLayout
           header="Delete Decision Criteria"
           trackingEventModalType="delete-decision-criteria"
           open={true}
           close={() => setCriteriaToDelete(undefined)}
           cta="Delete"
-          submitColor="danger"
+          ctaColor="red"
           submit={async () => {
-            try {
-              await apiCall<{ status: number; message?: string }>(
-                `/decision-criteria/${criteriaToDelete.id}`,
-                {
-                  method: "DELETE",
-                  body: JSON.stringify({ id: criteriaToDelete.id }),
-                },
-              );
-              mutate();
-              setCriteriaToDelete(undefined);
-            } catch (e) {
-              console.error(e);
-            }
+            await apiCall<{ status: number; message?: string }>(
+              `/decision-criteria/${criteriaToDelete.id}`,
+              {
+                method: "DELETE",
+                body: JSON.stringify({ id: criteriaToDelete.id }),
+              },
+            );
+            mutate();
           }}
         >
           <div>
@@ -93,7 +88,7 @@ const DecisionFrameworkSettings = () => {
               decision criteria?
             </p>
           </div>
-        </Modal>
+        </DialogLayout>
       )}
       <Box className="appbox p-3">
         <Flex justify="between">

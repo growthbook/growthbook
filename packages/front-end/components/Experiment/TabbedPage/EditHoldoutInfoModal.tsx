@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { isEqual } from "lodash";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -44,14 +44,12 @@ export default function EditHoldoutInfoModal({
   });
 
   return (
-    <Modal
+    <DialogLayout
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
       size="lg"
       trackingEventModalSource="experiment-more-menu"
-      // if this is undefined, the Modal component sets the value to the first enabled input field
-      autoFocusSelector=""
       header="Edit Info"
       submit={form.handleSubmit(async (data) => {
         const { projects, name, ...experimentData } = data;
@@ -113,6 +111,6 @@ export default function EditHoldoutInfoModal({
           Changing projects could restrict use of some Data Sources and Metrics.
         </Callout>
       ) : null}
-    </Modal>
+    </DialogLayout>
   );
 }

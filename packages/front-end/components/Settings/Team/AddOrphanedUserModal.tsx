@@ -2,7 +2,7 @@ import { FC, useState } from "react";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import RoleSelector from "./RoleSelector";
@@ -43,12 +43,12 @@ const AddOrphanedUserModal: FC<{
     (license?.seats || 0) < seatsInUse + 1
   ) {
     return (
-      <Modal
+      <DialogLayout
         trackingEventModalType=""
         open={true}
         close={close}
         size="md"
-        header={"Reached seat limit"}
+        header="Reached seat limit"
       >
         <div className="my-3">
           Whoops! You reached the seat limit on your license. To increase your
@@ -58,18 +58,17 @@ const AddOrphanedUserModal: FC<{
           </a>
           .
         </div>
-      </Modal>
+      </DialogLayout>
     );
   }
 
   return (
-    <Modal
+    <DialogLayout
       trackingEventModalType=""
       close={close}
       header="Add User"
       open={true}
       cta="Add"
-      closeCta={"Cancel"}
       submit={async () => {
         await apiCall<{
           emailSent: boolean;
@@ -91,7 +90,7 @@ const AddOrphanedUserModal: FC<{
         setValue={setValue}
         showUpgradeModal={() => setShowUpgradeModal(true)}
       />
-    </Modal>
+    </DialogLayout>
   );
 };
 

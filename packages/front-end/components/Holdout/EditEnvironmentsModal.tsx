@@ -7,7 +7,7 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
-import Modal from "@/components/Modal";
+import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import { genEnvironmentSettings } from "./NewHoldoutForm";
 
 const EditEnvironmentsModal = ({
@@ -52,7 +52,7 @@ const EditEnvironmentsModal = ({
   const environmentSettings = form.watch("environmentSettings") || {};
 
   return (
-    <Modal
+    <DialogLayout
       open={true}
       trackingEventModalType=""
       header="Edit Included Environments"
@@ -84,7 +84,7 @@ const EditEnvironmentsModal = ({
           }}
         />
       </div>
-    </Modal>
+    </DialogLayout>
   );
 };
 
