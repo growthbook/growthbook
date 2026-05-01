@@ -22,6 +22,7 @@ import {
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { logger } from "back-end/src/util/logger";
 
 type EventForwarderWriteAccessInput =
   | {
@@ -49,7 +50,9 @@ type ServiceAccountKey = {
   private_key?: string;
 };
 
-function failed(message: string): EventForwarderAccessTestResponse {
+export function getEventForwarderWriteAccessFailedResponse(
+  message: string,
+): EventForwarderAccessTestResponse {
   return {
     status: 200,
     results: {
@@ -80,7 +83,12 @@ function parseBigQueryServiceAccountKey(raw: string): ServiceAccountKey | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
-  const parsed = JSON.parse(trimmed) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    throw new Error("Event Forwarder service account key is not valid JSON.");
+  }
   if (!parsed || typeof parsed !== "object") {
     throw new Error("Event Forwarder service account key is not valid JSON.");
   }
@@ -195,7 +203,7 @@ async function runProbe({
     );
     created = true;
   } catch (error) {
-    return failed(getErrorMessage(error));
+    return getEventForwarderWriteAccessFailedResponse(getErrorMessage(error));
   } finally {
     if (created) {
       try {
@@ -209,14 +217,21 @@ async function runProbe({
         );
       } catch (error) {
         const dropError = getErrorMessage(error);
-        failure = failure
-          ? `${failure}; cleanup failed: ${dropError}`
-          : `Cleanup failed: ${dropError}`;
+        if (failure) {
+          failure = `${failure}; cleanup failed: ${dropError}`;
+        } else {
+          logger.warn(
+            error,
+            `Event Forwarder write access cleanup failed for ${fullTestTablePath}`,
+          );
+        }
       }
     }
   }
 
-  return failure ? failed(failure) : success();
+  return failure
+    ? getEventForwarderWriteAccessFailedResponse(failure)
+    : success();
 }
 
 export async function testEventForwarderWriteAccess(
@@ -234,7 +249,9 @@ export async function testEventForwarderWriteAccess(
 
   const integration = getSourceIntegrationObject(context, datasource, true);
   if (!(integration instanceof SqlIntegration)) {
-    return failed("This data source does not support Event Forwarder testing.");
+    return getEventForwarderWriteAccessFailedResponse(
+      "This data source does not support Event Forwarder testing.",
+    );
   }
 
   const randomSuffix = Math.random().toString(36).substring(2, 7);

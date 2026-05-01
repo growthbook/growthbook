@@ -330,7 +330,7 @@ const BigQueryForm: FC<{
                     loadingCta="Testing access"
                     onClick={testEventForwarderAccess}
                   >
-                    Test Table Creation Access
+                    Test Write Access
                   </Button>
                 </div>
                 {eventForwarderTestResult ? (
