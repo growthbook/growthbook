@@ -1,5 +1,4 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { calculateNamespaceCoverage } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -46,6 +45,11 @@ export default function TrafficAndTargeting({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+
+  const hasConfiguredTargeting =
+    (phase.condition && phase.condition !== "{}") ||
+    (phase.savedGroups && phase.savedGroups.length > 0) ||
+    (phase.prerequisites && phase.prerequisites.length > 0);
 
   return (
     <>
@@ -187,45 +191,50 @@ export default function TrafficAndTargeting({
                 </button>
               ) : null}
             </div>
-
-            <div className="row">
-              <div className="col-4">
-                <div className="h5">Attribute Targeting</div>
-                <div>
-                  {phase.condition && phase.condition !== "{}" ? (
-                    <ConditionDisplay condition={phase.condition} />
-                  ) : (
-                    <Text color="text-mid">--</Text>
-                  )}
-                </div>
-              </div>
-
-              <div className="col-4">
-                <div className="h5">Saved Group Targeting</div>
-                <div>
-                  {phase.savedGroups?.length ? (
-                    <SavedGroupTargetingDisplay
-                      savedGroups={phase.savedGroups}
-                    />
-                  ) : (
-                    <Text color="text-mid">--</Text>
-                  )}
-                </div>
-              </div>
-
-              {!isHoldout && (
+            {hasConfiguredTargeting ? (
+              <div className="row">
                 <div className="col-4">
-                  <div className="h5">Prerequisite Targeting</div>
+                  <div className="h5">Attribute Targeting</div>
                   <div>
-                    {phase.prerequisites?.length ? (
-                      <ConditionDisplay prerequisites={phase.prerequisites} />
+                    {phase.condition && phase.condition !== "{}" ? (
+                      <ConditionDisplay condition={phase.condition} />
                     ) : (
                       <Text color="text-mid">--</Text>
                     )}
                   </div>
                 </div>
-              )}
-            </div>
+
+                <div className="col-4">
+                  <div className="h5">Saved Group Targeting</div>
+                  <div>
+                    {phase.savedGroups?.length ? (
+                      <SavedGroupTargetingDisplay
+                        savedGroups={phase.savedGroups}
+                      />
+                    ) : (
+                      <Text color="text-mid">--</Text>
+                    )}
+                  </div>
+                </div>
+
+                {!isHoldout && (
+                  <div className="col-4">
+                    <div className="h5">Prerequisite Targeting</div>
+                    <div>
+                      {phase.prerequisites?.length ? (
+                        <ConditionDisplay prerequisites={phase.prerequisites} />
+                      ) : (
+                        <Text color="text-mid">--</Text>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Text color="text-mid">
+                No targeting (experiment will include all traffic)
+              </Text>
+            )}
           </div>
         </>
       ) : (

@@ -227,11 +227,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/EditTargetingModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
     "no-restricted-imports": {
       "count": 2

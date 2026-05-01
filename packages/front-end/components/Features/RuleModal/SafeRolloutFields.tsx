@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, TextField, Text, Flex, Grid, Separator } from "@radix-ui/themes";
+import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
 import {
   PiCaretUpFill,
   PiCaretDownFill,
@@ -13,9 +13,7 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/ui/Checkbox";
@@ -96,26 +94,21 @@ export default function SafeRolloutFields({
   const renderTargeting = () => {
     return (
       <>
-        <SavedGroupTargetingField
-          value={form.watch("savedGroups") || []}
-          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+        <TargetingFieldsGroup
           project={feature.project || ""}
-        />
-        <Separator size="4" my="5" />
-        <ConditionInput
-          defaultValue={form.watch("condition") || ""}
-          onChange={(value) => form.setValue("condition", value)}
-          key={conditionKey}
-          project={feature.project || ""}
-        />
-        <Separator size="4" my="5" />
-        <PrerequisiteInput
-          value={form.watch("prerequisites") || []}
-          setValue={(prerequisites) =>
+          environments={[environment]}
+          feature={feature}
+          savedGroups={form.watch("savedGroups") || []}
+          setSavedGroups={(savedGroups) =>
+            form.setValue("savedGroups", savedGroups)
+          }
+          condition={form.watch("condition") || ""}
+          setCondition={(value) => form.setValue("condition", value)}
+          conditionKey={conditionKey}
+          prerequisites={form.watch("prerequisites") || []}
+          setPrerequisites={(prerequisites) =>
             form.setValue("prerequisites", prerequisites)
           }
-          feature={feature}
-          environments={[environment]}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
         {isCyclic && (
