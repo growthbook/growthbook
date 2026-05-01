@@ -239,6 +239,59 @@ function buildNormalizedSinkPayload(
   return draft.config as Record<string, string>;
 }
 
+export function buildNormalizedEventForwarderSinkPayloadForTest(
+  draft: EventForwarderConfigDraft,
+  datasourceParams: EventForwarderDatasourceParams,
+  existingModel: EventForwarderConfigInterface | null,
+): SinkConfig {
+  const normalizedPayload = buildNormalizedSinkPayload(
+    draft,
+    datasourceParams,
+    existingModel,
+  );
+
+  if (draft.sinkType === "bigquery") {
+    const bigQueryParams = datasourceParams as
+      | BigQueryConnectionParams
+      | undefined;
+    const bqProject =
+      bigQueryParams?.defaultProject?.trim() ||
+      bigQueryParams?.projectId?.trim() ||
+      "";
+    const defaultDataset = bigQueryParams?.defaultDataset?.trim() || "";
+    const bq = normalizedPayload as BigQueryEventForwarderStoredConfig;
+    if (
+      !bqProject ||
+      !defaultDataset ||
+      !bq.tableName?.trim() ||
+      !bq.serviceAccountKey
+    ) {
+      throw new Error(
+        "BigQuery event forwarder requires connector project (BigQuery Project ID), default dataset, table name, and service account credentials",
+      );
+    }
+  }
+
+  if (draft.sinkType === "snowflake") {
+    const snowflake = normalizedPayload as SnowflakeEventForwarderStoredConfig;
+    if (
+      !snowflake.account ||
+      !snowflake.username ||
+      !snowflake.database ||
+      !snowflake.schema ||
+      !snowflake.tableName ||
+      !snowflake.accessUrl ||
+      !snowflake.privateKey
+    ) {
+      throw new Error(
+        "Snowflake event forwarder requires account, username, database, schema, table name, event forwarder access URL, and private key credentials",
+      );
+    }
+  }
+
+  return normalizedPayload;
+}
+
 export function toEventForwarderConfigDraft(
   config: EventForwarderConfigInterface | null,
 ): EventForwarderConfigDraft | null {
