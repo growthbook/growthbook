@@ -2,7 +2,7 @@ import {
   Box,
   Flex,
   Inset,
-  Dialog as RadixDialog,
+  Dialog,
   ScrollArea,
   Separator,
 } from "@radix-ui/themes";
@@ -46,13 +46,13 @@ function getMaxWidth(size: Size) {
 // ---------------------------------------------------------------------------
 // Context shared between primitives.
 //
-// Dialog.Root owns error + tracking state and exposes it here so that
-// Dialog.Body can render an error automatically, and the DialogForm wrapper
-// (in ui/Dialog/Patterns) can report submit outcomes without the consumer
+// Modal.Root owns error + tracking state and exposes it here so that
+// Modal.Body can render an error automatically, and the ModalForm wrapper
+// (in ui/Modal/Patterns) can report submit outcomes without the consumer
 // wiring anything up.
 // ---------------------------------------------------------------------------
 
-type DialogContextValue = {
+type ModalContextValue = {
   error: string | null;
   setError: (error: string | null) => void;
   scrollBodyToTop: () => void;
@@ -63,12 +63,12 @@ type DialogContextValue = {
   ) => void;
 };
 
-const DialogContext = createContext<DialogContextValue | null>(null);
+const ModalContext = createContext<ModalContextValue | null>(null);
 
-export function useDialogContext(): DialogContextValue {
-  const ctx = useContext(DialogContext);
+export function useModalContext(): ModalContextValue {
+  const ctx = useContext(ModalContext);
   if (!ctx) {
-    throw new Error("Dialog primitives must be rendered inside <Dialog.Root>.");
+    throw new Error("Modal primitives must be rendered inside <Modal.Root>.");
   }
   return ctx;
 }
@@ -149,7 +149,7 @@ function Root({
     }
   }, [open, sendTrackingEvent]);
 
-  const ctx = useMemo<DialogContextValue>(
+  const ctx = useMemo<ModalContextValue>(
     () => ({
       error,
       setError,
@@ -161,8 +161,8 @@ function Root({
   );
 
   return (
-    <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
-      <RadixDialog.Content
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Content
         ref={contentRef}
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
@@ -180,16 +180,16 @@ function Root({
           } as CSSProperties
         }
       >
-        <DialogContext.Provider value={ctx}>{children}</DialogContext.Provider>
-      </RadixDialog.Content>
-    </RadixDialog.Root>
+        <ModalContext.Provider value={ctx}>{children}</ModalContext.Provider>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }
 
 // ---------------------------------------------------------------------------
 // Header layout primitive.
 //
-// Renders a fixed-height row at the top of the dialog. Children are laid out
+// Renders a fixed-height row at the top of the modal. Children are laid out
 // in a space-between flex row so the common pattern of
 // <Title /> <SomeAction /> just works
 // ---------------------------------------------------------------------------
@@ -212,9 +212,9 @@ function Header({ children }: { children: ReactNode }) {
 
 function Title({ children }: { children: ReactNode }) {
   return (
-    <RadixDialog.Title size="5" mb="0">
+    <Dialog.Title size="5" mb="0">
       {children}
-    </RadixDialog.Title>
+    </Dialog.Title>
   );
 }
 
@@ -232,11 +232,11 @@ function Description({ children }: { children: ReactNode }) {
 // Body — the scrollable content area.
 //
 // Auto-renders an ErrorDisplay when setError has been called on the context,
-// so DialogForm consumers get error handling for free.
+// so ModalForm consumers get error handling for free.
 // ---------------------------------------------------------------------------
 
 function Body({ children }: { children: ReactNode }) {
-  const { bodyRef, error } = useDialogContext();
+  const { bodyRef, error } = useModalContext();
   return (
     <ScrollArea type="auto" mt="4" mb="3" ml="-1" ref={bodyRef}>
       <Box pr="7" pl="1">
@@ -248,7 +248,7 @@ function Body({ children }: { children: ReactNode }) {
 }
 
 // ---------------------------------------------------------------------------
-// Footer — fixed area at the bottom of the dialog, preceded by a separator.
+// Footer — fixed area at the bottom of the modal, preceded by a separator.
 //
 // Consumers render whatever buttons they need as children.
 // ---------------------------------------------------------------------------
@@ -273,20 +273,20 @@ function Footer({
 }
 
 // Re-export the Radix Close so consumers can do
-// <Dialog.Close asChild><Button .../></Dialog.Close>, or bind to their own
+// <Modal.Close asChild><Button .../></Modal.Close>, or bind to their own
 // close handler.
-const Close = RadixDialog.Close;
+const Close = Dialog.Close;
 
 // ---------------------------------------------------------------------------
 // Namespace export.
 //
-// Consumers use <Dialog.Root>, <Dialog.Header>, <Dialog.Title>, etc. — see
-// ui/Dialog/Patterns/DialogLayout for a reference composition, and the Base UI
+// Consumers use <Modal.Root>, <Modal.Header>, <Modal.Title>, etc. — see
+// ui/Modal/Patterns/ModalStandard for a reference composition, and the Base UI
 // / Radix Themes Dialog docs for the design intent. Form semantics live in
-// ui/Dialog/Patterns/DialogForm; import <DialogForm> from there directly.
+// ui/Modal/ModalForm; import <ModalForm> from there directly.
 // ---------------------------------------------------------------------------
 
-const Dialog = {
+const Modal = {
   Root,
   Header,
   Title,
@@ -296,4 +296,4 @@ const Dialog = {
   Close,
 };
 
-export default Dialog;
+export default Modal;
