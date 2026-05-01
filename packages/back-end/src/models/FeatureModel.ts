@@ -1485,6 +1485,35 @@ export async function applyRevisionChanges(
 
   if (changes.rules !== undefined) {
     changes.nextScheduledUpdate = getNextScheduledUpdate(changes.rules);
+    // Scrub legacy per-env `rules` from environmentSettings whenever we
+    // persist a new top-level v2 `rules` array. Without this, a doc that
+    // still carries pre-migration `environmentSettings.{env}.rules` flips
+    // the JIT read-time migration into the v1 path (`hasNoV1EnvRules`
+    // returns false) and rebuilds rules from the stale env arrays —
+    // silently dropping the rules we just wrote.
+    if (
+      feature.environmentSettings &&
+      changes.environmentSettings === undefined
+    ) {
+      const scrubbed: Record<string, FeatureEnvironment> = {};
+      for (const [envId, envObj] of Object.entries(
+        feature.environmentSettings,
+      )) {
+        scrubbed[envId] = omit(envObj, ["rules"]) as FeatureEnvironment;
+      }
+      changes.environmentSettings = scrubbed;
+    } else if (changes.environmentSettings) {
+      // The environmentsEnabled branch above also builds environmentSettings
+      // from cloneDeep(feature.environmentSettings), so it inherits the same
+      // stale env.rules. Strip them here too.
+      const scrubbed: Record<string, FeatureEnvironment> = {};
+      for (const [envId, envObj] of Object.entries(
+        changes.environmentSettings,
+      )) {
+        scrubbed[envId] = omit(envObj, ["rules"]) as FeatureEnvironment;
+      }
+      changes.environmentSettings = scrubbed;
+    }
   }
 
   changes.version = revision.version;
