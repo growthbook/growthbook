@@ -186,7 +186,7 @@ export default function LinkedFeatureFlag({
           <Callout status="error" my="4" icon={blockedAutoPublishIcon}>
             This feature draft contains{" "}
             <strong>changes beyond this experiment</strong> and cannot be
-            auto-published. Either remove the unrelated edits from the draft, or
+            auto-published. Either remove the unrelated edits from the draft or
             publish the full draft manually.{" "}
             <Link
               href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
