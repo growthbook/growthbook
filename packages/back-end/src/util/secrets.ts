@@ -322,16 +322,6 @@ export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
 export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
 export const CLICKHOUSE_OVERAGE_TABLE =
   process.env.CLICKHOUSE_OVERAGE_TABLE || "overage_events";
-export const CLICKHOUSE_DEV_PREFIX =
-  process.env.CLICKHOUSE_DEV_PREFIX || "test_";
-
-/** When true, managed warehouse ClickHouse provisioning runs on central-license-server.
- * TODO(james): remove this once we are sure we don't need to rollback.
- */
-export const MANAGED_CLICKHOUSE_USE_LICENSE_SERVER = stringToBoolean(
-  process.env.MANAGED_CLICKHOUSE_USE_LICENSE_SERVER,
-  IS_CLOUD,
-);
 
 export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
 
