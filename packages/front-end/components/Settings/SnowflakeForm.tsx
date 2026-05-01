@@ -2,16 +2,12 @@ import { FC, ChangeEventHandler, useState } from "react";
 import { DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME } from "shared/util";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { EventForwarderAccessTestResponse } from "shared/validators";
-import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
 import FileInput from "@/components/FileInput";
-import Button from "@/components/Button";
-import Callout from "@/ui/Callout";
-import EventForwarderTableNameField from "./EventForwarderTableNameField";
+import SnowflakeEventForwarderForm from "./SnowflakeEventForwarderForm";
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;
@@ -38,13 +34,8 @@ const SnowflakeForm: FC<{
   eventForwarderAccessSignature,
   setValidatedEventForwarderSignature,
 }) => {
-  const { apiCall } = useAuth();
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
   const [originalAuthMethod] = useState(params.authMethod);
-  const [eventForwarderTestResult, setEventForwarderTestResult] = useState<{
-    status: "success" | "error";
-    message: string;
-  } | null>(null);
   // Convenience variable for the auth method to handle undefined
   const authMethod = params.authMethod ?? "password";
   const canEnableEventForwarder = authMethod === "key-pair";
@@ -55,60 +46,6 @@ const SnowflakeForm: FC<{
   const hasSnowflakePrivateKey =
     !!params.privateKey?.trim() ||
     (existing && authMethod === originalAuthMethod);
-  const canTestEventForwarderAccess = snowflakeEventForwarderConfig
-    ? !!snowflakeEventForwarderConfig.config.tableName.trim() &&
-      !!snowflakeEventForwarderConfig.config.accessUrl?.trim() &&
-      !!params.account?.trim() &&
-      !!params.username?.trim() &&
-      !!params.database?.trim() &&
-      !!params.schema?.trim() &&
-      authMethod === "key-pair" &&
-      hasSnowflakePrivateKey
-    : false;
-
-  async function testEventForwarderAccess() {
-    if (!snowflakeEventForwarderConfig) return;
-
-    setEventForwarderTestResult(null);
-    setValidatedEventForwarderSignature?.(null);
-    const endpoint =
-      existing && datasourceId
-        ? `/datasource/${datasourceId}/event-forwarder/test-access`
-        : "/datasources/event-forwarder/test-access";
-    const body =
-      existing && datasourceId
-        ? {
-            params,
-            eventForwarderConfig: snowflakeEventForwarderConfig,
-          }
-        : {
-            type: "snowflake",
-            params,
-            projects,
-            eventForwarderConfig: snowflakeEventForwarderConfig,
-          };
-
-    const response = await apiCall<EventForwarderAccessTestResponse>(endpoint, {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    const sinkWrite = response.results.sinkWrite;
-    if (sinkWrite.result === "success") {
-      setValidatedEventForwarderSignature?.(eventForwarderAccessSignature);
-      setEventForwarderTestResult({
-        status: "success",
-        message:
-          "Event Forwarder table creation access verified. GrowthBook created and deleted a temporary validation table.",
-      });
-    } else {
-      setEventForwarderTestResult({
-        status: "error",
-        message:
-          sinkWrite.resultMessage ||
-          "Event Forwarder table creation access failed.",
-      });
-    }
-  }
 
   return (
     <div className="row">
@@ -251,69 +188,19 @@ const SnowflakeForm: FC<{
             </div>
           </div>
           {snowflakeEventForwarderConfig && (
-            <>
-              <div className="form-group col-md-12">
-                <EventForwarderTableNameField
-                  value={snowflakeEventForwarderConfig.config.tableName}
-                  onChange={(tableName) =>
-                    setEventForwarderConfig({
-                      sinkType: "snowflake",
-                      config: {
-                        ...snowflakeEventForwarderConfig.config,
-                        tableName,
-                      },
-                    })
-                  }
-                  placeholder={DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME}
-                  tooltip="Defaults to GB_EVENTS. GrowthBook maps the Kafka topic to this Snowflake table."
-                  helpText="Letters, numbers, underscores, and dollar signs. Hyphens and spaces are normalized to underscores when saving."
-                />
-              </div>
-              <div className="form-group col-md-12">
-                <label>
-                  Event Forwarder Access URL{" "}
-                  <Tooltip body="Full Snowflake URL for Confluent Snowflake Sink, including the region, for example https://abcd12345.us-east-1.snowflakecomputing.com:443" />
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="eventForwarderAccessUrl"
-                  required
-                  placeholder="https://abcd12345.us-east-1.snowflakecomputing.com:443"
-                  value={snowflakeEventForwarderConfig.config.accessUrl || ""}
-                  onChange={(e) =>
-                    setEventForwarderConfig({
-                      sinkType: "snowflake",
-                      config: {
-                        ...snowflakeEventForwarderConfig.config,
-                        accessUrl: e.target.value,
-                      },
-                    })
-                  }
-                />
-              </div>
-              <div className="form-group col-md-12">
-                <Button
-                  color="primary"
-                  disabled={!canTestEventForwarderAccess}
-                  loadingCta="Testing access"
-                  onClick={testEventForwarderAccess}
-                >
-                  Test Write Access
-                </Button>
-              </div>
-              {eventForwarderTestResult ? (
-                <div className="form-group col-md-12">
-                  <Callout
-                    status={eventForwarderTestResult.status}
-                    mt="0"
-                    mb="0"
-                  >
-                    {eventForwarderTestResult.message}
-                  </Callout>
-                </div>
-              ) : null}
-            </>
+            <SnowflakeEventForwarderForm
+              params={params}
+              eventForwarderConfig={snowflakeEventForwarderConfig}
+              existing={existing}
+              setEventForwarderConfig={setEventForwarderConfig}
+              datasourceId={datasourceId}
+              projects={projects}
+              eventForwarderAccessSignature={eventForwarderAccessSignature}
+              setValidatedEventForwarderSignature={
+                setValidatedEventForwarderSignature
+              }
+              hasSnowflakePrivateKey={hasSnowflakePrivateKey}
+            />
           )}
         </>
       )}

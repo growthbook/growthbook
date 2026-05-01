@@ -962,6 +962,14 @@ app.post(
 );
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+app.put(
+  "/datasource/:id/event-forwarder",
+  datasourcesController.putEventForwarderForDataSource,
+);
+app.delete(
+  "/datasource/:id/event-forwarder",
+  datasourcesController.deleteEventForwarderForDataSource,
+);
 app.post(
   "/datasource/:id/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForDatasource,
