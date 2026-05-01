@@ -121,7 +121,6 @@ const MetricGroupModal: FC<{
         <SelectField
           required={true}
           label="Data Source"
-          labelClassName="font-weight-bold"
           value={datasource?.id || ""}
           onChange={(newDatasource) => {
             form.setValue("datasource", newDatasource);

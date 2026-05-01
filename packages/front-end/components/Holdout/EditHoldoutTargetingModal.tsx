@@ -131,7 +131,6 @@ function TargetingForm({
           withRadixThemedPortal
           containerClassName="flex-1"
           label="Assign variation based on attribute"
-          labelClassName="font-weight-bold"
           options={hashAttributeOptions}
           sort={false}
           value={form.watch("hashAttribute")}
