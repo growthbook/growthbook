@@ -11304,6 +11304,12 @@ paths:
                               - ''
                               - api
                               - admin
+                          archived:
+                            description: >-
+                              Set to true to archive the metric. Archived
+                              metrics are hidden by default in the UI and
+                              excluded from new experiments.
+                            type: boolean
                           metricAutoSlices:
                             description: >-
                               Array of slice column names that will be

@@ -27,6 +27,7 @@ import {
   GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -73,7 +74,6 @@ import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   _dangerousRecreateClickhouseTables,
-  createClickhouseUser,
   getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
@@ -340,11 +340,16 @@ export async function postManagedWarehouse(
     },
   ];
 
-  const params = await createClickhouseUser(context, materializedColumns);
-  const datasourceSettings = getManagedWarehouseSettings(
-    materializedColumns,
-    {},
-  );
+  const params: ClickHouseConnectionParams = {
+    url: "https://managed-warehouse-placeholder.invalid",
+    port: 443,
+    username: "pending_provisioning",
+    password: "pending_provisioning",
+    database: "pending_provisioning",
+  };
+  const datasourceSettings = getManagedWarehouseSettings(materializedColumns, {
+    hasBeenProvisioned: false,
+  });
 
   const datasource = await createDataSource(
     context,
