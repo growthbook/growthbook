@@ -67,10 +67,7 @@ export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
   const feature = await getFeature(context, featureId);
   if (!feature) return;
 
-  const nextScheduledUpdate = getNextScheduledUpdate(
-    feature.environmentSettings || {},
-    context.environments,
-  );
+  const nextScheduledUpdate = getNextScheduledUpdate(feature.rules);
 
   const payloadKeys = getSDKPayloadKeysByDiff(
     feature,

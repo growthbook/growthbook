@@ -119,9 +119,8 @@ export const genEnvironmentSettings = ({
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
-    const rules = [];
 
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = { enabled };
   });
 
   return envSettings;

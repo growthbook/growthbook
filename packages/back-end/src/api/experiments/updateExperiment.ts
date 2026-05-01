@@ -24,6 +24,10 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
+  formatPendingDraftFailureMessage,
+  publishPendingFeatureDraftsForExperiment,
+} from "back-end/src/services/experiment-feature";
+import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
@@ -237,18 +241,34 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
+  const changes = updateExperimentApiPayloadToInterface(
+    {
+      ...req.body,
+      ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+    },
+    experiment,
+    map,
+    req.organization,
+  );
+
+  // If the request transitions the experiment from draft → running, publish
+  // any pending feature drafts BEFORE persisting the status change. This
+  // mirrors the UI controller (postExperimentStatus) so the REST API can't
+  // bypass approval/conflict gates that would otherwise block the start.
+  if (experiment.status === "draft" && changes.status === "running") {
+    const publishResult = await publishPendingFeatureDraftsForExperiment(
+      req.context,
+      experiment,
+    );
+    if (publishResult.failed.length > 0) {
+      throw new Error(formatPendingDraftFailureMessage(publishResult.failed));
+    }
+  }
+
   const updatedExperiment = await updateExperimentToDb({
     context: req.context,
     experiment: experiment,
-    changes: updateExperimentApiPayloadToInterface(
-      {
-        ...req.body,
-        ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
-      },
-      experiment,
-      map,
-      req.organization,
-    ),
+    changes,
   });
 
   if (updatedExperiment === null) {

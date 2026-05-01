@@ -60,7 +60,12 @@ import {
   normalizeRevisionMetadata,
   featureToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
-import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import {
+  logBadgeColor,
+  CreatedRampScheduleBody,
+  createdRampScheduleTitle,
+  PendingPublishBadge,
+} from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -88,16 +93,23 @@ export interface Props {
   rampSchedules?: RampScheduleInterface[];
 }
 
+// Backfill envelope fields from `fallback` (the parent feature's current
+// state) when the revision doesn't store them. Pre-snapshot legacy revisions
+// only persisted defaultValue/rules; comparing one against a freshly created
+// draft (which now snapshots the full envelope) would otherwise produce
+// phantom "added" diffs for metadata, env toggles, prerequisites, and holdout.
 function revisionToDiffInput(
   r: FeatureRevisionInterface,
+  fallback?: FeatureRevisionDiffInput,
 ): FeatureRevisionDiffInput {
   return {
     defaultValue: r.defaultValue,
-    rules: r.rules ?? {},
-    environmentsEnabled: r.environmentsEnabled,
-    prerequisites: r.prerequisites,
-    holdout: r.holdout ?? null,
-    metadata: normalizeRevisionMetadata(r.metadata),
+    rules: Array.isArray(r.rules) ? r.rules : [],
+    environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
+    prerequisites: r.prerequisites ?? fallback?.prerequisites,
+    holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
+    metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
+    rampActions: r.rampActions ?? undefined,
   };
 }
 
@@ -138,12 +150,17 @@ function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="medium">
+            <Text weight="semibold" size="large">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionA, revA?.title)}
               >
-                <RevisionLabel version={versionA} title={revA?.title} />
+                <RevisionLabel
+                  version={versionA}
+                  title={revA?.title}
+                  minWidth={0}
+                  numberSize="inherit"
+                />
               </OverflowText>
             </Text>
           </Flex>
@@ -196,12 +213,17 @@ function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="medium">
+            <Text weight="semibold" size="large">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionB, revB?.title)}
               >
-                <RevisionLabel version={versionB} title={revB?.title} />
+                <RevisionLabel
+                  version={versionB}
+                  title={revB?.title}
+                  minWidth={0}
+                  numberSize="inherit"
+                />
               </OverflowText>
             </Text>
           </Flex>
@@ -426,9 +448,12 @@ function DiffContent({
             <Flex direction="column" gap="0">
               {withRender.map((d) => (
                 <Box key={d.title} p="3" my="3" className="rounded bg-light">
-                  <Heading as="h6" size="small" color="text-mid" mb="2">
-                    {formatSectionTitle(d.title)}
-                  </Heading>
+                  <Flex align="center" gap="2" mb="2" wrap="wrap">
+                    <Heading as="h6" size="small" color="text-mid" mb="0">
+                      {formatSectionTitle(d.title)}
+                    </Heading>
+                    {d.titleSuffix}
+                  </Flex>
                   {d.customRender}
                 </Box>
               ))}
@@ -496,7 +521,10 @@ function rampDiffsForRevision(
       continue;
     }
 
-    const alreadyStarted = ramp.status !== "pending";
+    // "ready" / "pending" are pre-start lifecycle states; everything else
+    // (running, paused, pending-approval, completed, rolled-back) means the
+    // ramp has already begun, so use past tense.
+    const alreadyStarted = ramp.status !== "pending" && ramp.status !== "ready";
     const startDescription = ramp.startDate
       ? alreadyStarted
         ? "Started at a scheduled date/time."
@@ -530,12 +558,22 @@ function rampDiffsForRevision(
     });
   }
 
+  // 1-based rule indices for `Rule #N` refs. Holdout occupies #1 (Rule.tsx).
+  const newerRules = Array.isArray(newerRevision.rules)
+    ? newerRevision.rules
+    : [];
+  const ruleNumberOffset = newerRevision.holdout ? 2 : 1;
+  const ruleIndexById = new Map(
+    newerRules.map((r, i) => [r.id, i + ruleNumberOffset]),
+  );
+
   // Pending ramp actions: display "create" and "detach" actions queued in the draft
   if (newerRevision.rampActions) {
     for (const action of newerRevision.rampActions) {
       if (action.mode === "create") {
+        const targetIdx = ruleIndexById.get(action.ruleId);
         diffs.push({
-          title: `Ramp Schedule – ${action.name} (pending creation)`,
+          title: createdRampScheduleTitle(action),
           a: "",
           b: JSON.stringify(
             {
@@ -550,15 +588,17 @@ function rampDiffsForRevision(
             2,
           ),
           customRender: (
-            <p className="mb-0">
-              Creates new ramp schedule <strong>{action.name}</strong> for rule{" "}
-              <code>{action.ruleId}</code> — {action.steps.length} step
-              {action.steps.length !== 1 ? "s" : ""}.
-            </p>
+            <CreatedRampScheduleBody
+              action={action}
+              targetRuleIndices={targetIdx ? [targetIdx] : []}
+            />
           ),
+          titleSuffix: <PendingPublishBadge />,
           badges: [
             {
-              label: `Create ramp: ${action.name}`,
+              label: action.name
+                ? `Create ramp: ${action.name}`
+                : "Create ramp schedule",
               action: "create ramp",
             },
           ],
@@ -606,8 +646,12 @@ function rampDiffsForRevision(
 // so the diff shows the rule *in context* (whole env array) rather than in
 // isolation.
 
+// Internal per-env bucketed view used by the log replay engine. This is
+// decoupled from `FeatureRevisionInterface["rules"]` (which is v2-flat):
+// logs reference rules by env+index, so the replay bookkeeping reconstructs
+// the per-env state before projecting back to a flat v2 array for display.
 type ReplayState = {
-  rules: NonNullable<FeatureRevisionInterface["rules"]>;
+  rules: Record<string, FeatureRevisionRule[]>;
   defaultValue: FeatureRevisionInterface["defaultValue"];
   prerequisites: NonNullable<FeatureRevisionInterface["prerequisites"]>;
   environmentsEnabled: NonNullable<
@@ -615,11 +659,64 @@ type ReplayState = {
   >;
 };
 
+type FeatureRevisionRule = NonNullable<
+  FeatureRevisionInterface["rules"]
+>[number];
+
+// Project a flat v2 rules array into per-env buckets for log replay. Revision
+// logs index rules by env+position (legacy format — see `envsFromSubject`),
+// so replay needs a per-env projection of the flat array.
+//
+// Bucketing rules:
+//   - allEnvironments:true      → appears in every env bucket (org envs derived
+//                                 from `environmentsEnabled` + any env
+//                                 explicitly mentioned by other rules).
+//   - environments:[a,b]        → appears in a's and b's buckets.
+//   - environments:[]           → pending rule, appears nowhere (unaddressable
+//                                 by env+position log format; only visible in
+//                                 the direct draft/live diff).
+//   - environments:undefined    → permissive fallback, same as
+//                                 allEnvironments:true.
+//
+// Preserves flat-array order within each bucket so positional replay remains
+// correct even when global and env-scoped rules are interleaved.
+function bucketRevisionRulesByEnv(
+  rules: FeatureRevisionInterface["rules"] | null | undefined,
+  knownEnvs: string[] = [],
+): Record<string, FeatureRevisionRule[]> {
+  const out: Record<string, FeatureRevisionRule[]> = {};
+  if (!Array.isArray(rules)) return out;
+
+  // Seed every known env so even envs with no explicitly-scoped rules still
+  // receive all-env rules.
+  for (const e of knownEnvs) out[e] = out[e] ?? [];
+
+  for (const r of rules) {
+    let envs: string[];
+    if (r.allEnvironments || r.environments === undefined) {
+      envs = Array.from(new Set([...knownEnvs, ...Object.keys(out)]));
+    } else {
+      envs = r.environments;
+    }
+    if (envs.length === 0) continue;
+    for (const e of envs) {
+      out[e] = out[e] ?? [];
+      out[e].push(r);
+    }
+  }
+  return out;
+}
+
 function initialReplayState(
   base: FeatureRevisionInterface | null,
 ): ReplayState {
+  // Seed the bucketing with every env that was referenced in the revision's
+  // own environmentsEnabled map so `allEnvironments: true` rules are placed
+  // into each bucket (otherwise they would only appear in envs referenced by
+  // some OTHER env-scoped rule).
+  const knownEnvs = Object.keys(base?.environmentsEnabled ?? {});
   return {
-    rules: base?.rules ?? {},
+    rules: bucketRevisionRulesByEnv(base?.rules, knownEnvs),
     defaultValue: base?.defaultValue ?? "",
     prerequisites: base?.prerequisites ?? [],
     environmentsEnabled: base?.environmentsEnabled ?? {},
@@ -662,10 +759,7 @@ function applyLogEntry(state: ReplayState, log: RevisionLog): ReplayState {
 
   if (log.action.startsWith("add rule") && envs.length) {
     for (const env of envs) {
-      rules[env] = [
-        ...(rules[env] ?? []),
-        parsed as FeatureRevisionInterface["rules"][string][number],
-      ];
+      rules[env] = [...(rules[env] ?? []), parsed as FeatureRevisionRule];
     }
     return { ...state, rules };
   }
@@ -972,12 +1066,6 @@ export default function CompareRevisionsModal({
     [revisionList, showDiscarded, showDrafts, showGenerated],
   );
 
-  const versionsDesc = useMemo(() => {
-    const list = [...filteredRevisionList];
-    list.sort((a, b) => b.version - a.version);
-    return list.map((r) => r.version);
-  }, [filteredRevisionList]);
-
   // Compute the default comparison target from the full list so that the
   // initial selection is correct regardless of which filters are active.
   const defaultAdjacentVersion = useMemo(() => {
@@ -1263,46 +1351,33 @@ export default function CompareRevisionsModal({
   const toggleVersion = (version: number) => {
     setPreviewDraftVersion(null);
     setSelectedVersions((prev) => {
-      const idx = versionsDesc.indexOf(version);
+      // Index universe is the sidebar list (filtered list + selected-but-
+      // filtered versions). Using `versionsDesc` here would drop a hidden
+      // selected endpoint — e.g. an initial-preview draft with "Show drafts"
+      // off — and bail the shrink branch, leaving the user unable to deselect.
+      const universe = sidebarVersionsDesc;
+      const idx = universe.indexOf(version);
       if (idx === -1) return prev;
 
-      // Find the current selection range as indices in versionsDesc (newest-first)
       const prevIndices = prev
-        .map((v) => versionsDesc.indexOf(v))
+        .map((v) => universe.indexOf(v))
         .filter((i) => i !== -1)
         .sort((a, b) => a - b);
 
       const startIdx = prevIndices[0] ?? -1; // newest selected (lowest display index)
       const endIdx = prevIndices[prevIndices.length - 1] ?? -1; // oldest selected
 
-      // Clicking an endpoint shrinks the range to the nearest visible item inward
+      // Clicking an endpoint shrinks the range one step inward.
       if (prev.includes(version)) {
         if (startIdx === -1 || endIdx === -1 || endIdx - startIdx <= 1)
           return prev;
-        const visibleVersions = new Set(
-          filteredRevisionList.map((r) => r.version),
-        );
         if (idx === startIdx) {
-          let newStart = startIdx + 1;
-          while (
-            newStart < endIdx &&
-            !visibleVersions.has(versionsDesc[newStart])
-          )
-            newStart++;
-          if (newStart >= endIdx) return prev; // no visible item found
-          return [versionsDesc[newStart], versionsDesc[endIdx]].sort(
+          return [universe[startIdx + 1], universe[endIdx]].sort(
             (a, b) => a - b,
           );
         }
         if (idx === endIdx) {
-          let newEnd = endIdx - 1;
-          while (
-            newEnd > startIdx &&
-            !visibleVersions.has(versionsDesc[newEnd])
-          )
-            newEnd--;
-          if (newEnd <= startIdx) return prev; // no visible item found
-          return [versionsDesc[startIdx], versionsDesc[newEnd]].sort(
+          return [universe[startIdx], universe[endIdx - 1]].sort(
             (a, b) => a - b,
           );
         }
@@ -1310,47 +1385,33 @@ export default function CompareRevisionsModal({
       }
 
       if (prevIndices.length > 0) {
-        // Count visible revisions strictly between two indices (exclusive of endpoints)
-        const visibleVersionSet = new Set(
-          filteredRevisionList.map((r) => r.version),
-        );
-        const visibleBetween = (a: number, b: number): number => {
-          const [lo, hi] = a < b ? [a, b] : [b, a];
-          let count = 0;
-          for (let i = lo + 1; i < hi; i++) {
-            if (visibleVersionSet.has(versionsDesc[i])) count++;
-          }
-          return count;
-        };
+        // Distance is in sidebar terms — items the user can see in the list.
+        const distance = (a: number, b: number) =>
+          Math.max(0, Math.abs(a - b) - 1);
 
         // Shorten range by moving the nearer endpoint; tiebreaker: move the newer one
         if (idx > startIdx && idx < endIdx) {
           const distToNewer = idx - startIdx;
           const distToOlder = endIdx - idx;
           if (distToNewer <= distToOlder) {
-            return [versionsDesc[idx], versionsDesc[endIdx]].sort(
-              (a, b) => a - b,
-            );
+            return [universe[idx], universe[endIdx]].sort((a, b) => a - b);
           } else {
-            return [versionsDesc[startIdx], versionsDesc[idx]].sort(
-              (a, b) => a - b,
-            );
+            return [universe[startIdx], universe[idx]].sort((a, b) => a - b);
           }
         }
 
-        // If 8+ visible items outside the range, pair with the adjacent item instead of expanding
+        // If 8+ items separate the click from the range, pair with the
+        // adjacent item instead of expanding into a giant range.
         if (
-          (idx < startIdx && visibleBetween(idx, startIdx) >= 8) ||
-          (idx > endIdx && visibleBetween(endIdx, idx) >= 8)
+          (idx < startIdx && distance(idx, startIdx) >= 8) ||
+          (idx > endIdx && distance(endIdx, idx) >= 8)
         ) {
-          if (idx < versionsDesc.length - 1) {
-            return [versionsDesc[idx + 1], versionsDesc[idx]].sort(
-              (a, b) => a - b,
-            );
+          if (idx < universe.length - 1) {
+            return [universe[idx + 1], universe[idx]].sort((a, b) => a - b);
           }
           // Clicked the very last (oldest) revision — round up to the two newest
-          if (versionsDesc.length >= 2) {
-            return [versionsDesc[1], versionsDesc[0]].sort((a, b) => a - b);
+          if (universe.length >= 2) {
+            return [universe[1], universe[0]].sort((a, b) => a - b);
           }
           return prev;
         }
@@ -1449,13 +1510,24 @@ export default function CompareRevisionsModal({
           : [];
   const displayLoading = displayVersions.some((v) => loadingVersions.has(v));
   const displayFailed = displayVersions.filter((v) => isVersionFailed(v));
+
+  // Backfill source for legacy revisions that don't store envelope fields
+  // (metadata, env toggles, prerequisites, holdout). Without this, comparing
+  // a pre-snapshot live revision against a freshly created draft produces
+  // phantom diffs for every field the draft now snapshots from the feature.
+  const liveBase = baseFeature ?? feature;
+  const liveBaseInput = useMemo(
+    () => featureToFeatureRevisionDiffInput(liveBase),
+    [liveBase],
+  );
+
   const stepDiffs = useFeatureRevisionDiff({
     current: stepRevA
-      ? revisionToDiffInput(stepRevA)
-      : { defaultValue: "", rules: {} },
+      ? revisionToDiffInput(stepRevA, liveBaseInput)
+      : { defaultValue: "", rules: [] },
     draft: stepRevB
-      ? revisionToDiffInput(stepRevB)
-      : { defaultValue: "", rules: {} },
+      ? revisionToDiffInput(stepRevB, liveBaseInput)
+      : { defaultValue: "", rules: [] },
   });
 
   const singleRevFirst =
@@ -1466,28 +1538,22 @@ export default function CompareRevisionsModal({
       : null;
   const mergedDiffs = useFeatureRevisionDiff({
     current: singleRevFirst
-      ? revisionToDiffInput(singleRevFirst)
-      : { defaultValue: "", rules: {} },
+      ? revisionToDiffInput(singleRevFirst, liveBaseInput)
+      : { defaultValue: "", rules: [] },
     draft: singleRevLast
-      ? revisionToDiffInput(singleRevLast)
-      : { defaultValue: "", rules: {} },
+      ? revisionToDiffInput(singleRevLast, liveBaseInput)
+      : { defaultValue: "", rules: [] },
   });
 
-  // Use baseFeature for the left side so environmentsEnabled is dense rather than the sparse delta on the live revision
   const previewLiveRev =
     previewDraftVersion !== null ? getFullRevision(liveVersion) : null;
   const previewDraftRev =
     previewDraftVersion !== null ? getFullRevision(previewDraftVersion) : null;
-  const liveBase = baseFeature ?? feature;
-  const liveBaseInput = useMemo(
-    () => featureToFeatureRevisionDiffInput(liveBase),
-    [liveBase],
-  );
   const previewDiffs = useFeatureRevisionDiff({
     current:
       previewDraftVersion !== null
         ? liveBaseInput
-        : { defaultValue: "", rules: {} },
+        : { defaultValue: "", rules: [] },
     draft: previewDraftRev
       ? {
           // Merge environmentsEnabled on top of the live base so every env is explicit
@@ -1497,7 +1563,7 @@ export default function CompareRevisionsModal({
             ...(previewDraftRev.environmentsEnabled ?? {}),
           },
         }
-      : { defaultValue: "", rules: {} },
+      : { defaultValue: "", rules: [] },
   });
   const previewDisplayLoading =
     previewDraftVersion !== null &&
@@ -2192,7 +2258,7 @@ export default function CompareRevisionsModal({
                 style={{ borderBottom: "1px solid var(--gray-5)" }}
               >
                 <Flex align="start" justify="between" gap="4" wrap="wrap">
-                  <Flex align="start" gap="4">
+                  <Flex align="center" gap="4">
                     {diffViewMode === "steps" && (
                       <>
                         <Heading as="h2" size="small" mb="0">

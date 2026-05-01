@@ -70,9 +70,8 @@ const genEnvironmentSettings = ({
       ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
         defaultEnabled)
       : false;
-    const rules = featureToDuplicate?.environmentSettings?.[e.id]?.rules ?? [];
 
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = { enabled };
   });
 
   return envSettings;
@@ -99,6 +98,7 @@ const genFormDefaultValues = ({
   | "project"
   | "id"
   | "environmentSettings"
+  | "rules"
   | "customFields"
   | "holdout"
   | "jsonSchema"
@@ -127,6 +127,7 @@ const genFormDefaultValues = ({
         project: featureToDuplicate.project ?? project,
         tags: featureToDuplicate.tags,
         environmentSettings,
+        rules: featureToDuplicate.rules ?? [],
         customFields: customFieldValues,
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout
@@ -141,6 +142,7 @@ const genFormDefaultValues = ({
         project,
         tags: [],
         environmentSettings,
+        rules: [],
         customFields: customFieldValues,
         holdout: undefined,
       };

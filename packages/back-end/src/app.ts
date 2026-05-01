@@ -362,8 +362,10 @@ app.get(
 );
 
 // Secret API routes (no JWT or CORS)
+// Routes register themselves with version prefixes (/v1/..., /v2/...) so we
+// mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
-  "/api/v1",
+  "/api",
   // TODO add authentication
   cors({
     origin: "*",
@@ -862,6 +864,10 @@ app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
+app.delete(
+  "/experiment/:id/linked-feature/:featureId",
+  experimentsController.deleteExperimentLinkedFeature,
+);
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
@@ -901,11 +907,6 @@ app.post(
   "/feature/:id/:version/comment",
   featuresController.postFeatureReviewOrComment,
 );
-app.post(
-  "/feature/:id/:version/copyEnvironment",
-  featuresController.postCopyEnvironmentRules,
-);
-
 app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources
