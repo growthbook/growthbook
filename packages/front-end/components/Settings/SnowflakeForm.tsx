@@ -52,6 +52,19 @@ const SnowflakeForm: FC<{
     eventForwarderConfig?.sinkType === "snowflake"
       ? eventForwarderConfig
       : null;
+  const hasSnowflakePrivateKey =
+    !!params.privateKey?.trim() ||
+    (existing && authMethod === originalAuthMethod);
+  const canTestEventForwarderAccess = snowflakeEventForwarderConfig
+    ? !!snowflakeEventForwarderConfig.config.tableName.trim() &&
+      !!snowflakeEventForwarderConfig.config.accessUrl?.trim() &&
+      !!params.account?.trim() &&
+      !!params.username?.trim() &&
+      !!params.database?.trim() &&
+      !!params.schema?.trim() &&
+      authMethod === "key-pair" &&
+      hasSnowflakePrivateKey
+    : false;
 
   async function testEventForwarderAccess() {
     if (!snowflakeEventForwarderConfig) return;
@@ -84,13 +97,15 @@ const SnowflakeForm: FC<{
       setValidatedEventForwarderSignature?.(eventForwarderAccessSignature);
       setEventForwarderTestResult({
         status: "success",
-        message: "Event Forwarder write access verified.",
+        message:
+          "Event Forwarder table creation access verified. GrowthBook created and deleted a temporary validation table.",
       });
     } else {
       setEventForwarderTestResult({
         status: "error",
         message:
-          sinkWrite.resultMessage || "Event Forwarder write access failed.",
+          sinkWrite.resultMessage ||
+          "Event Forwarder table creation access failed.",
       });
     }
   }
@@ -278,8 +293,13 @@ const SnowflakeForm: FC<{
                 />
               </div>
               <div className="form-group col-md-12">
-                <Button color="primary" onClick={testEventForwarderAccess}>
-                  Test Event Forwarder Access
+                <Button
+                  color="primary"
+                  disabled={!canTestEventForwarderAccess}
+                  loadingCta="Testing access"
+                  onClick={testEventForwarderAccess}
+                >
+                  Test Table Creation Access
                 </Button>
               </div>
               {eventForwarderTestResult ? (

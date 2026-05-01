@@ -49,6 +49,10 @@ const BigQueryForm: FC<{
     message: string;
   } | null>(null);
   const { apiCall } = useAuth();
+  const canTestEventForwarderAccess =
+    eventForwarderConfig?.sinkType === "bigquery" &&
+    !!params.defaultDataset?.trim() &&
+    !!eventForwarderConfig.config.tableName.trim();
 
   async function testConnection() {
     try {
@@ -122,13 +126,15 @@ const BigQueryForm: FC<{
       setValidatedEventForwarderSignature?.(eventForwarderAccessSignature);
       setEventForwarderTestResult({
         status: "success",
-        message: "Event Forwarder write access verified.",
+        message:
+          "Event Forwarder table creation access verified. GrowthBook created and deleted a temporary validation table.",
       });
     } else {
       setEventForwarderTestResult({
         status: "error",
         message:
-          sinkWrite.resultMessage || "Event Forwarder write access failed.",
+          sinkWrite.resultMessage ||
+          "Event Forwarder table creation access failed.",
       });
     }
   }
@@ -320,10 +326,11 @@ const BigQueryForm: FC<{
                 <div>
                   <Button
                     color="primary"
-                    disabled={!params.defaultDataset}
+                    disabled={!canTestEventForwarderAccess}
+                    loadingCta="Testing access"
                     onClick={testEventForwarderAccess}
                   >
-                    Test Event Forwarder Access
+                    Test Table Creation Access
                   </Button>
                 </div>
                 {eventForwarderTestResult ? (

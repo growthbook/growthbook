@@ -1,7 +1,6 @@
 import {
   getPipelineValidationCreateTableQuery,
   getPipelineValidationDropTableQuery,
-  getPipelineValidationInsertQuery,
 } from "shared/enterprise";
 import { EventForwarderAccessTestResponse } from "shared/validators";
 import {
@@ -197,19 +196,6 @@ async function runProbe({
     created = true;
   } catch (error) {
     return failed(getErrorMessage(error));
-  }
-
-  try {
-    await integration.runTestQuery(
-      getPipelineValidationInsertQuery({
-        tableFullName: fullTestTablePath,
-        integration,
-      }),
-      undefined,
-      "pipelineValidation",
-    );
-  } catch (error) {
-    failure = getErrorMessage(error);
   } finally {
     if (created) {
       try {
