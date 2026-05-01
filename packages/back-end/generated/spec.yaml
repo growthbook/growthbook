@@ -4884,6 +4884,7 @@ paths:
             type: string
             enum:
               - draft
+              - scheduled
               - running
               - stopped
       responses:
@@ -5002,6 +5003,7 @@ paths:
                   type: string
                   enum:
                     - draft
+                    - scheduled
                     - running
                     - stopped
                 autoRefresh:
@@ -5509,6 +5511,7 @@ paths:
                   type: string
                   enum:
                     - draft
+                    - scheduled
                     - running
                     - stopped
                 autoRefresh:

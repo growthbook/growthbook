@@ -96,7 +96,7 @@ export function getChecklistItems({
           return !!prerequisites && prerequisites.length > 0;
         }
         case "schedule":
-          return !!experiment.schedule?.date;
+          return !!experiment.statusUpdateSchedule?.startAt;
       }
     }
 
@@ -637,7 +637,9 @@ export function PreLaunchChecklist({
       checkLinkedChanges: true,
       connections,
       setShowSdkForm,
-      setShowScheduleModal: canEditExperiment ? setShowScheduleModal : undefined,
+      setShowScheduleModal: canEditExperiment
+        ? setShowScheduleModal
+        : undefined,
     });
   }, [
     data,

@@ -14,7 +14,6 @@ export interface Props {
   startExperiment: () => Promise<void>;
   checklistItemsRemaining: number;
   isHoldout?: boolean;
-  scheduledDate?: string;
 }
 
 export default function StartExperimentModal({
@@ -23,10 +22,11 @@ export default function StartExperimentModal({
   startExperiment,
   checklistItemsRemaining,
   isHoldout,
-  scheduledDate,
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
-  const parsedScheduledDate = scheduledDate ? new Date(scheduledDate) : null;
+  const parsedScheduledDate = experiment.statusUpdateSchedule?.startAt
+    ? new Date(experiment.statusUpdateSchedule.startAt)
+    : null;
   const isScheduleStart = !!parsedScheduledDate;
 
   const [upgradeModal, setUpgradeModal] = useState(false);

@@ -327,6 +327,16 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
+// TODO(schedule-status-updates): add stopAt
+export const statusUpdateScheduleValidator = z.object({
+  startAt: z.date().optional(),
+});
+
+const nextScheduledStatusUpdateValidator = z.object({
+  type: z.enum(["start", "startAnalysisPeriod", "stop"]),
+  date: z.date(),
+});
+
 export const experimentInterface = z
   .object({
     id: z.string(),
@@ -358,12 +368,6 @@ export const experimentInterface = z
     variations: z.array(variation),
     archived: z.boolean(),
     status: z.enum(experimentStatus),
-    schedule: z
-      .object({
-        date: z.string(),
-      })
-      .strict()
-      .optional(),
     phases: z.array(experimentPhase),
     results: z.enum(experimentResultsType).optional(),
     winner: z.number().optional(),
@@ -404,6 +408,10 @@ export const experimentInterface = z
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
+    statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
+    nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
+      .optional()
+      .nullable(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

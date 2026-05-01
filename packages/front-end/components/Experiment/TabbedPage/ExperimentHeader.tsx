@@ -440,9 +440,9 @@ export default function ExperimentHeader({
     Object.values(holdout?.statusUpdateSchedule ?? {}).some(
       (value) => value !== null,
     );
-  const hasExperimentSchedule = !!experiment.schedule?.date;
-  const scheduledStartDate = hasExperimentSchedule
-    ? new Date(experiment.schedule?.date || "")
+  const hasExperimentSchedule = !!experiment.statusUpdateSchedule?.startAt;
+  const scheduledStartDate = experiment.statusUpdateSchedule?.startAt
+    ? new Date(experiment.statusUpdateSchedule.startAt)
     : null;
   const checklistReady = checklistItemsRemaining === 0;
 
@@ -678,7 +678,6 @@ export default function ExperimentHeader({
           }
           checklistItemsRemaining={checklistItemsRemaining || 0}
           isHoldout={isHoldout}
-          scheduledDate={experiment.schedule?.date}
         />
       )}
       {showScheduleModal && !isHoldout ? (

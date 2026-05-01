@@ -1620,7 +1620,8 @@ export async function postExperiment(
     "decisionFrameworkSettings",
     "variations",
     "status",
-    "schedule",
+    "statusUpdateSchedule",
+    "nextScheduledStatusUpdate",
     "results",
     "analysis",
     "winner",
@@ -1672,7 +1673,8 @@ export async function postExperiment(
       key === "metricOverrides" ||
       key === "lookbackOverride" ||
       key === "variations" ||
-      key === "schedule" ||
+      key === "statusUpdateSchedule" ||
+      key === "nextScheduledStatusUpdate" ||
       key === "customFields" ||
       key === "customMetricSlices"
     ) {
@@ -1685,6 +1687,42 @@ export async function postExperiment(
       (changes as any)[key] = data[key];
     }
   });
+
+  // Normalize statusUpdateSchedule dates and recompute nextScheduledStatusUpdate
+  // whenever the schedule is updated. We only support `startAt` for now.
+  if ("statusUpdateSchedule" in changes) {
+    const incoming = changes.statusUpdateSchedule;
+    if (incoming === null) {
+      changes.statusUpdateSchedule = null;
+      changes.nextScheduledStatusUpdate = null;
+    } else {
+      const startAt = incoming?.startAt
+        ? getValidDate(incoming.startAt)
+        : undefined;
+      changes.statusUpdateSchedule = startAt ? { startAt } : null;
+
+      const effectiveStatus = changes.status ?? experiment.status;
+      const canScheduleStart =
+        effectiveStatus === "draft" || effectiveStatus === "scheduled";
+      if (startAt && canScheduleStart && startAt > new Date()) {
+        changes.nextScheduledStatusUpdate = {
+          type: "start",
+          date: startAt,
+        };
+      } else {
+        changes.nextScheduledStatusUpdate = null;
+      }
+    }
+  } else if (
+    changes.status &&
+    changes.status !== "draft" &&
+    changes.status !== "scheduled" &&
+    experiment.nextScheduledStatusUpdate
+  ) {
+    // If the experiment moves out of a schedulable state, clear any pending
+    // scheduled status update so the agenda job doesn't try to start it.
+    changes.nextScheduledStatusUpdate = null;
+  }
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {

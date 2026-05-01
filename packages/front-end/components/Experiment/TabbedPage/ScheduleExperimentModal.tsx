@@ -18,11 +18,15 @@ export default function ScheduleExperimentModal({
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
-  const initialDate = experiment.schedule?.date
-    ? new Date(experiment.schedule.date)
+  const initialDate = experiment.statusUpdateSchedule?.startAt
+    ? new Date(experiment.statusUpdateSchedule.startAt)
     : new Date();
-  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(initialDate);
-  const [applySchedule, setApplySchedule] = useState(!!experiment.schedule?.date);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(
+    initialDate,
+  );
+  const [applySchedule, setApplySchedule] = useState(
+    !!experiment.statusUpdateSchedule?.startAt,
+  );
 
   return (
     <Modal
@@ -36,9 +40,9 @@ export default function ScheduleExperimentModal({
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({
-            schedule: applySchedule
+            statusUpdateSchedule: applySchedule
               ? {
-                  date: scheduleDate?.toISOString(),
+                  startAt: scheduleDate?.toISOString(),
                 }
               : null,
             ...(applySchedule
