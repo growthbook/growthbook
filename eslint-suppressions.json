@@ -104,11 +104,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/DiscussionThread.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/EmptyState.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -317,11 +312,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/StartExperimentModal.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/StoppedExperimentBanner.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -385,11 +375,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/FactTables/ColumnList.tsx": {
-    "local/no-alert-classname": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/FactTables/ColumnModal.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -418,11 +403,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/FactTables/FactTableModal.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/AddToHoldoutModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -431,11 +411,6 @@
   "packages/front-end/components/Features/CodeSnippetModal.tsx": {
     "local/no-alert-classname": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/Features/CompareEnvironmentsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
@@ -458,17 +433,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeatureModal/FeatureFromExperimentModal.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/FeatureReferencesList.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/FeatureRules.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -813,9 +778,6 @@
     }
   },
   "packages/front-end/components/Markdown/MarkdownInput.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1401,27 +1363,7 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/_app.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/activity.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/admin.tsx": {
-    "local/no-alert-classname": {
-      "count": 4
-    }
-  },
   "packages/front-end/pages/bandit/[bid].tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/bandits/index.tsx": {
     "local/no-alert-classname": {
       "count": 1
     }
@@ -1429,11 +1371,6 @@
   "packages/front-end/pages/correlations.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/dashboard.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/pages/datasources/[did].tsx": {
@@ -1444,11 +1381,6 @@
   "packages/front-end/pages/datasources/queries/[did].tsx": {
     "local/no-alert-classname": {
       "count": 3
-    }
-  },
-  "packages/front-end/pages/dimensions/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 4
     }
   },
   "packages/front-end/pages/experiments/index.tsx": {
@@ -1474,40 +1406,14 @@
   "packages/front-end/pages/fact-metrics/[fmid].tsx": {
     "local/no-alert-classname": {
       "count": 2
-    },
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/fact-tables/[ftid].tsx": {
     "local/no-alert-classname": {
       "count": 2
-    },
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/features/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/getstarted/data-source-guide.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/getstarted/experiment-guide.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/getstarted/feature-flag-guide.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/getstarted/imported-experiment-guide.tsx": {
     "local/no-alert-classname": {
       "count": 1
     }
@@ -1517,45 +1423,12 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/idea/[iid].tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/ideas.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/integrations/github/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/integrations/slack/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/interactions.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
-  "packages/front-end/pages/invitation.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/learnings/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1568,31 +1441,6 @@
   "packages/front-end/pages/metric/[mid].tsx": {
     "local/no-alert-classname": {
       "count": 7
-    }
-  },
-  "packages/front-end/pages/namespaces.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/oauth/google.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/oauth/lookup.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/present/[pid].tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/presentations.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/pages/product-analytics/dashboards/[did].tsx": {
@@ -1618,16 +1466,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/reports.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/reset-password.tsx": {
-    "local/no-alert-classname": {
-      "count": 3
-    }
-  },
   "packages/front-end/pages/saved-groups/[sgid].tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -1638,24 +1476,9 @@
       "count": 2
     }
   },
-  "packages/front-end/pages/sdks/[sdkid].tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/pages/sdks/index.tsx": {
     "local/no-alert-classname": {
       "count": 1
-    }
-  },
-  "packages/front-end/pages/segments/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 6
-    }
-  },
-  "packages/front-end/pages/settings/billing.tsx": {
-    "local/no-alert-classname": {
-      "count": 4
     }
   },
   "packages/front-end/pages/settings/custom-hooks.tsx": {
@@ -1663,58 +1486,8 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/settings/custom-markdown.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/settings/index.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/keys.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/organizations.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/tags.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/team.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/team/[tid].tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
-  "packages/front-end/pages/settings/usage.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
-  "packages/front-end/pages/settings/webhooks/event/[eventwebhookid].tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/webhooks/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/setup/index.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1729,9 +1502,6 @@
     }
   },
   "packages/front-end/pages/timeline.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
