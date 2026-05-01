@@ -22,6 +22,7 @@ import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
 import ErrorDisplay from "../ErrorDisplay";
 import Text from "../Text";
+import styles from "./Dialog.module.scss";
 
 export type Size = "md" | "lg";
 
@@ -231,7 +232,7 @@ function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error } = useDialogContext();
   return (
     <ScrollArea type="auto" mt="5" mb="3" ml="-1" ref={bodyRef}>
-      <Box pr="7" pl="1">
+      <Box pr="7" pl="1" className={styles.body}>
         {error && <ErrorDisplay error={error} mb="5" />}
         {children}
       </Box>
