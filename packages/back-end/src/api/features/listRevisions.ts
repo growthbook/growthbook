@@ -113,7 +113,7 @@ export async function loadRevisionsPage(
       organization: organizationId,
       featureId,
       featureIds,
-      feature: singleFeature,
+      feature: singleFeature ?? undefined,
       featuresByFeatureId,
       status: status as Parameters<
         typeof getFeatureRevisionsByStatus
