@@ -74,6 +74,7 @@ import {
   resumeEventForwarderThroughLicenseServer,
   updateEventForwarderCredentialsThroughLicenseServer,
 } from "back-end/src/services/eventForwarderProvisioning";
+import { deleteEventForwarderConfigForDatasource } from "back-end/src/services/eventForwarderDatasourceLifecycle";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
@@ -665,6 +666,167 @@ export async function putDataSource(
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function putEventForwarderForDataSource(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response,
+) {
+  const parsed = eventForwarderAccessTestEditBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+  if (!parsed.data.eventForwarderConfig) {
+    return res.status(400).json({
+      status: 400,
+      message: "Event Forwarder config is required.",
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    parsed.data.params &&
+    !context.permissions.canUpdateDataSourceParams(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const existingEventForwarderConfig =
+    await getEventForwarderConfigForDatasource(context, datasource.id);
+  const projects = datasource.projects ?? [];
+  if (existingEventForwarderConfig) {
+    if (
+      !context.permissions.canUpdateEventForwarderConfig(
+        existingEventForwarderConfig,
+        {
+          ...existingEventForwarderConfig,
+          projects,
+        },
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  } else if (!context.permissions.canCreateEventForwarderConfig({ projects })) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const integration = getSourceIntegrationObject(context, datasource);
+    const updates: Partial<DataSourceInterface> = { dateUpdated: new Date() };
+
+    if (parsed.data.params) {
+      mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
+      await integration.testConnection();
+      updates.params = encryptParams(integration.params as DataSourceParams);
+    }
+
+    await updateDataSource(context, datasource, updates);
+
+    const updatedDatasource = {
+      ...datasource,
+      ...updates,
+    };
+    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+      updatedDatasource.type,
+      integration.params as DataSourceParams,
+    );
+    const syncedEventForwarderConfig =
+      await syncEventForwarderConfigFromDatasource({
+        context,
+        datasource: updatedDatasource,
+        draft: parsed.data.eventForwarderConfig as EventForwarderConfigDraft,
+        datasourceParams: eventForwarderDatasourceParams,
+      });
+    await provisionEventForwarderThroughLicenseServer(
+      context,
+      syncedEventForwarderConfig,
+      eventForwarderDatasourceParams,
+    );
+
+    res.status(200).json({
+      status: 200,
+      datasource: await getDataSourceWithParams(
+        context,
+        getSourceIntegrationObject(context, updatedDatasource),
+      ),
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to update event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function deleteEventForwarderForDataSource(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+  }
+  if (
+    !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    await deleteEventForwarderConfigForDatasource(
+      context,
+      datasource,
+      eventForwarderConfig,
+    );
+
+    res.status(200).json({
+      status: 200,
+      datasource: await getDataSourceWithParams(
+        context,
+        getSourceIntegrationObject(context, datasource),
+      ),
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to delete event forwarder");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",

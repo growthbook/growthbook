@@ -141,6 +141,8 @@ const DataSourcePage: FC = () => {
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
+  const supportsEventForwarder =
+    d.type === "bigquery" || d.type === "snowflake";
 
   return (
     <div className="container pagecontents">
@@ -424,6 +426,18 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               )
             ) : (
               <>
+                {supportsEventForwarder && (
+                  <Frame>
+                    <EventForwarder
+                      dataSource={d}
+                      canEdit={canUpdateDataSourceSettings}
+                      onRefresh={async () => {
+                        await mutateDefinitions({});
+                      }}
+                    />
+                  </Frame>
+                )}
+
                 {d.dateUpdated === d.dateCreated &&
                   d?.settings?.schemaFormat !== "custom" && (
                     <Callout status="info" mt="4" mb="4">
@@ -470,18 +484,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     canEdit={canUpdateDataSourceSettings}
                   />
                 </Frame>
-
-                {d.eventForwarderConfig ? (
-                  <Frame>
-                    <EventForwarder
-                      dataSource={d}
-                      canEdit={canUpdateDataSourceSettings}
-                      onRefresh={async () => {
-                        await mutateDefinitions({});
-                      }}
-                    />
-                  </Frame>
-                ) : null}
 
                 {d.settings.notebookRunQuery && (
                   <Frame>
