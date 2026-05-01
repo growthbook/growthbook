@@ -964,6 +964,21 @@ export async function updateFeature(
     original: feature,
   });
 
+  // When persisting a new top-level v2 `rules` array, also force-scrub any
+  // legacy `environmentSettings.{env}.rules` from the doc. Pre-migration docs
+  // that still carry per-env `rules` flip the JIT read-time migration into
+  // the v1 path (`hasNoV1EnvRules` returns false), which rebuilds rules from
+  // those stale env arrays and silently shadows our top-level write. Inject
+  // a scrubbed `environmentSettings` payload so `buildFeatureUpdate`'s scrub
+  // path overwrites them.
+  if (
+    Array.isArray(allUpdates.rules) &&
+    allUpdates.environmentSettings === undefined &&
+    feature.environmentSettings
+  ) {
+    allUpdates.environmentSettings = { ...feature.environmentSettings };
+  }
+
   const normalizedUpdates = buildFeatureUpdate(allUpdates);
 
   if (Array.isArray(normalizedUpdates.rules)) {
@@ -1485,35 +1500,6 @@ export async function applyRevisionChanges(
 
   if (changes.rules !== undefined) {
     changes.nextScheduledUpdate = getNextScheduledUpdate(changes.rules);
-    // Scrub legacy per-env `rules` from environmentSettings whenever we
-    // persist a new top-level v2 `rules` array. Without this, a doc that
-    // still carries pre-migration `environmentSettings.{env}.rules` flips
-    // the JIT read-time migration into the v1 path (`hasNoV1EnvRules`
-    // returns false) and rebuilds rules from the stale env arrays —
-    // silently dropping the rules we just wrote.
-    if (
-      feature.environmentSettings &&
-      changes.environmentSettings === undefined
-    ) {
-      const scrubbed: Record<string, FeatureEnvironment> = {};
-      for (const [envId, envObj] of Object.entries(
-        feature.environmentSettings,
-      )) {
-        scrubbed[envId] = omit(envObj, ["rules"]) as FeatureEnvironment;
-      }
-      changes.environmentSettings = scrubbed;
-    } else if (changes.environmentSettings) {
-      // The environmentsEnabled branch above also builds environmentSettings
-      // from cloneDeep(feature.environmentSettings), so it inherits the same
-      // stale env.rules. Strip them here too.
-      const scrubbed: Record<string, FeatureEnvironment> = {};
-      for (const [envId, envObj] of Object.entries(
-        changes.environmentSettings,
-      )) {
-        scrubbed[envId] = omit(envObj, ["rules"]) as FeatureEnvironment;
-      }
-      changes.environmentSettings = scrubbed;
-    }
   }
 
   changes.version = revision.version;
