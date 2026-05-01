@@ -2,10 +2,11 @@ import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "shared/types/dimension";
 import clsx from "clsx";
-import Link from "next/link";
+import NextLink from "next/link";
 import { ago } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";
@@ -23,6 +24,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 
 type ExperimentDimensionItem = {
   id: string;
@@ -129,21 +131,21 @@ const DimensionsPage: FC = () => {
             </DocLink>
           </div>
         </div>
-        <div className="alert alert-info">
+        <Callout status="info">
           Dimensions are only available if you connect GrowthBook to a
           compatible data source (Snowflake, Redshift, BigQuery, ClickHouse,
           Athena, Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel).
           Support for other data sources like Google Analytics is coming soon.
-        </div>
+        </Callout>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         There was an error loading the list of dimensions
-      </div>
+      </Callout>
     );
   }
 
@@ -171,7 +173,7 @@ const DimensionsPage: FC = () => {
               <SortableTH field="dimension">Name</SortableTH>
               <SortableTH field="datasourceName">Data Source</SortableTH>
               <SortableTH field="identifierTypes">Identifier Types</SortableTH>
-              <th></th>
+              <th style={{ width: 30 }} className="text-right"></th>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -192,14 +194,14 @@ const DimensionsPage: FC = () => {
                   >
                     {item.identifierTypes.join(", ")}
                   </TableCell>
-                  <TableCell>
+                  <TableCell style={{ width: 30 }} className="text-right">
                     <MoreMenu useRadix={true}>
-                      <Link
+                      <NextLink
                         className="dropdown-item"
                         href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
                       >
                         Manage via Data Source
-                      </Link>
+                      </NextLink>
                     </MoreMenu>
                   </TableCell>
                 </TableRow>
@@ -248,7 +250,7 @@ const DimensionsPage: FC = () => {
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
                   <th>Date Updated</th>
-                  <th></th>
+                  <th style={{ width: 30 }} className="text-right"></th>
                 </tr>
               </thead>
               <tbody>
@@ -303,7 +305,7 @@ const DimensionsPage: FC = () => {
                         {s.dateUpdated ? ago(s.dateUpdated) : <span>-</span>}
                       </td>
                       {!s.managedBy ? (
-                        <td>
+                        <td style={{ width: 30 }} className="text-right">
                           {hasEditDimensionPermission ? (
                             <a
                               href="#"
@@ -333,7 +335,7 @@ const DimensionsPage: FC = () => {
                           ) : null}
                         </td>
                       ) : (
-                        <td></td>
+                        <td style={{ width: 30 }}></td>
                       )}
                     </tr>
                   );
@@ -344,18 +346,18 @@ const DimensionsPage: FC = () => {
         </div>
       )}
       {!error && dimensions.length === 0 && orgCanCreateDimensions && (
-        <div className="alert alert-info">
+        <Callout status="info">
           You don&apos;t have any user dimensions defined yet.{" "}
           {hasCreateDimensionPermission &&
             "Click the button above to create your first one."}
-        </div>
+        </Callout>
       )}
       {!error && dimensions.length === 0 && !orgCanCreateDimensions && (
-        <div className="alert alert-info">
+        <Callout status="info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
           <DocLink docSection="config_yml">View Documentation</DocLink>
-        </div>
+        </Callout>
       )}
     </div>
   );

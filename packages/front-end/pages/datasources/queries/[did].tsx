@@ -11,6 +11,7 @@ import { ago, datetime } from "shared/dates";
 import { QueryInterface } from "shared/types/query";
 import { capitalize } from "lodash";
 import { IconButton } from "@radix-ui/themes";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
@@ -18,6 +19,7 @@ import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -32,6 +34,9 @@ const DataSourceQueries = (): React.ReactElement => {
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
   const d = getDatasourceById(did);
+  const managedWarehousePending = d
+    ? isManagedWarehouseAwaitingProvisioning(d)
+    : false;
 
   const canView = d && permissions.check("readData", d.projects || []);
   const canCancel = d && permissions.check("runQueries", d.projects || []);
@@ -92,13 +97,24 @@ const DataSourceQueries = (): React.ReactElement => {
         <div className="d-flex">
           <h1>Data Source Queries</h1>
         </div>
-        <p>No queries have been run on this Data Source.</p>
+        {managedWarehousePending ? (
+          <div className="mt-3">
+            <ManagedWarehouseNoEventsCallout />
+          </div>
+        ) : (
+          <p>No queries have been run on this Data Source.</p>
+        )}
       </div>
     );
   }
 
   return (
     <div className="container pagecontents">
+      {managedWarehousePending ? (
+        <div className="mt-3 mb-3">
+          <ManagedWarehouseNoEventsCallout />
+        </div>
+      ) : null}
       {modalData && (
         <DialogLayout
           trackingEventModalType=""

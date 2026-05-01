@@ -69,6 +69,22 @@ if (IS_CLOUD) {
 }
 ```
 
+### Testing GrowthBook Cloud functionality locally
+
+Minimum setup:
+
+```bash
+IS_CLOUD=true
+```
+
+Note: The above only works when APP_ORIGIN is localhost (or it's running on the real GrowthBook Cloud).
+
+Opt-in extras for testing cloud-only flows locally:
+
+- **SSO / Auth0 flow**: set `SSO_CONFIG` to a valid JSON config.
+- **Vercel integration**: set both `VERCEL_CLIENT_ID` and `VERCEL_CLIENT_SECRET`
+- **S3 uploads**: set both `UPLOAD_METHOD=s3` and `S3_BUCKET=…`
+
 ### Adding new commercial features
 
 All back-end code for commercial features should live under the `src/enterprise` directory. The front-end and shared packages have their own `enterprise` directories as well which can be used as needed.

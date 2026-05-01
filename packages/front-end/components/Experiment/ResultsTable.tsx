@@ -1477,7 +1477,7 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? " all dimension values, goal metrics, and variations"
             : " all goal metrics and variations"}
-          . The unadjusted p-values are returned in the tooltip.
+          .
         </div>
       )}
     </>

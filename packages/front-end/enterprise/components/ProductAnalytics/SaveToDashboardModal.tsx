@@ -33,6 +33,7 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardModal";
 import { useCronValidation } from "@/enterprise/components/Dashboards/useCronValidation";
 import DashboardUpdateScheduleSelector from "@/enterprise/components/Dashboards/DashboardUpdateScheduleSelector";
+import track from "@/services/track";
 
 function datasetTypeToBlockType(
   type: "metric" | "fact_table" | "data_source",
@@ -51,12 +52,14 @@ interface Props {
   close: () => void;
   config: ExplorationConfig;
   exploration: ProductAnalyticsExploration | null;
+  trackingSource?: string;
 }
 
 export default function SaveToDashboardModal({
   close,
   config,
   exploration,
+  trackingSource,
 }: Props) {
   const router = useRouter();
   const { dashboards, dashboardsMap, mutateDashboards } = useDashboards(false);
@@ -153,6 +156,16 @@ export default function SaveToDashboardModal({
     }
 
     mutateDashboards();
+
+    if (trackingSource) {
+      track("Product Analytics Explorer: Saved To Dashboard", {
+        source: trackingSource,
+        type: config.type,
+        chart_type: config.chartType,
+        target: createOrAdd === "new" ? "new-dashboard" : "existing-dashboard",
+      });
+    }
+
     router.push(`/product-analytics/dashboards/${dashboardId}`);
   };
 

@@ -73,6 +73,7 @@ import {
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
+  unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
@@ -118,9 +119,12 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
+  getFeature,
   getFeaturesByIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
+import { getNonDiscardedRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
@@ -138,6 +142,9 @@ import {
 } from "back-end/src/services/features";
 import {
   ExperimentLinkedFeatureValueUpdate,
+  formatPendingDraftFailureMessage,
+  PendingDraftPublishResult,
+  publishPendingFeatureDraftsForExperiment,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
@@ -1214,18 +1221,32 @@ export async function postExperiments(
   try {
     validateVariationIds(obj.variations);
 
-    // Make sure id is unique
-    if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
+    // Make sure tracking key is unique
+    if (
+      obj.trackingKey &&
+      (org.settings?.requireUniqueExperimentTrackingKeys ||
+        !req.query.allowDuplicateTrackingKey)
+    ) {
       const existing = await getExperimentByTrackingKey(
         context,
         obj.trackingKey,
       );
       if (existing) {
-        return res.status(200).json({
-          status: 200,
-          duplicateTrackingKey: true,
-          existingId: existing.id,
-        });
+        // If organization requires unique tracking keys, always reject duplicates
+        if (org.settings?.requireUniqueExperimentTrackingKeys) {
+          return res.status(400).json({
+            status: 400,
+            message: `An experiment with tracking key "${obj.trackingKey}" already exists. Your organization requires unique experiment tracking keys.`,
+          });
+        }
+        // Otherwise, allow duplicates only if explicitly requested
+        if (!req.query.allowDuplicateTrackingKey) {
+          return res.status(200).json({
+            status: 200,
+            duplicateTrackingKey: true,
+            existingId: existing.id,
+          });
+        }
       }
     }
 
@@ -1495,6 +1516,25 @@ export async function postExperiment(
 
   if (data.variations) {
     validateVariationIds(data.variations);
+  }
+
+  // Check if tracking key is being changed and validate uniqueness if required
+  if (
+    data.trackingKey &&
+    data.trackingKey !== experiment.trackingKey &&
+    org.settings?.requireUniqueExperimentTrackingKeys
+  ) {
+    const existing = await getExperimentByTrackingKey(
+      context,
+      data.trackingKey,
+    );
+    if (existing) {
+      res.status(400).json({
+        status: 400,
+        message: `An experiment with tracking key "${data.trackingKey}" already exists. Your organization requires unique experiment tracking keys.`,
+      });
+      return;
+    }
   }
 
   const experimentHasLinkedChanges =
@@ -1893,7 +1933,6 @@ export async function postExperimentArchive(
       changes,
     });
 
-    // TODO: audit
     res.status(200).json({
       status: 200,
     });
@@ -1953,7 +1992,6 @@ export async function postExperimentUnarchive(
       changes,
     });
 
-    // TODO: audit
     res.status(200).json({
       status: 200,
     });
@@ -1965,6 +2003,23 @@ export async function postExperimentUnarchive(
         id: experiment.id,
       },
     });
+
+    // Restore pendingFeatureDrafts: archive clears them, so re-sync each
+    // linked feature's revisions to rebuild the queue. Fire-and-forget.
+    const linkedFeatureIds = experiment.linkedFeatures ?? [];
+    if (linkedFeatureIds.length > 0) {
+      Promise.all(
+        linkedFeatureIds.map(async (featureId) => {
+          const revisions = await getNonDiscardedRevisionSummaries(
+            context.org.id,
+            featureId,
+          );
+          return syncFeatureExperimentLinkages(context, featureId, revisions);
+        }),
+      ).catch((e) => {
+        logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");
+      });
+    }
   } catch (e) {
     res.status(400).json({
       status: 400,
@@ -2060,6 +2115,19 @@ export async function postExperimentStatus(
       experiment,
     );
     Object.assign(changes, additionalChanges);
+
+    // Publish any pending feature drafts in lockstep with the start.
+    // Abort the experiment start if any drafts cannot be published.
+    const publishResult: PendingDraftPublishResult =
+      await publishPendingFeatureDraftsForExperiment(context, experiment);
+    if (publishResult.failed.length > 0) {
+      res.status(400).json({
+        status: 400,
+        message: formatPendingDraftFailureMessage(publishResult.failed),
+        failedFeatureDrafts: publishResult.failed,
+      });
+      return;
+    }
   }
   // If starting or drafting a stopped experiment, clear the phase end date
   // and perform any needed bandit cleanup
@@ -3917,4 +3985,33 @@ export async function postExperimentFeatureValues(
     status: 200,
     experiment: experimentForResponse,
   });
+}
+
+export async function deleteExperimentLinkedFeature(
+  req: AuthRequest<null, { id: string; featureId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, featureId } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({ status: 404, message: "Experiment not found" });
+    return;
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Also require feature-side edit rights — unlinking cancels a queued
+  // autopublish that the feature team may be managing.
+  const feature = await getFeature(context, featureId);
+  if (feature && !context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  await unlinkFeatureFromExperiment(context, id, featureId);
+
+  res.status(200).json({ status: 200 });
 }

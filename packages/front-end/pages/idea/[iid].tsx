@@ -7,7 +7,6 @@ import {
   FaChartLine,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import Link from "next/link";
 import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import {
   ExperimentInterfaceStringDates,
@@ -15,6 +14,7 @@ import {
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { date } from "shared/dates";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -38,6 +38,7 @@ import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -95,9 +96,7 @@ const IdeaPage = (): ReactElement => {
 
   if (dataError) {
     return (
-      <div className="alert alert-danger">
-        There was a problem loading this idea
-      </div>
+      <Callout status="error">There was a problem loading this idea</Callout>
     );
   }
   if (!data) {

@@ -1,9 +1,9 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";

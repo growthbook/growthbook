@@ -38,7 +38,6 @@ import {
   NewExperimentRefRule,
   getDefaultRuleValue,
   getFeatureDefaultValue,
-  getRules,
   useAttributeSchema,
   useEnvironments,
   validateFeatureRule,
@@ -76,7 +75,6 @@ import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
-import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import {
   type RampSectionState,
   defaultRampSectionState,
@@ -92,8 +90,11 @@ export interface Props {
   feature: FeatureInterface;
   setVersion: (version: number) => void;
   mutate: () => void;
+  // Global flat index in `feature.rules`. Positions new rules; ignored for edit/duplicate.
   i: number;
   environment: string;
+  // Required for edit/duplicate.
+  ruleId?: string;
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
@@ -128,6 +129,7 @@ export default function RuleModal({
   i,
   mutate,
   environment,
+  ruleId,
   defaultType = "",
   setVersion,
   mode,
@@ -142,8 +144,10 @@ export default function RuleModal({
 
   const attributeSchema = useAttributeSchema(false, feature.project);
 
-  const rules = getRules(feature, environment);
-  const rule: (typeof rules)[number] | undefined = rules[i];
+  const flatRules = feature.rules ?? [];
+  const rule: FeatureRule | undefined = ruleId
+    ? flatRules.find((r) => r.id === ruleId)
+    : undefined;
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -247,8 +251,9 @@ export default function RuleModal({
     isSafeRolloutAutoRollbackEnabled: true,
   });
 
-  const convertRuleToFormValues = (rule: FeatureRule) => {
-    if (rule?.type === "safe-rollout") {
+  const convertRuleToFormValues = (rule: FeatureRule | undefined) => {
+    if (!rule) return undefined;
+    if (rule.type === "safe-rollout") {
       return {
         ...rule,
         safeRolloutFields: safeRollout,
@@ -308,10 +313,34 @@ export default function RuleModal({
     defaultValues,
   });
 
+  // On edit/duplicate, seed scope from the existing rule. Legacy rules with
+  // `environments === undefined` are treated as permissive (= all envs). On
+  // create, seed from org default ("all envs") or fall back to the current
+  // env tab.
+  const existingRuleAllEnvs = rule?.allEnvironments === true;
+  const existingRuleEnvList = Array.isArray(rule?.environments)
+    ? (rule?.environments ?? [])
+    : undefined;
+  const existingRuleScopeIsAll =
+    existingRuleAllEnvs ||
+    (rule !== undefined &&
+      rule.allEnvironments !== true &&
+      existingRuleEnvList === undefined);
+
+  const [scopeAllEnvs, setScopeAllEnvs] = useState<boolean>(() => {
+    if (mode === "edit" || mode === "duplicate") return existingRuleScopeIsAll;
+    // New rules: default to "All environments" only when no active env tab.
+    return !environment;
+  });
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>(
-    mode === "create" && settings.defaultFeatureRulesInAllEnvs
-      ? environments.map((env) => env.id)
-      : [environment],
+    () => {
+      if (mode === "edit" || mode === "duplicate") {
+        if (existingRuleScopeIsAll) return [];
+        return existingRuleEnvList ?? [environment];
+      }
+      // New rules: pre-select the active env tab (or empty if "All" fallback).
+      return environment ? [environment] : [];
+    },
   );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
@@ -377,16 +406,28 @@ export default function RuleModal({
               : ruleType === "safe-rollout"
                 ? "Safe Rollout Rule"
                 : "Rule";
-    text +=
-      ruleType === "safe-rollout"
-        ? ` in ${environment}`
-        : ` in ${selectedEnvironments[0]}${
-            selectedEnvironments.length > 1
-              ? ` + ${selectedEnvironments.length - 1} more`
-              : ""
-          }`;
+    if (ruleType === "safe-rollout") {
+      if (environment) text += ` in ${environment}`;
+    } else if (scopeAllEnvs) {
+      text += ` in All Environments`;
+    } else if (selectedEnvironments.length === 0) {
+      text += ` (no environments)`;
+    } else {
+      text += ` in ${selectedEnvironments[0]}${
+        selectedEnvironments.length > 1
+          ? ` + ${selectedEnvironments.length - 1} more`
+          : ""
+      }`;
+    }
     return text;
-  }, [ruleType, experimentType, mode, environment, selectedEnvironments]);
+  }, [
+    ruleType,
+    experimentType,
+    mode,
+    environment,
+    scopeAllEnvs,
+    selectedEnvironments,
+  ]);
 
   const trackingEventModalType = useMemo(
     () => kebabCase(headerText),
@@ -424,7 +465,7 @@ export default function RuleModal({
       prerequisites.length > 0
         ? {
             environment,
-            ruleIndex: i,
+            ruleId: rule?.id,
             prerequisites: prerequisites.map((p) => ({
               id: p.id,
               condition: p.condition,
@@ -611,9 +652,27 @@ export default function RuleModal({
       values.scheduleRules = [];
     }
 
-    // unset the ID if we're duplicating the rule.
+    // Reuse pregenRuleId for duplicates so the inline ramp payload targets
+    // the rule the backend creates. (Backend preserves a truthy client id.)
     if (mode === "duplicate") {
-      values.id = "";
+      values.id = pregenRuleId;
+    }
+
+    // Safe-rollout rules are pinned to one env by the controller; skip scope.
+    if (values.type !== "safe-rollout") {
+      if (scopeAllEnvs) {
+        values = {
+          ...values,
+          allEnvironments: true,
+          environments: [],
+        };
+      } else {
+        values = {
+          ...values,
+          allEnvironments: false,
+          environments: selectedEnvironments,
+        };
+      }
     }
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
@@ -844,6 +903,8 @@ export default function RuleModal({
           description: "",
           experimentId: res.experiment.id,
           id: values.id,
+          allEnvironments: values.allEnvironments ?? false,
+          environments: values.environments,
           condition: "",
           savedGroups: [],
           enabled: values.enabled ?? true,
@@ -918,7 +979,7 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
-      const correctedRule = validateFeatureRule(values, feature);
+      const correctedRule = validateFeatureRule(values as FeatureRule, feature);
       if (correctedRule) {
         form.reset(correctedRule);
         throw new Error(
@@ -965,6 +1026,7 @@ export default function RuleModal({
       let res: { version: number } | undefined;
 
       if (mode === "edit") {
+        if (!ruleId) throw new Error("Missing ruleId for edit");
         if (values.type === "safe-rollout") {
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
@@ -1131,8 +1193,7 @@ export default function RuleModal({
               method: "PUT",
               body: JSON.stringify({
                 rule: values,
-                environment,
-                i,
+                ruleId,
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
@@ -1226,7 +1287,9 @@ export default function RuleModal({
               environments:
                 values.type === "safe-rollout"
                   ? [environment]
-                  : selectedEnvironments,
+                  : scopeAllEnvs
+                    ? environments.map((e) => e.id)
+                    : selectedEnvironments,
               safeRolloutFields,
               rampSchedule: rampScheduleInline,
             } as PostFeatureRuleBody),
@@ -1267,7 +1330,7 @@ export default function RuleModal({
             <PiCaretRight className="position-relative" style={{ top: -1 }} />
           </>
         }
-        ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
+        ctaEnabled={!!overviewRuleType}
         header="New Rule"
         useRadixButton={true}
         submit={submitOverview}
@@ -1402,34 +1465,24 @@ export default function RuleModal({
             />
           </>
         )}
-
-        {environments.length > 1 && overviewRuleType !== "safe-rollout" && (
-          <EnvironmentSelect
-            environments={environments}
-            project={feature.project}
-            environmentSettings={Object.fromEntries(
-              environments.map((env) => [
-                env.id,
-                { enabled: selectedEnvironments.includes(env.id) },
-              ]),
-            )}
-            setValue={(env, enabled) => {
-              if (enabled) {
-                setSelectedEnvironments((prev) => [
-                  ...new Set([...prev, env.id]),
-                ]);
-              } else {
-                setSelectedEnvironments((prev) =>
-                  prev.filter((id) => id !== env.id),
-                );
-              }
-            }}
-            label="Create Rule in Environments"
-          />
-        )}
       </Modal>
     );
   }
+
+  const envScopeProps = {
+    environments,
+    allEnvironments: scopeAllEnvs,
+    setAllEnvironments: setScopeAllEnvs,
+    selectedEnvironments,
+    setSelectedEnvironments,
+  };
+
+  // Resolved env list used by child components that care about which envs the
+  // rule currently covers (prereq cycle checks, targeting previews, etc).
+  // When `allEnvironments` is on, treat every applicable env as in-scope.
+  const effectiveEnvList = scopeAllEnvs
+    ? environments.map((e) => e.id)
+    : selectedEnvironments;
 
   return (
     <FormProvider {...form}>
@@ -1471,7 +1524,7 @@ export default function RuleModal({
           <StandardRuleFields
             ruleType={ruleType}
             feature={feature}
-            environments={selectedEnvironments}
+            environments={effectiveEnvList}
             defaultValues={defaultValues}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
@@ -1487,6 +1540,7 @@ export default function RuleModal({
             scheduleType={scheduleType}
             setScheduleType={setScheduleType}
             pendingDetach={hasPendingDetach}
+            envScope={envScopeProps!}
           />
         )}
 
@@ -1505,6 +1559,7 @@ export default function RuleModal({
             setScheduleToggleEnabled={setScheduleToggleEnabled}
             mode={mode}
             isDraft={!safeRollout?.startedAt}
+            envScope={envScopeProps}
           />
         )}
 
@@ -1518,6 +1573,7 @@ export default function RuleModal({
             noSchedule={!defaultHasSchedule}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
+            envScope={envScopeProps!}
           />
         ) : null}
 
@@ -1527,6 +1583,7 @@ export default function RuleModal({
             feature={feature}
             existingRule={mode === "edit"}
             changeRuleType={changeRuleType}
+            envScope={envScopeProps!}
           />
         ) : null}
 
@@ -1540,7 +1597,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environments={selectedEnvironments}
+                  environments={effectiveEnvList}
                   defaultValues={defaultValues}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
@@ -1591,6 +1648,7 @@ export default function RuleModal({
                   setCustomFields={(customFields) =>
                     form.setValue("customFields", customFields)
                   }
+                  envScope={i === 0 ? envScopeProps : undefined}
                 />
               </Page>
             ))
@@ -1604,7 +1662,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environments={selectedEnvironments}
+                  environments={effectiveEnvList}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
                     form.setValue("prerequisites", prerequisites)
@@ -1649,6 +1707,7 @@ export default function RuleModal({
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
                   }
+                  envScope={i === 0 ? envScopeProps : undefined}
                 />
               </Page>
             ))

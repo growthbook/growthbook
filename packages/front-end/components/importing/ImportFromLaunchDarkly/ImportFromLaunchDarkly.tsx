@@ -12,8 +12,9 @@ import {
 import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "shared/types/organization";
-import Link from "next/link";
+import { getRulesForEnvironment } from "shared/util";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -95,9 +96,7 @@ function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
       tags: existing.tags,
       owner: existing.owner,
       rules: Object.fromEntries(
-        Object.entries(envSettings1)
-          .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules]),
+        envs.map((e) => [e, getRulesForEnvironment(existing.rules, e)]),
       ),
     },
     {
@@ -106,9 +105,7 @@ function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
       tags: incoming.tags,
       owner: incoming.owner,
       rules: Object.fromEntries(
-        Object.entries(envSettings2)
-          .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules]),
+        envs.map((e) => [e, getRulesForEnvironment(incoming.rules, e)]),
       ),
     },
   ];

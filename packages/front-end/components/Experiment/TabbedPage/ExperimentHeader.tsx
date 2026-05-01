@@ -83,6 +83,7 @@ export interface Props {
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
   checklistItemsRemaining: number | null;
+  checklistHardBlockerCount: number;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
@@ -143,6 +144,7 @@ export default function ExperimentHeader({
   mutateWatchers,
   editResult,
   checklistItemsRemaining,
+  checklistHardBlockerCount,
   editTargeting,
   newPhase,
   editPhases,
@@ -646,6 +648,7 @@ export default function ExperimentHeader({
           close={() => setShowStartExperiment(false)}
           startExperiment={startExperiment}
           checklistItemsRemaining={checklistItemsRemaining || 0}
+          checklistHardBlockerCount={checklistHardBlockerCount}
           isHoldout={isHoldout}
         />
       )}

@@ -26,7 +26,8 @@ import {
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
-import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
+import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
+import { logger } from "back-end/src/util/logger";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import {
@@ -266,7 +267,15 @@ export async function createSDKConnection(
   const doc = await SDKConnectionModel.create(connection);
 
   if (IS_CLOUD) {
-    await addCloudSDKMapping(connection);
+    const { key, organization } = connection;
+    try {
+      await addCloudSDKMapping(key, organization);
+    } catch (e) {
+      logger.error(
+        e,
+        `Error inserting sdk key mapping (${key} -> ${organization})`,
+      );
+    }
   }
 
   queueSDKPayloadRefresh({

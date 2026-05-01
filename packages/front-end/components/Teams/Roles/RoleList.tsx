@@ -1,6 +1,6 @@
 import { RESERVED_ROLE_IDS, getRoleDisplayName } from "shared/permissions";
 import router from "next/router";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useUser } from "@/services/UserContext";

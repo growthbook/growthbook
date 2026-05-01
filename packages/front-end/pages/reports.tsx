@@ -13,6 +13,7 @@ import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Callout from "@/ui/Callout";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -84,11 +85,7 @@ const ReportsPage = (): React.ReactElement => {
     });
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
