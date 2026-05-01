@@ -104,6 +104,7 @@ import {
   getMergeResultPublishEnvs,
   getSavedGroupMap,
   getLiveAndBaseRevisionsForFeature,
+  getLiveRevisionForFeature,
   getDraftRevision,
   assertCanAutoPublish,
 } from "back-end/src/services/features";
@@ -1162,6 +1163,59 @@ export async function postFeatureReviewOrComment(
   });
 }
 
+// Detect drift between the live revision (source of truth) and the persisted
+// `feature.rules` / `feature.defaultValue`. If found, repair in place by
+// re-writing through `updateFeature` — which scrubs legacy
+// `environmentSettings.{env}.rules` so the JIT read-time migration stops
+// re-flattening them and shadowing the v2 top-level rules.
+//
+// Idempotent and converges in one round-trip. Mutates `feature` so callers in
+// the same request see the repaired state without re-reading.
+async function repairFeatureDriftIfNeeded(
+  context: ReqContext,
+  feature: FeatureInterface,
+  live: FeatureRevisionInterface | undefined,
+  environmentIds: string[],
+): Promise<void> {
+  if (!live) return;
+
+  const liveRulesFlat: FeatureRule[] = live.rules ?? [];
+  const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
+  const defaultValueDrift = live.defaultValue !== feature.defaultValue;
+  const driftedEnvs = environmentIds.filter(
+    (env) =>
+      !isEqual(
+        getRulesForEnvironment(featureRulesFlat, env),
+        getRulesForEnvironment(liveRulesFlat, env),
+      ),
+  );
+
+  if (!defaultValueDrift && driftedEnvs.length === 0) return;
+
+  logger.warn(
+    {
+      featureId: feature.id,
+      orgId: context.org.id,
+      defaultValueDrift,
+      driftedEnvs,
+    },
+    "Repairing feature drift against live revision",
+  );
+
+  try {
+    const repaired = await updateFeature(context, feature, {
+      ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
+      rules: liveRulesFlat,
+    });
+    Object.assign(feature, repaired);
+  } catch (e) {
+    logger.error(
+      { err: e, featureId: feature.id, orgId: context.org.id },
+      "Failed to repair feature drift",
+    );
+  }
+}
+
 export async function postFeaturePublish(
   req: AuthRequest<
     {
@@ -1218,6 +1272,12 @@ export async function postFeaturePublish(
     feature,
     revision,
   });
+
+  // Heal any pre-publish drift so `autoMerge` diffs the draft against the
+  // true live state. Without this, a feature stuck at a prior version's
+  // rules (e.g. via the legacy env.rules JIT-migration shadow) would make
+  // the merge produce phantom "changes" or silently no-op.
+  await repairFeatureDriftIfNeeded(context, feature, live, environmentIds);
 
   // Compute merge result first so the review check can diff the merged outcome
   // against live — the same approach the frontend uses. This prevents spurious
@@ -1491,7 +1551,21 @@ export async function postFeatureRevert(
     context.permissions.throwPermissionError();
   }
 
-  // Compute the diff (what actually changes on the feature doc) and check publish permissions per-change.
+  // Heal pre-revert drift so the diff against `revision` reflects the true
+  // live state. Without this, a feature stuck at an older version's rules
+  // (e.g. via the legacy env.rules JIT-migration shadow) can make the
+  // requested revision look identical to live and short-circuit the revert.
+  const liveRevisionForRepair = await getLiveRevisionForFeature(
+    context,
+    feature,
+  );
+  await repairFeatureDriftIfNeeded(
+    context,
+    feature,
+    liveRevisionForRepair,
+    environmentIds,
+  );
+
   const mergeChanges: MergeResultChanges = {};
   const allEnabledEnvs = Array.from(
     getEnabledEnvironments(feature, environmentIds),
@@ -4392,53 +4466,8 @@ export async function getFeatureById(
     });
   }
 
-  // Sanity check to make sure the published revision values and rules match what's stored in the feature
   const live = fullRevisions.find((r) => r.version === feature.version);
-  if (live) {
-    const liveRulesFlat: FeatureRule[] = live.rules ?? [];
-    const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
-    const defaultValueDrift = live.defaultValue !== feature.defaultValue;
-    const driftedEnvs = environments.filter(
-      (env) =>
-        !isEqual(
-          getRulesForEnvironment(featureRulesFlat, env),
-          getRulesForEnvironment(liveRulesFlat, env),
-        ),
-    );
-
-    if (defaultValueDrift || driftedEnvs.length > 0) {
-      // Drift here means a prior publish silently failed (typically because
-      // a pre-v2 doc still carried `environmentSettings.{env}.rules`, which
-      // flipped the read-time JIT migration into the v1 path and shadowed
-      // the new top-level rules we tried to persist). The live revision is
-      // the source of truth — repair the feature in place so subsequent
-      // reads, SDK payloads, and audits all agree.
-      logger.warn(
-        {
-          featureId: feature.id,
-          orgId: org.id,
-          defaultValueDrift,
-          driftedEnvs,
-        },
-        "Repairing feature drift against live revision",
-      );
-      try {
-        const repaired = await updateFeature(context, feature, {
-          ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
-          rules: liveRulesFlat,
-        });
-        // Mutate the local feature so all downstream consumers in this
-        // request (audit, codeRefs, response body, SDK refresh hooks) see
-        // the repaired state without needing a re-read.
-        Object.assign(feature, repaired);
-      } catch (e) {
-        logger.error(
-          { err: e, featureId: feature.id, orgId: org.id },
-          "Failed to repair feature drift",
-        );
-      }
-    }
-  }
+  await repairFeatureDriftIfNeeded(context, feature, live, environments);
 
   // find code references
   const codeRefs = await getAllCodeRefsForFeature({
