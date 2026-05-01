@@ -7,7 +7,7 @@ import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   PiPlusCircleBold,
   PiPlus,
-  PiArrowsLeftRightBold,
+  PiGitDiff,
   PiPencilSimpleFill,
   PiCaretRightBold,
   PiPencil,
@@ -1059,7 +1059,7 @@ export default function FeaturesOverview({
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
-              <Flex align="start" gap="4" style={{ marginTop: 6 }}>
+              <Flex align="start" gap="4" style={{ marginTop: 5 }}>
                 <Flex direction="column" gap="1">
                   <Flex align="center" gap="2">
                     {revision.title && (
@@ -1161,12 +1161,15 @@ export default function FeaturesOverview({
                       orientation="vertical"
                       style={{ marginTop: 2 }}
                     />
-                    <Link onClick={onCompareRevisions}>
-                      <PiArrowsLeftRightBold
-                        style={{ marginRight: 4, verticalAlign: "middle" }}
-                      />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<PiGitDiff />}
+                      onClick={onCompareRevisions}
+                      style={{ position: "relative", top: -5 }}
+                    >
                       Compare revisions
-                    </Link>
+                    </Button>
                   </>
                 )}
               </Flex>

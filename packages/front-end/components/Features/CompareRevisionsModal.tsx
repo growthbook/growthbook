@@ -1557,7 +1557,7 @@ export default function CompareRevisionsModal({
     draft: previewDraftRev
       ? {
           // Merge environmentsEnabled on top of the live base so every env is explicit
-          ...revisionToDiffInput(previewDraftRev, liveBaseInput),
+          ...revisionToDiffInput(previewDraftRev),
           environmentsEnabled: {
             ...liveBaseInput.environmentsEnabled,
             ...(previewDraftRev.environmentsEnabled ?? {}),
