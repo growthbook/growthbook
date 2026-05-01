@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { Team } from "@/services/UserContext";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export const PermissionsModal = ({
   team,
@@ -31,7 +31,7 @@ export const PermissionsModal = ({
   const { apiCall } = useAuth();
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={open}
       close={() => onClose()}
@@ -50,6 +50,6 @@ export const PermissionsModal = ({
         value={form.watch("roleInfo")}
         setValue={(value) => form.setValue("roleInfo", value)}
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 };

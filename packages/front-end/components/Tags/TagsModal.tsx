@@ -6,7 +6,7 @@ import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { RadixColor } from "@/ui/HelperText";
 import { Select, SelectItem } from "@/ui/Select";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Tag from "./Tag";
 
 export const TAG_COLORS = [
@@ -45,7 +45,7 @@ export default function TagsModal({
     : TAG_COLORS;
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -110,6 +110,6 @@ export default function TagsModal({
           </div>
         </Container>
       </div>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

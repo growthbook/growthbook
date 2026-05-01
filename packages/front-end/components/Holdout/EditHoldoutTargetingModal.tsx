@@ -19,7 +19,7 @@ import {
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
@@ -70,7 +70,7 @@ export default function EditHoldoutTargetingModal({
   });
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -84,7 +84,7 @@ export default function EditHoldoutTargetingModal({
         form={form}
         conditionKey={conditionKey}
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 }
 

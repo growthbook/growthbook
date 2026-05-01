@@ -3,7 +3,7 @@ import { ReportInterface } from "shared/types/report";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function EditTitleDescription({
   cancel,
@@ -23,7 +23,7 @@ export default function EditTitleDescription({
   });
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       submit={form.handleSubmit(async (value) => {
@@ -46,6 +46,6 @@ export default function EditTitleDescription({
           value={form.watch("description")}
         />
       </div>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

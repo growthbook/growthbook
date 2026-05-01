@@ -6,7 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditDataSourceForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -34,7 +34,7 @@ const EditDataSourceForm: FC<{
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       header="Edit Data Source Settings"
       open={true}
@@ -78,7 +78,7 @@ const EditDataSourceForm: FC<{
         />
       )}
       <Field label="Experiment Id" {...form.register("trackingKey")} />
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

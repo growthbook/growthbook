@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export const AddMembersModal = ({
   teamId,
@@ -38,7 +38,7 @@ export const AddMembersModal = ({
   };
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={open}
       close={() => handleClose()}
@@ -65,6 +65,6 @@ export const AddMembersModal = ({
         customClassName="label-overflow-ellipsis"
         helpText={"Assign users to this team."}
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 };

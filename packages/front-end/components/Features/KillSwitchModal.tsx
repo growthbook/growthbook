@@ -28,7 +28,7 @@ import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 function EnvStateIcon({ enabled }: { enabled: boolean }) {
   return enabled ? (
@@ -469,7 +469,7 @@ export default function KillSwitchModal({
       : "Change enabled environments";
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="kill-switch-toggle"
       header={modalHeader}
       close={close}
@@ -519,6 +519,6 @@ export default function KillSwitchModal({
             )}
         </Flex>
       </div>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

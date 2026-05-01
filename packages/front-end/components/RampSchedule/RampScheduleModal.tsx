@@ -12,7 +12,7 @@ import type { FeatureInterface } from "shared/types/feature";
 import type { Environment } from "shared/types/organization";
 import type { RampScheduleInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import RampScheduleSection, {
   type RampSectionState,
@@ -195,7 +195,7 @@ export default function RampScheduleModal({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <DialogLayout
+    <ModalStandard
       open
       close={onClose}
       header={isEdit ? `Edit: ${rs.name}` : "Create Ramp Schedule"}
@@ -228,6 +228,6 @@ export default function RampScheduleModal({
         feature={feature}
         environments={environments.map((e) => e.id)}
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 }

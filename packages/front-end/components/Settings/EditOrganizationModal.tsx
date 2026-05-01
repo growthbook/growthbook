@@ -6,7 +6,7 @@ import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud, isMultiOrg } from "@/services/env";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditOrganizationModal: FC<{
   name: string;
@@ -38,7 +38,7 @@ const EditOrganizationModal: FC<{
   });
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       header="Edit Organization"
       open={true}
@@ -131,7 +131,7 @@ const EditOrganizationModal: FC<{
           title={canEdit ? "" : "Only admins can change this"}
         />
       )}
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 export default EditOrganizationModal;

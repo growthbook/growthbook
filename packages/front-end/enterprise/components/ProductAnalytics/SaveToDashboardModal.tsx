@@ -15,7 +15,7 @@ import {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -176,7 +176,7 @@ export default function SaveToDashboardModal({
       : !!form.watch("title").trim() && !cronError);
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="save-to-dashboard"
       submit={handleSubmit}
       open={true}
@@ -350,6 +350,6 @@ export default function SaveToDashboardModal({
           </Flex>
         )}
       </Flex>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

@@ -1,12 +1,4 @@
 {
-  "packages/front-end/components/Admin/CreateOrganization.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Admin/EditOrganization.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -22,53 +14,12 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Archetype/SimulateFeatureModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/AuditHistoryExplorer/AuditHistoryExplorerModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Auth/ChangePasswordModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/AutoGenerateMetricsModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/CustomFields/CustomFieldDisplay.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/CustomFields/CustomFieldModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -208,36 +159,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/EditDataSourceForm.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
     "no-restricted-imports": {
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/EditProjectForm.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/EditTargetingModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/EditVariationsForm.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -262,23 +189,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/FixVariationIds.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/ImportExperimentModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/NamespaceModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -364,12 +275,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/TargetMDEModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -377,14 +282,6 @@
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/startHoldoutAnalysisModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {
@@ -400,17 +297,6 @@
   "packages/front-end/components/Experiment/VariationsTable.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/VisualChangesetModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {
@@ -454,12 +340,6 @@
     }
   },
   "packages/front-end/components/Features/AddToHoldoutModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -489,41 +369,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/EditFeatureDescriptionModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/EditFeatureInfoModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/EditRevisionCommentModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/EditSchemaModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -534,24 +379,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeatureArchiveModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/FeatureDeleteModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -616,31 +444,12 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Features/KillSwitchModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/PrerequisiteModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Features/PrerequisiteStatusRow.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RemoveFromHoldoutModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -691,14 +500,6 @@
     }
   },
   "packages/front-end/components/Features/SafeRolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/StaleDetectionModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -839,12 +640,6 @@
     }
   },
   "packages/front-end/components/Holdout/EditHoldoutTargetingModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -874,31 +669,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Holdout/StopHoldoutModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/HomePage/NorthStar.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Ideas/IdeaForm.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Ideas/ImpactModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -968,26 +744,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Metrics/MetricGroupModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Modal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Modal/ConfirmButton.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1007,17 +764,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Owner/EditOwnerModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/PowerCalculation/PowerCalculationSettingsModal/SelectStep.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1029,25 +775,6 @@
     }
   },
   "packages/front-end/components/PowerCalculation/PowerCalculationStatsEngineSettingsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Projects/EditProjectsForm.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Projects/ProjectModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1067,42 +794,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/RampSchedule/RampScheduleModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Report/ConfigureLegacyReport.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Report/ConfigureReport.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Report/EditTitleDescription.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Report/LegacyReportPage.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1157,37 +854,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Segments/FactSegmentForm.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Segments/PickSegmentModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Segments/SegmentForm.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/ApiKeysModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1282,14 +949,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/EditOrganizationModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EnvironmentModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1320,37 +979,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/Team/ChangeProjectRoleModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Team/ChangeRoleModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/Team/InviteModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/Teams/PermissionModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1415,56 +1044,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Tags/EditTagsForm.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Tags/SortedTags.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Tags/TagsModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Teams/AddMembersModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Teams/TeamModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1475,17 +1060,6 @@
     }
   },
   "packages/front-end/enterprise/components/AIChat/ConversationSidebar.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/Billing/AddPaymentMethodModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1600,17 +1174,6 @@
       "count": 1
     }
   },
-  "packages/front-end/enterprise/components/ProductAnalytics/SaveToDashboardModal.tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1634,17 +1197,6 @@
   "packages/front-end/pages/correlations.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/datasources/queries/[did].tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    },
-    "import/order": {
-      "count": 1
-    },
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/environments.tsx": {

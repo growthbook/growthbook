@@ -14,7 +14,7 @@ import {
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
@@ -188,7 +188,7 @@ const CustomFieldDisplay: FC<{
   return (
     <>
       {editModal && (
-        <DialogLayout
+        <ModalStandard
           trackingEventModalType="edit-custom-fields"
           header={"Edit Custom Fields"}
           open={editModal}
@@ -237,7 +237,7 @@ const CustomFieldDisplay: FC<{
               </PremiumTooltip>
             </div>
           )}
-        </DialogLayout>
+        </ModalStandard>
       )}
       {displayFieldsObj &&
         (section === "feature" ? (

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditProjectForm: FC<{
   apiEndpoint: string;
@@ -40,7 +40,7 @@ const EditProjectForm: FC<{
   const initialOption = permissionRequired("") ? "None" : "";
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-project-form"
       trackingEventModalSource={source}
       header="Edit Project"
@@ -68,7 +68,7 @@ const EditProjectForm: FC<{
         initialOption={initialOption}
         autoFocus={true}
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

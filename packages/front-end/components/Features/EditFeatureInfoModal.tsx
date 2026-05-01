@@ -19,7 +19,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditFeatureInfoModal: FC<{
   feature: FeatureInterface;
@@ -82,7 +82,7 @@ const EditFeatureInfoModal: FC<{
     permissionRequired("") && !requireProjectForFeatures ? "None" : "";
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-feature-info"
       trackingEventModalSource={source}
       header="Edit Feature Information"
@@ -198,7 +198,7 @@ const EditFeatureInfoModal: FC<{
           </Box>
         </Box>
       </Box>
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

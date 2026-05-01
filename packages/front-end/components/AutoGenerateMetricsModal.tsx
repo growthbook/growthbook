@@ -15,7 +15,7 @@ import { FaRedo } from "react-icons/fa";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "./Button";
 import { DocLink } from "./DocLink";
 import Tooltip from "./Tooltip/Tooltip";
@@ -276,7 +276,7 @@ export default function AutoGenerateMetricsModal({
   }, [trackedEvents]);
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       size="lg"
       open={true}
@@ -479,6 +479,6 @@ export default function AutoGenerateMetricsModal({
           <div className="alert alert-danger">{refreshingSchemaError}</div>
         ) : null}
       </>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

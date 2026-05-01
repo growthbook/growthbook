@@ -3,7 +3,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
   feature: FeatureInterface;
@@ -22,7 +22,7 @@ export default function EditRevisionCommentModal({
   const [comment, setComment] = useState(revision.comment || "");
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -46,6 +46,6 @@ export default function EditRevisionCommentModal({
         }}
         textarea
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 }

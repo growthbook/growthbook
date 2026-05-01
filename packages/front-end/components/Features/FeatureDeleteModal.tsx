@@ -3,7 +3,7 @@ import { Text } from "@radix-ui/themes";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureReferencesList from "./FeatureReferencesList";
 
 interface FeatureDeleteModalProps {
@@ -22,7 +22,7 @@ export default function FeatureDeleteModal({
     (dependents?.features.length ?? 0) + (dependents?.experiments.length ?? 0);
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       header="Delete Feature"
       close={close}
@@ -58,6 +58,6 @@ export default function FeatureDeleteModal({
       ) : (
         <p>Are you sure? This action cannot be undone.</p>
       )}
-    </DialogLayout>
+    </ModalStandard>
   );
 }

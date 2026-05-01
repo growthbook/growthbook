@@ -11,7 +11,7 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 type NamespaceFormValue = {
   label: string;
@@ -98,7 +98,7 @@ function MultiRangeNamespaceModal({
   }, [attributes, selectedHashAttribute]);
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -188,7 +188,7 @@ function MultiRangeNamespaceModal({
           )}
         </>
       )}
-    </DialogLayout>
+    </ModalStandard>
   );
 }
 
@@ -216,7 +216,7 @@ function LegacyNamespaceModal({
   const { apiCall } = useAuth();
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -252,7 +252,7 @@ function LegacyNamespaceModal({
         Used as the namespace hash seed and cannot be changed.
       </Text>
       <Field label="Description" textarea {...form.register("description")} />
-    </DialogLayout>
+    </ModalStandard>
   );
 }
 

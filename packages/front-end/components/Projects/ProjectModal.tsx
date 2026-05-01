@@ -2,7 +2,7 @@ import { ProjectInterface } from "shared/types/project";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function ProjectModal({
   existing,
@@ -23,7 +23,7 @@ export default function ProjectModal({
   const { apiCall } = useAuth();
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -53,6 +53,6 @@ export default function ProjectModal({
         textarea={true}
         {...form.register("description")}
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 }

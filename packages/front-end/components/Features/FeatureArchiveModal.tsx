@@ -8,7 +8,7 @@ import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -75,7 +75,7 @@ export default function FeatureArchiveModal({
     !loading && totalDependents === 0 && (confirmEnvBypass || !hasActiveEnvs);
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       header={isArchived ? "Unarchive Feature" : "Archive Feature"}
       size="lg"
@@ -173,6 +173,6 @@ export default function FeatureArchiveModal({
           payloads.
         </p>
       )}
-    </DialogLayout>
+    </ModalStandard>
   );
 }

@@ -4,7 +4,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -42,7 +42,7 @@ export default function StopHoldoutModal({
   };
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="stop-holdout"
       trackingEventModalSource="stop-holdout-modal"
       open={true}
@@ -65,6 +65,6 @@ export default function StopHoldoutModal({
           </Callout>
         )}
       </div>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

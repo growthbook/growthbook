@@ -9,7 +9,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function StaleDetectionModal({
   close,
@@ -53,7 +53,7 @@ export default function StaleDetectionModal({
   );
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open
       close={close}
@@ -101,6 +101,6 @@ export default function StaleDetectionModal({
           ? `Enable stale detection for ${feature.id}?`
           : `Disable stale detection for ${feature.id}? It will no longer be marked as stale.`}
       </p>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

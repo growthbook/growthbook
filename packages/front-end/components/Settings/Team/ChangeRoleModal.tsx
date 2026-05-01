@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleSelector from "./RoleSelector";
 
 const ChangeRoleModal: FC<{
@@ -25,7 +25,7 @@ const ChangeRoleModal: FC<{
   }
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       close={close}
       header="Change Role"
@@ -44,7 +44,7 @@ const ChangeRoleModal: FC<{
         setValue={setValue}
         showUpgradeModal={() => setUpgradeModal(true)}
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

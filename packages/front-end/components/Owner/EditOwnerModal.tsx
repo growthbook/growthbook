@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectOwner from "./SelectOwner";
 
 const EditOwnerModal: FC<{
@@ -16,7 +16,7 @@ const EditOwnerModal: FC<{
   });
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       header="Edit Owner"
       open={true}
@@ -31,7 +31,7 @@ const EditOwnerModal: FC<{
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

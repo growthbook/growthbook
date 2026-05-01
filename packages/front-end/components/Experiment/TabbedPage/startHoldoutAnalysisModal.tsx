@@ -1,6 +1,6 @@
 import { Box } from "@radix-ui/themes";
 import Text from "@/ui/Text";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
   close: () => void;
@@ -9,7 +9,7 @@ export interface Props {
 
 export default function StartAnalysisModal({ close, startAnalysis }: Props) {
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="start-holdout"
       trackingEventModalSource={"start-holdout-analysis"}
       open={true}
@@ -34,6 +34,6 @@ export default function StartAnalysisModal({ close, startAnalysis }: Props) {
           </ul>
         </Text>
       </Box>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

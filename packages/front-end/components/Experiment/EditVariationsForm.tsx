@@ -9,7 +9,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { distributeWeights } from "@/services/utils";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -45,7 +45,7 @@ const EditVariationsForm: FC<{
   const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-variations-form"
       trackingEventModalSource={source}
       header="Edit Variations"
@@ -142,7 +142,7 @@ const EditVariationsForm: FC<{
         hideCoverage
         onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

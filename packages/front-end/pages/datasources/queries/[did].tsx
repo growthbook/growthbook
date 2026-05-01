@@ -18,7 +18,7 @@ import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
@@ -116,7 +116,7 @@ const DataSourceQueries = (): React.ReactElement => {
         </div>
       ) : null}
       {modalData && (
-        <DialogLayout
+        <ModalStandard
           trackingEventModalType=""
           open
           close={() => setModalData(null)}
@@ -124,7 +124,7 @@ const DataSourceQueries = (): React.ReactElement => {
           header={"Inspect query"}
         >
           <ExpandableQuery query={modalData} i={0} total={1} />{" "}
-        </DialogLayout>
+        </ModalStandard>
       )}
 
       <PageHead

@@ -1,6 +1,6 @@
 import { useState, FC } from "react";
 import { useAuth } from "@/services/auth";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const CreateOrganization: FC<{
   onCreate: () => void;
@@ -28,7 +28,7 @@ const CreateOrganization: FC<{
   };
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}
@@ -60,7 +60,7 @@ const CreateOrganization: FC<{
           </div>
         )}
       </div>
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

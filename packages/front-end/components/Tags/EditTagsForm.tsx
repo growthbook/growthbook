@@ -2,7 +2,7 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import TagsInput from "./TagsInput";
 
 const EditTagsForm: FC<{
@@ -21,7 +21,7 @@ const EditTagsForm: FC<{
   });
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-tags-form"
       trackingEventModalSource={source}
       header="Edit Tags"
@@ -43,7 +43,7 @@ const EditTagsForm: FC<{
         onChange={(tags) => form.setValue("tags", tags)}
       />
       <div style={{ height: 200 }} />
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

@@ -6,7 +6,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
 
 const ApiKeysModal: FC<{
@@ -64,7 +64,7 @@ const ApiKeysModal: FC<{
   });
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       close={close}
       header="Create API Key"
@@ -80,7 +80,7 @@ const ApiKeysModal: FC<{
       {!personalAccessToken && (
         <RoleSelector value={roleState} setValue={setRoleState} />
       )}
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

@@ -4,7 +4,7 @@ import {
   DecisionFrameworkMetricOverrides,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
@@ -65,7 +65,7 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
   };
 
   return (
-    <DialogLayout
+    <ModalStandard
       open={true}
       header="Edit Target MDEs"
       submit={async () => {
@@ -142,7 +142,7 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
           );
         })}
       </Flex>
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

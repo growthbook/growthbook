@@ -14,7 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import track from "@/services/track";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField, {
   GroupedValue,
@@ -120,7 +120,7 @@ export default function CustomFieldModal({
     .map((p) => ({ value: p.id, label: p.name }));
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="custom-field"
       open={true}
       close={close}
@@ -428,6 +428,6 @@ export default function CustomFieldModal({
           }}
         />
       </Flex>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

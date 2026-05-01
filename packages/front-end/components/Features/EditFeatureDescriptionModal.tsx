@@ -15,7 +15,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 interface Props {
   close: () => void;
@@ -65,7 +65,7 @@ export default function EditFeatureDescriptionModal({
   });
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-feature-description-modal"
       header="Edit Description"
       open={true}
@@ -127,6 +127,6 @@ export default function EditFeatureDescriptionModal({
         }
         placeholder="Add context about this feature for your team"
       />
-    </DialogLayout>
+    </ModalStandard>
   );
 }

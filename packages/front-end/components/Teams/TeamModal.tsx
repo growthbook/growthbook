@@ -6,7 +6,7 @@ import { Team } from "@/services/UserContext";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function TeamModal({
   existing,
@@ -46,7 +46,7 @@ export default function TeamModal({
   const { apiCall } = useAuth();
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -97,6 +97,6 @@ export default function TeamModal({
           options={availableProjects}
         />
       )}
-    </DialogLayout>
+    </ModalStandard>
   );
 }
