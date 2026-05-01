@@ -1,9 +1,7 @@
 import { ChangeEventHandler, FC, useState } from "react";
-import { Flex } from "@radix-ui/themes";
 import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
-import { EventForwarderAccessTestResponse } from "shared/validators";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
@@ -11,8 +9,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
-import Callout from "@/ui/Callout";
-import EventForwarderTableNameField from "./EventForwarderTableNameField";
+import BigQueryEventForwarderForm from "./BigQueryEventForwarderForm";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
@@ -44,15 +41,7 @@ const BigQueryForm: FC<{
     message: string;
     datasetOptions: string[];
   } | null>(null);
-  const [eventForwarderTestResult, setEventForwarderTestResult] = useState<{
-    status: "success" | "error";
-    message: string;
-  } | null>(null);
   const { apiCall } = useAuth();
-  const canTestEventForwarderAccess =
-    eventForwarderConfig?.sinkType === "bigquery" &&
-    !!params.defaultDataset?.trim() &&
-    !!eventForwarderConfig.config.tableName.trim();
 
   async function testConnection() {
     try {
@@ -91,50 +80,6 @@ const BigQueryForm: FC<{
         status: "danger",
         message: e.message,
         datasetOptions: [],
-      });
-    }
-  }
-
-  async function testEventForwarderAccess() {
-    if (eventForwarderConfig?.sinkType !== "bigquery") return;
-
-    setEventForwarderTestResult(null);
-    setValidatedEventForwarderSignature?.(null);
-    const endpoint =
-      existing && datasourceId
-        ? `/datasource/${datasourceId}/event-forwarder/test-access`
-        : "/datasources/event-forwarder/test-access";
-    const body =
-      existing && datasourceId
-        ? {
-            params,
-            eventForwarderConfig,
-          }
-        : {
-            type: "bigquery",
-            params,
-            projects,
-            eventForwarderConfig,
-          };
-
-    const response = await apiCall<EventForwarderAccessTestResponse>(endpoint, {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    const sinkWrite = response.results.sinkWrite;
-    if (sinkWrite.result === "success") {
-      setValidatedEventForwarderSignature?.(eventForwarderAccessSignature);
-      setEventForwarderTestResult({
-        status: "success",
-        message:
-          "Event Forwarder table creation access verified. GrowthBook created and deleted a temporary validation table.",
-      });
-    } else {
-      setEventForwarderTestResult({
-        status: "error",
-        message:
-          sinkWrite.resultMessage ||
-          "Event Forwarder table creation access failed.",
       });
     }
   }
@@ -303,46 +248,20 @@ const BigQueryForm: FC<{
               </div>
             </div>
             {eventForwarderConfig?.sinkType === "bigquery" && (
-              <Flex
-                direction="column"
-                gap="3"
-                className="form-group col-md-12 mt-3 px-0"
-              >
-                <EventForwarderTableNameField
-                  value={eventForwarderConfig.config.tableName}
-                  onChange={(tableName) =>
-                    setEventForwarderConfig({
-                      sinkType: "bigquery",
-                      config: {
-                        ...eventForwarderConfig.config,
-                        tableName,
-                      },
-                    })
-                  }
-                  placeholder="gb_events"
-                  tooltip="Defaults to gb_events. If that table already exists, GrowthBook will reuse it for the event forwarder."
-                  helpText="Letters, numbers, and underscores (Unicode allowed). Hyphens and spaces are normalized to underscores when saving."
-                />
-                <div>
-                  <Button
-                    color="primary"
-                    disabled={!canTestEventForwarderAccess}
-                    loadingCta="Testing access"
-                    onClick={testEventForwarderAccess}
-                  >
-                    Test Write Access
-                  </Button>
-                </div>
-                {eventForwarderTestResult ? (
-                  <Callout
-                    status={eventForwarderTestResult.status}
-                    mt="0"
-                    mb="0"
-                  >
-                    {eventForwarderTestResult.message}
-                  </Callout>
-                ) : null}
-              </Flex>
+              <BigQueryEventForwarderForm
+                params={params}
+                eventForwarderConfig={eventForwarderConfig}
+                existing={existing}
+                setParams={setParams}
+                setEventForwarderConfig={setEventForwarderConfig}
+                onParamChange={onParamChange}
+                datasourceId={datasourceId}
+                projects={projects}
+                eventForwarderAccessSignature={eventForwarderAccessSignature}
+                setValidatedEventForwarderSignature={
+                  setValidatedEventForwarderSignature
+                }
+              />
             )}
           </div>
         </>
