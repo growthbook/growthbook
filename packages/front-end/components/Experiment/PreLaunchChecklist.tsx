@@ -273,7 +273,7 @@ export function getChecklistItems({
             description: (
               <>
                 Either <em style={{ fontWeight: 700 }}>remove these changes</em>{" "}
-                from the draft to auto-publish the feature, or{" "}
+                from the draft to auto-publish the feature or{" "}
                 <em style={{ fontWeight: 700 }}>manually publish this draft</em>
                 .
               </>
