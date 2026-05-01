@@ -22,7 +22,8 @@ import { ReqContext } from "back-end/types/request";
 //   4. v1 with v0 crust                           — v1 wins, v0 top-level rules ignored
 //   5. v2 with empty envSettings                  — classified as v2 (no rules key)
 //   6. partial migration (v1 env rules + v2-shaped top-level rules)
-//                                                 — v1 wins, top-level rules overwritten
+//                                                 — v2 top-level wins; stale env.rules
+//                                                   ignored (regression: hotfix #5783)
 //
 // The critical invariant: v2 documents MUST NOT be re-flattened. Calling the
 // function twice on the same v2 input must produce identical output (same
