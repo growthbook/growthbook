@@ -139,6 +139,8 @@ import {
   getRevisionsByVersions,
   getFeaturePageRevisions,
   getRevisionsByStatus,
+  getDistinctFeatureIdsForStatuses,
+  RevisionFeatureContext,
   markRevisionAsReviewRequested,
   normalizeRulesInputToV2,
   ReviewSubmittedType,
@@ -3533,11 +3535,28 @@ export async function getDraftandReviewRevisions(
 ) {
   const context = getContextFromReq(req);
   const sparse = req.query.sparse === "true";
-  const revisions = await getRevisionsByStatus(
-    context,
-    ["draft", "approved", "changes-requested", "pending-review"],
-    { sparse },
-  );
+  const STATUSES = [
+    "draft",
+    "approved",
+    "changes-requested",
+    "pending-review",
+  ] as const;
+
+  let featuresByFeatureId:
+    | Record<string, RevisionFeatureContext | undefined>
+    | undefined;
+  if (!sparse) {
+    const distinctFeatureIds = await getDistinctFeatureIdsForStatuses(context, [
+      ...STATUSES,
+    ]);
+    const features = await getFeaturesByIds(context, distinctFeatureIds);
+    featuresByFeatureId = Object.fromEntries(features.map((f) => [f.id, f]));
+  }
+
+  const revisions = await getRevisionsByStatus(context, [...STATUSES], {
+    sparse,
+    featuresByFeatureId,
+  });
 
   const featureIds = Array.from(new Set(revisions.map((r) => r.featureId)));
   const featureMeta = await getFeatureMetaInfoByIds(context, featureIds);

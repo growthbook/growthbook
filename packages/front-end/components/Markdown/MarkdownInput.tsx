@@ -14,6 +14,7 @@ import { useDropzone } from "react-dropzone";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { AISuggestionType } from "shared/ai";
+import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -224,7 +225,7 @@ const MarkdownInput: FC<{
         )}
         <Box pt="2">
           <TabsContent value="write">
-            <div className="position-relative" {...typedRootProps}>
+            <div style={{ position: "relative" }} {...typedRootProps}>
               <ReactTextareaAutocomplete
                 className="form-control mb-1"
                 rows={maxRows}
@@ -266,58 +267,69 @@ const MarkdownInput: FC<{
               {!blockFileUploads && (
                 <>
                   <input {...getInputProps()} />
-                  <div className="cursor-pointer py-1 px-2 border rounded-bottom mb-2 bg-light">
+                  <Flex
+                    align="center"
+                    justify="between"
+                    px="2"
+                    py="1"
+                    mb="2"
+                    onClick={open}
+                    style={{
+                      cursor: "pointer",
+                      border: "1px solid var(--gray-a6)",
+                      borderTop: "none",
+                      marginTop: -4,
+                      borderBottomLeftRadius: "var(--radius-2)",
+                      borderBottomRightRadius: "var(--radius-2)",
+                      background: "var(--gray-a2)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "var(--font-size-1)",
+                        color: "var(--gray-11)",
+                      }}
+                    >
+                      Upload images by dragging &amp; dropping or clicking here
+                    </span>
                     <a
                       href="https://guides.github.com/features/mastering-markdown/"
                       target="_blank"
                       rel="noreferrer"
-                      className="text-dark float-right"
+                      title="Github-flavored Markdown is supported"
+                      onClick={(e) => e.stopPropagation()}
                       style={{
+                        color: "var(--gray-12)",
                         fontSize: "1.2em",
                         lineHeight: "1em",
                       }}
-                      title="Github-flavored Markdown is supported"
                     >
                       <FaMarkdown />
                     </a>
-                    <div className="small text-muted" onClick={open}>
-                      Upload images by dragging &amp; dropping or clicking
-                      here{" "}
-                    </div>
-                  </div>
+                  </Flex>
                 </>
               )}
             </div>
             {showButtons && (
-              <div className="row">
-                {error ? (
-                  <div className="col-auto">
-                    <span className="text-danger">{error}</span>
-                  </div>
-                ) : (
-                  ""
+              <Flex align="center" mt="3" gap="2">
+                {error && (
+                  <span
+                    style={{
+                      fontSize: "var(--font-size-1)",
+                      color: "var(--red-11)",
+                    }}
+                  >
+                    {error}
+                  </span>
                 )}
-                <div style={{ flex: 1 }} />
-
-                <div className="col-auto">
-                  {onCancel && (
-                    <button
-                      className="btn btn-link mr-2 ml-3"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onCancel();
-                      }}
-                    >
-                      cancel
-                    </button>
-                  )}
-                  {cta && (
-                    <button type="submit" className="btn btn-primary">
-                      {cta}
-                    </button>
-                  )}
-                </div>
-              </div>
+                <Box flexGrow="1" />
+                {onCancel && (
+                  <Button variant="ghost" color="gray" onClick={onCancel}>
+                    Cancel
+                  </Button>
+                )}
+                {cta && <Button type="submit">{cta}</Button>}
+              </Flex>
             )}
             {aiSuggestFunction && !aiSuggestionText && (
               <Flex pt={"5"}>
@@ -370,7 +382,7 @@ const MarkdownInput: FC<{
               </Flex>
             )}
             {aiSuggestionText && (
-              <div className="mt-2">
+              <Box mt="2">
                 <Flex align="center" justify="between" my="4">
                   <Heading size="2" weight="medium">
                     {aiSuggestionHeader}:
@@ -417,18 +429,18 @@ const MarkdownInput: FC<{
                   </Flex>
                 </Flex>
                 <Box className="appbox" p="3">
-                  <Markdown className="card-text mb-2">
-                    {aiSuggestionText}
-                  </Markdown>
+                  <Markdown>{aiSuggestionText}</Markdown>
                 </Box>
-              </div>
+              </Box>
             )}
             {!showButtons && error && (
-              <div className="alert alert-danger mt-2">{error}</div>
+              <Callout status="error" mt="2">
+                {error}
+              </Callout>
             )}
           </TabsContent>
           <TabsContent value="preview">
-            <Markdown className="card-text px-2">{value}</Markdown>
+            <Markdown>{value}</Markdown>
           </TabsContent>
         </Box>
       </Tabs>

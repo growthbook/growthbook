@@ -43,6 +43,7 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
         context: req.context,
         organization: feature.organization,
         featureId: feature.id,
+        feature,
         status:
           revisionFilter === "drafts"
             ? "draft"

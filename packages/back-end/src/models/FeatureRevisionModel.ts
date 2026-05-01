@@ -552,10 +552,6 @@ export async function getRevisionsByStatus(
     featuresByFeatureId,
   }: {
     sparse?: boolean;
-    // Map of featureId -> parent feature. Required for non-sparse calls so
-    // each revision is filtered against its own feature's applicable envs
-    // and inheritance. Optional in sparse mode since rules are stripped
-    // from the projection.
     featuresByFeatureId?: Record<string, RevisionFeatureContext | undefined>;
   } = {},
 ) {
@@ -568,6 +564,16 @@ export async function getRevisionsByStatus(
   return revisions
     .filter((r) => !!r)
     .map((r) => toInterface(r, context, featuresByFeatureId?.[r.featureId]));
+}
+
+export async function getDistinctFeatureIdsForStatuses(
+  context: ReqContext,
+  statuses: string[],
+): Promise<string[]> {
+  return FeatureRevisionModel.distinct("featureId", {
+    organization: context.org.id,
+    status: { $in: statuses },
+  }) as unknown as Promise<string[]>;
 }
 
 /**
