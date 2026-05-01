@@ -21,6 +21,7 @@ import {
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
   autoMerge,
+  draftHasChangesOutsideExperiment,
   DRAFT_REVISION_STATUSES,
   fillRevisionFromFeature,
   generateVariationId,
@@ -4049,11 +4050,10 @@ export async function getLinkedFeatureInfo(
         }
       }
 
-      // Merge-conflict detection: same autoMerge check used on the FF detail
-      // page to gate the publish CTA. Requires the live + base revisions, which
-      // are NOT in the active-drafts-only revisionsByFeatureId map, so we fetch
-      // them separately — mirroring publishPendingFeatureDraftsForExperiment.
+      // Mirrors publishPendingFeatureDraftsForExperiment's pre-flight: same
+      // autoMerge used on the FF detail page, plus an "unrelated edits" check.
       let hasMergeConflict: boolean | undefined;
+      let hasUnrelatedDraftChanges: boolean | undefined;
       if (state === "draft" && matchedDraftRevision) {
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
@@ -4061,8 +4061,9 @@ export async function getLinkedFeatureInfo(
             feature,
             revision: matchedDraftRevision,
           });
+          const filledLive = liveRevisionFromFeature(live, feature);
           const mergeResult = autoMerge(
-            liveRevisionFromFeature(live, feature),
+            filledLive,
             fillRevisionFromFeature(base, feature),
             matchedDraftRevision,
             environments,
@@ -4070,11 +4071,19 @@ export async function getLinkedFeatureInfo(
           );
           if (!mergeResult.success) {
             hasMergeConflict = true;
+          } else if (
+            draftHasChangesOutsideExperiment(
+              matchedDraftRevision,
+              filledLive,
+              experiment.id,
+            )
+          ) {
+            hasUnrelatedDraftChanges = true;
           }
         } catch (e) {
           logger.warn(
             { featureId: feature.id, err: e },
-            "[getLinkedFeatureInfo] failed to check merge conflicts",
+            "[getLinkedFeatureInfo] draft cleanliness check failed",
           );
         }
       }
@@ -4118,6 +4127,9 @@ export async function getLinkedFeatureInfo(
           draftRevisionStatus: matchedDraftRevision.status,
         }),
         ...(hasMergeConflict !== undefined && { hasMergeConflict }),
+        ...(hasUnrelatedDraftChanges !== undefined && {
+          hasUnrelatedDraftChanges,
+        }),
       };
 
       return info;

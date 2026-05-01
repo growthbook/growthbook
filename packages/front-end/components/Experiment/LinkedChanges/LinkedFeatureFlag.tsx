@@ -62,6 +62,29 @@ export default function LinkedFeatureFlag({
     }
   };
 
+  // Shared icon for "draft cannot be auto-published" callouts (merge
+  // conflicts and unrelated draft edits).
+  const blockedAutoPublishIcon = (
+    <Box position="relative" style={{ width: "1.2em", height: "1.2em" }}>
+      <PiGitMerge
+        style={{
+          position: "absolute",
+          top: -2,
+          left: 0,
+          fontSize: "1.2em",
+        }}
+      />
+      <PiXBold
+        style={{
+          position: "absolute",
+          bottom: "-4px",
+          right: "-3px",
+          fontSize: "0.75em",
+        }}
+      />
+    </Box>
+  );
+
   const variations = getLatestPhaseVariations(experiment);
   const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
@@ -145,33 +168,7 @@ export default function LinkedFeatureFlag({
         </Callout>
       )}
       {info.state === "draft" && info.hasMergeConflict && (
-        <Callout
-          status="error"
-          my="4"
-          icon={
-            <Box
-              position="relative"
-              style={{ width: "1.2em", height: "1.2em" }}
-            >
-              <PiGitMerge
-                style={{
-                  position: "absolute",
-                  top: -2,
-                  left: 0,
-                  fontSize: "1.2em",
-                }}
-              />
-              <PiXBold
-                style={{
-                  position: "absolute",
-                  bottom: "-4px",
-                  right: "-3px",
-                  fontSize: "0.75em",
-                }}
-              />
-            </Box>
-          }
-        >
+        <Callout status="error" my="4" icon={blockedAutoPublishIcon}>
           This feature draft has a <strong>merge conflict</strong> and cannot be
           auto-published.{" "}
           <Link
@@ -183,55 +180,74 @@ export default function LinkedFeatureFlag({
           </Link>
         </Callout>
       )}
-      {info.state === "draft" && !info.hasMergeConflict && (
-        <Callout
-          status="info"
-          my="4"
-          icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}
-        >
-          {info.pendingApproval ? (
-            <>
-              Rule changes for this feature are in a{" "}
-              {info.draftRevisionStatus === "approved" ? (
-                <>
-                  <strong>draft</strong> revision that has been{" "}
-                  <strong>approved</strong>
-                </>
-              ) : (
-                <>
-                  <strong>draft</strong> revision pending approval
-                </>
-              )}
-              .{" "}
-              {info.draftRevisionStatus === "approved"
-                ? "They"
-                : "Once approved, they"}{" "}
-              will be auto-published when this experiment starts, or you can
-              publish manually.
-              <Box mt="1">
-                <Link
-                  href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
-                  target="_blank"
-                >
-                  Review and approve draft
+      {info.state === "draft" &&
+        !info.hasMergeConflict &&
+        info.hasUnrelatedDraftChanges && (
+          <Callout status="error" my="4" icon={blockedAutoPublishIcon}>
+            This feature draft contains{" "}
+            <strong>changes beyond this experiment</strong> and cannot be
+            auto-published. Either remove the unrelated edits from the draft, or
+            publish the full draft manually.{" "}
+            <Link
+              href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
+              target="_blank"
+            >
+              Review draft
+              <PiArrowSquareOut className="ml-1" />
+            </Link>
+          </Callout>
+        )}
+      {info.state === "draft" &&
+        !info.hasMergeConflict &&
+        !info.hasUnrelatedDraftChanges && (
+          <Callout
+            status="info"
+            my="4"
+            icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}
+          >
+            {info.pendingApproval ? (
+              <>
+                Rule changes for this feature are in a{" "}
+                {info.draftRevisionStatus === "approved" ? (
+                  <>
+                    <strong>draft</strong> revision that has been{" "}
+                    <strong>approved</strong>
+                  </>
+                ) : (
+                  <>
+                    <strong>draft</strong> revision pending approval
+                  </>
+                )}
+                .{" "}
+                {info.draftRevisionStatus === "approved"
+                  ? "They"
+                  : "Once approved, they"}{" "}
+                will be auto-published when this experiment starts, or you can
+                publish manually.
+                <Box mt="1">
+                  <Link
+                    href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
+                    target="_blank"
+                  >
+                    Review and approve draft
+                    <PiArrowSquareOut className="ml-1" />
+                  </Link>
+                </Box>
+              </>
+            ) : (
+              <>
+                Rule changes for this feature are in a <strong>draft</strong>{" "}
+                revision. They will be auto-published when this experiment
+                starts, or you can publish manually from the{" "}
+                <Link href={`/features/${info.feature?.id}`} target="_blank">
+                  Feature Flag detail page
                   <PiArrowSquareOut className="ml-1" />
                 </Link>
-              </Box>
-            </>
-          ) : (
-            <>
-              Rule changes for this feature are in a <strong>draft</strong>{" "}
-              revision. They will be auto-published when this experiment starts,
-              or you can publish manually from the{" "}
-              <Link href={`/features/${info.feature?.id}`} target="_blank">
-                Feature Flag detail page
-                <PiArrowSquareOut className="ml-1" />
-              </Link>
-              .
-            </>
-          )}
-        </Callout>
-      )}
+                .
+              </>
+            )}
+          </Callout>
+        )}
       {info.state !== "discarded" && info.state !== "archived" && (
         <Box className="appbox">
           <Flex width="100%" gap="4" py="4" px="5" direction="column">

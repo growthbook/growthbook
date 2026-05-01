@@ -261,6 +261,14 @@ export interface LinkedFeatureInfo {
   draftRevisionStatus?: RevisionStatus;
   /** True when the draft cannot be auto-merged into live due to conflicting changes. */
   hasMergeConflict?: boolean;
+  /**
+   * True when the draft would publish changes outside the target experiment's
+   * experiment-ref rule(s) — e.g. defaultValue, prerequisites, holdout, or
+   * other rules. Forces the user to publish from the feature page so they
+   * can review the full set of changes before they go live. Per-env kill
+   * switches and metadata are excluded (auto-toggled / typically no SDK impact).
+   */
+  hasUnrelatedDraftChanges?: boolean;
 }
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";

@@ -14,6 +14,7 @@ export interface Props {
   close: () => void;
   startExperiment: () => Promise<void>;
   checklistItemsRemaining: number;
+  checklistHardBlockerCount?: number;
   isHoldout?: boolean;
 }
 
@@ -22,9 +23,14 @@ export default function StartExperimentModal({
   close,
   startExperiment,
   checklistItemsRemaining,
+  checklistHardBlockerCount = 0,
   isHoldout,
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
+  // Hard blockers (merge conflicts, missing approvals, unrelated draft edits)
+  // can't be bypassed via "Start Anyway" — the auto-publish at start either
+  // rejects them outright or would silently publish unreviewed changes.
+  const hasHardBlockers = checklistHardBlockerCount > 0;
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -66,7 +72,7 @@ export default function StartExperimentModal({
       close={close}
       useRadixButton={true}
       secondaryCTA={
-        checklistIncomplete && !needsUpgrade ? (
+        checklistIncomplete && !needsUpgrade && !hasHardBlockers ? (
           <Button
             variant="ghost"
             color="red"
@@ -82,14 +88,16 @@ export default function StartExperimentModal({
     >
       <Box p="2">
         {checklistIncomplete && (
-          <Callout status="warning" mb="3">
+          <Callout status={hasHardBlockers ? "error" : "warning"} mb="3">
             You have{" "}
             <Text weight="semibold">
               {checklistItemsRemaining} task
               {checklistItemsRemaining > 1 ? "s" : ""}
             </Text>{" "}
-            left to complete. Review the Pre-Launch Checklist before starting
-            this experiment.
+            left to complete.{" "}
+            {hasHardBlockers
+              ? "Some can't be bypassed — resolve them in the Pre-Launch Checklist before this experiment can start."
+              : "Review the Pre-Launch Checklist before starting this experiment."}
           </Callout>
         )}
 

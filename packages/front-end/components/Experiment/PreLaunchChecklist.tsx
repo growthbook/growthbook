@@ -40,8 +40,14 @@ export type CheckListItem = {
   key?: string;
   type: "auto" | "manual";
   required: boolean;
+  // Items that can't be bypassed via "Start Anyway" (merge conflicts,
+  // missing approvals, unrelated draft edits) — auto-publish would fail.
+  hardBlock?: boolean;
   warning?: string;
   hideDescription?: boolean;
+  // Custom subtext shown below the label, overriding the default auto/manual
+  // hint. Hidden when `hideDescription` is true or the item is complete.
+  description?: string | ReactElement;
 };
 
 export function getChecklistItems({
@@ -174,7 +180,10 @@ export function getChecklistItems({
     }
 
     if (linkedFeatures.length > 0) {
-      // One item per linked feature draft with a merge conflict.
+      // Merge conflicts, missing approvals, and unrelated draft changes are
+      // hard blockers — auto-publish would reject or silently push unreviewed
+      // edits. Surfaced as separate items so multiple issues on one draft
+      // aren't hidden behind a single row.
       linkedFeatures
         .filter((f) => f.state === "draft" && f.hasMergeConflict)
         .forEach((f) => {
@@ -182,6 +191,7 @@ export function getChecklistItems({
             status: "incomplete",
             type: "auto",
             required: true,
+            hardBlock: true,
             hideDescription: true,
             display: (
               <>
@@ -199,17 +209,17 @@ export function getChecklistItems({
           });
         });
 
-      // One item per linked feature draft that requires approval. Surfaced
-      // independently of merge conflicts so a draft that needs both shows
-      // both items rather than hiding one behind the other.
+      // When the draft also has unrelated changes, the FF-page publish flow
+      // already covers approval — skip the redundant approval row.
       linkedFeatures
-        .filter((f) => f.pendingApproval)
+        .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
         .forEach((f) => {
           items.push({
             status:
               f.draftRevisionStatus === "approved" ? "complete" : "incomplete",
             type: "auto",
             required: true,
+            hardBlock: true,
             hideDescription: true,
             display: (
               <>
@@ -229,6 +239,43 @@ export function getChecklistItems({
                     ml="1"
                   />
                 )}
+              </>
+            ),
+          });
+        });
+
+      linkedFeatures
+        .filter(
+          (f) =>
+            f.state === "draft" &&
+            f.hasUnrelatedDraftChanges &&
+            !f.hasMergeConflict,
+        )
+        .forEach((f) => {
+          items.push({
+            status: "incomplete",
+            type: "auto",
+            required: true,
+            hardBlock: true,
+            display: (
+              <>
+                The feature draft revision in{" "}
+                <Link
+                  href={`/features/${f.feature.id}${f.draftRevisionVersion != null ? `?v=${f.draftRevisionVersion}` : ""}`}
+                  target="_blank"
+                >
+                  {f.feature.id}
+                  <PiArrowSquareOut className="ml-1" />
+                </Link>{" "}
+                contains additional changes unrelated to this experiment.
+              </>
+            ),
+            description: (
+              <>
+                Either <em style={{ fontWeight: 700 }}>remove these changes</em>{" "}
+                from the draft to auto-publish the feature, or{" "}
+                <em style={{ fontWeight: 700 }}>manually publish this draft</em>
+                .
               </>
             ),
           });
@@ -364,6 +411,7 @@ export function PreLaunchChecklistUI({
   checklist,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  setChecklistHardBlockerCount,
   analysisModal,
   setAnalysisModal,
   allowEditChecklist,
@@ -376,6 +424,7 @@ export function PreLaunchChecklistUI({
   checklistItemsRemaining: number | null;
   checklist: CheckListItem[];
   setChecklistItemsRemaining: (value: number | null) => void;
+  setChecklistHardBlockerCount?: (value: number) => void;
   className?: string;
   analysisModal?: boolean;
   setAnalysisModal?: (value: boolean) => void;
@@ -439,11 +488,20 @@ export function PreLaunchChecklistUI({
 
   useEffect(() => {
     if (data && checklist.length > 0) {
-      setChecklistItemsRemaining(
-        checklist.filter((item) => item.status === "incomplete").length,
+      const incomplete = checklist.filter(
+        (item) => item.status === "incomplete",
+      );
+      setChecklistItemsRemaining(incomplete.length);
+      setChecklistHardBlockerCount?.(
+        incomplete.filter((item) => item.hardBlock).length,
       );
     }
-  }, [checklist, data, setChecklistItemsRemaining]);
+  }, [
+    checklist,
+    data,
+    setChecklistItemsRemaining,
+    setChecklistHardBlockerCount,
+  ]);
 
   if (experiment.status !== "draft") return null;
 
@@ -490,9 +548,11 @@ export function PreLaunchChecklistUI({
               description={
                 item.hideDescription || item.status === "complete"
                   ? undefined
-                  : item.type === "auto"
-                    ? "GrowthBook will mark this as completed automatically when you finish the task."
-                    : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+                  : item.description !== undefined
+                    ? item.description
+                    : item.type === "auto"
+                      ? "GrowthBook will mark this as completed automatically when you finish the task."
+                      : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
               }
               error={item.warning}
               errorLevel="warning"
@@ -718,6 +778,7 @@ export function PreLaunchChecklist({
   mutateExperiment,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  setChecklistHardBlockerCount,
   editTargeting,
   openSetupTab,
   envs,
@@ -729,6 +790,7 @@ export function PreLaunchChecklist({
   mutateExperiment: () => unknown | Promise<unknown>;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
+  setChecklistHardBlockerCount?: (value: number) => void;
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
   className?: string;
@@ -790,6 +852,7 @@ export function PreLaunchChecklist({
           checklist,
           checklistItemsRemaining,
           setChecklistItemsRemaining,
+          setChecklistHardBlockerCount,
           analysisModal,
           setAnalysisModal,
           allowEditChecklist: true,
