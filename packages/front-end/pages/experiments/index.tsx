@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -103,6 +103,7 @@ const ExperimentsPage = (): React.ReactElement => {
   } = useExperimentSearch({
     allExperiments,
     watchedExperimentIds: watchedExperiments,
+    localStorageKey: "experiments-page",
   });
 
   const tabCounts = useMemo(() => {

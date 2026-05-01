@@ -82,6 +82,7 @@ const ExperimentsPage = (): React.ReactElement => {
     useExperimentSearch({
       allExperiments,
       filterResults,
+      localStorageKey: "bandits-page",
     });
 
   const tabCounts = useMemo(() => {

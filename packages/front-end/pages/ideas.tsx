@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import Link from "next/link";
 import { IdeaInterface } from "shared/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import IdeaForm from "@/components/Ideas/IdeaForm";

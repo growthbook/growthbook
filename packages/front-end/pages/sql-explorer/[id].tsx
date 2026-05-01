@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { SavedQuery } from "shared/validators";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { ago, datetime } from "shared/dates";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";

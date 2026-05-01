@@ -1,9 +1,9 @@
 import router from "next/router";
 import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
-import Link from "next/link";
 import { FaExclamationTriangle, FaUserLock } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";

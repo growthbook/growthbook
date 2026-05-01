@@ -1,7 +1,10 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
 import { BanditResult } from "shared/validators";
 import { CovariateImbalanceResult } from "shared/health";
-import { AnalysisMetaEntry } from "shared/snapshot-analysis-chunks";
+import {
+  AnalysisKeyType,
+  AnalysisMetaEntry,
+} from "shared/snapshot-analysis-chunks";
 import { PhaseSQLVar } from "shared/types/sql";
 import {
   MetricSettingsForStatsEngine,
@@ -153,6 +156,8 @@ export type SnapshotTriggeredBy =
   | "update-dashboards";
 
 export interface ExperimentSnapshotAnalysis {
+  // Stable per snapshot-analysis key used to identify the chunked row data
+  analysisKey: string;
   // Determines which analysis this is
   settings: ExperimentSnapshotAnalysisSettings;
   dateCreated: Date;
@@ -237,7 +242,8 @@ export interface ExperimentSnapshotInterface {
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
   hasChunkedAnalyses?: boolean;
-  chunkedAnalysesMeta?: AnalysisMetaEntry[];
+  // Keyed by `ExperimentSnapshotAnalysis.analysisKey`
+  chunkedAnalysesMeta?: Record<AnalysisKeyType, AnalysisMetaEntry>;
   banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;

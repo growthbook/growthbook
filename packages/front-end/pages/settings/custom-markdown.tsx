@@ -1,6 +1,6 @@
-import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import Link from "@/ui/Link";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";

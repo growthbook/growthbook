@@ -8,6 +8,7 @@ import { useQueryState } from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/next/pages";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
 import Button from "@/ui/Button";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
 import {
   ExplorerProvider,
@@ -57,8 +58,15 @@ function deriveConfigError(
 }
 
 function ExplorerContent() {
+  const { managedWarehouseAwaitingProvisioning } = useExplorerContext();
+
   return (
     <Flex direction="column" gap="3" height="calc(100vh - 72px)">
+      {managedWarehouseAwaitingProvisioning ? (
+        <Box px="2">
+          <ManagedWarehouseNoEventsCallout />
+        </Box>
+      ) : null}
       <PanelGroup direction="horizontal">
         {/* Main Section */}
         <Panel
@@ -183,7 +191,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
           </AlertDialog.Content>
         </AlertDialog.Root>
       )}
-      <ExplorerProvider key={type} initialConfig={initialConfig}>
+      <ExplorerProvider
+        key={type}
+        initialConfig={initialConfig}
+        trackingSource="manual-explorer"
+      >
         <ExplorerUrlSync setUrlConfig={setUrlConfig} />
         <ExplorerContent />
       </ExplorerProvider>

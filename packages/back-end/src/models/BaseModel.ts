@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { v4 as uuidv4 } from "uuid";
-import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { AnyBulkWriteOperation, Collection } from "mongodb";
 import omit from "lodash/omit";
@@ -32,6 +31,7 @@ import {
 } from "back-end/src/api/ApiModel";
 import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
+import { generateId } from "back-end/src/util/uuid";
 import {
   resolveOwnerEmail,
   resolveOwnerEmails,
@@ -616,7 +616,7 @@ export abstract class BaseModel<
    * Internal methods that can be used by subclasses
    ***************/
   protected _generateId() {
-    return uniqid(this.config.idPrefix);
+    return generateId(this.config.idPrefix);
   }
   protected _generateUid() {
     return uuidv4().replace(/-/g, "");

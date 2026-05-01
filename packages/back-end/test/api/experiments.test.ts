@@ -654,7 +654,78 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
+      // When bypassDuplicateKeyCheck is true and the org doesn't require unique
+      // tracking keys, the duplicate-key lookup is skipped entirely.
       expect(getExperimentByTrackingKey).not.toHaveBeenCalled();
+    });
+
+    it("rejects duplicate trackingKey when requireUniqueExperimentTrackingKeys is enabled, even with bypassDuplicateKeyCheck", async () => {
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
+
+      const orgWithSetting = {
+        ...org,
+        settings: { requireUniqueExperimentTrackingKeys: true },
+      };
+
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        models: {
+          decisionCriteria: {
+            getById: jest.fn().mockResolvedValue(null),
+          },
+          projects: {
+            getById: jest.fn().mockResolvedValue(null),
+            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
+            getByIds: jest.fn().mockResolvedValue([]),
+          },
+          metricGroups: {
+            getAll: jest.fn().mockResolvedValue([]),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+          },
+        },
+        permissions: {
+          canViewExperiment: () => true,
+          canCreateExperiment: () => true,
+          canUpdateExperiment: () => true,
+          canAddComment: () => true,
+        },
+      });
+
+      const createPayload = {
+        trackingKey: "exp_123",
+        name: "Duplicate Experiment",
+        hypothesis: "",
+        assignmentQueryId: "user_id",
+        bypassDuplicateKeyCheck: true,
+        variations: [
+          {
+            key: "control",
+            name: "Control",
+            description: "",
+            screenshots: [],
+          },
+          {
+            key: "treatment",
+            name: "Treatment",
+            description: "",
+            screenshots: [],
+          },
+        ],
+      };
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send(createPayload)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("message");
+      expect(res.body.message).toContain(
+        "requires unique experiment tracking keys",
+      );
     });
 
     it("validates datasource exists", async () => {
@@ -1140,6 +1211,7 @@ describe("experiments API", () => {
 
     it("allows duplicate trackingKey on update when bypassDuplicateKeyCheck is true", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(experiment);
       (updateExperiment as jest.Mock).mockResolvedValue({
         ...experiment,
         trackingKey: "existing_key",
@@ -1156,7 +1228,68 @@ describe("experiments API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(res.status).toBe(200);
-      expect(getExperimentByTrackingKey).not.toHaveBeenCalled();
+      expect(getExperimentByTrackingKey).toHaveBeenCalledTimes(0);
+    });
+
+    it("rejects duplicate trackingKey on update when requireUniqueExperimentTrackingKeys is enabled, even with bypassDuplicateKeyCheck", async () => {
+      const existingExperimentWithDifferentKey = {
+        ...experiment,
+        trackingKey: "original_key",
+      };
+      const anotherExperiment = {
+        ...experiment,
+        id: "exp_456",
+        trackingKey: "existing_key",
+      };
+
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        existingExperimentWithDifferentKey,
+      );
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(
+        anotherExperiment,
+      );
+
+      const orgWithSetting = {
+        ...org,
+        settings: { requireUniqueExperimentTrackingKeys: true },
+      };
+
+      updateReqContext({
+        org: orgWithSetting,
+        organization: orgWithSetting,
+        models: {
+          projects: {
+            ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
+            getById: jest.fn().mockResolvedValue(null),
+            getByIds: jest.fn().mockResolvedValue([]),
+          },
+          metricGroups: {
+            getAll: jest.fn().mockResolvedValue([]),
+          },
+          customFields: {
+            getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+          },
+        },
+        permissions: {
+          canUpdateExperiment: () => true,
+        },
+      });
+
+      const updatePayload = {
+        trackingKey: "existing_key",
+        bypassDuplicateKeyCheck: true,
+      };
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send(updatePayload)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty("message");
+      expect(res.body.message).toContain(
+        "requires unique experiment tracking keys",
+      );
     });
 
     it("updates experiment variations with signed URLs", async () => {
