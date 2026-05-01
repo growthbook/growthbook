@@ -2188,6 +2188,7 @@ export async function postExperimentStatus(
 
 type PostExperimentStopBody = {
   results: ExperimentResultsType;
+  winner?: number;
   releasedVariationId?: string;
   winnerVariationId?: string;
   enableTemporaryRollout?: boolean;
@@ -2210,8 +2211,8 @@ export async function postExperimentStop(
       input: {
         experimentId: id,
         results: req.body.results,
-        winnerVariationId:
-          req.body.winnerVariationId || req.body.releasedVariationId,
+        winner: req.body.winner,
+        winnerVariationId: req.body.winnerVariationId,
         releasedVariationId: req.body.releasedVariationId,
         enableTemporaryRollout:
           req.body.enableTemporaryRollout ??

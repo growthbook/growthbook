@@ -36,6 +36,9 @@ export type StartChecklistItemStatus = {
 export type StopExperimentInput = {
   experimentId: string;
   results: ExperimentResultsType;
+  /** @deprecated Used by the internal stop form. Prefer winnerVariationId for new callers. */
+  winner?: number;
+  /** Preferred way to identify the winning variation. */
   winnerVariationId?: string;
   releasedVariationId?: string;
   enableTemporaryRollout?: boolean;
@@ -346,27 +349,44 @@ export async function stopExperiment({
       "invalid_released_variation_id: releasedVariationId must match an experiment variation",
     );
   }
-  let winner = winnerIndexFromId;
-  if (winner < 0) {
-    if (input.results === "won") {
-      if (variations.length === 2) {
-        // Default to the single test variation (index 1) when no winner is provided.
-        winner = 1;
-      } else {
-        throw new Error(
-          "invalid_winner_variation_id: winnerVariationId is required when results is won unless the experiment has exactly 2 variations",
-        );
-      }
-    } else {
-      // For non-won results, default to baseline variation.
-      winner = 0;
+  let winner: number;
+  // Winner resolution priority:
+  // 1) winnerVariationId (preferred)
+  // 2) winner (legacy numeric index)
+  // 3) releasedVariationId (fallback when winner fields are omitted)
+  // 4) existing defaults based on results
+  if (input.winnerVariationId) {
+    winner = winnerIndexFromId;
+  } else if (typeof input.winner === "number") {
+    const legacyWinner = input.winner;
+    if (
+      (legacyWinner < 0 && legacyWinner !== -1) ||
+      legacyWinner >= variations.length
+    ) {
+      throw new Error(
+        "invalid_winner: winner must be -1 or match an experiment variation index",
+      );
     }
-  }
-
-  if (winner < 0) {
-    throw new Error(
-      "invalid_winner_variation_id: winnerVariationId must match an experiment variation",
-    );
+    if (input.results === "won" && legacyWinner < 0) {
+      throw new Error(
+        "invalid_winner: winner must match an experiment variation index when results is won",
+      );
+    }
+    winner = legacyWinner;
+  } else if (input.releasedVariationId) {
+    winner = releasedVariationIndexFromId;
+  } else if (input.results === "won") {
+    if (variations.length === 2) {
+      // Default to the single test variation (index 1) when no winner is provided.
+      winner = 1;
+    } else {
+      throw new Error(
+        "invalid_winner_variation_id: winnerVariationId is required when results is won unless the experiment has exactly 2 variations",
+      );
+    }
+  } else {
+    // For non-won results, default to baseline variation.
+    winner = 0;
   }
 
   const enableTemporaryRollout = input.enableTemporaryRollout === true;
