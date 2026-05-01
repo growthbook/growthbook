@@ -296,9 +296,8 @@ export type PendingDraftPublishResult = {
 export function formatPendingDraftFailureMessage(
   failed: PendingDraftFailure[],
 ): string {
-  // Dedupe by featureId — multiple drafts of the same feature can each fail
-  // (e.g. two needs-approval entries) but the user-facing message should
-  // surface each feature once.
+  // Dedupe — multiple drafts of one feature can each fail, but the user
+  // only needs to see the feature once.
   const ids = (reason: PendingDraftFailureReason) =>
     Array.from(
       new Set(
@@ -331,10 +330,9 @@ type ResolvedDraft = { featureId: string; revisionVersion: number };
 
 // Auto-publishes pendingFeatureDrafts on experiment start. Phase 1 prunes
 // stale entries and gates on approval; Phase 2 publishes sequentially,
-// re-merging each draft against the now-live state because earlier publishes
-// in the same batch may have advanced feature.version. Halts on the first
-// merge conflict or publish error so the caller can abort the experiment
-// transition and surface the failure.
+// re-merging each draft against fresh live state since earlier publishes
+// may have advanced feature.version. Halts on the first merge conflict or
+// publish error so the caller can abort the experiment transition.
 export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -410,9 +408,7 @@ export async function publishPendingFeatureDraftsForExperiment(
   }
 
   // ── Phase 2: sequential publish, re-merging each against fresh live ──────
-  // Within a feature, ascending version so each merge builds on the previous
-  // publish. Across features, order doesn't matter functionally — sorting by
-  // featureId just makes behavior deterministic for tests and audit logs.
+  // Ascending version per feature so each merge builds on the previous publish.
   ready.sort(
     (a, b) =>
       a.featureId.localeCompare(b.featureId) ||
@@ -456,9 +452,6 @@ export async function publishPendingFeatureDraftsForExperiment(
         "Cannot auto-publish pending feature draft due to merge conflicts",
       );
       failed.push({ featureId, revisionVersion, reason: "merge-conflict" });
-      // Halt the train — later drafts of this feature definitely depend on
-      // this merge succeeding, and the caller will abort the experiment
-      // transition anyway once it sees `failed.length > 0`.
       break;
     }
 
@@ -470,9 +463,9 @@ export async function publishPendingFeatureDraftsForExperiment(
         mergeResult.result,
         `Experiment "${experiment.name}" started`,
       );
-      // publishRevision's clearPendingFeatureDraftsForRevision sweep keys off
-      // the revision's own experiment-ref rules; if those were all deleted
-      // before publish we'd otherwise leave a stale entry behind.
+      // Belt-and-suspenders: publishRevision's sweep keys off the revision's
+      // own experiment-ref rules and would miss entries if those were deleted
+      // pre-publish.
       await removePendingFeatureDraftFromExperiment(
         context,
         experiment.id,
