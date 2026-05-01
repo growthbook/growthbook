@@ -11,6 +11,7 @@ import PaymentInfo from "@/enterprise/components/Billing/PaymentInfo";
 import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -104,20 +105,20 @@ const BillingPage: FC = () => {
           <SubscriptionInfo />
         ) : canSubscribe ? (
           <div className="p-3">
-            <Callout status="info" mb="0">
-              <Flex align="center">
+            <Callout status="info" mb="0" contentsAs="div">
+              <Flex justify="between">
                 <span>
                   You are currently on the <strong>Starter Plan</strong>.
                 </span>
-                <button
-                  className="btn btn-primary ml-auto"
-                  onClick={(e) => {
-                    e.preventDefault();
+
+                <Button
+                  my="-1"
+                  onClick={() => {
                     setUpgradeModal(true);
                   }}
                 >
                   Upgrade Now
-                </button>
+                </Button>
               </Flex>
             </Callout>
           </div>
