@@ -5,6 +5,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import { AppFeatures } from "@/types/app-features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 import GithubIntegrationConfig from "./GithubIntegrationConfig";
 import GithubIntegrationConnect from "./GithubIntegrationConnect";
 
@@ -30,9 +31,9 @@ const GitHubIntegrationPage: NextPage = () => {
   if (!permissionsUtils.canManageIntegrations()) {
     return (
       <div className="container-fluid pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
