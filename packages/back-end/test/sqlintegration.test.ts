@@ -317,6 +317,52 @@ describe("bigquery integration", () => {
     );
   });
 
+  it("substitutes {{experimentId}} in fact table SQL when experimentId is provided", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT user_id, timestamp, value FROM events WHERE sample_type = CONCAT('experiment:', '{{experimentId}}')",
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const startDate = new Date("2023-01-01");
+    const endDate = new Date("2023-01-31");
+
+    const result = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate,
+      endDate,
+      experimentId: "my-experiment",
+    });
+
+    expect(result).toContain(
+      "WHERE sample_type = CONCAT('experiment:', 'my-experiment')",
+    );
+
+    // Outside experiment context, falls back to '%' so the variable is still
+    // valid (e.g. for `LIKE '{{experimentId}}'` patterns or column introspection).
+    const resultNoExperiment = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate,
+      endDate,
+    });
+
+    expect(resultNoExperiment).toContain(
+      "WHERE sample_type = CONCAT('experiment:', '%')",
+    );
+  });
+
   it("generates CTE with metric filters in where clause if all metrics have filters", () => {
     const factTableWithFilters = factTableFactory.build({
       filters: [
