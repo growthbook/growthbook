@@ -67,6 +67,26 @@ The inserted values do not have surrounding quotes, so you must add those yourse
 
 :::
 
+## Experiment Id Filter
+
+When a Fact Table or Metric query is run as part of an experiment analysis, the `{{ experimentId }}` variable is replaced with the experiment's tracking key. This is useful when a single Fact Table contains rows for many experiments and you need to scope it to the one being analyzed:
+
+```sql
+SELECT
+  user_id,
+  timestamp,
+  score
+FROM classifier_scores
+WHERE
+  sample_type = CONCAT('experiment:', '{{ experimentId }}')
+```
+
+When the same SQL is run outside of an experiment context (for example, when previewing a Fact Table or running a standalone Metric Analysis), `{{ experimentId }}` is replaced with `%`. If you need the query to return rows in both contexts, write the filter as a `LIKE` so that `%` matches everything:
+
+```sql
+WHERE sample_type LIKE CONCAT('experiment:', '{{ experimentId }}')
+```
+
 ## Phase Filters
 
 Experiments can have multiple phases. By default, we use date ranges to restrict data to the current phase, but this may be imprecise if your experiment configs are cached in your app or data is delayed.
