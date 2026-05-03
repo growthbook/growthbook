@@ -1,6 +1,8 @@
 import { FC } from "react";
 import { FeatureValueType } from "shared/types/feature";
+import { isEnvironmentDevLike } from "shared/util";
 import Badge from "@/ui/Badge";
+import { RadixColor } from "@/ui/HelperText";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
 
@@ -8,11 +10,16 @@ type FeatureStatus = "draft" | "live" | "archived";
 
 const STATUS_CONFIG: Record<
   Exclude<FeatureStatus, "live">,
-  { color: string; label: string }
+  { color: NonNullable<RadixColor>; label: string }
 > = {
   draft: { color: "pink", label: "Draft" },
-  archived: { color: "gray", label: "Archived" },
+  archived: { color: "gold", label: "Archived" },
 };
+
+function onlyDevLikeEnvsEnabled(enabledEnvIds: string[]): boolean {
+  if (enabledEnvIds.length === 0) return true;
+  return enabledEnvIds.every(isEnvironmentDevLike);
+}
 
 function deriveStatus({
   archived,
@@ -26,14 +33,18 @@ function deriveStatus({
   if (archived) return "archived";
 
   if (environmentSettings) {
-    const allOff = !Object.values(environmentSettings).some((e) => e.enabled);
-    if (allOff) return "draft";
+    const enabledIds = Object.entries(environmentSettings)
+      .filter(([, e]) => e.enabled)
+      .map(([id]) => id);
+    if (onlyDevLikeEnvsEnabled(enabledIds)) return "draft";
     return "live";
   }
 
   if (envStatus) {
-    const allOff = !Object.values(envStatus).some(Boolean);
-    if (allOff) return "draft";
+    const enabledIds = Object.entries(envStatus)
+      .filter(([, on]) => on)
+      .map(([id]) => id);
+    if (onlyDevLikeEnvsEnabled(enabledIds)) return "draft";
     return "live";
   }
 
@@ -117,6 +128,7 @@ const FeatureStatusBadge: FC<{
       context={context}
       open={open}
       onOpenChange={onOpenChange}
+      labelPrefix="Live: "
     />
   );
 };

@@ -647,3 +647,8 @@ export function parseProcessLogBase() {
 export function capitalizeFirstCharacter(s: string) {
   return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }
+
+export {
+  NON_PRODUCTION_ENV_PATTERNS,
+  isEnvironmentDevLike,
+} from "./environments";
