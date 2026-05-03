@@ -154,7 +154,7 @@ function makeSchedule(
         trigger: { type: "interval", seconds: 300 },
         actions: [
           {
-            targetType: "feature-rule" as const,
+            type: "patch-rule" as const,
             targetId: TARGET_ID,
             patch: { ruleId: RULE_ID, coverage: 0.3 },
           },
@@ -164,7 +164,7 @@ function makeSchedule(
         trigger: { type: "interval", seconds: 600 },
         actions: [
           {
-            targetType: "feature-rule" as const,
+            type: "patch-rule" as const,
             targetId: TARGET_ID,
             patch: { ruleId: RULE_ID, coverage: 0.6 },
           },
@@ -174,7 +174,7 @@ function makeSchedule(
         trigger: { type: "interval", seconds: 900 },
         actions: [
           {
-            targetType: "feature-rule" as const,
+            type: "patch-rule" as const,
             targetId: TARGET_ID,
             patch: { ruleId: RULE_ID, coverage: 1.0 },
           },
@@ -270,12 +270,12 @@ function action(
   targetId: string,
   patch: Record<string, unknown>,
 ): {
-  targetType: "feature-rule";
+  type: "patch-rule";
   targetId: string;
   patch: { ruleId: string } & Record<string, unknown>;
 } {
   return {
-    targetType: "feature-rule",
+    type: "patch-rule",
     targetId,
     patch: { ruleId: RULE_ID, ...patch },
   };
@@ -668,7 +668,7 @@ describe("featureEntityHandler.applyActions", () => {
   it("calls publishRevision with sparse-patched rules", async () => {
     const actions = [
       {
-        targetType: "feature-rule" as const,
+        type: "patch-rule" as const,
         targetId: TARGET_ID,
         patch: { ruleId: RULE_ID, coverage: 0.5 },
       },
@@ -688,7 +688,7 @@ describe("featureEntityHandler.applyActions", () => {
   it("throws when the rule is not found (no env scope)", async () => {
     const actions = [
       {
-        targetType: "feature-rule" as const,
+        type: "patch-rule" as const,
         targetId: TARGET_ID,
         patch: { ruleId: "nonexistent_rule", coverage: 0.5 },
       },
@@ -714,7 +714,7 @@ describe("featureEntityHandler.applyActions", () => {
   it("always publishes immediately — including when called for an approval step", async () => {
     const actions = [
       {
-        targetType: "feature-rule" as const,
+        type: "patch-rule" as const,
         targetId: TARGET_ID,
         patch: { ruleId: RULE_ID, coverage: 0.5 },
       },
@@ -732,7 +732,7 @@ describe("featureEntityHandler.applyActions", () => {
     // handler resolves purely by ruleId/uid and patches that one rule.
     const actions = [
       {
-        targetType: "feature-rule" as const,
+        type: "patch-rule" as const,
         targetId: TARGET_ID,
         patch: { ruleId: RULE_ID, coverage: 0.75 },
       },
@@ -776,7 +776,7 @@ describe("featureEntityHandler.applyActions", () => {
 
     const actions = [
       {
-        targetType: "feature-rule" as const,
+        type: "patch-rule" as const,
         targetId: TARGET_ID,
         patch: { ruleId: RULE_ID, coverage: 0.9 },
       },
@@ -805,7 +805,7 @@ describe("featureEntityHandler.applyActions", () => {
   it("with environment: throws when no rule matches the (ruleId, environment) pair", async () => {
     const actions = [
       {
-        targetType: "feature-rule" as const,
+        type: "patch-rule" as const,
         targetId: TARGET_ID,
         patch: { ruleId: RULE_ID, coverage: 0.5 },
       },
@@ -876,7 +876,7 @@ describe("advanceStep — approval step", () => {
           trigger: { type: "approval" },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 0.5 },
             },
@@ -920,7 +920,7 @@ describe("advanceStep — last step / completion", () => {
       currentStepIndex: 2,
       endActions: [
         {
-          targetType: "feature-rule" as const,
+          type: "patch-rule" as const,
           targetId: TARGET_ID,
           patch: { ruleId: RULE_ID, coverage: 1 },
         },
@@ -973,7 +973,7 @@ describe("jumpAheadToStep", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 0.3, condition: '{"a":"1"}' },
             },
@@ -983,7 +983,7 @@ describe("jumpAheadToStep", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 0.6 }, // sparse — no condition
             },
@@ -993,7 +993,7 @@ describe("jumpAheadToStep", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 1.0 }, // sparse — no condition
             },
@@ -1046,7 +1046,7 @@ describe("rollbackToStep", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: {
                 ruleId: RULE_ID,
@@ -1060,7 +1060,7 @@ describe("rollbackToStep", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 0.6 }, // sparse — no condition
             },
@@ -1070,7 +1070,7 @@ describe("rollbackToStep", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: {
                 ruleId: RULE_ID,
@@ -1208,7 +1208,7 @@ describe("advanceUntilBlocked", () => {
           trigger: { type: "approval" },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 0.5 },
             },
@@ -1218,7 +1218,7 @@ describe("advanceUntilBlocked", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 1.0 },
             },
@@ -1283,7 +1283,7 @@ describe("completeRollout", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: {
                 ruleId: RULE_ID,
@@ -1297,7 +1297,7 @@ describe("completeRollout", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 0.5 },
             },
@@ -1307,7 +1307,7 @@ describe("completeRollout", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 1.0 },
             },
@@ -1340,7 +1340,7 @@ describe("completeRollout", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: {
                 ruleId: RULE_ID,
@@ -1403,7 +1403,7 @@ describe("completeRollout", () => {
           trigger: { type: "interval", seconds: 300 },
           actions: [
             {
-              targetType: "feature-rule" as const,
+              type: "patch-rule" as const,
               targetId: TARGET_ID,
               patch: { ruleId: RULE_ID, coverage: 0.5, condition: '{"a":"1"}' },
             },
@@ -1412,7 +1412,7 @@ describe("completeRollout", () => {
       ],
       endActions: [
         {
-          targetType: "feature-rule" as const,
+          type: "patch-rule" as const,
           targetId: TARGET_ID,
           patch: { ruleId: RULE_ID, coverage: 1.0 },
         },

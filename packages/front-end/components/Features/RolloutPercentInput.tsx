@@ -61,7 +61,10 @@ export default function RolloutPercentInput({
       ...rampSchedule.steps.flatMap((s) => s.actions),
       ...(rampSchedule.endActions ?? []),
     ].some(
-      (a) => a.patch.coverage !== undefined && (a.patch.coverage ?? 1) < 1,
+      (a) =>
+        a.type === "patch-rule" &&
+        a.patch.coverage !== undefined &&
+        (a.patch.coverage ?? 1) < 1,
     );
 
   const showAdvancedSection = value < 1 || rampHasSubMaxCoverage;

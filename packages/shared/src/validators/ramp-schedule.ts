@@ -4,6 +4,10 @@ import { apiBaseSchema, baseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
 
+// ---------------------------------------------------------------------------
+// Feature rule patch (used by rule-level ramps)
+// ---------------------------------------------------------------------------
+
 // Patch applied to a feature rule by a ramp step. Only fields present in the patch are applied;
 // absent fields are inherited from the previous step's accumulated state.
 //
@@ -23,12 +27,133 @@ export const featureRulePatch = z.object({
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
-export const rampStepAction = z.object({
+// ---------------------------------------------------------------------------
+// Gate config (used by feature-level rollouts)
+// ---------------------------------------------------------------------------
+
+export const gateConfigSchema = z.object({
+  seed: z.string(),
+  hashAttribute: z.string(),
+  hashVersion: z.union([z.literal(1), z.literal(2)]),
+  coverage: z.number().min(0).max(1),
+  condition: z.string().nullish(),
+  savedGroups: z.array(savedGroupTargeting).nullish(),
+});
+export type GateConfig = z.infer<typeof gateConfigSchema>;
+
+export const gateConfigPatch = z.object({
+  coverage: z.number().min(0).max(1).optional(),
+  condition: z.string().nullish(),
+  savedGroups: z.array(savedGroupTargeting).nullish(),
+});
+export type GateConfigPatch = z.infer<typeof gateConfigPatch>;
+
+// ---------------------------------------------------------------------------
+// Monitoring config
+// ---------------------------------------------------------------------------
+
+export const rollbackRuleSchema = z.object({
+  metricId: z.string(),
+  deltaThreshold: z.number().optional(),
+  direction: z.enum(["up", "down", "both"]),
+  action: z.enum(["rollback", "pause"]),
+});
+export type RollbackRule = z.infer<typeof rollbackRuleSchema>;
+
+export const monitoringConfigSchema = z.object({
+  datasourceId: z.string(),
+  exposureQueryId: z.string(),
+  guardrailMetricIds: z.array(z.string()),
+  queryCadenceMinutes: z.number().int().positive().optional(),
+  rollbackRules: z.array(rollbackRuleSchema).optional(),
+  apiRollback: z.boolean().optional(),
+});
+export type MonitoringConfig = z.infer<typeof monitoringConfigSchema>;
+
+// ---------------------------------------------------------------------------
+// Lockdown config
+// ---------------------------------------------------------------------------
+
+export const lockdownModeArray = ["none", "all-edits", "elevated-only"] as const;
+export type LockdownMode = (typeof lockdownModeArray)[number];
+
+export const lockdownConfigSchema = z.object({
+  mode: z.enum(lockdownModeArray),
+  allowedApiKeyTags: z.array(z.string()).optional(),
+});
+export type LockdownConfig = z.infer<typeof lockdownConfigSchema>;
+
+// ---------------------------------------------------------------------------
+// Step action — discriminated union supporting both scopes
+// ---------------------------------------------------------------------------
+
+const patchRuleAction = z.object({
+  type: z.literal("patch-rule"),
+  targetId: z.string(),
+  patch: featureRulePatch,
+});
+
+const setGateAction = z.object({
+  type: z.literal("set-gate"),
+  patch: gateConfigPatch,
+});
+
+const setEnvironmentEnabledAction = z.object({
+  type: z.literal("set-environment-enabled"),
+  environment: z.string(),
+  enabled: z.boolean(),
+});
+
+const attachMonitoringAction = z.object({
+  type: z.literal("attach-monitoring"),
+  safeRolloutId: z.string(),
+});
+
+const detachMonitoringAction = z.object({
+  type: z.literal("detach-monitoring"),
+});
+
+const completeRolloutAction = z.object({
+  type: z.literal("complete-rollout"),
+});
+
+export const rampStepAction = z.discriminatedUnion("type", [
+  patchRuleAction,
+  setGateAction,
+  setEnvironmentEnabledAction,
+  attachMonitoringAction,
+  detachMonitoringAction,
+  completeRolloutAction,
+]);
+export type RampStepAction = z.infer<typeof rampStepAction>;
+
+// Legacy shape: { targetType: "feature-rule", targetId, patch }
+// Read-time migration helper for pre-v2 actions stored in the DB.
+export const legacyRampStepAction = z.object({
   targetType: z.literal("feature-rule"),
   targetId: z.string(),
   patch: featureRulePatch,
 });
-export type RampStepAction = z.infer<typeof rampStepAction>;
+export type LegacyRampStepAction = z.infer<typeof legacyRampStepAction>;
+
+export function migrateLegacyAction(
+  legacy: LegacyRampStepAction,
+): RampStepAction {
+  return {
+    type: "patch-rule",
+    targetId: legacy.targetId,
+    patch: legacy.patch,
+  };
+}
+
+// Parse either legacy or new action format.
+export function parseRampStepAction(raw: unknown): RampStepAction {
+  const newResult = rampStepAction.safeParse(raw);
+  if (newResult.success) return newResult.data;
+  const legacyResult = legacyRampStepAction.safeParse(raw);
+  if (legacyResult.success) return migrateLegacyAction(legacyResult.data);
+  throw newResult.error;
+}
 
 // activatingRevisionVersion: set when ramp is created alongside a rule change; cleared on publish.
 //
@@ -84,11 +209,23 @@ export const rampTrigger = z.discriminatedUnion("type", [
 ]);
 export type RampTrigger = z.infer<typeof rampTrigger>;
 
+// Hold conditions gate step advancement beyond the trigger.
+export const stepHoldConditions = z.object({
+  minDurationMs: z.number().int().positive().optional(),
+  maxDurationMs: z.number().int().positive().optional(),
+  minSampleSize: z.number().int().positive().optional(),
+  requireHealthy: z.boolean().optional(),
+});
+export type StepHoldConditions = z.infer<typeof stepHoldConditions>;
+
 // Sparse patch per step — only fields present are applied; absent fields accumulate from previous steps.
 export const rampStep = z.object({
   trigger: rampTrigger,
   actions: z.array(rampStepAction),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().optional(),
+  holdConditions: stepHoldConditions.optional(),
+  apiAdvance: z.boolean().optional(),
 });
 export type RampStep = z.infer<typeof rampStep>;
 
@@ -103,9 +240,15 @@ export const rampScheduleStatusArray = [
 ] as const;
 export type RampScheduleStatus = (typeof rampScheduleStatusArray)[number];
 
+export const rampScheduleScopeArray = ["rule", "feature"] as const;
+export type RampScheduleScope = (typeof rampScheduleScopeArray)[number];
+
 export const rampScheduleValidator = baseSchema
   .extend({
     name: z.string(),
+    // "rule" = existing rule-level ramp; "feature" = top-level gate rollout.
+    // Absent on legacy schedules; treated as "rule".
+    scope: z.enum(rampScheduleScopeArray).optional(),
     // Controls permissions and approval settings for the schedule.
     entityType: z.enum(["feature"]), // TODO v2: add "experiment"
     entityId: z.string(),
@@ -130,6 +273,21 @@ export const rampScheduleValidator = baseSchema
     nextStepAt: z.date().nullable(),
     nextProcessAt: z.date().nullish(), // next time the job should process this schedule; null = no polling needed
     elapsedMs: z.number().int().nullish(), // computed at response time; never stored
+
+    // Feature-level rollout gate — only set when scope="feature".
+    // seed/hashAttribute/hashVersion are immutable after the rollout starts.
+    gateConfig: gateConfigSchema.optional(),
+
+    // Monitoring strategy — references SafeRolloutInterface for analysis.
+    monitoringConfig: monitoringConfigSchema.optional(),
+
+    // Lockdown restrictions while the schedule is active.
+    lockdownConfig: lockdownConfigSchema.optional(),
+
+    // Runtime tracking fields
+    currentStepEnteredAt: z.date().nullish(),
+    lastRollbackAt: z.date().nullish(),
+    lastRollbackReason: z.string().nullish(),
   })
   .superRefine((data, ctx) => {
     if (
@@ -162,9 +320,20 @@ export const TEMPLATE_STRUCTURAL_KEYS = ["steps", "endPatch"] as const;
 
 // Template patches never store force — it is feature-type-specific and not portable.
 const templateFeatureRulePatch = featureRulePatch.omit({ force: true });
-const templateRampStepAction = rampStepAction.extend({
+// Templates use a simplified action set (patch-rule only, no force)
+const templatePatchRuleAction = z.object({
+  type: z.literal("patch-rule"),
+  targetId: z.string(),
   patch: templateFeatureRulePatch,
 });
+const templateRampStepAction = z.discriminatedUnion("type", [
+  templatePatchRuleAction,
+  setGateAction,
+  setEnvironmentEnabledAction,
+  attachMonitoringAction,
+  detachMonitoringAction,
+  completeRolloutAction,
+]);
 const templateRampStep = rampStep.extend({
   actions: z.array(templateRampStepAction),
 });
@@ -182,9 +351,12 @@ export type TemplateEndPatch = z.infer<typeof templateEndPatchValidator>;
 // Template: defines intermediate steps and final end patch (no start/end timing).
 export const rampScheduleTemplateValidator = baseSchema.extend({
   name: z.string(),
+  scope: z.enum(rampScheduleScopeArray).optional(),
   steps: z.array(templateRampStep),
   endPatch: templateEndPatchValidator.optional(),
   official: z.boolean().optional(),
+  monitoringConfig: monitoringConfigSchema.optional(),
+  lockdownConfig: lockdownConfigSchema.optional(),
 });
 export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator
@@ -227,6 +399,9 @@ const apiRampStep = z.object({
   trigger: apiRampTrigger,
   actions: z.array(rampStepAction),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().optional(),
+  holdConditions: stepHoldConditions.optional(),
+  apiAdvance: z.boolean().optional(),
 });
 
 // API-facing variant of rampScheduleValidator — uses ISO strings for all dates.
@@ -235,6 +410,12 @@ export const apiRampScheduleInterface = namedSchema(
   apiBaseSchema.extend({
     id: z.string().describe("Unique identifier (rs_ prefix)"),
     name: z.string(),
+    scope: z
+      .enum(rampScheduleScopeArray)
+      .optional()
+      .describe(
+        '"rule" = rule-level ramp; "feature" = top-level gate rollout. Absent on legacy schedules (treated as "rule").',
+      ),
     entityType: z.enum(["feature"]),
     entityId: z.string(),
     targets: z.array(rampTarget).describe("Controlled entity references"),
@@ -285,6 +466,12 @@ export const apiRampScheduleInterface = namedSchema(
       .describe(
         "Milliseconds since startedAt (computed at response time, not stored)",
       ),
+    gateConfig: gateConfigSchema.optional(),
+    monitoringConfig: monitoringConfigSchema.optional(),
+    lockdownConfig: lockdownConfigSchema.optional(),
+    currentStepEnteredAt: z.iso.datetime().nullish(),
+    lastRollbackAt: z.iso.datetime().nullish(),
+    lastRollbackReason: z.string().nullish(),
   }),
 );
 export type ApiRampScheduleInterface = z.infer<typeof apiRampScheduleInterface>;

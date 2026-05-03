@@ -114,7 +114,9 @@ export async function setRuleRampSchedule(
     // written under either form (legacy buggy writes, or stem/suffix variants)
     // get cleaned up on the next set.
     const filtered = (revision.rampActions ?? []).filter(
-      (a) => a.ruleId !== canonicalRuleId && a.ruleId !== ruleId,
+      (a) =>
+        !("ruleId" in a) ||
+        (a.ruleId !== canonicalRuleId && a.ruleId !== ruleId),
     );
     const newRampActions = [...filtered, action];
 

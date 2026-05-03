@@ -53,6 +53,7 @@ import {
 import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
+  RampScheduleInterface,
   SdkConnectionCacheAuditContext,
   apiFeatureRevisionValidator,
   ApiFeatureWithRevisions,
@@ -100,6 +101,7 @@ import {
   getEnabledEnvironments,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
+  getRampGateFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
 import { getEnabledEnvironments as getEnabledHoldoutEnvironments } from "back-end/src/util/holdouts";
@@ -135,6 +137,7 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
+  rampScheduleMap,
   includeProjectIdInMetadata,
   includeCustomFieldsInMetadata,
   allowedCustomFieldsInMetadata,
@@ -157,6 +160,7 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
+  rampScheduleMap?: Map<string, RampScheduleInterface>;
   includeProjectIdInMetadata?: boolean;
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
@@ -184,6 +188,7 @@ export function generateFeaturesPayload({
       experimentMap,
       safeRolloutMap,
       holdoutsMap,
+      rampScheduleMap,
       capabilities,
       savedGroupReferencesEnabled,
       organization,
@@ -266,6 +271,49 @@ export function generateHoldoutsPayload({
     holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = def;
   });
   return holdoutDefs;
+}
+
+// Generate synthetic feature defs for active feature-level rollout gates.
+// Each gate is a simple rollout rule: users whose hash falls within coverage pass.
+export function generateRampGatePayload({
+  rampScheduleMap,
+}: {
+  rampScheduleMap: Map<string, RampScheduleInterface>;
+}): Record<string, FeatureDefinition> {
+  const gateDefs: Record<string, FeatureDefinition> = {};
+  rampScheduleMap.forEach((schedule) => {
+    if (schedule.scope !== "feature") return;
+    if (!schedule.gateConfig) return;
+    if (!["running", "paused", "pending-approval"].includes(schedule.status))
+      return;
+
+    const g = schedule.gateConfig;
+    const gateDefId = getRampGateFeatureDefId(schedule.id);
+
+    const rule: FeatureDefinitionRule = {
+      id: gateDefId,
+      coverage: g.coverage,
+      hashAttribute: g.hashAttribute,
+      seed: g.seed,
+      hashVersion: g.hashVersion,
+      force: true,
+    };
+
+    // Apply targeting condition if present
+    if (g.condition) {
+      try {
+        rule.condition = JSON.parse(g.condition);
+      } catch {
+        // invalid condition, skip
+      }
+    }
+
+    gateDefs[gateDefId] = {
+      defaultValue: false,
+      rules: [rule],
+    };
+  });
+  return gateDefs;
 }
 
 export type VisualExperiment = {
@@ -995,13 +1043,12 @@ export type SDKPayloadRawData = {
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   savedGroups: SavedGroupInterface[];
   holdoutsMap: Map<
-    string, // holdout id
-    // holdoutExperiment was named `experiment` on main; renamed here to be explicit
+    string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
+  rampScheduleMap?: Map<string, RampScheduleInterface>;
   visualExperiments?: VisualExperiment[];
   urlRedirectExperiments?: URLRedirectExperiment[];
-  // Populated when any connection in the refresh has includeProjectIdInMetadata=true
   projectsMap?: Map<string, ProjectInterface>;
 };
 
@@ -1135,6 +1182,7 @@ export async function buildSDKPayloadForConnection(
     prereqStateCache,
     safeRolloutMap: data.safeRolloutMap,
     holdoutsMap: holdoutsMapForConnection,
+    rampScheduleMap: data.rampScheduleMap,
     capabilities,
     savedGroupReferencesEnabled:
       !!savedGroupReferencesEnabled &&
@@ -1190,9 +1238,16 @@ export async function buildSDKPayloadForConnection(
     holdoutFeatureDefinitions,
     featureDefinitions,
   );
+
+  // Emit synthetic gate features for active feature-level rollouts
+  const rampGateDefs = data.rampScheduleMap
+    ? generateRampGatePayload({ rampScheduleMap: data.rampScheduleMap })
+    : {};
+
   const featuresWithHoldouts = {
     ...featureDefinitions,
     ...holdoutsInUse,
+    ...rampGateDefs,
   };
 
   let attributes: SDKAttributeSchema | undefined = undefined;

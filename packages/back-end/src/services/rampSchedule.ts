@@ -12,7 +12,11 @@ import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import {
+  getFeature,
+  publishRevision,
+  updateFeature,
+} from "back-end/src/models/FeatureModel";
 import {
   createRevision,
   registerRevisionPublishedHook,
@@ -55,20 +59,21 @@ export function forceMatchesValueType(
 }
 
 // Remap template actions to the real target/rule; drop `force` values whose
-// type doesn't match the feature.
+// type doesn't match the feature. Non-patch-rule actions pass through as-is.
 export function remapTemplateActions(
   actions: RampScheduleTemplateInterface["steps"][number]["actions"],
   targetId: string,
   ruleId: string,
   valueType: FeatureInterface["valueType"],
 ): RampStepAction[] {
-  return (actions ?? []).map((a) => {
+  return (actions ?? []).map((a): RampStepAction => {
+    if (a.type !== "patch-rule") return a;
     const patch = { ...a.patch, ruleId };
     if ("force" in patch && !forceMatchesValueType(patch.force, valueType)) {
       const { force: _force, ...rest } = patch;
-      return { targetType: "feature-rule" as const, targetId, patch: rest };
+      return { type: "patch-rule" as const, targetId, patch: rest };
     }
-    return { targetType: "feature-rule" as const, targetId, patch };
+    return { type: "patch-rule" as const, targetId, patch };
   });
 }
 
@@ -83,11 +88,10 @@ export function computeEffectivePatch(
   const byTarget = new Map<string, FeatureRulePatch>();
 
   const merge = (act: RampStepAction) => {
-    if (act.targetType !== "feature-rule") return;
+    if (act.type !== "patch-rule") return;
     const { ruleId, ...fields } = act.patch;
     const existing = byTarget.get(act.targetId);
     if (existing) {
-      // Only assign keys explicitly present in this action's patch (absent = inherit).
       for (const [k, v] of Object.entries(fields)) {
         (existing as Record<string, unknown>)[k] = v;
       }
@@ -156,7 +160,7 @@ export const featureEntityHandler: EntityHandler = {
     }));
 
     for (const action of actions) {
-      if (action.targetType !== "feature-rule") continue;
+      if (action.type !== "patch-rule") continue;
       const { patch } = action;
       const { ruleId, ...patchFields } = patch;
 
@@ -279,6 +283,90 @@ export function computePhaseStartAfterApproval(
   return new Date(now.getTime() - total * 1000);
 }
 
+async function updateFeatureActiveRampScheduleId(
+  ctx: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  scheduleId: string | undefined,
+): Promise<void> {
+  await updateFeature(ctx, feature, { activeRampScheduleId: scheduleId });
+}
+
+// Handle feature-level actions (set-gate, set-environment-enabled, etc.)
+async function executeFeatureLevelActions(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  actions: RampStepAction[],
+): Promise<void> {
+  const feature = await getFeature(ctx, schedule.entityId);
+  if (!feature) throw new Error(`Feature not found: ${schedule.entityId}`);
+
+  for (const action of actions) {
+    switch (action.type) {
+      case "set-gate": {
+        if (!schedule.gateConfig) break;
+        const updates: Record<string, unknown> = {};
+        if (action.patch.coverage !== undefined)
+          updates["gateConfig.coverage"] = action.patch.coverage;
+        if ("condition" in action.patch)
+          updates["gateConfig.condition"] = action.patch.condition;
+        if ("savedGroups" in action.patch)
+          updates["gateConfig.savedGroups"] = action.patch.savedGroups;
+        if (Object.keys(updates).length) {
+          await ctx.models.rampSchedules.updateById(schedule.id, updates);
+        }
+        break;
+      }
+      case "set-environment-enabled": {
+        const envSettings = { ...feature.environmentSettings };
+        envSettings[action.environment] = {
+          ...envSettings[action.environment],
+          enabled: action.enabled,
+        };
+        const user: EventUser = {
+          type: "system",
+          subtype: "ramp-schedule",
+          id: schedule.id,
+        };
+        const revision = await createRevision({
+          context: ctx,
+          feature,
+          user,
+          environments: ctx.environments,
+          changes: {
+            environmentsEnabled: {
+              [action.environment]: action.enabled,
+            },
+          },
+          publish: false,
+          comment: `Ramp: ${action.enabled ? "enable" : "disable"} ${action.environment}`,
+          title: `Ramp: toggle ${action.environment}`,
+          org: ctx.org,
+        });
+        const forceResult: MergeResultChanges = {
+          environmentsEnabled: { [action.environment]: action.enabled },
+        };
+        await publishRevision(
+          ctx,
+          feature,
+          revision,
+          forceResult,
+          `Ramp: toggle ${action.environment}`,
+        );
+        break;
+      }
+      case "attach-monitoring":
+      case "detach-monitoring":
+        // TODO: wire up safe rollout doc lifecycle
+        break;
+      case "complete-rollout": {
+        // Clear the gate reference on the feature
+        await updateFeatureActiveRampScheduleId(ctx, feature, undefined);
+        break;
+      }
+    }
+  }
+}
+
 // Group actions by entity and publish one revision per entity. Partial failure is not rolled back.
 async function executeStepActions(
   ctx: ReqContext | ApiReqContext,
@@ -286,6 +374,18 @@ async function executeStepActions(
   stepIndex: number,
   actions: RampStepAction[],
 ): Promise<void> {
+  // Separate rule-level actions (need target resolution) from feature-level
+  const ruleActions = actions.filter((a) => a.type === "patch-rule");
+  const featureActions = actions.filter((a) => a.type !== "patch-rule");
+
+  // Handle feature-level actions directly
+  if (featureActions.length) {
+    await executeFeatureLevelActions(ctx, schedule, featureActions);
+  }
+
+  // Handle rule-level actions grouped by entity
+  if (!ruleActions.length) return;
+
   const byEntity = new Map<
     string,
     {
@@ -296,7 +396,8 @@ async function executeStepActions(
     }
   >();
 
-  for (const action of actions) {
+  for (const action of ruleActions) {
+    if (action.type !== "patch-rule") continue;
     const target = schedule.targets.find((t) => t.id === action.targetId);
     if (!target || target.status !== "active") continue;
 
@@ -306,10 +407,6 @@ async function executeStepActions(
         entityType: target.entityType,
         entityId: target.entityId,
         actions: [],
-        // Disambiguator for `resolveRampTarget` on pre-v2 targets whose
-        // `ruleId` could appear in multiple env-scoped rule lists. New
-        // targets will typically have `environment: null`; the resolver
-        // handles that fine.
         environment: target.environment,
       });
     }
@@ -353,10 +450,13 @@ export async function applyRampStartActions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
+  // Feature-level rollouts don't inject rule enable actions on start.
+  if (schedule.scope === "feature") return;
+
   const enableActions: RampStepAction[] = schedule.targets
     .filter((t) => t.status === "active" && t.entityType === "feature")
     .map((t) => ({
-      targetType: "feature-rule" as const,
+      type: "patch-rule" as const,
       targetId: t.id,
       patch: {
         ruleId: t.ruleId ?? "",
@@ -386,7 +486,7 @@ export async function advanceStep(
   // Approval steps go live right away; the user's approval is the signal to advance.
   const effective = computeEffectivePatch(schedule, nextStepIndex);
   const effectiveActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
+    ([targetId, patch]) => ({ type: "patch-rule" as const, targetId, patch }),
   );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions);
 
@@ -451,7 +551,7 @@ export async function rollbackToStep(
     targetStepIndex === -1 && schedule.steps.length > 0 ? 0 : targetStepIndex;
   const effective = computeEffectivePatch(schedule, patchIndex);
   const rollbackActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
+    ([targetId, patch]) => ({ type: "patch-rule" as const, targetId, patch }),
   );
 
   const now = new Date();
@@ -484,6 +584,20 @@ export async function rollbackToStep(
   return updated;
 }
 
+// Full rollback with reason tracking (used by automated evaluator)
+export async function rollbackSchedule(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  reason: string,
+): Promise<RampScheduleInterface> {
+  const now = new Date();
+  await ctx.models.rampSchedules.updateById(schedule.id, {
+    lastRollbackAt: now,
+    lastRollbackReason: reason,
+  });
+  return rollbackToStep(ctx, schedule, -1);
+}
+
 // Jump to jumpTarget (forward or backward), applying the accumulated effective state.
 export async function jumpAheadToStep(
   ctx: ReqContext | ApiReqContext,
@@ -492,7 +606,7 @@ export async function jumpAheadToStep(
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, jumpTarget);
   const jumpActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
+    ([targetId, patch]) => ({ type: "patch-rule" as const, targetId, patch }),
   );
   const now = new Date();
 
@@ -518,7 +632,7 @@ export async function completeRollout(
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, schedule.steps.length);
   const actionsToApply: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
+    ([targetId, patch]) => ({ type: "patch-rule" as const, targetId, patch }),
   );
 
   if (actionsToApply.length > 0) {

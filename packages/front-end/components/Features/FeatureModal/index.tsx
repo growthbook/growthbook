@@ -4,7 +4,7 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement } from "react";
+import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box } from "@radix-ui/themes";
@@ -201,6 +201,8 @@ export default function FeatureModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
+  const showDraftOption = !featureToDuplicate;
+  const [isDraft, setIsDraft] = useState(showDraftOption);
 
   const modalHeader = featureToDuplicate
     ? `Duplicate Feature (${featureToDuplicate.id})`
@@ -265,6 +267,12 @@ export default function FeatureModal({
           throw new Error(
             "We fixed some errors in the feature. If it looks correct, submit again.",
           );
+        }
+
+        if (isDraft && feature.environmentSettings) {
+          for (const envId of Object.keys(feature.environmentSettings)) {
+            feature.environmentSettings[envId] = { enabled: false };
+          }
         }
 
         const body = {
@@ -388,6 +396,8 @@ export default function FeatureModal({
           environmentSettings={environmentSettings}
           environments={environments}
           project={selectedProject}
+          draftMode={showDraftOption ? isDraft : undefined}
+          onDraftModeChange={showDraftOption ? setIsDraft : undefined}
           setValue={(env, on) => {
             environmentSettings[env.id].enabled = on;
             form.setValue("environmentSettings", environmentSettings);

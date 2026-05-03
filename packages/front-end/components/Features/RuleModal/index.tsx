@@ -1096,7 +1096,7 @@ export default function RuleModal({
                     : rampState.endScheduleAt
                       ? [
                           {
-                            targetType: "feature-rule" as const,
+                            type: "patch-rule" as const,
                             targetId: "t1",
                             patch: { ruleId, enabled: false },
                           },
@@ -1138,7 +1138,7 @@ export default function RuleModal({
                     : rampState.endScheduleAt
                       ? [
                           {
-                            targetType: "feature-rule" as const,
+                            type: "patch-rule" as const,
                             targetId:
                               ruleRampSchedule.targets.find(
                                 (t) => t.status === "active",
@@ -1235,7 +1235,7 @@ export default function RuleModal({
                 : rampState.endScheduleAt
                   ? [
                       {
-                        targetType: "feature-rule" as const,
+                        type: "patch-rule" as const,
                         targetId: "t1",
                         patch: { ruleId: effectiveRuleId, enabled: false },
                       },

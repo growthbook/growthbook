@@ -9,6 +9,8 @@ import {
   rollbackRampSchedule,
   addTargetRampSchedule,
   ejectTargetRampSchedule,
+  apiAdvanceRampSchedule,
+  getRampScheduleStatus,
 } from "./rampScheduleActions";
 import { listRampSchedules } from "./listRampSchedules";
 import { postRampSchedule } from "./postRampSchedule";
@@ -27,4 +29,6 @@ export const rampSchedulesRoutes: OpenApiRoute[] = [
   approveStepRampSchedule,
   addTargetRampSchedule,
   ejectTargetRampSchedule,
+  apiAdvanceRampSchedule,
+  getRampScheduleStatus,
 ];

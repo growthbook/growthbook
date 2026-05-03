@@ -118,9 +118,9 @@ type ApiRampTrigger =
   | { type: "scheduled"; at: string };
 
 type PostBodyAction = {
-  targetType?: "feature-rule";
+  type?: "patch-rule";
   targetId?: string;
-  patch: Partial<RampStepAction["patch"]>;
+  patch: Partial<Extract<RampStepAction, { type: "patch-rule" }>["patch"]>;
 };
 
 function forceMatchesValueType(
@@ -142,13 +142,14 @@ function remapTemplateActions(
   ruleId: string,
   valueType: FeatureInterface["valueType"],
 ): RampStepAction[] {
-  return (actions ?? []).map((a) => {
+  return (actions ?? []).map((a): RampStepAction => {
+    if (a.type !== "patch-rule") return a;
     const patch = { ...a.patch, ruleId };
     if ("force" in patch && !forceMatchesValueType(patch.force, valueType)) {
       const { force: _force, ...rest } = patch;
-      return { targetType: "feature-rule" as const, targetId, patch: rest };
+      return { type: "patch-rule" as const, targetId, patch: rest };
     }
-    return { targetType: "feature-rule" as const, targetId, patch };
+    return { type: "patch-rule" as const, targetId, patch };
   });
 }
 
@@ -166,9 +167,9 @@ function normalizeApiTrigger(
 
 function normalizeAction(action: PostBodyAction): RampStepAction {
   return {
-    targetType: "feature-rule" as const,
+    type: "patch-rule" as const,
     targetId: action.targetId ?? "",
-    patch: action.patch as RampStepAction["patch"],
+    patch: action.patch as Extract<RampStepAction, { type: "patch-rule" }>["patch"],
   };
 }
 
@@ -178,7 +179,7 @@ function injectTarget(
   ruleId: string,
 ): RampStepAction {
   return {
-    targetType: "feature-rule" as const,
+    type: "patch-rule" as const,
     targetId,
     patch: { ...action.patch, ruleId },
   };
@@ -397,7 +398,7 @@ export class RampScheduleModel extends BaseClass {
       ) {
         return [
           {
-            targetType: "feature-rule" as const,
+            type: "patch-rule" as const,
             targetId: targetId!,
             patch: {
               ruleId: body.ruleId!,
@@ -490,9 +491,9 @@ export class RampScheduleModel extends BaseClass {
     const body = req.body;
 
     const resolveTargetId = (action: {
-      targetType?: "feature-rule";
+      type?: "patch-rule";
       targetId?: string;
-      patch: unknown;
+      patch?: unknown;
     }): RampStepAction => {
       const tid = action.targetId;
       if (tid && tid !== "t1") {
@@ -523,9 +524,9 @@ export class RampScheduleModel extends BaseClass {
         (step: {
           trigger: unknown;
           actions?: {
-            targetType?: "feature-rule";
+            type?: "patch-rule";
             targetId?: string;
-            patch: unknown;
+            patch?: unknown;
           }[];
           approvalNotes?: string | null;
         }) => ({

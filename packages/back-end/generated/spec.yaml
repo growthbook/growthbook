@@ -15977,12 +15977,12 @@ paths:
                         items:
                           type: object
                           properties:
-                            targetType:
+                            type:
                               description: >-
                                 Omit when using featureId+ruleId+environment
                                 (auto-injected)
                               type: string
-                              const: feature-rule
+                              const: patch-rule
                             targetId:
                               description: >-
                                 Auto-injected when featureId+ruleId+environment
@@ -16071,12 +16071,12 @@ paths:
                   items:
                     type: object
                     properties:
-                      targetType:
+                      type:
                         description: >-
                           Omit when using featureId+ruleId+environment
                           (auto-injected)
                         type: string
-                        const: feature-rule
+                        const: patch-rule
                       targetId:
                         description: >-
                           Auto-injected when featureId+ruleId+environment are
@@ -16604,6 +16604,116 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/eject-target'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/{id}/actions/advance:
+    post:
+      operationId: apiAdvanceRampSchedule
+      summary: API-driven step advancement
+      description: |
+        Advances the schedule to the next step. Only allowed when the current
+        step has `apiAdvance: true`. Use this for external system integrations
+        (e.g. DataDog, CI pipelines).
+      tags:
+        - ramp-schedules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  description: Reason for advancing
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/advance'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/{id}/status:
+    get:
+      operationId: getRampScheduleStatus
+      summary: Get ramp schedule status summary
+      description: |
+        Returns a derived status summary of the ramp schedule, suitable
+        for monitoring dashboards and CI pipeline integrations.
+      tags:
+        - ramp-schedules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+                  scope:
+                    type: string
+                  currentStepIndex:
+                    type: number
+                  totalSteps:
+                    type: number
+                  gateCoverage:
+                    type: number
+                  lockdownMode:
+                    type: string
+                  guardrailCount:
+                    type: number
+                  startedAt:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  lastRollbackAt:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  lastRollbackReason:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                required:
+                  - id
+                  - status
+                  - currentStepIndex
+                  - totalSteps
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/status' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/namespaces:
     get:
@@ -23065,76 +23175,160 @@ paths:
                       actions:
                         type: array
                         items:
-                          type: object
-                          properties:
-                            targetType:
-                              type: string
-                              const: feature-rule
-                            targetId:
-                              type: string
-                            patch:
-                              type: object
+                          anyOf:
+                            - type: object
                               properties:
-                                ruleId:
+                                type:
                                   type: string
-                                coverage:
-                                  anyOf:
-                                    - type: number
+                                  const: patch-rule
+                                targetId:
+                                  type: string
+                                patch:
+                                  type: object
+                                  properties:
+                                    ruleId:
+                                      type: string
+                                    coverage:
+                                      anyOf:
+                                        - type: number
+                                          minimum: 0
+                                          maximum: 1
+                                        - type: 'null'
+                                    condition:
+                                      anyOf:
+                                        - type: string
+                                        - type: 'null'
+                                    savedGroups:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              match:
+                                                type: string
+                                                enum:
+                                                  - all
+                                                  - none
+                                                  - any
+                                              ids:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - match
+                                              - ids
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    prerequisites:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id:
+                                                type: string
+                                              condition:
+                                                type: string
+                                            required:
+                                              - id
+                                              - condition
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    enabled:
+                                      anyOf:
+                                        - type: boolean
+                                        - type: 'null'
+                                  required:
+                                    - ruleId
+                                  additionalProperties: false
+                              required:
+                                - type
+                                - targetId
+                                - patch
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: set-gate
+                                patch:
+                                  type: object
+                                  properties:
+                                    coverage:
+                                      type: number
                                       minimum: 0
                                       maximum: 1
-                                    - type: 'null'
-                                condition:
-                                  anyOf:
-                                    - type: string
-                                    - type: 'null'
-                                savedGroups:
-                                  anyOf:
-                                    - type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          match:
-                                            type: string
-                                            enum:
-                                              - all
-                                              - none
-                                              - any
-                                          ids:
-                                            type: array
-                                            items:
-                                              type: string
-                                        required:
-                                          - match
-                                          - ids
-                                        additionalProperties: false
-                                    - type: 'null'
-                                prerequisites:
-                                  anyOf:
-                                    - type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          id:
-                                            type: string
-                                          condition:
-                                            type: string
-                                        required:
-                                          - id
-                                          - condition
-                                        additionalProperties: false
-                                    - type: 'null'
-                                enabled:
-                                  anyOf:
-                                    - type: boolean
-                                    - type: 'null'
+                                    condition:
+                                      anyOf:
+                                        - type: string
+                                        - type: 'null'
+                                    savedGroups:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              match:
+                                                type: string
+                                                enum:
+                                                  - all
+                                                  - none
+                                                  - any
+                                              ids:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - match
+                                              - ids
+                                            additionalProperties: false
+                                        - type: 'null'
+                                  additionalProperties: false
                               required:
-                                - ruleId
+                                - type
+                                - patch
                               additionalProperties: false
-                          required:
-                            - targetType
-                            - targetId
-                            - patch
-                          additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: set-environment-enabled
+                                environment:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                              required:
+                                - type
+                                - environment
+                                - enabled
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: attach-monitoring
+                                safeRolloutId:
+                                  type: string
+                              required:
+                                - type
+                                - safeRolloutId
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: detach-monitoring
+                              required:
+                                - type
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: complete-rollout
+                              required:
+                                - type
+                              additionalProperties: false
                       approvalNotes:
                         anyOf:
                           - type: string
@@ -23265,76 +23459,160 @@ paths:
                       actions:
                         type: array
                         items:
-                          type: object
-                          properties:
-                            targetType:
-                              type: string
-                              const: feature-rule
-                            targetId:
-                              type: string
-                            patch:
-                              type: object
+                          anyOf:
+                            - type: object
                               properties:
-                                ruleId:
+                                type:
                                   type: string
-                                coverage:
-                                  anyOf:
-                                    - type: number
+                                  const: patch-rule
+                                targetId:
+                                  type: string
+                                patch:
+                                  type: object
+                                  properties:
+                                    ruleId:
+                                      type: string
+                                    coverage:
+                                      anyOf:
+                                        - type: number
+                                          minimum: 0
+                                          maximum: 1
+                                        - type: 'null'
+                                    condition:
+                                      anyOf:
+                                        - type: string
+                                        - type: 'null'
+                                    savedGroups:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              match:
+                                                type: string
+                                                enum:
+                                                  - all
+                                                  - none
+                                                  - any
+                                              ids:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - match
+                                              - ids
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    prerequisites:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id:
+                                                type: string
+                                              condition:
+                                                type: string
+                                            required:
+                                              - id
+                                              - condition
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    enabled:
+                                      anyOf:
+                                        - type: boolean
+                                        - type: 'null'
+                                  required:
+                                    - ruleId
+                                  additionalProperties: false
+                              required:
+                                - type
+                                - targetId
+                                - patch
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: set-gate
+                                patch:
+                                  type: object
+                                  properties:
+                                    coverage:
+                                      type: number
                                       minimum: 0
                                       maximum: 1
-                                    - type: 'null'
-                                condition:
-                                  anyOf:
-                                    - type: string
-                                    - type: 'null'
-                                savedGroups:
-                                  anyOf:
-                                    - type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          match:
-                                            type: string
-                                            enum:
-                                              - all
-                                              - none
-                                              - any
-                                          ids:
-                                            type: array
-                                            items:
-                                              type: string
-                                        required:
-                                          - match
-                                          - ids
-                                        additionalProperties: false
-                                    - type: 'null'
-                                prerequisites:
-                                  anyOf:
-                                    - type: array
-                                      items:
-                                        type: object
-                                        properties:
-                                          id:
-                                            type: string
-                                          condition:
-                                            type: string
-                                        required:
-                                          - id
-                                          - condition
-                                        additionalProperties: false
-                                    - type: 'null'
-                                enabled:
-                                  anyOf:
-                                    - type: boolean
-                                    - type: 'null'
+                                    condition:
+                                      anyOf:
+                                        - type: string
+                                        - type: 'null'
+                                    savedGroups:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              match:
+                                                type: string
+                                                enum:
+                                                  - all
+                                                  - none
+                                                  - any
+                                              ids:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - match
+                                              - ids
+                                            additionalProperties: false
+                                        - type: 'null'
+                                  additionalProperties: false
                               required:
-                                - ruleId
+                                - type
+                                - patch
                               additionalProperties: false
-                          required:
-                            - targetType
-                            - targetId
-                            - patch
-                          additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: set-environment-enabled
+                                environment:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                              required:
+                                - type
+                                - environment
+                                - enabled
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: attach-monitoring
+                                safeRolloutId:
+                                  type: string
+                              required:
+                                - type
+                                - safeRolloutId
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: detach-monitoring
+                              required:
+                                - type
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: complete-rollout
+                              required:
+                                - type
+                              additionalProperties: false
                       approvalNotes:
                         anyOf:
                           - type: string
@@ -23582,6 +23860,11 @@ paths:
                         items:
                           type: object
                           properties:
+                            type:
+                              type: string
+                              const: patch-rule
+                            targetId:
+                              type: string
                             patch:
                               type: object
                               properties:
@@ -23642,13 +23925,6 @@ paths:
                               required:
                                 - ruleId
                               additionalProperties: false
-                            targetType:
-                              type: string
-                              const: feature-rule
-                            targetId:
-                              type: string
-                          required:
-                            - patch
                           additionalProperties: false
                       approvalNotes:
                         anyOf:
@@ -23662,6 +23938,11 @@ paths:
                   items:
                     type: object
                     properties:
+                      type:
+                        type: string
+                        const: patch-rule
+                      targetId:
+                        type: string
                       patch:
                         type: object
                         properties:
@@ -23722,13 +24003,6 @@ paths:
                         required:
                           - ruleId
                         additionalProperties: false
-                      targetType:
-                        type: string
-                        const: feature-rule
-                      targetId:
-                        type: string
-                    required:
-                      - patch
                     additionalProperties: false
                 startDate:
                   anyOf:
@@ -28430,6 +28704,14 @@ components:
             ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         name:
           type: string
+        scope:
+          description: >-
+            "rule" = rule-level ramp; "feature" = top-level gate rollout. Absent
+            on legacy schedules (treated as "rule").
+          type: string
+          enum:
+            - rule
+            - feature
         entityType:
           type: string
           enum:
@@ -28525,82 +28807,185 @@ components:
               actions:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    targetType:
-                      type: string
-                      const: feature-rule
-                    targetId:
-                      type: string
-                    patch:
-                      type: object
+                  anyOf:
+                    - type: object
                       properties:
-                        ruleId:
+                        type:
                           type: string
-                        coverage:
-                          anyOf:
-                            - type: number
+                          const: patch-rule
+                        targetId:
+                          type: string
+                        patch:
+                          type: object
+                          properties:
+                            ruleId:
+                              type: string
+                            coverage:
+                              anyOf:
+                                - type: number
+                                  minimum: 0
+                                  maximum: 1
+                                - type: 'null'
+                            condition:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            savedGroups:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                - type: 'null'
+                            prerequisites:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
+                                - type: 'null'
+                            force:
+                              description: Force value (any JSON type)
+                            enabled:
+                              anyOf:
+                                - type: boolean
+                                - type: 'null'
+                          required:
+                            - ruleId
+                          additionalProperties: false
+                      required:
+                        - type
+                        - targetId
+                        - patch
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: set-gate
+                        patch:
+                          type: object
+                          properties:
+                            coverage:
+                              type: number
                               minimum: 0
                               maximum: 1
-                            - type: 'null'
-                        condition:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        savedGroups:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: object
-                                properties:
-                                  match:
-                                    type: string
-                                    enum:
-                                      - all
-                                      - none
-                                      - any
-                                  ids:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - match
-                                  - ids
-                                additionalProperties: false
-                            - type: 'null'
-                        prerequisites:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: object
-                                properties:
-                                  id:
-                                    type: string
-                                  condition:
-                                    type: string
-                                required:
-                                  - id
-                                  - condition
-                                additionalProperties: false
-                            - type: 'null'
-                        force:
-                          description: Force value (any JSON type)
-                        enabled:
-                          anyOf:
-                            - type: boolean
-                            - type: 'null'
+                            condition:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            savedGroups:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                - type: 'null'
+                          additionalProperties: false
                       required:
-                        - ruleId
+                        - type
+                        - patch
                       additionalProperties: false
-                  required:
-                    - targetType
-                    - targetId
-                    - patch
-                  additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: set-environment-enabled
+                        environment:
+                          type: string
+                        enabled:
+                          type: boolean
+                      required:
+                        - type
+                        - environment
+                        - enabled
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: attach-monitoring
+                        safeRolloutId:
+                          type: string
+                      required:
+                        - type
+                        - safeRolloutId
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: detach-monitoring
+                      required:
+                        - type
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: complete-rollout
+                      required:
+                        - type
+                      additionalProperties: false
               approvalNotes:
                 anyOf:
                   - type: string
                   - type: 'null'
+              monitored:
+                type: boolean
+              holdConditions:
+                type: object
+                properties:
+                  minDurationMs:
+                    type: integer
+                    exclusiveMinimum: 0
+                  maxDurationMs:
+                    type: integer
+                    exclusiveMinimum: 0
+                  minSampleSize:
+                    type: integer
+                    exclusiveMinimum: 0
+                  requireHealthy:
+                    type: boolean
+                additionalProperties: false
+              apiAdvance:
+                type: boolean
             required:
               - trigger
               - actions
@@ -28611,78 +28996,162 @@ components:
             Represents the final desired rule state.
           type: array
           items:
-            type: object
-            properties:
-              targetType:
-                type: string
-                const: feature-rule
-              targetId:
-                type: string
-              patch:
-                type: object
+            anyOf:
+              - type: object
                 properties:
-                  ruleId:
+                  type:
                     type: string
-                  coverage:
-                    anyOf:
-                      - type: number
+                    const: patch-rule
+                  targetId:
+                    type: string
+                  patch:
+                    type: object
+                    properties:
+                      ruleId:
+                        type: string
+                      coverage:
+                        anyOf:
+                          - type: number
+                            minimum: 0
+                            maximum: 1
+                          - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
+                      force:
+                        description: Force value (any JSON type)
+                      enabled:
+                        anyOf:
+                          - type: boolean
+                          - type: 'null'
+                    required:
+                      - ruleId
+                    additionalProperties: false
+                required:
+                  - type
+                  - targetId
+                  - patch
+                additionalProperties: false
+              - type: object
+                properties:
+                  type:
+                    type: string
+                    const: set-gate
+                  patch:
+                    type: object
+                    properties:
+                      coverage:
+                        type: number
                         minimum: 0
                         maximum: 1
-                      - type: 'null'
-                  condition:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
-                  savedGroups:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: object
-                          properties:
-                            match:
-                              type: string
-                              enum:
-                                - all
-                                - none
-                                - any
-                            ids:
-                              type: array
-                              items:
-                                type: string
-                          required:
-                            - match
-                            - ids
-                          additionalProperties: false
-                      - type: 'null'
-                  prerequisites:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                            condition:
-                              type: string
-                          required:
-                            - id
-                            - condition
-                          additionalProperties: false
-                      - type: 'null'
-                  force:
-                    description: Force value (any JSON type)
-                  enabled:
-                    anyOf:
-                      - type: boolean
-                      - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                    additionalProperties: false
                 required:
-                  - ruleId
+                  - type
+                  - patch
                 additionalProperties: false
-            required:
-              - targetType
-              - targetId
-              - patch
-            additionalProperties: false
+              - type: object
+                properties:
+                  type:
+                    type: string
+                    const: set-environment-enabled
+                  environment:
+                    type: string
+                  enabled:
+                    type: boolean
+                required:
+                  - type
+                  - environment
+                  - enabled
+                additionalProperties: false
+              - type: object
+                properties:
+                  type:
+                    type: string
+                    const: attach-monitoring
+                  safeRolloutId:
+                    type: string
+                required:
+                  - type
+                  - safeRolloutId
+                additionalProperties: false
+              - type: object
+                properties:
+                  type:
+                    type: string
+                    const: detach-monitoring
+                required:
+                  - type
+                additionalProperties: false
+              - type: object
+                properties:
+                  type:
+                    type: string
+                    const: complete-rollout
+                required:
+                  - type
+                additionalProperties: false
         startDate:
           description: >-
             When the ramp fires. Absent/null means immediately on publish; set
@@ -28776,6 +29245,134 @@ components:
           description: Milliseconds since startedAt (computed at response time, not stored)
           anyOf:
             - type: integer
+            - type: 'null'
+        gateConfig:
+          type: object
+          properties:
+            seed:
+              type: string
+            hashAttribute:
+              type: string
+            hashVersion:
+              anyOf:
+                - type: number
+                  const: 1
+                - type: number
+                  const: 2
+            coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            condition:
+              anyOf:
+                - type: string
+                - type: 'null'
+            savedGroups:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                - type: 'null'
+          required:
+            - seed
+            - hashAttribute
+            - hashVersion
+            - coverage
+          additionalProperties: false
+        monitoringConfig:
+          type: object
+          properties:
+            datasourceId:
+              type: string
+            exposureQueryId:
+              type: string
+            guardrailMetricIds:
+              type: array
+              items:
+                type: string
+            queryCadenceMinutes:
+              type: integer
+              exclusiveMinimum: 0
+            rollbackRules:
+              type: array
+              items:
+                type: object
+                properties:
+                  metricId:
+                    type: string
+                  deltaThreshold:
+                    type: number
+                  direction:
+                    type: string
+                    enum:
+                      - up
+                      - down
+                      - both
+                  action:
+                    type: string
+                    enum:
+                      - rollback
+                      - pause
+                required:
+                  - metricId
+                  - direction
+                  - action
+                additionalProperties: false
+            apiRollback:
+              type: boolean
+          required:
+            - datasourceId
+            - exposureQueryId
+            - guardrailMetricIds
+          additionalProperties: false
+        lockdownConfig:
+          type: object
+          properties:
+            mode:
+              type: string
+              enum:
+                - none
+                - all-edits
+                - elevated-only
+            allowedApiKeyTags:
+              type: array
+              items:
+                type: string
+          required:
+            - mode
+          additionalProperties: false
+        currentStepEnteredAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
+        lastRollbackAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
+        lastRollbackReason:
+          anyOf:
+            - type: string
             - type: 'null'
       required:
         - id
@@ -30804,76 +31401,160 @@ components:
               actions:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    targetType:
-                      type: string
-                      const: feature-rule
-                    targetId:
-                      type: string
-                    patch:
-                      type: object
+                  anyOf:
+                    - type: object
                       properties:
-                        ruleId:
+                        type:
                           type: string
-                        coverage:
-                          anyOf:
-                            - type: number
+                          const: patch-rule
+                        targetId:
+                          type: string
+                        patch:
+                          type: object
+                          properties:
+                            ruleId:
+                              type: string
+                            coverage:
+                              anyOf:
+                                - type: number
+                                  minimum: 0
+                                  maximum: 1
+                                - type: 'null'
+                            condition:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            savedGroups:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                - type: 'null'
+                            prerequisites:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
+                                - type: 'null'
+                            enabled:
+                              anyOf:
+                                - type: boolean
+                                - type: 'null'
+                          required:
+                            - ruleId
+                          additionalProperties: false
+                      required:
+                        - type
+                        - targetId
+                        - patch
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: set-gate
+                        patch:
+                          type: object
+                          properties:
+                            coverage:
+                              type: number
                               minimum: 0
                               maximum: 1
-                            - type: 'null'
-                        condition:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        savedGroups:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: object
-                                properties:
-                                  match:
-                                    type: string
-                                    enum:
-                                      - all
-                                      - none
-                                      - any
-                                  ids:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - match
-                                  - ids
-                                additionalProperties: false
-                            - type: 'null'
-                        prerequisites:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: object
-                                properties:
-                                  id:
-                                    type: string
-                                  condition:
-                                    type: string
-                                required:
-                                  - id
-                                  - condition
-                                additionalProperties: false
-                            - type: 'null'
-                        enabled:
-                          anyOf:
-                            - type: boolean
-                            - type: 'null'
+                            condition:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            savedGroups:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                - type: 'null'
+                          additionalProperties: false
                       required:
-                        - ruleId
+                        - type
+                        - patch
                       additionalProperties: false
-                  required:
-                    - targetType
-                    - targetId
-                    - patch
-                  additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: set-environment-enabled
+                        environment:
+                          type: string
+                        enabled:
+                          type: boolean
+                      required:
+                        - type
+                        - environment
+                        - enabled
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: attach-monitoring
+                        safeRolloutId:
+                          type: string
+                      required:
+                        - type
+                        - safeRolloutId
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: detach-monitoring
+                      required:
+                        - type
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: complete-rollout
+                      required:
+                        - type
+                      additionalProperties: false
               approvalNotes:
                 anyOf:
                   - type: string

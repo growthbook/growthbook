@@ -1645,18 +1645,21 @@ async function createRampSchedulesForRevision(
 
     const targetId = uuidv4();
 
-    // Inject the generated targetId into every action. The caller's targetId
-    // is ignored — there is exactly one target per revision create action.
+    // Inject the generated targetId into every patch-rule action.
+    // Non-patch-rule actions pass through unchanged.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
-    ): RampStepAction => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch: {
-        ...a.patch,
-        ruleId: action.ruleId,
-      } as RampStepAction["patch"],
-    });
+    ): RampStepAction => {
+      if (a.type !== "patch-rule") return a;
+      return {
+        type: "patch-rule" as const,
+        targetId,
+        patch: {
+          ...a.patch,
+          ruleId: action.ruleId,
+        },
+      };
+    };
 
     // Template is used as a fallback; explicit steps/endActions win.
     let template: RampScheduleTemplateInterface | undefined;
@@ -1713,12 +1716,12 @@ async function createRampSchedulesForRevision(
         : template?.endPatch && Object.keys(template.endPatch).length > 0
           ? [
               {
-                targetType: "feature-rule" as const,
+                type: "patch-rule" as const,
                 targetId,
                 patch: {
                   ruleId: action.ruleId,
                   ...template.endPatch,
-                } as RampStepAction["patch"],
+                },
               },
             ]
           : [];

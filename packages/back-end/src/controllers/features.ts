@@ -40,6 +40,7 @@ import {
   RevisionMetadata,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
+  RampStepAction,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -3244,8 +3245,8 @@ export async function putFeatureRule(
       const primaryTargetId = existing.targets.find(
         (t) => t.status === "active",
       )?.id;
-      const remapT1 = <T extends { targetId: string }>(a: T): T =>
-        primaryTargetId && a.targetId === "t1"
+      const remapT1 = (a: RampStepAction): RampStepAction =>
+        a.type === "patch-rule" && primaryTargetId && a.targetId === "t1"
           ? { ...a, targetId: primaryTargetId }
           : a;
       if (rampSchedulePayload.name !== undefined)

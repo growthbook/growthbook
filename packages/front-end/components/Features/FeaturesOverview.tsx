@@ -104,6 +104,7 @@ import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import FeatureRules from "./FeatureRules";
+import FeatureRolloutSection from "./FeatureRolloutSection";
 
 export const featureStatusColors = {
   on: "var(--green-10)",
@@ -1645,6 +1646,14 @@ export default function FeaturesOverview({
             />
           )}
         </Frame>
+
+        {/* Feature-level rollout section */}
+        <FeatureRolloutSection
+          feature={feature}
+          mutate={mutate}
+          canEdit={canEdit && !isReadOnly}
+        />
+
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">

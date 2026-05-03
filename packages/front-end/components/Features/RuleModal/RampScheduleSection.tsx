@@ -183,11 +183,13 @@ const COL = {
 
 // ─── Build helpers ───────────────────────────────────────────────────────────
 
+type PatchRuleAction = Extract<RampStepAction, { type: "patch-rule" }>;
+
 export function buildPatch(
   patch: UIStepPatch,
   ruleId: string,
-): RampStepAction["patch"] {
-  const out: RampStepAction["patch"] = { ruleId };
+): PatchRuleAction["patch"] {
+  const out: PatchRuleAction["patch"] = { ruleId };
   if (patch.coverage !== undefined) out.coverage = patch.coverage / 100;
   if (patch.condition !== undefined) out.condition = patch.condition;
   if (patch.savedGroups !== undefined) out.savedGroups = patch.savedGroups;
@@ -213,7 +215,7 @@ export function buildEndActions(
   if (isEmpty) return [];
   return [
     {
-      targetType: "feature-rule",
+      type: "patch-rule" as const,
       targetId: "t1",
       patch,
     },
@@ -251,7 +253,7 @@ export function buildRampSteps(
               seconds: Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit],
             }
           : { type: "approval" as const },
-      actions: [{ targetType: "feature-rule" as const, targetId, patch }],
+      actions: [{ type: "patch-rule" as const, targetId, patch }],
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
@@ -262,12 +264,7 @@ export function buildRampSteps(
 // ── Template structural comparison helpers ────────────────────────────────────
 
 function normalizeActionPatch(patch: Record<string, unknown>) {
-  return pick(patch, [
-    ...TEMPLATE_PATCH_FIELDS,
-    "ruleId",
-    "targetId",
-    "targetType",
-  ]);
+  return pick(patch, [...TEMPLATE_PATCH_FIELDS, "ruleId", "targetId", "type"]);
 }
 
 function normalizeActions(
@@ -1526,7 +1523,10 @@ export function reconstructUIPatch(
 
 // Converts a stored RampStep back to a UIStep.
 export function reconstructUIStep(step: RampStep): UIStep {
-  const patch = reconstructUIPatch(step.actions[0]?.patch);
+  const firstAction = step.actions[0];
+  const firstPatch =
+    firstAction?.type === "patch-rule" ? firstAction.patch : undefined;
+  const patch = reconstructUIPatch(firstPatch);
   // Open additional effects if the stored patch already has any effect fields set.
   const additionalEffectsOpen = VALID_STEP_FIELDS.some(
     (f) => patch[f] !== undefined,
@@ -1571,7 +1571,9 @@ export function reconstructUIEndPatch(
   endActions: RampScheduleInterface["endActions"],
 ): UIStepPatch {
   if (!endActions?.length) return { coverage: 100 };
-  return reconstructUIPatch(endActions[0]?.patch);
+  const first = endActions[0];
+  const patch = first?.type === "patch-rule" ? first.patch : undefined;
+  return reconstructUIPatch(patch);
 }
 
 // Builds a RampSectionState from an existing RampScheduleInterface for editing.
@@ -1659,7 +1661,7 @@ export function templateToSectionState(
 ): RampSectionState {
   const rawEndPatch = template.endPatch;
   const endPatch: UIStepPatch = rawEndPatch
-    ? reconstructUIPatch(rawEndPatch as RampStepAction["patch"])
+    ? reconstructUIPatch(rawEndPatch as PatchRuleAction["patch"])
     : { coverage: 100 };
   return {
     mode,
@@ -1689,14 +1691,17 @@ export function buildTemplatePayload(
   const PLACEHOLDER_RULE = "template-rule";
 
   function stripIds(actions: RampStepAction[]): RampStepAction[] {
-    return actions.map((a) => ({
-      ...a,
-      targetId: PLACEHOLDER_TARGET,
-      patch: {
-        ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
-        ruleId: PLACEHOLDER_RULE,
-      },
-    }));
+    return actions.map((a) => {
+      if (a.type !== "patch-rule") return a;
+      return {
+        ...a,
+        targetId: PLACEHOLDER_TARGET,
+        patch: {
+          ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
+          ruleId: PLACEHOLDER_RULE,
+        },
+      };
+    });
   }
 
   const steps = buildRampSteps(
