@@ -31,7 +31,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -229,7 +229,7 @@ export default function FeaturesPage() {
                     <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
                   </th>
                 )}
-                <th>Stale</th>
+                <th>Status</th>
                 <th style={{ width: 30 }}></th>
               </tr>
             </thead>
@@ -350,18 +350,16 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td>
-                      {!feature.archived && (
-                        <StaleFeatureIcon
-                          context="list"
-                          neverStale={feature.neverStale}
-                          valueType={feature.valueType}
-                          staleData={staleHook.getStaleState(feature.id)}
-                          fetchStaleData={async () => {
-                            staleHook.invalidate([feature.id]);
-                            await staleHook.fetchSome([feature.id]);
-                          }}
-                        />
-                      )}
+                      <FeatureStatusBadge
+                        feature={feature}
+                        envStatus={statusHook.environmentStatus[feature.id]}
+                        context="list"
+                        staleData={staleHook.getStaleState(feature.id)}
+                        fetchStaleData={async () => {
+                          staleHook.invalidate([feature.id]);
+                          await staleHook.fetchSome([feature.id]);
+                        }}
+                      />
                     </td>
                     <td>
                       <MoreMenu>
