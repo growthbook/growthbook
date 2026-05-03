@@ -553,13 +553,6 @@ export default function FeaturesOverview({
       : ("inactive" as const)
     : false;
 
-  const enabledEnvsSubtext =
-    isDraft || isPendingReview
-      ? "in this draft"
-      : !isLive
-        ? "in this revision"
-        : null;
-
   // TODO: support multiple per-project approval configs
   const featureReviewConfig = getReviewSetting(
     Array.isArray(settings?.requireReviews)
@@ -1309,13 +1302,6 @@ export default function FeaturesOverview({
                       <span className="font-weight-bold">
                         Enabled Environments
                       </span>
-                      {enabledEnvsSubtext ? (
-                        <div style={{ marginBottom: -20 }}>
-                          <Text as="div" size="small" color="text-mid">
-                            {enabledEnvsSubtext}
-                          </Text>
-                        </div>
-                      ) : null}
                     </Box>
                     {envs.map((env) => (
                       <Box
@@ -1497,11 +1483,6 @@ export default function FeaturesOverview({
               <Flex align="center" justify="between" mb="2">
                 <span>
                   <span className="font-weight-bold">Enabled Environments</span>
-                  {enabledEnvsSubtext ? (
-                    <Text as="div" size="small" color="text-mid">
-                      {enabledEnvsSubtext}
-                    </Text>
-                  ) : null}
                 </span>
                 {!isReadOnly && (
                   <Button
@@ -1513,8 +1494,8 @@ export default function FeaturesOverview({
                   </Button>
                 )}
               </Flex>
-              <Separator size="4" mt="1" mb="3" />
               <Flex
+                mt="3"
                 mb="4"
                 justify="start"
                 align="center"
@@ -1645,14 +1626,16 @@ export default function FeaturesOverview({
               mb="0"
             />
           )}
-        </Frame>
 
-        {/* Feature-level rollout section */}
-        <FeatureRolloutSection
-          feature={feature}
-          mutate={mutate}
-          canEdit={canEdit && !isReadOnly}
-        />
+          <Separator size="4" mt="6" mb="4" />
+          <Box>
+            <FeatureRolloutSection
+              feature={feature}
+              mutate={mutate}
+              canEdit={canEdit && !isReadOnly}
+            />
+          </Box>
+        </Frame>
 
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">

@@ -1,7 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { RampScheduleInterface, RampScheduleScope } from "shared/validators";
-import { MdRocketLaunch } from "react-icons/md";
 import {
   PiShieldCheckBold,
   PiLockSimpleBold,
@@ -11,11 +10,12 @@ import {
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
-import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
+// eslint-disable-next-line no-restricted-imports
+import Modal from "@/components/Modal";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 
@@ -86,6 +86,7 @@ export default function FeatureRolloutSection({
   canEdit: boolean;
 }) {
   const { apiCall } = useAuth();
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data: scheduleData } = useApi<{
     rampSchedule: RampScheduleInterface;
@@ -115,14 +116,11 @@ export default function FeatureRolloutSection({
 
   if (!hasActiveRollout && !featureSchedules.length) {
     return (
-      <Frame mb="4" px="6" py="4">
+      <>
         <Flex align="center" justify="between">
-          <Flex align="center" gap="2">
-            <MdRocketLaunch size={18} />
-            <Heading size="small" as="h4" mb="0">
-              Controlled Rollout
-            </Heading>
-          </Flex>
+          <Heading as="h4" size="small" mb="0">
+            Feature Rollout
+          </Heading>
           {canEdit && (
             <Tooltip
               body={
@@ -133,18 +131,31 @@ export default function FeatureRolloutSection({
             >
               <Button
                 size="sm"
-                variant={isFeatureLiveInAnyEnv ? "outline" : "solid"}
+                variant="ghost"
+                onClick={() => setShowCreateModal(true)}
               >
                 Plan Rollout
               </Button>
             </Tooltip>
           )}
         </Flex>
-        <Text as="p" size="small" color="text-mid" mt="2" mb="0">
-          Safely publish this feature with staged coverage, monitoring, and
-          approval gates.
-        </Text>
-      </Frame>
+        {showCreateModal && (
+          <Modal
+            trackingEventModalType="plan-feature-rollout"
+            open={true}
+            close={() => setShowCreateModal(false)}
+            header="Plan Feature Rollout"
+            closeCta="Close"
+            useRadixButton={true}
+          >
+            <Text as="p">
+              Feature rollout creation is coming soon. This will allow you to
+              safely ramp this feature into production with monitoring and
+              approval gates.
+            </Text>
+          </Modal>
+        )}
+      </>
     );
   }
 
@@ -158,10 +169,9 @@ export default function FeatureRolloutSection({
   const monitoring = schedule.monitoringConfig;
 
   return (
-    <Frame mb="4" px="6" py="4">
+    <Box>
       <Flex align="center" justify="between" mb="3">
         <Flex align="center" gap="2">
-          <MdRocketLaunch size={18} />
           <Heading size="small" as="h4" mb="0">
             {scopeLabel(schedule.scope)}
           </Heading>
@@ -325,6 +335,6 @@ export default function FeatureRolloutSection({
           View full schedule
         </a>
       </Flex>
-    </Frame>
+    </Box>
   );
 }
