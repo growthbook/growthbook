@@ -130,6 +130,28 @@ export class Permissions {
     return this.checkGlobalPermission("createMetricGroups");
   };
 
+  // Session Replay permissions are project-scoped. A session-metadata doc can
+  // optionally carry a `projects` array (derived from the experiments / pages
+  // touched during the session). Sessions with no projects array are treated
+  // as "all projects" — same convention as canReadMultiProjectResource.
+  public canViewSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "viewSessionReplay",
+    );
+  };
+
+  public canDeleteSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "deleteSessionReplay",
+    );
+  };
+
   public canManageOrgSettings = (): boolean => {
     return this.checkGlobalPermission("organizationSettings");
   };
