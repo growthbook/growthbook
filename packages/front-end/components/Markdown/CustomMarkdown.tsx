@@ -4,8 +4,8 @@ import { PiNote } from "react-icons/pi";
 import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import Link from "@/ui/Link";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Markdown from "./Markdown";
 import styles from "./CustomMarkdown.module.scss";
 
@@ -59,7 +59,7 @@ const CustomMarkdown: React.FC<Props> = ({ page, variables }) => {
   return (
     <>
       {showModal && (
-        <DialogLayout
+        <ModalStandard
           trackingEventModalType=""
           open={true}
           header={PAGE_TO_CTA[page] + organization.name}
@@ -67,7 +67,7 @@ const CustomMarkdown: React.FC<Props> = ({ page, variables }) => {
           size="lg"
         >
           <Markdown>{renderedMarkdown}</Markdown>
-        </DialogLayout>
+        </ModalStandard>
       )}
 
       <div className={clsx(styles.customMarkdown, "appbox p-4")}>
