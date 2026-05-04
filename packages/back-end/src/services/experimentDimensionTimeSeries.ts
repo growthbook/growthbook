@@ -23,7 +23,7 @@ export function isDimensionTimeSeriesCompatibleAnalysisSettings({
   settings: ExperimentSnapshotAnalysisSettings;
   dimensionId?: string;
 }): boolean {
-  if (settings.baselineVariationIndex !== 0) return false;
+  if ((settings.baselineVariationIndex ?? 0) !== 0) return false;
   // TODO: Add support for non-precomputed dimensions
   if (dimensionId && !isPrecomputedDimension(dimensionId)) return false;
 

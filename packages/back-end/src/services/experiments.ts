@@ -2124,11 +2124,6 @@ export async function createSnapshotAnalysis(
   return analysis;
 }
 
-/**
- * Handles multiple analysis for a single snapshot
- * by batching them into a single gbstats call
- * and a single write to the database
- */
 export async function createSnapshotAnalysesBatched(
   context: ReqContext | ApiReqContext,
   {

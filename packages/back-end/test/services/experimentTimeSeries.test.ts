@@ -307,4 +307,30 @@ describe("time series analysis settings", () => {
       }),
     ]);
   });
+
+  it("treats omitted baseline variation as control baseline", () => {
+    const selected = getTimeSeriesAnalyses({
+      analyses: [
+        makeAnalysis({
+          differenceType: "relative",
+          value: 1.2,
+          settings: { baselineVariationIndex: undefined },
+        }),
+        makeAnalysis({
+          differenceType: "absolute",
+          value: 12,
+          settings: { baselineVariationIndex: undefined },
+        }),
+        makeAnalysis({
+          differenceType: "scaled",
+          value: 120,
+          settings: { baselineVariationIndex: undefined },
+        }),
+      ],
+    });
+
+    expect(
+      selected.map((analysis) => analysis.settings.differenceType),
+    ).toEqual(["relative", "absolute", "scaled"]);
+  });
 });
