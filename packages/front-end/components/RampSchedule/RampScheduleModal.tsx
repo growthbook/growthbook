@@ -88,6 +88,7 @@ function buildStepsForAllTargets(
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
+      ...(s.monitored ? { monitored: true } : {}),
     };
   });
 }

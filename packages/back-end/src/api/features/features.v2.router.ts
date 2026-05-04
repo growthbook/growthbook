@@ -25,6 +25,8 @@ import { putFeatureRevisionRuleV2 } from "./putFeatureRevisionRuleV2";
 import { deleteFeatureRevisionRuleV2 } from "./deleteFeatureRevisionRuleV2";
 import { putFeatureRevisionRuleRampScheduleV2 } from "./putFeatureRevisionRuleRampScheduleV2";
 import { deleteFeatureRevisionRuleRampScheduleV2 } from "./deleteFeatureRevisionRuleRampScheduleV2";
+import { putFeatureRevisionRolloutV2 } from "./putFeatureRevisionRolloutV2";
+import { deleteFeatureRevisionRolloutV2 } from "./deleteFeatureRevisionRolloutV2";
 import { postFeatureRevisionToggleV2 } from "./postFeatureRevisionToggleV2";
 import { putFeatureRevisionDefaultValueV2 } from "./putFeatureRevisionDefaultValueV2";
 import { putFeatureRevisionPrerequisitesV2 } from "./putFeatureRevisionPrerequisitesV2";
@@ -71,6 +73,10 @@ export const featureV2Routes: OpenApiRoute[] = [
   postFeatureRevisionRulesReorderV2,
   putFeatureRevisionRuleRampScheduleV2,
   deleteFeatureRevisionRuleRampScheduleV2,
+
+  // Feature-level rollout
+  putFeatureRevisionRolloutV2,
+  deleteFeatureRevisionRolloutV2,
 
   // Review & lifecycle
   postFeatureRevisionRequestReviewV2,

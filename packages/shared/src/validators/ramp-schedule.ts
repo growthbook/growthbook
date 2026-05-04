@@ -74,12 +74,11 @@ export type MonitoringConfig = z.infer<typeof monitoringConfigSchema>;
 // Lockdown config
 // ---------------------------------------------------------------------------
 
-export const lockdownModeArray = ["none", "all-edits", "elevated-only"] as const;
+export const lockdownModeArray = ["none", "locked"] as const;
 export type LockdownMode = (typeof lockdownModeArray)[number];
 
 export const lockdownConfigSchema = z.object({
   mode: z.enum(lockdownModeArray),
-  allowedApiKeyTags: z.array(z.string()).optional(),
 });
 export type LockdownConfig = z.infer<typeof lockdownConfigSchema>;
 

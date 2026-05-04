@@ -876,6 +876,14 @@ app.put(
   featuresController.putSafeRolloutStatus,
 );
 app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
+app.put(
+  "/feature/:id/:version/rollout",
+  featuresController.putFeatureRollout,
+);
+app.delete(
+  "/feature/:id/:version/rollout",
+  featuresController.deleteFeatureRollout,
+);
 app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
 app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);
 app.delete("/feature/:id/prerequisite", featuresController.deletePrerequisite);

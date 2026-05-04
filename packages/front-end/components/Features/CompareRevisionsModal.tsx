@@ -603,6 +603,45 @@ function rampDiffsForRevision(
             },
           ],
         });
+      } else if (action.mode === "create-feature-rollout") {
+        const stepCount = action.steps?.length ?? 0;
+        const isMonitored = action.monitoringConfig != null;
+        const isLocked = action.lockdownConfig?.mode === "locked";
+        diffs.push({
+          title: `Feature Rollout${action.name ? ` – ${action.name}` : ""}`,
+          a: "",
+          b: JSON.stringify(
+            {
+              name: action.name,
+              gateConfig: action.gateConfig,
+              monitoringConfig: action.monitoringConfig,
+              lockdownConfig: action.lockdownConfig,
+              steps: action.steps,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <p className="mb-0">
+              Creates a feature-level rollout with {stepCount} step
+              {stepCount !== 1 ? "s" : ""}
+              {isMonitored ? ", guardrail monitoring" : ""}
+              {isLocked ? ", and lockdown" : ""}.{" "}
+              {action.startDate
+                ? "Starts at a scheduled date/time."
+                : "Starts automatically on publish."}
+            </p>
+          ),
+          titleSuffix: <PendingPublishBadge />,
+          badges: [
+            {
+              label: action.name
+                ? `Feature rollout: ${action.name}`
+                : "Feature rollout",
+              action: "create feature rollout",
+            },
+          ],
+        });
       } else if (action.mode === "detach") {
         diffs.push({
           title: `Remove from Ramp Schedule (pending)`,

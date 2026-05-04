@@ -1765,6 +1765,74 @@ async function createRampSchedulesForRevision(
   return createdIds;
 }
 
+// Create ramp schedules for `mode === "create-feature-rollout"` actions.
+// Similar to createRampSchedulesForRevision but for feature-level rollouts.
+async function createFeatureRolloutsForRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: { version: number },
+  actions: RevisionRampAction[],
+): Promise<string[]> {
+  const createdIds: string[] = [];
+
+  for (const action of actions) {
+    if (action.mode !== "create-feature-rollout") continue;
+
+    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+      context.throwPlanDoesNotAllowError(
+        "Ramp schedules require a Pro plan or above.",
+      );
+    }
+
+    const targetId = uuidv4();
+    const defaultName = `Feature rollout \u2013 ${new Date().toLocaleDateString(
+      "en-US",
+      { month: "short", year: "numeric" },
+    )}`;
+
+    const startDate = action.startDate ? new Date(action.startDate) : undefined;
+    const endCondition = action.endCondition?.trigger
+      ? { trigger: action.endCondition.trigger }
+      : undefined;
+
+    const created = await context.models.rampSchedules.create({
+      name: action.name ?? defaultName,
+      entityType: "feature",
+      entityId: feature.id,
+      targets: [
+        {
+          id: targetId,
+          entityType: "feature",
+          entityId: feature.id,
+          ruleId: null,
+          environment: null,
+          status: "active",
+          activatingRevisionVersion: revision.version,
+        },
+      ],
+      steps: action.steps ?? [],
+      endActions: action.endActions,
+      startDate,
+      endCondition,
+      gateConfig: action.gateConfig,
+      monitoringConfig: action.monitoringConfig,
+      lockdownConfig: action.lockdownConfig,
+      status: "pending",
+      currentStepIndex: -1,
+      nextStepAt:
+        !startDate && (action.steps?.length ?? 0) > 0
+          ? new Date()
+          : (startDate ?? null),
+      startedAt: null,
+      phaseStartedAt: null,
+    });
+
+    createdIds.push(created.id);
+  }
+
+  return createdIds;
+}
+
 /**
  * Apply detach/update ramp actions stored on a revision.
  * Best-effort: logs errors but does not throw, since these run after the feature is published.
@@ -1884,6 +1952,9 @@ export async function publishRevision(
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",
   );
+  const featureRolloutActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "create-feature-rollout",
+  );
   const preCreatedScheduleIds: string[] = [];
   if (createActions.length) {
     const ids = await createRampSchedulesForRevision(
@@ -1891,6 +1962,15 @@ export async function publishRevision(
       feature,
       revision,
       createActions,
+    );
+    preCreatedScheduleIds.push(...ids);
+  }
+  if (featureRolloutActions.length) {
+    const ids = await createFeatureRolloutsForRevision(
+      context,
+      feature,
+      revision,
+      featureRolloutActions,
     );
     preCreatedScheduleIds.push(...ids);
   }

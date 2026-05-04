@@ -376,6 +376,21 @@ export const revisionRampCreateFeatureRolloutAction = z.object({
   lockdownConfig: lockdownConfigSchema.optional(),
 });
 
+// API input variant for feature-level rollouts.
+// Uses the full rampStep/rampStepAction schemas (set-gate, set-environment-enabled, etc.)
+// rather than the rule-scoped revisionApiRampStep which only supports patch-rule.
+export const apiRevisionRampCreateFeatureRolloutAction = z.object({
+  name: z.string().optional(),
+  templateId: z.string().optional(),
+  steps: z.array(rampStep).optional(),
+  endActions: z.array(rampStepAction).optional(),
+  startDate: z.string().optional().nullable(),
+  endCondition: revisionRampEndConditionSchema.optional(),
+  gateConfig: gateConfigSchema,
+  monitoringConfig: monitoringConfigSchema.optional(),
+  lockdownConfig: lockdownConfigSchema.optional(),
+});
+
 export const revisionRampDetachAction = z.object({
   mode: z.literal("detach"),
   rampScheduleId: z.string(),

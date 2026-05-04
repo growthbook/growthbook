@@ -12,6 +12,7 @@ import {
   PiInfo,
   PiCaretDownBold,
   PiBookmarkSimple,
+  PiShieldCheckBold,
 } from "react-icons/pi";
 import type {
   FeatureInterface,
@@ -100,6 +101,7 @@ export type UIStep = {
   approvalNotes: string;
   notesOpen: boolean; // UI-only: whether the notes field is expanded
   additionalEffectsOpen: boolean; // UI-only: whether the effects sub-rows are expanded
+  monitored: boolean;
 };
 
 export type RampMode = "off" | "create" | "edit" | "link";
@@ -257,6 +259,7 @@ export function buildRampSteps(
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
+      ...(s.monitored ? { monitored: true } : {}),
     };
   });
 }
@@ -500,6 +503,7 @@ export default function RampScheduleSection({
       approvalNotes: "",
       notesOpen: false,
       additionalEffectsOpen: false,
+      monitored: prev?.monitored ?? false,
     };
     const steps = [...state.steps];
     steps.splice(insertAt, 0, newStep);
@@ -527,6 +531,7 @@ export default function RampScheduleSection({
           approvalNotes: "",
           notesOpen: false,
           additionalEffectsOpen: false,
+          monitored: last?.monitored ?? false,
         },
       ],
     });
@@ -866,9 +871,19 @@ export default function RampScheduleSection({
                   }}
                   pl="1"
                 >
-                  <Text size="small" color="text-low">
-                    {i + 1}
-                  </Text>
+                  <Flex align="center" gap="1">
+                    <Text size="small" color="text-low">
+                      {i + 1}
+                    </Text>
+                    {step.monitored && (
+                      <Tooltip body="Monitored step — guardrail metrics are evaluated">
+                        <PiShieldCheckBold
+                          size={12}
+                          style={{ color: "var(--blue-9)" }}
+                        />
+                      </Tooltip>
+                    )}
+                  </Flex>
                 </Box>
 
                 {/* Coverage */}
@@ -1080,6 +1095,16 @@ export default function RampScheduleSection({
                     </DropdownMenuGroup>
                   ) : null}
                   <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setOpenMenuIndex(null);
+                        updateStep(i, { monitored: !step.monitored });
+                      }}
+                    >
+                      {step.monitored
+                        ? "Disable monitoring"
+                        : "Enable monitoring"}
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => {
                         setOpenMenuIndex(null);
@@ -1541,6 +1566,7 @@ export function reconstructUIStep(step: RampStep): UIStep {
       approvalNotes,
       notesOpen: approvalNotes.trim().length > 0,
       additionalEffectsOpen,
+      monitored: step.monitored ?? false,
     };
   }
   const seconds = step.trigger.seconds;
@@ -1563,6 +1589,7 @@ export function reconstructUIStep(step: RampStep): UIStep {
     approvalNotes: "",
     notesOpen: false,
     additionalEffectsOpen,
+    monitored: step.monitored ?? false,
   };
 }
 
@@ -1617,6 +1644,7 @@ export function defaultRampSectionState(
         approvalNotes: "",
         notesOpen: false,
         additionalEffectsOpen: false,
+        monitored: false,
       },
     ],
     endScheduleAt: "",

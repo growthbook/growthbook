@@ -1631,8 +1631,11 @@ export default function FeaturesOverview({
           <Box>
             <FeatureRolloutSection
               feature={feature}
+              revision={revision}
               mutate={mutate}
               canEdit={canEdit && !isReadOnly}
+              currentVersion={currentVersion}
+              setVersion={setVersion}
             />
           </Box>
         </Frame>

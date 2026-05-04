@@ -67,7 +67,7 @@ import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import HelperText from "@/ui/HelperText";
+
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -362,8 +362,6 @@ export default function RuleModal({
     "multi-armed-bandits",
   );
 
-  const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollout");
-
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
@@ -497,7 +495,7 @@ export default function RuleModal({
   useEffect(() => {
     // Simple schedules never control coverage — only full ramp-ups do.
     const hasRampWithCoverage =
-      scheduleType === "ramp" &&
+      (scheduleType === "ramp" || scheduleType === "safe-rollout") &&
       rampSectionState.mode !== "off" &&
       (rampSectionState.steps.some(
         (step) => step.patch.coverage !== undefined,
@@ -1000,7 +998,7 @@ export default function RuleModal({
       // Rollout rules with sub-100% coverage and ramp-up schedules that control
       // coverage both require a bucketing attribute to be set.
       const rampHasCoverage =
-        scheduleType === "ramp" &&
+        (scheduleType === "ramp" || scheduleType === "safe-rollout") &&
         rampSectionState.mode !== "off" &&
         rampSectionState.steps.some((s) => s.patch.coverage !== undefined);
       if (
@@ -1362,31 +1360,6 @@ export default function RuleModal({
                   "Assign a specific feature value to groups of users or control the rollout percentage",
               },
               {
-                value: "safe-rollout",
-                disabled: !hasSafeRolloutsFeature || datasources.length === 0,
-                label: (
-                  <PremiumTooltip
-                    commercialFeature="safe-rollout"
-                    usePortal={true}
-                  >
-                    Safe rollout
-                  </PremiumTooltip>
-                ),
-                description: (
-                  <>
-                    <div>
-                      Gradually release a value with automatic monitoring of
-                      guardrail metrics
-                    </div>
-                    {datasources.length === 0 && (
-                      <HelperText status="info" size="sm" mt="2">
-                        Create a data source to use Safe Rollouts
-                      </HelperText>
-                    )}
-                  </>
-                ),
-              },
-              {
                 value: "experiment",
                 label: "Experiment",
                 description:
@@ -1408,16 +1381,12 @@ export default function RuleModal({
               },
             ]}
             value={overviewRadioSelectorRuleType}
-            setValue={(
-              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit",
-            ) => {
+            setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
               setOverviewRadioSelectorRuleType(v);
               if (v === "force") {
                 setOverviewRuleType("force");
               } else if (v === "rollout") {
                 setOverviewRuleType("rollout");
-              } else if (v === "safe-rollout") {
-                setOverviewRuleType("safe-rollout");
               } else {
                 setOverviewRuleType("experiment-ref-new");
               }
