@@ -1,5 +1,6 @@
 import { applyPatch, deepClone } from "fast-json-patch";
 import type { Operation } from "fast-json-patch";
+import { isEqual } from "lodash";
 import {
   JsonPatchOperation,
   Revision,
@@ -89,6 +90,49 @@ export function applyPatchToSnapshot<T extends object>(
   if (ops.length === 0) return snapshot;
   return applyPatch(deepClone(snapshot), ops as Operation[], false, false)
     .newDocument as T;
+}
+
+/**
+ * Compute the desired final state for a merge by layering the revision's
+ * proposed changes on top of the LIVE entity (not the baseline snapshot).
+ *
+ * Why on top of live: applying ops to the baseline produces a fully
+ * materialised object containing every baseline-known field at its baseline
+ * value. If a field was changed out-of-band between snapshot time and merge
+ * time, that drift would be quietly overwritten with the baseline value
+ * during the merge, even though the revision never proposed to change it.
+ * Applying ops to live preserves out-of-band changes to fields the revision
+ * did not touch.
+ *
+ * The op list is filtered to "effective" ops first:
+ *  - Drop ops whose top-level path isn't in `updatableFields` (the entity's
+ *    write allowlist).
+ *  - Drop `add`/`replace` ops whose value equals the baseline value (these
+ *    represent no real change vs the snapshot, so applying them to live
+ *    would overwrite legitimate live drift).
+ *  - Drop `remove` ops on fields the baseline didn't define.
+ *  - Drop `move` / `copy` / `test` ops outright (they're accepted by the
+ *    validator but not modelled by the rest of the revision pipeline).
+ */
+export function buildMergeDesiredState<T extends Record<string, unknown>>(
+  liveEntity: T,
+  baseSnapshot: Record<string, unknown>,
+  proposedChanges: JsonPatchOperation[] | unknown,
+  updatableFields: ReadonlySet<string>,
+): T {
+  const ops = normalizeProposedChanges(proposedChanges);
+  const effectiveOps = ops.filter((op) => {
+    const field = op.path.split("/")[1];
+    if (!field || !updatableFields.has(field)) return false;
+    if (op.op === "replace" || op.op === "add") {
+      return !isEqual(op.value, baseSnapshot[field]);
+    }
+    if (op.op === "remove") {
+      return baseSnapshot[field] !== undefined;
+    }
+    return false;
+  });
+  return applyPatchToSnapshot(liveEntity, effectiveOps);
 }
 
 /**

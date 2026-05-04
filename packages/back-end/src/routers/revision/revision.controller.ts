@@ -18,7 +18,7 @@ import {
   getApprovalEnabledEntityTypes,
   getEntityModel,
 } from "back-end/src/revisions";
-import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { buildMergeDesiredState } from "back-end/src/revisions/util";
 
 // region GET /revision
 
@@ -937,10 +937,15 @@ export const postMerge = async (
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // Apply patch ops to snapshot to derive the desired final state
-  const desiredState = applyPatchToSnapshot(
+  // Build the desired final state by layering effective proposed changes on
+  // top of the LIVE entity, not the baseline snapshot. This preserves any
+  // out-of-band writes to fields the revision didn't propose to change. See
+  // `buildMergeDesiredState` for the filter rules.
+  const desiredState = buildMergeDesiredState(
+    entity as Record<string, unknown>,
     revision.target.snapshot as Record<string, unknown>,
-    normalizeProposedChanges(revision.target.proposedChanges),
+    revision.target.proposedChanges,
+    adapter.getUpdatableFields(),
   );
 
   // Check for merge conflicts before applying

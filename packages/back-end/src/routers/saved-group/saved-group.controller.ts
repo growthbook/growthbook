@@ -819,6 +819,17 @@ export const deleteSavedGroup = async (
     context.permissions.throwPermissionError();
   }
 
+  // Require the saved group to be archived first. Archive is reversible;
+  // delete isn't, so this gives users an undo step. Archive itself still
+  // flows through the approval system, but delete bypasses it.
+  if (!savedGroup.archived) {
+    res.status(400).json({
+      status: 400,
+      message: "Saved group must be archived before it can be deleted",
+    });
+    return;
+  }
+
   await context.models.savedGroups.delete(savedGroup);
 
   res.status(200).json({

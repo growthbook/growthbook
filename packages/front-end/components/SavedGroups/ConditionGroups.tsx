@@ -207,7 +207,12 @@ export default function ConditionGroups({
                           <td style={{ width: 30 }}>
                             <SavedGroupRowMenu
                               canUpdate={canUpdate(s)}
-                              canDelete={canDeleteSavedGroup(s)}
+                              canDelete={canDeleteSavedGroup(s) && !!s.archived}
+                              deleteDisabledReason={
+                                canDeleteSavedGroup(s) && !s.archived
+                                  ? "Archive this saved group before deleting"
+                                  : undefined
+                              }
                               onEdit={() => setSavedGroupForm(s)}
                               onDelete={() => setDeleteModal(s)}
                             />

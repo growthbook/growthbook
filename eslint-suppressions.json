@@ -1,9 +1,4 @@
 {
-  "packages/back-end/src/revisions/util.ts": {
-    "import/no-unresolved": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Archetype/AssignmentTester.tsx": {
     "no-restricted-imports": {
       "count": 2

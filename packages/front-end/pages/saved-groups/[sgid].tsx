@@ -36,6 +36,7 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import SavedGroupArchiveModal from "@/components/SavedGroups/SavedGroupArchiveModal";
+import SavedGroupDeleteModal from "@/components/SavedGroups/SavedGroupDeleteModal";
 import {
   SavedGroupConflictModal,
   useSavedGroupMergeResult,
@@ -130,6 +131,13 @@ export default function EditSavedGroupPage() {
   const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
     null,
   );
+  // Whether the user has opted to flip `archived` as part of a revert when
+  // the live entity's archive state has drifted from the target revision's.
+  // Defaults are set in the effect below: true for "will un-archive" (the
+  // common recovery path), false for "will re-archive" (so re-archiving stays
+  // an opt-in action).
+  const [revertIncludeArchive, setRevertIncludeArchive] =
+    useState<boolean>(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
 
@@ -219,6 +227,27 @@ export default function EditSavedGroupPage() {
     }
   }, [selectedRevision]);
 
+  // When the user opens a revert modal, default `revertIncludeArchive` based
+  // on the direction of the archive drift: pre-checked for "will un-archive"
+  // (the common recovery flow), unchecked for "will re-archive" so the more
+  // disruptive direction stays opt-in.
+  useEffect(() => {
+    if (!confirmRevert || !revisionToRevert || !savedGroup) return;
+    const targetState = applyTopLevelPatchOps(
+      revisionToRevert.target.snapshot as SavedGroupInterface,
+      revisionToRevert.target.proposedChanges,
+    ) as SavedGroupInterface;
+    const targetArchived = !!targetState.archived;
+    const liveArchived = !!savedGroup.archived;
+    if (targetArchived === liveArchived) {
+      setRevertIncludeArchive(false);
+      return;
+    }
+    // Drift exists: default to `true` only when the revert would un-archive
+    // (i.e. live is archived but the target was not).
+    setRevertIncludeArchive(liveArchived && !targetArchived);
+  }, [confirmRevert, revisionToRevert, savedGroup]);
+
   // Sync title draft when selected revision changes
   useEffect(() => {
     setEditingTitle(false);
@@ -283,6 +312,7 @@ export default function EditSavedGroupPage() {
   const [editConditionModal, setEditConditionModal] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -655,6 +685,20 @@ export default function EditSavedGroupPage() {
           selectFlow={selectFlow}
         />
       )}
+      {showDeleteModal && (
+        <SavedGroupDeleteModal
+          savedGroup={savedGroup}
+          close={() => setShowDeleteModal(false)}
+          onDelete={async () => {
+            await apiCall(`/saved-groups/${savedGroup.id}`, {
+              method: "DELETE",
+            });
+            // Use the Next.js router rather than window.history (per workspace
+            // rule). Navigates back to the list and unmounts this page.
+            await router.push("/saved-groups");
+          }}
+        />
+      )}
       {showReferencesModal && (
         <Modal
           header={`'${displayedSavedGroup?.groupName || savedGroup.groupName}' References`}
@@ -711,101 +755,126 @@ export default function EditSavedGroupPage() {
             </Modal>
           );
         })()}
-      {confirmRevert && revisionToRevert && (
-        <Modal
-          header="Revert Merged Revision"
-          trackingEventModalType="revert-revision"
-          close={() => {
-            setConfirmRevert(false);
-            setRevisionToRevert(null);
-          }}
-          open={confirmRevert}
-          cta="Create Revert Revision"
-          submitColor="primary"
-          submit={async () => {
-            // Create a new revision that matches the exact state of the selected revision
-            const snapshot = revisionToRevert.target
-              .snapshot as SavedGroupInterface;
+      {confirmRevert &&
+        revisionToRevert &&
+        (() => {
+          // Compute the target state and archive-drift direction so we can
+          // both render the opt-in checkbox and use the same target inside
+          // the submit handler.
+          const targetState = applyTopLevelPatchOps(
+            revisionToRevert.target.snapshot as SavedGroupInterface,
+            revisionToRevert.target.proposedChanges,
+          ) as SavedGroupInterface;
+          const targetArchived = !!targetState.archived;
+          const liveArchived = !!savedGroup.archived;
+          const archiveDrifts = targetArchived !== liveArchived;
+          const willUnarchive =
+            archiveDrifts && liveArchived && !targetArchived;
+          return (
+            <Modal
+              header="Revert Merged Revision"
+              trackingEventModalType="revert-revision"
+              close={() => {
+                setConfirmRevert(false);
+                setRevisionToRevert(null);
+              }}
+              open={confirmRevert}
+              cta="Create Revert Revision"
+              submitColor="primary"
+              submit={async () => {
+                // Calculate changes needed to go from current live state to target state
+                const revertChanges: Record<string, unknown> = {};
 
-            // Combine snapshot with proposed changes to get the exact state at that point
-            const targetState = applyTopLevelPatchOps(
-              snapshot,
-              revisionToRevert.target.proposedChanges,
-            );
+                // Compare each field in the target state with the current live state
+                const fieldsToCheck = [
+                  "groupName",
+                  "owner",
+                  "values",
+                  "condition",
+                  "description",
+                  "projects",
+                ] as const;
 
-            // Calculate changes needed to go from current live state to target state
-            const revertChanges: Record<string, unknown> = {};
+                fieldsToCheck.forEach((key) => {
+                  const targetValue = targetState[key];
+                  const currentValue = savedGroup[key];
+                  if (
+                    JSON.stringify(targetValue) !== JSON.stringify(currentValue)
+                  ) {
+                    revertChanges[key] = targetValue;
+                  }
+                });
 
-            // Compare each field in the target state with the current live state
-            const fieldsToCheck = [
-              "groupName",
-              "owner",
-              "values",
-              "condition",
-              "description",
-              "projects",
-            ] as const;
+                // Only include `archived` when the user explicitly opted in;
+                // by default a revert leaves the live archive state alone,
+                // matching the "live + ops" merge semantics.
+                if (archiveDrifts && revertIncludeArchive) {
+                  revertChanges.archived = targetArchived;
+                }
 
-            fieldsToCheck.forEach((key) => {
-              const targetValue = targetState[key];
-              const currentValue = savedGroup[key];
-              // Only include changes where values differ
-              if (
-                JSON.stringify(targetValue) !== JSON.stringify(currentValue)
-              ) {
-                revertChanges[key] = targetValue;
-              }
-            });
+                // Build the revert title using the source revision's title
+                const sourceTitle =
+                  revisionToRevert.title ||
+                  (() => {
+                    const sortedRevisions = [...allRevisions].sort(
+                      (a, b) =>
+                        new Date(a.dateCreated).getTime() -
+                        new Date(b.dateCreated).getTime(),
+                    );
+                    const num =
+                      sortedRevisions.findIndex(
+                        (r) => r.id === revisionToRevert.id,
+                      ) + 1;
+                    return `Revision ${num}`;
+                  })();
+                const title = `Revert to "${sourceTitle}"`;
 
-            // Build the revert title using the source revision's title
-            const sourceTitle =
-              revisionToRevert.title ||
-              (() => {
-                const sortedRevisions = [...allRevisions].sort(
-                  (a, b) =>
-                    new Date(a.dateCreated).getTime() -
-                    new Date(b.dateCreated).getTime(),
+                // Create a new revision with the revert changes, title, and link back to original
+                const res = await apiCall<{
+                  status: number;
+                  requiresApproval?: boolean;
+                  revision?: Revision;
+                }>(
+                  `/saved-groups/${savedGroup.id}?forceCreateRevision=1&title=${encodeURIComponent(title)}&revertedFrom=${revisionToRevert.id}`,
+                  {
+                    method: "PUT",
+                    body: JSON.stringify(revertChanges),
+                  },
                 );
-                const num =
-                  sortedRevisions.findIndex(
-                    (r) => r.id === revisionToRevert.id,
-                  ) + 1;
-                return `Revision ${num}`;
-              })();
-            const title = `Revert to "${sourceTitle}"`;
 
-            // Create a new revision with the revert changes, title, and link back to original
-            const res = await apiCall<{
-              status: number;
-              requiresApproval?: boolean;
-              revision?: Revision;
-            }>(
-              `/saved-groups/${savedGroup.id}?forceCreateRevision=1&title=${encodeURIComponent(title)}&revertedFrom=${revisionToRevert.id}`,
-              {
-                method: "PUT",
-                body: JSON.stringify(revertChanges),
-              },
-            );
+                if (res?.revision) {
+                  onRevisionCreated(res.revision);
+                  selectFlow(res.revision);
+                }
 
-            if (res?.revision) {
-              onRevisionCreated(res.revision);
-              selectFlow(res.revision);
-            }
-
-            setConfirmRevert(false);
-            setRevisionToRevert(null);
-          }}
-        >
-          <Text>
-            This will create a new revision that restores the saved group to
-            exactly how it was at the time of the selected revision (including
-            all changes that were part of that revision).
-          </Text>
-          <Text mt="3" weight="medium">
-            The new revision will need to be published to go live.
-          </Text>
-        </Modal>
-      )}
+                setConfirmRevert(false);
+                setRevisionToRevert(null);
+              }}
+            >
+              <Text>
+                This will create a new revision that restores the saved group to
+                exactly how it was at the time of the selected revision
+                (including all changes that were part of that revision).
+              </Text>
+              {archiveDrifts && (
+                <Callout status="warning" mt="3">
+                  <Checkbox
+                    label={
+                      willUnarchive
+                        ? "Also un-archive (currently archived)"
+                        : "Also archive (currently active)"
+                    }
+                    value={revertIncludeArchive}
+                    setValue={setRevertIncludeArchive}
+                  />
+                </Callout>
+              )}
+              <Text mt="3" weight="medium">
+                The new revision will need to be published to go live.
+              </Text>
+            </Modal>
+          );
+        })()}
       {compareRevisionsModalOpen && (
         <CompareSavedGroupRevisionsModal
           savedGroup={savedGroup}
@@ -1084,6 +1153,22 @@ export default function EditSavedGroupPage() {
                     Archive
                   </DropdownMenuItem>
                 )}
+                {/* Delete is gated on the LIVE archive state, not the
+                    displayed/draft state — the server enforces the same
+                    rule, and we want users to publish the archive before
+                    they can delete. */}
+                {savedGroup.archived &&
+                  permissionsUtil.canDeleteSavedGroup(savedGroup) && (
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        setShowDeleteModal(true);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
               </DropdownMenuGroup>
             </DropdownMenu>
           </Flex>
