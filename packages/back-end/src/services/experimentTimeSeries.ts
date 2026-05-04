@@ -4,10 +4,12 @@ import {
   isFactMetricId,
   expandAllSliceMetricsInMap,
   getLatestPhaseVariations,
+  isPrecomputedDimension,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
+  MetricTimeSeriesDataPointTag,
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
   ExperimentAnalysisSummary,
@@ -17,6 +19,7 @@ import {
   GuardrailMetricStatus,
 } from "shared/validators";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
@@ -31,6 +34,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
 
 export async function updateExperimentTimeSeries({
   context,
@@ -45,8 +49,9 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
-  // Only update time series for dimensionless snapshots, but if we want to
-  // support dimensions for time series, we should revisit this
+  // This top-level update only handles the main experiment time series.
+  // Precomputed dimension time series are handled separately by
+  // runEagerPrecomputedDimensionAnalyses.
   if (
     experimentSnapshot.dimension !== null &&
     experimentSnapshot.dimension !== ""
@@ -54,6 +59,46 @@ export async function updateExperimentTimeSeries({
     return;
   }
 
+  const { allMetricIds, factMetrics, factTableMap } =
+    await getExperimentTimeSeriesContext({
+      context,
+      experiment,
+      experimentSnapshot,
+    });
+  const analyses = getTimeSeriesAnalyses({
+    analyses: experimentSnapshot.analyses,
+  });
+
+  // As we tag the whole snapshot, we just care if any metric has a significant difference from the previous status
+  const hasSignificantDifference = getHasSignificantDifference(
+    previousAnalysisSummary,
+    experiment.analysisSummary,
+  );
+
+  await updateExperimentAnalysisTimeSeries({
+    context,
+    experiment,
+    experimentSnapshot,
+    analyses,
+    allMetricIds,
+    factMetrics,
+    factTableMap,
+    tags:
+      notificationsTriggered.length > 0 || hasSignificantDifference
+        ? ["triggered-alert"]
+        : undefined,
+  });
+}
+
+export async function getExperimentTimeSeriesContext({
+  context,
+  experiment,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+}) {
   const metricGroups = await context.models.metricGroups.getAll();
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
@@ -71,108 +116,193 @@ export async function updateExperimentTimeSeries({
     expandedMetricMap: metricMap,
     metricGroups,
   });
-  const relativeAnalysis = experimentSnapshot.analyses.find(
-    (analysis) =>
-      analysis.settings.differenceType === "relative" &&
-      (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0),
-  );
-  const absoluteAnalysis = experimentSnapshot.analyses.find(
-    (analysis) =>
-      analysis.settings.differenceType === "absolute" &&
-      (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0),
-  );
-  const scaledAnalysis = experimentSnapshot.analyses.find(
-    (analysis) =>
-      analysis.settings.differenceType === "scaled" &&
-      (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0),
-  );
 
-  // We should always have this, otherwise the snapshot has not
-  // been analyzed and we won't have useful data to update the time series with
-  const variations = relativeAnalysis?.results[0]?.variations;
-  if (!variations || variations.length === 0) {
-    return;
-  }
-
-  let factMetrics: FactMetricInterface[] | undefined = undefined;
+  let factMetrics: FactMetricInterface[] | undefined;
   const factMetricsIds: string[] = allMetricIds.filter(isFactMetricId);
   if (factMetricsIds.length > 0) {
     factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
   }
 
-  const timeSeriesVariationsPerMetricId = allMetricIds.reduce(
-    (acc, metricId) => {
-      acc[metricId] = variations.map((_, variationIndex) => ({
-        id: getLatestPhaseVariations(experiment)[variationIndex].id,
-        name: getLatestPhaseVariations(experiment)[variationIndex].name,
-        stats:
-          // NB: Using relative as a base to save space because it matches relative & absolute
-          relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-            metricId
-          ]?.stats,
-        relative: convertMetricToMetricValue(
-          relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-            metricId
-          ],
-        ),
-        absolute: convertMetricToMetricValue(
-          absoluteAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-            metricId
-          ],
-        ),
-        scaled: convertMetricToMetricValue(
-          scaledAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-            metricId
-          ],
-        ),
-      }));
+  return {
+    metricMap,
+    factTableMap,
+    allMetricIds,
+    factMetrics,
+  };
+}
 
-      return acc;
-    },
-    {} as Record<string, MetricTimeSeriesVariation[]>,
+/**
+ * Persists time series for a group of analyses that share the same snapshot
+ * context. Dimensionless analyses write the main experiment series; analyses
+ * for one precomputed dimension write one series per dimension value.
+ */
+export async function updateExperimentAnalysisTimeSeries({
+  context,
+  experiment,
+  experimentSnapshot,
+  analyses,
+  allMetricIds,
+  factMetrics,
+  factTableMap,
+  tags,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+  analyses: ExperimentSnapshotAnalysis[];
+  allMetricIds: string[];
+  factMetrics: FactMetricInterface[] | undefined;
+  factTableMap: Map<string, FactTableInterface>;
+  tags?: MetricTimeSeriesDataPointTag[];
+}) {
+  const dimensionIds = new Set(analyses.flatMap((a) => a.settings.dimensions));
+  if (dimensionIds.size > 1) {
+    throw new Error(
+      "Cannot update time series for analyses from multiple dimensions",
+    );
+  }
+  const [dimensionId] = Array.from(dimensionIds);
+  // Only precomputed dimensions are supported for dimension time series for now.
+  if (dimensionId && !isPrecomputedDimension(dimensionId)) {
+    throw new Error(
+      `Cannot update time series for unsupported dimension: ${dimensionId}`,
+    );
+  }
+
+  const timeSeriesAnalyses = getTimeSeriesAnalyses({
+    analyses,
+    dimensionId,
+  });
+  if (timeSeriesAnalyses.length === 0) {
+    return;
+  }
+
+  const relativeAnalysis = getAnalysisByDifferenceType(
+    timeSeriesAnalyses,
+    "relative",
   );
-
-  const experimentHash = getExperimentSettingsHash(
-    experimentSnapshot.settings,
-    relativeAnalysis.settings,
+  const absoluteAnalysis = getAnalysisByDifferenceType(
+    timeSeriesAnalyses,
+    "absolute",
   );
-
-  // As we tag the whole snapshot, we just care if any metric has a significant difference from the previous status
-  const hasSignificantDifference = getHasSignificantDifference(
-    previousAnalysisSummary,
-    experiment.analysisSummary,
+  const scaledAnalysis = getAnalysisByDifferenceType(
+    timeSeriesAnalyses,
+    "scaled",
   );
+  const baseAnalysis = relativeAnalysis ?? absoluteAnalysis ?? scaledAnalysis;
+  if (!baseAnalysis) {
+    throw new Error("No base analysis found for time series");
+  }
 
-  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
-    allMetricIds.map((metricId) => ({
-      source: "experiment",
-      sourceId: experiment.id,
-      sourcePhase: experimentSnapshot.phase,
-      metricId,
-      lastExperimentSettingsHash: experimentHash,
-      lastMetricSettingsHash: getMetricSettingsHash(
+  const variationIds = getLatestPhaseVariations(experiment);
+  const allDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = [];
+  const dimensionValues = dimensionId
+    ? baseAnalysis.results.map((result) => result.name)
+    : [undefined];
+
+  for (const dimensionValue of dimensionValues) {
+    const resultsByDifferenceType = {
+      relative: getAnalysisResult(relativeAnalysis, dimensionValue),
+      absolute: getAnalysisResult(absoluteAnalysis, dimensionValue),
+      scaled: getAnalysisResult(scaledAnalysis, dimensionValue),
+    };
+    const baseResult =
+      resultsByDifferenceType.relative ??
+      resultsByDifferenceType.absolute ??
+      resultsByDifferenceType.scaled;
+    if (!baseResult?.variations?.length) continue;
+
+    const experimentHash = getExperimentSettingsHash(
+      experimentSnapshot.settings,
+      baseAnalysis.settings,
+    );
+
+    for (const metricId of allMetricIds) {
+      const variations: MetricTimeSeriesVariation[] = variationIds.map(
+        (v, variationIndex) => {
+          const relativeMetric =
+            resultsByDifferenceType.relative?.variations[variationIndex]
+              ?.metrics[metricId];
+          const absoluteMetric =
+            resultsByDifferenceType.absolute?.variations[variationIndex]
+              ?.metrics[metricId];
+          const scaledMetric =
+            resultsByDifferenceType.scaled?.variations[variationIndex]?.metrics[
+              metricId
+            ];
+
+          return {
+            id: v.id,
+            name: v.name,
+            stats:
+              (relativeMetric ?? absoluteMetric ?? scaledMetric)?.stats ??
+              undefined,
+            relative: convertMetricToMetricValue(relativeMetric),
+            absolute: convertMetricToMetricValue(absoluteMetric),
+            scaled: convertMetricToMetricValue(scaledMetric),
+          };
+        },
+      );
+
+      const baseDataPoint = {
+        source: "experiment",
+        sourceId: experiment.id,
+        sourcePhase: experimentSnapshot.phase,
         metricId,
-        experimentSnapshot.settings.metricSettings.find(
-          (it) => it.id === metricId,
+        lastExperimentSettingsHash: experimentHash,
+        lastMetricSettingsHash: getMetricSettingsHash(
+          metricId,
+          experimentSnapshot.settings.metricSettings.find(
+            (it) => it.id === metricId,
+          ),
+          factMetrics,
+          factTableMap,
         ),
-        factMetrics,
-        factTableMap,
-      ),
-      singleDataPoint: {
-        date: experimentSnapshot.dateCreated,
-        variations: timeSeriesVariationsPerMetricId[metricId],
-      },
-      tags:
-        notificationsTriggered.length > 0 || hasSignificantDifference
-          ? ["triggered-alert"]
-          : undefined,
-    }));
+        singleDataPoint: {
+          date: experimentSnapshot.dateCreated,
+          variations,
+          ...(tags?.length ? { tags: [...tags] } : {}),
+        },
+      } as const;
+
+      allDataPoints.push(
+        dimensionId && dimensionValue !== undefined
+          ? {
+              ...baseDataPoint,
+              dimensionId,
+              dimensionValue,
+            }
+          : baseDataPoint,
+      );
+    }
+  }
+
+  if (allDataPoints.length === 0) {
+    return;
+  }
 
   await context.models.metricTimeSeries.upsertMultipleSingleDataPoint(
-    metricTimeSeriesSingleDataPoints,
+    allDataPoints,
+  );
+}
+
+function getAnalysisResult(
+  analysis: ExperimentSnapshotAnalysis | undefined,
+  dimensionValue: string | undefined,
+): ExperimentSnapshotAnalysis["results"][number] | undefined {
+  if (!analysis) return undefined;
+  if (dimensionValue === undefined) return analysis.results[0];
+  return analysis.results.find((result) => result.name === dimensionValue);
+}
+
+function getAnalysisByDifferenceType(
+  analyses: ExperimentSnapshotAnalysis[],
+  differenceType: ExperimentSnapshotAnalysisSettings["differenceType"],
+): ExperimentSnapshotAnalysis | undefined {
+  return analyses.find(
+    (analysis) =>
+      analysis.results.length > 0 &&
+      analysis.settings.differenceType === differenceType,
   );
 }
 

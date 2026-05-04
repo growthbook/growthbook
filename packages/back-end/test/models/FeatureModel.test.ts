@@ -22,7 +22,8 @@ import { ReqContext } from "back-end/types/request";
 //   4. v1 with v0 crust                           — v1 wins, v0 top-level rules ignored
 //   5. v2 with empty envSettings                  — classified as v2 (no rules key)
 //   6. partial migration (v1 env rules + v2-shaped top-level rules)
-//                                                 — v1 wins, top-level rules overwritten
+//                                                 — v2 top-level wins; stale env.rules
+//                                                   ignored (regression: hotfix #5783)
 //
 // The critical invariant: v2 documents MUST NOT be re-flattened. Calling the
 // function twice on the same v2 input must produce identical output (same
@@ -702,10 +703,9 @@ describe("migrateRawFeatureToV2", () => {
 
     it("belt-and-suspenders strips the rules key on the v2 path even when a pathological doc landed one", () => {
       // Simulates a direct-mongo mutation or a bypass write that stamped
-      // env.rules on an otherwise-v2 document. The heuristic would STILL
-      // classify this as v1 (since any env has a rules key), so we also
-      // need the scrub to run on the output of that v1 branch — this test
-      // exercises the scrub irrespective of which branch fired.
+      // env.rules on an otherwise-v2 document. Routing follows
+      // `topLevelRulesAreV2Shaped` (true here), so we go v2; the v2 path's
+      // own scrub strips the legacy key from the output.
       const hybrid = {
         ...BASE_META,
         environmentSettings: {
@@ -725,6 +725,50 @@ describe("migrateRawFeatureToV2", () => {
       } as unknown as LegacyFeatureInterface;
 
       const out = migrateRawFeatureToV2(hybrid, mockContext());
+      for (const envId of Object.keys(out.environmentSettings ?? {})) {
+        expect("rules" in (out.environmentSettings?.[envId] as object)).toBe(
+          false,
+        );
+      }
+    });
+
+    it("trusts top-level v2 rules over stale env.rules (regression: hotfix #5783)", () => {
+      // Customer-reported scenario: a buggy pre-hotfix publish wrote a fresh
+      // v2 rules array but failed to scrub the legacy
+      // `environmentSettings.{env}.rules` from the same doc. Before this fix
+      // the routing required `hasNoV1EnvRules(envSettings)` AND v2-shape, so
+      // those docs took the v1 path on every read and rebuilt rules from the
+      // stale env arrays — silently shadowing the authoritative v2 write.
+      // SDK payload diffs (`getSDKPayloadKeysByDiff`) therefore saw no rule
+      // change and the CDN cache went stale. With the new routing, top-level
+      // v2 rules win.
+      const stale = {
+        ...BASE_META,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [v1Rule("stale-rule-from-pre-publish") as FeatureRule],
+            prerequisites: [],
+          },
+          dev: {
+            enabled: true,
+            rules: [v1Rule("another-stale-rule") as FeatureRule],
+            prerequisites: [],
+          },
+        },
+        rules: [v2Rule("post-publish-canonical-rule")],
+        prerequisites: [],
+      } as unknown as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(stale, mockContext());
+
+      expect(out.rules).toHaveLength(1);
+      expect(out.rules[0].id).toBe("post-publish-canonical-rule");
+      expect(
+        out.rules.some((r) => r.id === "stale-rule-from-pre-publish"),
+      ).toBe(false);
+      expect(out.rules.some((r) => r.id === "another-stale-rule")).toBe(false);
+      // And the legacy env.rules key never leaks into the in-memory output.
       for (const envId of Object.keys(out.environmentSettings ?? {})) {
         expect("rules" in (out.environmentSettings?.[envId] as object)).toBe(
           false,
@@ -777,7 +821,12 @@ describe("migrateRawFeatureToV2", () => {
   // ================= 6. Partial migration (v1 + v2-shaped top-level) =================
 
   describe("partial migration: v1 env rules + populated top-level rules", () => {
-    it("classifies as v1 when env settings have rules key; top-level rules are overwritten by flattener", () => {
+    it("trusts v2-shaped top-level rules over stale env.rules (regression: hotfix #5783)", () => {
+      // Pre-hotfix this returned `r_from_env` because routing required
+      // `hasNoV1EnvRules(envSettings)` AND v2-shape: any populated env.rules
+      // sent us to the v1 path and the legacy env arrays silently shadowed
+      // the authoritative top-level v2 write. The fix removes the env.rules
+      // gate from routing, so v2-shaped top-level rules always win.
       const v1PartialMigration: LegacyFeatureInterface = {
         ...BASE_META,
         rules: [
@@ -803,10 +852,8 @@ describe("migrateRawFeatureToV2", () => {
 
       const out = migrateRawFeatureToV2(v1PartialMigration, mockContext());
       expect(out.rules).toHaveLength(1);
-      expect(out.rules[0].id).toBe("r_from_env");
-      expect(
-        out.rules.find((r) => r.id === "r_from_top_level"),
-      ).toBeUndefined();
+      expect(out.rules[0].id).toBe("r_from_top_level");
+      expect(out.rules.find((r) => r.id === "r_from_env")).toBeUndefined();
     });
   });
 

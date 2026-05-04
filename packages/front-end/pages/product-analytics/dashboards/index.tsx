@@ -466,12 +466,7 @@ export default function DashboardsPage() {
                                           <DropdownMenuItem
                                             color="red"
                                             confirmation={{
-                                              confirmationTitle: (
-                                                <>
-                                                  Delete Dashboard{" "}
-                                                  <i>{d.title}</i>?
-                                                </>
-                                              ),
+                                              confirmationTitle: `Delete Dashboard "${d.title}"?`,
                                               cta: "Delete",
                                               submit: async () => {
                                                 await apiCall(
