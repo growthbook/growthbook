@@ -64,11 +64,6 @@
       "count": 5
     }
   },
-  "packages/front-end/components/Button.tsx": {
-    "prettier/prettier": {
-      "count": 4
-    }
-  },
   "packages/front-end/components/CustomFields/CustomFieldDisplay.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -204,16 +199,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/AlignedGraph.tsx": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/BanditSummaryTableTooltip/BanditSummaryTooltip.tsx": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/BaselineChooserColumnLabel.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -325,11 +310,6 @@
   "packages/front-end/components/Experiment/ImportExperimentModal.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/MetricValueColumn.tsx": {
-    "prettier/prettier": {
-      "count": 4
     }
   },
   "packages/front-end/components/Experiment/NamespaceModal.tsx": {
@@ -480,9 +460,6 @@
   "packages/front-end/components/Experiment/Templates/TemplateForm.tsx": {
     "local/no-alert-classname": {
       "count": 2
-    },
-    "prettier/prettier": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/Templates/TemplatesPage.tsx": {
@@ -706,11 +683,6 @@
   "packages/front-end/components/Features/HoldoutValueModal.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Features/JSONSchemaDescription.tsx": {
-    "prettier/prettier": {
-      "count": 1
     }
   },
   "packages/front-end/components/Features/KillSwitchModal.tsx": {
@@ -1116,11 +1088,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Markdown/Markdown.tsx": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Markdown/MarkdownInput.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1168,11 +1135,6 @@
   },
   "packages/front-end/components/Metrics/MetricGroupModal.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Metrics/MetricGroupsList.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1323,11 +1285,6 @@
   "packages/front-end/components/SafeRollout/AnalysisSettingsSummary.tsx": {
     "local/no-alert-classname": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/SafeRollout/Results/ChangeColumn.tsx": {
-    "prettier/prettier": {
-      "count": 4
     }
   },
   "packages/front-end/components/SafeRollout/Results/ResultsTable.tsx": {
@@ -1780,11 +1737,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Tags/Tag.tsx": {
-    "prettier/prettier": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Tags/TagsModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -1971,11 +1923,6 @@
       "count": 1
     }
   },
-  "packages/front-end/hooks/useDecisionCriteriaForm.ts": {
-    "prettier/prettier": {
-      "count": 4
-    }
-  },
   "packages/front-end/pages/admin.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -2052,11 +1999,6 @@
       "count": 2
     },
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/features/index.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -2176,29 +2118,9 @@
       "count": 1
     }
   },
-  "packages/sdk-js/test/feature-repo.test.ts": {
-    "prettier/prettier": {
-      "count": 4
-    }
-  },
-  "packages/sdk-js/test/remote-eval.test.ts": {
-    "prettier/prettier": {
-      "count": 4
-    }
-  },
   "packages/sdk-react/rollup.config.mjs": {
     "prettier/prettier": {
       "count": 2
-    }
-  },
-  "packages/shared/types/event-webhook-log.d.ts": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
-  "packages/shared/types/events/base-types.d.ts": {
-    "prettier/prettier": {
-      "count": 1
     }
   }
 }
