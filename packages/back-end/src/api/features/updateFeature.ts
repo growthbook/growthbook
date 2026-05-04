@@ -1,7 +1,7 @@
-import { validateFeatureValue, validateScheduleRules } from "shared/util";
+import { validateFeatureValue, getRulesForEnvironment } from "shared/util";
 import { isEqual } from "lodash";
-import { updateFeatureValidator, RevisionRules } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import { updateFeatureValidator } from "shared/validators";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -15,7 +15,9 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
+  addIdsToFlatRules,
   addIdsToRules,
+  fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
@@ -24,13 +26,25 @@ import {
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  getRevision,
+  normalizeRulesInputToV2,
+} from "back-end/src/models/FeatureRevisionModel";
+import {
+  getEnvironments,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
 import { canBypassReviewChecks } from "./reviewBypass";
+import {
+  assertValidHoldout,
+  assertValidProjectId,
+  extractRevisionMetadata,
+  validateEnvRulesScheduleRules,
+} from "./v2Shared";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req) => {
@@ -80,15 +94,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       }
     }
 
-    // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
-    if (project) {
-      const projects = await req.context.getProjects();
-      if (!projects.some((p) => p.id === req.body.project)) {
-        throw new Error(
-          `Project id ${req.body.project} is not a valid project.`,
-        );
-      }
-    }
+    await assertValidProjectId(project, req.context);
 
     // check if the custom fields are valid
     const projectChanged = project !== undefined && project !== feature.project;
@@ -110,34 +116,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
     }
 
-    // Validate scheduleRules before processing environment settings
-    if (req.body.environments) {
-      Object.entries(req.body.environments).forEach(
-        ([envName, envSettings]) => {
-          if (envSettings.rules) {
-            envSettings.rules.forEach((rule, ruleIndex) => {
-              if (rule.scheduleRules) {
-                // Validate that the org has access to schedule rules
-                if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
-                  throw new Error(
-                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
-                  );
-                }
-                try {
-                  validateScheduleRules(rule.scheduleRules);
-                } catch (error) {
-                  throw new Error(
-                    `Invalid scheduleRules in environment "${envName}", rule ${
-                      ruleIndex + 1
-                    }: ${error.message}`,
-                  );
-                }
-              }
-            });
-          }
-        },
-      );
-    }
+    validateEnvRulesScheduleRules(req.body.environments, req.context);
 
     // ensure default value matches value type
     let defaultValue;
@@ -161,22 +140,14 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           }))
         : null;
 
-    // Validate holdout ID if provided
-    if (req.body.holdout !== undefined && req.body.holdout !== null) {
-      const holdoutObj = await req.context.models.holdout.getById(
-        req.body.holdout.id,
-      );
-      if (!holdoutObj) {
-        throw new Error(`Holdout id '${req.body.holdout.id}' not found.`);
-      }
-    }
+    await assertValidHoldout(req.body.holdout, req.context);
 
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
         ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
         : null;
 
-    const updates: Partial<FeatureInterface> = {
+    let updates: Partial<FeatureInterface> = {
       ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
       ...(archived != null ? { archived } : {}),
       ...(description != null ? { description } : {}),
@@ -214,10 +185,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 
-    if (updates.environmentSettings) {
+    // Recompute next-scheduled-update whenever top-level `rules` OR
+    // `environmentSettings` change (the latter for REST callers still posting
+    // v1-shape env rules, which adapters normalize upstream).
+    if (updates.rules !== undefined || updates.environmentSettings) {
       updates.nextScheduledUpdate = getNextScheduledUpdate(
-        updates.environmentSettings,
-        orgEnvs,
+        updates.rules ?? feature.rules,
       );
     }
 
@@ -251,10 +224,52 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // 2. rules / defaultValue
-    const revisedRules: RevisionRules = {};
-    Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
-      revisedRules[env] = settings.rules;
+    // v2: rules live on feature.rules (flat). Normalize inbound per-env rules
+    // through `normalizeRulesInputToV2` so content-identical rules across envs
+    // collapse to a single v2 rule with `environments: [...envs]` (or
+    // `allEnvironments: true` when applicable) — matches the read-path JIT
+    // and preserves v1 round-trip semantics for clients that send the same
+    // rule id across envs. Then union with existing rules for envs the caller
+    // didn't touch so we don't lose them on partial updates.
+    const incomingEnvs = req.body.environments ?? {};
+    const touchedEnvs = new Set(Object.keys(incomingEnvs));
+    const inboundRulesByEnv: Record<string, FeatureRule[]> = {};
+    for (const [env, envSettings] of Object.entries(incomingEnvs)) {
+      if (!envSettings.rules) continue;
+      const converted = fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+        feature,
+        envSettings.rules,
+      );
+      // Stamp ids before flattening — `flattenV1ToV2Rules` groups by id and
+      // drops id-less rules. Without this, v1 clients that omit ids would
+      // lose those rules on PUT.
+      addIdsToFlatRules(converted, feature.id);
+      inboundRulesByEnv[env] = converted;
+    }
+    const inboundFlatRules: FeatureRule[] =
+      Object.keys(inboundRulesByEnv).length > 0
+        ? normalizeRulesInputToV2(inboundRulesByEnv, {
+            orgEnvs: getEnvironments(req.context.org),
+            featureProject: effectiveProject,
+          })
+        : [];
+    // Carry through untouched-env rules from the existing feature.
+    const preservedRules: FeatureRule[] = (feature.rules ?? []).filter((r) => {
+      if (r.allEnvironments) {
+        // An all-env rule can only be left alone if the caller didn't touch
+        // any env — otherwise it would be ambiguous which envs they meant to
+        // affect. This matches legacy v1 semantics (untouched envs preserved).
+        return true;
+      }
+      const envs = r.environments ?? [];
+      // Keep if none of the rule's envs were touched.
+      return envs.every((e) => !touchedEnvs.has(e));
     });
+    const revisedRulesFlat: FeatureRule[] = [
+      ...preservedRules,
+      ...inboundFlatRules,
+    ];
+
     const changedRuleEnvironments: string[] = [];
     let defaultValueChanged = false;
 
@@ -265,35 +280,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       defaultValueChanged = true;
     }
     if (updates.environmentSettings) {
-      Object.entries(updates.environmentSettings).forEach(([env, settings]) => {
-        if (
-          !isEqual(
-            settings.rules,
-            feature.environmentSettings?.[env]?.rules || [],
-          )
-        ) {
+      Object.keys(updates.environmentSettings).forEach((env) => {
+        const inboundEnv = getRulesForEnvironment(inboundFlatRules, env);
+        const currentEnv = getRulesForEnvironment(feature.rules ?? [], env);
+        if (!isEqual(inboundEnv, currentEnv)) {
           changedRuleEnvironments.push(env);
-          revisedRules[env] = settings.rules;
         }
       });
     }
 
     // 3. metadata
-    const metadataChanges: Record<string, unknown> = {};
-    const metadataFields = [
-      "owner",
-      "description",
-      "project",
-      "tags",
-      "customFields",
-      "jsonSchema",
-    ] as const;
-    for (const key of metadataFields) {
-      if (key in updates && updates[key] !== undefined) {
-        metadataChanges[key] = updates[key];
-        delete (updates as Record<string, unknown>)[key];
-      }
-    }
+    const { metadata: metadataChanges, remaining: updatesAfterMetadata } =
+      extractRevisionMetadata(updates);
+    updates = updatesAfterMetadata;
 
     // 4. prerequisites
     const newPrerequisites = updates.prerequisites ?? null;
@@ -342,7 +341,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           : {}),
         ...(hasRuleChanges || hasEnvEnabledChanges
           ? {
-              rules: revisedRules,
+              rules: revisedRulesFlat,
               ...(updates.defaultValue !== undefined
                 ? { defaultValue: updates.defaultValue }
                 : {}),
@@ -401,6 +400,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       context: req.context,
       organization: updatedFeature.organization,
       featureId: updatedFeature.id,
+      feature: updatedFeature,
       version: updatedFeature.version,
     });
     const safeRolloutMap =

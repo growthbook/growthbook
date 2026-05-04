@@ -19,6 +19,7 @@ import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
 import { featureRoutes } from "./features/features.router";
+import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
 import { snapshotsRoutes } from "./snapshots/snapshots.router";
 import { metricsRoutes } from "./metrics/metrics.router";
@@ -134,6 +135,7 @@ router.get("/", (req, res) => {
 
 export const allRoutes = [
   ...featureRoutes,
+  ...featureV2Routes,
   ...archetypesRoutes,
   ...experimentsRoutes,
   ...snapshotsRoutes,
@@ -189,10 +191,29 @@ allRoutes.forEach((route) => {
     return;
   }
 
-  if (route.middleware) {
-    router[route.method](route.path, route.middleware, route.handler);
+  // Prepend version prefix so v1 routes live at /v1/... and v2 at /v2/...
+  // The router is mounted at /api in app.ts, so the full path becomes
+  // /api/v1/<route> or /api/v2/<route> as appropriate.
+  const version = (route as { version?: string }).version ?? "v1";
+  const versionedPath = `/${version}${route.path}`;
+
+  const middleware: RequestHandler[] = [
+    ...(route.middleware ?? []),
+    // Emit RFC 8594 Deprecation header when the route spec provides a date.
+    ...(route.deprecationDate
+      ? [
+          ((_, res, next) => {
+            res.setHeader("Deprecation", route.deprecationDate as string);
+            next();
+          }) as RequestHandler,
+        ]
+      : []),
+  ];
+
+  if (middleware.length > 0) {
+    router[route.method](versionedPath, middleware, route.handler);
   } else {
-    router[route.method](route.path, route.handler);
+    router[route.method](versionedPath, route.handler);
   }
 });
 

@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import omit from "lodash/omit";
 import { v4 as uuidv4 } from "uuid";
 import {
   RevisionRampCreateAction,
@@ -15,7 +16,7 @@ import type {
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -46,9 +47,13 @@ import {
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 
-function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
+export function buildRuleFromInput(
+  input: RuleCreateInput,
+  id: string,
+): FeatureRule {
   const base = {
     id,
+    allEnvironments: false,
     description: input.description ?? "",
     enabled: input.enabled ?? true,
     condition: input.condition,
@@ -285,21 +290,27 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, environment)
+      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       // A startDate implies the rule should be disabled until the ramp fires.
       if (schedule.startDate) rule.enabled = false;
       resolvedRampAction = buildScheduleRampAction(
         rule.id,
-        environment,
         schedule.startDate,
         schedule.endDate,
       );
     }
 
-    const newRules = cloneDeep(revision.rules ?? {});
-    newRules[environment] = [...(newRules[environment] ?? []), rule];
+    // v2: rules live on a flat top-level array. Stamp the new rule with
+    // single-env scope and append to the existing array.
+    const baseRules = cloneDeep(revision.rules ?? []);
+    const stampedRule: FeatureRule = {
+      ...rule,
+      allEnvironments: false,
+      environments: [environment],
+    };
+    const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
     const changes: RevisionChanges = { rules: newRules };
 
@@ -335,6 +346,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       context: req.context,
       organization: req.organization.id,
       featureId: feature.id,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
@@ -350,7 +362,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       },
     );
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { revision: toApiRevision(finalRevision, req.context, feature) };
   } catch (err) {
     if (createdSafeRolloutId) {
       try {
@@ -378,10 +390,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         const holdout =
           await req.context.models.holdout.getById(linkedHoldoutId);
         if (holdout?.linkedExperiments?.[linkedExperimentId]) {
-          const { [linkedExperimentId]: _omit, ...rest } =
-            holdout.linkedExperiments;
           await req.context.models.holdout.updateById(linkedHoldoutId, {
-            linkedExperiments: rest,
+            linkedExperiments: omit(holdout.linkedExperiments, [
+              linkedExperimentId,
+            ]),
           });
         }
       } catch {

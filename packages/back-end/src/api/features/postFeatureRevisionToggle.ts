@@ -1,6 +1,8 @@
+import type { OrganizationInterface } from "shared/types/organization";
 import { postFeatureRevisionToggleValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { ApiReqContext } from "back-end/types/api";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -16,28 +18,36 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-export const postFeatureRevisionToggle = createApiRequestHandler(
-  postFeatureRevisionToggleValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+export async function toggleRevisionEnvironment(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number | "new" },
+  body: {
+    environment: string;
+    enabled: boolean;
+    revisionTitle?: string;
+    revisionComment?: string;
+  },
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError();
   }
 
-  const { environment, enabled } = req.body;
-  assertValidEnvironment(req.context, environment);
+  const { environment, enabled } = body;
+  assertValidEnvironment(context, environment);
 
   const { revision, created } = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
+    context,
+    organization.id,
     feature,
-    req.params.version,
-    { title: req.body.revisionTitle, comment: req.body.revisionComment },
+    params.version,
+    { title: body.revisionTitle, comment: body.revisionComment },
   );
 
   try {
@@ -52,8 +62,8 @@ export const postFeatureRevisionToggle = createApiRequestHandler(
       feature.environmentSettings?.[environment]?.enabled ??
       false;
     if (currentEnabled === enabled) {
-      await discardIfJustCreated(req.context, revision, created);
-      return { revision: revisionToApiInterface(revision) };
+      await discardIfJustCreated(context, revision, created);
+      return { feature, revision };
     }
 
     const newEnabled = {
@@ -62,12 +72,12 @@ export const postFeatureRevisionToggle = createApiRequestHandler(
     };
 
     await updateRevision(
-      req.context,
+      context,
       feature,
       revision,
       { environmentsEnabled: newEnabled },
       {
-        user: req.context.auditUser,
+        user: context.auditUser,
         action: enabled ? "enable environment" : "disable environment",
         subject: environment,
         value: JSON.stringify({ enabled }),
@@ -76,26 +86,39 @@ export const postFeatureRevisionToggle = createApiRequestHandler(
         feature,
         changedEnvironments: [environment],
         defaultValueChanged: false,
-        settings: req.organization.settings,
+        settings: organization.settings,
       }),
     );
 
     const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
+      context: context,
+      organization: organization.id,
       featureId: feature.id,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
 
-    await recordRevisionUpdate(req.context, feature, finalRevision, "toggle", {
+    await recordRevisionUpdate(context, feature, finalRevision, "toggle", {
       environments: [environment],
       auditDetails: { enabled },
     });
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { feature, revision: finalRevision };
   } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
+    await discardIfJustCreated(context, revision, created);
     throw err;
   }
+}
+
+export const postFeatureRevisionToggle = createApiRequestHandler(
+  postFeatureRevisionToggleValidator,
+)(async (req) => {
+  const { feature, revision } = await toggleRevisionEnvironment(
+    req.context,
+    req.organization,
+    req.params,
+    req.body,
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

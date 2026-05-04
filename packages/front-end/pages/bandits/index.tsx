@@ -32,6 +32,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useExperimentSearch } from "@/services/experiments";
+import Callout from "@/ui/Callout";
 
 const NUM_PER_PAGE = 20;
 
@@ -112,11 +113,7 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [filtered.length]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
