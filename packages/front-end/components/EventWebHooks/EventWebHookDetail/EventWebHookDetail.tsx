@@ -216,7 +216,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
                 confirmation={{
                   confirmationTitle: "Delete Webhook",
                   cta: "Delete",
-                  submitColor: "danger",
+                  ctaColor: "red",
                   submit: async () => {
                     await onDelete();
                     setDropdownOpen(false);

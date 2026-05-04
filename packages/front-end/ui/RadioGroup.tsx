@@ -1,6 +1,7 @@
 import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, Fragment, ReactElement, ReactNode } from "react";
+import clsx from "clsx";
 import HelperText, { getRadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 
@@ -18,6 +19,7 @@ export type RadioOptions = {
    * in a `<label>`.
    */
   renderOutsideItem?: boolean;
+  itemClassName?: string;
   disabled?: boolean;
   disabledReason?: ReactNode;
 }[];
@@ -68,70 +70,77 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
             disabled={disabled}
             color={radioColor}
           >
-            {options.map(
-              ({
-                value,
-                label,
-                description,
-                disabled,
-                disabledReason,
-                error,
-                errorLevel = "error",
-                renderOnSelect,
-                renderOutsideItem = false,
-              }) => {
-                const selected = value == selectedValue;
-                const item = (
-                  <Fragment key={value}>
-                    <RadixRadioGroup.Item
-                      value={value}
-                      disabled={disabled}
-                      className={disabled ? "disabled" : undefined}
-                    >
-                      <Text
-                        className={disabled ? "rt-TextDisabled" : undefined}
+            <Flex direction="column" gap={gap}>
+              {options.map(
+                ({
+                  value,
+                  label,
+                  description,
+                  disabled,
+                  disabledReason,
+                  error,
+                  errorLevel = "error",
+                  renderOnSelect,
+                  renderOutsideItem = false,
+                  itemClassName,
+                }) => {
+                  const selected = value == selectedValue;
+                  const item = (
+                    <Fragment key={value}>
+                      <RadixRadioGroup.Item
+                        value={value}
+                        disabled={disabled}
+                        className={
+                          clsx({ disabled }, itemClassName) || undefined
+                        }
                       >
-                        <Flex direction="column" gap={gap}>
-                          <Text
-                            weight="medium"
-                            className="main-text"
-                            size={labelSize}
-                          >
-                            {label || value}
-                          </Text>
-                          {description ? (
-                            <Text weight="regular" size={descriptionSize}>
-                              {description}
+                        <Text
+                          className={disabled ? "rt-TextDisabled" : undefined}
+                        >
+                          <Flex direction="column">
+                            <Text
+                              weight="medium"
+                              className="main-text"
+                              size={labelSize}
+                            >
+                              {label || value}
                             </Text>
-                          ) : null}
-                          {error && selected ? (
-                            <HelperText status={errorLevel}>{error}</HelperText>
-                          ) : null}
-                          {!renderOutsideItem && renderOnSelect && selected
-                            ? renderOnSelect
-                            : null}
-                        </Flex>
-                      </Text>
-                    </RadixRadioGroup.Item>
-                    {renderOutsideItem && renderOnSelect && selected
-                      ? renderOnSelect
-                      : null}
-                  </Fragment>
-                );
+                            {description ? (
+                              <Text weight="regular" size={descriptionSize}>
+                                {description}
+                              </Text>
+                            ) : null}
+                            {error && selected ? (
+                              <HelperText status={errorLevel}>
+                                {error}
+                              </HelperText>
+                            ) : null}
+                            {!renderOutsideItem && renderOnSelect && selected
+                              ? renderOnSelect
+                              : null}
+                          </Flex>
+                        </Text>
+                      </RadixRadioGroup.Item>
+                      {renderOutsideItem && renderOnSelect && selected
+                        ? renderOnSelect
+                        : null}
+                    </Fragment>
+                  );
 
-                if (!disabledReason) return item;
+                  if (!disabledReason) return item;
 
-                return (
-                  <Tooltip
-                    key={value}
-                    content={disabledReason}
-                    enabled={!!disabled}
-                  >
-                    <span style={{ display: "block" }}>{item}</span>
-                  </Tooltip>
-                );
-              },
-            )}
+                  return (
+                    <Tooltip
+                      key={value}
+                      content={disabledReason}
+                      enabled={!!disabled}
+                    >
+                      <span style={{ display: "block" }}>{item}</span>
+                    </Tooltip>
+                  );
+                },
+              )}
+            </Flex>
           </RadixRadioGroup.Root>
         </Text>
       </Flex>

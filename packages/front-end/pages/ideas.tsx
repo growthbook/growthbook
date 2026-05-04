@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import Link from "next/link";
 import { IdeaInterface } from "shared/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import IdeaForm from "@/components/Ideas/IdeaForm";
@@ -14,6 +14,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -37,7 +38,7 @@ const IdeasPage = (): React.ReactElement => {
   });
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return <Callout status="error">An error occurred</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

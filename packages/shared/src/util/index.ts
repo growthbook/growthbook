@@ -26,8 +26,10 @@ import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";
+export * from "./managedWarehouse";
 export * from "./saved-groups";
 export * from "./metric-time-series";
+export * from "./ruleId";
 export * from "./numbers";
 export * from "./types";
 export * from "./errors";
@@ -271,6 +273,19 @@ export type MatchingRule = {
   rule: FeatureRule;
 };
 
+/**
+ * Scan the v2 unified rule array (from `revision.rules` if provided, else
+ * `feature.rules`) and emit one `MatchingRule` entry per (rule × applicable
+ * env) pair that passes `filter`. Multi-env rules fan out to one entry per
+ * env they cover; single-env rules emit exactly one entry. Rules with
+ * `allEnvironments: true` fan out across every valid env in `environments`.
+ *
+ * `i` is the rule's index in the UNIFIED rule array (same across every
+ * fan-out entry for a given rule). Callers that identify a rule by
+ * `(environmentId, i)` were the v1 contract; under v2 the authoritative
+ * match handle is `rule.id` — `i` is preserved only for backward-compatible
+ * display/logging.
+ */
 export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
@@ -279,33 +294,116 @@ export function getMatchingRules(
   omitDisabledEnvironments: boolean = false,
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
+  const allRules: FeatureRule[] = revision?.rules ?? feature.rules ?? [];
 
-  if (feature.environmentSettings) {
-    Object.entries(feature.environmentSettings).forEach(
-      ([environmentId, settings]) => {
-        if (!isValidEnvironment(environmentId, environments)) return;
+  allRules.forEach((rule, i) => {
+    if (!filter(rule)) return;
 
-        if (omitDisabledEnvironments && !settings.enabled) return;
+    // Resolve the env list this rule applies to. Tri-state:
+    //   - `allEnvironments: true`              → every visible env
+    //   - `environments: [list]`               → that list (strict membership)
+    //   - `environments: []`                   → no envs (intentional "pending"
+    //                                            / "ramp not yet scoped" state)
+    //   - neither field declared (malformed)   → every visible env (permissive
+    //                                            safety net for legacy data)
+    const ruleEnvs = rule.allEnvironments
+      ? environments
+      : rule.environments !== undefined
+        ? rule.environments
+        : environments;
 
-        const rules = revision ? revision.rules[environmentId] : settings.rules;
+    ruleEnvs.forEach((environmentId) => {
+      if (!isValidEnvironment(environmentId, environments)) return;
 
-        if (rules) {
-          rules.forEach((rule, i) => {
-            if (filter(rule)) {
-              matches.push({
-                rule,
-                i,
-                environmentEnabled: settings.enabled,
-                environmentId,
-              });
-            }
-          });
-        }
-      },
-    );
-  }
+      const envSettings = feature.environmentSettings?.[environmentId];
+      const environmentEnabled = !!envSettings?.enabled;
+      if (omitDisabledEnvironments && !environmentEnabled) return;
+
+      matches.push({
+        rule,
+        i,
+        environmentEnabled,
+        environmentId,
+      });
+    });
+  });
 
   return matches;
+}
+
+// Rule scope predicate. Keep aligned with `ruleFootprint`.
+//   allEnvironments:true           → true
+//   environments:[list]            → list.includes(environment)
+//   environments:[]                → false (pending)
+//   neither (malformed/legacy)     → true (permissive fallback)
+export function ruleAppliesToEnv(
+  rule: FeatureRule,
+  environment: string,
+): boolean {
+  if (rule.allEnvironments) return true;
+  if (rule.environments !== undefined) {
+    return rule.environments.includes(environment);
+  }
+  return true;
+}
+
+// Filter to rules applying to `environment`, preserving input order. Accepts
+// nullish for convenience. Non-array input (e.g. a not-yet-JIT-upgraded v1
+// revision) returns [] rather than throwing, so the caller's envSettings
+// fallback can take over.
+export function getRulesForEnvironment(
+  rules: FeatureRule[] | undefined | null,
+  environment: string,
+): FeatureRule[] {
+  if (!Array.isArray(rules)) return [];
+  return rules.filter((r) => ruleAppliesToEnv(r, environment));
+}
+
+// Footprint of a rule, intersected with `applicableEnvs`. Must match
+// `ruleAppliesToEnv`.
+//   allEnvironments:true           → every applicable env
+//   environments:[list]            → list ∩ applicable
+//   environments:[]                → [] (pending)
+//   neither (malformed/legacy)     → every applicable env (permissive fallback)
+export function ruleFootprint(
+  rule: FeatureRule,
+  applicableEnvs: string[],
+): string[] {
+  if (rule.allEnvironments) return applicableEnvs;
+  if (rule.environments === undefined) return applicableEnvs;
+  const applicableSet = new Set(applicableEnvs);
+  return rule.environments.filter((e) => applicableSet.has(e));
+}
+
+// Naive v1→v2 flattener for diff/merge/preview paths. Coerces an ambiguous
+// rules blob into a flat FeatureRule[] without dedup or id-collision repair:
+//   FeatureRule[]                → pass-through
+//   Record<env, FeatureRule[]>   → flatten, stamping `environments: [env]`
+//   nullish / other              → []
+// NOT for persistence — content-identical rules across envs come out as
+// duplicate ids. Persistence paths must use `normalizeRulesInputToV2` on the
+// back-end, which dedupes by id, collapses to allEnvironments, and suffixes
+// collisions.
+export function naiveFlattenV1Rules(input: unknown): FeatureRule[] {
+  if (input == null) return [];
+  if (Array.isArray(input)) return input as FeatureRule[];
+  if (typeof input === "object") {
+    const out: FeatureRule[] = [];
+    for (const [env, rules] of Object.entries(
+      input as Record<string, FeatureRule[]>,
+    )) {
+      if (!Array.isArray(rules)) continue;
+      for (const r of rules) {
+        out.push({
+          ...r,
+          allEnvironments: false,
+          environments: [env],
+        } as FeatureRule);
+      }
+    }
+    return out;
+  }
+  return [];
 }
 
 export function isProjectListValidForProject(

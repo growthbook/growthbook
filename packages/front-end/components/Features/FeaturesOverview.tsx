@@ -7,7 +7,7 @@ import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   PiPlusCircleBold,
   PiPlus,
-  PiArrowsLeftRightBold,
+  PiGitDiff,
   PiPencilSimpleFill,
   PiCaretRightBold,
   PiPencil,
@@ -52,7 +52,6 @@ import {
   getAffectedRevisionEnvs,
   getPrerequisites,
   getRules,
-  isRuleInactive,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -95,7 +94,6 @@ import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
-import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
 import {
@@ -242,10 +240,6 @@ export default function FeaturesOverview({
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
-  const [hideInactive, setHideInactive] = useLocalStorage(
-    `hide-disabled-rules`,
-    false,
-  );
   const [descriptionExpanded, setDescriptionExpanded] = useLocalStorage(
     `feature-description-expanded`,
     false,
@@ -493,18 +487,13 @@ export default function FeaturesOverview({
         ...liveRevision,
         ...liveRevisionFromFeature(liveRevision, baseFeature),
       };
+      // v2 rules are a flat FeatureRule[]; the mergeResult carries either the
+      // full replacement array (when rules changed) or nothing (when only
+      // non-rule fields changed). Never object-spread an array.
       effectiveRevision = {
         ...filledLive,
         ...mergeResult.result,
-        // Merge rules per-environment so that environments absent from the
-        // sparse mergeResult.result (e.g. production when only dev/staging
-        // changed) inherit their live rules rather than defaulting to [].
-        // Without this, getDraftAffectedEnvironments incorrectly detects a
-        // diff in untouched environments and over-triggers review requirements.
-        rules: {
-          ...filledLive.rules,
-          ...(mergeResult.result.rules ?? {}),
-        },
+        rules: mergeResult.result.rules ?? filledLive.rules,
       };
       effectiveBase = filledLive;
     }
@@ -607,13 +596,9 @@ export default function FeaturesOverview({
   const hasCustomFields = (featureCustomFields?.length ?? 0) > 0;
 
   let hasRules = false;
-  let hasInactiveRules = false;
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    if (r.some((r) => isRuleInactive(r, experimentsMap))) {
-      hasInactiveRules = true;
-    }
   });
 
   const variables = {
@@ -1074,7 +1059,7 @@ export default function FeaturesOverview({
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
-              <Flex align="start" gap="4" style={{ marginTop: 6 }}>
+              <Flex align="start" gap="4" style={{ marginTop: 5 }}>
                 <Flex direction="column" gap="1">
                   <Flex align="center" gap="2">
                     {revision.title && (
@@ -1176,12 +1161,15 @@ export default function FeaturesOverview({
                       orientation="vertical"
                       style={{ marginTop: 2 }}
                     />
-                    <Link onClick={onCompareRevisions}>
-                      <PiArrowsLeftRightBold
-                        style={{ marginRight: 4, verticalAlign: "middle" }}
-                      />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<PiGitDiff />}
+                      onClick={onCompareRevisions}
+                      style={{ position: "relative", top: -5 }}
+                    >
                       Compare revisions
-                    </Link>
+                    </Button>
                   </>
                 )}
               </Flex>
@@ -1278,10 +1266,7 @@ export default function FeaturesOverview({
               Environment Status
             </Heading>
             {showFeatureUsage && (
-              <FeatureUsageSparkline
-                valueType={feature.valueType}
-                environments={envs}
-              />
+              <FeatureUsageSparkline valueType={feature.valueType} />
             )}
           </Flex>
           <div className="mb-4">
@@ -1299,7 +1284,7 @@ export default function FeaturesOverview({
                       envGridWidth > 0 &&
                       200 + envs.length * 120 < envGridWidth - 80
                         ? -26 // align to the env grid's labels' baseline
-                        : undefined,
+                        : 8,
                   }}
                 >
                   <Button
@@ -1792,19 +1777,9 @@ export default function FeaturesOverview({
                 pt="4"
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
-                <Flex align="center" justify="between" mb="2">
-                  <Heading as="h4" size="small" mb="0">
-                    Rules
-                  </Heading>
-                  <label className="font-weight-semibold">
-                    <Switch
-                      disabled={!hasInactiveRules}
-                      value={!hasInactiveRules ? false : !hideInactive}
-                      onChange={(state) => setHideInactive(!state)}
-                      label="Show inactive"
-                    />
-                  </label>
-                </Flex>
+                <Heading as="h4" size="small" mb="2">
+                  Rules
+                </Heading>
                 {environments.length > 0 ? (
                   <>
                     {!hasRules && (
@@ -1825,7 +1800,6 @@ export default function FeaturesOverview({
                       mutate={mutate}
                       currentVersion={currentVersion}
                       setVersion={setVersion}
-                      hideInactive={hideInactive}
                       isDraft={isDraft}
                       safeRolloutsMap={safeRolloutsMap}
                       holdout={holdout}
@@ -2070,6 +2044,7 @@ export default function FeaturesOverview({
                           revisions.find((r) => r.version === feature.version)
                             ?.title
                         }
+                        minWidth={0}
                       />
                     </OverflowText>
                   </Text>

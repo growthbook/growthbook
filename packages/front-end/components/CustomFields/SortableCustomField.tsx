@@ -221,7 +221,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
             {...attributes}
             {...listeners}
           >
-            <RiDraggable />
+            <RiDraggable size={16} />
           </div>
         </Flex>
       </td>
@@ -284,7 +284,7 @@ export function StaticCustomFieldRow({
               cursor: "grabbing",
             }}
           >
-            <RiDraggable />
+            <RiDraggable size={16} />
           </div>
         </Flex>
       </td>

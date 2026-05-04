@@ -87,7 +87,7 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="large">
             {labelA}
           </Text>
         </Flex>
@@ -109,7 +109,7 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="large">
             {labelB}
           </Text>
         </Flex>
@@ -384,13 +384,15 @@ export default function CompareAuditEvents<T>({
               />
             )}
           </Flex>
-          <Box mt="2">
-            <AuditEntryAuthor user={entry.user} display="avatar-name" />
-          </Box>
-          <Text as="div">
+          <Text size="small" color="text-low">
             {entry.count > 1
               ? datetime(entry.dateEnd)
-              : datetime(entry.dateStart)}
+              : datetime(entry.dateStart)}{" "}
+            ·{" "}
+            <EventUser
+              user={auditUserInfoToEventUser(entry.user)}
+              display="name"
+            />
           </Text>
           {entry.count > 1 && (
             <Box mt="1">
@@ -828,7 +830,7 @@ export default function CompareAuditEvents<T>({
               mb="3"
               style={{ borderBottom: "1px solid var(--gray-5)" }}
             >
-              <Flex align="center" justify="between" gap="4" wrap="wrap">
+              <Flex align="start" justify="between" gap="4" wrap="wrap">
                 <Flex align="center" gap="4">
                   {diffViewMode === "steps" && (
                     <>
@@ -875,7 +877,7 @@ export default function CompareAuditEvents<T>({
                               />
                             </Tooltip>
                           )}
-                          <Text weight="semibold" size="medium">
+                          <Text weight="semibold" size="large">
                             {getEntryLabel(singleEntryFirst)}
                           </Text>
                         </Flex>
