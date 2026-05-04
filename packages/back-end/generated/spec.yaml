@@ -8544,6 +8544,8 @@ paths:
                                 type:
                                   type: string
                                   const: set-gate
+                                ruleId:
+                                  type: string
                                 patch:
                                   type: object
                                   properties:
@@ -8576,9 +8578,25 @@ paths:
                                               - ids
                                             additionalProperties: false
                                         - type: 'null'
+                                    prerequisites:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id:
+                                                type: string
+                                              condition:
+                                                type: string
+                                            required:
+                                              - id
+                                              - condition
+                                            additionalProperties: false
+                                        - type: 'null'
                                   additionalProperties: false
                               required:
                                 - type
+                                - ruleId
                                 - patch
                               additionalProperties: false
                             - type: object
@@ -8730,6 +8748,8 @@ paths:
                           type:
                             type: string
                             const: set-gate
+                          ruleId:
+                            type: string
                           patch:
                             type: object
                             properties:
@@ -8762,9 +8782,25 @@ paths:
                                         - ids
                                       additionalProperties: false
                                   - type: 'null'
+                              prerequisites:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id:
+                                          type: string
+                                        condition:
+                                          type: string
+                                      required:
+                                        - id
+                                        - condition
+                                      additionalProperties: false
+                                  - type: 'null'
                             additionalProperties: false
                         required:
                           - type
+                          - ruleId
                           - patch
                         additionalProperties: false
                       - type: object
@@ -8833,6 +8869,8 @@ paths:
                   properties:
                     seed:
                       type: string
+                    monitorSeed:
+                      type: string
                     hashAttribute:
                       type: string
                     hashVersion:
@@ -8841,40 +8879,79 @@ paths:
                           const: 1
                         - type: number
                           const: 2
-                    coverage:
-                      type: number
-                      minimum: 0
-                      maximum: 1
-                    condition:
-                      anyOf:
-                        - type: string
-                        - type: 'null'
-                    savedGroups:
-                      anyOf:
-                        - type: array
-                          items:
-                            type: object
-                            properties:
-                              match:
-                                type: string
-                                enum:
-                                  - all
-                                  - none
-                                  - any
-                              ids:
-                                type: array
+                    rules:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          type:
+                            type: string
+                            enum:
+                              - bypass
+                              - deny
+                              - rollout
+                          environments:
+                            minItems: 1
+                            type: array
+                            items:
+                              type: string
+                          coverage:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                          condition:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          savedGroups:
+                            anyOf:
+                              - type: array
                                 items:
-                                  type: string
-                            required:
-                              - match
-                              - ids
-                            additionalProperties: false
-                        - type: 'null'
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              - type: 'null'
+                          prerequisites:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              - type: 'null'
+                        required:
+                          - id
+                          - type
+                          - environments
+                        additionalProperties: false
                   required:
                     - seed
+                    - monitorSeed
                     - hashAttribute
                     - hashVersion
-                    - coverage
+                    - rules
                   additionalProperties: false
                 monitoringConfig:
                   type: object
@@ -8917,6 +8994,10 @@ paths:
                         additionalProperties: false
                     apiRollback:
                       type: boolean
+                    monitoredEnvironments:
+                      type: array
+                      items:
+                        type: string
                   required:
                     - datasourceId
                     - exposureQueryId
@@ -23872,6 +23953,8 @@ paths:
                                 type:
                                   type: string
                                   const: set-gate
+                                ruleId:
+                                  type: string
                                 patch:
                                   type: object
                                   properties:
@@ -23904,9 +23987,25 @@ paths:
                                               - ids
                                             additionalProperties: false
                                         - type: 'null'
+                                    prerequisites:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id:
+                                                type: string
+                                              condition:
+                                                type: string
+                                            required:
+                                              - id
+                                              - condition
+                                            additionalProperties: false
+                                        - type: 'null'
                                   additionalProperties: false
                               required:
                                 - type
+                                - ruleId
                                 - patch
                               additionalProperties: false
                             - type: object
@@ -24156,6 +24255,8 @@ paths:
                                 type:
                                   type: string
                                   const: set-gate
+                                ruleId:
+                                  type: string
                                 patch:
                                   type: object
                                   properties:
@@ -24188,9 +24289,25 @@ paths:
                                               - ids
                                             additionalProperties: false
                                         - type: 'null'
+                                    prerequisites:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id:
+                                                type: string
+                                              condition:
+                                                type: string
+                                            required:
+                                              - id
+                                              - condition
+                                            additionalProperties: false
+                                        - type: 'null'
                                   additionalProperties: false
                               required:
                                 - type
+                                - ruleId
                                 - patch
                               additionalProperties: false
                             - type: object
@@ -29506,6 +29623,8 @@ components:
                         type:
                           type: string
                           const: set-gate
+                        ruleId:
+                          type: string
                         patch:
                           type: object
                           properties:
@@ -29538,9 +29657,25 @@ components:
                                       - ids
                                     additionalProperties: false
                                 - type: 'null'
+                            prerequisites:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
+                                - type: 'null'
                           additionalProperties: false
                       required:
                         - type
+                        - ruleId
                         - patch
                       additionalProperties: false
                     - type: object
@@ -29695,6 +29830,8 @@ components:
                   type:
                     type: string
                     const: set-gate
+                  ruleId:
+                    type: string
                   patch:
                     type: object
                     properties:
@@ -29727,9 +29864,25 @@ components:
                                 - ids
                               additionalProperties: false
                           - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
                     additionalProperties: false
                 required:
                   - type
+                  - ruleId
                   - patch
                 additionalProperties: false
               - type: object
@@ -29872,6 +30025,8 @@ components:
           properties:
             seed:
               type: string
+            monitorSeed:
+              type: string
             hashAttribute:
               type: string
             hashVersion:
@@ -29880,40 +30035,79 @@ components:
                   const: 1
                 - type: number
                   const: 2
-            coverage:
-              type: number
-              minimum: 0
-              maximum: 1
-            condition:
-              anyOf:
-                - type: string
-                - type: 'null'
-            savedGroups:
-              anyOf:
-                - type: array
-                  items:
-                    type: object
-                    properties:
-                      match:
-                        type: string
-                        enum:
-                          - all
-                          - none
-                          - any
-                      ids:
-                        type: array
+            rules:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  type:
+                    type: string
+                    enum:
+                      - bypass
+                      - deny
+                      - rollout
+                  environments:
+                    minItems: 1
+                    type: array
+                    items:
+                      type: string
+                  coverage:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                  condition:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  savedGroups:
+                    anyOf:
+                      - type: array
                         items:
-                          type: string
-                    required:
-                      - match
-                      - ids
-                    additionalProperties: false
-                - type: 'null'
+                          type: object
+                          properties:
+                            match:
+                              type: string
+                              enum:
+                                - all
+                                - none
+                                - any
+                            ids:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - match
+                            - ids
+                          additionalProperties: false
+                      - type: 'null'
+                  prerequisites:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            condition:
+                              type: string
+                          required:
+                            - id
+                            - condition
+                          additionalProperties: false
+                      - type: 'null'
+                required:
+                  - id
+                  - type
+                  - environments
+                additionalProperties: false
           required:
             - seed
+            - monitorSeed
             - hashAttribute
             - hashVersion
-            - coverage
+            - rules
           additionalProperties: false
         monitoringConfig:
           type: object
@@ -29956,6 +30150,10 @@ components:
                 additionalProperties: false
             apiRollback:
               type: boolean
+            monitoredEnvironments:
+              type: array
+              items:
+                type: string
           required:
             - datasourceId
             - exposureQueryId
@@ -32093,6 +32291,8 @@ components:
                         type:
                           type: string
                           const: set-gate
+                        ruleId:
+                          type: string
                         patch:
                           type: object
                           properties:
@@ -32125,9 +32325,25 @@ components:
                                       - ids
                                     additionalProperties: false
                                 - type: 'null'
+                            prerequisites:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
+                                - type: 'null'
                           additionalProperties: false
                       required:
                         - type
+                        - ruleId
                         - patch
                       additionalProperties: false
                     - type: object

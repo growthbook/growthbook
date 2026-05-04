@@ -627,7 +627,8 @@ export const getRampScheduleStatus = createApiRequestHandler({
     scope: schedule.scope,
     currentStepIndex: schedule.currentStepIndex,
     totalSteps: schedule.steps.length,
-    gateCoverage: schedule.gateConfig?.coverage,
+    gateCoverage: schedule.gateConfig?.rules.find((r) => r.type === "rollout")
+      ?.coverage,
     lockdownMode: schedule.lockdownConfig?.mode,
     guardrailCount: schedule.monitoringConfig?.guardrailMetricIds.length,
     startedAt: schedule.startedAt?.toISOString() ?? null,

@@ -304,16 +304,27 @@ async function executeFeatureLevelActions(
     switch (action.type) {
       case "set-gate": {
         if (!schedule.gateConfig) break;
-        const updates: Record<string, unknown> = {};
+        const gc = { ...schedule.gateConfig };
+        const rules = [...gc.rules];
+
+        const idx = rules.findIndex((r) => r.id === action.ruleId);
+        if (idx === -1) break;
+
+        const entry = { ...rules[idx] };
         if (action.patch.coverage !== undefined)
-          updates["gateConfig.coverage"] = action.patch.coverage;
+          entry.coverage = action.patch.coverage;
         if ("condition" in action.patch)
-          updates["gateConfig.condition"] = action.patch.condition;
+          entry.condition = action.patch.condition;
         if ("savedGroups" in action.patch)
-          updates["gateConfig.savedGroups"] = action.patch.savedGroups;
-        if (Object.keys(updates).length) {
-          await ctx.models.rampSchedules.updateById(schedule.id, updates);
-        }
+          entry.savedGroups = action.patch.savedGroups;
+        if ("prerequisites" in action.patch)
+          entry.prerequisites = action.patch.prerequisites;
+        rules[idx] = entry;
+
+        gc.rules = rules;
+        await ctx.models.rampSchedules.updateById(schedule.id, {
+          gateConfig: gc,
+        });
         break;
       }
       case "set-environment-enabled": {

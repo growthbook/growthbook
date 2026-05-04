@@ -30,23 +30,102 @@ export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 // ---------------------------------------------------------------------------
 // Gate config (used by feature-level rollouts)
 // ---------------------------------------------------------------------------
+//
+// ARCHITECTURE — synthetic gate prerequisite
+//
+// A feature-level rollout for `feature1` is expressed as a synthetic gate
+// feature (`$rampgate:<scheduleId>`). This gate is injected as a
+// `parentConditions` prerequisite (gate:true) on feature1's SDK rules — NOT
+// as materialized rules on feature1 itself. See `getFeatureDefinition` in
+// back-end/src/util/features.ts and `generateRampGatePayload` in
+// back-end/src/services/features.ts.
+//
+// DESIGN NOTE — hash space separation between rollout and monitoring
+//
+// The rollout gate and the monitoring experiment MUST be separate SDK rules
+// with separate seeds. They cannot share hash space. If a single
+// experiment-shaped rule (variations + coverage) is used for both gating and
+// monitoring, transitioning between monitored and unmonitored phases causes
+// treatment hopping:
+//
+//   Monitored at 50%:   [0, .25) = control, [.25, .50) = treatment
+//   Unmonitored at 50%: [0, .50) = treatment  ← control users hop
+//
+// Solution: use SDK `filters` to bind the monitoring experiment to the same
+// hash bucket as the rollout rule, while keeping variation assignment on a
+// separate seed. The synthetic gate feature emits this rule stack:
+//
+//   Rule 1 (bypass):  force:true, savedGroups:[beta-testers]
+//   Rule 2 (deny):    force:false, condition: NOT matching targeting
+//   Rule 3 (monitor): variations:[false,true], weights:[0.5,0.5], coverage:1.0
+//                      seed: "monitor-<scheduleId>"   ← experiment seed
+//                      filters: [{
+//                        seed: "gate-<scheduleId>",   ← rollout seed (shared)
+//                        hashVersion: 2,
+//                        ranges: [[0, coverage]]      ← same bucket as rule 4
+//                      }]
+//                      → only rollout-eligible users enter the experiment
+//                      → trackingCallback fires for both control and treatment
+//                      → added/removed freely without affecting rollout hash
+//   Rule 4 (rollout):  force:true, coverage:X
+//                      seed: "gate-<scheduleId>",     ← same rollout seed
+//                      hashVersion: 2
+//                      → catches rollout bucket when monitoring is OFF
+//                      → shadowed by rule 3 when monitoring is ON
+//   Rule 5 (deny):     force:false  ← default deny
+//
+// Why this is hash-safe:
+//   - Filter seed = rollout seed → same [0, X) bucket, same users
+//   - Experiment seed is independent → variation assignment never shifts
+//   - Removing rule 3 (stop monitoring): users fall through to rule 4,
+//     which selects the same bucket via the same seed. No hopping.
+//   - Ramping coverage (e.g. 10%→25%): filter widens to [[0, 0.25]],
+//     rule 4 widens to coverage:0.25. Original users keep their experiment
+//     assignment. New users get fresh assignment. No existing user hops
+//     from treatment to control.
+//
+// ---------------------------------------------------------------------------
 
-export const gateConfigSchema = z.object({
-  seed: z.string(),
-  hashAttribute: z.string(),
-  hashVersion: z.union([z.literal(1), z.literal(2)]),
-  coverage: z.number().min(0).max(1),
-  condition: z.string().nullish(),
-  savedGroups: z.array(savedGroupTargeting).nullish(),
-});
-export type GateConfig = z.infer<typeof gateConfigSchema>;
+// Each gate rule is independently addressable by `id` and typed.
+// "bypass" → force:true (e.g. beta users), "deny" → force:false (e.g. geo
+// exclusion), "rollout" → force:true with coverage (the ramped gate).
 
-export const gateConfigPatch = z.object({
+export const gateRuleTypeArray = ["bypass", "deny", "rollout"] as const;
+export type GateRuleType = (typeof gateRuleTypeArray)[number];
+
+export const gateRuleSchema = z.object({
+  id: z.string(),
+  type: z.enum(gateRuleTypeArray),
+  environments: z.array(z.string()).min(1),
+  // Only meaningful for type:"rollout". Ignored for bypass/deny.
   coverage: z.number().min(0).max(1).optional(),
   condition: z.string().nullish(),
   savedGroups: z.array(savedGroupTargeting).nullish(),
+  prerequisites: z.array(featurePrerequisite).nullish(),
 });
-export type GateConfigPatch = z.infer<typeof gateConfigPatch>;
+export type GateRule = z.infer<typeof gateRuleSchema>;
+
+export const gateConfigSchema = z.object({
+  // Rollout seed — shared by the rollout rule and the monitoring filter.
+  // MUST remain stable for the lifetime of the schedule.
+  seed: z.string(),
+  // Separate seed for the monitoring experiment's variation assignment.
+  monitorSeed: z.string(),
+  hashAttribute: z.string(),
+  hashVersion: z.union([z.literal(1), z.literal(2)]),
+  // Ordered gate rules — emitted as SDK rules on the synthetic gate feature.
+  rules: z.array(gateRuleSchema),
+});
+export type GateConfig = z.infer<typeof gateConfigSchema>;
+
+// Patch targeting a specific gate rule by id.
+export const gateRulePatchSchema = z.object({
+  coverage: z.number().min(0).max(1).optional(),
+  condition: z.string().nullish(),
+  savedGroups: z.array(savedGroupTargeting).nullish(),
+  prerequisites: z.array(featurePrerequisite).nullish(),
+});
+export type GateRulePatch = z.infer<typeof gateRulePatchSchema>;
 
 // ---------------------------------------------------------------------------
 // Monitoring config
@@ -67,6 +146,9 @@ export const monitoringConfigSchema = z.object({
   queryCadenceMinutes: z.number().int().positive().optional(),
   rollbackRules: z.array(rollbackRuleSchema).optional(),
   apiRollback: z.boolean().optional(),
+  // When set, only gate rules whose environments intersect this list become
+  // experiment-shaped during monitored steps. Absent = all environments monitored.
+  monitoredEnvironments: z.array(z.string()).optional(),
 });
 export type MonitoringConfig = z.infer<typeof monitoringConfigSchema>;
 
@@ -94,7 +176,9 @@ const patchRuleAction = z.object({
 
 const setGateAction = z.object({
   type: z.literal("set-gate"),
-  patch: gateConfigPatch,
+  // Targets a specific gate rule by its id.
+  ruleId: z.string(),
+  patch: gateRulePatchSchema,
 });
 
 const setEnvironmentEnabledAction = z.object({

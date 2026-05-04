@@ -1,4 +1,4 @@
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, SavedGroupTargeting } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useMemo, useState } from "react";
 import {
@@ -6,16 +6,20 @@ import {
   RampStep,
   RampStepAction,
   RevisionRampCreateFeatureRolloutAction,
+  GateRule,
 } from "shared/validators";
 import { PiShieldCheckBold, PiLockSimpleBold, PiTrash } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Table, {
   TableHeader,
   TableBody,
@@ -29,7 +33,8 @@ import {
   DropdownMenuGroup,
 } from "@/ui/DropdownMenu";
 import FeatureRolloutModal from "@/components/Features/FeatureRolloutModal";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
+
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 
@@ -40,48 +45,49 @@ function statusBadge(status: RampScheduleInterface["status"]) {
     string,
     {
       label: string;
-      color: "blue" | "yellow" | "purple" | "green" | "red" | "gray";
+      color: "amber" | "green" | "orange" | "gray";
     }
   > = {
-    running: { label: "Running", color: "blue" },
-    paused: { label: "Paused", color: "yellow" },
-    "pending-approval": { label: "Pending Approval", color: "purple" },
-    completed: { label: "Completed", color: "green" },
-    "rolled-back": { label: "Rolled Back", color: "red" },
-    ready: { label: "Ready", color: "gray" },
-    pending: { label: "Pending", color: "gray" },
+    pending: { label: "Pending publish", color: "amber" },
+    ready: { label: "Scheduled", color: "amber" },
+    running: { label: "Active", color: "green" },
+    paused: { label: "Paused", color: "amber" },
+    "pending-approval": { label: "Needs approval", color: "orange" },
+    completed: { label: "Complete", color: "gray" },
+    "rolled-back": { label: "Rolled back", color: "gray" },
   };
   const entry = map[status] ?? { label: status, color: "gray" as const };
-  return <Badge label={entry.label} color={entry.color} />;
+  return <Badge label={entry.label} color={entry.color} radius="full" />;
 }
 
-function CoverageBar({ pct }: { pct: number }) {
+function CoverageDisplay({ pct }: { pct: number }) {
   return (
-    <Box
-      style={{
-        width: 80,
-        height: 6,
-        borderRadius: 3,
-        background: "var(--gray-4)",
-        overflow: "hidden",
-        flexShrink: 0,
-      }}
-    >
+    <Flex gap="3" align="center">
       <Box
         style={{
-          width: `${pct}%`,
-          height: "100%",
-          borderRadius: 3,
-          background:
-            pct >= 100
-              ? "var(--blue-9)"
-              : pct > 0
-                ? "var(--blue-9)"
-                : "var(--gray-6)",
-          transition: "width 300ms ease",
+          width: 200,
+          flexShrink: 0,
+          border: "1px solid var(--slate-a5)",
+          borderRadius: 10,
+          backgroundColor: "var(--slate-a3)",
+          height: 10,
+          overflow: "hidden",
         }}
+      >
+        <Box
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            backgroundColor: "var(--accent-9)",
+          }}
+        />
+      </Box>
+      <Badge
+        label={<span style={{ color: "var(--slate-12)" }}>{pct}%</span>}
+        color="gray"
       />
-    </Box>
+      <Text color="text-low">of users</Text>
+    </Flex>
   );
 }
 
@@ -160,67 +166,98 @@ function StepIcon({ num, state }: { num: number; state: StepState }) {
   );
 }
 
-// Extract per-step display rows from actions. A step may affect multiple
-// environments and/or the gate, so each gets its own sub-row.
-interface StepDisplayRow {
-  envId?: string;
-  enableEnv?: boolean;
+// Per-environment gate effect extracted from a set-gate action with environments
+interface EnvGateEffect {
+  envIds: string[];
   coveragePct?: number;
   condition?: string;
   removedCondition?: boolean;
-  savedGroupCount?: number;
-  isGlobal?: boolean; // gate-only row, applies to all enabled environments
-  label?: string; // fallback label for non-standard actions
+  savedGroups?: SavedGroupTargeting[];
+  removedSavedGroups?: boolean;
+  toggle?: boolean; // env toggle merged into this lane
 }
 
-function extractStepRows(actions: RampStepAction[]): StepDisplayRow[] {
-  const rows: StepDisplayRow[] = [];
-  const envActions = actions.filter(
-    (a) => a.type === "set-environment-enabled",
-  );
-  const gateAction = actions.find((a) => a.type === "set-gate");
-  const detachAction = actions.find((a) => a.type === "detach-monitoring");
-  const completeAction = actions.find((a) => a.type === "complete-rollout");
+interface StepEffects {
+  // Default (non-env-scoped) gate coverage
+  coveragePct?: number;
+  condition?: string;
+  removedCondition?: boolean;
+  savedGroups?: SavedGroupTargeting[];
+  removedSavedGroups?: boolean;
+  // Per-environment gate effects (toggles merged in when they match)
+  envGates: EnvGateEffect[];
+  labels: string[];
+}
 
-  // Environment toggles — each gets its own row
-  for (const ea of envActions) {
-    if (ea.type !== "set-environment-enabled") continue;
-    rows.push({
-      envId: ea.environment,
-      enableEnv: ea.enabled,
-    });
+function extractStepEffects(
+  actions: RampStepAction[],
+  gateRules?: GateRule[],
+): StepEffects {
+  const effects: StepEffects = { envGates: [], labels: [] };
+  const pendingToggles: { envId: string; enabled: boolean }[] = [];
+
+  for (const a of actions) {
+    switch (a.type) {
+      case "set-environment-enabled":
+        pendingToggles.push({ envId: a.environment, enabled: a.enabled });
+        break;
+      case "set-gate": {
+        const p = a.patch;
+        const matchedRule = gateRules?.find((r) => r.id === a.ruleId);
+        if (matchedRule) {
+          const envGate: EnvGateEffect = {
+            envIds: matchedRule.environments,
+          };
+          if (p.coverage !== undefined)
+            envGate.coveragePct = Math.round(p.coverage * 100);
+          if (p.condition !== undefined) {
+            if (p.condition === null) envGate.removedCondition = true;
+            else envGate.condition = p.condition;
+          }
+          if (p.savedGroups !== undefined) {
+            if (p.savedGroups === null || p.savedGroups.length === 0)
+              envGate.removedSavedGroups = true;
+            else envGate.savedGroups = p.savedGroups;
+          }
+          effects.envGates.push(envGate);
+        } else {
+          if (p.coverage !== undefined)
+            effects.coveragePct = Math.round(p.coverage * 100);
+          if (p.condition !== undefined) {
+            if (p.condition === null) effects.removedCondition = true;
+            else effects.condition = p.condition;
+          }
+          if (p.savedGroups !== undefined) {
+            if (p.savedGroups === null || p.savedGroups.length === 0)
+              effects.removedSavedGroups = true;
+            else effects.savedGroups = p.savedGroups;
+          }
+        }
+        break;
+      }
+      case "detach-monitoring":
+        effects.labels.push("Stop guardrail monitoring");
+        break;
+      case "complete-rollout":
+        effects.labels.push("Complete rollout");
+        break;
+    }
   }
 
-  // Gate coverage/targeting — separate row
-  if (gateAction && gateAction.type === "set-gate") {
-    const patch = gateAction.patch;
-    rows.push({
-      isGlobal: true,
-      coveragePct:
-        patch.coverage !== undefined
-          ? Math.round(patch.coverage * 100)
-          : undefined,
-      condition:
-        patch.condition !== undefined && patch.condition !== null
-          ? patch.condition
-          : undefined,
-      removedCondition: patch.condition === null,
-      savedGroupCount: patch.savedGroups?.length,
-    });
+  // Merge toggles into matching envGate lanes only when the lane targets
+  // exactly that single environment. Otherwise create a standalone lane.
+  for (const t of pendingToggles) {
+    const gate = effects.envGates.find(
+      (eg) => eg.envIds.length === 1 && eg.envIds[0] === t.envId,
+    );
+    if (gate) {
+      gate.toggle = t.enabled;
+    } else {
+      effects.envGates.push({ envIds: [t.envId], toggle: t.enabled });
+    }
   }
 
-  if (detachAction) {
-    rows.push({ label: "Stop guardrail monitoring" });
-  }
-  if (completeAction) {
-    rows.push({ label: "Complete rollout" });
-  }
-
-  if (rows.length === 0) {
-    rows.push({});
-  }
-
-  return rows;
+  return effects;
 }
 
 // Normalized view shared by both active schedules and pending draft rollouts
@@ -228,6 +265,7 @@ interface ScheduleView {
   steps: RampStep[];
   monitoringConfig?: { guardrailMetricIds: string[] } | null;
   lockdownConfig?: { mode: string } | null;
+  gateRules?: GateRule[];
   status: RampScheduleInterface["status"] | "draft";
   currentStepIndex: number;
   scheduleId?: string;
@@ -240,6 +278,7 @@ function pendingRolloutToView(
     steps: r.steps ?? [],
     monitoringConfig: r.monitoringConfig,
     lockdownConfig: r.lockdownConfig,
+    gateRules: r.gateConfig?.rules,
     status: "draft",
     currentStepIndex: -1,
   };
@@ -250,6 +289,7 @@ function scheduleToView(s: RampScheduleInterface): ScheduleView {
     steps: s.steps,
     monitoringConfig: s.monitoringConfig,
     lockdownConfig: s.lockdownConfig,
+    gateRules: s.gateConfig?.rules,
     status: s.status,
     currentStepIndex: s.currentStepIndex,
     scheduleId: s.id,
@@ -259,21 +299,21 @@ function scheduleToView(s: RampScheduleInterface): ScheduleView {
 function formatTrigger(step: RampScheduleInterface["steps"][number]) {
   if (step.trigger.type === "approval") {
     return step.approvalNotes
-      ? `\u{1F4CB} ${step.approvalNotes}`
-      : "\u{1F4CB} Approval required";
+      ? `await approval: ${step.approvalNotes}`
+      : "await approval";
   }
   if (step.trigger.type === "interval") {
     const secs = step.trigger.seconds;
     if (secs >= 86400) {
       const d = Math.round(secs / 86400);
-      return `then hold ${d}d`;
+      return `hold ${d}d`;
     }
     if (secs >= 3600) {
       const h = Math.round(secs / 3600);
-      return `then hold ${h}h`;
+      return `hold ${h}h`;
     }
     const m = Math.round(secs / 60);
-    return `then hold ${m}m`;
+    return `hold ${m}m`;
   }
   return "—";
 }
@@ -410,7 +450,9 @@ export default function FeatureRolloutSection({
             · {totalSteps} step{totalSteps !== 1 ? "s" : ""}
             {monitoredCount > 0 ? ` · ${monitoredCount} monitored` : ""}
           </Text>
-          {isDraft && <Badge label="Draft" color="purple" variant="soft" />}
+          {isDraft && (
+            <Badge label="Pending publish" color="amber" radius="full" />
+          )}
           {isLive &&
             statusBadge(view.status as RampScheduleInterface["status"])}
         </Flex>
@@ -531,10 +573,19 @@ export default function FeatureRolloutSection({
         )}
         {lockdown && lockdown.mode === "locked" && (
           <Flex align="center" gap="1">
-            <PiLockSimpleBold size={14} style={{ color: "var(--amber-9)" }} />
-            <Text size="small" color="text-mid">
-              Locked
-            </Text>
+            <PiLockSimpleBold
+              size={14}
+              style={{
+                color: "var(--amber-11)",
+              }}
+            />
+            <span style={{ color: "var(--amber-12)" }}>
+              <Text size="small">
+                {isDraft
+                  ? "Feature will be locked during rollout"
+                  : "Feature is locked during rollout"}
+              </Text>
+            </span>
           </Flex>
         )}
       </Flex>
@@ -548,26 +599,17 @@ export default function FeatureRolloutSection({
                 STEP
               </Text>
             </TableColumnHeader>
-            <TableColumnHeader style={{ width: 180 }}>
-              <Text size="small" weight="medium" color="text-low">
-                ENVIRONMENTS
-              </Text>
-            </TableColumnHeader>
             <TableColumnHeader>
               <Text size="small" weight="medium" color="text-low">
-                EFFECT
+                APPLY EFFECT
               </Text>
             </TableColumnHeader>
             <TableColumnHeader style={{ width: 140 }}>
               <Text size="small" weight="medium" color="text-low">
-                WAIT / STATUS
+                THEN
               </Text>
             </TableColumnHeader>
-            <TableColumnHeader style={{ width: 100 }}>
-              <Text size="small" weight="medium" color="text-low">
-                MONITOR
-              </Text>
-            </TableColumnHeader>
+            <TableColumnHeader style={{ width: 100 }} />
             {isLive && !isTerminalView && (
               <TableColumnHeader style={{ width: 36 }} />
             )}
@@ -590,8 +632,7 @@ export default function FeatureRolloutSection({
                 }
               }
 
-              const rows = extractStepRows(step.actions);
-              const envsAfterStep = [...runningEnvs];
+              const fx = extractStepEffects(step.actions, view.gateRules);
 
               return (
                 <TableRow key={stepIdx}>
@@ -617,76 +658,163 @@ export default function FeatureRolloutSection({
                     />
                   </TableCell>
 
-                  {/* ENABLED ENVIRONMENTS */}
-                  <TableCell style={{ verticalAlign: "top" }}>
-                    {envsAfterStep.length > 0 ? (
-                      <Flex gap="1" wrap="wrap">
-                        {envsAfterStep.map((eid) => (
-                          <Tooltip key={eid} content={`${eid} is enabled`}>
-                            <Badge
-                              label={
-                                <OverflowText maxWidth={140}>
-                                  {eid}
-                                </OverflowText>
-                              }
-                              color="violet"
-                              variant="outline"
-                              radius="full"
-                              size="sm"
-                            />
-                          </Tooltip>
-                        ))}
-                      </Flex>
-                    ) : (
-                      <Text size="small" color="text-low">
-                        —
-                      </Text>
-                    )}
-                  </TableCell>
-
                   {/* EFFECT */}
                   <TableCell style={{ verticalAlign: "middle" }}>
                     <Flex direction="column" gap="3">
-                      {rows.map((row, ri) => (
-                        <Flex key={ri} align="center" gap="2" wrap="wrap">
-                          {row.envId !== undefined &&
-                            row.enableEnv !== undefined && (
-                              <Badge
-                                label={`${row.enableEnv ? "Enable" : "Disable"} ${row.envId}`}
-                                color={row.enableEnv ? "green" : "red"}
-                                variant="soft"
+                      {/* Default coverage (non-env-scoped) */}
+                      {fx.coveragePct !== undefined && (
+                        <CoverageDisplay pct={fx.coveragePct} />
+                      )}
+
+                      {/* Per-env gate effects */}
+                      {fx.envGates.map((eg, gi) => (
+                        <Flex
+                          key={gi}
+                          gap="2"
+                          align="start"
+                          style={
+                            gi > 0
+                              ? {
+                                  borderTop: "1px dashed var(--gray-a5)",
+                                  paddingTop: 8,
+                                }
+                              : undefined
+                          }
+                        >
+                          {/* Left: env badges */}
+                          <Flex
+                            gap="1"
+                            wrap="wrap"
+                            style={{
+                              minWidth: 160,
+                              maxWidth: 240,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {eg.envIds.map((id) => {
+                              const enabled = runningEnvs.has(id);
+                              return (
+                                <Badge
+                                  key={id}
+                                  label={
+                                    <OverflowText maxWidth={100}>
+                                      {id}
+                                    </OverflowText>
+                                  }
+                                  color={enabled ? "violet" : "amber"}
+                                  variant="outline"
+                                  radius="full"
+                                  size="xs"
+                                />
+                              );
+                            })}
+                          </Flex>
+                          {/* Right: coverage + targeting */}
+                          <Flex
+                            direction="column"
+                            gap="1"
+                            style={{ flex: 1, minWidth: 0 }}
+                          >
+                            {eg.coveragePct !== undefined && (
+                              <CoverageDisplay pct={eg.coveragePct} />
+                            )}
+                            {eg.toggle !== undefined && (
+                              <Flex gap="1" align="center">
+                                {eg.toggle ? (
+                                  <FaCircleCheck
+                                    size={14}
+                                    style={{
+                                      color: "var(--green-10)",
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                ) : (
+                                  <FaCircleXmark
+                                    size={14}
+                                    style={{
+                                      color: "var(--color-text-low)",
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                )}
+                                <span
+                                  style={{
+                                    fontSize: "var(--font-size-1)",
+                                    color: eg.toggle
+                                      ? "var(--green-10)"
+                                      : undefined,
+                                  }}
+                                >
+                                  toggled {eg.toggle ? "on" : "off"}
+                                </span>
+                              </Flex>
+                            )}
+                            {((eg.condition && eg.condition !== "{}") ||
+                              (eg.savedGroups &&
+                                eg.savedGroups.length > 0)) && (
+                              <ConditionDisplay
+                                condition={
+                                  eg.condition && eg.condition !== "{}"
+                                    ? eg.condition
+                                    : undefined
+                                }
+                                savedGroups={eg.savedGroups}
+                                prefix={<Text weight="medium">WHERE</Text>}
                               />
                             )}
-                          {row.coveragePct !== undefined && (
-                            <>
-                              <Text size="small" weight="medium">
-                                {row.coveragePct}%
-                              </Text>
+                            {eg.removedCondition && (
                               <Text size="small" color="text-low">
-                                rollout
+                                – Remove targeting
                               </Text>
-                              <CoverageBar pct={row.coveragePct} />
-                            </>
-                          )}
-                          {row.condition && row.condition !== "{}" && (
-                            <Badge
-                              label={`where ${summarizeCondition(row.condition)}`}
-                              color="orange"
-                              variant="soft"
-                            />
-                          )}
-                          {row.removedCondition && (
-                            <Text size="small" color="text-low">
-                              – Remove targeting
-                            </Text>
-                          )}
-                          {row.label && <Text size="small">{row.label}</Text>}
+                            )}
+                          </Flex>
                         </Flex>
                       ))}
+
+                      {/* Default gate targeting (non-env-scoped) */}
+                      {((fx.condition && fx.condition !== "{}") ||
+                        (fx.savedGroups && fx.savedGroups.length > 0)) && (
+                        <ConditionDisplay
+                          condition={
+                            fx.condition && fx.condition !== "{}"
+                              ? fx.condition
+                              : undefined
+                          }
+                          savedGroups={fx.savedGroups}
+                          prefix={<Text weight="medium">WHERE</Text>}
+                        />
+                      )}
+                      {fx.removedCondition && (
+                        <Text size="small" color="text-low">
+                          – Remove attribute targeting
+                        </Text>
+                      )}
+                      {fx.removedSavedGroups && (
+                        <Text size="small" color="text-low">
+                          – Remove saved group targeting
+                        </Text>
+                      )}
+
+                      {/* Other labels */}
+                      {fx.labels.map((label, li) => (
+                        <Text key={li} size="small">
+                          {label}
+                        </Text>
+                      ))}
+
+                      {/* Disabled env warning (deduped) */}
+                      {fx.envGates.some((eg) =>
+                        eg.envIds.some((id) => !runningEnvs.has(id)),
+                      ) && (
+                        <HelperText status="warning" size="sm">
+                          Some environments are not enabled in this step. Enable
+                          them in the schedule or manually before starting.
+                        </HelperText>
+                      )}
                     </Flex>
                   </TableCell>
 
-                  {/* WAIT / STATUS */}
+                  {/* WAIT FOR */}
                   <TableCell style={{ verticalAlign: "top" }}>
                     <Text size="small" color="text-mid">
                       {formatTrigger(step)}
@@ -696,15 +824,19 @@ export default function FeatureRolloutSection({
                   {/* MONITOR */}
                   <TableCell style={{ verticalAlign: "top" }}>
                     {step.monitored ? (
-                      <Flex align="center" gap="1">
-                        <PiShieldCheckBold
-                          size={12}
-                          style={{ color: "var(--blue-9)" }}
-                        />
-                        <Text size="small" color="text-mid">
+                      <Text size="small" color="text-mid">
+                        <Flex
+                          align="center"
+                          gap="1"
+                          style={{ display: "inline-flex" }}
+                        >
+                          <PiShieldCheckBold
+                            size={12}
+                            style={{ color: "var(--blue-9)" }}
+                          />
                           monitored
-                        </Text>
-                      </Flex>
+                        </Flex>
+                      </Text>
                     ) : (
                       <Text size="small" color="text-low">
                         —
@@ -756,16 +888,10 @@ export default function FeatureRolloutSection({
         </TableBody>
       </Table>
 
-      {isDraft && (
-        <Callout status="info" size="sm" mt="3" mb="0">
-          This rollout is pending on this draft. Publish to activate.
-        </Callout>
-      )}
-
       {isLive && lockdown && lockdown.mode === "locked" && !isTerminalView && (
         <Callout status="warning" size="sm" mt="3" mb="0">
-          Feature rules are locked while this rollout is active. Admins can
-          override.
+          This feature is locked from edits while the rollout is active. Admins
+          can override.
         </Callout>
       )}
 
@@ -784,33 +910,4 @@ export default function FeatureRolloutSection({
       )}
     </Box>
   );
-}
-
-// Best-effort condition summary for display
-function summarizeCondition(condition: string): string {
-  try {
-    const parsed = JSON.parse(condition);
-    if (!parsed || typeof parsed !== "object") return condition;
-    const keys = Object.keys(parsed);
-    if (keys.length === 0) return "all users";
-    // Simple $or / $and / single attribute
-    if (keys.length === 1 && !keys[0].startsWith("$")) {
-      const val = parsed[keys[0]];
-      if (typeof val === "object" && val !== null) {
-        const op = Object.keys(val)[0];
-        const v = val[op];
-        if (op === "$in" && Array.isArray(v)) {
-          return `${keys[0]} in [${v.join(", ")}]`;
-        }
-        if (op === "$eq" || op === "$is") {
-          return `${keys[0]} = ${v}`;
-        }
-        return `${keys[0]} ${op} ${JSON.stringify(v)}`;
-      }
-      return `${keys[0]} = ${JSON.stringify(val)}`;
-    }
-    return `${keys.length} condition${keys.length !== 1 ? "s" : ""}`;
-  } catch {
-    return condition;
-  }
 }

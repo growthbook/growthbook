@@ -273,12 +273,40 @@ export function generateHoldoutsPayload({
   return holdoutDefs;
 }
 
+// Attach parsed condition JSON to an SDK rule if present.
+function applyCondition(
+  rule: FeatureDefinitionRule,
+  condition?: string | null,
+) {
+  if (!condition) return;
+  try {
+    rule.condition = JSON.parse(condition);
+  } catch {
+    // invalid JSON, skip
+  }
+}
+
+// Attach saved groups to an SDK rule if present.
+function applySavedGroups(
+  rule: FeatureDefinitionRule,
+  savedGroups?: Array<{ match: string; ids: string[] }> | null,
+) {
+  if (!savedGroups?.length) return;
+  (rule as Record<string, unknown>).savedGroups = savedGroups;
+}
+
 // Generate synthetic feature defs for active feature-level rollout gates.
-// Each gate is a simple rollout rule: users whose hash falls within coverage pass.
+//
+// Each GateRule is emitted as an SDK rule on the synthetic gate feature.
+// Rollout rules additionally get a paired monitoring experiment (when the
+// current step is monitored) that uses a filter to bind to the same hash
+// bucket. See the design note in ramp-schedule.ts for the full rationale.
 export function generateRampGatePayload({
   rampScheduleMap,
+  environment,
 }: {
   rampScheduleMap: Map<string, RampScheduleInterface>;
+  environment?: string;
 }): Record<string, FeatureDefinition> {
   const gateDefs: Record<string, FeatureDefinition> = {};
   rampScheduleMap.forEach((schedule) => {
@@ -290,27 +318,99 @@ export function generateRampGatePayload({
     const g = schedule.gateConfig;
     const gateDefId = getRampGateFeatureDefId(schedule.id);
 
-    const rule: FeatureDefinitionRule = {
-      id: gateDefId,
-      coverage: g.coverage,
-      hashAttribute: g.hashAttribute,
-      seed: g.seed,
-      hashVersion: g.hashVersion,
-      force: true,
-    };
+    const currentStep =
+      schedule.currentStepIndex >= 0 &&
+      schedule.currentStepIndex < schedule.steps.length
+        ? schedule.steps[schedule.currentStepIndex]
+        : undefined;
+    const stepIsMonitored = currentStep?.monitored === true;
+    const monitoredEnvs = schedule.monitoringConfig?.monitoredEnvironments;
 
-    // Apply targeting condition if present
-    if (g.condition) {
-      try {
-        rule.condition = JSON.parse(g.condition);
-      } catch {
-        // invalid condition, skip
+    const sdkRules: FeatureDefinitionRule[] = [];
+
+    for (const gateRule of g.rules) {
+      if (environment && !gateRule.environments.includes(environment)) continue;
+
+      switch (gateRule.type) {
+        case "bypass": {
+          const rule: FeatureDefinitionRule = {
+            id: `${gateDefId}__${gateRule.id}`,
+            force: true,
+          };
+          applyCondition(rule, gateRule.condition);
+          applySavedGroups(rule, gateRule.savedGroups);
+          sdkRules.push(rule);
+          break;
+        }
+        case "deny": {
+          const rule: FeatureDefinitionRule = {
+            id: `${gateDefId}__${gateRule.id}`,
+            force: false,
+          };
+          applyCondition(rule, gateRule.condition);
+          applySavedGroups(rule, gateRule.savedGroups);
+          sdkRules.push(rule);
+          break;
+        }
+        case "rollout": {
+          const coverage = gateRule.coverage ?? 0;
+          const envIsMonitored =
+            stepIsMonitored &&
+            (!monitoredEnvs ||
+              gateRule.environments.some((e) => monitoredEnvs.includes(e)));
+
+          // When monitored, emit the experiment rule BEFORE the rollout rule.
+          // The experiment uses a filter (same rollout seed) to select the
+          // same hash bucket, keeping the two rules in separate hash spaces.
+          if (envIsMonitored && coverage > 0) {
+            const expRule: FeatureDefinitionRule = {
+              id: `${gateDefId}__${gateRule.id}__monitor`,
+              variations: [false, true],
+              weights: [0.5, 0.5],
+              coverage: 1.0,
+              hashAttribute: g.hashAttribute,
+              seed: g.monitorSeed,
+              hashVersion: g.hashVersion,
+              key: `${gateDefId}__${gateRule.id}__monitor`,
+              meta: [{ key: "0" }, { key: "1" }],
+              phase: "0",
+              filters: [
+                {
+                  seed: g.seed,
+                  hashVersion: g.hashVersion,
+                  ranges: [[0, coverage]],
+                  attribute: g.hashAttribute,
+                },
+              ],
+            };
+            applyCondition(expRule, gateRule.condition);
+            applySavedGroups(expRule, gateRule.savedGroups);
+            sdkRules.push(expRule);
+          }
+
+          // Rollout rule — always present, stable shape.
+          const rolloutRule: FeatureDefinitionRule = {
+            id: `${gateDefId}__${gateRule.id}`,
+            force: true,
+            coverage,
+            hashAttribute: g.hashAttribute,
+            seed: g.seed,
+            hashVersion: g.hashVersion,
+          };
+          applyCondition(rolloutRule, gateRule.condition);
+          applySavedGroups(rolloutRule, gateRule.savedGroups);
+          sdkRules.push(rolloutRule);
+          break;
+        }
       }
     }
 
+    // Default deny — always last
+    sdkRules.push({ id: `${gateDefId}__deny`, force: false });
+
     gateDefs[gateDefId] = {
       defaultValue: false,
-      rules: [rule],
+      rules: sdkRules,
     };
   });
   return gateDefs;
@@ -1241,7 +1341,10 @@ export async function buildSDKPayloadForConnection(
 
   // Emit synthetic gate features for active feature-level rollouts
   const rampGateDefs = data.rampScheduleMap
-    ? generateRampGatePayload({ rampScheduleMap: data.rampScheduleMap })
+    ? generateRampGatePayload({
+        rampScheduleMap: data.rampScheduleMap,
+        environment,
+      })
     : {};
 
   const featuresWithHoldouts = {

@@ -1,7 +1,18 @@
-import React, { FC, type ReactNode, useMemo, useState } from "react";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import { PiPlusBold, PiShieldCheckBold, PiInfo } from "react-icons/pi";
+import React, { FC, useMemo, useState } from "react";
+import {
+  Box,
+  Flex,
+  IconButton,
+  Separator,
+  TextField,
+  // eslint-disable-next-line no-restricted-imports
+  Checkbox as RadixCheckbox,
+  // eslint-disable-next-line no-restricted-imports
+  Text as RadixText,
+} from "@radix-ui/themes";
+import { PiPlusBold, PiShieldCheckBold } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { RiAlertLine } from "react-icons/ri";
 import type {
   FeatureInterface,
   SavedGroupTargeting,
@@ -9,18 +20,28 @@ import type {
 import {
   RevisionRampCreateFeatureRolloutAction,
   RampStep,
+  GateRule,
 } from "shared/validators";
 import { isEnvironmentDevLike } from "shared/util";
-import SelectField from "@/components/Forms/SelectField";
-import Field from "@/components/Forms/Field";
+import Badge from "@/ui/Badge";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+
 import Link from "@/ui/Link";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { Select, SelectItem } from "@/ui/Select";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
+import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import {
@@ -35,7 +56,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
-import styles from "./RuleModal/RampScheduleSection.module.scss";
 
 type LockdownMode = "none" | "locked";
 
@@ -49,35 +69,33 @@ interface Props {
 
 type IntervalUnit = "hours" | "days";
 
-// Gate-level targeting that can change per step
-interface GatePatch {
-  coverage?: number; // 0–100 in UI, converted to 0–1 on submit
-  condition?: string;
-  savedGroups?: SavedGroupTargeting[];
+let _ruleIdCounter = 0;
+function nextRuleId(): string {
+  return `sr_${++_ruleIdCounter}`;
 }
 
-type GateField = "condition" | "savedGroups";
-
-const GATE_FIELD_LABELS: Record<GateField, string> = {
-  condition: "Attribute targeting",
-  savedGroups: "Saved groups",
-};
-
-const GATE_FIELD_DEFAULTS: Record<GateField, unknown> = {
-  condition: "{}",
-  savedGroups: [],
-};
+// A gate rule within a step: coverage + optional targeting, scoped to environments.
+interface StepRule {
+  id: string;
+  monitored: boolean;
+  allEnvironments: boolean;
+  envIds: string[];
+  coverage: number; // 0–100 in UI, converted to 0–1 on submit
+  condition?: string;
+  savedGroups?: SavedGroupTargeting[];
+  expanded?: boolean; // UI state: show targeting editors
+}
 
 interface RolloutStep {
-  patch: GatePatch;
-  envToggles: Record<string, boolean>;
+  toggles: Record<string, boolean>; // envId → enable/disable
+  togglesExpanded: boolean; // UI state: show toggle checkboxes
+  rules: StepRule[];
   triggerType: "interval" | "approval";
   intervalValue: number;
   intervalUnit: IntervalUnit;
   approvalNotes: string;
   notesOpen: boolean;
   monitored: boolean;
-  effectsOpen: boolean;
 }
 
 const UNIT_SECONDS: Record<IntervalUnit, number> = {
@@ -85,102 +103,125 @@ const UNIT_SECONDS: Record<IntervalUnit, number> = {
   days: 86400,
 };
 
-const POLL_INTERVAL_SECONDS = 60;
+type RuleVisualState = "monitored" | "bypass" | "default" | "unreachable";
 
-const COL = {
-  num: 30,
-  coverage: 80,
-  trigger: 130,
-  duration: 200,
-} as const;
-
-function ColHeader({
-  children,
-  width,
-}: {
-  children: ReactNode;
-  width: number;
-}) {
-  return (
-    <Box style={{ width, flexShrink: 0 }}>
-      <Text size="small" weight="medium" color="text-low">
-        {children}
-      </Text>
-    </Box>
-  );
+function ruleColor(state: RuleVisualState): string {
+  switch (state) {
+    case "monitored":
+      return "var(--blue-9)";
+    case "bypass":
+      return "var(--accent-9)";
+    case "unreachable":
+      return "var(--orange-7)";
+    case "default":
+      return "var(--gray-7)";
+  }
 }
+
+function isRuleUnreachable(rules: StepRule[], ruleIdx: number): boolean {
+  if (ruleIdx === 0) return false;
+  for (let k = 0; k < ruleIdx; k++) {
+    const above = rules[k];
+    if (above.coverage < 100) continue;
+    if (above.condition && above.condition !== "{}") continue;
+    if (above.savedGroups && above.savedGroups.length > 0) continue;
+    const current = rules[ruleIdx];
+    if (above.allEnvironments) return true;
+    if (current.allEnvironments) continue;
+    if (current.envIds.every((e) => above.envIds.includes(e))) return true;
+  }
+  return false;
+}
+
+function deriveRuleState(
+  rules: StepRule[],
+  ruleIdx: number,
+  stepMonitored: boolean,
+): RuleVisualState {
+  if (isRuleUnreachable(rules, ruleIdx)) return "unreachable";
+  const isLast = ruleIdx === rules.length - 1;
+  if (isLast && stepMonitored) return "monitored";
+  if (!isLast && stepMonitored) return "bypass";
+  return "default";
+}
+
+const POLL_INTERVAL_SECONDS = 60;
 
 function defaultSteps(
   monitored: boolean,
-  enableEnvIds: string[] = [],
+  prodLikeEnvIds: string[] = [],
 ): RolloutStep[] {
-  const envToggles: Record<string, boolean> = {};
-  for (const id of enableEnvIds) envToggles[id] = true;
-  const hasEnvs = enableEnvIds.length > 0;
-  return [
-    {
-      patch: { coverage: 10 },
-      envToggles,
-      triggerType: "interval",
-      intervalValue: 1,
-      intervalUnit: "days",
-      approvalNotes: "",
-      notesOpen: false,
-      monitored,
-      effectsOpen: hasEnvs,
-    },
-    {
-      patch: { coverage: 25 },
-      envToggles: {},
-      triggerType: "interval",
-      intervalValue: 1,
-      intervalUnit: "days",
-      approvalNotes: "",
-      notesOpen: false,
-      monitored,
-      effectsOpen: false,
-    },
-    {
-      patch: { coverage: 50 },
-      envToggles: {},
-      triggerType: "interval",
-      intervalValue: 1,
-      intervalUnit: "days",
-      approvalNotes: "",
-      notesOpen: false,
-      monitored,
-      effectsOpen: false,
-    },
-    {
-      patch: { coverage: 100 },
-      envToggles: {},
-      triggerType: "interval",
-      intervalValue: 1,
-      intervalUnit: "days",
-      approvalNotes: "",
-      notesOpen: false,
-      monitored,
-      effectsOpen: false,
-    },
-  ];
+  const coverages = [10, 25, 50, 100];
+  const togglesOnFirst: Record<string, boolean> = {};
+  for (const id of prodLikeEnvIds) togglesOnFirst[id] = true;
+
+  return coverages.map((cov, i) => ({
+    toggles: i === 0 ? { ...togglesOnFirst } : {},
+    togglesExpanded: i === 0,
+    rules: [
+      prodLikeEnvIds.length > 0
+        ? {
+            id: nextRuleId(),
+            monitored: true,
+            allEnvironments: false,
+            envIds: [...prodLikeEnvIds],
+            coverage: cov,
+          }
+        : {
+            id: nextRuleId(),
+            monitored: true,
+            allEnvironments: true,
+            envIds: [],
+            coverage: cov,
+          },
+    ],
+    triggerType: "interval",
+    intervalValue: 1,
+    intervalUnit: "days",
+    approvalNotes: "",
+    notesOpen: false,
+    monitored,
+  }));
 }
 
-function hydrateSteps(stored: RampStep[]): RolloutStep[] {
-  return stored.map((s) => {
-    const patch: GatePatch = {};
-    const envToggles: Record<string, boolean> = {};
+function hydrateSteps(
+  stored: RampStep[],
+  existingGateRules?: GateRule[],
+): RolloutStep[] {
+  return stored.map((s, idx) => {
+    const toggles: Record<string, boolean> = {};
+    const rules: StepRule[] = [];
 
     for (const action of s.actions) {
       if (action.type === "set-gate") {
-        if (action.patch.coverage !== undefined)
-          patch.coverage = Math.round(action.patch.coverage * 100);
-        if (action.patch.condition !== undefined)
-          patch.condition = action.patch.condition ?? undefined;
-        if (action.patch.savedGroups !== undefined)
-          patch.savedGroups = action.patch.savedGroups ?? undefined;
+        const gateRule = existingGateRules?.find((r) => r.id === action.ruleId);
+        const envIds = gateRule?.environments ?? [];
+        const isAll = envIds.length === 0 && !gateRule;
+        rules.push({
+          id: nextRuleId(),
+          monitored: gateRule?.type !== "bypass",
+          allEnvironments: isAll,
+          envIds: [...envIds],
+          coverage:
+            action.patch.coverage !== undefined
+              ? Math.round(action.patch.coverage * 100)
+              : 0,
+          condition: action.patch.condition ?? undefined,
+          savedGroups: action.patch.savedGroups ?? undefined,
+        });
       } else if (action.type === "set-environment-enabled") {
-        envToggles[action.environment] = action.enabled;
+        toggles[action.environment] = action.enabled;
       }
+    }
+
+    if (rules.length === 0) {
+      rules.push({
+        id: nextRuleId(),
+        monitored: true,
+        allEnvironments: true,
+        envIds: [],
+        coverage: 0,
+      });
     }
 
     let triggerType: "interval" | "approval" = "interval";
@@ -200,21 +241,77 @@ function hydrateSteps(stored: RampStep[]): RolloutStep[] {
       }
     }
 
-    const hasToggles = Object.keys(envToggles).length > 0;
-
     return {
-      patch,
-      envToggles,
+      toggles,
+      togglesExpanded: idx === 0 || Object.keys(toggles).length > 0,
+      rules,
       triggerType,
       intervalValue,
       intervalUnit,
       approvalNotes: s.approvalNotes ?? "",
       notesOpen: false,
       monitored: s.monitored ?? false,
-      effectsOpen:
-        hasToggles || !!patch.condition || (patch.savedGroups?.length ?? 0) > 0,
     };
   });
+}
+
+function GateRuleCard({
+  state,
+  label,
+  labelColor,
+  children,
+}: {
+  state: RuleVisualState;
+  label?: string | null;
+  labelColor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box
+      style={{
+        position: "relative",
+        border: "1px solid var(--gray-a5)",
+        borderRadius: "var(--radius-2)",
+        width: "100%",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 4,
+          borderRadius: "var(--radius-2) 0 0 var(--radius-2)",
+          backgroundColor: ruleColor(state),
+        }}
+      />
+      {label && (
+        <span
+          style={{
+            position: "absolute",
+            top: -12,
+            left: 8,
+            fontSize: 10,
+            fontWeight: 600,
+            lineHeight: "16px",
+            padding: "1px 6px",
+            borderRadius: 4,
+            backgroundColor: "var(--color-panel-solid)",
+            border: `1px solid ${labelColor ?? ruleColor(state)}`,
+            color: labelColor ?? ruleColor(state),
+            letterSpacing: "0.03em",
+            textTransform: "uppercase",
+          }}
+        >
+          {label}
+        </span>
+      )}
+      <Flex align="start" gap="2" py="3" px="4">
+        {children}
+      </Flex>
+    </Box>
+  );
 }
 
 const FeatureRolloutModal: FC<Props> = ({
@@ -278,17 +375,25 @@ const FeatureRolloutModal: FC<Props> = ({
   const [guardrailMetricIds, setGuardrailMetricIds] = useState<string[]>(
     existing?.monitoringConfig?.guardrailMetricIds ?? [],
   );
+  const [monitoredEnvIds, setMonitoredEnvIds] = useState<string[]>(
+    existing?.monitoringConfig?.monitoredEnvironments ?? [],
+  );
+  const [allMonitoredEnvs, setAllMonitoredEnvs] = useState(
+    !existing?.monitoringConfig?.monitoredEnvironments?.length,
+  );
   const [lockdownMode, setLockdownMode] = useState<LockdownMode>(
     existing?.lockdownConfig?.mode ?? "locked",
   );
   const [steps, setSteps] = useState<RolloutStep[]>(() => {
-    if (existing?.steps?.length) return hydrateSteps(existing.steps);
+    if (existing?.steps?.length)
+      return hydrateSteps(existing.steps, existing.gateConfig?.rules);
     const disabledProdEnvIds = prodLikeEnvs
       .filter((e) => !feature.environmentSettings?.[e.id]?.enabled)
       .map((e) => e.id);
     return defaultSteps(true, disabledProdEnvIds);
   });
   const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null);
+  const [openRuleMenu, setOpenRuleMenu] = useState<string | null>(null);
 
   const dataSource = datasources?.find((ds) => ds.id === datasourceId);
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
@@ -299,53 +404,100 @@ const FeatureRolloutModal: FC<Props> = ({
     (!monitored ||
       (datasourceId && exposureQueryId && guardrailMetricIds.length > 0));
 
-  // Active gate fields across all step patches
-  const activeGateFields = useMemo<Set<GateField>>(() => {
-    const fields = new Set<GateField>();
-    for (const s of steps) {
-      if (s.patch.condition !== undefined) fields.add("condition");
-      if (s.patch.savedGroups !== undefined) fields.add("savedGroups");
-    }
-    return fields;
-  }, [steps]);
-
-  const hasAdditionalEffects =
-    activeGateFields.size > 0 ||
-    steps.some((s) => Object.keys(s.envToggles).length > 0);
-
   function updateStep(i: number, update: Partial<RolloutStep>) {
     setSteps((prev) => prev.map((s, j) => (j === i ? { ...s, ...update } : s)));
   }
 
-  function updateStepPatch(i: number, field: string, value: unknown) {
+  function updateRule(
+    stepIdx: number,
+    ruleIdx: number,
+    update: Partial<StepRule>,
+  ) {
+    setSteps((prev) => {
+      const updated = prev.map((s, j) => {
+        if (j !== stepIdx) return s;
+        const rules = s.rules.map((r, k) => {
+          if (k !== ruleIdx) return r;
+          return { ...r, ...update };
+        });
+        return { ...s, rules };
+      });
+
+      if ("envIds" in update || "allEnvironments" in update) {
+        const alreadyToggled = new Set<string>();
+        for (let k = 0; k < stepIdx; k++) {
+          for (const [envId, val] of Object.entries(updated[k].toggles)) {
+            if (val) alreadyToggled.add(envId);
+          }
+        }
+
+        const step = updated[stepIdx];
+        const neededByRules = new Set<string>();
+        for (const r of step.rules) {
+          if (r.allEnvironments) {
+            allEnvIds.forEach((id) => neededByRules.add(id));
+          } else {
+            r.envIds.forEach((id) => neededByRules.add(id));
+          }
+        }
+
+        const toggles: Record<string, boolean> = {};
+        for (const envId of neededByRules) {
+          if (!alreadyToggled.has(envId)) {
+            toggles[envId] = step.toggles[envId] ?? true;
+          }
+        }
+
+        updated[stepIdx] = {
+          ...step,
+          toggles,
+          togglesExpanded:
+            step.togglesExpanded || Object.keys(toggles).length > 0,
+        };
+      }
+
+      return updated;
+    });
+  }
+
+  function removeRule(stepIdx: number, ruleIdx: number) {
     setSteps((prev) =>
       prev.map((s, j) => {
-        if (j !== i) return s;
-        const patch = { ...s.patch };
-        if (value === undefined) {
-          delete (patch as Record<string, unknown>)[field];
-        } else {
-          (patch as Record<string, unknown>)[field] = value;
-        }
-        return { ...s, patch };
+        if (j !== stepIdx) return s;
+        return { ...s, rules: s.rules.filter((_, k) => k !== ruleIdx) };
       }),
     );
   }
 
-  function cycleStepEnv(i: number, envId: string) {
+  function insertRuleAt(stepIdx: number, atIdx: number) {
     setSteps((prev) =>
       prev.map((s, j) => {
-        if (j !== i) return s;
-        const cur = s.envToggles[envId];
-        const next = { ...s.envToggles };
-        if (cur === undefined) {
-          next[envId] = true;
-        } else if (cur === true) {
-          next[envId] = false;
+        if (j !== stepIdx) return s;
+        const newRule: StepRule = {
+          id: nextRuleId(),
+          monitored: false,
+          allEnvironments: true,
+          envIds: [],
+          coverage: 100,
+        };
+        const updated = [...s.rules];
+        updated.splice(atIdx, 0, newRule);
+        return { ...s, rules: updated };
+      }),
+    );
+  }
+
+  function setToggle(stepIdx: number, envId: string, value?: boolean) {
+    setSteps((prev) =>
+      prev.map((s, j) => {
+        if (j !== stepIdx) return s;
+        const toggles = { ...s.toggles };
+        if (value === undefined) {
+          delete toggles[envId];
         } else {
-          delete next[envId];
+          toggles[envId] = value;
         }
-        return { ...s, envToggles: next };
+        return { ...s, toggles };
       }),
     );
   }
@@ -355,44 +507,60 @@ const FeatureRolloutModal: FC<Props> = ({
   }
 
   function addStep() {
-    const lastCoverage =
-      steps.length > 0 ? (steps[steps.length - 1].patch.coverage ?? 0) : 0;
-    const next = Math.min(lastCoverage + 25, 100);
+    const lastStep = steps[steps.length - 1];
+    const rules: StepRule[] = lastStep
+      ? lastStep.rules.map((r) => ({
+          ...r,
+          envIds: [...r.envIds],
+          coverage: Math.min(r.coverage + 25, 100),
+        }))
+      : [
+          {
+            id: nextRuleId(),
+            monitored: true,
+            allEnvironments: true,
+            envIds: [],
+            coverage: 100,
+          },
+        ];
     setSteps((prev) => [
       ...prev,
       {
-        patch: { coverage: next },
-        envToggles: {},
+        toggles: {},
+        togglesExpanded: false,
+        rules,
         triggerType: "interval",
         intervalValue: 1,
         intervalUnit: "days",
         approvalNotes: "",
         notesOpen: false,
         monitored,
-        effectsOpen: false,
       },
     ]);
   }
 
   function addStepAfter(i: number) {
-    const curr = steps[i].patch.coverage ?? 0;
-    const nextCov = steps[i + 1]?.patch.coverage;
-    const cov =
-      nextCov != null
-        ? Math.round((curr + nextCov) / 2)
-        : Math.min(curr + 25, 100);
+    const curr = steps[i];
+    const next = steps[i + 1];
+    const rules: StepRule[] = curr.rules.map((r, ri) => {
+      const nextRule = next?.rules[ri];
+      const cov = nextRule
+        ? Math.round((r.coverage + nextRule.coverage) / 2)
+        : Math.min(r.coverage + 25, 100);
+      return { ...r, envIds: [...r.envIds], coverage: cov };
+    });
     setSteps((prev) => [
       ...prev.slice(0, i + 1),
       {
-        patch: { coverage: cov },
-        envToggles: {},
+        toggles: {},
+        togglesExpanded: false,
+        rules,
         triggerType: "interval",
         intervalValue: 1,
         intervalUnit: "days",
         approvalNotes: "",
         notesOpen: false,
         monitored,
-        effectsOpen: false,
       },
       ...prev.slice(i + 1),
     ]);
@@ -407,16 +575,47 @@ const FeatureRolloutModal: FC<Props> = ({
     if (monitored && guardrailMetricIds.length === 0)
       throw new Error("At least one guardrail metric is required");
 
-    const gateConfig = {
+    // Build gate rules from all step rules. Each unique set of envIds
+    // becomes a gate rule. Rules scoped to "all" get an empty environments array.
+    const gateRules: GateRule[] = [];
+    const ruleKeyToId = new Map<string, string>();
+    for (const s of steps) {
+      for (let ri = 0; ri < s.rules.length; ri++) {
+        const r = s.rules[ri];
+        const isMonitoredRule = ri === s.rules.length - 1 && s.monitored;
+        const key = r.allEnvironments
+          ? "__all__"
+          : [...r.envIds].sort().join(",");
+        if (!ruleKeyToId.has(key)) {
+          const ruleId = `rollout-${key}`;
+          ruleKeyToId.set(key, ruleId);
+          gateRules.push({
+            id: ruleId,
+            type: isMonitoredRule ? "rollout" : "bypass",
+            environments: r.allEnvironments ? [] : r.envIds,
+            coverage: 0,
+          });
+        }
+      }
+    }
+    const gateConfig: Record<string, unknown> = {
       seed: feature.id,
+      monitorSeed: `${feature.id}-monitor`,
       hashAttribute,
       hashVersion: 2,
-      coverage: 0,
-      condition: null,
+      rules: gateRules,
     };
 
     const monitoringConfig = monitored
-      ? { datasourceId, exposureQueryId, guardrailMetricIds }
+      ? {
+          datasourceId,
+          exposureQueryId,
+          guardrailMetricIds,
+          monitoredEnvironments:
+            !allMonitoredEnvs && monitoredEnvIds.length > 0
+              ? monitoredEnvIds
+              : undefined,
+        }
       : undefined;
 
     const lockdownConfig =
@@ -425,25 +624,30 @@ const FeatureRolloutModal: FC<Props> = ({
     const apiSteps = steps.map((s) => {
       const actions: Record<string, unknown>[] = [];
 
-      // set-gate action for coverage + targeting changes
-      const gatePatch: Record<string, unknown> = {};
-      if (s.patch.coverage !== undefined)
-        gatePatch.coverage = s.patch.coverage / 100;
-      if (s.patch.condition !== undefined)
-        gatePatch.condition = s.patch.condition;
-      if (s.patch.savedGroups !== undefined)
-        gatePatch.savedGroups = s.patch.savedGroups;
-      if (Object.keys(gatePatch).length > 0) {
-        actions.push({ type: "set-gate", patch: gatePatch });
-      }
-
-      // set-environment-enabled actions
-      for (const [envId, enabled] of Object.entries(s.envToggles)) {
+      // Environment toggles
+      for (const [envId, enabled] of Object.entries(s.toggles)) {
         actions.push({
           type: "set-environment-enabled",
           environment: envId,
           enabled,
         });
+      }
+
+      // Gate rule patches
+      for (const rule of s.rules) {
+        const key = rule.allEnvironments
+          ? "__all__"
+          : [...rule.envIds].sort().join(",");
+        const ruleId = ruleKeyToId.get(key);
+        if (!ruleId) continue;
+
+        const gatePatch: Record<string, unknown> = {
+          coverage: rule.coverage / 100,
+        };
+        if (rule.condition !== undefined) gatePatch.condition = rule.condition;
+        if (rule.savedGroups !== undefined)
+          gatePatch.savedGroups = rule.savedGroups;
+        actions.push({ type: "set-gate", ruleId, patch: gatePatch });
       }
 
       return {
@@ -478,185 +682,6 @@ const FeatureRolloutModal: FC<Props> = ({
     await onSuccess(res.version);
   }
 
-  // ── Sub-row renderer for gate targeting + env toggles ─────────────────────
-
-  function renderEffectsSubRows(step: RolloutStep, stepIndex: number) {
-    if (!step.effectsOpen) return null;
-
-    const subRowIndent = COL.num + 16;
-    const unusedFields = (["condition", "savedGroups"] as GateField[]).filter(
-      (f) => step.patch[f] === undefined,
-    );
-
-    return (
-      <Box pb="3" style={{ paddingLeft: subRowIndent }}>
-        <Flex
-          direction="column"
-          gap="5"
-          pt="2"
-          pb="3"
-          px="2"
-          className="bg-highlight rounded"
-        >
-          <Flex wrap="wrap" gap="3" align="start" justify="between">
-            <Flex as="div" align="center" gap="1">
-              <Text weight="medium" color="text-mid">
-                Additional effects
-              </Text>
-              <Tooltip
-                tipPosition="top"
-                body="Effects are applied incrementally. Each change made in this step remains in effect until overridden in a future step."
-              >
-                <PiInfo style={{ color: "var(--accent-11)" }} />
-              </Tooltip>
-            </Flex>
-
-            <Flex wrap="wrap" gap="5" align="start">
-              {unusedFields.map((f) => (
-                <Link
-                  key={f}
-                  size="1"
-                  onClick={() =>
-                    updateStepPatch(stepIndex, f, GATE_FIELD_DEFAULTS[f])
-                  }
-                >
-                  <PiPlusBold
-                    style={{ marginRight: 3, verticalAlign: "middle" }}
-                  />
-                  {GATE_FIELD_LABELS[f]}
-                </Link>
-              ))}
-              {Object.keys(step.envToggles).length === 0 && (
-                <Link
-                  size="1"
-                  onClick={() => {
-                    const firstProd = prodLikeEnvs[0]?.id;
-                    if (firstProd) cycleStepEnv(stepIndex, firstProd);
-                  }}
-                >
-                  <PiPlusBold
-                    style={{ marginRight: 3, verticalAlign: "middle" }}
-                  />
-                  Toggle environments
-                </Link>
-              )}
-            </Flex>
-          </Flex>
-
-          {/* Environment toggles */}
-          {Object.keys(step.envToggles).length > 0 && (
-            <Box>
-              <Flex align="center" justify="between" mb="1">
-                <Text as="div" size="small" weight="semibold" color="text-mid">
-                  Toggle environments at this step
-                </Text>
-                <Link
-                  size="1"
-                  color="red"
-                  onClick={() => updateStep(stepIndex, { envToggles: {} })}
-                >
-                  Remove effect
-                </Link>
-              </Flex>
-              <Flex wrap="wrap" gap="3">
-                {allEnvIds.map((envId) => {
-                  const val = step.envToggles[envId];
-                  return (
-                    <Flex
-                      key={envId}
-                      align="center"
-                      gap="1"
-                      style={{ cursor: "pointer", userSelect: "none" }}
-                      onClick={() => cycleStepEnv(stepIndex, envId)}
-                    >
-                      <span
-                        style={{
-                          display: "inline-block",
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          background:
-                            val === true
-                              ? "var(--green-9)"
-                              : val === false
-                                ? "var(--red-9)"
-                                : "var(--gray-6)",
-                          border:
-                            val === undefined
-                              ? "1px dashed var(--gray-8)"
-                              : "none",
-                        }}
-                      />
-                      <Text
-                        size="small"
-                        color={val === undefined ? "text-low" : "text-mid"}
-                      >
-                        {envId}
-                        {val === true ? " ON" : val === false ? " OFF" : ""}
-                      </Text>
-                    </Flex>
-                  );
-                })}
-              </Flex>
-              <Text size="small" color="text-low" mt="1">
-                Click to cycle: ON → OFF → skip
-              </Text>
-            </Box>
-          )}
-
-          {/* Condition targeting */}
-          {"condition" in step.patch && (
-            <Box>
-              <ConditionInput
-                key={`${stepIndex}-condition`}
-                defaultValue={step.patch.condition ?? "{}"}
-                onChange={(v) => updateStepPatch(stepIndex, "condition", v)}
-                project={feature.project ?? ""}
-                slimMode
-                emptyText="No targeting applied. Clears any existing targeting."
-                labelActions={
-                  <Link
-                    size="1"
-                    color="red"
-                    onClick={() =>
-                      updateStepPatch(stepIndex, "condition", undefined)
-                    }
-                  >
-                    Remove effect
-                  </Link>
-                }
-              />
-            </Box>
-          )}
-
-          {/* Saved group targeting */}
-          {"savedGroups" in step.patch && (
-            <Box>
-              <SavedGroupTargetingField
-                value={step.patch.savedGroups ?? []}
-                setValue={(v) => updateStepPatch(stepIndex, "savedGroups", v)}
-                project={feature.project ?? ""}
-                slimMode
-                emptyText="No targeting applied. Clears any existing targeting."
-                labelActions={
-                  <Link
-                    size="1"
-                    color="red"
-                    onClick={() =>
-                      updateStepPatch(stepIndex, "savedGroups", undefined)
-                    }
-                  >
-                    Remove effect
-                  </Link>
-                }
-              />
-            </Box>
-          )}
-        </Flex>
-      </Box>
-    );
-  }
-
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -668,7 +693,7 @@ const FeatureRolloutModal: FC<Props> = ({
       submit={handleSubmit}
       cta={existing ? "Update Rollout" : "Create Rollout"}
       ctaEnabled={!!canSubmit}
-      size="lg"
+      size="max"
       useRadixButton
     >
       {!isDraft && (
@@ -683,29 +708,26 @@ const FeatureRolloutModal: FC<Props> = ({
         Bucketing
       </Heading>
 
-      <SelectField
+      <Select
         label="Hash attribute"
-        options={
-          hashAttributes.length > 0
-            ? hashAttributes.map((s) => ({
-                label: s.property,
-                value: s.property,
-              }))
-            : attributeSchema.map((s) => ({
-                label: s.property,
-                value: s.property,
-              }))
-        }
+        size="2"
         value={hashAttribute}
-        onChange={setHashAttribute}
-        required
+        setValue={setHashAttribute}
         placeholder="Select a hash attribute"
-      />
+        mb="3"
+      >
+        {(hashAttributes.length > 0 ? hashAttributes : attributeSchema).map(
+          (s) => (
+            <SelectItem key={s.property} value={s.property}>
+              {s.property}
+            </SelectItem>
+          ),
+        )}
+      </Select>
 
       {prodLikeEnvs.length > 0 && (
         <Text size="small" color="text-mid" mb="3" as="div">
-          The rollout gate will apply to all environments. Traffic is controlled
-          via coverage percentage.
+          Configure per-environment coverage and targeting in each step below.
         </Text>
       )}
 
@@ -742,17 +764,22 @@ const FeatureRolloutModal: FC<Props> = ({
 
       {monitored && (
         <Box className="bg-highlight rounded p-3" mb="3">
-          <SelectField
+          <Select
             label="Data source"
-            options={datasources.map((d) => ({
-              value: d.id,
-              label: `${d.name}${d.description ? ` — ${d.description}` : ""}${d.id === settings.defaultDataSource ? " (default)" : ""}`,
-            }))}
+            size="2"
             value={datasourceId}
-            onChange={setDatasourceId}
-            required
+            setValue={setDatasourceId}
             placeholder="Select a data source"
-          />
+            mb="3"
+          >
+            {datasources.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.name}
+                {d.description ? ` — ${d.description}` : ""}
+                {d.id === settings.defaultDataSource ? " (default)" : ""}
+              </SelectItem>
+            ))}
+          </Select>
           {datasources.length === 0 && (
             <Callout status="warning" mb="3">
               No data sources configured. Add one in Settings before using
@@ -760,17 +787,21 @@ const FeatureRolloutModal: FC<Props> = ({
             </Callout>
           )}
 
-          <SelectField
+          <Select
             label="Experiment assignment table"
-            options={exposureQueries.map((q) => ({
-              label: q.name,
-              value: q.id,
-            }))}
-            required
-            disabled={!datasourceId}
+            size="2"
             value={exposureQueryId}
-            onChange={setExposureQueryId}
-          />
+            setValue={setExposureQueryId}
+            disabled={!datasourceId}
+            placeholder="Select assignment table"
+            mb="3"
+          >
+            {exposureQueries.map((q) => (
+              <SelectItem key={q.id} value={q.id}>
+                {q.name}
+              </SelectItem>
+            ))}
+          </Select>
 
           <Box mb="2">
             <Text as="label" size="medium" weight="medium">
@@ -792,6 +823,21 @@ const FeatureRolloutModal: FC<Props> = ({
               onChange={setGuardrailMetricIds}
             />
           </Box>
+
+          {environments.length > 1 && (
+            <RuleEnvironmentScopeField
+              environments={environments}
+              allEnvironments={allMonitoredEnvs}
+              setAllEnvironments={(v) => {
+                setAllMonitoredEnvs(v);
+                if (v) setMonitoredEnvIds([]);
+              }}
+              selectedEnvironments={monitoredEnvIds}
+              setSelectedEnvironments={setMonitoredEnvIds}
+              label="Monitored environments"
+              mb="2"
+            />
+          )}
         </Box>
       )}
 
@@ -814,293 +860,566 @@ const FeatureRolloutModal: FC<Props> = ({
         </Callout>
       )}
 
-      <Box>
-        {/* Header row */}
-        <Flex
-          align="center"
-          gap="4"
-          pb="1"
-          style={{ borderBottom: "1px solid var(--gray-a6)" }}
-        >
-          <ColHeader width={COL.num}>Step</ColHeader>
-          <ColHeader width={COL.coverage}>Rollout %</ColHeader>
-          <ColHeader width={COL.trigger}>Action</ColHeader>
-          <Box flexGrow="1" />
-        </Flex>
-
-        {steps.map((step, i) => (
-          <div
-            key={i}
-            style={
-              hasAdditionalEffects
-                ? { borderBottom: "1px solid var(--gray-a6)" }
-                : {}
-            }
-          >
-            {/* Main grid row */}
-            <Flex align="center" gap="4" py="2">
-              {/* Step number */}
-              <Box style={{ width: COL.num, flexShrink: 0 }} pl="1">
-                <Flex align="center" gap="1">
-                  <Text size="small" color="text-low">
-                    {i + 1}
-                  </Text>
-                  {step.monitored && (
-                    <Tooltip body="Monitored step — guardrail metrics are evaluated">
-                      <PiShieldCheckBold
-                        size={12}
-                        style={{ color: "var(--blue-9)" }}
-                      />
-                    </Tooltip>
-                  )}
-                </Flex>
-              </Box>
-
-              {/* Coverage */}
-              <Box style={{ width: COL.coverage, flexShrink: 0 }}>
-                <div className={`position-relative ${styles.percentInputWrap}`}>
-                  <Field
-                    style={{ width: COL.coverage, minHeight: 38 }}
-                    type="number"
-                    min="0"
-                    max="100"
-                    onFocus={(e) => e.target.select()}
-                    value={String(step.patch.coverage ?? 0)}
-                    onChange={(e) =>
-                      updateStepPatch(
-                        i,
-                        "coverage",
-                        parseInt(e.target.value) || 0,
-                      )
-                    }
-                    onBlur={(e) =>
-                      updateStepPatch(
-                        i,
-                        "coverage",
-                        Math.min(
-                          100,
-                          Math.max(0, parseInt(e.target.value) || 0),
-                        ),
-                      )
-                    }
-                  />
-                  <span>%</span>
-                </div>
-              </Box>
-
-              {/* Hold / Approval */}
-              <Flex
-                align="center"
-                gap="2"
-                style={
-                  step.triggerType === "approval"
-                    ? { flex: 1, minWidth: COL.trigger }
-                    : { width: COL.trigger + COL.duration, flexShrink: 0 }
-                }
+      <Table variant="surface" size="2">
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader style={{ width: 60, textAlign: "center" }}>
+              <Text size="small" weight="medium" color="text-low">
+                STEP
+              </Text>
+            </TableColumnHeader>
+            <TableColumnHeader>
+              <Text size="small" weight="medium" color="text-low">
+                APPLY EFFECT
+              </Text>
+            </TableColumnHeader>
+            <TableColumnHeader style={{ width: 260 }}>
+              <Text size="small" weight="medium" color="text-low">
+                THEN
+              </Text>
+            </TableColumnHeader>
+            <TableColumnHeader style={{ width: 50 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {steps.map((step, i) => (
+            <TableRow key={i}>
+              {/* STEP number */}
+              <TableCell
+                style={{
+                  verticalAlign: "top",
+                  paddingTop: 20,
+                  paddingBottom: 20,
+                  textAlign: "center",
+                }}
               >
-                <Box style={{ width: COL.trigger, flexShrink: 0 }}>
-                  <SelectField
-                    value={step.triggerType}
-                    options={[
-                      {
-                        value: "interval",
-                        label: "Hold",
-                        tooltip:
-                          "Apply this step's effects, then hold for the interval before advancing",
-                      },
-                      {
-                        value: "approval",
-                        label: "Approval",
-                        tooltip:
-                          "Apply this step's effects, then hold for manual approval before advancing",
-                      },
-                    ]}
-                    onChange={(v) =>
-                      updateStep(i, {
-                        triggerType: v as "interval" | "approval",
-                      })
-                    }
-                    containerClassName="mb-0"
-                    containerStyle={{ minHeight: 38 }}
-                    useMultilineLabels
-                    formatOptionLabel={(option, meta) => {
-                      if (meta.context === "value") return <>{option.label}</>;
-                      return (
-                        <div>
-                          <div>{option.label}</div>
-                          {option.tooltip && (
-                            <div
+                <Flex
+                  align="center"
+                  justify="center"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    margin: "0 auto",
+                    borderRadius: "50%",
+                    background: "var(--accent-3)",
+                    color: "var(--accent-11)",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                >
+                  {i + 1}
+                </Flex>
+              </TableCell>
+
+              {/* APPLY EFFECT */}
+              <TableCell
+                style={{
+                  verticalAlign: "top",
+                  paddingTop: 20,
+                  paddingBottom: 20,
+                }}
+              >
+                <Flex direction="column" gap="5">
+                  {/* Gate rules */}
+                  {step.rules.map((rule, ruleIdx) => {
+                    const rState = deriveRuleState(
+                      step.rules,
+                      ruleIdx,
+                      step.monitored,
+                    );
+                    const nativeState: RuleVisualState =
+                      rState === "unreachable"
+                        ? ruleIdx === step.rules.length - 1 && step.monitored
+                          ? "monitored"
+                          : !step.monitored
+                            ? "default"
+                            : "bypass"
+                        : rState;
+                    return (
+                      <React.Fragment key={rule.id}>
+                        <GateRuleCard
+                          state={rState}
+                          label={
+                            nativeState === "monitored"
+                              ? "Safe rollout"
+                              : nativeState === "bypass"
+                                ? "Unmonitored"
+                                : null
+                          }
+                          labelColor={ruleColor(nativeState)}
+                        >
+                          <Flex
+                            gap="3"
+                            align="start"
+                            style={{ flex: 1, minWidth: 0 }}
+                          >
+                            {/* Left: type + environment scope */}
+                            <Box
                               style={{
-                                fontSize: 11,
-                                color: "var(--color-text-low)",
-                                marginTop: 1,
+                                width: 200,
+                                flexShrink: 0,
                               }}
                             >
-                              {option.tooltip}
-                            </div>
+                              <MultiSelectField
+                                value={rule.envIds}
+                                onChange={(vals) =>
+                                  updateRule(i, ruleIdx, {
+                                    envIds: vals,
+                                    allEnvironments: vals.length === 0,
+                                  })
+                                }
+                                options={allEnvIds.map((id) => ({
+                                  label: id,
+                                  value: id,
+                                }))}
+                                placeholder="All environments"
+                                sort={false}
+                                showCopyButton={false}
+                                containerClassName="mb-0"
+                                customClassName="multiselect-unfixed"
+                              />
+                            </Box>
+
+                            {/* Right: coverage + targeting */}
+                            <Flex
+                              direction="column"
+                              gap="2"
+                              style={{ flex: 1, minWidth: 0 }}
+                            >
+                              <Flex align="center" gap="3">
+                                <Box
+                                  style={{
+                                    width: 240,
+                                    flexShrink: 0,
+                                    border: "1px solid var(--slate-a5)",
+                                    borderRadius: 10,
+                                    backgroundColor: "var(--slate-a3)",
+                                    height: 14,
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  <Box
+                                    style={{
+                                      width: `${rule.coverage}%`,
+                                      height: "100%",
+                                      backgroundColor: ruleColor(nativeState),
+                                    }}
+                                  />
+                                </Box>
+                                <TextField.Root
+                                  size="2"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  style={{ width: 60 }}
+                                  onFocus={(e) => e.target.select()}
+                                  value={String(rule.coverage)}
+                                  onChange={(e) =>
+                                    updateRule(i, ruleIdx, {
+                                      coverage: parseInt(e.target.value) || 0,
+                                    })
+                                  }
+                                  onBlur={(e) =>
+                                    updateRule(i, ruleIdx, {
+                                      coverage: Math.min(
+                                        100,
+                                        Math.max(
+                                          0,
+                                          parseInt(e.target.value) || 0,
+                                        ),
+                                      ),
+                                    })
+                                  }
+                                >
+                                  <TextField.Slot side="right">
+                                    <span
+                                      style={{
+                                        color: "var(--color-text-low)",
+                                        fontSize: "var(--font-size-1)",
+                                      }}
+                                    >
+                                      %
+                                    </span>
+                                  </TextField.Slot>
+                                </TextField.Root>
+                                <Text size="small" color="text-low">
+                                  of users
+                                </Text>
+                              </Flex>
+
+                              {rule.expanded ? (
+                                <Flex direction="column" gap="2">
+                                  <ConditionInput
+                                    defaultValue={rule.condition ?? "{}"}
+                                    onChange={(v) =>
+                                      updateRule(i, ruleIdx, {
+                                        condition: v,
+                                      })
+                                    }
+                                    project={feature.project ?? ""}
+                                    slimMode
+                                    emptyText="No targeting — all users"
+                                  />
+                                  <SavedGroupTargetingField
+                                    value={rule.savedGroups ?? []}
+                                    setValue={(v) =>
+                                      updateRule(i, ruleIdx, {
+                                        savedGroups: v,
+                                      })
+                                    }
+                                    project={feature.project ?? ""}
+                                    slimMode
+                                  />
+                                </Flex>
+                              ) : (
+                                <Link
+                                  size="1"
+                                  color="gray"
+                                  onClick={() =>
+                                    updateRule(i, ruleIdx, {
+                                      expanded: true,
+                                    })
+                                  }
+                                >
+                                  <PiPlusBold
+                                    size={9}
+                                    style={{
+                                      marginRight: 3,
+                                      verticalAlign: "middle",
+                                    }}
+                                  />
+                                  targeting
+                                </Link>
+                              )}
+                            </Flex>
+                          </Flex>
+
+                          {rState === "unreachable" && (
+                            <Badge
+                              color="orange"
+                              title="Rule not reachable"
+                              mt="1"
+                              label={
+                                <>
+                                  <RiAlertLine />
+                                  Unreachable
+                                </>
+                              }
+                            />
                           )}
-                        </div>
-                      );
-                    }}
-                  />
-                </Box>
-                {step.triggerType === "interval" && (
-                  <>
-                    <Field
-                      style={{ minHeight: 38 }}
-                      type="number"
-                      min="1"
-                      onFocus={(e) => e.target.select()}
-                      value={String(step.intervalValue)}
-                      onChange={(e) =>
+
+                          {/* Rule menu */}
+                          <DropdownMenu
+                            open={openRuleMenu === rule.id}
+                            onOpenChange={(o) =>
+                              setOpenRuleMenu(o ? rule.id : null)
+                            }
+                            trigger={
+                              <IconButton
+                                type="button"
+                                variant="ghost"
+                                color="gray"
+                                radius="full"
+                                size="2"
+                                highContrast
+                                style={{
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <BsThreeDotsVertical size={16} />
+                              </IconButton>
+                            }
+                            variant="soft"
+                            menuPlacement="end"
+                          >
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  insertRuleAt(i, ruleIdx);
+                                  setOpenRuleMenu(null);
+                                }}
+                              >
+                                Add rule above
+                              </DropdownMenuItem>
+                              {step.rules.length > 1 &&
+                                rState !== "monitored" && (
+                                  <DropdownMenuItem
+                                    color="red"
+                                    onClick={() => {
+                                      removeRule(i, ruleIdx);
+                                      setOpenRuleMenu(null);
+                                    }}
+                                  >
+                                    Delete rule
+                                  </DropdownMenuItem>
+                                )}
+                            </DropdownMenuGroup>
+                          </DropdownMenu>
+                        </GateRuleCard>
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {/* Environment toggles */}
+                  {step.togglesExpanded ? (
+                    <Flex gap="4" wrap="wrap">
+                      {allEnvIds.map((envId) => {
+                        const state = step.toggles[envId];
+                        const isOn = state === true;
+                        const isOff = state === false;
+                        const isIndeterminate = state === undefined;
+                        return (
+                          <Flex
+                            key={envId}
+                            direction="column"
+                            gap="0"
+                            style={{ lineHeight: 1 }}
+                          >
+                            <RadixText
+                              as="label"
+                              size="2"
+                              color={isIndeterminate ? undefined : "violet"}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Flex gap="2" align="center">
+                                <RadixCheckbox
+                                  size="3"
+                                  variant={isIndeterminate ? "soft" : "surface"}
+                                  color={isIndeterminate ? "gray" : "violet"}
+                                  checked={
+                                    isIndeterminate ? "indeterminate" : isOn
+                                  }
+                                  onCheckedChange={() => {
+                                    if (isIndeterminate) {
+                                      setToggle(i, envId, true);
+                                    } else if (isOn) {
+                                      setToggle(i, envId, false);
+                                    } else {
+                                      setToggle(i, envId);
+                                    }
+                                  }}
+                                />
+                                {envId}
+                              </Flex>
+                            </RadixText>
+                            <span
+                              style={{
+                                fontSize: "var(--font-size-1)",
+                                color: isOn
+                                  ? "var(--green-10)"
+                                  : isOff
+                                    ? "var(--red-10)"
+                                    : "var(--gray-a8)",
+                                paddingLeft: 28,
+                                width: 100,
+                                display: "inline-block",
+                              }}
+                            >
+                              {isOn
+                                ? "toggle ON"
+                                : isOff
+                                  ? "toggle OFF"
+                                  : "no change"}
+                            </span>
+                          </Flex>
+                        );
+                      })}
+                    </Flex>
+                  ) : (
+                    <Link
+                      size="1"
+                      onClick={() => updateStep(i, { togglesExpanded: true })}
+                    >
+                      Change enabled environments
+                    </Link>
+                  )}
+                </Flex>
+              </TableCell>
+
+              {/* THEN */}
+              <TableCell
+                style={{
+                  verticalAlign: "top",
+                  paddingTop: 20,
+                  paddingBottom: 20,
+                }}
+              >
+                <Flex direction="column" gap="2">
+                  <Flex align="center" gap="2" wrap="wrap">
+                    <Select
+                      size="2"
+                      value={step.triggerType}
+                      setValue={(v) =>
                         updateStep(i, {
-                          intervalValue: parseInt(e.target.value) || 0,
+                          triggerType: v as "interval" | "approval",
                         })
                       }
-                      onBlur={(e) =>
-                        updateStep(i, {
-                          intervalValue: Math.max(
-                            1,
-                            parseInt(e.target.value) || 1,
-                          ),
-                        })
-                      }
-                      containerStyle={{ width: 75, flexShrink: 0 }}
-                    />
-                    <Box style={{ flex: 1 }}>
-                      <SelectField
-                        value={step.intervalUnit}
-                        options={[
-                          { value: "hours", label: "hours" },
-                          { value: "days", label: "days" },
-                        ]}
-                        onChange={(v) =>
-                          updateStep(i, { intervalUnit: v as IntervalUnit })
-                        }
-                        containerClassName="mb-0"
-                        containerStyle={{ minHeight: 38 }}
-                      />
-                    </Box>
-                  </>
-                )}
-                {step.triggerType === "approval" && (
-                  <Flex align="center" gap="2" style={{ flex: 1, minWidth: 0 }}>
-                    {!step.notesOpen ? (
-                      <Link
-                        size="1"
-                        ml="1"
-                        color="gray"
-                        style={{ flexShrink: 0 }}
-                        onClick={() =>
-                          updateStep(i, { notesOpen: true, approvalNotes: "" })
-                        }
-                      >
-                        <PiPlusBold
-                          style={{ marginRight: 3, verticalAlign: "middle" }}
-                        />
-                        Add approval notes
-                      </Link>
-                    ) : (
-                      <Box style={{ flex: 1, minWidth: 0 }}>
-                        <Field
-                          label=""
-                          placeholder="ex: Check error rates"
-                          value={step.approvalNotes}
+                    >
+                      <SelectItem value="interval">hold</SelectItem>
+                      <SelectItem value="approval">await approval</SelectItem>
+                    </Select>
+                    {step.triggerType === "interval" && (
+                      <>
+                        <TextField.Root
+                          size="2"
+                          type="number"
+                          min="1"
+                          style={{ width: 56 }}
+                          onFocus={(e) => e.target.select()}
+                          value={String(step.intervalValue)}
                           onChange={(e) =>
-                            updateStep(i, { approvalNotes: e.target.value })
+                            updateStep(i, {
+                              intervalValue: parseInt(e.target.value) || 0,
+                            })
                           }
-                          containerClassName="mb-0"
-                          style={{ minHeight: 38 }}
+                          onBlur={(e) =>
+                            updateStep(i, {
+                              intervalValue: Math.max(
+                                1,
+                                parseInt(e.target.value) || 1,
+                              ),
+                            })
+                          }
                         />
-                      </Box>
+                        <Select
+                          size="2"
+                          value={step.intervalUnit}
+                          setValue={(v) =>
+                            updateStep(i, {
+                              intervalUnit: v as IntervalUnit,
+                            })
+                          }
+                        >
+                          <SelectItem value="hours">hours</SelectItem>
+                          <SelectItem value="days">days</SelectItem>
+                        </Select>
+                      </>
                     )}
                   </Flex>
-                )}
-              </Flex>
+                  <Flex align="center" gap="1">
+                    <Box
+                      style={{ cursor: "pointer" }}
+                      onClick={() => {
+                        const newMonitored = !step.monitored;
+                        if (newMonitored && step.rules.length === 0) {
+                          setSteps((prev) =>
+                            prev.map((s, j) => {
+                              if (j !== i) return s;
+                              return {
+                                ...s,
+                                rules: [
+                                  {
+                                    id: nextRuleId(),
+                                    monitored: true,
+                                    allEnvironments: true,
+                                    envIds: [],
+                                    coverage: 100,
+                                  },
+                                ],
+                              };
+                            }),
+                          );
+                        }
+                        updateStep(i, { monitored: newMonitored });
+                      }}
+                    >
+                      {step.monitored ? (
+                        <Flex
+                          align="center"
+                          gap="1"
+                          style={{ display: "inline-flex" }}
+                        >
+                          <PiShieldCheckBold
+                            size={12}
+                            style={{ color: "var(--blue-9)" }}
+                          />
+                          <span
+                            style={{
+                              fontSize: "var(--font-size-1)",
+                              color: "var(--blue-9)",
+                            }}
+                          >
+                            monitored
+                          </span>
+                        </Flex>
+                      ) : (
+                        <Text size="small" color="text-low">
+                          unmonitored
+                        </Text>
+                      )}
+                    </Box>
+                  </Flex>
+                </Flex>
+              </TableCell>
 
-              {step.triggerType !== "approval" && <Box flexGrow="1" />}
-
-              {/* Three-dot menu */}
-              <DropdownMenu
-                open={openMenuIndex === i}
-                onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
-                trigger={
-                  <IconButton
-                    type="button"
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                  >
-                    <BsThreeDotsVertical size={18} />
-                  </IconButton>
-                }
-                variant="soft"
-                menuPlacement="end"
+              {/* Menu */}
+              <TableCell
+                style={{
+                  verticalAlign: "top",
+                  paddingTop: 20,
+                  paddingBottom: 20,
+                }}
               >
-                {!step.effectsOpen ? (
+                <DropdownMenu
+                  open={openMenuIndex === i}
+                  onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
+                  trigger={
+                    <IconButton
+                      type="button"
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                      style={{ marginTop: 2, flexShrink: 0 }}
+                    >
+                      <BsThreeDotsVertical size={16} />
+                    </IconButton>
+                  }
+                  variant="soft"
+                  menuPlacement="end"
+                >
                   <DropdownMenuGroup>
                     <DropdownMenuItem
                       onClick={() => {
                         setOpenMenuIndex(null);
-                        updateStep(i, { effectsOpen: true });
+                        addStepAfter(i);
                       }}
                     >
-                      Add additional effects
+                      Add step after
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                ) : null}
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setOpenMenuIndex(null);
-                      updateStep(i, { monitored: !step.monitored });
-                    }}
-                  >
-                    {step.monitored
-                      ? "Disable monitoring"
-                      : "Enable monitoring"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setOpenMenuIndex(null);
-                      addStepAfter(i);
-                    }}
-                  >
-                    Add step after
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                {steps.length > 1 ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        color="red"
-                        onClick={() => {
-                          setOpenMenuIndex(null);
-                          removeStep(i);
-                        }}
-                      >
-                        Remove step
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </>
-                ) : null}
-              </DropdownMenu>
-            </Flex>
+                  {steps.length > 1 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          color="red"
+                          onClick={() => {
+                            setOpenMenuIndex(null);
+                            removeStep(i);
+                          }}
+                        >
+                          Remove step
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </>
+                  )}
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
 
-            {/* Effects sub-rows */}
-            {renderEffectsSubRows(step, i)}
-          </div>
-        ))}
-
-        <Box py="1">
-          <Link size="2" onClick={addStep}>
-            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
-            Add step
-          </Link>
-        </Box>
+      <Box py="3">
+        <Link size="2" onClick={addStep}>
+          <PiPlusBold
+            size={12}
+            style={{ marginRight: 4, verticalAlign: "middle" }}
+          />
+          Add step
+        </Link>
       </Box>
 
       <Separator size="4" my="5" />
