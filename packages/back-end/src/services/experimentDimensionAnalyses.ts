@@ -3,11 +3,14 @@ import { isPrecomputedDimension } from "shared/experiments";
 import { ExperimentInterface } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { getOrCreatePrecomputedDimensionSnapshotAnalyses } from "back-end/src/services/experiments";
 import {
   getExperimentTimeSeriesContext,
   updateExperimentAnalysisTimeSeries,
 } from "back-end/src/services/experimentTimeSeries";
+import {
+  getTimeSeriesBaseAnalysis,
+  getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
+} from "back-end/src/services/experimentDimensionTimeSeries";
 
 /**
  * After a successful standard snapshot, runs gbstats analyses for every
@@ -39,8 +42,8 @@ export async function runEagerPrecomputedDimensionAnalyses({
       return;
     }
 
-    // We need to have a baseline analysis to run the eager dimension analyses
-    if (!experimentSnapshot.analyses[0]) {
+    // We only run eager dimension analyses if we have a compatible base analysis
+    if (!getTimeSeriesBaseAnalysis({ analyses: experimentSnapshot.analyses })) {
       return;
     }
 
@@ -54,7 +57,7 @@ export async function runEagerPrecomputedDimensionAnalyses({
     for (const dim of precomputedDimensions) {
       try {
         const newAnalyses =
-          await getOrCreatePrecomputedDimensionSnapshotAnalyses(context, {
+          await getOrCreatePrecomputedDimensionTimeSeriesAnalyses(context, {
             experiment,
             snapshot: experimentSnapshot,
             dimensionId: dim.id,

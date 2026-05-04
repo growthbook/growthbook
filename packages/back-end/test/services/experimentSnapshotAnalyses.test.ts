@@ -44,6 +44,7 @@ function makeAnalysisSettings(
     differenceType: "relative",
     pValueCorrection: null,
     numGoalMetrics: 1,
+    numGuardrailMetrics: 0,
     ...overrides,
   };
 }

@@ -8,10 +8,8 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import { ExperimentInterface } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
-import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
   applyVariationWeightsToLatestPhase,
-  getPrecomputedDimensionAnalysisSettings,
   postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
@@ -21,46 +19,6 @@ import {
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
-  describe("getPrecomputedDimensionAnalysisSettings", () => {
-    it("derives precomputed dimension settings from the base analysis", () => {
-      const baseSettings: ExperimentSnapshotAnalysisSettings = {
-        dimensions: [],
-        statsEngine: "bayesian",
-        regressionAdjusted: true,
-        sequentialTesting: true,
-        sequentialTestingTuningParameter: 5000,
-        differenceType: "relative",
-        pValueCorrection: "holm-bonferroni",
-        pValueThreshold: 0.05,
-        baselineVariationIndex: 1,
-        numGoalMetrics: 1,
-        numGuardrailMetrics: 2,
-      };
-
-      expect(
-        getPrecomputedDimensionAnalysisSettings({
-          baseSettings,
-          dimensionId: "precomputed:country",
-          differenceTypes: ["absolute", "scaled"],
-          baselineVariationIndex: 0,
-        }),
-      ).toEqual([
-        {
-          ...baseSettings,
-          differenceType: "absolute",
-          baselineVariationIndex: 0,
-          dimensions: ["precomputed:country"],
-        },
-        {
-          ...baseSettings,
-          differenceType: "scaled",
-          baselineVariationIndex: 0,
-          dimensions: ["precomputed:country"],
-        },
-      ]);
-    });
-  });
-
   describe("postMetricApiPayloadIsValid", () => {
     it("should return a successful result when providing the minimum number of fields", () => {
       const input: z.infer<typeof postMetricValidator.bodySchema> = {

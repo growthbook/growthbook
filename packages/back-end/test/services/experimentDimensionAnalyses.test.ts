@@ -5,7 +5,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/validators";
 import { runEagerPrecomputedDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
-import { getOrCreatePrecomputedDimensionSnapshotAnalyses } from "back-end/src/services/experiments";
+import { getOrCreatePrecomputedDimensionTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
@@ -31,8 +31,9 @@ jest.mock("back-end/src/models/FactTableModel", () => ({
   getFactTableMap: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/experiments", () => ({
-  getOrCreatePrecomputedDimensionSnapshotAnalyses: jest.fn(),
+jest.mock("back-end/src/services/experimentDimensionTimeSeries", () => ({
+  ...jest.requireActual("back-end/src/services/experimentDimensionTimeSeries"),
+  getOrCreatePrecomputedDimensionTimeSeriesAnalyses: jest.fn(),
 }));
 
 jest.mock("back-end/src/util/logger", () => ({
@@ -54,6 +55,7 @@ function makeAnalysisSettings(
     differenceType: "relative",
     pValueCorrection: null,
     numGoalMetrics: 1,
+    numGuardrailMetrics: 0,
     ...overrides,
   };
 }
@@ -214,7 +216,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
     (getMetricMap as jest.Mock).mockResolvedValue(new Map());
     (getFactTableMap as jest.Mock).mockResolvedValue(new Map());
     (
-      getOrCreatePrecomputedDimensionSnapshotAnalyses as jest.Mock
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses as jest.Mock
     ).mockResolvedValue([
       makeAnalysis({ differenceType: "relative" }),
       makeAnalysis({ differenceType: "absolute" }),
@@ -236,7 +238,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
     });
 
     expect(
-      getOrCreatePrecomputedDimensionSnapshotAnalyses,
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
     ).not.toHaveBeenCalled();
     expect(
       context.models.metricTimeSeries.upsertMultipleSingleDataPoint,
@@ -254,7 +256,33 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
     });
 
     expect(
-      getOrCreatePrecomputedDimensionSnapshotAnalyses,
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
+    ).not.toHaveBeenCalled();
+    expect(
+      context.models.metricTimeSeries.upsertMultipleSingleDataPoint,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("skips snapshots without a time-series-compatible base analysis", async () => {
+    const context = makeContext();
+    await runEagerPrecomputedDimensionAnalyses({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot({
+        analyses: [
+          {
+            ...makeAnalysis({ differenceType: "relative" }),
+            settings: makeAnalysisSettings({
+              baselineVariationIndex: 1,
+            }),
+          },
+        ],
+      }),
+    });
+
+    expect(getMetricMap).not.toHaveBeenCalled();
+    expect(
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
     ).not.toHaveBeenCalled();
     expect(
       context.models.metricTimeSeries.upsertMultipleSingleDataPoint,
@@ -270,10 +298,10 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
     });
 
     expect(
-      getOrCreatePrecomputedDimensionSnapshotAnalyses,
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
     ).toHaveBeenCalledTimes(1);
     expect(
-      getOrCreatePrecomputedDimensionSnapshotAnalyses,
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
     ).toHaveBeenCalledWith(
       context,
       expect.objectContaining({
@@ -314,7 +342,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
   it("writes time series for empty string dimension values", async () => {
     const context = makeContext();
     (
-      getOrCreatePrecomputedDimensionSnapshotAnalyses as jest.Mock
+      getOrCreatePrecomputedDimensionTimeSeriesAnalyses as jest.Mock
     ).mockResolvedValue([
       makeAnalysis({ differenceType: "relative", dimensionValue: "" }),
       makeAnalysis({ differenceType: "absolute", dimensionValue: "" }),
@@ -339,7 +367,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
 
   it("logs per-dimension failures and continues with later dimensions", async () => {
     const context = makeContext();
-    (getOrCreatePrecomputedDimensionSnapshotAnalyses as jest.Mock)
+    (getOrCreatePrecomputedDimensionTimeSeriesAnalyses as jest.Mock)
       .mockRejectedValueOnce(new Error("first dimension failed"))
       .mockResolvedValueOnce([
         makeAnalysis({

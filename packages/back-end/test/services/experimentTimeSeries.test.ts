@@ -5,6 +5,10 @@ import {
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/validators";
 import { updateExperimentAnalysisTimeSeries } from "back-end/src/services/experimentTimeSeries";
+import {
+  getTimeSeriesAnalyses,
+  getTimeSeriesAnalysisSettings,
+} from "back-end/src/services/experimentDimensionTimeSeries";
 
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
@@ -18,6 +22,7 @@ function makeAnalysisSettings(
     differenceType: "relative",
     pValueCorrection: null,
     numGoalMetrics: 1,
+    numGuardrailMetrics: 0,
     ...overrides,
   };
 }
@@ -161,8 +166,6 @@ describe("updateExperimentAnalysisTimeSeries", () => {
       experimentSnapshot: makeSnapshot(),
       analyses: [
         makeAnalysis({ differenceType: "relative", value: 1.2 }),
-        makeAnalysis({ differenceType: "absolute", value: 12 }),
-        makeAnalysis({ differenceType: "scaled", value: 120 }),
         makeAnalysis({
           differenceType: "absolute",
           value: 999,
@@ -172,6 +175,8 @@ describe("updateExperimentAnalysisTimeSeries", () => {
             useCovariateAsResponse: true,
           },
         }),
+        makeAnalysis({ differenceType: "absolute", value: 12 }),
+        makeAnalysis({ differenceType: "scaled", value: 120 }),
       ],
       allMetricIds: ["met_1"],
       factMetrics: undefined,
@@ -183,5 +188,123 @@ describe("updateExperimentAnalysisTimeSeries", () => {
     expect(dataPoints[0].singleDataPoint.variations[1].absolute?.value).toBe(
       12,
     );
+  });
+
+  it("skips writes when there are no time-series-compatible analyses", async () => {
+    const upsertMultipleSingleDataPoint = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const context = {
+      models: {
+        metricTimeSeries: {
+          upsertMultipleSingleDataPoint,
+        },
+      },
+    };
+
+    await updateExperimentAnalysisTimeSeries({
+      context: context as never,
+      experiment: makeExperiment(),
+      experimentSnapshot: makeSnapshot(),
+      analyses: [
+        makeAnalysis({
+          differenceType: "relative",
+          value: 1.2,
+          settings: { baselineVariationIndex: 1 },
+        }),
+      ],
+      allMetricIds: ["met_1"],
+      factMetrics: undefined,
+      factTableMap: new Map(),
+    });
+
+    expect(upsertMultipleSingleDataPoint).not.toHaveBeenCalled();
+  });
+});
+
+describe("time series analysis settings", () => {
+  it("derives dimension settings from a compatible base analysis", () => {
+    expect(
+      getTimeSeriesAnalysisSettings({
+        baseSettings: makeAnalysisSettings({
+          pValueThreshold: 0.01,
+        }),
+        dimensionId: "precomputed:country",
+      }),
+    ).toEqual([
+      {
+        dimensions: ["precomputed:country"],
+        statsEngine: "bayesian",
+        regressionAdjusted: false,
+        sequentialTesting: false,
+        baselineVariationIndex: 0,
+        differenceType: "relative",
+        pValueCorrection: null,
+        pValueThreshold: 0.01,
+        numGoalMetrics: 1,
+        numGuardrailMetrics: 0,
+      },
+      {
+        dimensions: ["precomputed:country"],
+        statsEngine: "bayesian",
+        regressionAdjusted: false,
+        sequentialTesting: false,
+        baselineVariationIndex: 0,
+        differenceType: "absolute",
+        pValueCorrection: null,
+        pValueThreshold: 0.01,
+        numGoalMetrics: 1,
+        numGuardrailMetrics: 0,
+      },
+      {
+        dimensions: ["precomputed:country"],
+        statsEngine: "bayesian",
+        regressionAdjusted: false,
+        sequentialTesting: false,
+        baselineVariationIndex: 0,
+        differenceType: "scaled",
+        pValueCorrection: null,
+        pValueThreshold: 0.01,
+        numGoalMetrics: 1,
+        numGuardrailMetrics: 0,
+      },
+    ]);
+  });
+
+  it("selects the standard baseline-zero analyses and skips special analyses", () => {
+    const selected = getTimeSeriesAnalyses({
+      analyses: [
+        makeAnalysis({
+          differenceType: "relative",
+          value: 99,
+          settings: { baselineVariationIndex: 1 },
+        }),
+        makeAnalysis({
+          differenceType: "absolute",
+          value: 999,
+          settings: { useCovariateAsResponse: true },
+        }),
+        makeAnalysis({ differenceType: "relative", value: 1.2 }),
+        makeAnalysis({ differenceType: "absolute", value: 12 }),
+        makeAnalysis({ differenceType: "scaled", value: 120 }),
+      ],
+    });
+
+    expect(
+      selected.map((analysis) => analysis.settings.differenceType),
+    ).toEqual(["relative", "absolute", "scaled"]);
+    expect(
+      selected.map((analysis) => analysis.results[0].variations[1]),
+    ).toEqual([
+      expect.objectContaining({
+        metrics: { met_1: expect.objectContaining({ value: 1.2 }) },
+      }),
+      expect.objectContaining({
+        metrics: { met_1: expect.objectContaining({ value: 12 }) },
+      }),
+      expect.objectContaining({
+        metrics: { met_1: expect.objectContaining({ value: 120 }) },
+      }),
+    ]);
   });
 });

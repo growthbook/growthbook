@@ -34,6 +34,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
 
 export async function updateExperimentTimeSeries({
   context,
@@ -48,8 +49,9 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
-  // Only update time series for dimensionless snapshots, but if we want to
-  // support dimensions for time series, we should revisit this
+  // This top-level update only handles the main experiment time series.
+  // Precomputed dimension time series are handled separately by
+  // runEagerPrecomputedDimensionAnalyses.
   if (
     experimentSnapshot.dimension !== null &&
     experimentSnapshot.dimension !== ""
@@ -63,12 +65,9 @@ export async function updateExperimentTimeSeries({
       experiment,
       experimentSnapshot,
     });
-  const analyses = experimentSnapshot.analyses.filter(
-    (analysis) =>
-      analysis.settings.dimensions.length === 0 &&
-      (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0),
-  );
+  const analyses = getTimeSeriesAnalyses({
+    analyses: experimentSnapshot.analyses,
+  });
 
   // As we tag the whole snapshot, we just care if any metric has a significant difference from the previous status
   const hasSignificantDifference = getHasSignificantDifference(
@@ -170,9 +169,26 @@ export async function updateExperimentAnalysisTimeSeries({
     );
   }
 
-  const relativeAnalysis = getAnalysisByDifferenceType(analyses, "relative");
-  const absoluteAnalysis = getAnalysisByDifferenceType(analyses, "absolute");
-  const scaledAnalysis = getAnalysisByDifferenceType(analyses, "scaled");
+  const timeSeriesAnalyses = getTimeSeriesAnalyses({
+    analyses,
+    dimensionId,
+  });
+  if (timeSeriesAnalyses.length === 0) {
+    return;
+  }
+
+  const relativeAnalysis = getAnalysisByDifferenceType(
+    timeSeriesAnalyses,
+    "relative",
+  );
+  const absoluteAnalysis = getAnalysisByDifferenceType(
+    timeSeriesAnalyses,
+    "absolute",
+  );
+  const scaledAnalysis = getAnalysisByDifferenceType(
+    timeSeriesAnalyses,
+    "scaled",
+  );
   const baseAnalysis = relativeAnalysis ?? absoluteAnalysis ?? scaledAnalysis;
   if (!baseAnalysis) {
     throw new Error("No base analysis found for time series");
