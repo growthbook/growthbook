@@ -73,23 +73,20 @@ export default function AttributeDetailPage() {
     const attributeGroupIds: Record<string, Set<string>> = {};
 
     for (const feature of features) {
-      for (const envid in feature.environmentSettings) {
-        const env = feature.environmentSettings?.[envid];
-        env?.rules?.forEach((rule) => {
-          try {
-            const parsedCondition = JSON.parse(rule?.condition ?? "{}");
-            recursiveWalk(parsedCondition, (node) => {
-              if (attributeKeys.includes(node[0])) {
-                if (!attributeFeatureIds[node[0]])
-                  attributeFeatureIds[node[0]] = new Set<string>();
-                attributeFeatureIds[node[0]].add(feature.id);
-              }
-            });
-          } catch (e) {
-            // ignore
-          }
-        });
-      }
+      (feature.rules ?? []).forEach((rule) => {
+        try {
+          const parsedCondition = JSON.parse(rule?.condition ?? "{}");
+          recursiveWalk(parsedCondition, (node) => {
+            if (attributeKeys.includes(node[0])) {
+              if (!attributeFeatureIds[node[0]])
+                attributeFeatureIds[node[0]] = new Set<string>();
+              attributeFeatureIds[node[0]].add(feature.id);
+            }
+          });
+        } catch (e) {
+          // ignore
+        }
+      });
     }
 
     for (const experiment of experiments) {
@@ -238,7 +235,7 @@ export default function AttributeDetailPage() {
       />
       <div className="p-3 container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
-          <Heading as="h1" size="2x-large">
+          <Heading as="h1" size="x-large">
             {attribute.property}
           </Heading>
           {canEdit && (

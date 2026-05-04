@@ -20,13 +20,18 @@ import {
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
+  autoMerge,
+  draftHasChangesOutsideExperiment,
   DRAFT_REVISION_STATUSES,
+  fillRevisionFromFeature,
   generateVariationId,
   getMatchingRules,
   getNamespaceRanges,
+  getReviewSetting,
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
+  liveRevisionFromFeature,
   MatchingRule,
   validateCondition,
 } from "shared/util";
@@ -53,6 +58,7 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
+import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -139,6 +145,7 @@ import {
 import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
+  addOrUpdateSnapshotMultipleAnalysis,
   createExperimentSnapshotModel,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
@@ -162,6 +169,7 @@ import {
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
+import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
@@ -1377,6 +1385,7 @@ export async function planSnapshot({
     multipleExposures: 0,
     analyses: [
       {
+        analysisKey: buildAnalysisKey(),
         dateCreated: new Date(),
         results: [],
         settings: defaultAnalysisSettings,
@@ -1386,6 +1395,7 @@ export async function planSnapshot({
         .filter((a) => isAnalysisAllowed(snapshotSettings, a))
         .map((a) => {
           const analysis: ExperimentSnapshotAnalysis = {
+            analysisKey: buildAnalysisKey(),
             dateCreated: new Date(),
             results: [],
             settings: a,
@@ -1978,6 +1988,7 @@ async function getSnapshotAnalyses(
       return;
     }
     const analysis: ExperimentSnapshotAnalysis = {
+      analysisKey: buildAnalysisKey(),
       results: [],
       status: "running",
       settings: analysisSettings,
@@ -2061,7 +2072,7 @@ export async function createSnapshotAnalyses(
 export async function createSnapshotAnalysis(
   context: ReqContext | ApiReqContext,
   params: SnapshotAnalysisParams,
-): Promise<void> {
+): Promise<ExperimentSnapshotAnalysis> {
   const { snapshot, analysisSettings, experiment, metricMap } = params;
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
@@ -2076,6 +2087,7 @@ export async function createSnapshotAnalysis(
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
+    analysisKey: buildAnalysisKey(),
     results: [],
     status: "running",
     settings: analysisSettings,
@@ -2108,6 +2120,86 @@ export async function createSnapshotAnalysis(
     id: snapshot.id,
     analysis,
   });
+
+  return analysis;
+}
+
+export async function createSnapshotAnalysesBatched(
+  context: ReqContext | ApiReqContext,
+  {
+    experiment,
+    snapshot,
+    metricMap,
+    analysisSettingsList,
+  }: {
+    experiment: ExperimentInterface;
+    snapshot: ExperimentSnapshotInterface;
+    metricMap: Map<string, ExperimentMetricInterface>;
+    analysisSettingsList: ExperimentSnapshotAnalysisSettings[];
+  },
+): Promise<ExperimentSnapshotAnalysis[]> {
+  if (analysisSettingsList.length === 0) return [];
+
+  for (const settings of analysisSettingsList) {
+    if (!isAnalysisAllowed(snapshot.settings, settings)) {
+      throw new Error("Analysis not allowed with this snapshot");
+    }
+  }
+
+  const totalQueries = snapshot.queries.length;
+  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
+  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
+  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+    throw new Error("Snapshot queries not available for analysis");
+  }
+
+  const analyses: ExperimentSnapshotAnalysis[] = analysisSettingsList.map(
+    (settings) => ({
+      analysisKey: buildAnalysisKey(),
+      results: [],
+      status: "running",
+      settings,
+      dateCreated: new Date(),
+    }),
+  );
+
+  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
+
+  // Single gbstats call -- all analyses share the same queryResults and
+  // metric settings, so we can use a single python process
+  let completedAnalyses: ExperimentSnapshotAnalysis[];
+  try {
+    const { results } = await analyzeExperimentResults({
+      queryData: queryMap,
+      snapshotSettings: snapshot.settings,
+      analysisSettings: analysisSettingsList,
+      variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
+      metricMap,
+    });
+
+    completedAnalyses = analyses.map((analysis, i) => ({
+      ...analysis,
+      results: results[i]?.dimensions ?? [],
+      status: "success" as const,
+      error: undefined,
+    }));
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    completedAnalyses = analyses.map((analysis) => ({
+      ...analysis,
+      results: [],
+      status: "error" as const,
+      error,
+    }));
+  }
+
+  await addOrUpdateSnapshotMultipleAnalysis({
+    context,
+    id: snapshot.id,
+    analyses: completedAnalyses,
+  });
+
+  return completedAnalyses;
 }
 
 function getExperimentMetric(
@@ -2352,6 +2444,13 @@ export async function toExperimentApiInterface(
   return apiExperiment;
 }
 
+// Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
+// that break many real-world JSON parsers.
+function safeFloat(n: number | undefined, fallback = 0): number {
+  if (n == null || !isFinite(n)) return fallback;
+  return parseFloat(n.toFixed(20));
+}
+
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
@@ -2448,16 +2547,16 @@ export function toSnapshotApiInterface(
                 {
                   engine:
                     analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-                  numerator: data?.value || 0,
-                  denominator: data?.denominator || data?.users || 0,
-                  mean: data?.stats?.mean || 0,
-                  stddev: data?.stats?.stddev || 0,
-                  percentChange: data?.expected || 0,
-                  ciLow: data?.ci?.[0] ?? 0,
-                  ciHigh: data?.ci?.[1] ?? 0,
-                  pValue: data?.pValue || 0,
-                  risk: data?.risk?.[1] || 0,
-                  chanceToBeatControl: data?.chanceToWin || 0,
+                  numerator: safeFloat(data?.value),
+                  denominator: safeFloat(data?.denominator ?? data?.users),
+                  mean: safeFloat(data?.stats?.mean),
+                  stddev: safeFloat(data?.stats?.stddev),
+                  percentChange: safeFloat(data?.expected),
+                  ciLow: safeFloat(data?.ci?.[0]),
+                  ciHigh: safeFloat(data?.ci?.[1]),
+                  pValue: safeFloat(data?.pValue),
+                  risk: safeFloat(data?.risk?.[1]),
+                  chanceToBeatControl: safeFloat(data?.chanceToWin),
                 },
               ],
             };
@@ -3953,10 +4052,14 @@ export async function getLinkedFeatureInfo(
 
   const features = await getFeaturesByIds(context, linkedFeatures);
 
+  const featuresByFeatureId = Object.fromEntries(
+    features.map((f) => [f.id, f]),
+  );
   const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
     context,
     context.org.id,
     linkedFeatures,
+    featuresByFeatureId,
   );
 
   const environments = getEnvironmentIdsFromOrg(context.org);
@@ -3964,77 +4067,155 @@ export async function getLinkedFeatureInfo(
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;
 
-  const linkedFeatureInfo = features.map((feature) => {
-    const revisions = revisionsByFeatureId[feature.id] || [];
+  const linkedFeatureInfo = await Promise.all(
+    features.map(async (feature) => {
+      const revisions = revisionsByFeatureId[feature.id] || [];
 
-    // Get all published revisions from most recent to oldest
-    const liveMatches = getMatchingRules(feature, filter, environments);
+      const liveMatches = getMatchingRules(feature, filter, environments);
 
-    const draftMatches =
-      revisions
-        .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
-        .map((r) => getMatchingRules(feature, filter, environments, r))
-        .filter((matches) => matches.length > 0)[0] || [];
+      let matchedDraftRevision: (typeof revisions)[0] | undefined;
+      const draftMatches = (() => {
+        for (const r of revisions.filter((r) =>
+          DRAFT_REVISION_STATUSES.includes(r.status),
+        )) {
+          const m = getMatchingRules(feature, filter, environments, r);
+          if (m.length > 0) {
+            matchedDraftRevision = r;
+            return m;
+          }
+        }
+        return [];
+      })();
 
-    const lockedMatches =
-      revisions
-        .filter(
-          (r) => r.status === "published" && r.version !== feature.version,
-        )
-        .sort((a, b) => b.version - a.version)
-        .map((r) => getMatchingRules(feature, filter, environments, r))
-        .filter((matches) => matches.length > 0)[0] || [];
+      const lockedMatches =
+        revisions
+          .filter(
+            (r) => r.status === "published" && r.version !== feature.version,
+          )
+          .sort((a, b) => b.version - a.version)
+          .map((r) => getMatchingRules(feature, filter, environments, r))
+          .filter((matches) => matches.length > 0)[0] || [];
 
-    let state: LinkedFeatureState = "discarded";
-    let matches: MatchingRule[] = [];
-    if (liveMatches.length > 0) {
-      state = "live";
-      matches = liveMatches;
-    } else if (draftMatches.length > 0) {
-      state = "draft";
-      matches = draftMatches;
-    } else if (lockedMatches.length > 0) {
-      state = "locked";
-      matches = lockedMatches;
-    }
+      let state: LinkedFeatureState = "discarded";
+      let matches: MatchingRule[] = [];
+      if (feature.archived) {
+        state = "archived";
+      } else if (liveMatches.length > 0) {
+        state = "live";
+        matches = liveMatches;
+      } else if (draftMatches.length > 0) {
+        state = "draft";
+        matches = draftMatches;
+      } else if (lockedMatches.length > 0) {
+        state = "locked";
+        matches = lockedMatches;
+      }
 
-    const uniqueValues: Set<string> = new Set(
-      matches.map((m) =>
-        JSON.stringify(
-          (m.rule as ExperimentRefRule).variations.sort((a, b) =>
-            b.variationId.localeCompare(a.variationId),
+      // Feature-scope approval check: requires review AND draft not yet approved.
+      let pendingApproval: boolean | undefined;
+      if (state === "draft" && matchedDraftRevision) {
+        const requiresReviews = context.org.settings?.requireReviews;
+        const requireApprovalsLicensed =
+          context.hasPremiumFeature("require-approvals");
+        const reviewSetting = requireApprovalsLicensed
+          ? Array.isArray(requiresReviews)
+            ? getReviewSetting(requiresReviews, feature)
+            : undefined
+          : undefined;
+        const reviewRequired = requireApprovalsLicensed
+          ? requiresReviews === true ||
+            (!!reviewSetting && reviewSetting.requireReviewOn)
+          : false;
+        if (reviewRequired) {
+          pendingApproval = true;
+        }
+      }
+
+      // Mirrors publishPendingFeatureDraftsForExperiment's pre-flight: same
+      // autoMerge used on the FF detail page, plus an "unrelated edits" check.
+      let hasMergeConflict: boolean | undefined;
+      let hasUnrelatedDraftChanges: boolean | undefined;
+      if (state === "draft" && matchedDraftRevision) {
+        try {
+          const { live, base } = await getLiveAndBaseRevisionsForFeature({
+            context,
+            feature,
+            revision: matchedDraftRevision,
+          });
+          const filledLive = liveRevisionFromFeature(live, feature);
+          const mergeResult = autoMerge(
+            filledLive,
+            fillRevisionFromFeature(base, feature),
+            matchedDraftRevision,
+            environments,
+            {},
+          );
+          if (!mergeResult.success) {
+            hasMergeConflict = true;
+          } else if (
+            draftHasChangesOutsideExperiment(
+              matchedDraftRevision,
+              filledLive,
+              experiment.id,
+            )
+          ) {
+            hasUnrelatedDraftChanges = true;
+          }
+        } catch (e) {
+          logger.warn(
+            { featureId: feature.id, err: e },
+            "[getLinkedFeatureInfo] draft cleanliness check failed",
+          );
+        }
+      }
+
+      const uniqueValues: Set<string> = new Set(
+        matches.map((m) =>
+          JSON.stringify(
+            [...(m.rule as ExperimentRefRule).variations].sort((a, b) =>
+              b.variationId.localeCompare(a.variationId),
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    const environmentStates: Record<string, LinkedFeatureEnvState> = {};
-    environments.forEach((env) => (environmentStates[env] = "missing"));
-    matches.forEach((match) => {
-      if (!match.environmentEnabled) {
-        environmentStates[match.environmentId] = "disabled-env";
-      } else if (
-        match.rule.enabled === false &&
-        environmentStates[match.environmentId] !== "active"
-      ) {
-        environmentStates[match.environmentId] = "disabled-rule";
-      } else if (match.rule.enabled !== false) {
-        environmentStates[match.environmentId] = "active";
-      }
-    });
+      const environmentStates: Record<string, LinkedFeatureEnvState> = {};
+      environments.forEach((env) => (environmentStates[env] = "missing"));
+      matches.forEach((match) => {
+        if (!match.environmentEnabled) {
+          environmentStates[match.environmentId] = "disabled-env";
+        } else if (
+          match.rule.enabled === false &&
+          environmentStates[match.environmentId] !== "active"
+        ) {
+          environmentStates[match.environmentId] = "disabled-rule";
+        } else if (match.rule.enabled !== false) {
+          environmentStates[match.environmentId] = "active";
+        }
+      });
 
-    const info: LinkedFeatureInfo = {
-      feature,
-      state,
-      environmentStates,
-      values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
-      valuesFrom: matches[0]?.environmentId || "",
-      rulesAbove: matches.some((m) => m.i > 0),
-      inconsistentValues: uniqueValues.size > 1,
-    };
+      const info: LinkedFeatureInfo = {
+        feature,
+        state,
+        environmentStates,
+        values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
+        valuesFrom: matches[0]?.environmentId || "",
+        rulesAbove: matches.some((m) => m.i > 0),
+        inconsistentValues: uniqueValues.size > 1,
+        ...(pendingApproval !== undefined && { pendingApproval }),
+        ...(matchedDraftRevision && {
+          draftRevisionVersion: matchedDraftRevision.version,
+          draftRevisionStatus: matchedDraftRevision.status,
+        }),
+        ...(hasMergeConflict !== undefined && { hasMergeConflict }),
+        ...(hasUnrelatedDraftChanges !== undefined && {
+          hasUnrelatedDraftChanges,
+        }),
+      };
 
-    return info;
-  });
+      return info;
+    }),
+  );
 
   return linkedFeatureInfo;
 }

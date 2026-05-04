@@ -3,7 +3,7 @@ import { Flex, Box, Text, Heading } from "@radix-ui/themes";
 import { getDisallowedProjects } from "shared/util";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -144,11 +144,13 @@ export default function ExecReport() {
   const { items } = useExperimentSearch({
     allExperiments,
     filterResults,
+    localStorageKey: "exec-report-completed-experiments",
   });
 
   // get a separate list of experiments, given the same filterResults function, but with the status of "running":
   const { items: allExpInProject } = useExperimentSearch({
     allExperiments,
+    localStorageKey: "exec-report-all-experiments",
     filterResults: useCallback(
       (items: ComputedExperimentInterface[]) => {
         return items.filter((item) => {
@@ -450,6 +452,7 @@ export default function ExecReport() {
             num={5}
             status={"running"}
             experiments={allExpInProject}
+            localStorageKey="exec-report-running-experiments"
             as="table"
           />
         </Box>

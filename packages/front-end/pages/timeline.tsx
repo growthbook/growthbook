@@ -15,6 +15,7 @@ import EmptyState from "@/components/EmptyState";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
 import LinkButton from "@/ui/LinkButton";
 import { formatDateForURL, parseDateFromURL } from "@/utils/date";
+import Callout from "@/ui/Callout";
 
 const ExperimentTimelinePage = (): React.ReactElement => {
   const router = useRouter();
@@ -67,14 +68,11 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     useExperimentSearch({
       allExperiments,
       filterResults,
+      localStorageKey: "timeline-page",
     });
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
 
   if (loading || !ready) {

@@ -19,6 +19,11 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
+import {
+  resolveRampTargets,
+  ruleFootprint,
+  getApplicableEnvIds,
+} from "back-end/src/util/flattenRules";
 
 // Applies actions for one entity: computes a fresh patch against live state and publishes immediately.
 interface EntityHandler {
@@ -139,62 +144,59 @@ export const featureEntityHandler: EntityHandler = {
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
 
-    const patchedRules: Record<string, FeatureRule[]> = {};
-    for (const [env, envSettings] of Object.entries(
-      feature.environmentSettings ?? {},
-    )) {
-      patchedRules[env] = [...(envSettings.rules ?? [])];
-    }
-
-    // When an environment is specified, scope patches to that env only.
-    // When absent, patches apply to every environment that has a matching ruleId.
-    const envsToCheck = environment
-      ? Object.keys(patchedRules).filter((e) => e === environment)
-      : Object.keys(patchedRules);
+    // v2: operate on the unified top-level FeatureRule[] array. Each patch
+    // resolves to exactly ONE rule via `(ruleId, environment)`. In v1, a
+    // multi-env rule was actually N per-env copies and the handler patched
+    // each copy; in v2 there is one rule and one patch — its scope is carried
+    // on the rule itself (`allEnvironments` or `environments: [...]`). The
+    // `environment` field on the target is a legacy disambiguator for
+    // pre-v2 data; in v2 it's typically null.
+    const updatedRules: FeatureRule[] = (feature.rules ?? []).map((r) => ({
+      ...r,
+    }));
 
     for (const action of actions) {
       if (action.targetType !== "feature-rule") continue;
       const { patch } = action;
       const { ruleId, ...patchFields } = patch;
-      let foundInAnyEnv = false;
 
-      for (const env of envsToCheck) {
-        const ruleIdx = patchedRules[env].findIndex((r) => r.id === ruleId);
-        if (ruleIdx === -1) continue;
-        foundInAnyEnv = true;
-        patchedRules[env][ruleIdx] = applyPatchToRule(
-          patchedRules[env][ruleIdx],
-          patchFields,
+      // Plural resolution — a legacy no-env ramp whose rule was split into
+      // env-scoped siblings post-migration fans out to every sibling. The
+      // patch applies identically to each since split siblings came from the
+      // same v1 rule and share field shapes. See `resolveRampTargets` JSDoc.
+      const targets = resolveRampTargets(
+        { ruleId, environment: environment ?? null },
+        updatedRules,
+      );
+      if (!targets.length) {
+        const ref =
+          `id "${ruleId}"` +
+          (environment ? ` in environment "${environment}"` : "");
+        throw new Error(
+          `Ramp target rule ${ref} not found — it may have been deleted`,
         );
       }
 
-      if (!foundInAnyEnv) {
-        throw new Error(
-          `Ramp target rule "${ruleId}" not found in ${environment ? `environment "${environment}"` : "any environment"} — it may have been deleted`,
-        );
+      for (const target of targets) {
+        const idx = updatedRules.indexOf(target);
+        updatedRules[idx] = applyPatchToRule(target, patchFields);
       }
     }
 
     const revision = await createRevision({
       context: ctx,
-      feature: feature as FeatureInterface,
+      feature,
       user,
       environments: ctx.environments,
-      changes: { rules: patchedRules },
+      changes: { rules: updatedRules },
       publish: false,
       comment: stepLabel,
       title: stepLabel,
       org: ctx.org,
     });
 
-    const forceResult: MergeResultChanges = { rules: patchedRules };
-    await publishRevision(
-      ctx,
-      feature as FeatureInterface,
-      revision,
-      forceResult,
-      stepLabel,
-    );
+    const forceResult: MergeResultChanges = { rules: updatedRules };
+    await publishRevision(ctx, feature, revision, forceResult, stepLabel);
   },
 };
 
@@ -304,6 +306,10 @@ async function executeStepActions(
         entityType: target.entityType,
         entityId: target.entityId,
         actions: [],
+        // Disambiguator for `resolveRampTarget` on pre-v2 targets whose
+        // `ruleId` could appear in multiple env-scoped rule lists. New
+        // targets will typically have `environment: null`; the resolver
+        // handles that fine.
         environment: target.environment,
       });
     }
@@ -352,7 +358,10 @@ export async function applyRampStartActions(
     .map((t) => ({
       targetType: "feature-rule" as const,
       targetId: t.id,
-      patch: { ruleId: t.ruleId ?? "", enabled: true as const },
+      patch: {
+        ruleId: t.ruleId ?? "",
+        enabled: true as const,
+      },
     }));
   if (!enableActions.length) return;
   await executeStepActions(ctx, schedule, -1, enableActions);
@@ -632,14 +641,31 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
       if (feature) {
         projects = feature.project ? [feature.project] : [];
         tags = feature.tags ?? [];
-        // Targets with a specific environment use that; targets with environment=null
-        // (multi-env ramps) fall back to all environments the feature is active in.
-        const specificEnvs = schedule.targets
-          .map((t) => t.environment)
-          .filter((e): e is string => !!e);
+        // Resolve each target to its v2 rule(s) and union their footprints.
+        // For unified rules that span multiple envs (`environments: [...]` or
+        // `allEnvironments: true`), this yields the full set rather than the
+        // legacy single `target.environment`. Orphaned targets (rule id no
+        // longer present) fall back to `target.environment`.
+        const orgEnvIds = getApplicableEnvIds(
+          getEnvironments(ctx.org),
+          feature.project,
+        );
+        const collected = new Set<string>();
+        for (const target of schedule.targets) {
+          const matches = resolveRampTargets(target, feature.rules ?? []);
+          if (matches.length === 0) {
+            if (target.environment) collected.add(target.environment);
+            continue;
+          }
+          for (const rule of matches) {
+            for (const env of ruleFootprint(rule, orgEnvIds)) {
+              collected.add(env);
+            }
+          }
+        }
         environments =
-          specificEnvs.length > 0
-            ? [...new Set(specificEnvs)]
+          collected.size > 0
+            ? [...collected]
             : Object.keys(feature.environmentSettings ?? {});
       }
     }

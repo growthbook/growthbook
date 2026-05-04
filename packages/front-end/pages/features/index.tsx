@@ -1,4 +1,3 @@
-import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
@@ -7,6 +6,7 @@ import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import track from "@/services/track";
@@ -43,7 +43,7 @@ import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import ProjectBadges from "@/components/ProjectBadges";
 import Table, {
   TableHeader,
@@ -460,28 +460,32 @@ export default function FeaturesPage() {
                           width: FEATURE_TABLE_COLUMN_WIDTH.RECENT_USAGE,
                         }}
                       >
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
+                        {!feature.archived && (
+                          <RealTimeFeatureGraph
+                            data={usage?.[feature.id]?.realtime || []}
+                            yDomain={usageDomain}
+                          />
+                        )}
                       </TableCell>
                     )}
                     <TableCell style={{ textAlign: "left" }}>
-                      <StaleFeatureIcon
-                        context="list"
-                        neverStale={feature.neverStale}
-                        valueType={feature.valueType}
-                        staleData={staleHook.getStaleState(feature.id)}
-                        fetchStaleData={async () => {
-                          staleHook.invalidate([feature.id]);
-                          await staleHook.fetchSome([feature.id]);
-                        }}
-                        onDisable={
-                          permissionsUtil.canViewFeatureModal(feature.project)
-                            ? () => setFeatureToToggleStaleDetection(feature)
-                            : undefined
-                        }
-                      />
+                      {!feature.archived && (
+                        <StaleFeatureIcon
+                          context="list"
+                          neverStale={feature.neverStale}
+                          valueType={feature.valueType}
+                          staleData={staleHook.getStaleState(feature.id)}
+                          fetchStaleData={async () => {
+                            staleHook.invalidate([feature.id]);
+                            await staleHook.fetchSome([feature.id]);
+                          }}
+                          onDisable={
+                            permissionsUtil.canViewFeatureModal(feature.project)
+                              ? () => setFeatureToToggleStaleDetection(feature)
+                              : undefined
+                          }
+                        />
+                      )}
                     </TableCell>
                     <TableCell style={{ width: 30 }}>
                       <MoreMenu>
@@ -603,13 +607,12 @@ export default function FeaturesPage() {
   return (
     <Box className="contents pagecontents" style={{ margin: "0 auto" }}>
       {confirmToggle && (
-        <Modal
+        <ModalStandard
           trackingEventModalType=""
           header="Toggle environment"
           close={() => setConfirmToggle(null)}
           open={true}
           cta="Confirm"
-          useRadixButton={true}
           submit={async () => {
             await statusHook.toggle(
               confirmToggle.featureId,
@@ -620,13 +623,12 @@ export default function FeaturesPage() {
               environment: confirmToggle.envId,
               enabled: confirmToggle.state,
             });
-            setConfirmToggle(null);
           }}
         >
           You are about to set the <strong>{confirmToggle.envId}</strong>{" "}
           environment to{" "}
           <strong>{confirmToggle.state ? "enabled" : "disabled"}</strong>.
-        </Modal>
+        </ModalStandard>
       )}
       {modalOpen && (
         <FeatureModal

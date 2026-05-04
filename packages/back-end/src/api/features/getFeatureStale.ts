@@ -4,6 +4,7 @@ import {
   FeatureStaleEntry,
 } from "shared/validators";
 import { isFeatureStale } from "shared/util";
+import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
@@ -11,10 +12,11 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ReqContext } from "back-end/types/request";
 
-export const getFeatureStale = createApiRequestHandler(
-  getFeatureStaleValidator,
-)(async (req) => {
-  const ids = req.query.ids
+export async function computeFeatureStale(
+  context: ApiReqContext,
+  query: { ids: string },
+) {
+  const ids = query.ids
     .split(",")
     .map((id) => decodeURIComponent(id.trim()))
     .filter(Boolean);
@@ -25,19 +27,17 @@ export const getFeatureStale = createApiRequestHandler(
 
   const idSet = new Set(ids);
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeatures(req.context, {}),
-    getAllExperiments(req.context, { includeArchived: false }),
-    getRevisionsByStatus(
-      req.context as ReqContext,
-      [...ACTIVE_DRAFT_STATUSES],
-      { sparse: true },
-    ),
+    getAllFeatures(context, {}),
+    getAllExperiments(context, { includeArchived: false }),
+    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
+      sparse: true,
+    }),
   ]);
 
   const features = allFeatures.filter((f) => idSet.has(f.id));
 
   const result: Record<string, FeatureStaleEntry> = {};
-  const orgEnvs = getEnvironments(req.context.org);
+  const orgEnvs = getEnvironments(context.org);
 
   for (const feature of features) {
     if (feature.neverStale) {
@@ -104,4 +104,8 @@ export const getFeatureStale = createApiRequestHandler(
   }
 
   return { features: result };
-});
+}
+
+export const getFeatureStale = createApiRequestHandler(
+  getFeatureStaleValidator,
+)(async (req) => computeFeatureStale(req.context, req.query));

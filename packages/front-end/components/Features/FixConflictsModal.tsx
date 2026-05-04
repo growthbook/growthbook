@@ -127,6 +127,7 @@ export function ExpandableConflict({
                         <RevisionLabel
                           version={liveRevision.version}
                           title={liveRevision.title}
+                          minWidth={0}
                         />
                       </OverflowText>
                     ) : (
@@ -190,6 +191,7 @@ export function ExpandableConflict({
                         <RevisionLabel
                           version={draftRevision.version}
                           title={draftRevision.title}
+                          minWidth={0}
                         />
                       </OverflowText>
                     ) : (
@@ -361,6 +363,7 @@ export default function FixConflictsModal({
                     <RevisionLabel
                       version={revision.version}
                       title={revision.title}
+                      minWidth={0}
                     />
                   </OverflowText>
                 </Text>
@@ -398,6 +401,7 @@ export default function FixConflictsModal({
                     <RevisionLabel
                       version={baseRevision?.version ?? 0}
                       title={baseRevision?.title}
+                      minWidth={0}
                     />
                   </OverflowText>
                 </Text>
@@ -437,6 +441,7 @@ export default function FixConflictsModal({
                     <RevisionLabel
                       version={liveRevision?.version ?? 0}
                       title={liveRevision?.title}
+                      minWidth={0}
                     />
                   </OverflowText>
                 </Text>
@@ -505,6 +510,7 @@ export default function FixConflictsModal({
                     <RevisionLabel
                       version={revision.version}
                       title={revision.title}
+                      minWidth={0}
                     />
                   </OverflowText>
                 </Text>
@@ -537,6 +543,7 @@ export default function FixConflictsModal({
                     <RevisionLabel
                       version={liveRevision?.version ?? 0}
                       title={liveRevision?.title}
+                      minWidth={0}
                     />
                   </OverflowText>
                 </Text>
@@ -586,6 +593,7 @@ export default function FixConflictsModal({
                           <RevisionLabel
                             version={liveRevision?.version ?? 0}
                             title={liveRevision?.title}
+                            minWidth={0}
                           />
                         </OverflowText>
                       </Text>
@@ -618,6 +626,7 @@ export default function FixConflictsModal({
                           <RevisionLabel
                             version={revision.version}
                             title={revision.title}
+                            minWidth={0}
                           />
                         </OverflowText>
                       </Text>

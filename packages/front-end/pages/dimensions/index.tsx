@@ -1,10 +1,11 @@
 import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "shared/types/dimension";
-import Link from "next/link";
+import NextLink from "next/link";
 import { ago } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";
@@ -222,14 +223,14 @@ const DimensionsPage: FC = () => {
                   >
                     {item.identifierTypes.join(", ")}
                   </TableCell>
-                  <TableCell>
+                  <TableCell style={{ width: 30 }} className="text-right">
                     <MoreMenu useRadix={true}>
-                      <Link
+                      <NextLink
                         className="dropdown-item"
                         href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
                       >
                         Manage via Data Source
-                      </Link>
+                      </NextLink>
                     </MoreMenu>
                   </TableCell>
                 </TableRow>

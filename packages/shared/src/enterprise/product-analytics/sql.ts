@@ -1,6 +1,6 @@
 import { getValidDate } from "shared/dates";
 import { buildMinimalOrCondition, format } from "shared/sql";
-import { SqlHelpers } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import {
   RowFilter,
   FactTableInterface,
@@ -330,7 +330,7 @@ export function getDateGranularity(
 function generateRowFilterSQL(
   rowFilters: RowFilter[],
   factTable: MinimalFactTable,
-  helpers: SqlHelpers,
+  helpers: SqlDialect,
 ): string[] {
   if (!rowFilters.length) {
     return [];
@@ -370,7 +370,7 @@ function generateDimensionExpression(
   dimension: ProductAnalyticsDimension,
   dimensionIndex: number,
   factTableGroup: FactTableGroup,
-  helpers: SqlHelpers,
+  helpers: SqlDialect,
   dateRange: DateRange,
 ): string {
   const factTable = factTableGroup.factTable;
@@ -477,7 +477,7 @@ function createSimpleMetric(
 function getEventValueExpr(
   columnRef: ColumnRef,
   factTable: MinimalFactTable,
-  helpers: SqlHelpers,
+  helpers: SqlDialect,
   alias: string,
   cap: MetricCappingSettings | null,
 ): string {
@@ -548,7 +548,7 @@ function getUnitAggregationExpr(columnRef: ColumnRef, alias: string): string {
 function getRollupAggregationExpr(
   metric: MinimalMetric,
   alias: string,
-  helpers: SqlHelpers,
+  helpers: SqlDialect,
 ): string {
   // Quantiles
   if (metric.metricType === "quantile" && metric.quantileSettings) {
@@ -568,7 +568,7 @@ function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
 function getMetricData(
   metricWithMetadata: MetricWithMetadata,
   factTable: MinimalFactTable,
-  helpers: SqlHelpers,
+  helpers: SqlDialect,
 ): MetricData {
   const {
     index: metricIndex,
@@ -611,9 +611,24 @@ function getMetricData(
     }
   }
 
-  // For mean metrics, we need to count the units to calculate the average
+  // Always expose a denominator (unit count) for unit-aggregated non-ratio,
+  // non-quantile metrics so the frontend can render either the raw numerator
+  // (totals) or numerator/denominator (per-unit averages) based on the
+  // chart-level `showAs` setting.
+  //
+  // Intentionally symmetric across dataset types: fact_table/data_source
+  // datasets (where `showAsAppliesTo` returns false and the denominator is
+  // never surfaced) still emit this column. The extra `COUNT(...)` is cheap
+  // relative to the rest of the rollup and keeps the SQL shape / result
+  // column set identical regardless of dataset type, which simplifies the
+  // downstream parser and test fixtures. If this ever becomes a measurable
+  // cost, narrow the guard to metric datasets where per-unit is meaningful.
   let rollupCountExpr: string | null = null;
-  if (metric.metricType === "mean" && selectedUnit) {
+  if (
+    selectedUnit &&
+    metric.metricType !== "ratio" &&
+    metric.metricType !== "quantile"
+  ) {
     rollupCountExpr = getRollupCountExpr(metric, alias);
   }
 
@@ -696,7 +711,7 @@ function generateDynamicDimensionCTE(
   dimension: ProductAnalyticsDynamicDimension,
   dimensionIndex: number,
   sourceCTE: CTE,
-  helpers: SqlHelpers,
+  helpers: SqlDialect,
 ): CTE {
   const cteName = `_dimension${dimensionIndex}_top`;
 
@@ -721,7 +736,7 @@ function generateDynamicDimensionCTE(
 function generatePercentileCapsCTE(
   factTableGroup: FactTableGroup,
   sourceCTE: CTE,
-  helpers: SqlHelpers,
+  helpers: SqlDialect,
 ): CTE | null {
   const selects: string[] = [];
   factTableGroup.metrics.forEach((m) => {
@@ -751,7 +766,7 @@ function generatePercentileCapsCTE(
 // Generate fact table group CTE
 function generateFactTableCTE(
   factTableGroup: FactTableGroup,
-  helpers: SqlHelpers,
+  helpers: SqlDialect,
   dateRange: DateRange,
 ): CTE {
   const factTable = factTableGroup.factTable;
@@ -808,7 +823,7 @@ function generateFactTableRowsCTE(
   sourceCTE: CTE,
   percentileCapsCTE: CTE | null,
   dimensions: DimensionData[],
-  helpers: SqlHelpers,
+  helpers: SqlDialect,
 ): CTE {
   const selectCols: string[] = [];
 
@@ -883,7 +898,8 @@ function generateUnitAggregationRollupCTE(
   unitIndex: number,
   includedMetrics: MetricData[],
   allMetrics: string[],
-  helpers: SqlHelpers,
+  aliasesWithDenominator: Set<string>,
+  dialect: SqlDialect,
 ): CTE {
   const selects: string[] = [];
   const groupBys: string[] = [];
@@ -900,17 +916,17 @@ function generateUnitAggregationRollupCTE(
 
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${helpers.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${alias}_numerator`,
+        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${alias}_numerator`,
       );
-      if (metricData.rollupCountExpr) {
+      if (aliasesWithDenominator.has(alias)) {
         selects.push(
-          `${helpers.castToFloat(metricData.rollupCountExpr)} AS ${alias}_denominator`,
+          `${dialect.castToFloat(metricData.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
         );
       }
     } else {
-      selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_numerator`);
-      if (metricData?.rollupCountExpr) {
-        selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_denominator`);
+      selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_numerator`);
+      if (aliasesWithDenominator.has(alias)) {
+        selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
       }
     }
   });
@@ -932,7 +948,8 @@ function generateEventRollupCTE(
   dimensions: DimensionData[],
   includedMetrics: MetricData[],
   allMetrics: string[],
-  helpers: SqlHelpers,
+  aliasesWithDenominator: Set<string>,
+  dialect: SqlDialect,
 ): CTE {
   const selects: string[] = [];
   const groupBys: string[] = [];
@@ -948,17 +965,17 @@ function generateEventRollupCTE(
     const metricData = includedMetrics.find((m) => m.alias === alias);
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${helpers.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${metricData.alias}_numerator`,
+        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${metricData.alias}_numerator`,
       );
-      if (metricData.rollupCountExpr) {
+      if (aliasesWithDenominator.has(alias)) {
         selects.push(
-          `${helpers.castToFloat(metricData.rollupCountExpr)} AS ${alias}_denominator`,
+          `${dialect.castToFloat(metricData.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
         );
       }
     } else {
-      selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_numerator`);
-      if (metricData?.rollupCountExpr) {
-        selects.push(`${helpers.castToFloat("NULL")} AS ${alias}_denominator`);
+      selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_numerator`);
+      if (aliasesWithDenominator.has(alias)) {
+        selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
       }
     }
   });
@@ -1019,7 +1036,7 @@ export function generateProductAnalyticsSQL(
   config: ExplorationConfig,
   factTableMap: FactTableMap,
   metricMap: Map<string, FactMetricInterface>,
-  sqlHelpers: SqlHelpers,
+  dialect: SqlDialect,
   datasource: MinimalDatasourceInterface,
 ): {
   sql: string;
@@ -1043,7 +1060,7 @@ export function generateProductAnalyticsSQL(
   const orderedMetricIds: string[] = [];
   factTableGroups.forEach((f) => {
     f.metrics.forEach((m) => {
-      const data = getMetricData(m, f.factTable, sqlHelpers);
+      const data = getMetricData(m, f.factTable, dialect);
       allMetrics.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
       if (!m.useDenominator) orderedMetricIds.push(m.metric.id);
@@ -1051,6 +1068,9 @@ export function generateProductAnalyticsSQL(
   });
 
   const allMetricsAliases: string[] = allMetrics.map((m) => m.alias);
+  const aliasesWithDenominator: Set<string> = new Set(
+    allMetrics.filter((m) => m.rollupCountExpr).map((m) => m.alias),
+  );
 
   // Get all dimensions
   const allDimensions: DimensionData[] = [];
@@ -1061,7 +1081,7 @@ export function generateProductAnalyticsSQL(
         d,
         i,
         factTableGroups[0],
-        sqlHelpers,
+        dialect,
         dateRange,
       ),
     });
@@ -1075,7 +1095,7 @@ export function generateProductAnalyticsSQL(
     // Add the raw fact table CTE
     const factTableCTE = generateFactTableCTE(
       factTableGroup,
-      sqlHelpers,
+      dialect,
       dateRange,
     );
     ctes.push(factTableCTE);
@@ -1089,7 +1109,7 @@ export function generateProductAnalyticsSQL(
             dimension,
             dimensionIndex,
             factTableCTE,
-            sqlHelpers,
+            dialect,
           );
           ctes.push(dynamicDimensionCTE);
         }
@@ -1100,7 +1120,7 @@ export function generateProductAnalyticsSQL(
     const percentileCapsCTE = generatePercentileCapsCTE(
       factTableGroup,
       factTableCTE,
-      sqlHelpers,
+      dialect,
     );
     if (percentileCapsCTE) ctes.push(percentileCapsCTE);
 
@@ -1110,7 +1130,7 @@ export function generateProductAnalyticsSQL(
       factTableCTE,
       percentileCapsCTE,
       allDimensions,
-      sqlHelpers,
+      dialect,
     );
     ctes.push(factTableRowsCTE);
 
@@ -1118,7 +1138,7 @@ export function generateProductAnalyticsSQL(
     const unitMetrics: Record<string, MetricData[]> = {};
     const eventMetrics: MetricData[] = [];
     factTableGroup.metrics.forEach((m) => {
-      const metricData = getMetricData(m, factTableGroup.factTable, sqlHelpers);
+      const metricData = getMetricData(m, factTableGroup.factTable, dialect);
       if (metricData.unit) {
         if (!unitMetrics[metricData.unit]) {
           unitMetrics[metricData.unit] = [];
@@ -1152,7 +1172,8 @@ export function generateProductAnalyticsSQL(
         unitIndex,
         metrics,
         allMetricsAliases,
-        sqlHelpers,
+        aliasesWithDenominator,
+        dialect,
       );
       ctes.push(unitRollupCTE);
       ctesToRollup.push(unitRollupCTE);
@@ -1166,7 +1187,8 @@ export function generateProductAnalyticsSQL(
         allDimensions,
         eventMetrics,
         allMetricsAliases,
-        sqlHelpers,
+        aliasesWithDenominator,
+        dialect,
       );
       ctes.push(eventRollupCTE);
       ctesToRollup.push(eventRollupCTE);
@@ -1191,7 +1213,7 @@ export function generateProductAnalyticsSQL(
     ${ctes.map((c) => `${c.name} AS (\n${c.sql}\n)`).join(",\n  ")}
   ${generateFinalSelect(finalSelectSource, allDimensions, allMetrics, needsReaggregation)}
   `,
-    sqlHelpers.formatDialect,
+    dialect.formatDialect,
   );
 
   return {

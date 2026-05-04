@@ -10,7 +10,7 @@ import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { useEnvironments } from "@/services/features";
+import { useEnvironments, FEATURE_RULES_ALL_ENVS } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
@@ -229,6 +229,10 @@ export default function FeatureSettings() {
                 {
                   label: "Remember previous environment",
                   value: "",
+                },
+                {
+                  label: "All Environments",
+                  value: FEATURE_RULES_ALL_ENVS,
                 },
                 ...environments.map((env) => ({
                   label: env.id,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DistributiveOmit } from "shared/util";
 
 const metricTimeSeriesValue = z
   .object({
@@ -55,7 +56,7 @@ export type MetricTimeSeriesDataPoint = z.infer<
   typeof metricTimeSeriesDataPoint
 >;
 
-export const metricTimeSeriesSchema = z
+const metricTimeSeriesBaseSchema = z
   .object({
     id: z.string(),
     organization: z.string(),
@@ -72,23 +73,66 @@ export const metricTimeSeriesSchema = z
     dataPoints: z.array(metricTimeSeriesDataPoint),
   })
   .strict();
+
+const metricTimeSeriesMainSchema = metricTimeSeriesBaseSchema
+  .extend({
+    dimensionId: z.undefined().optional(),
+    dimensionValue: z.undefined().optional(),
+  })
+  .strict();
+
+const metricDimensionTimeSeriesSchema = metricTimeSeriesBaseSchema
+  .extend({
+    dimensionId: z.string().min(1),
+    // NB: Empty strings are valid for the dimension value
+    dimensionValue: z.string(),
+  })
+  .strict();
+
+export const metricTimeSeriesSchema = z.union([
+  metricTimeSeriesMainSchema,
+  metricDimensionTimeSeriesSchema,
+]);
+
 export type MetricTimeSeries = z.infer<typeof metricTimeSeriesSchema>;
 
-const createMetricTimeSeries = metricTimeSeriesSchema.omit({
-  id: true,
-  organization: true,
-  dateCreated: true,
-  dateUpdated: true,
-});
-export type CreateMetricTimeSeries = z.infer<typeof createMetricTimeSeries>;
-
-const _createMetricTimeSeriesSingleDataPoint = createMetricTimeSeries
-  .omit({
-    dataPoints: true,
-  })
+// BaseModel needs an object schema so it can derive create/update validators
+// from `.shape`
+export const metricTimeSeriesBaseModelSchema = metricTimeSeriesBaseSchema
   .extend({
-    singleDataPoint: metricTimeSeriesDataPoint,
+    dimensionId: z.string().min(1).optional(),
+    dimensionValue: z.string().optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const hasDimensionId = value.dimensionId !== undefined;
+    const hasDimensionValue = value.dimensionValue !== undefined;
+
+    if (hasDimensionId === hasDimensionValue) return;
+
+    const missingField = hasDimensionId ? "dimensionValue" : "dimensionId";
+    ctx.addIssue({
+      code: "custom",
+      message: "dimensionId and dimensionValue must be provided together",
+      path: [missingField],
+    });
   });
-export type CreateMetricTimeSeriesSingleDataPoint = z.infer<
-  typeof _createMetricTimeSeriesSingleDataPoint
+
+export type CreateMetricTimeSeries = DistributiveOmit<
+  MetricTimeSeries,
+  "id" | "organization" | "dateCreated" | "dateUpdated"
 >;
+
+export const metricTimeSeriesStripSchema = z.union([
+  metricTimeSeriesMainSchema.strip(),
+  metricDimensionTimeSeriesSchema.strip(),
+]);
+
+export type CreateMetricTimeSeriesSingleDataPoint =
+  CreateMetricTimeSeries extends infer T
+    ? T extends unknown
+      ? Omit<T, "dataPoints"> & {
+          singleDataPoint: MetricTimeSeriesDataPoint;
+        }
+      : never
+    : never;
