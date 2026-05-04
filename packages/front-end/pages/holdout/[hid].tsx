@@ -44,6 +44,7 @@ const HoldoutPage = (): ReactElement => {
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
+  const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
 
   const { data, error, mutate } = useApi<{
     holdout: HoldoutInterfaceStringDates;
@@ -259,7 +260,9 @@ const HoldoutPage = (): ReactElement => {
           envs={envs}
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
+          checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
+          setChecklistHardBlockerCount={setChecklistHardBlockerCount}
           editHoldoutSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>

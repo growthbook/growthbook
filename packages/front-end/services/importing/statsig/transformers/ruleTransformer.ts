@@ -1,4 +1,5 @@
 import { ConditionInterface } from "@growthbook/growthbook-react";
+import escapeRegExp from "lodash/escapeRegExp";
 import { FeatureInterface } from "shared/types/feature";
 import { getDefaultPrerequisiteCondition } from "shared/util";
 import { StatsigCondition } from "@/services/importing/statsig/types";
@@ -217,16 +218,12 @@ function transformTargetingConditions(
 
     if (operator === "str_contains_any") {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];
-      const escapedValues = values.map((v) =>
-        String(v).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-      );
+      const escapedValues = values.map((v) => escapeRegExp(String(v)));
       const regex = escapedValues.join("|");
       conditionObj[gbAttributeName] = { $regex: regex };
     } else if (operator === "str_contains_none") {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];
-      const escapedValues = values.map((v) =>
-        String(v).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-      );
+      const escapedValues = values.map((v) => escapeRegExp(String(v)));
       const regex = escapedValues.join("|");
       conditionObj[gbAttributeName] = {
         $not: { $regex: regex },

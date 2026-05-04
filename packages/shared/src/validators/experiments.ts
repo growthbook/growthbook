@@ -366,6 +366,19 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
+    // Drafts queued for auto-publish on `status -> running`. Each
+    // (featureId, revisionVersion) pair is its own row — multiple drafts of
+    // the same feature can be queued and are merged sequentially at start.
+    pendingFeatureDrafts: z
+      .array(
+        z
+          .object({
+            featureId: z.string(),
+            revisionVersion: z.number(),
+          })
+          .strict(),
+      )
+      .optional(),
     manualLaunchChecklist: z
       .array(
         z

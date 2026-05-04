@@ -77,6 +77,7 @@ import {
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
+  unlinkFeatureFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
@@ -122,9 +123,12 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
+  getFeature,
   getFeaturesByIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
+import { getNonDiscardedRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
@@ -1930,7 +1934,6 @@ export async function postExperimentArchive(
       changes,
     });
 
-    // TODO: audit
     res.status(200).json({
       status: 200,
     });
@@ -1990,7 +1993,6 @@ export async function postExperimentUnarchive(
       changes,
     });
 
-    // TODO: audit
     res.status(200).json({
       status: 200,
     });
@@ -2002,6 +2004,23 @@ export async function postExperimentUnarchive(
         id: experiment.id,
       },
     });
+
+    // Restore pendingFeatureDrafts: archive clears them, so re-sync each
+    // linked feature's revisions to rebuild the queue. Fire-and-forget.
+    const linkedFeatureIds = experiment.linkedFeatures ?? [];
+    if (linkedFeatureIds.length > 0) {
+      Promise.all(
+        linkedFeatureIds.map(async (featureId) => {
+          const revisions = await getNonDiscardedRevisionSummaries(
+            context.org.id,
+            featureId,
+          );
+          return syncFeatureExperimentLinkages(context, featureId, revisions);
+        }),
+      ).catch((e) => {
+        logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");
+      });
+    }
   } catch (e) {
     res.status(400).json({
       status: 400,
@@ -3902,4 +3921,33 @@ export async function postExperimentFeatureValues(
     status: 200,
     experiment: experimentForResponse,
   });
+}
+
+export async function deleteExperimentLinkedFeature(
+  req: AuthRequest<null, { id: string; featureId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, featureId } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({ status: 404, message: "Experiment not found" });
+    return;
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Also require feature-side edit rights — unlinking cancels a queued
+  // autopublish that the feature team may be managing.
+  const feature = await getFeature(context, featureId);
+  if (feature && !context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  await unlinkFeatureFromExperiment(context, id, featureId);
+
+  res.status(200).json({ status: 200 });
 }

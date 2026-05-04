@@ -235,6 +235,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   hasVisualChangesets: false,
   hasURLRedirects: false,
   linkedFeatures: false,
+  pendingFeatureDrafts: false,
   manualLaunchChecklist: false,
   banditStage: false,
   banditStageDateStarted: false,

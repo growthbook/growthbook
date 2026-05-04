@@ -23,6 +23,11 @@ import {
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
 } from "back-end/src/services/experiments";
+import {
+  formatPendingDraftFailureMessage,
+  PendingDraftFailure,
+  publishPendingFeatureDraftsForExperiment,
+} from "back-end/src/services/experiment-feature";
 
 type ChecklistStatus = "complete" | "incomplete";
 
@@ -295,6 +300,21 @@ export async function startExperiment({
   if (!experiment.phases.length && !changes.phases) {
     changes.phases = startExperimentTarget.phases;
   }
+
+  // Publish linked feature drafts atomically with the status transition.
+  // If any draft cannot be published, abort the start.
+  const publishResult = await publishPendingFeatureDraftsForExperiment(
+    context,
+    experiment,
+  );
+  if (publishResult.failed.length > 0) {
+    const err = new Error(
+      formatPendingDraftFailureMessage(publishResult.failed),
+    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
+    err.failedFeatureDrafts = publishResult.failed;
+    throw err;
+  }
+
   changes.status = "running";
 
   const updated = await updateExperiment({

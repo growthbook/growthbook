@@ -32,10 +32,15 @@ import {
   type FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
-import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import {
+  logBadgeColor,
+  CreatedRampScheduleBody,
+  createdRampScheduleTitle,
+  PendingPublishBadge,
+} from "@/components/Features/FeatureDiffRenders";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
+import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
@@ -143,14 +148,14 @@ export default function DraftModal({
 
   const [comment, setComment] = useState(revision?.comment || "");
 
-  const { experimentData } = useFeatureExperimentChecklists({
+  const { experiments } = useFeatureExperimentChecklists({
     feature,
     revision,
     experimentsMap,
   });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
-    new Set(experimentData.map((e) => e.experiment.id)),
+    new Set(experiments.map((e) => e.id)),
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
@@ -181,6 +186,9 @@ export default function DraftModal({
                 },
               }
             : {}),
+          // Pending ramp create/detach actions live on the draft revision —
+          // pass through so the rules diff annotates affected rules.
+          rampActions: revision?.rampActions ?? undefined,
         }
       : currentRevisionData,
   });
@@ -200,6 +208,13 @@ export default function DraftModal({
           t.entityId === feature.id &&
           t.activatingRevisionVersion === revision?.version,
       ),
+  );
+
+  // 1-based rule indices for `Rule #N` refs. Holdout occupies #1 (Rule.tsx).
+  const draftRules = Array.isArray(revision?.rules) ? revision!.rules : [];
+  const draftRuleNumberOffset = revision?.holdout ? 2 : 1;
+  const draftRuleIndexById = new Map(
+    draftRules.map((r, i) => [r.id, i + draftRuleNumberOffset]),
   );
 
   // Build extra diff items so ramp changes appear in badges, custom renders, and JSON diffs.
@@ -241,20 +256,23 @@ export default function DraftModal({
             steps: action.steps,
             endCondition: action.endCondition,
           };
+          const targetIdx = draftRuleIndexById.get(action.ruleId);
           return {
-            title: `Ramp Schedule – ${action.name} (pending creation)`,
+            title: createdRampScheduleTitle(action),
             a: "",
             b: JSON.stringify(rampConfig, null, 2),
             customRender: (
-              <p className="mb-0">
-                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
-                <code>{action.ruleId}</code> — {action.steps.length} step
-                {action.steps.length !== 1 ? "s" : ""}.
-              </p>
+              <CreatedRampScheduleBody
+                action={action}
+                targetRuleIndices={targetIdx ? [targetIdx] : []}
+              />
             ),
+            titleSuffix: <PendingPublishBadge />,
             badges: [
               {
-                label: `Create ramp: ${action.name}`,
+                label: action.name
+                  ? `Create ramp: ${action.name}`
+                  : "Create ramp schedule",
                 action: "create ramp",
               },
             ],
@@ -308,10 +326,9 @@ export default function DraftModal({
 
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
-  let submitEnabled = !!mergeResult.success && hasChanges;
-  if (experimentsStep && experimentData.some((d) => d.failedRequired)) {
-    submitEnabled = false;
-  }
+  // Users who reach DraftModal already have direct publish permission, so the
+  // checklist is advisory — it does not block publishing.
+  const submitEnabled = !!mergeResult.success && hasChanges;
 
   // If we're publishing experiments, next step is to review pre-launch checklists
   const hasNextStep =
@@ -412,18 +429,24 @@ export default function DraftModal({
               Review &amp; Publish
             </Heading>
             <Text as="p" mb="3">
-              Please review the <strong>Pre-Launch Checklists</strong> for the
-              experiments that will be published along with this draft.
+              Please review the{" "}
+              <strong>
+                Pre-Launch Checklist
+                {selectedExperiments.size !== 1 ? "s" : ""}
+              </strong>{" "}
+              for the experiment
+              {selectedExperiments.size !== 1 ? "s" : ""} that will be published
+              along with this draft.
             </Text>
-            {experimentData.map(({ experiment, checklist }) => {
+            {experiments.map((experiment) => {
               if (!selectedExperiments.has(experiment.id)) return null;
 
               return (
                 <Box key={experiment.id} mb="3">
-                  <PreLaunchChecklistFeatureExpRule
+                  <PreLaunchChecklistForDraft
                     experiment={experiment}
+                    feature={feature}
                     mutateExperiment={mutate}
-                    checklist={checklist}
                     envs={getAffectedEnvsForExperiment({
                       experiment,
                       orgEnvironments: allEnvironments,
@@ -444,12 +467,12 @@ export default function DraftModal({
               published. You will be able to revert later if needed.
             </Text>
 
-            {experimentData.length > 0 ? (
+            {experiments.length > 0 ? (
               <Box mb="3">
                 <Heading as="h4" size="small" mb="2">
                   Start running experiments upon publishing:
                 </Heading>
-                {experimentData.map(({ experiment }) => (
+                {experiments.map((experiment) => (
                   <Box key={experiment.id}>
                     <Checkbox
                       value={selectedExperiments.has(experiment.id)}
@@ -510,9 +533,12 @@ export default function DraftModal({
                                 : "1px solid var(--gray-5)",
                           }}
                         >
-                          <Text as="div" weight="semibold" mb="2">
-                            {d.title}
-                          </Text>
+                          <Flex align="center" gap="2" mb="2" wrap="wrap">
+                            <Text as="div" weight="semibold">
+                              {d.title}
+                            </Text>
+                            {d.titleSuffix}
+                          </Flex>
                           {d.customRender}
                         </Box>
                       ))}

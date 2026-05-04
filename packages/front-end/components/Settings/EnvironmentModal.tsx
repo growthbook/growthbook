@@ -226,7 +226,7 @@ export default function EnvironmentModal({
       />
       <Switch
         id={"toggle"}
-        label="Show toggle on feature list"
+        label="Show on feature list page"
         value={!!form.watch("toggleOnList")}
         onChange={(value) => {
           form.setValue("toggleOnList", value);

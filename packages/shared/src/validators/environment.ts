@@ -67,10 +67,7 @@ const postEnvironmentBody = z
       .string()
       .describe("The description of the new environment")
       .optional(),
-    toggleOnList: z
-      .boolean()
-      .describe("Show toggle on feature list")
-      .optional(),
+    toggleOnList: z.boolean().describe("Show on feature list page").optional(),
     defaultState: z
       .boolean()
       .describe("Default state for new features")
@@ -92,10 +89,7 @@ const putEnvironmentBody = z
       .string()
       .describe("The description of the new environment")
       .optional(),
-    toggleOnList: z
-      .boolean()
-      .describe("Show toggle on feature list")
-      .optional(),
+    toggleOnList: z.boolean().describe("Show on feature list page").optional(),
     defaultState: z
       .boolean()
       .describe("Default state for new features")
