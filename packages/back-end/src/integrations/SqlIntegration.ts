@@ -1640,6 +1640,8 @@ export default abstract class SqlIntegration
                   startDate: settings.startDate,
                   endDate: settings.endDate,
                   experimentId: settings.experimentId,
+                  phase: settings.phase,
+                  customFields: settings.customFields,
                 },
               )})`
             : ""
@@ -1651,6 +1653,8 @@ export default abstract class SqlIntegration
               startDate: settings.startDate,
               endDate: settings.endDate,
               experimentId: settings.experimentId,
+              phase: settings.phase,
+              customFields: settings.customFields,
               // TODO(incremental-refresh): add incremental start data as template variable
             },
             this.getSqlDialect(),
@@ -1941,6 +1945,9 @@ export default abstract class SqlIntegration
           factTable: factTableWithMetricData.factTable,
           startDate: factTableWithMetricData.minCovariateStartDate,
           endDate: factTableWithMetricData.maxCovariateEndDate,
+          experimentId: params.settings.experimentId,
+          phase: params.settings.phase,
+          customFields: params.settings.customFields,
           metricsWithIndices: metricData.map((m, i) => ({
             metric: m.metric,
             index: i,
@@ -2235,6 +2242,9 @@ export default abstract class SqlIntegration
           factTable: factTableWithMetricData.factTable,
           startDate: factTableWithMetricData.metricStart,
           endDate: factTableWithMetricData.metricEnd,
+          experimentId: params.settings.experimentId,
+          phase: params.settings.phase,
+          customFields: params.settings.customFields,
           castIdToString: true,
           addFiltersToWhere: true,
           // if last max timestamp is later than metric start and thus the start
