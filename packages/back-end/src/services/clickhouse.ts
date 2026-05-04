@@ -143,3 +143,152 @@ export async function updateMaterializedColumns({
     );
   }
 }
+
+// --- Session Replay ---
+
+export type SessionReplayRow = {
+  session_id: string;
+  org_id: string;
+  client_key: string;
+  user_id: string;
+  s3_key: string;
+  started_at: string;
+  ended_at: string;
+  last_event_at: string;
+  duration_ms: number;
+  event_count: number;
+  error_count: number;
+  url_first: string;
+  urls_visited: string[];
+  attributes: Record<string, string>;
+  experiments: [string, string][];
+  flags: Record<string, string>;
+  country: string;
+  user_agent: string;
+  device: string;
+  browser: string;
+  state: "recording" | "finalized" | "deleted";
+  created_at: string;
+};
+
+export async function createSessionReplayTable(): Promise<void> {
+  const client = createAdminClickhouseClient();
+  // NOTE: IF NOT EXISTS won't update an existing table — drop manually in ClickHouse
+  // when the schema changes during development:
+  //   DROP TABLE local_sample.session_replays
+  await runCommand(
+    client,
+    `CREATE TABLE IF NOT EXISTS ${CLICKHOUSE_DATABASE}.session_replays (
+      session_id        String,
+      org_id            String,
+      client_key        String,
+      user_id           String,
+      s3_key            String,
+      started_at        DateTime64(3),
+      ended_at          DateTime64(3),
+      last_event_at     DateTime64(3),
+      duration_ms       UInt32,
+      event_count       UInt32,
+      error_count       UInt16,
+      url_first         String,
+      urls_visited      Array(String),
+      attributes        Map(String, String),
+      experiments       Array(Tuple(String, String)),
+      flags             Map(String, String),
+      country           String,
+      user_agent        String,
+      device            String,
+      browser           String,
+      state             Enum8('recording' = 1, 'finalized' = 2, 'deleted' = 3),
+      created_at        DateTime64(3) DEFAULT now64(3)
+    ) ENGINE = MergeTree()
+    ORDER BY (org_id, created_at)`,
+  );
+}
+
+export async function insertSessionReplayMetadata(row: {
+  session_id: string;
+  org_id: string;
+  client_key: string;
+  user_id: string;
+  s3_key: string;
+  started_at: Date;
+  ended_at: Date;
+  duration_ms: number;
+  event_count: number;
+  url_first: string;
+  urls_visited: string[];
+  attributes: Record<string, string>;
+  experiments: [string, string][];
+  flags: Record<string, string>;
+  user_agent: string;
+}): Promise<void> {
+  const toDateTime64 = (d: Date) =>
+    d.toISOString().replace("T", " ").replace("Z", "");
+
+  const client = createAdminClickhouseClient();
+  await client.insert({
+    table: `${CLICKHOUSE_DATABASE}.session_replays`,
+    values: [
+      {
+        session_id: row.session_id,
+        org_id: row.org_id,
+        client_key: row.client_key,
+        user_id: row.user_id,
+        s3_key: row.s3_key,
+        started_at: toDateTime64(row.started_at),
+        ended_at: toDateTime64(row.ended_at),
+        last_event_at: toDateTime64(row.ended_at),
+        duration_ms: row.duration_ms,
+        event_count: row.event_count,
+        error_count: 0,
+        url_first: row.url_first,
+        urls_visited: row.urls_visited,
+        attributes: row.attributes,
+        experiments: row.experiments,
+        flags: row.flags,
+        country: "",
+        user_agent: row.user_agent,
+        device: "",
+        browser: "",
+        state: "recording",
+      },
+    ],
+    format: "JSONEachRow",
+  });
+}
+
+export async function listSessionReplays(
+  orgId: string,
+): Promise<SessionReplayRow[]> {
+  const client = createAdminClickhouseClient();
+  // orgId comes from the authenticated back-end context, sanitize defensively
+  const sanitizedOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const result = await client.query({
+    query: `SELECT *
+            FROM ${CLICKHOUSE_DATABASE}.session_replays
+            WHERE org_id = '${sanitizedOrgId}'
+            ORDER BY created_at DESC
+            LIMIT 100`,
+    format: "JSONEachRow",
+  });
+  return result.json<SessionReplayRow>();
+}
+
+export async function getSessionReplayBySessionId(
+  orgId: string,
+  sessionId: string,
+): Promise<SessionReplayRow | null> {
+  const client = createAdminClickhouseClient();
+  const sanitizedOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const sanitizedSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const result = await client.query({
+    query: `SELECT *
+            FROM ${CLICKHOUSE_DATABASE}.session_replays
+            WHERE org_id = '${sanitizedOrgId}' AND session_id = '${sanitizedSessionId}'
+            LIMIT 1`,
+    format: "JSONEachRow",
+  });
+  const rows = await result.json<SessionReplayRow>();
+  return rows[0] ?? null;
+}

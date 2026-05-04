@@ -4,6 +4,8 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
+  type S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
@@ -13,6 +15,7 @@ import {
   S3_BUCKET,
   S3_REGION,
   S3_DOMAIN,
+  S3_ENDPOINT,
   UPLOAD_METHOD,
   GCS_BUCKET_NAME,
   GCS_DOMAIN,
@@ -23,7 +26,7 @@ let s3Client: S3Client | null = null;
 
 function getS3Client(): S3Client {
   if (!s3Client) {
-    const clientConfig: ConstructorParameters<typeof S3Client>[0] = {
+    const clientConfig: S3ClientConfig = {
       region: S3_REGION,
     };
 
@@ -34,6 +37,14 @@ function getS3Client(): S3Client {
           RoleSessionName: "growthbook-uploads",
         },
       });
+    }
+
+    // Custom S3-compatible endpoint (MinIO for local dev, plus R2 / SeaweedFS
+    // / etc. for self-hosted users). Path-style addressing is the safe default
+    // for these providers; AWS S3 itself doesn't need it.
+    if (S3_ENDPOINT) {
+      clientConfig.endpoint = S3_ENDPOINT;
+      clientConfig.forcePathStyle = true;
     }
 
     s3Client = new S3Client(clientConfig);
@@ -93,6 +104,59 @@ export async function uploadFile(
     fileURL = `/upload/${filePath}`;
   }
   return fileURL;
+}
+
+export async function listFilesByPrefix(prefix: string): Promise<string[]> {
+  if (UPLOAD_METHOD !== "s3") {
+    // Local: list files in the uploads directory under the prefix
+    const dir = path.join(getUploadsDir(), prefix);
+    try {
+      const entries = await fs.promises.readdir(dir);
+      return entries.map((e) => `${prefix}/${e}`);
+    } catch {
+      return [];
+    }
+  }
+  const client = getS3Client();
+  const response = await client.send(
+    new ListObjectsV2Command({ Bucket: S3_BUCKET, Prefix: prefix }),
+  );
+  return (response.Contents ?? []).map((obj) => obj.Key ?? "").filter(Boolean);
+}
+
+export async function getFileBuffer(filePath: string): Promise<Buffer> {
+  if (filePath.indexOf("\0") !== -1) {
+    throw new Error("Error: Filename must not contain null bytes");
+  }
+
+  if (UPLOAD_METHOD === "s3") {
+    const client = getS3Client();
+    const response = await client.send(
+      new GetObjectCommand({ Bucket: S3_BUCKET, Key: filePath }),
+    );
+    if (!response.Body) throw new Error("Empty S3 response body");
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  } else if (UPLOAD_METHOD === "google-cloud") {
+    const storage = new Storage();
+    const [contents] = await storage
+      .bucket(GCS_BUCKET_NAME)
+      .file(filePath)
+      .download();
+    return contents;
+  } else {
+    const rootDirectory = getUploadsDir();
+    const fullPath = path.join(rootDirectory, filePath);
+    if (fullPath.indexOf(rootDirectory) !== 0) {
+      throw new Error(
+        "Error: Path must not escape out of the 'uploads' directory.",
+      );
+    }
+    return fs.promises.readFile(fullPath);
+  }
 }
 
 export function getImageData(filePath: string) {

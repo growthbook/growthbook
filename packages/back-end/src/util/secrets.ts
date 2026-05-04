@@ -76,6 +76,9 @@ export const S3_BUCKET = process.env.S3_BUCKET || "";
 export const S3_REGION = process.env.S3_REGION || "us-east-1";
 export const S3_DOMAIN =
   process.env.S3_DOMAIN || `https://${S3_BUCKET}.s3.amazonaws.com/`;
+// Optional override for S3-compatible endpoints (MinIO, R2, etc.).
+// Leave empty to use AWS S3.
+export const S3_ENDPOINT = process.env.S3_ENDPOINT || "";
 export const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "dev";
 if (prod && ENCRYPTION_KEY === "dev") {
   throw new Error(
