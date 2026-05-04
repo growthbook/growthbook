@@ -1547,6 +1547,20 @@ export const postExperimentSnapshotValidator = {
           'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
         )
         .optional(),
+      dimension: z
+        .string()
+        .describe(
+          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". Omit this field to create a standard snapshot.',
+        )
+        .optional(),
+      phase: z
+        .number()
+        .int()
+        .nonnegative()
+        .describe(
+          "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
+        )
+        .optional(),
     })
     .strict()
     .optional(),
