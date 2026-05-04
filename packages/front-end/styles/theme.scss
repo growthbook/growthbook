@@ -10,6 +10,7 @@
   --background-highlight: rgba(156, 117, 235, 0.06);
   --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
   --table-row-highlight-background-color: #{rgba(124, 69, 234, 0.06)};
+  --table-list-background-color: var(--surface-background-color);
 
   --text-color-main: #{colors.$main-black};
   --text-color-table: #{colors.$gray-900};
@@ -138,6 +139,7 @@
       colors.$surface-background-dark,
       10%
     )};
+  --table-list-background-color: var(--surface-background-color);
   --background-primary-light: #{darken(colors.$dark-purple, 13%)};
   --background-highlight: rgba(220, 204, 255, 0.04);
 
