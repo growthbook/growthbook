@@ -83,14 +83,20 @@ function inspectClassnamesObjectKey(node, report) {
 
 function inspectClassnamesArgument(node, report) {
   const arg =
-    node && node.type === "SpreadElement" ? node.argument : unwrapExpression(node);
+    node && node.type === "SpreadElement"
+      ? node.argument
+      : unwrapExpression(node);
 
   if (!arg) return;
 
   if (arg.type === "ObjectExpression") {
     for (const property of arg.properties) {
       if (property.type === "Property") {
-        inspectClassnamesObjectKey(property.key, report);
+        if (property.computed) {
+          inspectClassValue(property.key, report);
+        } else {
+          inspectClassnamesObjectKey(property.key, report);
+        }
       } else if (property.type === "SpreadElement") {
         inspectClassValue(property.argument, report);
       }
@@ -99,6 +105,24 @@ function inspectClassnamesArgument(node, report) {
   }
 
   inspectClassValue(arg, report);
+}
+
+function inspectJoinReceiver(node, report) {
+  const value = unwrapExpression(node);
+
+  if (!value) return;
+
+  // Support array helper chains before `.join()` without inspecting unrelated
+  // member-expression calls as className values.
+  if (
+    value.type === "CallExpression" &&
+    value.callee.type === "MemberExpression"
+  ) {
+    inspectJoinReceiver(value.callee.object, report);
+    return;
+  }
+
+  inspectClassValue(value, report);
 }
 
 function inspectClassValue(node, report) {
@@ -150,12 +174,8 @@ function inspectClassValue(node, report) {
         return;
       }
 
-      if (value.callee.type === "MemberExpression") {
-        inspectClassValue(value.callee.object, report);
-
-        if (isJoinCall(value)) {
-          return;
-        }
+      if (isJoinCall(value)) {
+        inspectJoinReceiver(value.callee.object, report);
       }
       return;
     default:
@@ -178,7 +198,10 @@ export default {
   create(context) {
     return {
       JSXAttribute(node) {
-        if (node.name.type !== "JSXIdentifier" || node.name.name !== "className") {
+        if (
+          node.name.type !== "JSXIdentifier" ||
+          node.name.name !== "className"
+        ) {
           return;
         }
 
