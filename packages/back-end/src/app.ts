@@ -142,6 +142,8 @@ import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
+import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
+import { ingestSessionReplay } from "./routers/session-replay/ingest";
 
 const app = express();
 
@@ -268,6 +270,21 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
+// Session replay ingest from SDK (no JWT, cross-origin)
+// Must be registered before the global bodyParser to avoid CORS headers being
+// missing when the 2mb global limit would otherwise reject the request first.
+app.post(
+  "/ingest/session-replay",
+  cors({ credentials: false, origin: true }),
+  bodyParser.json({ limit: "20mb" }),
+  ingestSessionReplay,
+);
+app.options(
+  "/ingest/session-replay",
+  cors({ credentials: false, origin: true }),
+  (req, res) => res.send(200),
+);
+
 // increase max payload json size to 2mb (10mb for the api screenshot upload)
 app.use((req, res, next) => {
   const isScreenshotUpload =
@@ -361,6 +378,7 @@ app.get(
   }),
   uploadController.getSignedPublicImageToken,
 );
+
 
 // Secret API routes (no JWT or CORS)
 // Routes register themselves with version prefixes (/v1/..., /v2/...) so we
@@ -1063,6 +1081,7 @@ app.delete(
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
 app.use("/upload", uploadRouter);
+app.use("/api/session-replay", sessionReplayRouter);
 
 // Teams
 app.use("/teams", teamRouter);
