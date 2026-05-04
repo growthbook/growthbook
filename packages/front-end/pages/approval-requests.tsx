@@ -192,6 +192,12 @@ function featureRevisionToRow(
   const authorDisplay =
     createdBy && createdBy.type === "dashboard" ? createdBy.name : "";
 
+  // `pending-parent` revisions are held child revisions managed by ramp
+  // schedules and are not user-actionable, so they should not appear in the
+  // approvals list. Filtering here also narrows revision.status to the values
+  // representable by the unified RevisionStatus.
+  if (revision.status === "pending-parent") return null;
+
   // Feature revisions use "published" where unified revisions use "merged".
   const status: RevisionStatus =
     revision.status === "published" ? "merged" : revision.status;

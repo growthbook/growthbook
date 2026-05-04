@@ -270,23 +270,29 @@ export const postSavedGroupAddItems = async (
     },
   );
 
-  // Always create a revision for add-items
-  const existingRevision =
-    await context.models.revisions.getOpenByTargetAndAuthor(
-      "saved-group",
-      id,
-      context.userId,
-    );
-  const existingOps = normalizeProposedChanges(
-    existingRevision?.target.proposedChanges,
-  );
-  const currentState = existingRevision
-    ? applyPatchToSnapshot(
+  // When approval is required, stack the change on top of any existing open
+  // draft so the user's pending changes accumulate. When approval isn't
+  // required we'll merge immediately, so base the new values on the live
+  // entity and force a fresh revision below — otherwise we'd merge a draft
+  // that may contain unrelated pending changes (e.g. a groupName edit) and
+  // mark them as merged even though `savedGroups.update` only applies the
+  // values change.
+  let baseValues: string[] = savedGroup.values ?? [];
+  if (approvalRequired) {
+    const existingRevision =
+      await context.models.revisions.getOpenByTargetAndAuthor(
+        "saved-group",
+        id,
+        context.userId,
+      );
+    if (existingRevision) {
+      const currentState = applyPatchToSnapshot(
         existingRevision.target.snapshot as SavedGroupInterface,
-        existingOps,
-      )
-    : savedGroup;
-  const baseValues = currentState.values ?? [];
+        normalizeProposedChanges(existingRevision.target.proposedChanges),
+      );
+      baseValues = currentState.values ?? [];
+    }
+  }
   const newValues = [...new Set([...baseValues, ...items])];
   validateListSize(
     newValues,
@@ -299,6 +305,8 @@ export const postSavedGroupAddItems = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
+    false, // replaceChanges
+    !approvalRequired, // forceCreate: keep any pre-existing draft untouched
   );
 
   // When approval isn't required, merge the revision immediately so the
@@ -403,23 +411,29 @@ export const postSavedGroupRemoveItems = async (
     },
   );
 
-  // Always create a revision for remove-items
-  const existingRevision =
-    await context.models.revisions.getOpenByTargetAndAuthor(
-      "saved-group",
-      id,
-      context.userId,
-    );
-  const existingOps = normalizeProposedChanges(
-    existingRevision?.target.proposedChanges,
-  );
-  const currentState = existingRevision
-    ? applyPatchToSnapshot(
+  // When approval is required, stack the change on top of any existing open
+  // draft so the user's pending changes accumulate. When approval isn't
+  // required we'll merge immediately, so base the new values on the live
+  // entity and force a fresh revision below — otherwise we'd merge a draft
+  // that may contain unrelated pending changes (e.g. a groupName edit) and
+  // mark them as merged even though `savedGroups.update` only applies the
+  // values change.
+  let baseValues: string[] = savedGroup.values ?? [];
+  if (approvalRequired) {
+    const existingRevision =
+      await context.models.revisions.getOpenByTargetAndAuthor(
+        "saved-group",
+        id,
+        context.userId,
+      );
+    if (existingRevision) {
+      const currentState = applyPatchToSnapshot(
         existingRevision.target.snapshot as SavedGroupInterface,
-        existingOps,
-      )
-    : savedGroup;
-  const baseValues = currentState.values ?? [];
+        normalizeProposedChanges(existingRevision.target.proposedChanges),
+      );
+      baseValues = currentState.values ?? [];
+    }
+  }
   const toRemove = new Set(items);
   const newValues = baseValues.filter((value: string) => !toRemove.has(value));
   validateListSize(
@@ -433,6 +447,8 @@ export const postSavedGroupRemoveItems = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
+    false, // replaceChanges
+    !approvalRequired, // forceCreate: keep any pre-existing draft untouched
   );
 
   // When approval isn't required, merge the revision immediately so the
