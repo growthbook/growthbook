@@ -15,6 +15,7 @@ import {
 } from "shared/types/saved-group";
 import {
   Revision,
+  SAVED_GROUP_METADATA_FIELDS,
   getApprovalFlowSettings,
   normalizeProposedChanges,
 } from "shared/enterprise";
@@ -31,18 +32,6 @@ import {
 import { getAdapter } from "back-end/src/revisions";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-
-// Fields that are considered "metadata" for the `autoPublish` server-side
-// gate. Content fields (`values`, `condition`) require full review when
-// approval is enabled and the caller can't bypass; changes to these fields
-// alone via the metadata-review shortcut are rejected.
-const SAVED_GROUP_METADATA_FIELDS: ReadonlySet<string> = new Set([
-  "groupName",
-  "owner",
-  "description",
-  "projects",
-  "archived",
-]);
 
 // region POST /saved-groups
 

@@ -7,7 +7,11 @@ import React, {
 } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
+import {
+  Revision,
+  applyTopLevelPatchOps,
+  isSavedGroupRevisionMetadataOnly,
+} from "shared/enterprise";
 import { ago, datetime } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
 import {
@@ -211,6 +215,19 @@ export default function EditSavedGroupPage() {
     selectedRevision && selectedRevision.status === "discarded";
   const isMerged = selectedRevision && selectedRevision.status === "merged";
   const hasRevisions = allRevisions.length > 0;
+
+  // Per-revision approval gate: even when the org globally requires approval
+  // for saved groups, a metadata-only revision can be published without
+  // review when the `requireMetadataReview` setting is disabled. Mirrors the
+  // server-side rule in the saved-group adapter so UI affordances (CTA copy,
+  // publish button) match what the merge endpoint will actually allow.
+  const selectedRevisionRequiresApproval =
+    !!selectedRevision &&
+    approvalRequired &&
+    (metadataReviewRequired ||
+      !isSavedGroupRevisionMetadataOnly(
+        selectedRevision.target.proposedChanges,
+      ));
 
   // Check for conflicts if there's a draft
   const mergeResult = useSavedGroupMergeResult(
@@ -749,7 +766,10 @@ export default function EditSavedGroupPage() {
                   await handleReopen(revisionId);
                 }}
                 allRevisions={allRevisions}
-                requiresApproval={approvalRequired}
+                // Defer to the per-revision gate so metadata-only revisions
+                // skip the review dance when `requireMetadataReview` is off
+                // (matching the server-side rule in the saved-group adapter).
+                requiresApproval={selectedRevisionRequiresApproval}
                 closeModal={() => setShowChangesModal(false)}
               />
             </Modal>
@@ -1549,7 +1569,7 @@ export default function EditSavedGroupPage() {
                             onClick={() => setShowChangesModal(true)}
                             size="sm"
                           >
-                            {approvalRequired
+                            {selectedRevisionRequiresApproval
                               ? displayRevision?.status === "draft"
                                 ? "Request Approval to Publish"
                                 : displayRevision?.status === "pending-review"

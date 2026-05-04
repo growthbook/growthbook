@@ -921,7 +921,13 @@ export const postMerge = async (
     context.permissions.throwPermissionError();
   }
 
-  const approvalRequired = adapter.isApprovalRequired(context);
+  // Per-revision approval gate: an entity-type can opt into a finer-grained
+  // check (e.g. saved-group's metadata-only revisions skip review when the
+  // `requireMetadataReview` setting is disabled). Adapters without an
+  // override fall back to the org-wide `isApprovalRequired`.
+  const approvalRequired = adapter.isApprovalRequiredForRevision
+    ? adapter.isApprovalRequiredForRevision(context, revision)
+    : adapter.isApprovalRequired(context);
   const canBypass = adapter.canBypassApproval(
     context,
     entity as Record<string, unknown>,

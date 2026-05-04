@@ -1,8 +1,27 @@
 import type { SavedGroupInterface } from "shared/types/saved-group";
+import type { Revision, JsonPatchOperation } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { savedGroupAdapter } from "back-end/src/revisions/adapters/saved-group.adapter";
 import { getAdapter, getEntityModel } from "back-end/src/revisions/index";
 import { isRevisionRequired } from "back-end/src/revisions/util";
+
+const buildRevision = (proposedChanges: JsonPatchOperation[]): Revision =>
+  ({
+    id: "rev-1",
+    target: {
+      type: "saved-group",
+      id: "sg-1",
+      snapshot: {} as Record<string, unknown>,
+      proposedChanges,
+    },
+    status: "draft",
+    authorId: "user-1",
+    reviews: [],
+    activityLog: [],
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    organization: "org-1",
+  }) as unknown as Revision;
 
 const baseGroup: SavedGroupInterface = {
   id: "sg-1",
@@ -24,6 +43,9 @@ const baseGroup: SavedGroupInterface = {
 // to avoid pulling the entire context surface into a unit test.
 function makeContext(overrides: {
   approvalRequired?: boolean;
+  // When provided, controls the `requireMetadataReview` org setting. Defaults
+  // to `undefined` (which behaves like the historical "true" default).
+  requireMetadataReview?: boolean;
   permissions?: Partial<Record<string, (...args: unknown[]) => boolean>>;
   savedGroupsModel?: unknown;
 }): Context {
@@ -37,7 +59,16 @@ function makeContext(overrides: {
     org: {
       settings: {
         approvalFlows: overrides.approvalRequired
-          ? { savedGroups: [{ required: true }] }
+          ? {
+              savedGroups: [
+                {
+                  required: true,
+                  ...(overrides.requireMetadataReview !== undefined
+                    ? { requireMetadataReview: overrides.requireMetadataReview }
+                    : {}),
+                },
+              ],
+            }
           : { savedGroups: [{ required: false }] },
       },
     },
@@ -139,6 +170,117 @@ describe("savedGroupAdapter", () => {
       } as unknown as Context;
       expect(savedGroupAdapter.isRevisionRequired(ctx)).toBe(false);
       expect(savedGroupAdapter.isApprovalRequired(ctx)).toBe(false);
+    });
+  });
+
+  describe("isApprovalRequiredForRevision", () => {
+    const metadataOnlyChanges: JsonPatchOperation[] = [
+      { op: "replace", path: "/groupName", value: "renamed" },
+      { op: "replace", path: "/description", value: "new desc" },
+    ];
+    const contentChanges: JsonPatchOperation[] = [
+      { op: "replace", path: "/values", value: ["a", "b"] },
+    ];
+    const mixedChanges: JsonPatchOperation[] = [
+      { op: "replace", path: "/groupName", value: "renamed" },
+      { op: "replace", path: "/values", value: ["a"] },
+    ];
+
+    it("returns false when org-wide approval is disabled, regardless of contents", () => {
+      const ctx = makeContext({ approvalRequired: false });
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(metadataOnlyChanges),
+        ),
+      ).toBe(false);
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(contentChanges),
+        ),
+      ).toBe(false);
+    });
+
+    it("returns true for any revision when metadata review is required (default)", () => {
+      const ctx = makeContext({ approvalRequired: true });
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(metadataOnlyChanges),
+        ),
+      ).toBe(true);
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(contentChanges),
+        ),
+      ).toBe(true);
+    });
+
+    it("returns true for any revision when requireMetadataReview is explicitly true", () => {
+      const ctx = makeContext({
+        approvalRequired: true,
+        requireMetadataReview: true,
+      });
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(metadataOnlyChanges),
+        ),
+      ).toBe(true);
+    });
+
+    // The headline behaviour the user asked for: when metadata review is off
+    // and the revision only changes metadata fields, the per-revision gate
+    // releases approval.
+    it("returns false for metadata-only revisions when requireMetadataReview is disabled", () => {
+      const ctx = makeContext({
+        approvalRequired: true,
+        requireMetadataReview: false,
+      });
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(metadataOnlyChanges),
+        ),
+      ).toBe(false);
+    });
+
+    it("still requires approval for content-touching revisions when requireMetadataReview is disabled", () => {
+      const ctx = makeContext({
+        approvalRequired: true,
+        requireMetadataReview: false,
+      });
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(contentChanges),
+        ),
+      ).toBe(true);
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(mixedChanges),
+        ),
+      ).toBe(true);
+    });
+
+    // Empty proposed changes can't be "metadata-only" — there's nothing to
+    // publish — so we fall back to the org-wide rule. This matches the
+    // shared helper's contract and keeps a no-op revision from accidentally
+    // skipping review.
+    it("requires approval for an empty proposed-changes list when approval is on", () => {
+      const ctx = makeContext({
+        approvalRequired: true,
+        requireMetadataReview: false,
+      });
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision([]),
+        ),
+      ).toBe(true);
     });
   });
 

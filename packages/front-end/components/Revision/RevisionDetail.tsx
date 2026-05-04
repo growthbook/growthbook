@@ -57,7 +57,6 @@ function RevisionDetail<T>({
 }: RevisionDetailProps<T>) {
   const { getUserDisplay, userId, user, organization } = useUser();
   const { apiCall } = useAuth();
-  const [confirmPublish, setConfirmPublish] = useState(false);
   const [bypassApproval, setBypassApproval] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
   const [showFixConflicts, setShowFixConflicts] = useState(false);
@@ -328,50 +327,8 @@ function RevisionDetail<T>({
         };
     }
   };
-  // Detect whether publishing this revision will flip the entity's `archived`
-  // flag relative to live. Used to show an extra warning in the publish modal
-  // for revisions that touch archive state (e.g. a revert that opted into
-  // un-archiving). Stays generic across entity types: if the live entity has
-  // no archived field, the comparison just collapses to "no flip".
-  const liveArchived = !!(currentState as { archived?: unknown })?.archived;
-  const archivedOp = revision.target.proposedChanges
-    .slice()
-    .reverse()
-    .find((op) => op.path === "/archived");
-  const proposedArchived =
-    archivedOp && (archivedOp.op === "replace" || archivedOp.op === "add")
-      ? !!archivedOp.value
-      : archivedOp && archivedOp.op === "remove"
-        ? false
-        : undefined;
-  const willFlipArchived =
-    proposedArchived !== undefined && proposedArchived !== liveArchived;
-  const willUnarchiveOnPublish = willFlipArchived && liveArchived;
-
   return (
     <Box>
-      {confirmPublish && (
-        <Modal
-          trackingEventModalType=""
-          header="Publish Changes"
-          close={() => setConfirmPublish(false)}
-          open={true}
-          dismissible
-          cta="Publish"
-          submitColor="primary"
-          submit={handleMerge}
-        >
-          These changes will go live immediately. Are you sure you want to
-          publish?
-          {willFlipArchived && (
-            <Callout status="warning" mt="3">
-              {willUnarchiveOnPublish
-                ? "Publishing will un-archive this saved group."
-                : "Publishing will archive this saved group."}
-            </Callout>
-          )}
-        </Modal>
-      )}
       {confirmReopen && onReopen && (
         <Modal
           trackingEventModalType=""
@@ -599,7 +556,7 @@ function RevisionDetail<T>({
                   <Button
                     variant="solid"
                     color="violet"
-                    onClick={() => setConfirmPublish(true)}
+                    onClick={() => handleMerge()}
                     disabled={isSubmitting || !canMerge()}
                     style={!canMerge() ? { pointerEvents: "none" } : undefined}
                   >
@@ -728,11 +685,7 @@ function RevisionDetail<T>({
                     color={
                       bypassApproval && requiresApproval ? "red" : "violet"
                     }
-                    onClick={() =>
-                      bypassApproval || revision.status === "approved"
-                        ? handleMerge()
-                        : setConfirmPublish(true)
-                    }
+                    onClick={() => handleMerge()}
                     disabled={isSubmitting || !canMerge()}
                     style={!canMerge() ? { pointerEvents: "none" } : undefined}
                   >

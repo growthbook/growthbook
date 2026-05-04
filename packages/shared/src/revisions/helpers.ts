@@ -37,6 +37,43 @@ export const getApprovalFlowSettings = (
 };
 
 /**
+ * Top-level saved-group fields that count as "metadata" for the purposes of
+ * the `requireMetadataReview` gate. When the org has saved-group approval
+ * enabled but metadata review disabled, revisions whose proposed changes
+ * touch only these fields can be published without going through review.
+ *
+ * Content fields (`values`, `condition`, `attributeKey`, `useEmptyListGroup`)
+ * always require full review when approval is enabled.
+ */
+export const SAVED_GROUP_METADATA_FIELDS: ReadonlySet<string> = new Set([
+  "groupName",
+  "owner",
+  "description",
+  "projects",
+  "archived",
+]);
+
+/**
+ * Returns true when every proposed change in the revision touches a
+ * saved-group metadata field (per `SAVED_GROUP_METADATA_FIELDS`). An empty
+ * proposed-changes list returns false — there's nothing to publish, so the
+ * "metadata-only shortcut" doesn't apply.
+ *
+ * Used to decide whether the `requireMetadataReview` gate lets a revision
+ * be merged without approval.
+ */
+export const isSavedGroupRevisionMetadataOnly = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+): boolean => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return false;
+  return ops.every((op) => {
+    const field = op.path.split("/")[1];
+    return !!field && SAVED_GROUP_METADATA_FIELDS.has(field);
+  });
+};
+
+/**
  * Returns true when `userId` contributed to the revision and the entity-type's
  * `blockSelfApproval` setting is enabled — meaning the user must NOT be allowed
  * to approve.

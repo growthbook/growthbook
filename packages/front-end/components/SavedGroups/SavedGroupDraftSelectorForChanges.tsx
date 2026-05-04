@@ -25,6 +25,7 @@ export default function SavedGroupDraftSelectorForChanges({
   approvalRequired,
   defaultExpanded = false,
   triggerPrefix = "Changes will be",
+  metadataOnly = false,
 }: {
   savedGroup: SavedGroupInterface;
   openRevisions: Revision[];
@@ -37,6 +38,12 @@ export default function SavedGroupDraftSelectorForChanges({
   approvalRequired: boolean;
   defaultExpanded?: boolean;
   triggerPrefix?: string;
+  /**
+   * Forwarded to the underlying DraftSelector. Set when the form is editing
+   * only metadata fields and the org has saved-group metadata review off:
+   * hides the publish-now option and switches the radio copy to "revision".
+   */
+  metadataOnly?: boolean;
 }) {
   const activeDrafts = useMemo(
     () => openRevisions.filter((r) => ACTIVE_DRAFT_STATUSES.has(r.status)),
@@ -81,6 +88,7 @@ export default function SavedGroupDraftSelectorForChanges({
       triggerPrefix={triggerPrefix}
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}
+      metadataOnly={metadataOnly}
     />
   );
 }

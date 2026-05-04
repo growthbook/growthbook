@@ -25,6 +25,7 @@ export default function DraftSelector({
   triggerPrefix = "Changes will be",
   existingDraftLabel,
   revisionDropdown,
+  metadataOnly = false,
 }: {
   hasActiveDrafts: boolean;
   mode: DraftMode;
@@ -38,8 +39,27 @@ export default function DraftSelector({
   existingDraftLabel?: ReactNode;
   /** Content rendered inside the "Add to existing draft" disclosure. */
   revisionDropdown?: ReactNode;
+  /**
+   * When true the selector renders the "always create a revision" flow used
+   * for metadata-only edits when an entity-type's metadata-review gate is
+   * off: the publish-now option is hidden (the publish step happens later
+   * from the entity's page) and the radio uses "revision" terminology so it
+   * lines up with the page-level controls.
+   */
+  metadataOnly?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
+
+  const newOptionLabel = metadataOnly
+    ? "Add to a new revision"
+    : "Create a new draft";
+  const existingOptionLabel = metadataOnly
+    ? "Add to existing revision"
+    : "Add to existing draft";
+  const triggerNewCopy = metadataOnly ? "a new revision" : "a new draft";
+  const triggerExistingCopy = metadataOnly
+    ? "added to revision: "
+    : "added to draft: ";
 
   const triggerLabel =
     mode === "publish" ? (
@@ -51,7 +71,7 @@ export default function DraftSelector({
       </>
     ) : mode === "existing" && existingDraftLabel != null ? (
       <>
-        {" added to draft: "}
+        {` ${triggerExistingCopy}`}
         <Text weight="semibold" as="span">
           {existingDraftLabel}
         </Text>
@@ -60,7 +80,7 @@ export default function DraftSelector({
       <>
         {" added to "}
         <Text weight="semibold" as="span">
-          a new draft
+          {triggerNewCopy}
         </Text>
       </>
     );
@@ -83,13 +103,13 @@ export default function DraftSelector({
       ? [
           {
             value: "existing",
-            label: "Add to existing draft",
+            label: existingOptionLabel,
             renderOnSelect: existingDraftDisclosure ?? undefined,
             renderOutsideItem: true,
           },
         ]
       : []),
-    { value: "new", label: "Create a new draft" },
+    { value: "new", label: newOptionLabel },
     ...(canAutoPublish
       ? [
           {

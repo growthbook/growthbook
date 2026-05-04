@@ -1,5 +1,10 @@
 import { isEqual } from "lodash";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import {
+  Revision,
+  getApprovalFlowSettings,
+  isSavedGroupRevisionMetadataOnly,
+} from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 
@@ -94,6 +99,22 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     return (
       context.org.settings?.approvalFlows?.savedGroups?.[0]?.required || false
     );
+  },
+
+  // Per-revision gate: when the org has approval enabled but disabled the
+  // `requireMetadataReview` toggle, a revision whose proposed changes only
+  // touch metadata fields can skip review entirely. Mirrors the
+  // metadata-only autoPublish shortcut in PUT /saved-groups/:id so the
+  // generic /revision/:id/merge endpoint reaches the same conclusion.
+  isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
+    const settings = getApprovalFlowSettings(
+      context.org.settings?.approvalFlows,
+      "saved-group",
+    );
+    if (!settings?.required) return false;
+    const metadataReviewRequired = settings.requireMetadataReview ?? true;
+    if (metadataReviewRequired) return true;
+    return !isSavedGroupRevisionMetadataOnly(revision.target.proposedChanges);
   },
 
   canBypassApproval(context: Context, snapshot: SavedGroupInterface): boolean {

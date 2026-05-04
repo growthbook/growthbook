@@ -1,3 +1,4 @@
+import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 
 /**
@@ -38,6 +39,15 @@ export interface EntityRevisionAdapter<
 
   /** Whether this org requires approval before a revision can be merged. */
   isApprovalRequired(context: Context): boolean;
+
+  /**
+   * Whether approval is required for this *specific* revision. Defaults to
+   * `isApprovalRequired(context)` for adapters that don't care about the
+   * revision's contents — override when an entity-type's review settings
+   * gate on what changed (e.g. saved-group's `requireMetadataReview`, which
+   * lets metadata-only revisions skip review).
+   */
+  isApprovalRequiredForRevision?(context: Context, revision: Revision): boolean;
 
   /** Whether the current user can bypass the approval requirement. */
   canBypassApproval(context: Context, snapshot: TSnapshot): boolean;

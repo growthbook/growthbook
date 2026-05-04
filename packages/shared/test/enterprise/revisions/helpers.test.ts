@@ -9,6 +9,7 @@ import {
   patchOpsToPartial,
   getApprovalFlowSettings,
   isUserBlockedFromApproving,
+  isSavedGroupRevisionMetadataOnly,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -714,6 +715,98 @@ describe("revisions helpers", () => {
           userId: "author-1",
         }),
       ).toBe(false);
+    });
+  });
+
+  describe("isSavedGroupRevisionMetadataOnly", () => {
+    it("returns false for an empty proposed-changes list", () => {
+      expect(isSavedGroupRevisionMetadataOnly([])).toBe(false);
+    });
+
+    it("returns false when proposedChanges is not an array (legacy format)", () => {
+      expect(
+        isSavedGroupRevisionMetadataOnly({ groupName: "v2" } as unknown),
+      ).toBe(false);
+    });
+
+    it.each([
+      [{ op: "replace", path: "/groupName", value: "v2" }],
+      [{ op: "replace", path: "/owner", value: "user-2" }],
+      [{ op: "replace", path: "/description", value: "new desc" }],
+      [{ op: "replace", path: "/projects", value: ["p1"] }],
+      [{ op: "replace", path: "/archived", value: true }],
+    ] as const)("returns true for a single metadata-field op (%j)", (op) => {
+      expect(isSavedGroupRevisionMetadataOnly([op])).toBe(true);
+    });
+
+    it("returns true when every op touches a metadata field", () => {
+      expect(
+        isSavedGroupRevisionMetadataOnly([
+          { op: "replace", path: "/groupName", value: "v2" },
+          { op: "add", path: "/description", value: "new desc" },
+          { op: "remove", path: "/owner" },
+        ]),
+      ).toBe(true);
+    });
+
+    it.each([
+      ["values", { op: "replace", path: "/values", value: ["a", "b"] }],
+      [
+        "condition",
+        {
+          op: "replace",
+          path: "/condition",
+          value: '{"id":"1"}',
+        },
+      ],
+      [
+        "attributeKey",
+        { op: "replace", path: "/attributeKey", value: "user_id" },
+      ],
+    ] as const)("returns false for a content-field op (%s)", (_label, op) => {
+      expect(isSavedGroupRevisionMetadataOnly([op])).toBe(false);
+    });
+
+    it("returns false when ops mix metadata and content fields", () => {
+      expect(
+        isSavedGroupRevisionMetadataOnly([
+          { op: "replace", path: "/groupName", value: "v2" },
+          { op: "replace", path: "/values", value: ["a"] },
+        ]),
+      ).toBe(false);
+    });
+
+    it("returns false for ops with malformed/unparseable paths", () => {
+      expect(
+        isSavedGroupRevisionMetadataOnly([
+          { op: "replace", path: "", value: "x" } as unknown as {
+            op: "replace";
+            path: string;
+            value: unknown;
+          },
+        ]),
+      ).toBe(false);
+      expect(
+        isSavedGroupRevisionMetadataOnly([
+          { op: "replace", path: "/", value: "x" } as unknown as {
+            op: "replace";
+            path: string;
+            value: unknown;
+          },
+        ]),
+      ).toBe(false);
+    });
+
+    it("treats nested paths by their top-level field (e.g. `/projects/0`)", () => {
+      // Top-level field is `projects` (a metadata field), so a nested write to
+      // `/projects/0` is still considered metadata-only. We never produce these
+      // in practice — saved-group revisions only patch top-level fields — but
+      // make the behaviour explicit.
+      expect(
+        isSavedGroupRevisionMetadataOnly([
+          { op: "replace", path: "/projects/0", value: "p1" },
+        ]),
+      ).toBe(true);
     });
   });
 });

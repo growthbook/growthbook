@@ -11,6 +11,7 @@ import {
   JsonPatchOperation,
 } from "shared/enterprise";
 import { useForm } from "react-hook-form";
+import { isEqual } from "lodash";
 import {
   isIdListSupportedAttribute,
   validateAndFixCondition,
@@ -108,6 +109,15 @@ const SavedGroupForm: FC<{
 
   const canAutoPublish = !isApprovalFlowRequired || canAdminPublish;
 
+  // Metadata-only edit when the org's saved-group approval flow is on but
+  // metadata review is off: skip the publish-now affordance in this form
+  // (the user can publish from the page-level "Review & Publish" button)
+  // and use revision terminology in the radio. We don't apply this when
+  // approval is off entirely — without any review gate, the form keeps its
+  // existing publish-now option as the convenience path.
+  const isMetadataOnlyRevisionFlow =
+    !!editInfoOnly && isApprovalFlowRequired && !isMetadataReviewRequired;
+
   const isDraftRevision = (r: Revision) =>
     ["draft", "pending-review", "changes-requested", "approved"].includes(
       r.status,
@@ -126,9 +136,15 @@ const SavedGroupForm: FC<{
     return myDraft?.id ?? null;
   });
 
-  const [draftMode, setDraftMode] = useState<DraftMode>(() =>
-    draftSelectedId ? "existing" : "new",
-  );
+  // Default mode: in the metadata-only revision flow we always start on
+  // "Add to a new revision" so users get a fresh revision per metadata edit
+  // (instead of silently appending onto whatever happens to be open). Other
+  // modes default to the existing-draft picker when the user already has an
+  // open draft to target.
+  const [draftMode, setDraftMode] = useState<DraftMode>(() => {
+    if (isMetadataOnlyRevisionFlow) return "new";
+    return draftSelectedId ? "existing" : "new";
+  });
 
   const allRevisionsForLabel = allRevisions ?? openRevisions;
 
@@ -318,7 +334,11 @@ const SavedGroupForm: FC<{
             ? isApprovalFlowRequired && !autoBypassApproval
               ? "Publish"
               : "Save"
-            : "Save to draft"
+            : isMetadataOnlyRevisionFlow
+              ? draftMode === "existing"
+                ? "Update revision"
+                : "Add to a new revision"
+              : "Save to draft"
       }
       submitColor={
         current.id &&
@@ -348,26 +368,53 @@ const SavedGroupForm: FC<{
           }
         }
 
-        // Update existing saved group
+        // Update existing saved group.
+        //
+        // Only include fields whose submitted value actually differs from
+        // the baseline (`current` — the live group, or for an open draft
+        // the patched snapshot the parent computes). The backend would drop
+        // no-op writes anyway, but omitting them up front prevents a stale
+        // form-default-vs-current mismatch (e.g. an array field whose
+        // default initialised to `[]` before the sync `useEffect` ran)
+        // silently turning untouched fields into real changes in the
+        // produced revision.
         if (current.id) {
+          const baseline = (k: keyof SavedGroupInterface) =>
+            (current as Partial<SavedGroupInterface>)[k];
+          const fieldChanged = (k: keyof SavedGroupFormValues) =>
+            !isEqual(value[k] ?? null, baseline(k) ?? null);
           const payload: UpdateSavedGroupProps = editInfoOnly
             ? {
-                groupName: value.groupName,
-                owner: value.owner,
-                description: value.description,
-                projects: value.projects,
+                ...(fieldChanged("groupName")
+                  ? { groupName: value.groupName }
+                  : {}),
+                ...(fieldChanged("owner") ? { owner: value.owner } : {}),
+                ...(fieldChanged("description")
+                  ? { description: value.description }
+                  : {}),
+                ...(fieldChanged("projects")
+                  ? { projects: value.projects }
+                  : {}),
               }
             : editConditionOnly
-              ? {
-                  condition: value.condition,
-                }
+              ? fieldChanged("condition")
+                ? { condition: value.condition }
+                : {}
               : {
-                  condition: value.condition,
-                  groupName: value.groupName,
-                  owner: value.owner,
-                  values: value.values,
-                  description: value.description,
-                  projects: value.projects,
+                  ...(fieldChanged("condition")
+                    ? { condition: value.condition }
+                    : {}),
+                  ...(fieldChanged("groupName")
+                    ? { groupName: value.groupName }
+                    : {}),
+                  ...(fieldChanged("owner") ? { owner: value.owner } : {}),
+                  ...(fieldChanged("values") ? { values: value.values } : {}),
+                  ...(fieldChanged("description")
+                    ? { description: value.description }
+                    : {}),
+                  ...(fieldChanged("projects")
+                    ? { projects: value.projects }
+                    : {}),
                 };
 
           // Build URL with query params based on the user's selector choice.
@@ -452,6 +499,7 @@ const SavedGroupForm: FC<{
           setSelectedDraftId={setDraftSelectedId}
           canAutoPublish={canAutoPublish}
           approvalRequired={isApprovalFlowRequired && !autoBypassApproval}
+          metadataOnly={isMetadataOnlyRevisionFlow}
         />
       )}
       {isEditBlocked && currentRevision && (
