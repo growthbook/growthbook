@@ -134,6 +134,53 @@ export function getAggregationMetadata(
     };
   }
 
+  // "hll merge": the column is a pre-built HLL sketch (BYTES). Identical to
+  // "count distinct" except the first aggregation step merges existing sketches
+  // (hllReaggregate) rather than building one from raw values (hllAggregate).
+  if (
+    !columnRef?.column.startsWith("$$") &&
+    columnRef?.aggregation === "hll merge"
+  ) {
+    const reAggregationFunction = nullIfZero
+      ? (column: string) =>
+          `NULLIF(${dialect.hllCardinality(dialect.hllReaggregate(column))}, 0)`
+      : (column: string) =>
+          dialect.hllCardinality(dialect.hllReaggregate(column));
+    return {
+      intermediateDataType: "hll",
+      partialAggregationFunction: (column: string) =>
+        castToHllDataType(dialect, dialect.hllReaggregate(column)),
+      finalDataType: "integer",
+      reAggregationFunction,
+      // Full aggregation also starts from sketches, so reuse the re-agg path.
+      fullAggregationFunction: reAggregationFunction,
+    };
+  }
+
+  // "kll merge": the column is a pre-built KLL sketch (BYTES). Only valid for
+  // event-quantile metrics. Identical to the event-quantile branch below except
+  // the first aggregation step merges existing sketches (kllMergePartial)
+  // rather than building one from raw numeric values (kllInit). The
+  // fullAggregationFunction is unused for "kll merge" because the non-
+  // incremental per-user path never sees raw event values — only sketches.
+  if (
+    !columnRef?.column.startsWith("$$") &&
+    columnRef?.aggregation === "kll merge" &&
+    metric.metricType === "quantile" &&
+    metric.quantileSettings?.type === "event"
+  ) {
+    return {
+      intermediateDataType: "kll",
+      partialAggregationFunction: (column: string) =>
+        dialect.kllMergePartial(column),
+      reAggregationFunction: (column: string) =>
+        dialect.kllMergePartial(column),
+      finalDataType: "integer",
+      fullAggregationFunction: (column: string, quantileColumn?: string) =>
+        `SUM(${dialect.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
+    };
+  }
+
   if (
     metric.metricType === "quantile" &&
     metric.quantileSettings?.type === "event"

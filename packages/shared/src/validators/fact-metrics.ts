@@ -42,7 +42,9 @@ const apiRowFilterValidator = z.object({
 const apiNumeratorRef = z.object({
   factTableId: z.string(),
   column: z.string(),
-  aggregation: z.enum(["sum", "max", "count distinct"]).optional(),
+  aggregation: z
+    .enum(["sum", "max", "count distinct", "hll merge", "kll merge"])
+    .optional(),
   filters: z
     .array(z.string())
     .describe(
@@ -299,9 +301,9 @@ const postNumeratorRef = z.object({
     )
     .optional(),
   aggregation: z
-    .enum(["sum", "max", "count distinct"])
+    .enum(["sum", "max", "count distinct", "hll merge", "kll merge"])
     .describe(
-      "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.",
+      "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; hll merge / kll merge for pre-built sketch columns (requires data-source support); ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion metrics; for event quantile metrics only kll merge is applicable.",
     )
     .optional(),
   filters: z
@@ -347,9 +349,9 @@ const postDenominatorRef = z
         "The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit')",
       ),
     aggregation: z
-      .enum(["sum", "max", "count distinct"])
+      .enum(["sum", "max", "count distinct", "hll merge", "kll merge"])
       .describe(
-        "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.",
+        "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; hll merge / kll merge for pre-built sketch columns (requires data-source support); ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion metrics; for event quantile metrics only kll merge is applicable.",
       )
       .optional(),
     filters: z

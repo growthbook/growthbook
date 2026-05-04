@@ -39,6 +39,15 @@ export function validateAggregationSpecification({
       `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`,
     );
   }
+  if (
+    (column.aggregation === "hll merge" ||
+      column.aggregation === "kll merge") &&
+    (datatype === "string" || datatype === "number")
+  ) {
+    throw new Error(
+      `${errorPrefix}Cannot use '${column.aggregation}' aggregation with the ${datatype} column '${column.column}'. The column must be a pre-built sketch (e.g. BigQuery BYTES).`,
+    );
+  }
   if (datatype === "string" && column.aggregation !== "count distinct") {
     throw new Error(
       `${errorPrefix}Must use 'count distinct' aggregation with string column '${column.column}'.`,

@@ -118,6 +118,14 @@ export const columnAggregationValidator = z.enum([
   "sum",
   "max",
   "count distinct",
+  // The column is a pre-built HLL sketch (e.g. BigQuery BYTES from
+  // HLL_COUNT.INIT). Per-user aggregation merges sketches and extracts the
+  // cardinality; downstream stats treat it as a numeric value per user.
+  "hll merge",
+  // The column is a pre-built KLL sketch (e.g. BigQuery BYTES from
+  // KLL_QUANTILES.INIT_*). Only valid for event-quantile metrics. Per-user
+  // aggregation merges sketches; variation stats reuse the two-pass KLL path.
+  "kll merge",
 ]);
 
 export const rowFilterOperators = [

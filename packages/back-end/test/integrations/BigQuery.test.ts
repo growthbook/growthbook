@@ -167,6 +167,87 @@ describe("BigQuery KLL quantile sketch methods", () => {
   });
 });
 
+describe("BigQuery pre-built sketch column aggregations (hll merge / kll merge)", () => {
+  let integration: BigQuery;
+
+  beforeEach(() => {
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    integration = new BigQuery("", {});
+  });
+
+  it("merges pre-built HLL sketch columns (not INIT) for 'hll merge'", () => {
+    const metric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft1",
+        column: "session_id_hll",
+        aggregation: "hll merge",
+      },
+    });
+    const metadata = getAggregationMetadata(integration.getSqlDialect(), {
+      metric,
+      useDenominator: false,
+    });
+    expect(metadata.intermediateDataType).toBe("hll");
+    expect(metadata.finalDataType).toBe("integer");
+    // Partial step must MERGE the existing sketch, never INIT a new one.
+    const partial = metadata.partialAggregationFunction("col");
+    expect(partial).toContain("HLL_COUNT.MERGE_PARTIAL(col)");
+    expect(partial).not.toContain("HLL_COUNT.INIT");
+    // Re-agg and full-agg both extract cardinality from a merged sketch.
+    expect(metadata.reAggregationFunction("col")).toBe(
+      "HLL_COUNT.EXTRACT(HLL_COUNT.MERGE_PARTIAL(col))",
+    );
+    expect(metadata.fullAggregationFunction("col")).toBe(
+      "HLL_COUNT.EXTRACT(HLL_COUNT.MERGE_PARTIAL(col))",
+    );
+  });
+
+  it("merges pre-built KLL sketch columns (not INIT) for event-quantile 'kll merge'", () => {
+    const metric = factMetricFactory.build({
+      metricType: "quantile",
+      quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft1",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const metadata = getAggregationMetadata(integration.getSqlDialect(), {
+      metric,
+      useDenominator: false,
+    });
+    expect(metadata.intermediateDataType).toBe("kll");
+    // Partial step must MERGE_PARTIAL the existing sketch, never INIT.
+    expect(metadata.partialAggregationFunction("col")).toBe(
+      "KLL_QUANTILES.MERGE_PARTIAL(col)",
+    );
+    expect(metadata.partialAggregationFunction("col")).not.toContain(
+      "INIT_FLOAT64",
+    );
+    expect(metadata.reAggregationFunction("col")).toBe(
+      "KLL_QUANTILES.MERGE_PARTIAL(col)",
+    );
+  });
+
+  it("ignores 'kll merge' for non-event-quantile metrics (falls through to sum)", () => {
+    // Guard: kll merge only applies when metricType=quantile && type=event.
+    const metric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft1",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const metadata = getAggregationMetadata(integration.getSqlDialect(), {
+      metric,
+      useDenominator: false,
+    });
+    expect(metadata.intermediateDataType).toBe("float");
+  });
+});
+
 describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   let integration: BigQuery;
 
@@ -266,6 +347,31 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sql).toContain("KLL_QUANTILES.INIT_FLOAT64");
     // Companion count emitted alongside the sketch
     expect(sql).toMatch(/COUNT\([^)]+\)\s+AS\s+\w+_n_events/);
+  });
+
+  it("getInsertMetricSourceDataQuery emits KLL MERGE_PARTIAL (not INIT) for 'kll merge' columns", () => {
+    const prebuiltSketchMetric = factMetricFactory.build({
+      id: "fact_eq_sketch",
+      metricType: "quantile",
+      quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft_events",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const sql = integration.getInsertMetricSourceDataQuery({
+      settings,
+      activationMetric: null,
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [prebuiltSketchMetric],
+      lastMaxTimestamp: null,
+    });
+    // Partial aggregation merges the pre-built sketch; must not INIT.
+    expect(sql).toContain("KLL_QUANTILES.MERGE_PARTIAL");
+    expect(sql).not.toContain("KLL_QUANTILES.INIT_FLOAT64");
   });
 
   it("getIncrementalRefreshStatisticsQuery emits two-pass KLL rank recovery CTEs", () => {
