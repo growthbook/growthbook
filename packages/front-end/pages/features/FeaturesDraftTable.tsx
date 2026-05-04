@@ -12,18 +12,11 @@ import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Pagination from "@/ui/Pagination";
+import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ProjectBadges from "@/components/ProjectBadges";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
-import Table, {
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableColumnHeader,
-  TableCell,
-} from "@/ui/Table";
 
 type FeaturesAndRevisions = FeatureRevisionInterface & {
   featureMeta?: FeatureMetaInfo;
@@ -78,7 +71,7 @@ export default function FeaturesDraftTable() {
     };
   });
 
-  const { searchInputProps, items, SortableTableColumnHeader } = useSearch({
+  const { searchInputProps, items, SortableTH } = useSearch({
     items: revisions,
     defaultSortField: "dateAndStatus",
     defaultSortDir: -1,
@@ -124,24 +117,21 @@ export default function FeaturesDraftTable() {
           </div>
         </div>
 
-        <Table variant="list" stickyHeader roundedCorners>
-          <TableHeader>
-            <TableRow>
-              <SortableTableColumnHeader field="featureKey">
-                Feature Key
-              </SortableTableColumnHeader>
-              <TableColumnHeader>Comment</TableColumnHeader>
-              <TableColumnHeader>Project</TableColumnHeader>
-              <TableColumnHeader>Creator</TableColumnHeader>
-              <SortableTableColumnHeader field="dateUpdated">
-                Last Updated
-              </SortableTableColumnHeader>
-              <SortableTableColumnHeader field="status">
-                Status
-              </SortableTableColumnHeader>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <table className="table gbtable appbox">
+          <thead
+            className="sticky-top bg-white shadow-sm"
+            style={{ top: "56px", zIndex: 900 }}
+          >
+            <tr>
+              <SortableTH field="featureKey">Feature Key</SortableTH>
+              <th>Notes</th>
+              <th>Project</th>
+              <th> Creator</th>
+              <SortableTH field="dateUpdated">Last Updated</SortableTH>
+              <SortableTH field="status">Status</SortableTH>
+            </tr>
+          </thead>
+          <tbody>
             {items.slice(start, end).map((featureAndRevision) => {
               const projectId = featureAndRevision.project;
               const projectName = projectId
@@ -150,68 +140,72 @@ export default function FeaturesDraftTable() {
               const projectIsDeReferenced = projectId && !projectName;
 
               return (
-                <TableRow
-                  key={`${featureAndRevision.id}:${featureAndRevision.version}`}
-                >
-                  <TableCell className="p-0">
+                <tr key={featureAndRevision.id} className="hover-highlight">
+                  <td className="py-0">
                     <Link
                       className="featurename d-block p-2"
                       href={`/features/${featureAndRevision.featureKey}?v=${featureAndRevision?.version}`}
                     >
                       {featureAndRevision.featureKey}
                     </Link>
-                  </TableCell>
-                  <TableCell>
+                  </td>
+                  <td>
                     <OverflowText maxWidth={200}>
                       {featureAndRevision.comment}
                     </OverflowText>
-                  </TableCell>
-                  <TableCell>
-                    {projectIsDeReferenced ? (
-                      <Tooltip
-                        flipTheme={false}
-                        body={
-                          <>
-                            Project
-                            <code>{featureAndRevision.project}</code>
-                            not found
-                          </>
-                        }
-                      >
-                        <span className="text-danger">Invalid project</span>
-                      </Tooltip>
-                    ) : featureAndRevision.project ? (
-                      <ProjectBadges
-                        resourceType="feature"
-                        projectIds={[featureAndRevision.project]}
-                      />
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                  <TableCell>{featureAndRevision.creator}</TableCell>
-                  <TableCell title={datetime(featureAndRevision.dateUpdated)}>
+                  </td>
+                  {
+                    <td>
+                      {projectIsDeReferenced ? (
+                        <Tooltip
+                          body={
+                            <>
+                              Project
+                              <code>{featureAndRevision.project}</code>
+                              not found
+                            </>
+                          }
+                        >
+                          <span className="text-danger">Invalid project</span>
+                        </Tooltip>
+                      ) : (
+                        <>
+                          {featureAndRevision.project ? (
+                            <ProjectBadges
+                              resourceType="feature"
+                              projectIds={[featureAndRevision.project]}
+                            />
+                          ) : (
+                            <></>
+                          )}
+                        </>
+                      )}
+                    </td>
+                  }
+                  <td>{featureAndRevision.creator}</td>
+
+                  <td title={datetime(featureAndRevision.dateUpdated)}>
                     {ago(featureAndRevision.dateUpdated)}
-                  </TableCell>
-                  <TableCell>
+                  </td>
+                  <td>
                     <RevisionStatusBadge
                       revision={featureAndRevision}
                       liveVersion={-1}
                     />
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               );
             })}
             {!items.length ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center">
+              <tr>
+                <td colSpan={6} className="text-center">
                   No matching drafts
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ) : null}
-          </TableBody>
-        </Table>
-        {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
+          </tbody>
+        </table>
+        {Math.ceil(revisions.length / NUM_PER_PAGE) > 1 && (
           <Pagination
             numItemsTotal={items.length}
             currentPage={currentPage}

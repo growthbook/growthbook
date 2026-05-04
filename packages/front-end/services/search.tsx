@@ -14,7 +14,6 @@ import { useRouter } from "next/router";
 import MiniSearch from "minisearch";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
-import { TableColumnHeader } from "@/ui/Table";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -130,13 +129,6 @@ export interface SearchReturn<T> {
   };
   setSearchValue: (value: string) => void;
   SortableTH: FC<{
-    field: keyof T;
-    className?: string;
-    children: ReactNode;
-    style?: React.CSSProperties;
-  }>;
-  /** Radix Table header with same sort UI/callbacks; use with TableColumnHeader in ui/Table. */
-  SortableTableColumnHeader: FC<{
     field: keyof T;
     className?: string;
     children: ReactNode;
@@ -397,50 +389,6 @@ export function useSearch<T extends { id: string }>({
     return th;
   }, [sort.dir, sort.field, isRelevanceSortActive]);
 
-  const SortableTableColumnHeader = useMemo(() => {
-    const Header: FC<{
-      field: keyof T;
-      className?: string;
-      children: ReactNode;
-      style?: React.CSSProperties;
-    }> = ({ children, field, className, style }) => {
-      const showSortDirection = !isRelevanceSortActive && sort.field === field;
-
-      return (
-        <TableColumnHeader className={className} style={style}>
-          <span
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setDisableRelevanceSort(true);
-              setSort({
-                field,
-                dir: sort.field === field ? sort.dir * -1 : 1,
-              });
-            }}
-          >
-            {children}{" "}
-            <a
-              href="#"
-              className={showSortDirection ? "activesort" : "inactivesort"}
-            >
-              {showSortDirection ? (
-                sort.dir < 0 ? (
-                  <FaSortDown />
-                ) : (
-                  <FaSortUp />
-                )
-              ) : (
-                <FaSort />
-              )}
-            </a>
-          </span>
-        </TableColumnHeader>
-      );
-    };
-    return Header;
-  }, [sort.dir, sort.field, isRelevanceSortActive]);
-
   const clear = useCallback(() => {
     setValue("");
   }, []);
@@ -462,7 +410,6 @@ export function useSearch<T extends { id: string }>({
     },
     setSearchValue: setValue,
     SortableTH,
-    SortableTableColumnHeader,
     page,
     resetPage: () => setPage(1),
     pagination:
