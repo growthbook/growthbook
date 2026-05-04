@@ -105,6 +105,7 @@ export const getArchetypeAndEval = async (
     context: context,
     organization: org.id,
     featureId: feature.id,
+    feature,
     version: parseInt(version),
   });
   if (!revision) {
@@ -138,6 +139,7 @@ export const getArchetypeAndEval = async (
           skipRulesWithPrerequisites,
           safeRolloutMap,
           namespaces: namespacesToMap(org.settings?.namespaces),
+          organization: org,
         });
 
         if (!result) return;

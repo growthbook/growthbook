@@ -6,6 +6,7 @@ import {
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
 } from "shared/util";
+import type { ApiRequestLocals } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
@@ -13,20 +14,23 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getLiveAndBaseRevisionsForFeature,
-  revisionToApiInterface,
+  getMergeResultPublishEnvs,
+  toApiRevision,
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   BadRequestError,
   ConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
 
-export const postFeatureRevisionPublish = createApiRequestHandler(
-  postFeatureRevisionPublishValidator,
-)(async (req) => {
+export async function publishFeatureRevision(
+  req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
+    params: { id: string; version: number };
+    body: { comment?: string };
+  },
+) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -38,6 +42,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    feature,
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
@@ -78,13 +83,14 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     ...live,
     ...liveRevisionFromFeature(live, feature),
   };
+  // Post-unification `rules` is a flat `FeatureRule[]`. `mergeResult.result.rules`
+  // is either absent (no rule change) or the authoritative merged array — no
+  // per-env object merging needed. Spreading arrays into an object literal and
+  // merging by numeric index here would silently corrupt downstream review /
+  // permission checks that key off env names.
   const effectiveRevision = {
     ...filledLive,
     ...mergeResult.result,
-    rules: {
-      ...filledLive.rules,
-      ...(mergeResult.result.rules ?? {}),
-    },
   };
 
   const requiresReview = checkIfRevisionNeedsReview({
@@ -110,27 +116,13 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     );
   }
 
-  // Publish-permission scope: env-scoped for env-only changes (rules and/or
-  // toggles); all enabled envs otherwise (other fields aren't env-scoped).
-  const allEnabledEnvs = Array.from(
-    getEnabledEnvironments(feature, environmentIds),
-  );
-  const changedRuleEnvs = Object.keys(mergeResult.result.rules || {});
-  const changedToggleEnvs = Object.keys(
-    mergeResult.result.environmentsEnabled || {},
-  );
-  const changedEnvs = Array.from(
-    new Set([...changedRuleEnvs, ...changedToggleEnvs]),
-  );
-  const isEnvScopedOnlyChange =
-    mergeResult.result.defaultValue === undefined &&
-    !mergeResult.result.prerequisites &&
-    mergeResult.result.archived === undefined &&
-    !mergeResult.result.metadata;
-  const envsToCheck =
-    isEnvScopedOnlyChange && changedEnvs.length > 0
-      ? changedEnvs
-      : allEnabledEnvs;
+  const envsToCheck = await getMergeResultPublishEnvs({
+    context: req.context,
+    feature,
+    filledLiveRules: filledLive.rules,
+    result: mergeResult.result,
+    environmentIds,
+  });
   if (!req.context.permissions.canPublishFeature(feature, envsToCheck)) {
     req.context.permissions.throwPermissionError();
   }
@@ -170,6 +162,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    feature,
     version: req.params.version,
   });
   const finalRevision = updated ?? revision;
@@ -182,5 +175,12 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     {},
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  return { feature, revision: finalRevision };
+}
+
+export const postFeatureRevisionPublish = createApiRequestHandler(
+  postFeatureRevisionPublishValidator,
+)(async (req) => {
+  const { feature, revision } = await publishFeatureRevision(req);
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

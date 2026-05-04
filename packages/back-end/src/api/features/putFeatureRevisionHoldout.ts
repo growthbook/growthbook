@@ -1,6 +1,8 @@
+import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionHoldoutValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { ApiReqContext } from "back-end/types/api";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -15,36 +17,39 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-export const putFeatureRevisionHoldout = createApiRequestHandler(
-  putFeatureRevisionHoldoutValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+export async function setRevisionHoldout(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number | "new" },
+  body: {
+    holdout: { id: string; value: string } | null;
+    revisionTitle?: string;
+    revisionComment?: string;
+  },
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError();
   }
 
-  if (req.body.holdout) {
-    const holdout = await req.context.models.holdout.getById(
-      req.body.holdout.id,
-    );
+  if (body.holdout) {
+    const holdout = await context.models.holdout.getById(body.holdout.id);
     if (!holdout) {
-      throw new NotFoundError(
-        `Could not find holdout "${req.body.holdout.id}"`,
-      );
+      throw new NotFoundError(`Could not find holdout "${body.holdout.id}"`);
     }
   }
 
   const { revision, created } = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
+    context,
+    organization.id,
     feature,
-    req.params.version,
-    { title: req.body.revisionTitle, comment: req.body.revisionComment },
+    params.version,
+    { title: body.revisionTitle, comment: body.revisionComment },
   );
 
   try {
@@ -57,39 +62,52 @@ export const putFeatureRevisionHoldout = createApiRequestHandler(
     // Side effects (linking the feature/experiments to the holdout) run at
     // publish time via applyHoldoutSideEffects, not here.
     await updateRevision(
-      req.context,
+      context,
       feature,
       revision,
-      { holdout: req.body.holdout },
+      { holdout: body.holdout },
       {
-        user: req.context.auditUser,
-        action: req.body.holdout ? "set holdout" : "clear holdout",
-        subject: req.body.holdout?.id ?? "",
-        value: JSON.stringify(req.body.holdout),
+        user: context.auditUser,
+        action: body.holdout ? "set holdout" : "clear holdout",
+        subject: body.holdout?.id ?? "",
+        value: JSON.stringify(body.holdout),
       },
       resetReviewOnChange({
         feature,
         changedEnvironments: [],
         defaultValueChanged: false,
-        settings: req.organization.settings,
+        settings: organization.settings,
       }),
     );
 
     const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
+      context,
+      organization: organization.id,
       featureId: feature.id,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
 
-    await recordRevisionUpdate(req.context, feature, finalRevision, "holdout", {
-      auditDetails: { holdoutId: req.body.holdout?.id ?? null },
+    await recordRevisionUpdate(context, feature, finalRevision, "holdout", {
+      auditDetails: { holdoutId: body.holdout?.id ?? null },
     });
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { feature, revision: finalRevision };
   } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
+    await discardIfJustCreated(context, revision, created);
     throw err;
   }
+}
+
+export const putFeatureRevisionHoldout = createApiRequestHandler(
+  putFeatureRevisionHoldoutValidator,
+)(async (req) => {
+  const { feature, revision } = await setRevisionHoldout(
+    req.context,
+    req.organization,
+    req.params,
+    req.body,
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

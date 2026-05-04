@@ -1,45 +1,45 @@
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
 import { truncateString } from "shared/util";
-import { useDialogContext } from "@/ui/Dialog";
+import { useModalContext } from "@/ui/Modal";
 
 // ---------------------------------------------------------------------------
-// DialogForm — optional wrapper that turns a Dialog body into a submittable
+// ModalForm — optional wrapper that turns a Modal body into a submittable
 // form.
 //
 // Owns loading state, error-on-submit handling, and submit-success/error
-// tracking. Exposes loading via <useDialogForm()> so a submit button can show
-// a spinner without explicit plumbing. Must be rendered inside a <Dialog.Root>
+// tracking. Exposes loading via <useModalForm()> so a submit button can show
+// a spinner without explicit plumbing. Must be rendered inside a <Modal.Root>
 // because it reads setError / scrollBodyToTop / sendTrackingEvent from the
-// Dialog context.
+// Modal context.
 // ---------------------------------------------------------------------------
 
-type DialogFormContextValue = {
+type ModalFormContextValue = {
   loading: boolean;
 };
 
-const DialogFormContext = createContext<DialogFormContextValue>({
+const ModalFormContext = createContext<ModalFormContextValue>({
   loading: false,
 });
 
 // Lets a descendant (typically the submit button) read the pending state of
-// the enclosing <DialogForm>. Returns { loading: false } when there is no
-// DialogForm ancestor, so it is always safe to call.
-export function useDialogForm(): DialogFormContextValue {
-  return useContext(DialogFormContext);
+// the enclosing <ModalForm>. Returns { loading: false } when there is no
+// ModalForm ancestor, so it is always safe to call.
+export function useModalForm(): ModalFormContextValue {
+  return useContext(ModalFormContext);
 }
 
-type DialogFormProps = {
+type ModalFormProps = {
   onSubmit: () => void | Promise<void>;
   trackOnSubmit?: boolean;
   children: ReactNode;
 };
 
-export default function DialogForm({
+export default function ModalForm({
   onSubmit,
   trackOnSubmit = true,
   children,
-}: DialogFormProps) {
-  const { setError, scrollBodyToTop, sendTrackingEvent } = useDialogContext();
+}: ModalFormProps) {
+  const { setError, scrollBodyToTop, sendTrackingEvent } = useModalContext();
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +66,7 @@ export default function DialogForm({
     }
   };
 
-  const formCtx = useMemo<DialogFormContextValue>(
+  const formCtx = useMemo<ModalFormContextValue>(
     () => ({ loading }),
     [loading],
   );
@@ -82,9 +82,9 @@ export default function DialogForm({
         minWidth: 0,
       }}
     >
-      <DialogFormContext.Provider value={formCtx}>
+      <ModalFormContext.Provider value={formCtx}>
         {children}
-      </DialogFormContext.Provider>
+      </ModalFormContext.Provider>
     </form>
   );
 }

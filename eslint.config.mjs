@@ -216,6 +216,11 @@ export default defineConfig([
                 "Text",
               ],
             },
+            {
+              name: "@/components/Modal",
+              message:
+                "Use the new Modal from @/ui/Modal instead of the legacy Modal component.",
+            },
           ],
 
           patterns: [
