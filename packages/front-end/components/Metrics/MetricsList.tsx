@@ -490,7 +490,7 @@ const MetricsList = (): React.ReactElement => {
   };
 
   return (
-    <Box className="pagecontents" p="0">
+    <Box>
       {modalData ? (
         <MetricModal {...modalData} close={closeModal} source="blank-state" />
       ) : null}
@@ -560,7 +560,7 @@ const MetricsList = (): React.ReactElement => {
           metrics at scale.
         </PremiumCallout>
       ) : null}
-      <Table variant="list" stickyHeader roundedCorners>
+      <Table variant="list" stickyHeader roundedCorners className="appbox">
         <TableHeader>
           <TableRow>
             <TableColumnHeader />

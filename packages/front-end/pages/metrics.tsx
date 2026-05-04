@@ -29,7 +29,7 @@ const MetricsPage = (): React.ReactElement => {
   const [showNewModal, setShowNewModal] = React.useState(false);
 
   return (
-    <Box className="pagecontents">
+    <Box className="pagecontents container-fluid">
       {showNewModal && (
         <NewMetricModal
           close={() => setShowNewModal(false)}

@@ -154,7 +154,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   if (!hasMultiArmedBanditFeature) {
     return (
-      <Box className="contents pagecontents">
+      <Box className="contents container-fluid pagecontents">
         <PremiumEmptyState
           h1="Bandits"
           title="Run Adaptive Experiments with Bandits"
@@ -168,7 +168,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   return (
     <>
-      <Box className="contents pagecontents" mb="3" mt="2">
+      <Box className="contents container-fluid pagecontents" mb="3" mt="2">
         <Flex
           className="filters md-form"
           mb="3"
@@ -317,7 +317,7 @@ const ExperimentsPage = (): React.ReactElement => {
               variant="list"
               stickyHeader
               roundedCorners
-              className="responsive-table"
+              className="appbox responsive-table"
             >
               <TableHeader>
                 <TableRow>

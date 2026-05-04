@@ -108,7 +108,7 @@ const MetricGroupsList: FC = () => {
           <Button onClick={() => setOpenModal(true)}>Add Metric Group</Button>
         )}
       </Flex>
-      <Table variant="list" stickyHeader roundedCorners>
+      <Table variant="list" stickyHeader roundedCorners className="appbox">
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Metric Group Name</TableColumnHeader>
