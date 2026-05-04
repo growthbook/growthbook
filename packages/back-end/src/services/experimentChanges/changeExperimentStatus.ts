@@ -410,14 +410,13 @@ export async function stopExperiment({
   }
 
   const enableTemporaryRollout = input.enableTemporaryRollout === true;
-  let releasedVariationId = "";
+  const releasedVariationId = input.releasedVariationId ?? "";
   if (enableTemporaryRollout) {
-    if (!input.releasedVariationId) {
+    if (!releasedVariationId) {
       throw new Error(
         "temporary_rollout_requires_released_variation: releasedVariationId is required when enableTemporaryRollout is true",
       );
     }
-    releasedVariationId = input.releasedVariationId;
   }
 
   const changes: Changeset = {
