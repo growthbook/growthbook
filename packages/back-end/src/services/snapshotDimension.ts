@@ -35,6 +35,11 @@ export async function validateSnapshotDimension({
 
   if (dimension.startsWith("exp:")) {
     const dimName = dimension.substring(4);
+    if (!experiment.exposureQueryId) {
+      throw new Error(
+        `Cannot use an "exp:" dimension because this experiment has no exposure query configured.`,
+      );
+    }
     const exposureQuery = datasource.settings?.queries?.exposure?.find(
       (q) => q.id === experiment.exposureQueryId,
     );
