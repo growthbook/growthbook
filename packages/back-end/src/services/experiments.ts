@@ -1122,7 +1122,7 @@ export function updateExperimentBanditSettings({
       banditResult: { ...banditResult, reweight },
       snapshotId: snapshot?.id,
     });
-  } else {
+  } else if (snapshot) {
     logger.error(
       {
         eid: experiment.id,
