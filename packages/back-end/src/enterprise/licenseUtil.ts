@@ -69,6 +69,7 @@ export function getSubscriptionFromLicense(
     cancelationDate: new Date((sub.canceled_at || 0) * 1000).toDateString(),
     pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
     isVercelIntegration: !!license.vercelInstallationId,
+    stripeCustomerId: license.stripeCustomerId,
   };
 }
 

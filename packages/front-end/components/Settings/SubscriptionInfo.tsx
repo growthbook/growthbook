@@ -9,6 +9,7 @@ import { planNameFromAccountPlan } from "@/services/utils";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
 
@@ -154,7 +155,8 @@ export default function SubscriptionInfo() {
                   automatically on this date.
                 </div>
               </div>
-            ) : subscription?.hasPaymentMethod === false ? (
+            ) : subscription?.hasPaymentMethod === false &&
+              accountPlan !== "enterprise" ? (
               <div
                 className="mt-3 px-3 py-2 alert alert-warning row"
                 style={{ maxWidth: 550 }}
@@ -217,12 +219,21 @@ export default function SubscriptionInfo() {
         {subscription?.billingPlatform === "orb" &&
         subscription?.status === "active" ? (
           <div className="col-auto">
-            <Button
-              color="primary"
-              onClick={() => setUpdateOrbSubscriptionModal(true)}
+            <Tooltip
+              body={
+                !subscription?.stripeCustomerId
+                  ? "To make changes to your subscription, please contact your account executive or support@growthbook.io."
+                  : ""
+              }
             >
-              Update Invoice Details
-            </Button>
+              <Button
+                color="primary"
+                disabled={!subscription?.stripeCustomerId}
+                onClick={() => setUpdateOrbSubscriptionModal(true)}
+              >
+                Update Invoice Details
+              </Button>
+            </Tooltip>
           </div>
         ) : null}
         {subscription?.status === "canceled" && canSubscribe && (
