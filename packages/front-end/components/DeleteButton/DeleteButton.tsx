@@ -81,7 +81,11 @@ const DeleteButton: FC<{
             ) : isValidElement(deleteMessage) ? (
               deleteMessage
             ) : (
-              <Text as="p" color="text-mid">
+              <Text
+                as="p"
+                color="text-mid"
+                mb={additionalMessage ? undefined : "0"}
+              >
                 {deleteMessage}
               </Text>
             )}
@@ -89,7 +93,7 @@ const DeleteButton: FC<{
               (isValidElement(additionalMessage) ? (
                 additionalMessage
               ) : (
-                <Text as="p" color="text-mid">
+                <Text as="p" color="text-mid" mb="0">
                   {additionalMessage}
                 </Text>
               ))}
