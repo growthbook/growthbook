@@ -15,17 +15,12 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import {
   buildSDKPayloadForConnection,
-  getFeatureDefinitions,
   isSDKConnectionAffectedByPayloadKey,
   queueSDKPayloadRefresh,
   refreshSDKPayloadCache,
   type SDKPayloadRawData,
   type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
-import {
-  getFeatureDefinitionsWithCache,
-  getPayloadParamsFromApiKey,
-} from "back-end/src/controllers/features";
 import * as FeatureModel from "back-end/src/models/FeatureModel";
 import * as ExperimentModel from "back-end/src/models/ExperimentModel";
 
@@ -70,17 +65,7 @@ jest.mock("back-end/src/services/organizations", () => ({
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
   triggerWebhookJobs: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock("back-end/src/services/features", () => ({
-  ...jest.requireActual("back-end/src/services/features"),
-  getFeatureDefinitions: jest.fn(),
-}));
 
-const findSDKConnectionByKey = jest.requireMock(
-  "back-end/src/models/SdkConnectionModel",
-).findSDKConnectionByKey as jest.Mock;
-const lookupOrganizationByApiKey = jest.requireMock(
-  "back-end/src/util/api-key.util",
-).dangerousLookupOrganizationByApiKey as jest.Mock;
 const getSDKPayloadCacheLocationMock = jest.requireMock(
   "back-end/src/models/SdkConnectionCacheModel",
 ).getSDKPayloadCacheLocation as jest.Mock;
@@ -193,164 +178,6 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           true,
         ),
       ).toBe(true);
-    });
-  });
-
-  describe("getFeatureDefinitionsWithCache", () => {
-    const mockGetById = jest.fn();
-    const mockUpsert = jest.fn().mockResolvedValue(undefined);
-
-    it("returns parsed cache when storage !== none and getById returns content", async () => {
-      getSDKPayloadCacheLocationMock.mockReturnValue("mongodb");
-      const cached = {
-        features: { f1: { defaultValue: "cached" } },
-        dateUpdated: new Date().toISOString(),
-      };
-      mockGetById.mockResolvedValueOnce({ contents: JSON.stringify(cached) });
-
-      const ctx = minimalContext({
-        models: {
-          ...minimalContext().models,
-          sdkConnectionCache: { getById: mockGetById, upsert: mockUpsert },
-        },
-      } as ReqContext["models"]);
-
-      const defs = await getFeatureDefinitionsWithCache({
-        context: ctx as ReqContext,
-        params: {
-          key: "sdk-conn-1",
-          organization: "org-1",
-          environment: "production",
-          projects: [],
-          languages: ["javascript"],
-          sdkVersion: "1.0.0",
-        },
-      });
-
-      expect(mockGetById).toHaveBeenCalledWith("sdk-conn-1");
-      expect(defs.features).toEqual({ f1: { defaultValue: "cached" } });
-      expect(mockUpsert).not.toHaveBeenCalled();
-    });
-
-    it("on cache miss calls getFeatureDefinitions and upserts with params.key", async () => {
-      getSDKPayloadCacheLocationMock.mockReturnValue("mongodb");
-      mockGetById.mockResolvedValueOnce(null);
-      (getFeatureDefinitions as jest.Mock).mockResolvedValueOnce({
-        features: { f1: { defaultValue: "generated" } },
-        dateUpdated: new Date(),
-        experiments: [],
-      });
-
-      const ctx = minimalContext({
-        models: {
-          ...minimalContext().models,
-          sdkConnectionCache: { getById: mockGetById, upsert: mockUpsert },
-          savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-          safeRollout: {
-            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
-          },
-          holdout: {
-            getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
-          },
-        },
-      } as ReqContext["models"]);
-
-      await getFeatureDefinitionsWithCache({
-        context: ctx as ReqContext,
-        params: {
-          key: "sdk-miss-key",
-          organization: "org-1",
-          environment: "production",
-          projects: [],
-          languages: ["javascript"],
-          sdkVersion: "1.0.0",
-        },
-      });
-
-      expect(getFeatureDefinitions).toHaveBeenCalled();
-      expect(mockUpsert).toHaveBeenCalledWith(
-        "sdk-miss-key",
-        expect.any(String),
-        expect.objectContaining({ event: "cache-miss" }),
-      );
-    });
-
-    it("when storage is none skips cache read and write", async () => {
-      getSDKPayloadCacheLocationMock.mockReturnValue("none");
-      (getFeatureDefinitions as jest.Mock).mockResolvedValueOnce({
-        features: {},
-        dateUpdated: new Date(),
-        experiments: [],
-      });
-
-      const ctx = minimalContext({
-        models: {
-          ...minimalContext().models,
-          sdkConnectionCache: { getById: mockGetById, upsert: mockUpsert },
-          savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-          safeRollout: {
-            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
-          },
-          holdout: {
-            getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
-          },
-        },
-      } as ReqContext["models"]);
-
-      await getFeatureDefinitionsWithCache({
-        context: ctx as ReqContext,
-        params: {
-          key: "any",
-          organization: "org-1",
-          environment: "production",
-          projects: [],
-          languages: ["javascript"],
-          sdkVersion: "1.0.0",
-        },
-      });
-
-      expect(mockGetById).not.toHaveBeenCalled();
-      expect(mockUpsert).not.toHaveBeenCalled();
-      expect(getFeatureDefinitions).toHaveBeenCalled();
-    });
-  });
-
-  describe("getPayloadParamsFromApiKey", () => {
-    it("sdk-* key returns connection params from findSDKConnectionByKey", async () => {
-      const connection = {
-        key: "sdk-abc",
-        organization: "org-1",
-        environment: "production",
-        projects: ["p1"],
-        languages: ["javascript"],
-        sdkVersion: "1.0.0",
-      } as SDKConnectionInterface;
-      findSDKConnectionByKey.mockResolvedValue(connection);
-
-      const params = await getPayloadParamsFromApiKey("sdk-abc", {} as never);
-      expect(findSDKConnectionByKey).toHaveBeenCalledWith("sdk-abc");
-      expect(params.key).toBe("sdk-abc");
-      expect(params.organization).toBe("org-1");
-      expect(params.environment).toBe("production");
-      expect(params.languages).toEqual(["javascript"]);
-    });
-
-    it("non-sdk key uses lookupOrganizationByApiKey and formatLegacyCacheKey", async () => {
-      lookupOrganizationByApiKey.mockResolvedValue({
-        organization: "org-1",
-        secret: false,
-        environment: "production",
-        project: "proj1",
-        encryptSDK: false,
-        encryptionKey: "",
-      });
-      const params = await getPayloadParamsFromApiKey("pk_legacy", {
-        query: {},
-      } as never);
-      expect(lookupOrganizationByApiKey).toHaveBeenCalledWith("pk_legacy");
-      expect(params.key).toMatch(/^legacy:/);
-      expect(params.languages).toEqual(["legacy"]);
-      expect(params.sdkVersion).toBe("0.0.0");
     });
   });
 

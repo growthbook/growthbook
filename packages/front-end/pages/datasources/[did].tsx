@@ -1,11 +1,13 @@
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -74,6 +76,9 @@ const DataSourcePage: FC = () => {
   const { organization, hasCommercialFeature } = useUser();
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
+  const managedWarehouseAwaitingProvisioning = d
+    ? isManagedWarehouseAwaitingProvisioning(d)
+    : false;
 
   const queryString = new URLSearchParams(
     `q=datasource:"${d?.name}"`,
@@ -390,28 +395,32 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         {supportsSQL && (
           <>
             {isManagedWarehouse ? (
-              <>
-                <Frame>
-                  <Heading as="h3" size="medium" mb="2">
-                    Sending Events
-                  </Heading>
-                  <Text>
-                    <DocLink docSection="managedWarehouseTracking">
-                      Read our full docs
-                    </DocLink>{" "}
-                    with instructions on how to send events from your app to
-                    GrowthBook.
-                  </Text>
-                </Frame>
-                <Frame>
-                  <ClickhouseMaterializedColumns
-                    dataSource={d}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                    mutate={mutateDefinitions}
-                  />
-                </Frame>
-              </>
+              managedWarehouseAwaitingProvisioning ? (
+                <ManagedWarehouseNoEventsCallout />
+              ) : (
+                <>
+                  <Frame>
+                    <Heading as="h3" size="medium" mb="2">
+                      Sending Events
+                    </Heading>
+                    <Text>
+                      <DocLink docSection="managedWarehouseTracking">
+                        Read our full docs
+                      </DocLink>{" "}
+                      with instructions on how to send events from your app to
+                      GrowthBook.
+                    </Text>
+                  </Frame>
+                  <Frame>
+                    <ClickhouseMaterializedColumns
+                      dataSource={d}
+                      onCancel={() => undefined}
+                      canEdit={canUpdateDataSourceSettings}
+                      mutate={mutateDefinitions}
+                    />
+                  </Frame>
+                </>
+              )
             ) : (
               <>
                 {d.dateUpdated === d.dateCreated &&

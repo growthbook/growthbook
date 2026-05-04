@@ -1,6 +1,9 @@
+import type { OrganizationInterface } from "shared/types/organization";
+import type { FeaturePrerequisite } from "shared/types/feature";
 import { putFeatureRevisionPrerequisitesValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { ApiReqContext } from "back-end/types/api";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { NotFoundError, BadRequestError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -17,27 +20,34 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-export const putFeatureRevisionPrerequisites = createApiRequestHandler(
-  putFeatureRevisionPrerequisitesValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+export async function setRevisionPrerequisites(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number | "new" },
+  body: {
+    prerequisites: FeaturePrerequisite[];
+    revisionTitle?: string;
+    revisionComment?: string;
+  },
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError();
   }
 
-  validatePrerequisiteConditions(req.body.prerequisites);
+  validatePrerequisiteConditions(body.prerequisites);
 
   const { revision, created } = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
+    context,
+    organization.id,
     feature,
-    req.params.version,
-    { title: req.body.revisionTitle, comment: req.body.revisionComment },
+    params.version,
+    { title: body.revisionTitle, comment: body.revisionComment },
   );
 
   try {
@@ -47,45 +57,58 @@ export const putFeatureRevisionPrerequisites = createApiRequestHandler(
       );
     }
 
-    await validatePrerequisiteReferences(req.body.prerequisites, req.context);
+    await validatePrerequisiteReferences(body.prerequisites, context);
 
     await updateRevision(
-      req.context,
+      context,
       feature,
       revision,
-      { prerequisites: req.body.prerequisites },
+      { prerequisites: body.prerequisites },
       {
-        user: req.context.auditUser,
+        user: context.auditUser,
         action: "edit prerequisites",
         subject: "",
-        value: JSON.stringify(req.body.prerequisites),
+        value: JSON.stringify(body.prerequisites),
       },
       resetReviewOnChange({
         feature,
         changedEnvironments: [],
         defaultValueChanged: false,
-        settings: req.organization.settings,
+        settings: organization.settings,
       }),
     );
 
     const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
+      context,
+      organization: organization.id,
       featureId: feature.id,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
 
     await recordRevisionUpdate(
-      req.context,
+      context,
       feature,
       finalRevision,
       "prerequisites",
     );
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { feature, revision: finalRevision };
   } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
+    await discardIfJustCreated(context, revision, created);
     throw err;
   }
+}
+
+export const putFeatureRevisionPrerequisites = createApiRequestHandler(
+  putFeatureRevisionPrerequisitesValidator,
+)(async (req) => {
+  const { feature, revision } = await setRevisionPrerequisites(
+    req.context,
+    req.organization,
+    req.params,
+    req.body,
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

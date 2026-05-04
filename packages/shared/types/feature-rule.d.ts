@@ -62,8 +62,9 @@ export type PostFeatureRuleBody = {
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
-  environment: string;
-  i: number;
+  // Stable rule locator. Every rule in v2 has an id (assigned at creation
+  // or via JIT migration on read), so app callers always send this.
+  ruleId: string;
   rampSchedule?:
     | InlineRampScheduleCreate
     | InlineRampScheduleUpdate

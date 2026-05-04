@@ -12,9 +12,13 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 
-export const getFeatureRevisionMergeStatus = createApiRequestHandler(
-  getFeatureRevisionMergeStatusValidator,
-)(async (req) => {
+// Shared handler: v1 and v2 have identical request/response schemas and the
+// merge result contains internal rule shapes (not API-serialized).
+export const mergeStatusHandler = async (req: {
+  context: Parameters<typeof getFeature>[0];
+  organization: { id: string };
+  params: { id: string; version: number };
+}) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -22,6 +26,7 @@ export const getFeatureRevisionMergeStatus = createApiRequestHandler(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    feature,
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
@@ -49,4 +54,8 @@ export const getFeatureRevisionMergeStatus = createApiRequestHandler(
     conflicts: mergeResult.conflicts,
     ...(mergeResult.success ? { result: mergeResult.result } : {}),
   };
-});
+};
+
+export const getFeatureRevisionMergeStatus = createApiRequestHandler(
+  getFeatureRevisionMergeStatusValidator,
+)(mergeStatusHandler);

@@ -294,6 +294,8 @@ export type DataSourceSettings = {
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
+  /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
+  hasBeenProvisioned?: boolean;
   materializedColumns?: MaterializedColumn[];
 }
 
@@ -307,7 +309,6 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
-  lockUntil?: Date | null;
   type: DataSourceType;
 }
 

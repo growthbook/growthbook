@@ -419,6 +419,12 @@ const postBulkImportFactsBody = z
                 'Set this to "api" to disable editing in the GrowthBook UI',
               )
               .optional(),
+            archived: z
+              .boolean()
+              .describe(
+                "Set to true to archive the metric. Archived metrics are hidden by default in the UI and excluded from new experiments.",
+              )
+              .optional(),
             metricAutoSlices: z
               .array(z.string())
               .describe(
