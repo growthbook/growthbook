@@ -563,7 +563,13 @@ const MetricsList = (): React.ReactElement => {
       <Table variant="list" stickyHeader roundedCorners className="appbox">
         <TableHeader>
           <TableRow>
-            <TableColumnHeader />
+            <TableColumnHeader
+              style={{
+                paddingInline: "var(--space-2)",
+              }}
+            >
+              <span className="sr-only">Official</span>
+            </TableColumnHeader>
             <SortableTableColumnHeader field="name">
               Metric Name
             </SortableTableColumnHeader>
@@ -579,7 +585,11 @@ const MetricsList = (): React.ReactElement => {
               Last Updated
             </SortableTableColumnHeader>
             <TableColumnHeader />
-            <TableColumnHeader />
+            <TableColumnHeader
+              style={{
+                paddingInline: "var(--space-2)",
+              }}
+            />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -611,12 +621,32 @@ const MetricsList = (): React.ReactElement => {
                   color: metric.archived ? "var(--gray-11)" : undefined,
                 }}
               >
-                <TableCell>
-                  <OfficialBadge
-                    type="metric"
-                    managedBy={metric.managedBy || ""}
-                    leftGap
-                  />
+                <TableCell
+                  style={{
+                    width: "1%",
+                    maxWidth: 36,
+                    textAlign: "center",
+                    verticalAlign: "middle",
+                    whiteSpace: "nowrap",
+                    paddingInline: 3,
+                    paddingBlock: "var(--space-2)",
+                    boxSizing: "border-box",
+                    lineHeight: 1,
+                  }}
+                >
+                  <Box
+                    style={{
+                      display: "inline-flex",
+                      justifyContent: "center",
+                      maxWidth: "100%",
+                      marginRight: -3,
+                    }}
+                  >
+                    <OfficialBadge
+                      type="metric"
+                      managedBy={metric.managedBy || ""}
+                    />
+                  </Box>
                 </TableCell>
                 <TableCell>
                   <Link
