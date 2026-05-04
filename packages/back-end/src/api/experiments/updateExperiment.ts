@@ -15,6 +15,7 @@ import {
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   resolveOwnerEmail,
@@ -23,10 +24,6 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import {
-  formatPendingDraftFailureMessage,
-  publishPendingFeatureDraftsForExperiment,
-} from "back-end/src/services/experiment-feature";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -251,25 +248,34 @@ export const updateExperiment = createApiRequestHandler(
     req.organization,
   );
 
-  // If the request transitions the experiment from draft → running, publish
-  // any pending feature drafts BEFORE persisting the status change. This
-  // mirrors the UI controller (postExperimentStatus) so the REST API can't
-  // bypass approval/conflict gates that would otherwise block the start.
-  if (experiment.status === "draft" && changes.status === "running") {
-    const publishResult = await publishPendingFeatureDraftsForExperiment(
-      req.context,
-      experiment,
-    );
-    if (publishResult.failed.length > 0) {
-      throw new Error(formatPendingDraftFailureMessage(publishResult.failed));
-    }
+  const isStartingFromDraft =
+    experiment.status === "draft" && changes.status === "running";
+
+  let experimentForUpdate = experiment;
+  let changesForUpdate = changes;
+
+  if (isStartingFromDraft) {
+    // Route draft->running transitions through the dedicated lifecycle method
+    // so checklist and pending-draft publish behavior stays consistent.
+    const { updated } = await startExperiment({
+      context: req.context,
+      experimentId: experiment.id,
+      // behavior for patch endpoint is to skip pre-launch checklist
+      skipChecklist: true,
+    });
+    experimentForUpdate = updated;
+    const { status: _ignoredStatus, ...remainingChanges } = changes;
+    changesForUpdate = remainingChanges;
   }
 
-  const updatedExperiment = await updateExperimentToDb({
-    context: req.context,
-    experiment: experiment,
-    changes,
-  });
+  const updatedExperiment =
+    Object.keys(changesForUpdate).length > 0
+      ? await updateExperimentToDb({
+          context: req.context,
+          experiment: experimentForUpdate,
+          changes: changesForUpdate,
+        })
+      : experimentForUpdate;
 
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
