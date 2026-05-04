@@ -79,7 +79,11 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
     },
     {
       label: "Rules",
-      keys: ["environmentSettings"],
+      // Post-v2: rules live on the flat `rules` top-level array; the per-env
+      // `enabled` flag still lives on `environmentSettings`. Claim both so the
+      // differ's key-picking covers toggles and rule mutations in one section,
+      // and neither key leaks into the overflow "other changes" bucket.
+      keys: ["rules", "environmentSettings"],
       suppressCardLabel: true,
       render: renderFeatureRulesSection,
       getBadges: getFeatureRulesBadges,

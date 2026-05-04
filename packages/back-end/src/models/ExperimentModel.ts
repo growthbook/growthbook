@@ -282,6 +282,13 @@ const experimentSchema = new mongoose.Schema({
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
+  pendingFeatureDrafts: [
+    {
+      _id: false,
+      featureId: String,
+      revisionVersion: Number,
+    },
+  ],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
@@ -1437,6 +1444,136 @@ export async function removeLinkedFeatureFromExperiment(
   }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
+}
+
+// Removes linkedFeatures + pendingFeatureDrafts for one feature from one experiment.
+export async function unlinkFeatureFromExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+) {
+  const experiment = await findExperiment({ experimentId, context });
+  if (!experiment) return;
+
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    {
+      $pull: { linkedFeatures: featureId, pendingFeatureDrafts: { featureId } },
+    },
+  );
+
+  onExperimentUpdate({
+    context,
+    oldExperiment: experiment,
+    newExperiment: {
+      ...experiment,
+      linkedFeatures: (experiment.linkedFeatures || []).filter(
+        (f) => f !== featureId,
+      ),
+      pendingFeatureDrafts: (experiment.pendingFeatureDrafts || []).filter(
+        (d) => d.featureId !== featureId,
+      ),
+    },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload on experiment update");
+  });
+}
+
+// Clears pendingFeatureDrafts but leaves linkedFeatures intact (used for archive).
+export async function clearPendingFeatureDraftsForFeature(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+) {
+  await ExperimentModel.updateMany(
+    {
+      organization: context.org.id,
+      "pendingFeatureDrafts.featureId": featureId,
+    },
+    { $pull: { pendingFeatureDrafts: { featureId } } },
+  );
+}
+
+// Clears both linkedFeatures[] and pendingFeatureDrafts[] for a feature (used for delete).
+export async function unlinkFeatureFromAllExperiments(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+) {
+  await ExperimentModel.updateMany(
+    {
+      organization: context.org.id,
+      linkedFeatures: featureId,
+    },
+    {
+      $pull: {
+        linkedFeatures: featureId,
+        pendingFeatureDrafts: { featureId },
+      },
+    },
+  );
+}
+
+// Queues a draft for auto-publish when the experiment transitions to running.
+// $addToSet is atomic and idempotent on exact (featureId, revisionVersion)
+// pairs. Multiple drafts of the same feature are intentionally allowed and
+// applied sequentially at start (publishPendingFeatureDraftsForExperiment).
+export async function addPendingFeatureDraftToExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  revisionVersion: number,
+) {
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    {
+      $addToSet: {
+        pendingFeatureDrafts: { featureId, revisionVersion },
+      },
+    },
+  );
+}
+
+// Removes pending draft entries. Pass `revisionVersion` to drop one specific
+// row; omit it to drop every row for the feature (used by archive/unlink).
+export async function removePendingFeatureDraftFromExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  revisionVersion?: number,
+) {
+  const pullFilter =
+    revisionVersion != null ? { featureId, revisionVersion } : { featureId };
+
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    { $pull: { pendingFeatureDrafts: pullFilter } },
+  );
+}
+
+// Clears pendingFeatureDrafts for all experiments referenced by the revision's experiment-ref rules.
+export async function clearPendingFeatureDraftsForRevision(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+  revisionVersion: number,
+  rules: { type?: string; experimentId?: string }[] | undefined,
+) {
+  const experimentIds = new Set<string>();
+  for (const rule of rules ?? []) {
+    if (rule.type === "experiment-ref" && rule.experimentId) {
+      experimentIds.add(rule.experimentId);
+    }
+  }
+  if (!experimentIds.size) return;
+
+  await Promise.all(
+    [...experimentIds].map((expId) =>
+      removePendingFeatureDraftFromExperiment(
+        context,
+        expId,
+        featureId,
+        revisionVersion,
+      ),
+    ),
+  );
 }
 
 function logAllChanges(

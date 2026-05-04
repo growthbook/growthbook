@@ -11,6 +11,7 @@ import {
   autoMerge,
   fillRevisionFromFeature,
   PermissionError,
+  stemRuleId,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -30,6 +31,8 @@ import {
   FeatureRule,
   JSONSchemaDef,
   LegacyFeatureInterface,
+  V1FeatureInterface,
+  V1FeatureRule,
 } from "shared/types/feature";
 import { EventUser } from "shared/types/events/event-types";
 import { OrganizationInterface } from "shared/types/organization";
@@ -43,12 +46,25 @@ import {
   getNextScheduledUpdate,
   getSavedGroupMap,
   queueSDKPayloadRefresh,
+  synthesizeRuleId,
 } from "back-end/src/services/features";
 import { remapTemplateActions } from "back-end/src/services/rampSchedule";
-import { upgradeFeatureInterface } from "back-end/src/util/migrations";
+import {
+  applyNonRuleFeatureUpgrades,
+  upgradeFeatureRule,
+  upgradeV0Feature,
+} from "back-end/src/util/migrations";
+import {
+  ensureUniqueRuleIds,
+  flattenV1ToV2Rules,
+  getApplicableEnvIds,
+  V1RulesByEnv,
+} from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
 import {
   applyEnvironmentInheritance,
+  buildInheritedChildrenByAncestor,
+  expandRuleEnvsForInheritance,
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
@@ -58,6 +74,7 @@ import {
   getContextForAgendaJobByOrgId,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
@@ -76,6 +93,7 @@ import {
 } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
+  clearPendingFeatureDraftsForRevision,
   getExperimentById,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
@@ -106,55 +124,11 @@ const featureSchema = new mongoose.Schema({
   defaultValue: String,
   environments: [String],
   tags: [String],
-  rules: [
-    {
-      _id: false,
-      id: String,
-      type: {
-        type: String,
-      },
-      trackingKey: String,
-      value: String,
-      coverage: Number,
-      hashAttribute: String,
-      fallbackAttribute: String,
-      disableStickyBucketing: Boolean,
-      bucketVersion: Number,
-      minBucketVersion: Number,
-      enabled: Boolean,
-      condition: String,
-      savedGroups: [
-        {
-          _id: false,
-          ids: [String],
-          match: String,
-        },
-      ],
-      description: String,
-      experimentId: String,
-      values: [
-        {
-          _id: false,
-          value: String,
-          weight: Number,
-        },
-      ],
-      variations: [
-        {
-          _id: false,
-          variationId: String,
-          value: String,
-        },
-      ],
-      namespace: {},
-      scheduleRules: [
-        {
-          timestamp: String,
-          enabled: Boolean,
-        },
-      ],
-    },
-  ],
+  // `rules` and `environmentSettings` are declared Mixed intentionally —
+  // validation lives in Zod schemas (shared/validators/features.ts) and
+  // Mongoose's default strict mode would silently drop v2 fields
+  // (`allEnvironments`, `environments`) not declared in a sub-schema.
+  rules: {},
   prerequisites: [
     {
       _id: false,
@@ -187,20 +161,259 @@ export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
 );
 
 /**
- * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
- * @param doc
+ * JIT-migration chokepoint for features on read. Discriminates v0 / v1 / v2
+ * (see `shared/types/feature.d.ts`) and normalizes to v2. Any residual
+ * `env.rules` is scrubbed in-memory so the return value matches `featureEnvironment`.
+ *
+ * v2 docs MUST NOT flow through `upgradeV0Feature` — it redistributes top-level
+ * rules back into per-env arrays and corrupts v2 data.
+ *
+ * Pure over `(raw, context)` so it's unit-testable without a live DB.
  */
-const toInterface = (
+export function migrateRawFeatureToV2(
+  raw: LegacyFeatureInterface,
+  context: ReqContext | ApiReqContext,
+): FeatureInterface {
+  // Backfill (dev/production) keeps env-less orgs from dropping every rule
+  // through `flattenV1ToV2Rules`'s applicableEnvs filter.
+  const orgEnvs = getEnvironments(context.org);
+
+  // v0 is identified by the absence of `environmentSettings`.
+  const hasEnvSettings = !!raw.environmentSettings;
+
+  // Capture the v0-style top-level `environments` array BEFORE the omit
+  // below strips it. Used for hybrid-v0/v1 docs where
+  // `environmentSettings.<env>` was authored without `enabled`.
+  const v0EnvironmentsArray: string[] = Array.isArray(
+    (raw as { environments?: unknown }).environments,
+  )
+    ? ((raw as { environments?: string[] }).environments as string[])
+    : [];
+
+  // Post-v0-normalization doc; v1-vs-v2 classification is still pending and
+  // happens via `topLevelRulesAreV2Shaped` below.
+  let postV0Doc: V1FeatureInterface;
+  if (!hasEnvSettings) {
+    postV0Doc = upgradeV0Feature(raw);
+  } else {
+    // v2 top-level `rules` must NOT route through `upgradeV0Feature` — it
+    // would redistribute them back into v1 per-env arrays. Strip
+    // `environments` crust + the legacy embedded `revision` sub-doc to
+    // match origin/main `upgradeFeatureInterface`'s destructure.
+    const legacyRevisionVersion = (raw as { revision?: { version?: number } })
+      .revision?.version;
+    postV0Doc = omit(raw, ["environments", "revision"]) as V1FeatureInterface;
+    // Legacy version backfill: sparse docs that never lifted `version` out
+    // of the embedded `revision` sub-doc fall through to it before the
+    // `|| 1` floor in `applyNonRuleFeatureUpgrades`.
+    postV0Doc.version = postV0Doc.version || legacyRevisionVersion || 1;
+    applyNonRuleFeatureUpgrades(postV0Doc);
+  }
+
+  const envSettings = postV0Doc.environmentSettings || {};
+
+  // v2 detection: the doc has v2-shaped top-level rules (every rule we write
+  // via `flattenV1ToV2Rules` carries either `allEnvironments` or
+  // `environments`, so their presence on any rule is a reliable v2 marker).
+  //
+  // We INTENTIONALLY do NOT also require `hasNoV1EnvRules(envSettings)` here.
+  // A pre-hotfix write path could leave stale `environmentSettings.{env}.rules`
+  // on disk while writing a fresh v2 top-level array. Gating on env.rules
+  // emptiness made those docs route through the v1 path on every read,
+  // silently shadowing the authoritative v2 rules and breaking publish/SDK
+  // diffs (see hotfix #5783). The v2 path's own `scrubEnvRules` strips the
+  // legacy key from the in-memory output, so stale env.rules can't leak.
+  //
+  // Hybrid v0/v1 docs (legacy top-level `rules` left behind alongside an
+  // `environmentSettings` map) are still safe: v0 rules don't carry
+  // `allEnvironments`/`environments`, so `topLevelRulesAreV2Shaped` is false
+  // and we fall to the v1 path correctly.
+  const topLevelRules = ((postV0Doc as { rules?: unknown[] }).rules ??
+    []) as Array<Record<string, unknown>>;
+  const topLevelRulesAreV2Shaped = topLevelRules.some(
+    (r) =>
+      r &&
+      typeof r === "object" &&
+      ("allEnvironments" in r || "environments" in r),
+  );
+
+  // Mirror origin/main's `updateEnvironmentSettings` for dev/production:
+  //   • rules:    backfill from top-level rules (only if v0-shaped).
+  //   • enabled:  backfill from the v0 `environments` array.
+  // Hybrid v0/v1 docs need the `enabled` half: an env listed in the v0 array
+  // but absent from envSettings would otherwise read as `enabled: false` and
+  // silently disable a previously-live env.
+  const shouldBackfillRulesFromTopLevel =
+    !topLevelRulesAreV2Shaped && topLevelRules.length > 0;
+  const shouldBackfillEnabled = v0EnvironmentsArray.length > 0;
+  if (shouldBackfillRulesFromTopLevel || shouldBackfillEnabled) {
+    let envSettingsTouched = false;
+    for (const envId of ["dev", "production"]) {
+      const existing = envSettings[envId];
+      if (
+        !existing &&
+        !shouldBackfillRulesFromTopLevel &&
+        !shouldBackfillEnabled
+      ) {
+        continue;
+      }
+      const settings = (existing ?? {}) as Partial<FeatureEnvironment> & {
+        rules?: V1FeatureRule[];
+      };
+      if (shouldBackfillRulesFromTopLevel && !("rules" in settings)) {
+        settings.rules = topLevelRules as unknown as V1FeatureRule[];
+      }
+      if (shouldBackfillEnabled && !("enabled" in settings)) {
+        settings.enabled = v0EnvironmentsArray.includes(envId);
+      }
+      envSettings[envId] = settings as FeatureEnvironment;
+      envSettingsTouched = true;
+    }
+    if (envSettingsTouched) {
+      postV0Doc.environmentSettings = envSettings;
+    }
+  }
+
+  if (!topLevelRulesAreV2Shaped) {
+    // v1 path. Inheritance must run BEFORE flattening so a rule defined only
+    // on a parent env reaches inheriting children — otherwise sparse legacy
+    // docs silently lose rules in child envs (origin/main applied inheritance
+    // at read time on the per-env shape). Top-level legacy `rules` cruft has
+    // already been folded into per-env settings above where applicable.
+    const inheritedSettings = applyEnvironmentInheritance(orgEnvs, envSettings);
+    const rulesByEnv: V1RulesByEnv = {};
+    for (const [envId, envObj] of Object.entries(inheritedSettings)) {
+      rulesByEnv[envId] = (envObj?.rules || []).map((r) => {
+        const upgraded = upgradeFeatureRule(r as FeatureRule) as V1FeatureRule;
+        // Legacy rules occasionally land here without an id; without one
+        // `flattenV1ToV2Rules` would skip them. Hash from content so the
+        // synthesized id is stable across re-reads and identical-content
+        // rules across envs still merge.
+        if (!upgraded.id) {
+          upgraded.id = synthesizeRuleId(upgraded);
+        }
+        return upgraded;
+      });
+    }
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, postV0Doc.project);
+    const v2 = postV0Doc as unknown as FeatureInterface;
+    v2.rules = flattenV1ToV2Rules(rulesByEnv, {
+      envOrder: orgEnvs.map((e) => e.id),
+      applicableEnvs,
+    });
+    v2.environmentSettings = scrubEnvRules(inheritedSettings) as Record<
+      string,
+      FeatureEnvironment
+    >;
+    return v2;
+  }
+
+  // v2 path. Top-level `rules` is authoritative, but a sparse env that
+  // inherits from a parent must also pick up that parent's rule scope —
+  // origin/main copied parent's full FeatureEnvironment (rules included)
+  // into missing children, so post-unification we expand each rule's
+  // `environments` to mirror that. Rules already at allEnvironments=true
+  // or scoped to envs whose inheriting children are explicitly defined
+  // in environmentSettings are left untouched.
+  const v2 = postV0Doc as unknown as FeatureInterface;
+  const originalEnvSettings = postV0Doc.environmentSettings || {};
+  const inheritedEnvSettings = applyEnvironmentInheritance(
+    orgEnvs,
+    originalEnvSettings,
+  );
+  const childrenByAncestor = buildInheritedChildrenByAncestor(
+    orgEnvs,
+    originalEnvSettings,
+  );
+  v2.rules = (v2.rules || []).map((r) => {
+    const upgraded = upgradeFeatureRule(r as FeatureRule);
+    // Defensive — v2 docs we author always carry ids, but imports and
+    // hand-edited backups can land here unstamped.
+    if (!upgraded.id) {
+      upgraded.id = synthesizeRuleId(upgraded);
+    }
+    return expandRuleEnvsForInheritance(upgraded, childrenByAncestor);
+  });
+  v2.environmentSettings = scrubEnvRules(inheritedEnvSettings) as Record<
+    string,
+    FeatureEnvironment
+  >;
+  return v2;
+}
+
+// Read-side mirror of `buildFeatureUpdate`'s scrub — keeps in-memory features
+// on the v2 `featureEnvironment` shape even when the on-disk doc is legacy.
+function scrubEnvRules<T>(envSettings: Record<string, T>): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (const [envId, envObj] of Object.entries(envSettings)) {
+    if (envObj && typeof envObj === "object" && "rules" in envObj) {
+      out[envId] = omit(envObj as Record<string, unknown>, ["rules"]) as T;
+    } else {
+      out[envId] = envObj;
+    }
+  }
+  return out;
+}
+
+// Exported for round-trip integration tests.
+export const toInterface = (
   doc: FeatureDocument,
   context: ReqContext | ApiReqContext,
 ): FeatureInterface => {
-  const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
-  featureInterface.environmentSettings = applyEnvironmentInheritance(
-    context.org.settings?.environments || [],
-    featureInterface.environmentSettings || {},
-  );
-  return featureInterface;
+  const raw = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+  return migrateRawFeatureToV2(raw, context);
 };
+
+// ---------------------------------------------------------------------------
+// Write chokepoint
+// ---------------------------------------------------------------------------
+// Normalize a feature-write payload to the v2 on-disk shape: strip `rules`
+// from each env object, leave everything else alone. Without this scrub, stale
+// `env.rules` would cause the next read to mis-classify the doc as v1 and
+// re-flatten. Use for all $set payloads on FeatureModel writes.
+export function buildFeatureUpdate<
+  T extends {
+    environmentSettings?: Record<
+      string,
+      { rules?: unknown; [k: string]: unknown }
+    >;
+    rules?: unknown;
+  },
+>(update: T): T {
+  let next: T = update;
+
+  if (update.environmentSettings) {
+    const scrubbed: Record<string, { [k: string]: unknown }> = {};
+    for (const [envId, envObj] of Object.entries(update.environmentSettings)) {
+      if (envObj && typeof envObj === "object" && "rules" in envObj) {
+        scrubbed[envId] = omit(envObj, ["rules"]);
+      } else {
+        scrubbed[envId] = envObj;
+      }
+    }
+    next = { ...next, environmentSettings: scrubbed } as T;
+  }
+
+  // `allEnvironments: true` is wildcard at runtime; strip any stale
+  // `environments` list so the on-disk doc stays consistent with the model.
+  if (Array.isArray(next.rules)) {
+    const normalized = (next.rules as FeatureRule[]).map((r) => {
+      if (r?.allEnvironments && Array.isArray(r.environments)) {
+        return {
+          ...omit(r, ["environments"]),
+          allEnvironments: true,
+        } as FeatureRule;
+      }
+      return r;
+    });
+    const changed = normalized.some(
+      (r, i) => r !== (next.rules as FeatureRule[])[i],
+    );
+    if (changed) next = { ...next, rules: normalized } as T;
+  }
+
+  return next;
+}
 
 export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
@@ -221,7 +434,7 @@ export async function getAllFeatures(
   }
 
   const features = (await FeatureModel.find(q)).map((m) =>
-    upgradeFeatureInterface(toInterface(m, context)),
+    toInterface(m, context),
   );
 
   return features.filter((feature) =>
@@ -272,7 +485,7 @@ export async function getFeaturesPage(
     .skip(offset)
     .limit(limit);
   return docs
-    .map((m) => upgradeFeatureInterface(toInterface(m, context)))
+    .map((m) => toInterface(m, context))
     .filter((feature) =>
       context.permissions.canReadSingleProjectResource(feature.project),
     );
@@ -319,7 +532,7 @@ export async function getFeature(
   if (!feature) return null;
 
   return context.permissions.canReadSingleProjectResource(feature.project)
-    ? upgradeFeatureInterface(toInterface(feature, context))
+    ? toInterface(feature, context)
     : null;
 }
 
@@ -356,7 +569,7 @@ export async function getFeaturesByIds(
   if (!ids.length) return [];
   const features = (
     await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
-  ).map((m) => upgradeFeatureInterface(toInterface(m, context)));
+  ).map((m) => toInterface(m, context));
 
   return features.filter((feature) =>
     context.permissions.canReadSingleProjectResource(feature.project),
@@ -369,15 +582,25 @@ export async function createFeature(
 ) {
   const { org } = context;
 
-  const linkedExperiments = getLinkedExperiments(
-    data,
-    getEnvironmentIdsFromOrg(org),
-  );
+  const linkedExperiments = getLinkedExperiments(data);
 
-  const featureToCreate = {
+  const featureToCreate = buildFeatureUpdate({
     ...data,
     linkedExperiments,
-  };
+  });
+
+  if (Array.isArray(featureToCreate.rules)) {
+    const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
+      featureToCreate.rules as FeatureRule[],
+    );
+    if (collisions.length > 0) {
+      logger.warn(
+        { featureId: data.id, collisions },
+        "Duplicate rule ids auto-suffixed on feature create",
+      );
+      featureToCreate.rules = dedupedRules;
+    }
+  }
 
   // Run any custom hooks for this feature
   await runValidateFeatureHooks({
@@ -407,7 +630,7 @@ export async function createFeature(
     );
   }
 
-  onFeatureCreate(context, feature).catch((e) => {
+  onFeatureCreate(context, toInterface(feature, context)).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature create");
   });
 }
@@ -454,7 +677,7 @@ export async function deleteAllFeaturesForAProject({
   });
 
   for (const feature of featuresToDelete) {
-    await deleteFeature(context, feature);
+    await deleteFeature(context, toInterface(feature, context));
   }
 }
 
@@ -476,6 +699,7 @@ export const createFeatureEvent = async <
       context: eventData.context,
       organization: eventData.data.object.organization,
       featureId: eventData.data.object.id,
+      feature: eventData.data.object,
       version: eventData.data.object.version,
     });
 
@@ -511,6 +735,7 @@ export const createFeatureEvent = async <
       context: eventData.context,
       organization: eventData.data.previous_object.organization,
       featureId: eventData.data.previous_object.id,
+      feature: eventData.data.previous_object,
       version: eventData.data.previous_object.version,
     });
 
@@ -720,20 +945,19 @@ export async function updateFeature(
     ...updates,
     dateUpdated: new Date(),
   };
-  const updatedFeature = {
+  // Used only for hooks and linkedExperiment derivation; the post-write
+  // value is re-read from Mongo below.
+  const projected = {
     ...feature,
     ...allUpdates,
   };
 
   // Refresh linkedExperiments if needed
-  const linkedExperiments = getLinkedExperiments(
-    updatedFeature,
-    getEnvironmentIdsFromOrg(context.org),
-  );
+  const linkedExperiments = getLinkedExperiments(projected);
   const experimentsAdded = new Set<string>();
   if (!isEqual(linkedExperiments, feature.linkedExperiments)) {
     allUpdates.linkedExperiments = linkedExperiments;
-    updatedFeature.linkedExperiments = linkedExperiments;
+    projected.linkedExperiments = linkedExperiments;
 
     // New experiments this feature was added to
     linkedExperiments.forEach((exp) => {
@@ -745,14 +969,45 @@ export async function updateFeature(
 
   await runValidateFeatureHooks({
     context,
-    feature: updatedFeature,
+    feature: projected,
     original: feature,
   });
+
+  // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub
+  // any legacy `environmentSettings.{env}.rules` from the doc. The JIT read
+  // migration trusts top-level v2 rules over env.rules now (so this is no
+  // longer load-bearing for correctness), but leaving the legacy key around
+  // bloats the doc, confuses direct-mongo readers, and would re-introduce the
+  // shadow if the JIT routing ever regressed. Inject a scrubbed
+  // `environmentSettings` payload so `buildFeatureUpdate`'s scrub path
+  // overwrites them.
+  if (
+    Array.isArray(allUpdates.rules) &&
+    allUpdates.environmentSettings === undefined &&
+    feature.environmentSettings
+  ) {
+    allUpdates.environmentSettings = { ...feature.environmentSettings };
+  }
+
+  const normalizedUpdates = buildFeatureUpdate(allUpdates);
+
+  if (Array.isArray(normalizedUpdates.rules)) {
+    const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
+      normalizedUpdates.rules as FeatureRule[],
+    );
+    if (collisions.length > 0) {
+      logger.warn(
+        { featureId: feature.id, collisions },
+        "Duplicate rule ids auto-suffixed on feature update",
+      );
+      normalizedUpdates.rules = dedupedRules;
+    }
+  }
 
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },
     {
-      $set: allUpdates,
+      $set: normalizedUpdates,
     },
   );
 
@@ -764,6 +1019,16 @@ export async function updateFeature(
     );
   }
 
+  // Set-then-fetch: the persisted doc flows through the same JIT pipeline as
+  // any other read, so audit/SDK/response all see identical state.
+  const persisted = await FeatureModel.findOne({
+    organization: feature.organization,
+    id: feature.id,
+  });
+  const updatedFeature = persisted
+    ? toInterface(persisted, context)
+    : projected;
+
   onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature update");
   });
@@ -771,8 +1036,8 @@ export async function updateFeature(
   return updatedFeature;
 }
 
-// Targeted write for the scheduled-features cron job. Bypasses onFeatureUpdate
-// to avoid generating an audit event for this system-driven housekeeping change.
+// Targeted write for the scheduled-features cron; skips onFeatureUpdate so
+// this system-driven change doesn't generate an audit event.
 export async function updateNextScheduledDate(
   feature: FeatureInterface,
   nextScheduledUpdate: Date | null,
@@ -820,9 +1085,7 @@ export async function getScheduledFeaturesToUpdate() {
       jobContextsByOrg[orgId] = await getContextForAgendaJobByOrgId(orgId);
     }),
   );
-  return features.map((m) =>
-    upgradeFeatureInterface(toInterface(m, jobContextsByOrg[m.organization])),
-  );
+  return features.map((m) => toInterface(m, jobContextsByOrg[m.organization]));
 }
 
 export async function archiveFeature(
@@ -841,8 +1104,9 @@ function setEnvironmentSettings(
   const updatedFeature = cloneDeep(feature);
 
   updatedFeature.environmentSettings = updatedFeature.environmentSettings || {};
+  // Don't seed `rules: []` — v2 envSettings only carry enabled/prerequisites.
   updatedFeature.environmentSettings[environment] = updatedFeature
-    .environmentSettings[environment] || { enabled: false, rules: [] };
+    .environmentSettings[environment] || { enabled: false };
 
   updatedFeature.environmentSettings[environment] = {
     ...updatedFeature.environmentSettings[environment],
@@ -898,11 +1162,15 @@ export async function toggleFeatureEnvironment(
   });
 }
 
+/**
+ * Append a rule to `revision.rules`. `envs === undefined` or an `envs` list
+ * covering every applicable env collapses to `allEnvironments: true`.
+ */
 export async function addFeatureRule(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  envs: string[],
+  envs: string[] | undefined,
   rule: FeatureRule,
   user: EventUser,
   resetReview: boolean,
@@ -911,79 +1179,97 @@ export async function addFeatureRule(
     rule.id = generateRuleId();
   }
 
-  const changes = {
-    rules: revision.rules ? cloneDeep(revision.rules) : {},
-    status: revision.status,
-  };
-  envs.forEach((env) => {
-    changes.rules[env] = changes.rules[env] || [];
-    changes.rules[env].push(rule);
-  });
+  const applicableEnvs = getEnvironmentIdsFromOrg(context.org);
+  const isAllEnvs =
+    !envs || envs.length === 0 || applicableEnvs.every((e) => envs.includes(e));
+
+  const scopedRule: FeatureRule = isAllEnvs
+    ? ({ ...rule, allEnvironments: true } as FeatureRule)
+    : ({
+        ...rule,
+        allEnvironments: false,
+        environments: [...envs!],
+      } as FeatureRule);
+
+  const nextRules: FeatureRule[] = [...(revision.rules ?? []), scopedRule];
+
   await updateRevision(
     context,
     feature,
     revision,
-    changes,
+    { rules: nextRules },
     {
       user,
       action: "add rule",
-      subject: `to ${envs.join(", ")}`,
-      value: JSON.stringify(rule),
+      subject: isAllEnvs ? "to all environments" : `to ${envs!.join(", ")}`,
+      value: JSON.stringify(scopedRule),
     },
     resetReview,
   );
 }
 
+// Edit a single rule by `ruleId`. `auditEnvironment` is only used for the
+// audit log subject. See `editFeatureRules` for the batch form.
 export async function editFeatureRule(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  environment: string,
-  i: number,
+  ruleId: string,
   updates: Partial<FeatureRule>,
   user: EventUser,
   resetReview: boolean,
+  auditEnvironment?: string,
 ) {
-  await editFeatureRules(
+  return await editFeatureRules(
     context,
     feature,
     revision,
-    [{ environmentId: environment, i }],
+    [{ ruleId, environmentId: auditEnvironment }],
     updates,
     user,
     resetReview,
   );
 }
 
+/**
+ * Batch edit rules matched by `ruleId`. `environmentId` is used only for the
+ * audit log subject; matching is by id alone. Duplicate ids collapse to a
+ * single overlay (idempotent).
+ */
 export async function editFeatureRules(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  matches: { environmentId: string; i: number }[],
+  matches: { ruleId: string; environmentId?: string }[],
   updates: Partial<FeatureRule>,
   user: EventUser,
   resetReview: boolean,
 ) {
   const projected = applyPartialFeatureRuleUpdatesToRevision(
     revision,
-    matches,
+    matches.map((m) => m.ruleId),
     updates,
   );
-  const changes = {
-    rules: projected.rules ?? {},
-    status: projected.status,
-  };
 
+  // Audit subject uses caller-supplied envs (the user's tab context), not
+  // the rule's underlying scope.
+  const envs = Array.from(
+    new Set(
+      matches.map((m) => m.environmentId).filter((e): e is string => !!e),
+    ),
+  );
   const subject =
-    matches.length === 1
-      ? `in ${matches[0].environmentId} (position ${matches[0].i + 1})`
-      : `in ${matches.map((m) => m.environmentId).join(", ")}`;
+    envs.length === 0
+      ? `rule ${matches[0]?.ruleId ?? ""}`
+      : envs.length === 1
+        ? `in ${envs[0]}`
+        : `in ${envs.join(", ")}`;
 
   const updatedRevision = await updateRevision(
     context,
     feature,
     revision,
-    changes,
+    { rules: projected.rules ?? [] },
     {
       user,
       action: "edit rule",
@@ -993,41 +1279,6 @@ export async function editFeatureRules(
     resetReview,
   );
   return updatedRevision;
-}
-
-export async function copyFeatureEnvironmentRules(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  sourceEnv: string,
-  targetEnv: string,
-  user: EventUser,
-  resetReview: boolean,
-) {
-  const changes = {
-    rules: revision.rules ? cloneDeep(revision.rules) : {},
-    status: revision.status,
-  };
-  // Fall back to live rules for any env not yet modified in this draft,
-  // matching the mergeRevision behavior the frontend uses for the diff preview.
-  const effectiveSourceRules =
-    changes.rules[sourceEnv] ??
-    feature.environmentSettings?.[sourceEnv]?.rules ??
-    [];
-  changes.rules[targetEnv] = effectiveSourceRules;
-  await updateRevision(
-    context,
-    feature,
-    revision,
-    changes,
-    {
-      user,
-      action: "copy rules",
-      subject: `from ${sourceEnv} to ${targetEnv}`,
-      value: JSON.stringify(changes.rules[sourceEnv]),
-    },
-    resetReview,
-  );
 }
 
 export async function removeTagInFeature(
@@ -1132,32 +1383,25 @@ const updateSafeRolloutStatuses = async (
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
 ) => {
-  // If the revision has no rules at all, there are no rule changes to process
-  // and no safe rollout statuses to update.
-  if (!revision.rules) return;
+  if (!revision.rules || revision.rules.length === 0) return;
 
   const safeRolloutStatusesMap: Record<
     string,
     { status: "running" | "rolled-back" | "released" | "stopped" }
   > = Object.fromEntries(
-    Object.values(revision.rules)
-      .flat()
-      .filter((rule) => rule?.type === "safe-rollout")
-      .map((rule: SafeRolloutRule) => {
-        return [rule.safeRolloutId, { status: rule.status }];
-      }),
+    revision.rules
+      .filter((rule): rule is SafeRolloutRule => rule?.type === "safe-rollout")
+      .map((rule) => [rule.safeRolloutId, { status: rule.status }]),
   );
-  // stop safe rollouts that have been removed from the in the revision
-  Object.keys(feature.environmentSettings ?? {})
-    .flatMap((env) => feature.environmentSettings[env]?.rules ?? [])
-    .forEach((rule: FeatureRule) => {
-      if (
-        rule?.type === "safe-rollout" &&
-        !safeRolloutStatusesMap[rule.safeRolloutId]
-      ) {
-        safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
-      }
-    });
+  // Stop safe rollouts whose rule was removed in this revision.
+  (feature.rules ?? []).forEach((rule) => {
+    if (
+      rule?.type === "safe-rollout" &&
+      !safeRolloutStatusesMap[rule.safeRolloutId]
+    ) {
+      safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
+    }
+  });
 
   const safeRollouts = await context.models.safeRollout.getByIds(
     Object.keys(safeRolloutStatusesMap),
@@ -1183,6 +1427,7 @@ const updateSafeRolloutStatuses = async (
   });
 };
 
+// Apply a revision merge result to the feature document.
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1191,7 +1436,6 @@ export async function applyRevisionChanges(
 ) {
   let hasChanges = false;
   const changes: Partial<FeatureInterface> = {};
-  // Track whether to remove holdout field entirely (vs setting it to a value)
   let removeHoldout = false;
 
   if (result.defaultValue !== undefined) {
@@ -1199,29 +1443,28 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  const environments = getEnvironmentIdsFromOrg(context.org);
-
-  environments.forEach((env) => {
-    const rules = result.rules?.[env];
-    const envEnabled = result.environmentsEnabled?.[env];
-
-    if (rules === undefined && envEnabled === undefined) return;
-
-    changes.environmentSettings =
-      changes.environmentSettings ||
-      cloneDeep(feature.environmentSettings || {});
-    changes.environmentSettings[env] = changes.environmentSettings[env] || {};
-    changes.environmentSettings[env].enabled =
-      changes.environmentSettings[env].enabled || false;
-
-    if (rules !== undefined) {
-      changes.environmentSettings[env].rules = rules;
-    }
-    if (envEnabled !== undefined) {
-      changes.environmentSettings[env].enabled = envEnabled;
-    }
+  if (result.rules !== undefined) {
+    changes.rules = result.rules;
     hasChanges = true;
-  });
+  }
+
+  if (result.environmentsEnabled) {
+    const envs = getEnvironmentIdsFromOrg(context.org);
+    const nextEnvSettings = cloneDeep(feature.environmentSettings || {});
+    let envChanged = false;
+    envs.forEach((env) => {
+      const desired = result.environmentsEnabled?.[env];
+      if (desired === undefined) return;
+      const current = nextEnvSettings[env] || { enabled: false };
+      // Skip no-op writes so we don't invalidate the SDK payload cache.
+      if (current.enabled !== desired) envChanged = true;
+      nextEnvSettings[env] = { ...current, enabled: desired };
+    });
+    if (envChanged) {
+      changes.environmentSettings = nextEnvSettings;
+      hasChanges = true;
+    }
+  }
 
   if (result.prerequisites !== undefined) {
     changes.prerequisites = result.prerequisites;
@@ -1256,25 +1499,17 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  // When a draft only activates a ramp schedule (no feature content changes),
-  // there's nothing to write to the feature document — just return it as-is so
-  // the caller can still mark the revision as published and trigger lifecycle hooks.
+  // No content delta — still advance feature.version so the revision we're
+  // about to mark published becomes live. Skipping this leaves a "Locked"
+  // revision behind a stale feature.version, which traps subsequent reverts.
   if (!hasChanges) {
-    // However, if we have pending ramp actions to execute, we still need to update
-    // the feature version so the live pointer advances correctly
-    if (revision.rampActions && revision.rampActions.length > 0) {
-      changes.version = revision.version;
-      changes.dateUpdated = new Date();
-      return await updateFeature(context, feature, changes);
-    }
-    return feature;
+    changes.version = revision.version;
+    changes.dateUpdated = new Date();
+    return await updateFeature(context, feature, changes);
   }
 
-  if (changes.environmentSettings) {
-    changes.nextScheduledUpdate = getNextScheduledUpdate(
-      changes.environmentSettings,
-      environments,
-    );
+  if (changes.rules !== undefined) {
+    changes.nextScheduledUpdate = getNextScheduledUpdate(changes.rules);
   }
 
   changes.version = revision.version;
@@ -1296,14 +1531,11 @@ export async function applyRevisionChanges(
   return await updateFeature(context, feature, changes);
 }
 
-/**
- * Run HoldoutModel / Experiment side-effects when a feature's holdout membership
- * changes at publish time. Called automatically by publishRevision when result.holdout
- * is defined, so all publish paths (direct, approval flow, revert, etc.) are covered.
- *
- * @param feature     The feature's state *before* the publish (used for prevHoldout).
- * @param newHoldout  The incoming holdout value, or null to remove from holdout.
- */
+// Run HoldoutModel / Experiment side-effects when a feature's holdout
+// membership changes at publish. Called from `publishRevision` when
+// `result.holdout` is defined, so all publish paths (direct, approval,
+// revert, etc.) are covered. `feature` is pre-publish (used for prevHoldout);
+// `newHoldout: null` means "remove from holdout".
 export async function applyHoldoutSideEffects(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1327,8 +1559,8 @@ export async function applyHoldoutSideEffects(
     const hasBandits = experiments.some(
       (exp) => exp?.type === "multi-armed-bandit",
     );
-    const hasSafeRollouts = Object.values(feature.environmentSettings).some(
-      (env) => (env?.rules ?? []).some((rule) => rule?.type === "safe-rollout"),
+    const hasSafeRollouts = (feature.rules ?? []).some(
+      (rule) => rule?.type === "safe-rollout",
     );
     if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
       throw new Error(
@@ -1390,11 +1622,9 @@ export async function applyHoldoutSideEffects(
   }
 }
 
-/**
- * Create ramp schedules for all `mode === "create"` actions in a revision.
- * Called BEFORE the feature write so that a schedule creation failure prevents publish.
- * Returns the IDs of created schedules for rollback on subsequent failure.
- */
+// Create ramp schedules for `mode === "create"` actions. Called BEFORE the
+// feature write so a schedule failure aborts publish. Returns the created IDs
+// for rollback on a subsequent failure.
 async function createRampSchedulesForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1422,7 +1652,10 @@ async function createRampSchedulesForRevision(
     ): RampStepAction => ({
       targetType: "feature-rule" as const,
       targetId,
-      patch: { ...a.patch, ruleId: action.ruleId } as RampStepAction["patch"],
+      patch: {
+        ...a.patch,
+        ruleId: action.ruleId,
+      } as RampStepAction["patch"],
     });
 
     // Template is used as a fallback; explicit steps/endActions win.
@@ -1544,8 +1777,11 @@ async function applyDetachRampActions(
         action.rampScheduleId,
       );
       if (existing) {
+        // Stem-match so a bare `fr_abc` detach action matches a suffixed
+        // `fr_abc__production` target (and vice versa).
+        const actionStem = stemRuleId(action.ruleId);
         const remainingTargets = existing.targets.filter(
-          (t) => t.ruleId !== action.ruleId,
+          (t) => stemRuleId(t.ruleId ?? "") !== actionStem,
         );
         if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
           await context.models.rampSchedules.deleteById(existing.id);
@@ -1582,33 +1818,24 @@ async function cleanupOrphanedRampSchedules(
     // where it should exist, the "create" action will not fire again. The user must
     // re-create the ramp. This is the safe, explicit behavior.
 
-    // Collect all rule IDs that existed in the old feature.
-    const oldRuleIds = new Set<string>();
-    Object.values(oldFeature.environmentSettings ?? {}).forEach((env) => {
-      (env?.rules ?? []).forEach((rule) => {
-        if (rule?.id) {
-          oldRuleIds.add(rule.id);
-        }
-      });
-    });
-
-    // Collect all rule IDs in the new feature.
-    const newRuleIds = new Set<string>();
-    Object.values(newFeature.environmentSettings ?? {}).forEach((env) => {
-      (env?.rules ?? []).forEach((rule) => {
-        if (rule?.id) {
-          newRuleIds.add(rule.id);
-        }
-      });
-    });
-
-    // Find rule IDs that were removed (existed in old but not in new).
-    const deletedRuleIds = Array.from(oldRuleIds).filter(
-      (id) => !newRuleIds.has(id),
+    // Compare by stem (not raw id). A rule may be split across revisions —
+    // e.g. `fr_abc` → `fr_abc__production` + `fr_abc__dev` — and ramp
+    // targets reference stem identity.
+    const oldStems = new Set<string>(
+      (oldFeature.rules ?? [])
+        .map((r) => (r?.id ? stemRuleId(r.id) : null))
+        .filter((id): id is string => !!id),
+    );
+    const newStems = new Set<string>(
+      (newFeature.rules ?? [])
+        .map((r) => (r?.id ? stemRuleId(r.id) : null))
+        .filter((id): id is string => !!id),
     );
 
-    // Query all ramp schedules for this feature and check if any targets
-    // reference the deleted rules.
+    const deletedStems = new Set<string>(
+      [...oldStems].filter((s) => !newStems.has(s)),
+    );
+
     const allRamps = await context.models?.rampSchedules?.getAllByFeatureId?.(
       newFeature.id,
     );
@@ -1618,12 +1845,11 @@ async function cleanupOrphanedRampSchedules(
     for (const ramp of allRamps) {
       const remainingTargets = (ramp?.targets ?? []).filter(
         (target: RampScheduleInterface["targets"][0]) => {
-          // Keep targets that reference rules that still exist.
-          return target?.ruleId && !deletedRuleIds.includes(target.ruleId);
+          if (!target?.ruleId) return false;
+          return !deletedStems.has(stemRuleId(target.ruleId));
         },
       );
 
-      // If no implementations remain, delete the ramp.
       if (
         remainingTargets.length === 0 &&
         (ramp?.targets ?? []).length > 0 &&
@@ -1686,6 +1912,13 @@ export async function publishRevision(
       context.auditUser,
       comment,
     );
+
+    await clearPendingFeatureDraftsForRevision(
+      context,
+      revision.featureId,
+      revision.version,
+      revision.rules,
+    );
   } catch (err) {
     // Roll back pre-created ramp schedules so they don't linger as orphans.
     for (const id of preCreatedScheduleIds) {
@@ -1738,7 +1971,15 @@ export async function createAndPublishRevision({
   revision: FeatureRevisionInterface;
   updatedFeature: FeatureInterface;
 }> {
-  const allEnvironments = getEnvironmentIdsFromOrg(org);
+  // Filter to envs applicable to this feature's project — avoids over-
+  // triggering approval and creating dangling per-env settings.
+  const orgEnvironments = getEnvironmentIdsFromOrg(org);
+  const orgEnvObjects = getEnvironments(org);
+  const applicableEnvIds = getApplicableEnvIds(orgEnvObjects, feature.project);
+  const applicableEnvSet = new Set(applicableEnvIds);
+  const allEnvironments = orgEnvironments.filter((e) =>
+    applicableEnvSet.has(e),
+  );
 
   // Determine whether the revision would require review before we create anything.
   // We need a synthetic revision to check against, mirroring what createRevision would build.
@@ -1746,19 +1987,17 @@ export async function createAndPublishRevision({
     context,
     organization: feature.organization,
     featureId: feature.id,
+    feature,
     version: feature.version,
   });
   if (!liveRevision) throw new Error("Could not load live revision");
 
-  // Build a temporary revision shape for the review check. Merge rules per-environment
-  // so that sparse changes.rules doesn't wipe untouched environments to [].
+  // Synthetic revision for the review check; caller-supplied rules replace
+  // the live array wholesale (same as autoMerge).
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveRevision,
     ...(changes ?? {}),
-    rules: {
-      ...liveRevision.rules,
-      ...(changes?.rules ?? {}),
-    },
+    rules: changes?.rules ?? liveRevision.rules ?? [],
   };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -1833,24 +2072,15 @@ export async function createAndPublishRevision({
   return { revision, updatedFeature };
 }
 
-function getLinkedExperiments(
-  feature: FeatureInterface,
-  environments: string[],
-) {
-  // Always start from the list of existing linked experiments
-  // Even if an experiment is removed from a feature, there should still be a link
-  // Otherwise, viewing a past revision of a feature will be broken
+function getLinkedExperiments(feature: FeatureInterface) {
+  // Keep existing links even when a rule is removed — past revisions need
+  // them to render correctly.
   const expIds: Set<string> = new Set(feature.linkedExperiments || []);
 
-  // Add any missing one from the published rules
-  environments.forEach((env) => {
-    const rules = feature.environmentSettings?.[env]?.rules;
-    if (!rules) return;
-    rules.forEach((rule) => {
-      if (rule?.type === "experiment-ref") {
-        expIds.add(rule.experimentId);
-      }
-    });
+  (feature.rules ?? []).forEach((rule) => {
+    if (rule?.type === "experiment-ref") {
+      expIds.add(rule.experimentId);
+    }
   });
 
   return [...expIds];
@@ -2013,10 +2243,11 @@ export async function getFeatureEnvStatus(
   });
 
   return docs.map((f) => ({
-    id: f.id,
+    id: f.id as string,
+    // This getter only reads `enabled`, so v1 vs v2 env shape doesn't matter.
     environmentSettings: applyEnvironmentInheritance(
       context.org.settings?.environments || [],
       f.environmentSettings || {},
-    ),
+    ) as FeatureInterface["environmentSettings"],
   }));
 }

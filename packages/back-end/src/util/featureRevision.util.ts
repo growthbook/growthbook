@@ -1,30 +1,21 @@
-import cloneDeep from "lodash/cloneDeep";
 import { FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 
 /**
- * Applies the same rule overlay as `editFeatureRules` / `updateRevision` would,
- * without persisting. Used to preflight merges and keep logic aligned with
- * `editFeatureRules` in FeatureModel.
+ * In-memory version of the rule overlay applied by `editFeatureRules` /
+ * `updateRevision`. Used to preflight merges. Rules are matched by `rule.id`;
+ * unknown ids are ignored and duplicates in `ruleIds` are idempotent.
  */
 export function applyPartialFeatureRuleUpdatesToRevision(
   revision: FeatureRevisionInterface,
-  matches: { environmentId: string; i: number }[],
+  ruleIds: string[],
   updates: Partial<FeatureRule>,
 ): FeatureRevisionInterface {
-  const nextRules = revision.rules ? cloneDeep(revision.rules) : {};
-
-  matches.forEach(({ environmentId, i }) => {
-    nextRules[environmentId] = nextRules[environmentId] || [];
-    if (!nextRules[environmentId][i]) {
-      throw new Error("Unknown rule");
-    }
-    nextRules[environmentId][i] = {
-      ...nextRules[environmentId][i],
-      ...updates,
-    } as FeatureRule;
-  });
-
+  if (ruleIds.length === 0) return revision;
+  const matchSet = new Set(ruleIds);
+  const nextRules = (revision.rules ?? []).map((r) =>
+    matchSet.has(r.id) ? ({ ...r, ...updates } as FeatureRule) : r,
+  );
   return {
     ...revision,
     rules: nextRules,
