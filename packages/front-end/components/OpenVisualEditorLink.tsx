@@ -1,12 +1,12 @@
 import { FC, useMemo, useState } from "react";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
-import { appendQueryParamsToURL, growthbook } from "@/services/utils";
+import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
-import RadixButton from "@/components/Radix/Button";
-import Link from "@/components/Radix/Link";
+import RadixButton from "@/ui/Button";
+import Link from "@/ui/Link";
 import Modal from "./Modal";
 import Button from "./Button";
 
@@ -50,15 +50,13 @@ export async function openVisualEditor({
 
   const apiHost = getApiHost();
   const { enabled: aiFeatureMeta } = await apiCall<{ enabled: boolean }>(
-    `/meta/ai`
+    `/meta/ai`,
   );
-  const isAiFeatureEnabled = growthbook.isOn("visual-editor-ai-enabled");
-
   url = appendQueryParamsToURL(url, {
     "vc-id": vc.id,
     "v-idx": 1,
     "exp-url": encodeURIComponent(window.location.href),
-    ...(aiFeatureMeta && isAiFeatureEnabled ? { "ai-enabled": "true" } : {}),
+    ...(aiFeatureMeta ? { "ai-enabled": "true" } : {}),
   });
 
   if (!bypassChecks) {
@@ -77,13 +75,13 @@ export async function openVisualEditor({
         case "chrome":
           res = await fetch(
             "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo128.png",
-            { method: "HEAD" }
+            { method: "HEAD" },
           );
           break;
         case "firefox":
           res = await fetch(
             "moz-extension://a69dc869-b91d-4fd3-adb2-71dc23cdc01c/js/logo128.png",
-            { method: "HEAD" }
+            { method: "HEAD" },
           );
           break;
       }
@@ -113,7 +111,7 @@ export async function openVisualEditor({
           apiKey,
         },
       },
-      window.location.origin
+      window.location.origin,
     );
 
     // Give time for the extension to receive the API host/key
@@ -278,18 +276,19 @@ const OpenVisualEditorLink: FC<{
 
 export default OpenVisualEditorLink;
 
-export function getBrowserDevice(
-  ua: string
-): { browser: string; deviceType: string } {
+export function getBrowserDevice(ua: string): {
+  browser: string;
+  deviceType: string;
+} {
   const browser = ua.match(/Edg/)
     ? "edge"
     : ua.match(/Chrome/)
-    ? "chrome"
-    : ua.match(/Firefox/)
-    ? "firefox"
-    : ua.match(/Safari/)
-    ? "safari"
-    : "unknown";
+      ? "chrome"
+      : ua.match(/Firefox/)
+        ? "firefox"
+        : ua.match(/Safari/)
+          ? "safari"
+          : "unknown";
 
   const deviceType = ua.match(/Mobi/) ? "mobile" : "desktop";
 

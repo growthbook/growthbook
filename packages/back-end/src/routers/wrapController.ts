@@ -8,10 +8,10 @@ type Controller<T extends string> = Record<T, Handler>;
 
 export function wrapController<T extends string>(
   // eslint-disable-next-line
-  controller: Record<T, any>
+  controller: Record<T, any>,
 ): Controller<T> {
   const newController = {} as Controller<T>;
-  Object.keys(controller).forEach((key: T) => {
+  (Object.keys(controller) as T[]).forEach((key) => {
     // Sanity check in case someone exports a non-function from the controller file
 
     // Stash this into a variable otherwise the check below

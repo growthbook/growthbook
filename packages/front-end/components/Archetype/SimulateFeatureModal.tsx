@@ -1,7 +1,7 @@
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "back-end/types/archetype";
+} from "shared/types/archetype";
 import React, { FC } from "react";
 import { useForm } from "react-hook-form";
 import SelectField from "@/components/Forms/SelectField";

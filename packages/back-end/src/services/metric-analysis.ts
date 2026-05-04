@@ -1,20 +1,59 @@
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { cloneDeep } from "lodash";
+import { SegmentInterface } from "shared/types/segment";
+import { FactMetricInterface } from "shared/types/fact-table";
 import {
   MetricAnalysisSettings,
   MetricAnalysisSource,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { Context } from "back-end/src/models/BaseModel";
-import { SegmentInterface } from "back-end/types/segment";
+import { MetricAnalysisParams } from "back-end/src/types/Integration";
 import { getIntegrationFromDatasourceId } from "./datasource";
+
+// When creating an analysis for metrics via a Dashboard, we sometimes apply adhoc filters to the analysis, that aren't a part of the metric itself (e.g. adding additional row filters)
+// This function takes the metric and applies these adhoc settings before running the analysis
+export function getMetricWithFiltersApplied(
+  params: MetricAnalysisParams,
+): FactMetricInterface {
+  const { metric, settings } = params;
+
+  // If no adhoc filters are provided, we can return the original metric
+  if (
+    !settings.additionalNumeratorFilters &&
+    !settings.additionalDenominatorFilters
+  ) {
+    return metric;
+  }
+
+  const metricWithFilters = cloneDeep(metric);
+  if (settings.additionalNumeratorFilters) {
+    metricWithFilters.numerator.rowFilters = [
+      ...(metricWithFilters.numerator.rowFilters || []),
+      ...settings.additionalNumeratorFilters.map((f) => ({
+        operator: "saved_filter" as const,
+        values: [f],
+      })),
+    ];
+  }
+  if (settings.additionalDenominatorFilters && metricWithFilters.denominator) {
+    metricWithFilters.denominator.rowFilters = [
+      ...(metricWithFilters.denominator.rowFilters || []),
+      ...settings.additionalDenominatorFilters.map((f) => ({
+        operator: "saved_filter" as const,
+        values: [f],
+      })),
+    ];
+  }
+  return metricWithFilters;
+}
 
 export async function createMetricAnalysis(
   context: Context,
   metric: FactMetricInterface,
   metricAnalysisSettings: MetricAnalysisSettings,
   source: MetricAnalysisSource,
-  useCache: boolean = true
+  useCache: boolean = true,
 ): Promise<MetricAnalysisQueryRunner> {
   if (!metric.datasource) {
     throw new Error("Cannot analyze manual metrics");
@@ -26,7 +65,7 @@ export async function createMetricAnalysis(
     metricAnalysisSettings.populationId
   ) {
     segment = await context.models.segments.getById(
-      metricAnalysisSettings.populationId
+      metricAnalysisSettings.populationId,
     );
     if (!segment) {
       throw new Error("Segment not found");
@@ -36,7 +75,7 @@ export async function createMetricAnalysis(
   const integration = await getIntegrationFromDatasourceId(
     context,
     metric.datasource,
-    true
+    true,
   );
 
   const factTableMap = await getFactTableMap(context);
@@ -55,7 +94,7 @@ export async function createMetricAnalysis(
     context,
     model,
     integration,
-    useCache
+    useCache,
   );
 
   await queryRunner

@@ -1,36 +1,35 @@
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import React, { useEffect, useRef, useState } from "react";
 import { PiLink, PiCheck } from "react-icons/pi";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Button from "@/components/Radix/Button";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
-import LinkButton from "@/components/Radix/LinkButton";
-import SplitButton from "@/components/Radix/SplitButton";
-import { useUser } from "@/services/UserContext";
-import HelperText from "@/components/Radix/HelperText";
+import LinkButton from "@/ui/LinkButton";
+import SplitButton from "@/ui/SplitButton";
+import HelperText from "@/ui/HelperText";
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import ReportResultMoreMenu from "@/components/Report/ReportResultMoreMenu";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import track from "@/services/track";
-import UserAvatar from "@/components/Avatar/UserAvatar";
-import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
-import Metadata from "@/components/Radix/Metadata";
+import Owner from "@/components/Avatar/Owner";
+import Metadata from "@/ui/Metadata";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
 type ShareLevel = "public" | "organization" | "private";
@@ -49,6 +48,7 @@ export default function ReportMetaInfo({
   canDelete,
   showEditControls,
   showPrivateLink,
+  isPublic,
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
@@ -61,6 +61,7 @@ export default function ReportMetaInfo({
   canDelete?: boolean;
   showEditControls?: boolean;
   showPrivateLink?: boolean;
+  isPublic?: boolean;
 }) {
   const HOST = globalThis?.window?.location?.origin;
   const shareableLink = report.uid
@@ -68,9 +69,6 @@ export default function ReportMetaInfo({
     : `${HOST}/report/${report.id}`;
 
   const { apiCall } = useAuth();
-  const { getUserDisplay } = useUser();
-  const ownerName =
-    (report.userId ? getUserDisplay(report.userId, false) : "") || "";
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
@@ -80,7 +78,7 @@ export default function ReportMetaInfo({
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const [shareLevel, setShareLevel] = useState<ShareLevel>(
-    report.shareLevel || "organization"
+    report.shareLevel || "organization",
   );
   const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
     null | "loading" | "success" | "fail"
@@ -88,7 +86,7 @@ export default function ReportMetaInfo({
   const saveShareLevelTimeout = useRef<number | undefined>();
 
   const [editLevel, setEditLevel] = useState<EditLevel>(
-    report.editLevel || "organization"
+    report.editLevel || "organization",
   );
   const [saveEditLevelStatus, setSaveEditLevelStatus] = useState<
     null | "loading" | "success" | "fail"
@@ -106,15 +104,16 @@ export default function ReportMetaInfo({
   const variations = report.experimentMetadata.variations.map(
     (variation, i) => ({
       id: variation.id,
+      index: i,
       name: variation.name,
       weight:
         report.experimentMetadata.phases?.[snapshot?.phase || 0]
           ?.variationWeights?.[i] ||
         1 / (report.experimentMetadata?.variations?.length || 2),
-    })
+    }),
   );
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? (getSnapshotAnalysis(snapshot) ?? undefined)
     : undefined;
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
@@ -135,14 +134,14 @@ export default function ReportMetaInfo({
           setSaveShareLevelStatus("success");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         })
         .catch(() => {
           setSaveShareLevelStatus("fail");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         });
       track("Experiment Report: Set Share Level", {
@@ -179,14 +178,14 @@ export default function ReportMetaInfo({
           setSaveEditLevelStatus("success");
           saveEditLevelTimeout.current = window.setTimeout(
             () => setSaveEditLevelStatus(null),
-            1500
+            1500,
           );
         })
         .catch(() => {
           setSaveEditLevelStatus("fail");
           saveEditLevelTimeout.current = window.setTimeout(
             () => setSaveEditLevelStatus(null),
-            1500
+            1500,
           );
         });
       track("Experiment Report: Set Edit Level", {
@@ -256,6 +255,11 @@ export default function ReportMetaInfo({
       </Button>
     );
 
+  const isBandit = experiment?.type === "multi-armed-bandit";
+  const isHoldout = experiment?.type === "holdout";
+
+  const { metricGroups } = useDefinitions();
+
   return (
     <>
       <div className="mb-3">
@@ -284,18 +288,11 @@ export default function ReportMetaInfo({
                 <Metadata
                   label="Report by"
                   value={
-                    <>
-                      {ownerName !== "" && (
-                        <UserAvatar name={ownerName} size="sm" variant="soft" />
-                      )}
-                      <Text
-                        weight="regular"
-                        className={metaDataStyles.valueColor}
-                        ml="1"
-                      >
-                        {ownerName === "" ? "None" : ownerName}
-                      </Text>
-                    </>
+                    <Owner
+                      ownerId={report.userId}
+                      gap="1"
+                      textColor="text-mid"
+                    />
                   }
                 />
               )}
@@ -305,23 +302,28 @@ export default function ReportMetaInfo({
               />
               <Metadata
                 label={
-                  experiment?.type === "multi-armed-bandit"
-                    ? "Bandit"
-                    : "Experiment"
+                  isBandit ? `Bandit` : isHoldout ? `Holdout` : `Experiment`
                 }
                 value={
                   <ConditionalWrapper
                     condition={
                       !!experiment?.id &&
+                      (!isHoldout ? true : !!experiment?.holdoutId) &&
                       (!!showPrivateLink || !!showEditControls)
                     }
                     wrapper={
                       <Link
-                        href={`/${
-                          experiment?.type === "multi-armed-bandit"
-                            ? "bandit"
-                            : "experiment"
-                        }/${experiment?.id}`}
+                        href={
+                          !isHoldout
+                            ? experiment?.id
+                              ? `/${isBandit ? `bandit` : `experiment`}/${
+                                  experiment.id
+                                }`
+                              : undefined
+                            : experiment.holdoutId
+                              ? `/holdout/${experiment.holdoutId}`
+                              : undefined
+                        }
                       />
                     }
                   >
@@ -374,7 +376,11 @@ export default function ReportMetaInfo({
                   variations={variations}
                   metrics={
                     snapshot?.settings
-                      ? getAllMetricIdsFromExperiment(snapshot.settings, false)
+                      ? getAllMetricIdsFromExperiment(
+                          snapshot.settings,
+                          false,
+                          metricGroups,
+                        )
                       : undefined
                   }
                   trackingKey={report.title}
@@ -389,7 +395,9 @@ export default function ReportMetaInfo({
       </div>
 
       <div className="mb-4">
-        <Markdown>{report.description}</Markdown>
+        <Markdown isPublic={isPublic} shareUid={report.uid} shareType="report">
+          {report.description}
+        </Markdown>
       </div>
 
       {generalModalOpen && (

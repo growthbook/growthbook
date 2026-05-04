@@ -30,7 +30,7 @@ describe("preview links", () => {
               type: "simple",
             },
           ],
-        }).inExperiment
+        }).inExperiment,
       ).toEqual(true);
 
       window.location.href = "http://app.customer.com";
@@ -46,7 +46,7 @@ describe("preview links", () => {
               type: "simple",
             },
           ],
-        }).inExperiment
+        }).inExperiment,
       ).toEqual(false);
     });
 
@@ -66,7 +66,7 @@ describe("preview links", () => {
               type: "simple",
             },
           ],
-        }).variationId
+        }).variationId,
       ).toEqual(1);
 
       window.location.href = "http://app.customer.com?exp-01=3";
@@ -82,7 +82,7 @@ describe("preview links", () => {
               type: "simple",
             },
           ],
-        }).variationId
+        }).variationId,
       ).toEqual(3);
     });
 
@@ -103,7 +103,7 @@ describe("preview links", () => {
                 type: "simple",
               },
             ],
-          }).inExperiment
+          }).inExperiment,
         ).toEqual(false);
 
         expect(
@@ -118,7 +118,7 @@ describe("preview links", () => {
                 type: "simple",
               },
             ],
-          }).inExperiment
+          }).inExperiment,
         ).toEqual(false);
 
         expect(
@@ -133,7 +133,7 @@ describe("preview links", () => {
                 type: "simple",
               },
             ],
-          }).inExperiment
+          }).inExperiment,
         ).toEqual(true);
       });
     });

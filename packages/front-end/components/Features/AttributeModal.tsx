@@ -3,7 +3,7 @@ import {
   SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeType,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { useAttributeSchema } from "@/services/features";
@@ -12,14 +12,17 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MinSDKVersionsList from "./MinSDKVersionsList";
+import TagsField from "./FeatureModal/TagsField";
 
 export interface Props {
   close: () => void;
@@ -52,9 +55,13 @@ export default function AttributeModal({ close, attribute }: Props) {
       description: current?.description || "",
       datatype: current?.datatype || "string",
       projects: attribute ? current?.projects || [] : project ? [project] : [],
-      format: current?.format || "",
+      format: ((current?.format as unknown) !== "none"
+        ? current?.format || ""
+        : "") as SDKAttributeFormat,
       enum: current?.enum || "",
       hashAttribute: !!current?.hashAttribute,
+      disableEqualityConditions: current?.disableEqualityConditions || false,
+      tags: current?.tags || [],
     },
   });
 
@@ -76,8 +83,27 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   const projectOptions = useProjectOptions(
     permissionRequired,
-    form.watch("projects") || []
+    form.watch("projects") || [],
   );
+
+  const selectedProjects = form.watch("projects") || [];
+  const canCreateWithoutProject = attribute
+    ? permissionsUtil.canUpdateAttribute(
+        { projects: current?.projects || [] },
+        { projects: [] },
+      )
+    : permissionsUtil.canCreateAttribute({ projects: [] });
+  const hasProjectPermission = attribute
+    ? permissionsUtil.canUpdateAttribute(
+        { projects: current?.projects || [] },
+        { projects: selectedProjects },
+      )
+    : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
+  const ctaDisabledMessage = !hasProjectPermission
+    ? !selectedProjects.length && projectOptions.length > 0
+      ? "Select a project to continue."
+      : `You don't have permission to ${attribute ? "update" : "create"} attributes.`
+    : undefined;
 
   return (
     <Modal
@@ -86,9 +112,12 @@ export default function AttributeModal({ close, attribute }: Props) {
       close={close}
       header={title}
       cta="Save"
+      ctaEnabled={hasProjectPermission}
+      disabledMessage={ctaDisabledMessage}
       submit={form.handleSubmit(async (value) => {
         if (value.datatype !== "string") {
           value.format = "";
+          value.disableEqualityConditions = false;
         }
         if (value.datatype !== "enum") {
           value.enum = "";
@@ -97,12 +126,16 @@ export default function AttributeModal({ close, attribute }: Props) {
           value.hashAttribute = false;
         }
 
+        if (value.format) {
+          value.disableEqualityConditions = false;
+        }
+
         if (
           (!attribute || (attribute && value.property !== attribute)) &&
           schema.some((s) => s.property === value.property)
         ) {
           throw new Error(
-            "That attribute name is already being used. Please choose another one."
+            "That attribute name is already being used. Please choose another one.",
           );
         }
 
@@ -114,6 +147,8 @@ export default function AttributeModal({ close, attribute }: Props) {
           format: value.format,
           enum: value.enum,
           hashAttribute: value.hashAttribute,
+          disableEqualityConditions: value.disableEqualityConditions,
+          tags: value.tags,
         };
 
         // If the attribute name is changed, we need to pass in the original name
@@ -142,24 +177,25 @@ export default function AttributeModal({ close, attribute }: Props) {
         {...form.register("property")}
       />
       {attribute && form.watch("property") !== attribute ? (
-        <div className="alert alert-warning">
+        <Callout status="warning">
           Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
-        </div>
+        </Callout>
       ) : null}
       <div className="form-group">
-        <Field
-          className="form-control"
-          label={
-            <>
-              Description <small className="text-muted">(optional)</small>
-            </>
-          }
-          {...form.register("description")}
-          textarea={true}
+        <label>
+          Description <small className="text-muted">(optional)</small>
+        </label>
+        <MarkdownInput
+          value={form.watch("description") || ""}
+          setValue={(value) => form.setValue("description", value)}
         />
       </div>
+      <TagsField
+        value={form.watch("tags") || []}
+        onChange={(tags) => form.setValue("tags", tags)}
+      />
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
@@ -173,7 +209,9 @@ export default function AttributeModal({ close, attribute }: Props) {
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder={
+              canCreateWithoutProject ? "All projects" : "Select projects..."
+            }
             value={form.watch("projects") || []}
             options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}
@@ -255,19 +293,19 @@ export default function AttributeModal({ close, attribute }: Props) {
         <>
           <SelectField
             label="String Format"
-            value={form.watch(`format`) || "none"}
+            value={form.watch(`format`) || ""}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
             initialOption="None"
             options={[
               { value: "version", label: "Version string" },
-              { value: "date", label: "Date string" },
+              { value: "date", label: "Date string (ISO)" },
               { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
             ]}
             sort={false}
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
           />
           {form.watch("format") === "version" && (
-            <div className="alert alert-warning">
+            <Callout status="warning" contentsAs="div">
               <strong>Warning:</strong> Version string attributes are only
               supported in{" "}
               <Tooltip
@@ -277,7 +315,19 @@ export default function AttributeModal({ close, attribute }: Props) {
               </Tooltip>
               . Do not use this format if you are using an incompatible SDK as
               it will break any filtering based on the attribute.
-            </div>
+            </Callout>
+          )}
+
+          {!form.watch("format") && (
+            <Checkbox
+              label="Disable Equality Comparisons"
+              description="This prevents users from targeting with exact string matches. Only regex and less than/greater than will be allowed. Useful for PII."
+              value={!!form.watch(`disableEqualityConditions`)}
+              setValue={(value) =>
+                form.setValue(`disableEqualityConditions`, value)
+              }
+              mb="4"
+            />
           )}
         </>
       )}
@@ -292,26 +342,12 @@ export default function AttributeModal({ close, attribute }: Props) {
         />
       )}
       {hashAttributeDataTypes.includes(datatype) && (
-        <div className="form-group">
-          <label>Unique Identifier</label>
-          <div className="row align-items-center">
-            <div className="col-auto">
-              <Toggle
-                id={"hashAttributeToggle"}
-                value={!!form.watch(`hashAttribute`)}
-                setValue={(value) => {
-                  form.setValue(`hashAttribute`, value);
-                }}
-              />
-            </div>
-            <div className="col px-0 text-muted" style={{ lineHeight: "1rem" }}>
-              <div>Attribute can be used for user assignment</div>
-              <small>
-                For example, <code>email</code> or <code>id</code>
-              </small>
-            </div>
-          </div>
-        </div>
+        <Checkbox
+          label="Unique Identifier"
+          description="Allow attribute to be used for experiment assignment."
+          value={!!form.watch(`hashAttribute`)}
+          setValue={(value) => form.setValue(`hashAttribute`, value)}
+        />
       )}
     </Modal>
   );

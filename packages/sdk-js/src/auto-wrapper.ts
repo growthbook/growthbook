@@ -146,7 +146,7 @@ if (tracking !== "none") {
     plugins.push(
       growthbookTrackingPlugin({
         ingestorHost: dataContext.eventIngestorHost,
-      })
+      }),
     );
   }
 
@@ -155,7 +155,7 @@ if (tracking !== "none") {
       thirdPartyTrackingPlugin({
         additionalCallback: windowContext.additionalTrackingCallback,
         trackers: trackers as Trackers[],
-      })
+      }),
     );
   }
 }

@@ -1,6 +1,6 @@
 import { GrowthBook, Context, RedisStickyBucketService } from "../../src";
 /* eslint-disable */
-const Redis = require('ioredis-mock');
+const Redis = require("ioredis-mock");
 /* eslint-enable */
 
 export const remoteEvalRedis = new Redis();
@@ -93,7 +93,7 @@ export async function evaluateFeatures({
           ...experiment,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           variations: experiment.variations.map((v: any, i: number) =>
-            result.variationId === i ? v : {}
+            result.variationId === i ? v : {},
           ),
         };
         delete evaluatedExperiment.condition;

@@ -1,14 +1,14 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime } from "shared/dates";
 import { PiEye } from "react-icons/pi";
-import {ExperimentInterfaceStringDates} from "back-end/types/experiment";
+import {ExperimentInterfaceStringDates} from "shared/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
-import { DropdownMenu } from "@/components/Radix/DropdownMenu";
-import Metadata from "@/components/Radix/Metadata";
-import Link from "@/components/Radix/Link";
+import { DropdownMenu } from "@/ui/DropdownMenu";
+import Metadata from "@/ui/Metadata";
+import Link from "@/ui/Link";
 
 export default function PublicExperimentAnalysisSettingsBar({
   experiment,
@@ -84,6 +84,7 @@ export default function PublicExperimentAnalysisSettingsBar({
           <div className="col-auto d-flex align-items-end">
             <DimensionChooser
               value={snapshot.dimension ?? ""}
+              precomputedDimensions={snapshot.type === "standard" ? snapshot.settings.dimensions.map((d) => d.id) : []}
               activationMetric={!!snapshot.settings.activationMetric}
               datasourceId={snapshot.settings.datasourceId}
               exposureQueryId={snapshot.settings.exposureQueryId}

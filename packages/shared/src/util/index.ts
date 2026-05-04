@@ -4,23 +4,37 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { ExperimentReportVariation } from "back-end/types/report";
-import { VisualChange } from "back-end/types/visual-changeset";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { Environment } from "back-end/types/organization";
-import { SavedGroupInterface } from "../types";
+} from "shared/types/experiment-snapshot";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { ExperimentReportVariation } from "shared/types/report";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { Environment } from "shared/types/organization";
+import { VisualChange } from "shared/types/visual-changeset";
+import { SavedGroupInterface } from "shared/types/saved-group";
+import {
+  SafeRolloutSnapshotAnalysis,
+  SafeRolloutSnapshotAnalysisSettings,
+  SafeRolloutSnapshotInterface,
+} from "../validators/safe-rollout-snapshot";
+import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";
+export * from "./managedWarehouse";
 export * from "./saved-groups";
+export * from "./metric-time-series";
+export * from "./ruleId";
+export * from "./numbers";
+export * from "./types";
+export * from "./errors";
+export * from "./namespaces";
+export * from "./custom-fields";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
@@ -59,14 +73,14 @@ export function getAffectedEnvsForExperiment({
         orgEnvIds,
         undefined,
         // the boolean below skips environments if they are disabled on the feature
-        true
+        true,
       );
 
       // if we find any matching rules get the environments that are affected
       if (matches.length) {
         matches.forEach((match) => {
           const env = orgEnvironments.find(
-            (env) => env.id === match.environmentId
+            (env) => env.id === match.environmentId,
           );
 
           if (env) {
@@ -84,7 +98,7 @@ export function getAffectedEnvsForExperiment({
 
 export function getSnapshotAnalysis(
   snapshot: ExperimentSnapshotInterface,
-  analysisSettings?: ExperimentSnapshotAnalysisSettings | null
+  analysisSettings?: ExperimentSnapshotAnalysisSettings | null,
 ): ExperimentSnapshotAnalysis | null {
   // TODO make it so order doesn't matter
   return (
@@ -94,9 +108,19 @@ export function getSnapshotAnalysis(
   );
 }
 
+export function getSafeRolloutSnapshotAnalysis(
+  snapshot: SafeRolloutSnapshotInterface,
+  analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null,
+): SafeRolloutSnapshotAnalysis | null {
+  return (
+    (analysisSettings
+      ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
+      : snapshot?.analyses?.[0]) || null
+  );
+}
 export function putBaselineVariationFirst(
   variations: ExperimentReportVariation[],
-  baselineVariationIndex: number | null
+  baselineVariationIndex: number | null,
 ): ExperimentReportVariation[] {
   if (baselineVariationIndex === null) return variations;
 
@@ -108,7 +132,7 @@ export function putBaselineVariationFirst(
 
 export function isAnalysisAllowed(
   snapshotSettings: ExperimentSnapshotSettings,
-  analysisSettings: ExperimentSnapshotAnalysisSettings
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions
   const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
@@ -132,7 +156,7 @@ export function generateVariationId() {
 }
 
 export function experimentHasLinkedChanges(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates
+  exp: ExperimentInterface | ExperimentInterfaceStringDates,
 ): boolean {
   if (exp.hasVisualChangesets) return true;
   if (exp.hasURLRedirects) return true;
@@ -142,7 +166,7 @@ export function experimentHasLinkedChanges(
 
 export function experimentHasLiveLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
-  linkedFeatures: LinkedFeatureInfo[]
+  linkedFeatures: LinkedFeatureInfo[],
 ) {
   if (!experimentHasLinkedChanges(exp)) return false;
   if (linkedFeatures.length > 0) {
@@ -156,14 +180,14 @@ export function experimentHasLiveLinkedChanges(
 
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
-  linkedFeatures: FeatureInterface[] = []
+  linkedFeatures: FeatureInterface[] = [],
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
 
   if (!experimentHasLinkedChanges(exp)) return false;
 
-  // Exclude if experiment is a draft and there are no visual changes (feature flags always ignore draft experiment rules)
+  // Exclude if experiment is a draft and there are no visual changes or redirects (feature flags always ignore draft experiment rules)
   if (
     !exp.hasVisualChangesets &&
     !exp.hasURLRedirects &&
@@ -190,7 +214,7 @@ export function includeExperimentInPayload(
       const rules = getMatchingRules(
         feature,
         (r) => r.type === "experiment-ref" && r.experimentId === exp.id,
-        Object.keys(feature.environmentSettings)
+        Object.keys(feature.environmentSettings),
       );
       return rules.some((r) => {
         if (!r.environmentEnabled) return false;
@@ -207,9 +231,34 @@ export function includeExperimentInPayload(
   return true;
 }
 
+export function includeHoldoutInPayload(
+  holdout: HoldoutInterfaceStringDates,
+  exp: ExperimentInterface | ExperimentInterfaceStringDates,
+): boolean {
+  // Archived experiments are always excluded
+  if (exp.archived) return false;
+
+  if (
+    Object.keys(holdout.linkedExperiments).length === 0 &&
+    Object.keys(holdout.linkedFeatures).length === 0
+  )
+    return false;
+
+  if (exp.status === "draft") return false;
+
+  if (!exp.phases?.length) return false;
+
+  // Stopped holdouts are not included in the payload
+  if (exp.status === "stopped") {
+    return false;
+  }
+
+  return true;
+}
+
 export function isValidEnvironment(
   env: string,
-  environments: string[]
+  environments: string[],
 ): boolean {
   return environments.includes(env);
 }
@@ -224,46 +273,142 @@ export type MatchingRule = {
   rule: FeatureRule;
 };
 
+/**
+ * Scan the v2 unified rule array (from `revision.rules` if provided, else
+ * `feature.rules`) and emit one `MatchingRule` entry per (rule × applicable
+ * env) pair that passes `filter`. Multi-env rules fan out to one entry per
+ * env they cover; single-env rules emit exactly one entry. Rules with
+ * `allEnvironments: true` fan out across every valid env in `environments`.
+ *
+ * `i` is the rule's index in the UNIFIED rule array (same across every
+ * fan-out entry for a given rule). Callers that identify a rule by
+ * `(environmentId, i)` were the v1 contract; under v2 the authoritative
+ * match handle is `rule.id` — `i` is preserved only for backward-compatible
+ * display/logging.
+ */
 export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
   environments: string[],
   revision?: FeatureRevisionInterface,
-  omitDisabledEnvironments: boolean = false
+  omitDisabledEnvironments: boolean = false,
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
+  const allRules: FeatureRule[] = revision?.rules ?? feature.rules ?? [];
 
-  if (feature.environmentSettings) {
-    Object.entries(feature.environmentSettings).forEach(
-      ([environmentId, settings]) => {
-        if (!isValidEnvironment(environmentId, environments)) return;
+  allRules.forEach((rule, i) => {
+    if (!filter(rule)) return;
 
-        if (omitDisabledEnvironments && !settings.enabled) return;
+    // Resolve the env list this rule applies to. Tri-state:
+    //   - `allEnvironments: true`              → every visible env
+    //   - `environments: [list]`               → that list (strict membership)
+    //   - `environments: []`                   → no envs (intentional "pending"
+    //                                            / "ramp not yet scoped" state)
+    //   - neither field declared (malformed)   → every visible env (permissive
+    //                                            safety net for legacy data)
+    const ruleEnvs = rule.allEnvironments
+      ? environments
+      : rule.environments !== undefined
+        ? rule.environments
+        : environments;
 
-        const rules = revision ? revision.rules[environmentId] : settings.rules;
+    ruleEnvs.forEach((environmentId) => {
+      if (!isValidEnvironment(environmentId, environments)) return;
 
-        if (rules) {
-          rules.forEach((rule, i) => {
-            if (filter(rule)) {
-              matches.push({
-                rule,
-                i,
-                environmentEnabled: settings.enabled,
-                environmentId,
-              });
-            }
-          });
-        }
-      }
-    );
-  }
+      const envSettings = feature.environmentSettings?.[environmentId];
+      const environmentEnabled = !!envSettings?.enabled;
+      if (omitDisabledEnvironments && !environmentEnabled) return;
+
+      matches.push({
+        rule,
+        i,
+        environmentEnabled,
+        environmentId,
+      });
+    });
+  });
 
   return matches;
 }
 
+// Rule scope predicate. Keep aligned with `ruleFootprint`.
+//   allEnvironments:true           → true
+//   environments:[list]            → list.includes(environment)
+//   environments:[]                → false (pending)
+//   neither (malformed/legacy)     → true (permissive fallback)
+export function ruleAppliesToEnv(
+  rule: FeatureRule,
+  environment: string,
+): boolean {
+  if (rule.allEnvironments) return true;
+  if (rule.environments !== undefined) {
+    return rule.environments.includes(environment);
+  }
+  return true;
+}
+
+// Filter to rules applying to `environment`, preserving input order. Accepts
+// nullish for convenience. Non-array input (e.g. a not-yet-JIT-upgraded v1
+// revision) returns [] rather than throwing, so the caller's envSettings
+// fallback can take over.
+export function getRulesForEnvironment(
+  rules: FeatureRule[] | undefined | null,
+  environment: string,
+): FeatureRule[] {
+  if (!Array.isArray(rules)) return [];
+  return rules.filter((r) => ruleAppliesToEnv(r, environment));
+}
+
+// Footprint of a rule, intersected with `applicableEnvs`. Must match
+// `ruleAppliesToEnv`.
+//   allEnvironments:true           → every applicable env
+//   environments:[list]            → list ∩ applicable
+//   environments:[]                → [] (pending)
+//   neither (malformed/legacy)     → every applicable env (permissive fallback)
+export function ruleFootprint(
+  rule: FeatureRule,
+  applicableEnvs: string[],
+): string[] {
+  if (rule.allEnvironments) return applicableEnvs;
+  if (rule.environments === undefined) return applicableEnvs;
+  const applicableSet = new Set(applicableEnvs);
+  return rule.environments.filter((e) => applicableSet.has(e));
+}
+
+// Naive v1→v2 flattener for diff/merge/preview paths. Coerces an ambiguous
+// rules blob into a flat FeatureRule[] without dedup or id-collision repair:
+//   FeatureRule[]                → pass-through
+//   Record<env, FeatureRule[]>   → flatten, stamping `environments: [env]`
+//   nullish / other              → []
+// NOT for persistence — content-identical rules across envs come out as
+// duplicate ids. Persistence paths must use `normalizeRulesInputToV2` on the
+// back-end, which dedupes by id, collapses to allEnvironments, and suffixes
+// collisions.
+export function naiveFlattenV1Rules(input: unknown): FeatureRule[] {
+  if (input == null) return [];
+  if (Array.isArray(input)) return input as FeatureRule[];
+  if (typeof input === "object") {
+    const out: FeatureRule[] = [];
+    for (const [env, rules] of Object.entries(
+      input as Record<string, FeatureRule[]>,
+    )) {
+      if (!Array.isArray(rules)) continue;
+      for (const r of rules) {
+        out.push({
+          ...r,
+          allEnvironments: false,
+          environments: [env],
+        } as FeatureRule);
+      }
+    }
+    return out;
+  }
+  return [];
+}
+
 export function isProjectListValidForProject(
   projects?: string[],
-  project?: string
+  project?: string,
 ) {
   // If project list is empty, it's always valid no matter what
   if (!projects || !projects.length) return true;
@@ -277,7 +422,7 @@ export function isProjectListValidForProject(
 
 export function stringToBoolean(
   value: string | undefined,
-  defaultValue = false
+  defaultValue = false,
 ): boolean {
   if (value === undefined) return defaultValue;
   if (["true", "yes", "on", "1"].includes(value.toLowerCase())) return true;
@@ -326,22 +471,42 @@ export function truncateString(s: string, numChars: number) {
   return s;
 }
 
-export function formatByteSizeString(numBytes: number, decimalPlaces = 1) {
+export function getNumberFormatDigits(
+  value: number,
+  highPrecision: boolean = false,
+) {
+  const absValue = Math.abs(value);
+  let digits = absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  // For very small numbers (< 1), find the first significant digit & show 2 digits after it
+  if (highPrecision && absValue > 0 && absValue < 1) {
+    // Use Math.log10 to find the position of the first significant digit
+    const log10 = Math.log10(absValue);
+    const decimalPlacesToFirstSig = -Math.floor(log10);
+    // Show 2 digits after the first significant digit
+    digits = Math.min(decimalPlacesToFirstSig + 1, 15);
+  }
+  return digits;
+}
+
+export function formatByteSizeString(numBytes: number, inferDigits = false) {
   if (numBytes == 0) return "0 Bytes";
   const k = 1024,
     sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"],
     i = Math.floor(Math.log(numBytes) / Math.log(k));
-  return (
-    parseFloat((numBytes / Math.pow(k, i)).toFixed(decimalPlaces)) +
-    " " +
-    sizes[i]
-  );
+  const value = numBytes / Math.pow(k, i);
+
+  const options = {
+    maximumFractionDigits: inferDigits ? getNumberFormatDigits(value) : 1,
+    minimumFractionDigits: 0,
+  };
+
+  return Intl.NumberFormat(undefined, options).format(value) + " " + sizes[i];
 }
 
 export function meanVarianceFromSums(
   sum: number,
   sum_squares: number,
-  n: number
+  n: number,
 ): number {
   const variance = (sum_squares - Math.pow(sum, 2) / n) / (n - 1);
   return returnZeroIfNotFinite(variance);
@@ -372,17 +537,17 @@ export function ratioVarianceFromSums({
   const numerator_variance = meanVarianceFromSums(
     numerator_sum,
     numerator_sum_squares,
-    n
+    n,
   );
   const denominator_mean = returnZeroIfNotFinite(denominator_sum / n);
   const denominator_variance = meanVarianceFromSums(
     denominator_sum,
     denominator_sum_squares,
-    n
+    n,
   );
   const covariance =
     returnZeroIfNotFinite(
-      numerator_denominator_sum_product - (numerator_sum * denominator_sum) / n
+      numerator_denominator_sum_product - (numerator_sum * denominator_sum) / n,
     ) /
     (n - 1);
 
@@ -390,7 +555,7 @@ export function ratioVarianceFromSums({
     numerator_variance / Math.pow(denominator_mean, 2) -
       (2 * covariance * numerator_mean) / Math.pow(denominator_mean, 3) +
       (Math.pow(numerator_mean, 2) * denominator_variance) /
-        Math.pow(denominator_mean, 4)
+        Math.pow(denominator_mean, 4),
   );
 }
 
@@ -412,7 +577,7 @@ export function featuresReferencingSavedGroups({
           rule.condition?.includes(savedGroup.id) ||
           rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
           false,
-        environments.map((e) => e.id)
+        environments.map((e) => e.id),
       );
 
       if (matches.length > 0) {
@@ -441,7 +606,7 @@ export function experimentsReferencingSavedGroups({
         (phase) =>
           phase.condition?.includes(savedGroup.id) ||
           phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false
+          false,
       );
 
       if (matchingPhases.length > 0) {
@@ -451,4 +616,34 @@ export function experimentsReferencingSavedGroups({
     });
   });
   return referenceMap;
+}
+
+export function parseProcessLogBase() {
+  let parsedLogBase:
+    | {
+        // eslint-disable-next-line
+        [key: string]: any;
+      }
+    | null
+    | undefined = undefined;
+  try {
+    if (process.env.LOG_BASE === "null") {
+      parsedLogBase = null;
+    } else if (process.env.LOG_BASE) {
+      parsedLogBase = JSON.parse(process.env.LOG_BASE);
+    }
+  } catch {
+    // Empty catch - don't pass a LOG_BASE
+  }
+
+  // Only pass `base` if defined or null
+  return typeof parsedLogBase === "undefined"
+    ? {}
+    : {
+        base: parsedLogBase,
+      };
+}
+
+export function capitalizeFirstCharacter(s: string) {
+  return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }

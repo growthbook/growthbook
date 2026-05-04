@@ -3,10 +3,10 @@ import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
-import { ProjectInterface } from "back-end/types/project";
-import { Environment } from "back-end/types/organization";
+import { ProjectInterface } from "shared/types/project";
+import { Environment } from "shared/types/organization";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -28,6 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import SetupAbandonedPage from "@/components/InitialSetup/SetupAbandonedPage";
+import Callout from "@/ui/Callout";
 
 export type SdkFormValues = {
   languages: SDKLanguage[];
@@ -56,7 +57,7 @@ export default function SetupFlow() {
   const { datasources, mutateDefinitions, project } = useDefinitions();
   const environments = useEnvironments();
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
-    getConnectionLanguageFilter([])
+    getConnectionLanguageFilter([]),
   );
 
   const sdkConnectionForm = useForm<SdkFormValues>({
@@ -98,9 +99,9 @@ export default function SetupFlow() {
 
   if (!canUseSetupFlow) {
     return (
-      <div className="alert alert-warning mt-5">
+      <Callout status="warning" mt="5">
         You do not have permission to use this setup flow.
-      </div>
+      </Callout>
     );
   }
 
@@ -182,12 +183,9 @@ export default function SetupFlow() {
             const sdkCapabilities = getSDKCapabilities(value.languages[0]);
 
             const canUseVisualEditor =
-              hasCommercialFeature("visual-editor") &&
               sdkCapabilities.includes("visualEditorJS");
 
-            const canUseUrlRedirects =
-              hasCommercialFeature("redirects") &&
-              sdkCapabilities.includes("redirects");
+            const canUseUrlRedirects = sdkCapabilities.includes("redirects");
 
             const canUseSecureConnection =
               hasCommercialFeature("hash-secure-attributes") &&
@@ -200,6 +198,7 @@ export default function SetupFlow() {
               languages: value.languages,
               sdkVersion: getLatestSDKVersion(value.languages[0]),
               environment: value.environment,
+              projects: project ? [project] : [],
               encryptPayload: canUseSecureConnection,
               hashSecureAttributes: canUseSecureConnection,
               includeExperimentNames: !canUseSecureConnection,
@@ -207,7 +206,10 @@ export default function SetupFlow() {
               includeVisualExperiments: canUseVisualEditor,
               includeRedirectExperiments: canUseUrlRedirects,
               includeRuleIds: true,
-              projects: project ? [project] : [],
+              includeProjectIdInMetadata: false,
+              includeCustomFieldsInMetadata: false,
+              allowedCustomFieldsInMetadata: [],
+              includeTagsInMetadata: false,
             };
 
             const res = await apiCall<{ connection: SDKConnectionInterface }>(
@@ -215,7 +217,7 @@ export default function SetupFlow() {
               {
                 method: "POST",
                 body: JSON.stringify(body),
-              }
+              },
             );
             setConnection(res.connection.id);
             track("Create SDK Connection", {

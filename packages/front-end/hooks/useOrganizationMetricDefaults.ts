@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from "react";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_METRIC_CAPPING,
@@ -134,7 +134,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
       ...METRIC_DEFAULTS,
       ...(orgSettings?.metricDefaults || {}),
     }),
-    [orgSettings]
+    [orgSettings],
   );
   /**
    * @link OrganizationMetricDefaults#getMaxPercentageChangeForMetric
@@ -146,7 +146,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
 
       return metricDefaults.maxPercentageChange;
     },
-    [metricDefaults]
+    [metricDefaults],
   );
 
   /**
@@ -159,7 +159,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
 
       return metricDefaults.minPercentageChange;
     },
-    [metricDefaults]
+    [metricDefaults],
   );
 
   /**
@@ -172,7 +172,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
 
       return metricDefaults.targetMDE;
     },
-    [metricDefaults]
+    [metricDefaults],
   );
 
   /**
@@ -185,7 +185,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
 
       return metricDefaults.minimumSampleSize;
     },
-    [metricDefaults]
+    [metricDefaults],
   );
 
   return {

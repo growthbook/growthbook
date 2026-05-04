@@ -1,8 +1,9 @@
 import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
@@ -11,6 +12,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useGetStarted } from "@/services/GetStartedProvider";
+import Callout from "@/ui/Callout";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -25,7 +27,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   const { setStep, clearStep } = useGetStarted();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
 
   // If they view the guide, clear the current step
@@ -40,20 +42,20 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   // Ignore the demo datasource
   const hasExperiments = project
     ? experiments.some(
-        (e) => e.project !== demoProjectId && e.project === project
+        (e) => e.project !== demoProjectId && e.project === project,
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
   const hasFactTables = factTables.length > 0;
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
 
   return (
@@ -67,7 +69,6 @@ const ImportedExperimentGuide = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started-experiment-guide"
           commercialFeature={null}
         />
@@ -109,7 +110,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/datasources"
                   style={{
                     fontSize: "17px",
@@ -119,13 +120,13 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Connect to Your Data Warehouse",
-                      source: "importedExperiments",
+                      source: "importedExperimentGuide",
                       stepKey: "connectDataWarehouse",
                     })
                   }
                 >
                   Connect to Your Data Warehouse
-                </Link>
+                </NextLink>
                 <Box mt="2">
                   Allow GrowthBook to query your warehouse to compute traffic
                   totals and metric results.
@@ -161,7 +162,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/fact-tables"
                   style={{
                     fontSize: "17px",
@@ -171,13 +172,13 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Define Fact Tables and Metrics",
-                      source: "importedExperiments",
+                      source: "importedExperimentGuide",
                       stepKey: "createFactTables",
                     })
                   }
                 >
                   Define Fact Tables and Metrics
-                </Link>
+                </NextLink>
                 <Box mt="2">
                   Define fact tables for the main events in your data warehouse
                   and build metrics based on those events.
@@ -212,7 +213,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/experiments?analyzeExisting=true"
                   style={{
                     fontSize: "17px",
@@ -225,14 +226,14 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                         project && " in this Project"
                       } &
                       View Results`,
-                      source: "importedExperiments",
+                      source: "importedExperimentGuide",
                       stepKey: "importExperiment",
                     })
                   }
                 >
                   Import Your First Experiment{project && " in this Project"} &
                   View Results
-                </Link>
+                </NextLink>
                 <Box mt="2">
                   Navigate to Experiments {">"} Add Experiment. In the popup,
                   select “Analyze an Existing Experiment”

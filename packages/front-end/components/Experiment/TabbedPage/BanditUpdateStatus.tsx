@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { BanditEvent } from "shared/validators";
 import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -44,7 +44,7 @@ export default function BanditUpdateStatus({
   }
 
   const start = getValidDate(
-    experiment?.banditStageDateStarted ?? phase?.dateStarted
+    experiment?.banditStageDateStarted ?? phase?.dateStarted,
   ).getTime();
   const burnInHoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
   const burnInRunDate = getValidDate(
@@ -53,7 +53,7 @@ export default function BanditUpdateStatus({
         burnInHoursMultiple *
         60 *
         60 *
-        1000
+        1000,
   );
 
   const _error = !lastEvent?.banditResult
@@ -132,7 +132,7 @@ export default function BanditUpdateStatus({
               {experiment.status === "running" &&
                 !isPublic &&
                 ["explore", "exploit"].includes(
-                  experiment.banditStage ?? ""
+                  experiment.banditStage ?? "",
                 ) && (
                   <>
                     <tr>
@@ -217,7 +217,7 @@ export default function BanditUpdateStatus({
                   <ViewAsyncQueriesButton
                     queries={
                       (generatedSnapshot || latest)?.queries?.map(
-                        (q) => q.query
+                        (q) => q.query,
                       ) ?? []
                     }
                     error={(generatedSnapshot || latest)?.error}

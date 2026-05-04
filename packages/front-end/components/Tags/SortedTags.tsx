@@ -1,7 +1,9 @@
 import { Text } from "@radix-ui/themes";
+import { MouseEvent } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Tag from "./Tag";
+import LinkedTag from "./LinkedTag";
 
 export interface Props {
   tags?: string[];
@@ -9,6 +11,11 @@ export interface Props {
   skipFirstMargin?: boolean;
   useFlex?: boolean;
   showEllipsisAtIndex?: number;
+  /** When provided, used for the overflow label instead of "X more tag(s)...". Receives the count of hidden tags. */
+  ellipsisFormat?: (count: number) => string;
+  getTagHref?: (tag: string) => string;
+  linkEntity?: string;
+  onTagClick?: (tag: string, e: MouseEvent) => void;
 }
 
 export default function SortedTags({
@@ -17,9 +24,12 @@ export default function SortedTags({
   skipFirstMargin = false,
   useFlex = false,
   showEllipsisAtIndex = 5,
+  ellipsisFormat,
+  getTagHref,
+  linkEntity,
+  onTagClick,
 }: Props) {
   const { tags: all } = useDefinitions();
-  //index starting at 0
   if (!tags || !tags.length) return null;
 
   const sortedIds = all.map((t) => t.id);
@@ -31,9 +41,9 @@ export default function SortedTags({
 
   const renderEllipsis = () => {
     const tags = sorted.slice(showEllipsisAtIndex);
-    const moreTagsCopy = `${tags.length} more tag${
-      tags.length === 1 ? "" : "s"
-    }...`;
+    const moreTagsCopy = ellipsisFormat
+      ? ellipsisFormat(tags.length)
+      : `${tags.length} more tag${tags.length === 1 ? "" : "s"}...`;
     const tagElements = renderTags(tags);
     return (
       <Tooltip
@@ -48,12 +58,25 @@ export default function SortedTags({
   const renderTags = (tags: string[]) => {
     return tags.map((tag, i) => {
       const skipMargin = useFlex || (skipFirstMargin && i === 0);
+      const href = getTagHref?.(tag);
+      if (href) {
+        return (
+          <LinkedTag
+            tag={tag}
+            key={tag}
+            skipMargin={skipMargin}
+            href={href}
+            entity={linkEntity}
+            onTagClick={onTagClick}
+          />
+        );
+      }
       return <Tag tag={tag} key={tag} skipMargin={skipMargin} />;
     });
   };
   const renderFlexContainer = (
     child: JSX.Element | JSX.Element[],
-    shouldUseFlex = useFlex
+    shouldUseFlex = useFlex,
   ) => {
     return shouldUseFlex ? (
       <div className="tags-container">{child}</div>
@@ -74,7 +97,7 @@ export default function SortedTags({
       <>
         {renderTags(truncatedTags)}
         {shouldRenderEllipsis && renderEllipsis()}
-      </>
+      </>,
     );
   };
 

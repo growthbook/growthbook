@@ -8,19 +8,19 @@ export const validatePayload = async (
   }: {
     property: string;
     projects?: string[];
-  }
+  },
 ) => {
   if (property === "") throw Error("Attribute property cannot empty!");
 
   if (projects.length) {
     const allProjects = await context.models.projects.getAll();
     const nonexistentProjects = projects.filter(
-      (p) => !allProjects.some(({ id }) => p === id)
+      (p) => !allProjects.some(({ id }) => p === id),
     );
 
     if (nonexistentProjects.length)
       throw new Error(
-        `The following projects do not exist: ${nonexistentProjects.join(", ")}`
+        `The following projects do not exist: ${nonexistentProjects.join(", ")}`,
       );
   }
 

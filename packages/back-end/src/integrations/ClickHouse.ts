@@ -1,23 +1,28 @@
 import { createClient, ResponseJSON } from "@clickhouse/client";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
 import {
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   QueryResponse,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  ManagedWarehousePendingError,
+} from "shared/util";
+import { SqlDialect } from "shared/types/sql";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
+import { clickHouseDialect } from "./dialects/clickhouse";
 
 export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<ClickHouseConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<ClickHouseConnectionParams>(encryptedParams);
 
     if (this.params.user) {
       this.params.username = this.params.user;
@@ -31,10 +36,23 @@ export default class ClickHouse extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
+  getSqlDialect(): SqlDialect {
+    return clickHouseDialect;
+  }
+
+  async testConnection(): Promise<boolean> {
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      return true;
+    }
+    return super.testConnection();
+  }
 
   async runQuery(sql: string): Promise<QueryResponse> {
+    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+      throw new ManagedWarehousePendingError();
+    }
     const client = createClient({
-      host: getHost(this.params.url, this.params.port),
+      url: getHost(this.params.url, this.params.port),
       username: this.params.username,
       password: this.params.password,
       database: this.params.database,
@@ -43,7 +61,7 @@ export default class ClickHouse extends SqlIntegration {
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
-          3600
+          3600,
         ),
       },
     });
@@ -61,89 +79,47 @@ export default class ClickHouse extends SqlIntegration {
         : undefined,
     };
   }
-  toTimestamp(date: Date) {
-    return `toDateTime('${date
-      .toISOString()
-      .substr(0, 19)
-      .replace("T", " ")}', 'UTC')`;
-  }
-  addTime(
-    col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
-    amount: number
-  ): string {
-    return `date${sign === "+" ? "Add" : "Sub"}(${unit}, ${amount}, ${col})`;
-  }
-  dateTrunc(col: string) {
-    return `dateTrunc('day', ${col})`;
-  }
-  dateDiff(startCol: string, endCol: string) {
-    return `dateDiff('day', ${startCol}, ${endCol})`;
-  }
-  formatDate(col: string): string {
-    return `formatDateTime(${col}, '%F')`;
-  }
-  formatDateTimeString(col: string): string {
-    return `formatDateTime(${col}, '%Y-%m-%d %H:%i:%S.%f')`;
-  }
-  ifElse(condition: string, ifTrue: string, ifFalse: string) {
-    return `if(${condition}, ${ifTrue}, ${ifFalse})`;
-  }
-  castToDate(col: string): string {
-    const columType = col === "NULL" ? "Nullable(DATE)" : "DATE";
-    return `CAST(${col} AS ${columType})`;
-  }
-  castToString(col: string): string {
-    return `toString(${col})`;
-  }
-  ensureFloat(col: string): string {
-    return `toFloat64(${col})`;
-  }
-  hasCountDistinctHLL(): boolean {
-    return true;
-  }
-  hllAggregate(col: string): string {
-    return `uniqState(${col})`;
-  }
-  hllReaggregate(col: string): string {
-    return `uniqMergeState(${col})`;
-  }
-  hllCardinality(col: string): string {
-    return `finalizeAggregation(${col})`;
-  }
-  approxQuantile(value: string, quantile: string | number): string {
-    return `quantile(${quantile})(${value})`;
-    // TODO explore gains to using `quantiles`
-  }
+
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
-        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
+        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings.",
       );
-    return `table_schema IN ('${this.params.database}')`;
+
+    // For Managed Warehouse, filter out materialized views
+    const extraWhere =
+      this.datasource.type === "growthbook_clickhouse"
+        ? " AND table_name NOT LIKE '%_mv'"
+        : "";
+
+    return `table_schema IN ('${this.params.database}')${extraWhere}`;
   }
 
   async getFeatureUsage(
     feature: string,
-    lookback: FeatureUsageLookback
+    lookback: FeatureUsageLookback,
   ): Promise<{ start: number; rows: FeatureUsageAggregateRow[] }> {
     logger.info(
-      `Getting feature usage for ${feature} with lookback ${lookback}`
+      `Getting feature usage for ${feature} with lookback ${lookback}`,
     );
     const start = new Date();
+    start.setSeconds(0, 0);
     let roundedTimestamp = "";
     if (lookback === "15minute") {
       roundedTimestamp = "toStartOfMinute(timestamp)";
       start.setMinutes(start.getMinutes() - 15);
     } else if (lookback === "hour") {
       start.setHours(start.getHours() - 1);
+      start.setMinutes(0);
       roundedTimestamp = "toStartOfFiveMinutes(timestamp)";
     } else if (lookback === "day") {
-      start.setDate(start.getDate() - 1);
+      start.setHours(start.getHours() - 24);
+      start.setMinutes(0);
       roundedTimestamp = "toStartOfHour(timestamp)";
     } else if (lookback === "week") {
       start.setDate(start.getDate() - 7);
+      start.setHours(0);
+      start.setMinutes(0);
       roundedTimestamp = "toStartOfInterval(timestamp, INTERVAL 6 HOUR)";
     } else {
       throw new Error(`Invalid lookback: ${lookback}`);
@@ -152,7 +128,7 @@ export default class ClickHouse extends SqlIntegration {
     const res = await this.runQuery(`
 WITH _data as (
 	SELECT
-	  ${this.formatDateTimeString(roundedTimestamp)} as ts,
+	  ${this.getSqlDialect().formatDateTimeString(roundedTimestamp)} as ts,
     environment,
     value,
     source,
@@ -160,26 +136,27 @@ WITH _data as (
     variationId
   FROM feature_usage
 	WHERE
-	  timestamp > ${this.toTimestamp(start)}
-	  AND feature = '${this.escapeStringLiteral(feature)}'
+	  timestamp > ${this.getSqlDialect().toTimestamp(start)}
+	  AND feature = '${this.getSqlDialect().escapeStringLiteral(feature)}'
 )
-SELECT
-  ts,
-  environment,
-  value,
-  source,
-  ruleId,
-  variationId,
-  COUNT(*) as evaluations
-FROM _data
-GROUP BY
-  ts,
-  environment,
-  value,
-  source,
-  ruleId,
-  variationId
-LIMIT 50
+  SELECT
+    ts,
+    environment,
+    value,
+    source,
+    ruleId,
+    variationId,
+    COUNT(*) as evaluations
+  FROM _data
+  GROUP BY
+    ts,
+    environment,
+    value,
+    source,
+    ruleId,
+    variationId
+  ORDER BY evaluations DESC
+  LIMIT 200
       `);
 
     return {

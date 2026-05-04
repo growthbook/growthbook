@@ -1,12 +1,10 @@
-import {ExperimentInterfaceStringDates, LinkedFeatureInfo} from "back-end/types/experiment";
+import {ExperimentInterfaceStringDates, LinkedFeatureInfo} from "shared/types/experiment";
 import React from "react";
-import {VisualChangesetInterface} from "back-end/types/visual-changeset";
-import {URLRedirectInterface} from "back-end/types/url-redirect";
+import {VisualChangesetInterface} from "shared/types/visual-changeset";
+import {URLRedirectInterface} from "shared/types/url-redirect";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
-import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
-import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
-import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
+import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import {SSRPolyfills} from "@/hooks/useSSRPolyfills";
 
@@ -34,7 +32,7 @@ export default function PublicExperimentOverview({
 
       <div className="box px-4 py-3 mb-4">
         <h4>Description</h4>
-        <Markdown>
+        <Markdown isPublic={true} shareUid={experiment.uid} shareType="experiment">
           {experiment?.description || "_no description_"}
         </Markdown>
       </div>
@@ -53,29 +51,22 @@ export default function PublicExperimentOverview({
         <VariationsTable
           experiment={experiment}
           canEditExperiment={false}
+          isPublic={true}
+          shareUid={experiment.uid}
+          shareType="experiment"
         />
       </div>
 
       {hasLinkedChanges ? (
         <>
-          <VisualLinkedChanges
-            visualChangesets={visualChangesets}
-            canAddChanges={false}
-            canEditVisualChangesets={false}
-            experiment={experiment}
-            isPublic={true}
-          />
-          <FeatureLinkedChanges
+          <LinkedChanges
             linkedFeatures={linkedFeatures}
-            experiment={experiment}
-            canAddChanges={false}
-            isPublic={true}
-          />
-          <RedirectLinkedChanges
+            visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
             experiment={experiment}
             canAddChanges={false}
             isPublic={true}
+            canEditVisualChangesets={false}
           />
         </>
       ) : null}

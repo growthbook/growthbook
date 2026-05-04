@@ -1,0 +1,277 @@
+import { captureException as sentryCaptureException } from "@sentry/nextjs";
+import { useMemo } from "react";
+import { ErrorBoundary } from "react-error-boundary";
+import { Flex } from "@radix-ui/themes";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
+import { MetricTimeSeries } from "shared/validators";
+import { daysBetween, getValidDate } from "shared/dates";
+import { addDays, min } from "date-fns";
+import { filterInvalidMetricTimeSeries } from "shared/util";
+import { ExperimentMetricInterface, getAdjustedCI } from "shared/experiments";
+import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  getExperimentMetricFormatter,
+  formatPercent,
+} from "@/services/metrics";
+import { useCurrency } from "@/hooks/useCurrency";
+import { GraphVariation } from "./ExperimentDateGraph";
+import ExperimentTimeSeriesGraph, {
+  ExperimentTimeSeriesGraphDataPoint,
+} from "./ExperimentTimeSeriesGraph";
+
+interface ExperimentMetricTimeSeriesGraphWrapperProps {
+  experimentId: string;
+  pValueThreshold: number;
+  phase: number;
+  metric: ExperimentMetricInterface;
+  differenceType: DifferenceType;
+  variations: GraphVariation[];
+  showVariations: boolean[];
+  statsEngine: StatsEngine;
+  pValueAdjustmentEnabled: boolean;
+  firstDateToRender: Date;
+  sliceId?: string;
+  baselineRow?: number;
+  unavailableMessage?: string;
+  dimensionId?: string;
+  dimensionValue?: string;
+}
+
+export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
+  props: ExperimentMetricTimeSeriesGraphWrapperProps,
+) {
+  return (
+    <ErrorBoundary
+      fallback={
+        <Message>Something went wrong while displaying this graph.</Message>
+      }
+      onError={(error) => {
+        sentryCaptureException(error);
+      }}
+    >
+      <ExperimentMetricTimeSeriesGraphWrapper {...props} />
+    </ErrorBoundary>
+  );
+}
+
+function ExperimentMetricTimeSeriesGraphWrapper({
+  experimentId,
+  pValueThreshold,
+  phase,
+  metric,
+  differenceType,
+  variations,
+  showVariations,
+  statsEngine,
+  pValueAdjustmentEnabled,
+  firstDateToRender,
+  sliceId,
+  baselineRow = 0,
+  unavailableMessage,
+  dimensionId,
+  dimensionValue,
+}: ExperimentMetricTimeSeriesGraphWrapperProps) {
+  const { getFactTableById } = useDefinitions();
+
+  const displayCurrency = useCurrency();
+  const formatterOptions = { currency: displayCurrency };
+  const metricValueFormatter = getExperimentMetricFormatter(
+    metric,
+    getFactTableById,
+  );
+
+  const metricId = sliceId ?? metric.id;
+  const dimensionQuery =
+    dimensionId && dimensionValue !== undefined
+      ? `&dimensions[0][id]=${encodeURIComponent(
+          dimensionId,
+        )}&dimensions[0][value]=${encodeURIComponent(dimensionValue)}`
+      : dimensionId
+        ? `&dimensions[0][id]=${encodeURIComponent(dimensionId)}`
+        : "";
+
+  const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
+    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}${dimensionQuery}`,
+  );
+
+  const filteredMetricTimeSeries = useMemo(() => {
+    const all = filterInvalidMetricTimeSeries(data?.timeSeries || []);
+    if (!dimensionId) {
+      return all.filter((t) => !t.dimensionId);
+    }
+    if (dimensionValue === undefined) {
+      return all.filter((t) => t.dimensionId === dimensionId);
+    }
+    return all.filter(
+      (t) =>
+        t.dimensionId === dimensionId && t.dimensionValue === dimensionValue,
+    );
+  }, [data, dimensionId, dimensionValue]);
+
+  if (unavailableMessage) {
+    return <Message height="70px">{unavailableMessage}</Message>;
+  }
+
+  if (baselineRow !== 0) {
+    return (
+      <Message>
+        Time series is only available when comparing against Control as a
+        baseline.
+      </Message>
+    );
+  }
+
+  if (error) {
+    return (
+      <Message>
+        An error occurred while loading the time series data. Please try again
+        later.
+      </Message>
+    );
+  }
+
+  if (isLoading) {
+    return <Message>Loading...</Message>;
+  }
+
+  if (!filteredMetricTimeSeries || filteredMetricTimeSeries.length === 0) {
+    return <Message>No time series data available for this metric.</Message>;
+  }
+
+  // NB: Can get first item because we only fetch one metric
+  const timeSeries = filteredMetricTimeSeries[0];
+
+  const additionalGraphDataPoints: ExperimentTimeSeriesGraphDataPoint[] = [];
+  const firstDataPointDate = getValidDate(timeSeries.dataPoints[0].date);
+  if (firstDateToRender < firstDataPointDate) {
+    additionalGraphDataPoints.push({
+      d: firstDateToRender,
+    });
+  }
+
+  const firstDate = min([firstDateToRender, firstDataPointDate]);
+  const lastDataPointDate =
+    timeSeries.dataPoints[timeSeries.dataPoints.length - 1].date;
+  const numOfDays = daysBetween(firstDate, lastDataPointDate);
+  if (numOfDays < 7) {
+    additionalGraphDataPoints.push({
+      d: addDays(new Date(lastDataPointDate), 7 - numOfDays),
+    });
+  } else {
+    // Always show one additional day at the end of the graph
+    additionalGraphDataPoints.push({
+      d: addDays(new Date(lastDataPointDate), 1),
+    });
+  }
+
+  const lastIndexInvalidConfiguration = timeSeries.dataPoints.findLastIndex(
+    (point) =>
+      point.tags?.includes("experiment-settings-changed") ||
+      point.tags?.includes("metric-settings-changed"),
+  );
+
+  const dataPoints = [
+    ...timeSeries.dataPoints.map((point, idx) => {
+      const pointVariations = variations.map((gv) => {
+        const variation = point.variations.find((v) => v.name === gv.name);
+        if (!variation) return null;
+
+        // compute adjusted CI if we have all the data and adjustment exists
+        // Note: pvalueAdjusted is undefined in the first version of time series
+        // so this will not run until we handle adjustment
+        let adjustedCI: [number, number] | undefined;
+        const pValueAdjusted = variation[differenceType]?.pValueAdjusted;
+        const lift = variation[differenceType]?.expected;
+        const ci = variation[differenceType]?.ci;
+        if (
+          pValueAdjusted !== undefined &&
+          lift !== undefined &&
+          ci !== undefined
+        ) {
+          adjustedCI = getAdjustedCI(pValueAdjusted, lift, pValueThreshold, ci);
+        }
+
+        return {
+          v: variation.stats?.mean ?? 0,
+          v_formatted: metricValueFormatter(
+            variation.stats?.mean ?? 0,
+            formatterOptions,
+          ),
+          users: variation.stats?.users ?? 0,
+          up: variation[differenceType]?.expected ?? 0,
+          ctw: variation[differenceType]?.chanceToWin ?? undefined,
+          ci: adjustedCI ?? variation[differenceType]?.ci ?? undefined,
+          p:
+            variation[differenceType]?.pValueAdjusted ??
+            variation[differenceType]?.pValue,
+        };
+      });
+
+      const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
+        d: new Date(point.date),
+        variations: pointVariations,
+        helperText:
+          idx < lastIndexInvalidConfiguration
+            ? "Analysis or metric settings do not match current version"
+            : undefined,
+      };
+
+      return parsedPoint;
+    }),
+    ...additionalGraphDataPoints,
+  ];
+
+  const labelText = (() => {
+    switch (differenceType) {
+      case "absolute":
+        return "Absolute Change";
+      case "relative":
+        return "% Change";
+      case "scaled":
+        return "Scaled Impact";
+    }
+  })();
+
+  return (
+    <ExperimentTimeSeriesGraph
+      yaxis="effect"
+      variations={variations}
+      label={labelText}
+      datapoints={dataPoints}
+      showVariations={showVariations}
+      formatter={
+        differenceType === "relative"
+          ? formatPercent
+          : getExperimentMetricFormatter(
+              metric,
+              getFactTableById,
+              differenceType === "absolute" ? "percentagePoints" : "number",
+            )
+      }
+      statsEngine={statsEngine}
+      usesPValueAdjustment={pValueAdjustmentEnabled}
+    />
+  );
+}
+
+function Message({
+  children,
+  height = "220px",
+}: {
+  children: React.ReactNode;
+  height?: string;
+}) {
+  return (
+    <Flex
+      align="center"
+      height={height}
+      justify="center"
+      mb="-1rem"
+      position="relative"
+      width="100%"
+    >
+      {children}
+    </Flex>
+  );
+}

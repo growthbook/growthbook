@@ -2,272 +2,22 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import {
-  BsFlag,
-  BsClipboardCheck,
-  BsLightbulb,
-  BsCodeSlash,
-} from "react-icons/bs";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { BsSearch } from "react-icons/bs";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import {
-  GBBandit,
-  GBDatabase,
-  GBExperiment,
-  GBSettings,
-} from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { AppFeatures } from "@/types/app-features";
-import { WhiteButton } from "@/components/Radix/Button";
+import { WhiteButton } from "@/ui/Button";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import { navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
-
-const navlinks: SidebarLinkProps[] = [
-  {
-    name: "Get Started",
-    href: "/getstarted",
-    Icon: BsLightbulb,
-    path: /^getstarted/,
-    className: styles.first,
-  },
-  {
-    name: "Features",
-    href: "/features",
-    Icon: BsFlag,
-    path: /^(features)/,
-  },
-  {
-    name: "Experiments",
-    href: "/experiments",
-    path: /^experiment/,
-    Icon: GBExperiment,
-  },
-  {
-    name: "Bandits",
-    href: "/bandits",
-    Icon: GBBandit,
-    path: /^bandit/,
-    filter: ({ gb }) => !!gb?.isOn("bandits"),
-  },
-  {
-    name: "Metrics and Data",
-    href: "/metrics",
-    path: /^(metric|segment|dimension|datasources|fact-|metric-group)/,
-    autoClose: true,
-    Icon: GBDatabase,
-    subLinks: [
-      {
-        name: "Metrics",
-        href: "/metrics",
-        path: /^(metric$|metrics|fact-metric|metric-group)/,
-      },
-      {
-        name: "Fact Tables",
-        href: "/fact-tables",
-        path: /^fact-tables/,
-      },
-      {
-        name: "Segments",
-        href: "/segments",
-        path: /^segment/,
-      },
-      {
-        name: "Dimensions",
-        href: "/dimensions",
-        path: /^dimension/,
-      },
-      {
-        name: "Data Sources",
-        href: "/datasources",
-        path: /^datasources/,
-      },
-    ],
-  },
-  {
-    name: "Management",
-    href: "/dashboard",
-    Icon: BsClipboardCheck,
-    path: /^(dashboard|idea|presentation)/,
-    autoClose: true,
-    subLinks: [
-      {
-        name: "Dashboard",
-        href: "/dashboard",
-        path: /^dashboard/,
-      },
-      {
-        name: "Ideas",
-        href: "/ideas",
-        path: /^idea/,
-      },
-      {
-        name: "Presentations",
-        href: "/presentations",
-        path: /^presentation/,
-      },
-    ],
-  },
-  {
-    name: "SDK Configuration",
-    href: "/sdks",
-    path: /^(attributes|namespaces|environments|saved-groups|sdks|archetypes)/,
-    autoClose: true,
-    Icon: BsCodeSlash,
-    subLinks: [
-      {
-        name: "SDK Connections",
-        href: "/sdks",
-        path: /^sdks/,
-      },
-      {
-        name: "Attributes",
-        href: "/attributes",
-        path: /^attributes/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
-      },
-      {
-        name: "Environments",
-        href: "/environments",
-        path: /^environments/,
-      },
-      {
-        name: "Saved Groups",
-        href: "/saved-groups",
-        path: /^saved-groups/,
-      },
-      {
-        name: "Archetypes",
-        href: "/archetypes",
-        path: /^archetypes/,
-      },
-    ],
-  },
-  {
-    name: "Settings",
-    href: "/settings",
-    Icon: GBSettings,
-    path: /^(settings|admin|projects|integrations)/,
-    autoClose: true,
-    subLinks: [
-      {
-        name: "General",
-        href: "/settings",
-        path: /^settings$/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canManageOrgSettings(),
-      },
-      {
-        name: "Members",
-        href: "/settings/team",
-        path: /^settings\/team/,
-        filter: ({ permissionsUtils }) => permissionsUtils.canManageTeam(),
-      },
-      {
-        name: "Tags",
-        href: "/settings/tags",
-        path: /^settings\/tags/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canCreateAndUpdateTag() ||
-          permissionsUtils.canDeleteTag(),
-      },
-      {
-        name: "Projects",
-        href: "/projects",
-        path: /^project/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canManageSomeProjects(),
-      },
-      {
-        name: "Custom Fields",
-        href: "/settings/customfields",
-        path: /^settings\/customfields/,
-      },
-      {
-        name: "API Keys",
-        href: "/settings/keys",
-        path: /^settings\/keys/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canCreateApiKey() ||
-          permissionsUtils.canDeleteApiKey(),
-      },
-      {
-        name: "Webhooks",
-        href: "/settings/webhooks",
-        path: /^settings\/webhooks/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewEventWebhook(),
-      },
-      {
-        name: "Logs",
-        href: "/events",
-        path: /^events/,
-        filter: ({ permissionsUtils }) => permissionsUtils.canViewAuditLogs(),
-      },
-      {
-        name: "Slack",
-        href: "/integrations/slack",
-        path: /^integrations\/slack/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          !!gb?.isOn("slack-integration"),
-      },
-      {
-        name: "GitHub",
-        href: "/integrations/github",
-        path: /^integrations\/github/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          !!gb?.isOn("github-integration"),
-      },
-      {
-        name: "Import your data",
-        href: "/importing",
-        path: /^importing/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canViewFeatureModal() &&
-          permissionsUtils.canCreateEnvironment({
-            projects: [],
-            id: "",
-          }) &&
-          permissionsUtils.canCreateProjects() &&
-          !!gb?.isOn("import-from-x"),
-      },
-      {
-        name: "Usage",
-        href: "/settings/usage",
-        path: /^settings\/usage/,
-        filter: ({ permissionsUtils, isCloud, gb }) =>
-          permissionsUtils.canViewUsage() &&
-          isCloud &&
-          !!gb?.isOn("cdn-usage-data"),
-      },
-      {
-        name: "Billing",
-        href: "/settings/billing",
-        path: /^settings\/billing/,
-        filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
-      },
-      {
-        name: "Admin",
-        href: "/admin",
-        path: /^admin/,
-        divider: true,
-        filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
-      },
-    ],
-  },
-];
+import { useSidebarOpen } from "./SidebarOpenProvider";
 
 const breadcumbLinks = [
   ...navlinks,
@@ -296,20 +46,12 @@ const otherPageTitles = [
     title: "Personal Access Tokens",
   },
   {
-    path: /^integrations\/vercel/,
-    title: "Vercel Integration",
-  },
-  {
-    path: /^integrations\/vercel\/configure/,
-    title: "Vercel Integration Configuration",
-  },
-  {
     path: /^getstarted/,
     title: "Get Started",
   },
   {
     path: /^dashboard/,
-    title: "Program Management",
+    title: "Dashboard",
   },
 ];
 
@@ -330,23 +72,17 @@ const backgroundShade = (color: string) => {
 };
 
 const Layout = (): React.ReactElement => {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useSidebarOpen();
   const settings = useOrgSettings();
-  const { accountPlan, license, subscription } = useUser();
-  const growthbook = useGrowthBook<AppFeatures>();
-
-  // app wide a-a tests
-  growthbook?.isOn("gb-ax5-bandit");
-  growthbook?.isOn("gb-ax10-bandit");
-
+  const permissionsUtil = usePermissionsUtil();
+  const { organization, canSubscribe } = useUser();
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton =
-    ["oss", "starter"].includes(accountPlan || "") ||
-    (license?.isTrial && !subscription?.hasPaymentMethod) ||
-    (["pro", "pro_sso"].includes(accountPlan || "") &&
-      subscription?.status === "canceled");
+    canSubscribe &&
+    permissionsUtil.canManageBilling() &&
+    !organization.isVercelIntegration;
 
   // hacky:
   const router = useRouter();
@@ -357,7 +93,10 @@ const Layout = (): React.ReactElement => {
     return null;
   }
 
-  let pageTitle = breadcrumb.map((b) => b.display).join(" > ");
+  let pageTitle = [...breadcrumb]
+    .reverse()
+    .map((b) => b.display)
+    .join(" - ");
 
   // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {
@@ -405,7 +144,6 @@ const Layout = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="layout"
           commercialFeature={null}
         />
@@ -487,6 +225,23 @@ const Layout = (): React.ReactElement => {
                       />
                     </svg>
                   </a>
+                </li>
+                <li>
+                  <button
+                    className={styles.searchTrigger}
+                    onClick={() => {
+                      document.dispatchEvent(new Event("open-command-palette"));
+                    }}
+                  >
+                    <BsSearch size={13} />
+                    <span className={styles.searchTriggerLabel}>Search</span>
+                    <span className={styles.searchTriggerKbd}>
+                      {typeof navigator !== "undefined" &&
+                      /Mac|iPhone|iPad/.test(navigator.userAgent)
+                        ? "\u2318 K"
+                        : "Ctrl+K"}
+                    </span>
+                  </button>
                 </li>
                 <ProjectSelector />
                 {navlinks.map((v, i) => (

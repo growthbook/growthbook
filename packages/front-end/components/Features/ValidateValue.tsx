@@ -1,9 +1,9 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import React, { useMemo } from "react";
 import { FaCheck } from "react-icons/fa";
 import { validateJSONFeatureValue } from "shared/util";
 import { useUser } from "@/services/UserContext";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 
 export default function ValidateValue({
   value,

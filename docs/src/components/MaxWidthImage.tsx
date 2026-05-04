@@ -13,7 +13,8 @@ export default function MaxWidthImage({
 }) {
   const content =
     React.isValidElement(children) && children.type === "p"
-      ? children.props.children
+      ? (children as React.ReactElement<{ children: React.ReactNode }>).props
+          .children
       : children;
 
   return (

@@ -1,5 +1,5 @@
 import express from "express";
-import z from "zod";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawDimensionController from "./dimension.controller";
@@ -24,7 +24,7 @@ router.post(
       })
       .strict(),
   }),
-  dimensionController.postDimension
+  dimensionController.postDimension,
 );
 
 router.put(
@@ -46,7 +46,7 @@ router.put(
       })
       .strict(),
   }),
-  dimensionController.putDimension
+  dimensionController.putDimension,
 );
 
 router.delete(
@@ -58,7 +58,7 @@ router.delete(
       })
       .strict(),
   }),
-  dimensionController.deleteDimension
+  dimensionController.deleteDimension,
 );
 
 export { router as dimensionRouter };

@@ -3,33 +3,35 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   UserIdType,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { FaPlus } from "react-icons/fa";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import Metadata from "@/ui/Metadata";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 
-type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
+type DataSourceInlineEditIdentifierTypesProps =
+  DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentifierTypesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
+export const DataSourceInlineEditIdentifierTypes: FC<
+  DataSourceInlineEditIdentifierTypesProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
-  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
-    dataSource.settings?.userIdTypes,
-  ]);
+  const userIdTypes = useMemo(
+    () => dataSource.settings?.userIdTypes || [],
+    [dataSource.settings?.userIdTypes],
+  );
 
   const recordEditing = useMemo((): null | UserIdType => {
     return userIdTypes[editingIndex] || null;
@@ -46,7 +48,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
       setEditingIndex(idx);
       setUiMode("edit");
     },
-    []
+    [],
   );
 
   const handleActionDeleteClicked = useCallback(
@@ -57,26 +59,28 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
 
       await onSave(copy);
     },
-    [onSave, dataSource]
+    [onSave, dataSource],
   );
 
   const handleSave = useCallback(
-    (idx: number) => async (userIdType: string, description: string) => {
-      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      copy.settings.userIdTypes[idx] = {
-        userIdType,
-        description,
-      };
+    (idx: number) =>
+      async (userIdType: string, description: string, attributes: string[]) => {
+        const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+        copy.settings.userIdTypes[idx] = {
+          userIdType,
+          description,
+          attributes,
+        };
 
-      await onSave(copy);
-    },
-    [dataSource, onSave]
+        await onSave(copy);
+      },
+    [dataSource, onSave],
   );
 
   const handleAdd = useCallback(() => {
-    setUiMode("add");
     setEditingIndex(userIdTypes.length);
+    setUiMode("add");
   }, [userIdTypes]);
 
   if (!dataSource) {
@@ -88,7 +92,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
     <Box>
       <Flex align="center" gap="2" justify="between" mb="3">
         <Flex align="center" gap="3" mb="0">
-          <Heading as="h3" size="4" mb="0">
+          <Heading as="h3" size="medium" mb="0">
             Identifier Types
           </Heading>
           <Badge label={userIdTypes.length + ""} color="gray" radius="medium" />
@@ -103,17 +107,21 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
       </Flex>
       <p>The different units you use to split traffic in an experiment.</p>
 
-      {userIdTypes.map(({ userIdType, description }, idx) => (
+      {userIdTypes.map(({ userIdType, description, attributes }, idx) => (
         <Card key={userIdType} mt="3">
           <Flex align="start" justify="between" py="2" px="3" gap="3">
             {/* region Identity Type text */}
             <Box>
-              <Heading size="3" as="h3">
+              <Heading size="small" as="h3" mb="1">
                 {userIdType}
               </Heading>
-              <span className="text-muted">
-                {description || "(no description)"}
-              </span>
+              <Box mb="2">
+                <Metadata
+                  label="Linked Hash Attributes"
+                  value={attributes?.join(", ") || "None"}
+                />
+              </Box>
+              <Text color="text-mid">{description || "(no description)"}</Text>
             </Box>
             {/* endregion Identity Type text */}
 
@@ -151,10 +159,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
         <EditIdentifierType
           mode={uiMode}
           onCancel={handleCancel}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-          userIdType={recordEditing?.userIdType}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
+          userIdType={recordEditing?.userIdType ?? ""}
           description={recordEditing?.description}
+          attributes={recordEditing?.attributes}
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}
         />

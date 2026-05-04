@@ -1,12 +1,17 @@
 {
   "versions": [
     {
+      "version": "0.3.0",
+      "capabilities": ["encryption"]
+    },
+    {
       "version": "0.2.0",
       "capabilities": [
         "prerequisites",
         "semverTargeting",
         "bucketingV2",
-        "looseUnmarshalling"
+        "looseUnmarshalling",
+        "namespacesV2"
       ]
     }
   ]

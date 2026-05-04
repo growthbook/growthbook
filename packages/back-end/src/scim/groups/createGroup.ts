@@ -1,6 +1,5 @@
 import { Response } from "express";
 import { isRoleValid, getDefaultRole } from "shared/permissions";
-import { createTeam } from "back-end/src/models/TeamModel";
 import {
   ScimError,
   ScimGroup,
@@ -10,7 +9,7 @@ import { addMembersToTeam } from "back-end/src/services/organizations";
 
 export async function createGroup(
   req: ScimGroupPostRequest,
-  res: Response
+  res: Response,
 ): Promise<Response<ScimGroup | ScimError>> {
   const { displayName, members, growthbookRole } = req.body;
 
@@ -27,11 +26,10 @@ export async function createGroup(
   }
 
   try {
-    const group = await createTeam({
+    const group = await req.context.models.teams.create({
       name: displayName,
       createdBy: "SCIM",
       description: "Created via SCIM.",
-      organization: org.id,
       managedByIdp: true,
       ...roleInfo,
     });

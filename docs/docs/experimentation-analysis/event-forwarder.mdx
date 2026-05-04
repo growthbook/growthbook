@@ -1,0 +1,231 @@
+---
+title: Event Forwarder
+description: Forward events from GrowthBook Cloud to your own data warehouse
+sidebar_label: Event Forwarder
+slug: /app/event-forwarder
+---
+
+# Event Forwarder
+
+GrowthBook offers a fully managed event ingestion pipeline. Use our SDKs to track events in your app and we will enrich and forward them to your data warehouse in near real-time.
+
+## Benefits
+
+- **Fully Managed**: No need to worry about infrastructure management, scaling, or maintenance.
+- **Seamless Integration**: Built-in tracking in our SDKs.
+- **Near Real-Time**: Events are available in your warehouse typically within a few seconds.
+- **Broad Support**: Works with BigQuery, Snowflake, Redshift, Databricks, and more.
+- **Works with Self-Hosting** - Use with either GrowthBook Cloud or your self-hosted GrowthBook instance.
+
+## How it Works
+
+1. Provide GrowthBook with your data warehouse connection details
+2. We will create destination tables for `events`, `experiment_views`, and `feature_usage`
+3. You send analytics events to our scalable Ingestion API
+4. We enrich the events and stream them into your warehouse within seconds
+
+## Get Started
+
+The event forwarder is an advanced Enterprise feature and must be enabled for your account. Contact your account manager or reach out to [sales@growthbook.io](mailto:sales@growthbook.io) to learn more and get started.
+
+## Sending Events
+
+There are 2 ways to send events to GrowthBook:
+
+1. With our [SDKs](#with-sdks) (limited language support)
+2. With our [Ingestion API](#ingestion-api)
+
+### With SDKs
+
+The following SDKs have a built-in plugin to automatically send events.
+
+- [HTML Script Tag](#html-script-tag)
+- [Client-Side JavaScript / React](#client-side-javascript--react)
+- [Node.js](#nodejs)
+
+For everything else, use the [Ingestion API](#ingestion-api).
+
+When the plugin is added, these SDKs will automatically send feature usage and experiment view events to GrowthBook. They also expose a helper method to log additional custom events with optional properties.
+
+All of the attributes in the SDK are sent along with events as context.
+
+#### HTML Script Tag
+
+Simply add `data-tracking="growthbook"` to your script tag to enable.
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY"
+  data-tracking="growthbook"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+To track additional events, use the `window.gbEvents` global variable. You can push events to this array, and they will be tracked.
+
+```html
+<script>
+  // Ensure the global variable exists
+  window.gbEvents = window.gbEvents || [];
+
+  // Simple (no properties)
+  window.gbEvents.push("Page View");
+
+  function handleSignUpClick() {
+    // With custom properties
+    window.gbEvents.push({
+      eventName: "Button Click",
+      properties: {
+        button: "Sign Up"
+      }
+    });
+  }
+</script>
+<button onclick="handleSignUpClick()">Sign Up</button>
+```
+
+#### Client-Side JavaScript / React
+
+Use the `growthbookTrackingPlugin` to enable tracking. We recommend also using the `autoAttributesPlugin` to include many common attributes in your events (browser, session_id, etc.).
+
+```js
+import { GrowthBook } from "@growthbook/growthbook";
+import {
+  autoAttributesPlugin,
+  growthbookTrackingPlugin
+} from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+    clientKey: "YOUR_CLIENT_KEY",
+    plugins: [
+        autoAttributesPlugin(),
+        growthbookTrackingPlugin()
+    ]
+});
+```
+
+Use the `logEvent` method to track additional custom events:
+
+```js
+// Simple (no properties)
+gb.logEvent("Page View");
+
+// With custom properties
+gb.logEvent("Button Click", {
+  button: "Sign Up",
+});
+```
+
+#### Node.js
+
+Use the `growthbookTrackingPlugin` to enable tracking:
+
+```js
+import { GrowthBookClient } from "@growthbook/growthbook";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBookClient({
+  clientKey: process.env.GROWTHBOOK_CLIENT_KEY,
+  plugins: [growthbookTrackingPlugin()],
+});
+```
+
+Use the `logEvent` method to track additional custom events:
+
+```js
+gb.logEvent("Sign Up", {
+  accountPlan: "pro"
+}, userContext);
+```
+
+User-scoped instances also have a `logEvent` method that doesn't require the user context:
+
+```js
+req.growthbook.logEvent("Sign Up", {
+  accountPlan: "pro"
+});
+```
+
+### Ingestion API
+
+You can also send events directly to our ingestion API. Pass an array of event objects, each with the following properties:
+
+- **event_name**: The name of the event (e.g., "Purchase", "Button Click")
+- **properties**: Optional key-value pairs with properties of the event itself
+- **attributes**: Optional key-value pairs with attributes of the user or context at the time of the event
+
+```bash
+curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
+-H "Content-Type: application/json" \
+-d '[{
+  "event_name": "Purchase",
+  "properties": {
+    "amount": 100
+  },
+  "attributes": {
+    "user_id": "12345"
+  }
+}]'
+```
+
+The example above uses the `us1.gb-ingest.com` endpoint. Contact your account manager to find out which endpoint you should use.
+
+#### Experiment View Events
+
+In order to use GrowthBook's experiment analysis features, you must send an event every time a user views an experiment. It must match the following format:
+
+- **event_name**: Must be `"Experiment Viewed"`
+- **properties**: Must include the following key/value pairs:
+  - `experimentId`: The ID of the experiment being viewed
+  - `variationId`: The ID of the variation that was shown to the user
+
+In addition, you must include `attributes` with the user attributes that were used to evaluate the experiment, plus any attributes you want to use as dimensions for slicing and dicing.
+
+#### Feature Usage Events
+
+To take advantage of GrowthBook's feature usage analytics, you must send an event every time a feature is evaluated with a specific format.
+
+- **event_name**: Must be `"Feature Evaluated"`
+- **properties**: Must include the following key/value pairs:
+  - `feature`: The name of the feature being evaluated
+  - `value`: The feature's value that was returned from the evaluation
+  - `source`: (optional) The source of the feature value (e.g., "defaultValue", "experiment", "force")
+  - `ruleId`: (optional) The ID of the specific rule that was used to evaluate the feature (or `$default` if the default value was used)
+  - `variationId`: (optional) If the value came from an experiment, the ID of the variation that was returned
+
+#### Attributes
+
+Attributes are key-value pairs that provide context about the user or environment at the time of the event. They can be used to slice and dice your data in analysis.
+
+It's recommended to include the same attributes you use in your GrowthBook SDK.
+
+Some attributes are enriched in the ingestion API if provided:
+
+- `ip` - a geoip lookup is done and the following attributes are added. If an ip attribute is not provided, we will use the IP address of the request.
+  - `geo_country`
+  - `geo_city`
+  - `geo_lat`
+  - `geo_lon`
+- `ua` - the user agent is parsed and the following attributes are added. If a user agent attribute is not provided, we will use the user agent of the request.
+  - `ua_browser` (e.g. Safari)
+  - `ua_os` (e.g. macOS)
+  - `ua_device_type` (e.g. mobile)
+- `url` - the URL is parsed and the following attributes are added:
+  - `url_path` (e.g. /products/123)
+  - `url_host` (e.g. www.example.com)
+  - `url_query` (e.g. ?utm_source=google)
+  - `url_fragment` (e.g. #section1)
+
+It's also recommend to include attributes about which SDK is being used. This can help with debugging.
+
+- `sdk_language` (e.g. python)
+- `sdk_version` (e.g. 1.2.3)
+
+#### Limits
+
+When calling the ingestion API directly, please be aware of the following default limits:
+
+- Maximum of 100 events per request
+- Maximum of 1 request per second
+
+These limits are to protect accidental misuse of the API. Our Ingestion API can handle much higher volumes than this. Reach out to your account manager if you need to increase your limits.

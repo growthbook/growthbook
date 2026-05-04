@@ -17,9 +17,14 @@ import updateLicenseJob, {
 } from "back-end/src/jobs/updateLicense";
 import deleteOldAgendaJobs from "back-end/src/jobs/deleteOldAgendaJobs";
 import { logger } from "back-end/src/util/logger";
+import addSafeRolloutSnapshotJob from "back-end/src/jobs/addSafeRolloutSnapshotJob";
+import addDashboardUpdateJob from "back-end/src/jobs/updateDashboards";
+import addHoldoutUpdateJob from "back-end/src/jobs/updateHoldoutStatus";
+import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
+import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
+import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 
 export async function queueInit() {
-  if (!CRON_ENABLED) return;
   const agenda = getAgendaInstance();
 
   addExperimentResultsJob(agenda);
@@ -35,7 +40,12 @@ export async function queueInit() {
   refreshFactTableColumns(agenda);
   addSdkWebhooksJob(agenda);
   updateLicenseJob(agenda);
-
+  addSafeRolloutSnapshotJob(agenda);
+  addDashboardUpdateJob(agenda);
+  addHoldoutUpdateJob(agenda);
+  updateAutoSlicesJob(agenda);
+  addRampScheduleJob(agenda);
+  initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection
     .createIndex({ lastFinishedAt: 1, nextRunAt: 1 })
@@ -44,7 +54,9 @@ export async function queueInit() {
     });
   deleteOldAgendaJobs(agenda);
 
-  await agenda.start();
+  if (CRON_ENABLED) {
+    await agenda.start();
+  }
 
   if (!IS_CLOUD) {
     await queueUpdateLicense();

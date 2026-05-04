@@ -1,7 +1,7 @@
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisSource,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
 import { MetricAnalysisFormFields } from "@/components/MetricAnalysis/MetricAnalysis";
 
 export function getMetricAnalysisProps({
@@ -17,7 +17,7 @@ export function getMetricAnalysisProps({
 }): CreateMetricAnalysisProps {
   const todayMinusLookback = new Date(endOfToday);
   todayMinusLookback.setDate(
-    todayMinusLookback.getDate() - (values.lookbackDays as number)
+    todayMinusLookback.getDate() - (values.lookbackDays as number),
   );
   todayMinusLookback.setHours(0, 0, 0, 0);
 
@@ -30,5 +30,7 @@ export function getMetricAnalysisProps({
     populationType: values.populationType,
     populationId: values.populationId ?? null,
     source: source ?? "metric",
+    additionalNumeratorFilters: [],
+    additionalDenominatorFilters: [],
   };
 }

@@ -1,42 +1,32 @@
-import { isProjectListValidForProject } from "shared/util";
-import { ListFactTablesResponse } from "back-end/types/openapi";
+import { listFactTablesValidator } from "shared/validators";
 import {
   getAllFactTablesForOrganization,
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listFactTablesValidator } from "back-end/src/validators/openapi";
 
 export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
-  async (req): Promise<ListFactTablesResponse> => {
-    const factTables = await getAllFactTablesForOrganization(req.context);
+  async (req) => {
+    // Filter at the database level for better performance
+    const factTables = await getAllFactTablesForOrganization(req.context, {
+      datasourceId: req.query.datasourceId,
+      projectId: req.query.projectId,
+    });
 
-    let matches = factTables;
-    if (req.query.projectId) {
-      matches = matches.filter((factTable) =>
-        isProjectListValidForProject(factTable.projects, req.query.projectId)
-      );
-    }
-    if (req.query.datasourceId) {
-      matches = matches.filter(
-        (factTable) => factTable.datasource === req.query.datasourceId
-      );
-    }
-
-    // TODO: Move sorting/limiting to the database query for better performance
-    const { filtered, returnFields } = applyPagination(
-      matches.sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
-    );
+    // Sorting is done at DB level
+    // TODO: Move pagination (limit/offset) to database for better performance
+    const { filtered, returnFields } = applyPagination(factTables, req.query);
 
     return {
-      factTables: filtered.map((factTable) =>
-        toFactTableApiInterface(factTable)
+      factTables: await resolveOwnerEmails(
+        filtered.map((factTable) => toFactTableApiInterface(factTable)),
+        req.context,
       ),
       ...returnFields,
     };
-  }
+  },
 );

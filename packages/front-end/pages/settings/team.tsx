@@ -3,19 +3,15 @@ import { Box } from "@radix-ui/themes";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
 import { Team, useUser } from "@/services/UserContext";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
 import RoleList from "@/components/Teams/Roles/RoleList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
-import LinkButton from "@/components/Radix/LinkButton";
+import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import Callout from "@/ui/Callout";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, hasCommercialFeature } = useUser();
@@ -27,16 +23,16 @@ const TeamPage: FC = () => {
   if (!permissionsUtil.canManageTeam()) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
 
   return (
     <div className="container-fluid pagecontents">
-      <Tabs defaultValue="members">
+      <Tabs defaultValue="members" persistInURL>
         <Box mb="5">
           <TabsList>
             <TabsTrigger value="members">Members</TabsTrigger>
@@ -89,7 +85,6 @@ const TeamPage: FC = () => {
                 title="Teams"
                 description="Create groups of GrowthBook users to organize and manage permissions centrally"
                 commercialFeature="teams"
-                reason="Teams no access"
                 learnMoreLink="https://docs.growthbook.io/account/user-permissions#teams"
               />
             )}
@@ -128,7 +123,6 @@ const TeamPage: FC = () => {
                 title="Custom Roles"
                 description="Custom roles allows you to adjust permissions and assign those roles to members or teams"
                 commercialFeature="custom-roles"
-                reason="Custom Roles no access"
                 learnMoreLink="https://docs.growthbook.io/account/user-permissions#custom-roles"
               />
             )}

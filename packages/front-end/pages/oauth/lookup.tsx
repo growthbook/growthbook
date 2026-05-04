@@ -4,6 +4,7 @@ import Field from "@/components/Forms/Field";
 import { redirectWithTimeout, safeLogout } from "@/services/auth";
 import { getApiHost, isCloud } from "@/services/env";
 import WelcomeFrame from "@/components/Auth/WelcomeFrame";
+import Callout from "@/ui/Callout";
 
 export async function lookupByEmail(email: string) {
   if (!isCloud()) {
@@ -27,7 +28,7 @@ export async function lookupByEmail(email: string) {
   const json: { message?: string; status: number } = await res.json();
   if (json.message || json.status !== 200) {
     throw new Error(
-      json?.message || "No SSO Connection found for that email address."
+      json?.message || "No SSO Connection found for that email address.",
     );
   }
 }
@@ -83,7 +84,7 @@ export default function OAuthLookup() {
           autoFocus={true}
           autoComplete="username"
         />
-        {error && <div className="alert alert-danger mr-auto">{error}</div>}
+        {error && <Callout status="error">{error}</Callout>}
         <button className={`btn btn-primary btn-block btn-lg`} type="submit">
           Continue
         </button>

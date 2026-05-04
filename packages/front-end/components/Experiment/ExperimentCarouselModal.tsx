@@ -1,5 +1,6 @@
 import { FC, useState, useCallback, useEffect, useMemo } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { MdArrowBackIosNew, MdArrowForwardIos } from "react-icons/md";
 import { PiCameraSlashLight } from "react-icons/pi";
@@ -13,9 +14,10 @@ const ExperimentCarouselModal: FC<{
   experiment: ExperimentInterfaceStringDates;
   currentVariation: string;
   currentScreenshot: number;
-  imageCache: { [key: string]: string };
+  imageCache: Record<string, { url: string; expiresAt: string }>;
   close: () => void;
   mutate?: () => void;
+  restrictVariation?: boolean;
 }> = ({
   deleteImage,
   experiment,
@@ -24,18 +26,17 @@ const ExperimentCarouselModal: FC<{
   imageCache,
   close,
   mutate,
+  restrictVariation = false,
 }) => {
   const [variantId, setVariationId] = useState(currentVariation);
   const [screenshotIndex, setScreenshotIndex] = useState(currentScreenshot);
   const [zoom, setZoom] = useState(false);
 
   // loop through all experiment variations and get a map of all screenshots, with the variant id and info
+  const orderedVariants = getLatestPhaseVariations(experiment);
   const variantMap = useMemo(() => {
-    return new Map(
-      experiment.variations.map((v, i) => [v.id, { ...v, index: i }])
-    );
-  }, [experiment.variations]);
-  const orderedVariants = experiment.variations;
+    return new Map(orderedVariants.map((v) => [v.id, v]));
+  }, [orderedVariants]);
   const getScreenshot = useCallback(
     (variantId: string, screenshotIndex: number) => {
       const variant = variantMap.get(variantId);
@@ -43,7 +44,7 @@ const ExperimentCarouselModal: FC<{
 
       return variant.screenshots[screenshotIndex] || null;
     },
-    [variantMap]
+    [variantMap],
   );
 
   const getNextScreenshot = useCallback(
@@ -62,6 +63,10 @@ const ExperimentCarouselModal: FC<{
         };
       }
 
+      if (restrictVariation) {
+        return null; // No next screenshot if restricted
+      }
+
       // Move to the next variant
       let nextVariantIndex = variantIndex + 1;
       while (nextVariantIndex < orderedVariants.length) {
@@ -78,7 +83,7 @@ const ExperimentCarouselModal: FC<{
 
       return null; // No more screenshots
     },
-    [orderedVariants]
+    [orderedVariants, restrictVariation],
   );
 
   const getPreviousScreenshot = useCallback(
@@ -97,6 +102,10 @@ const ExperimentCarouselModal: FC<{
         };
       }
 
+      if (restrictVariation) {
+        return null; // No previous screenshot if restricted
+      }
+
       // Move to the previous variant with screenshots
       while (variantIndex > 0) {
         variantIndex--;
@@ -113,7 +122,7 @@ const ExperimentCarouselModal: FC<{
 
       return null; // No previous screenshots
     },
-    [orderedVariants]
+    [orderedVariants, restrictVariation],
   );
 
   const variant = variantMap.get(variantId);
@@ -259,7 +268,8 @@ const ExperimentCarouselModal: FC<{
           <Box flexBasis="70px" flexGrow="0"></Box>
           <Flex gap="2" justify="center" wrap="wrap" flexBasis="100%">
             {orderedVariants.map((variant, variantIndex) =>
-              variant.screenshots.length > 0
+              variant.screenshots.length > 0 &&
+              (!restrictVariation || variant.id === variantId)
                 ? variant.screenshots.map((screenshot, index) => (
                     <Box
                       key={`${variant.id}-${index}`}
@@ -318,7 +328,7 @@ const ExperimentCarouselModal: FC<{
                       </Box>
                     </Box>
                   ))
-                : null
+                : null,
             )}
           </Flex>
           <Box flexBasis="70px" flexGrow="0">

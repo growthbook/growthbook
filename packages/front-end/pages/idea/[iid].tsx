@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { useState, ReactElement, useEffect } from "react";
 import {
   FaAngleLeft,
@@ -7,11 +7,14 @@ import {
   FaChartLine,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import Link from "next/link";
-import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ImpactEstimateInterface } from "shared/types/impact-estimate";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentDataForStatusStringDates,
+} from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { date } from "shared/dates";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -29,12 +32,13 @@ import InlineForm from "@/components/Forms/InlineForm";
 import TagsInput from "@/components/Tags/TagsInput";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -61,7 +65,11 @@ const IdeaPage = (): ReactElement => {
 
   const { push } = useRouter();
 
-  const { data, error: dataError, mutate } = useApi<{
+  const {
+    data,
+    error: dataError,
+    mutate,
+  } = useApi<{
     status: number;
     message: string;
     idea: IdeaInterface;
@@ -88,9 +96,7 @@ const IdeaPage = (): ReactElement => {
 
   if (dataError) {
     return (
-      <div className="alert alert-danger">
-        There was a problem loading this idea
-      </div>
+      <Callout status="error">There was a problem loading this idea</Callout>
     );
   }
   if (!data) {
@@ -105,9 +111,8 @@ const IdeaPage = (): ReactElement => {
   const estimate = data.estimate;
 
   const canEdit = permissionsUtil.canUpdateIdea(idea, {});
-  const canCreateIdeasInCurrentProject = permissionsUtil.canViewIdeaModal(
-    project
-  );
+  const canCreateIdeasInCurrentProject =
+    permissionsUtil.canViewIdeaModal(project);
 
   const metric = getMetricById(estimate?.metric || "");
   const datasource = getDatasourceById(metric?.datasource || "");
@@ -210,7 +215,7 @@ const IdeaPage = (): ReactElement => {
                       {
                         method: "DELETE",
                         body: JSON.stringify({ id: iid }),
-                      }
+                      },
                     );
 
                     push("/ideas");
@@ -229,9 +234,11 @@ const IdeaPage = (): ReactElement => {
               <FaExternalLinkAlt /> {data.experiment.name}
             </Link>
             {data.experiment.status && (
-              <StatusIndicator
-                status={data.experiment.status}
-                archived={data.experiment.archived || false}
+              <ExperimentStatusIndicator
+                experimentData={
+                  data.experiment as ExperimentDataForStatusStringDates
+                }
+                labelFormat="status-only"
               />
             )}
           </div>
@@ -249,7 +256,7 @@ const IdeaPage = (): ReactElement => {
                   {
                     method: "POST",
                     body: JSON.stringify(value),
-                  }
+                  },
                 );
                 await mutate({
                   ...data,

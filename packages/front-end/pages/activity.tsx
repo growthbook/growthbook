@@ -1,9 +1,10 @@
 import { FC, useState } from "react";
-import { AuditInterface } from "back-end/types/audit";
+import { AuditInterface } from "shared/types/audit";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { HistoryTableRow } from "@/components/HistoryTable";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 
 const Activity: FC = () => {
   const { data, error } = useApi<{
@@ -16,7 +17,7 @@ const Activity: FC = () => {
   const [open, setOpen] = useState("");
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

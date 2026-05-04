@@ -4,10 +4,12 @@
 
 a,
 .btn-link {
-  color: var(--text-link-color);
+  color: var(--accent-a11);
+  text-decoration-color: var(--accent-a5);
 
   &:hover {
-    color: var(--text-link-hover-color);
+    color: var(--accent-a10);
+    text-decoration: underline;
   }
 }
 
@@ -40,7 +42,9 @@ pre {
 }
 
 .form-control {
-  border-color: var(--border-color-300);
+  border-color: var(--border-color-200);
+  padding-left: 8px;
+  padding-right: 8px;
 
   &[readonly],
   &:disabled {
@@ -88,7 +92,7 @@ pre {
   background-color: var(--surface-background-color);
   border-color: var(--border-color-200);
 }
-.dark {
+.dark-theme {
   .card {
     .card-header {
       background-color: var(--surface-background-color-alt);
@@ -126,6 +130,10 @@ pre {
 
 .border-right {
   border-right-color: var(--border-color-200) !important;
+}
+
+.border-warning {
+  border-color: var(--amber-8) !important;
 }
 
 // region Alerts
@@ -247,6 +255,10 @@ pre {
 
 .modal-header {
   border-color: var(--slate-a3);
+
+  .modal-borderless-header & {
+    border-color: transparent;
+  }
 }
 
 .modal-content {
@@ -257,6 +269,10 @@ pre {
 
 .modal-footer {
   border-color: var(--slate-a3);
+
+  .modal-borderless-footer & {
+    border-color: transparent;
+  }
 }
 
 // endregion Modals
@@ -354,7 +370,7 @@ pre {
   }
 }
 
-// region d2h differ
+// region d2h differ / Diff Viewer
 
 // d2h loads CSS at the end of the document so we need to do all these !important
 
@@ -407,6 +423,17 @@ pre {
   background-color: var(--surface-background-color-alt) !important;
 }
 
-// endregion d2h differ
+.diff-wrapper td {
+  padding: 0 10px !important;
+  vertical-align: top !important;
+}
 
-// endregion Diff Viewer
+.diff-wrapper-compact {
+  pre,
+  td {
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+  }
+}
+
+// endregion d2h differ / Diff Viewer

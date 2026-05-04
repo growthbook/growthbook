@@ -1,4 +1,4 @@
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";
@@ -54,14 +54,14 @@ export default function PremiumTooltip({
   if (oldStyle) {
     return (
       <Tooltip
-        shouldDisplay={!!body || !hasFeature}
+        shouldDisplay={!!body && !hasFeature}
         body={
           <>
             {!hasFeature && (
               <p
                 className={clsx(
                   body ? "mb-2" : "mb-0",
-                  !hasFeature ? "premium" : ""
+                  !hasFeature ? "premium" : "",
                 )}
               >
                 <GBPremiumBadge className="mr-1" />
@@ -130,6 +130,7 @@ export default function PremiumTooltip({
             commercialFeature={commercialFeature}
             premiumText={tooltipText}
             useTip={false}
+            mx="2"
           />
         )}
       </Flex>

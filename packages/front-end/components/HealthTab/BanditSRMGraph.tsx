@@ -17,7 +17,8 @@ import { date, datetime } from "shared/dates";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { BiRadioCircle, BiRadioCircleMarked } from "react-icons/bi";
 import { formatNumber } from "@/services/metrics";
 import { getVariationColor } from "@/services/features";
@@ -60,11 +61,13 @@ type TooltipData = {
 const height = 300;
 const margin = [15, 25, 50, 70];
 
+type GraphVariation = { name: string; index: number };
+
 const getTooltipContents = (
   data: TooltipData,
-  variationNames: string[],
+  variations: GraphVariation[],
   mode: "users" | "weights",
-  showVariations: boolean[]
+  showVariations: boolean[],
 ) => {
   const { d } = data;
   return (
@@ -85,19 +88,19 @@ const getTooltipContents = (
           </tr>
         </thead>
         <tbody>
-          {variationNames.map((v, i) => {
+          {variations.map((v, i) => {
             if (!showVariations[i]) return null;
             const expectedUsers = data?.d?.expectedUsers?.[i] ?? 0;
             const users = data?.d?.users?.[i] ?? 0;
             const weight = data?.d?.weights?.[i] ?? 0;
             const userRatio = data?.d?.userRatios?.[i];
             return (
-              <tr key={i}>
+              <tr key={v.index}>
                 <td
                   className="text-ellipsis"
-                  style={{ color: getVariationColor(i, true) }}
+                  style={{ color: getVariationColor(v.index, true) }}
                 >
-                  {v}
+                  {v.name}
                 </td>
                 <td>
                   {mode === "users"
@@ -141,7 +144,7 @@ const getTooltipData = (
   mx: number,
   width: number,
   stackedData: any[],
-  xScale
+  xScale,
 ): TooltipData => {
   const xCoords = stackedData.map((d) => xScale(d.date));
 
@@ -168,14 +171,16 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
 }) => {
   const formatter = formatNumber;
 
-  const variationNames = experiment.variations.map((v) => v.name);
+  const variations: GraphVariation[] = getLatestPhaseVariations(experiment).map(
+    (v) => ({ name: v.name, index: v.index }),
+  );
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,
   });
 
   const [showVariations, setShowVariations] = useState<boolean[]>(
-    variationNames.map(() => true)
+    variations.map(() => true),
   );
 
   const {
@@ -192,29 +197,32 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
 
     const data: any[] = [];
 
-    let previousUsers = variationNames.map(() => 0);
+    let previousUsers = variations.map(() => 0);
 
-    events.forEach((event) => {
+    events.forEach((event, i) => {
+      if (!event.banditResult.reweight && i !== events.length - 1) {
+        return;
+      }
       const weights = event.banditResult.currentWeights;
 
-      const users = variationNames.map(
+      const users = variations.map(
         (_, i) =>
           (event.banditResult?.singleVariationResults?.[i]?.users ?? 0) -
-          (previousUsers?.[i] ?? 0)
+          (previousUsers?.[i] ?? 0),
       );
-      previousUsers = variationNames.map(
-        (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0
+      previousUsers = variations.map(
+        (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0,
       );
       const totalUsers = users.reduce((sum, val) => sum + val, 0);
-      const expectedUsers = variationNames.map(
-        (_, i) => (weights[i] ?? 0) * totalUsers
+      const expectedUsers = variations.map(
+        (_, i) => (weights[i] ?? 0) * totalUsers,
       );
 
-      const userRatios = variationNames.map((_, i) =>
-        totalUsers ? (users[i] ?? 0) / totalUsers : undefined
+      const userRatios = variations.map((_, i) =>
+        totalUsers ? (users[i] ?? 0) / totalUsers : undefined,
       );
 
-      const srm = event?.banditResult?.srm;
+      const srm = event?.health?.srm;
 
       const dataPoint: BanditSRMGraphDataPoint = {
         date: new Date(event.date),
@@ -229,7 +237,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
     });
 
     return data;
-  }, [phase, variationNames]);
+  }, [phase, variations]);
 
   const yMax = height - margin[0] - margin[2];
 
@@ -241,26 +249,26 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
               Math.min(
                 ...data.map((d) =>
                   Math.min(
-                    ...variationNames
+                    ...variations
                       .map((_, i) => d?.users?.[i] ?? 0)
                       .filter((_, i) => showVariations[i]),
-                    ...variationNames
+                    ...variations
                       .map((_, i) => d?.expectedUsers?.[i] ?? 0)
-                      .filter((_, i) => showVariations[i])
-                  )
-                )
+                      .filter((_, i) => showVariations[i]),
+                  ),
+                ),
               ) * 1.03,
               Math.max(
                 ...data.map((d) =>
                   Math.max(
-                    ...variationNames
+                    ...variations
                       .map((_, i) => d?.users?.[i] ?? 0)
                       .filter((_, i) => showVariations[i]),
-                    ...variationNames
+                    ...variations
                       .map((_, i) => d?.expectedUsers?.[i] ?? 0)
-                      .filter((_, i) => showVariations[i])
-                  )
-                )
+                      .filter((_, i) => showVariations[i]),
+                  ),
+                ),
               ) * 1.03,
             ],
             range: [yMax, 0],
@@ -270,7 +278,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
             domain: [0, 1],
             range: [yMax, 0],
           }),
-    [variationNames, mode, data, yMax, showVariations]
+    [variations, mode, data, yMax, showVariations],
   );
 
   // Get x-axis domain
@@ -295,7 +303,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
         const visibleTickIndexes = getVisibleTickIndexes(
           allXTicks,
           xScale,
-          width * 0.11
+          width * 0.11,
         );
 
         const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -325,9 +333,9 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
               >
                 {getTooltipContents(
                   tooltipData,
-                  variationNames,
+                  variations,
                   mode,
-                  showVariations
+                  showVariations,
                 )}
               </TooltipWithBounds>
             )}
@@ -345,7 +353,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   key={"all"}
                   className="nowrap cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
                   onClick={() => {
-                    setShowVariations(variationNames.map(() => true));
+                    setShowVariations(variations.map(() => true));
                   }}
                 >
                   {showVariations.every((sv) => sv) ? (
@@ -355,19 +363,17 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   )}
                   Show all
                 </div>
-                {variationNames.map((v, i) => {
+                {variations.map((v, i) => {
                   return (
                     <div
-                      key={i}
+                      key={v.index}
                       className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
                       style={{
                         maxWidth: 200,
-                        color: getVariationColor(i, true),
+                        color: getVariationColor(v.index, true),
                       }}
                       onClick={() => {
-                        setShowVariations(
-                          variationNames.map((_, j) => i === j)
-                        );
+                        setShowVariations(variations.map((_, j) => i === j));
                       }}
                     >
                       {showVariations[i] &&
@@ -376,7 +382,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                       ) : (
                         <BiRadioCircle size={24} />
                       )}
-                      {v}
+                      {v.name}
                     </div>
                   );
                 })}
@@ -444,8 +450,8 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
               </defs>
@@ -466,37 +472,37 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
 
                 <Group clipPath="url(#bandit-srm-graph-clip)">
                   {mode === "users"
-                    ? variationNames.map((_, i) => {
+                    ? variations.map((v, i) => {
                         if (!showVariations[i]) return null;
                         return (
-                          <Fragment key={`users-group-${i}`}>
+                          <Fragment key={`users-group-${v.index}`}>
                             <LinePath
-                              key={`linepath-expectedUsers-${i}`}
+                              key={`linepath-expectedUsers-${v.index}`}
                               data={data}
                               x={(d) => xScale(d.date)}
                               y={(d) => yScale(d.expectedUsers?.[i] ?? 0)}
-                              stroke={getVariationColor(i, true)}
+                              stroke={getVariationColor(v.index, true)}
                               strokeWidth={2}
                               strokeDasharray={"2,5"}
                               curve={curveMonotoneX}
                             />
                             <LinePath
-                              key={`linepath-users-${i}`}
+                              key={`linepath-users-${v.index}`}
                               data={data}
                               x={(d) => xScale(d.date)}
                               y={(d) => yScale(d.users?.[i] ?? 0)}
-                              stroke={getVariationColor(i, true)}
+                              stroke={getVariationColor(v.index, true)}
                               strokeWidth={2}
                               curve={curveMonotoneX}
                             />
                             <AreaClosed
-                              key={`users-delta-${i}`}
+                              key={`users-delta-${v.index}`}
                               yScale={yScale}
                               data={data}
                               x={(d) => xScale(d.date)}
                               y0={(d) => yScale(d.expectedUsers?.[i] ?? 0)}
                               y1={(d) => yScale(d.users?.[i] ?? 0)}
-                              fill={getVariationColor(i, true)}
+                              fill={getVariationColor(v.index, true)}
                               opacity={0.12}
                               curve={curveMonotoneX}
                             />
@@ -506,38 +512,38 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
                     : null}
 
                   {mode === "weights"
-                    ? variationNames.map((_, i) => {
+                    ? variations.map((v, i) => {
                         if (!showVariations[i]) return null;
                         return (
-                          <Fragment key={`weights-group-${i}`}>
+                          <Fragment key={`weights-group-${v.index}`}>
                             <LinePath
-                              key={`linepath-weights-${i}`}
+                              key={`linepath-weights-${v.index}`}
                               data={data}
                               x={(d) => xScale(d.date)}
                               y={(d) => yScale(d.weights?.[i] ?? 0)}
-                              stroke={getVariationColor(i, true)}
+                              stroke={getVariationColor(v.index, true)}
                               strokeWidth={2}
                               curve={curveStepAfter}
                             />
                             <LinePath
-                              key={`linepath-userRatios-${i}`}
+                              key={`linepath-userRatios-${v.index}`}
                               data={data}
                               x={(d) => xScale(d.date)}
                               y={(d) => yScale(d.userRatios?.[i] ?? 0)}
-                              stroke={getVariationColor(i, true)}
+                              stroke={getVariationColor(v.index, true)}
                               strokeWidth={2}
                               strokeDasharray={"2,5"}
                               curve={curveStepAfter}
                               defined={(d) => d.userRatios?.[i] !== undefined}
                             />
                             <AreaClosed
-                              key={`weights-delta-${i}`}
+                              key={`weights-delta-${v.index}`}
                               yScale={yScale}
                               data={data}
                               x={(d) => xScale(d.date)}
                               y0={(d) => yScale(d.weights?.[i] ?? 0)}
                               y1={(d) => yScale(d.userRatios?.[i] ?? 0)}
-                              fill={getVariationColor(i, true)}
+                              fill={getVariationColor(v.index, true)}
                               opacity={0.12}
                               curve={curveStepAfter}
                               defined={(d) => d.userRatios?.[i] !== undefined}

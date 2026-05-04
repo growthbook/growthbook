@@ -1,23 +1,26 @@
-import { GetMetricResponse } from "back-end/types/openapi";
+import { getMetricValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { toMetricApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getMetricValidator } from "back-end/src/validators/openapi";
 
-export const getMetric = createApiRequestHandler(getMetricValidator)(
-  async (req): Promise<GetMetricResponse> => {
-    const metric = await getMetricById(req.context, req.params.id, false);
-    if (!metric) {
-      throw new Error("Could not find metric with that id");
-    }
-
-    const datasource = metric.datasource
-      ? await getDataSourceById(req.context, metric.datasource)
-      : null;
-
-    return {
-      metric: toMetricApiInterface(req.organization, metric, datasource),
-    };
+export const getMetric = createApiRequestHandler(getMetricValidator)(async (
+  req,
+) => {
+  const metric = await getMetricById(req.context, req.params.id, false);
+  if (!metric) {
+    throw new Error("Could not find metric with that id");
   }
-);
+
+  const datasource = metric.datasource
+    ? await getDataSourceById(req.context, metric.datasource)
+    : null;
+
+  return {
+    metric: await resolveOwnerEmail(
+      toMetricApiInterface(req.organization, metric, datasource),
+      req.context,
+    ),
+  };
+});

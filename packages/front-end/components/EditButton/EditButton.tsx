@@ -30,7 +30,7 @@ const EditButton: FC<{
       <a
         className={clsx(
           link ? "text" : ["btn", outline ? "btn-outline" : "btn-primary"],
-          className
+          className,
         )}
         title={title}
         href="#"

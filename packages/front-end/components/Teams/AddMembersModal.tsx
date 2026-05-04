@@ -29,7 +29,7 @@ export const AddMembersModal = ({
   const userList = [...users.values()];
 
   const addableMembers = userList.filter(
-    (member) => !member.teams?.includes(teamId) && member.id !== user?.id
+    (member) => !member.teams?.includes(teamId) && member.id !== user?.id,
   );
 
   const handleClose = () => {

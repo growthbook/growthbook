@@ -1,25 +1,30 @@
 import React from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
-import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import { EventWebHookDetailContainer } from "@/components/EventWebHooks/EventWebHookDetail/EventWebHookDetail";
 import { EventWebHookLogsContainer } from "@/components/EventWebHooks/EventWebHookLogs/EventWebHookLogs";
 import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
+import Callout from "@/ui/Callout";
 
 const EventWebHookDetailPage: NextPage = () => {
   const router = useRouter();
   const { eventwebhookid: eventWebHookId } = router.query;
 
-  const { data, mutate: mutateEventWebHook, error } = useApi<{
+  const {
+    data,
+    mutate: mutateEventWebHook,
+    error,
+  } = useApi<{
     eventWebHook: EventWebHookInterface;
   }>(`/event-webhooks/${eventWebHookId}`);
 
   if (error)
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Unable to fetch event web hook {eventWebHookId}
-      </div>
+      </Callout>
     );
 
   if (!data) return null;

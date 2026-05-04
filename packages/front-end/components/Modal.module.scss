@@ -1,0 +1,4 @@
+// Hack to increase specificity and override .modal .modal-header
+.modal-header-backgroundless.modal-header-backgroundless {
+  background-color: transparent;
+}

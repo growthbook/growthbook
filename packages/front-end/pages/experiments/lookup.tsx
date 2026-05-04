@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Link from "@/components/Radix/Link";
-import Callout from "@/components/Radix/Callout";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 export default function ExperimentLookupPage() {
   const router = useRouter();
@@ -16,11 +16,11 @@ export default function ExperimentLookupPage() {
   useEffect(() => {
     apiCall<{ experimentId: string | null }>(
       `/experiments/tracking-key?trackingKey=${encodeURIComponent(
-        trackingKey + ""
+        trackingKey + "",
       )}`,
       {
         method: "GET",
-      }
+      },
     )
       .then((res) => {
         if (res.experimentId) {

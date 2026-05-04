@@ -1,32 +1,27 @@
 import { useRouter } from "next/router";
-import React, { useEffect, useState, useMemo } from "react";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import {
-  filterEnvironmentsByFeature,
-  getDependentExperiments,
-  getDependentFeatures,
-  mergeRevision,
-} from "shared/util";
+import { useEffect, useState } from "react";
+import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useEnvironments, useFeaturesList } from "@/services/features";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
+import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
+import { useFeaturePageData } from "@/hooks/useFeaturePageData";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
+import Callout from "@/ui/Callout";
+import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
-const featureTabs = ["overview", "stats", "test"] as const;
-export type FeatureTab = typeof featureTabs[number];
+const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
+export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -35,240 +30,201 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
-  const [version, setVersion] = useState<number | null>(null);
+  const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
+    FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
+  > | null>(null);
+
+  // Clean state when feature id changes
+  useEffect(() => {
+    setDiagnosticsResults(null);
+  }, [fid]);
+
   const { apiCall } = useAuth();
+  const { userId } = useUser();
 
-  const { features } = useFeaturesList(false);
-  const allEnvironments = useEnvironments();
+  const {
+    data,
+    error,
+    refreshData,
+    feature,
+    baseFeature,
+    revision,
+    version,
+    setVersion,
+  } = useFeaturePageData(fid, router.query.v, userId);
 
-  let extraQueryString = "";
-  // Version being forced via querystring
-  if ("v" in router.query) {
-    const v = parseInt(router.query.v as string);
-    if (v) {
-      extraQueryString = `?v=${v}`;
+  const queryV = router.query.v;
+  useEffect(() => {
+    if (!router.isReady || queryV === undefined) return;
+    const parsed = parseInt(String(queryV), 10);
+    if (isNaN(parsed) || parsed === version) return;
+    if (data?.revisionList?.some((r) => r.version === parsed)) {
+      setVersion(parsed);
     }
-  }
+  }, [queryV, data?.revisionList]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data, error, mutate } = useApi<{
-    feature: FeatureInterface;
-    revisions: FeatureRevisionInterface[];
-    experiments: ExperimentInterfaceStringDates[];
-    codeRefs: FeatureCodeRefsInterface[];
-  }>(`/feature/${fid}${extraQueryString}`);
-  const baseFeature = data?.feature;
-  const baseFeatureVersion = baseFeature?.version;
-  const revisions = data?.revisions;
+  useEffect(() => {
+    if (version === null || !router.isReady) return;
+    if (queryV === String(version)) return;
+    const isCorrection =
+      queryV !== undefined &&
+      !data?.revisionList?.some(
+        (r) => r.version === parseInt(String(queryV), 10),
+      );
+    const method =
+      queryV === undefined || isCorrection ? router.replace : router.push;
+    const hash = new URL(router.asPath, "http://x").hash.slice(1) || undefined;
+    void method(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, v: version },
+        hash,
+      },
+      undefined,
+      { shallow: true },
+    );
+  }, [version]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const experiments = data?.experiments;
+  const safeRollouts = data?.safeRollouts;
+  const holdout = data?.holdout;
+  const rampSchedules = data?.rampSchedules;
+
+  const { dependents: dependentsData } = useFeatureDependents(baseFeature?.id);
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
-    "overview"
+    "overview",
   );
 
   const setTabAndScroll = (tab: FeatureTab) => {
     setTab(tab);
-    const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
-    if (newUrl === window.location.href) return;
-    window.history.pushState("", "", newUrl);
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    void router.push(
+      { pathname: router.pathname, query: router.query, hash: tab },
+      undefined,
+      { shallow: true },
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
-    const handler = () => {
-      const hash = window.location.hash.replace(/^#/, "") as FeatureTab;
-      if (featureTabs.includes(hash)) {
-        setTab(hash);
-      }
-    };
-    handler();
-    window.addEventListener("hashchange", handler, false);
-    return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab]);
-
-  useEffect(() => {
-    if (!revisions || !baseFeatureVersion) return;
-    if (version) return;
-
-    // Version being forced via querystring
-    if ("v" in router.query) {
-      const v = parseInt(router.query.v as string);
-      if (v && revisions.some((r) => r.version === v)) {
-        setVersion(v);
-        return;
-      }
+    const hash = (new URL(router.asPath, "http://x").hash.slice(1) ||
+      undefined) as FeatureTab | undefined;
+    if (hash && featureTabs.includes(hash)) {
+      setTab(hash);
     }
+  }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // If there's an active draft, show that by default, otherwise show the live version
-    const draft = revisions.find(
-      (r) =>
-        r.status === "draft" ||
-        r.status === "approved" ||
-        r.status === "changes-requested" ||
-        r.status === "pending-review"
-    );
-    setVersion(draft ? draft.version : baseFeatureVersion);
-  }, [revisions, version, router.query, baseFeatureVersion]);
-
-  const environments = useMemo(
-    () =>
-      baseFeature
-        ? filterEnvironmentsByFeature(allEnvironments, baseFeature)
-        : [],
-    [allEnvironments, baseFeature]
-  );
-  const envs = environments.map((e) => e.id);
-
-  const revision = useMemo<FeatureRevisionInterface | null>(() => {
-    if (!revisions || !version || !baseFeature) return null;
-    const match = revisions.find((r) => r.version === version);
-    if (match) return match;
-
-    // If we can't find the revision, create a dummy revision just so the page can render
-    // This is for old features that don't have any revision history saved
-    const rules: Record<string, FeatureRule[]> = {};
-    environments.forEach((env) => {
-      rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
-    });
-
-    return {
-      baseVersion: baseFeature.version,
-      comment: "",
-      createdBy: null,
-      dateCreated: baseFeature.dateCreated,
-      datePublished: baseFeature.dateCreated,
-      dateUpdated: baseFeature.dateUpdated,
-      defaultValue: baseFeature.defaultValue,
-      featureId: baseFeature.id,
-      organization: baseFeature.organization,
-      publishedBy: null,
-      rules: rules,
-      status: "published",
-      version: baseFeature.version,
-      prerequisites: baseFeature.prerequisites || [],
-    };
-  }, [revisions, version, environments, baseFeature]);
-
-  const feature = useMemo(() => {
-    if (!revision || !baseFeature) return null;
-    return revision.version !== baseFeature.version
-      ? mergeRevision(
-          baseFeature,
-          revision,
-          environments.map((e) => e.id)
-        )
-      : baseFeature;
-  }, [baseFeature, revision, environments]);
-
-  const dependentFeatures = useMemo(() => {
-    if (!feature || !features) return [];
-    return getDependentFeatures(feature, features, envs);
-  }, [feature, features, envs]);
-
-  const dependentExperiments = useMemo(() => {
-    if (!feature || !experiments) return [];
-    return getDependentExperiments(feature, experiments);
-  }, [feature, experiments]);
-
-  const dependents = dependentFeatures.length + dependentExperiments.length;
+  const dependents =
+    (dependentsData?.features.length ?? 0) +
+    (dependentsData?.experiments.length ?? 0);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
 
-  if (!data || !feature || !revision) {
+  if (!data || !feature || !revision || !baseFeature) {
     return <LoadingOverlay />;
   }
 
   return (
-    <FeatureUsageProvider featureId={feature.id}>
-      <PageHead
-        breadcrumb={[
-          { display: "Features", href: "/features" },
-          { display: feature.id },
-        ]}
-      />
-      <FeaturesHeader
-        feature={feature}
-        features={features}
-        experiments={experiments}
-        mutate={mutate}
-        tab={tab}
-        setTab={setTabAndScroll}
-        setEditFeatureInfoModal={setEditFeatureInfoModal}
-        dependents={dependents}
-      />
-
-      {tab === "overview" && (
-        <FeaturesOverview
-          baseFeature={data.feature}
+    <FeatureRevisionsContext.Provider
+      value={{
+        revisions: data.revisions,
+        baseFeature,
+        currentVersion: version ?? baseFeature.version,
+      }}
+    >
+      <FeatureUsageProvider feature={feature}>
+        <PageHead
+          breadcrumb={[
+            { display: "Features", href: "/features" },
+            { display: feature.id },
+          ]}
+        />
+        <FeaturesHeader
           feature={feature}
-          revision={revision}
-          revisions={data.revisions}
-          experiments={experiments}
-          mutate={mutate}
-          editProjectModal={editProjectModal}
-          setEditProjectModal={setEditProjectModal}
-          version={version}
+          mutate={refreshData}
           setVersion={setVersion}
-          dependents={dependents}
-          dependentFeatures={dependentFeatures}
-          dependentExperiments={dependentExperiments}
-        />
-      )}
-
-      {tab === "test" && (
-        <FeatureTest
-          baseFeature={data.feature}
-          feature={feature}
-          revision={revision}
-          revisions={data.revisions}
           version={version}
-          setVersion={setVersion}
+          revisions={data.revisionList || []}
+          tab={tab}
+          setTab={setTabAndScroll}
+          setEditFeatureInfoModal={setEditFeatureInfoModal}
+          holdout={holdout}
+          isReadOnly={
+            revision.status === "discarded" ||
+            (revision.status === "published" &&
+              revision.version !== feature.version)
+          }
         />
-      )}
 
-      {tab === "stats" && (
-        <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
-      )}
+        {tab === "overview" && (
+          <FeaturesOverview
+            baseFeature={baseFeature}
+            feature={feature}
+            revision={revision}
+            revisionList={data.revisionList}
+            revisions={data.revisions}
+            experiments={experiments}
+            safeRollouts={safeRollouts}
+            holdout={holdout}
+            rampSchedules={rampSchedules}
+            mutate={refreshData}
+            editProjectModal={editProjectModal}
+            setEditProjectModal={setEditProjectModal}
+            version={version}
+            setVersion={setVersion}
+          />
+        )}
 
-      {editTagsModal && (
-        <EditTagsForm
-          tags={feature.tags || []}
-          save={async (tags) => {
-            await apiCall(`/feature/${feature.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ tags }),
-            });
-          }}
-          cancel={() => setEditTagsModal(false)}
-          mutate={mutate}
-        />
-      )}
+        {tab === "test" && (
+          <FeatureTest
+            baseFeature={baseFeature}
+            feature={feature}
+            revision={revision}
+            version={version}
+          />
+        )}
 
-      {editFeatureInfoModal && (
-        <EditFeatureInfoModal
-          resourceType="feature"
-          source="feature-header"
-          dependents={dependents}
-          feature={feature}
-          save={async (updates) => {
-            await apiCall(`/feature/${feature.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ ...updates }),
-            });
-          }}
-          cancel={() => setEditFeatureInfoModal(false)}
-          mutate={mutate}
-        />
-      )}
-    </FeatureUsageProvider>
+        {tab === "stats" && (
+          <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+        )}
+
+        {tab === "diagnostics" && (
+          <FeatureDiagnostics
+            feature={feature}
+            results={diagnosticsResults}
+            setResults={setDiagnosticsResults}
+          />
+        )}
+
+        {editTagsModal && (
+          <EditTagsForm
+            tags={feature.tags || []}
+            save={async (tags) => {
+              await apiCall(`/feature/${feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ tags }),
+              });
+            }}
+            cancel={() => setEditTagsModal(false)}
+            mutate={refreshData}
+          />
+        )}
+
+        {editFeatureInfoModal && (
+          <EditFeatureInfoModal
+            source="feature-header"
+            dependents={dependents}
+            feature={feature}
+            revisionList={data.revisionList || []}
+            cancel={() => setEditFeatureInfoModal(false)}
+            mutate={refreshData}
+            setVersion={setVersion}
+          />
+        )}
+      </FeatureUsageProvider>
+    </FeatureRevisionsContext.Provider>
   );
 }

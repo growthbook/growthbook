@@ -1,15 +1,15 @@
 import { NextFunction, Request, Response } from "express";
-import jwtExpress from "express-jwt";
+import { expressjwt } from "express-jwt";
 import jwt from "jsonwebtoken";
+import { UnauthenticatedResponse } from "shared/types/sso-connection";
+import { UserInterface } from "shared/types/user";
 import { JWT_SECRET } from "back-end/src/util/secrets";
-import { UserInterface } from "back-end/types/user";
 import {
   AuthRefreshModel,
   createRefreshToken,
   getUserIdFromAuthRefreshToken,
 } from "back-end/src/models/AuthRefreshModel";
 import { RefreshTokenCookie } from "back-end/src/util/cookie";
-import { UnauthenticatedResponse } from "back-end/types/sso-connection";
 import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,
@@ -18,18 +18,19 @@ import { getUserById } from "back-end/src/models/UserModel";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";
 
-const jwtCheck = jwtExpress({
+const jwtCheck = expressjwt({
   secret: JWT_SECRET,
   audience: "https://api.growthbook.io",
   issuer: "https://api.growthbook.io",
   algorithms: ["HS256"],
+  requestProperty: "user",
 });
 
 export class LocalAuthConnection implements AuthConnection {
   async refresh(
     req: Request,
     res: Response,
-    refreshToken: string
+    refreshToken: string,
   ): Promise<TokensResponse> {
     const userId = await getUserIdFromAuthRefreshToken(refreshToken);
     if (!userId) {
@@ -57,7 +58,7 @@ export class LocalAuthConnection implements AuthConnection {
   async processCallback(
     req: Request,
     res: Response,
-    user: UserInterface
+    user: UserInterface,
   ): Promise<TokensResponse> {
     const idToken = this.generateJWT(user);
     const refreshToken = await createRefreshToken(req, user);
@@ -104,7 +105,7 @@ export class LocalAuthConnection implements AuthConnection {
         subject: user.id,
         // 30 minutes
         expiresIn: 1800,
-      }
+      },
     );
   }
 }

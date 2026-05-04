@@ -1,8 +1,11 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
+import { Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import SRMCard from "@/components/HealthTab/SRMCard";
+import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -15,7 +18,7 @@ import track from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
 import {
   HealthTabConfigParams,
@@ -45,14 +48,19 @@ export default function HealthTab({
     mutateSnapshot,
     setAnalysisSettings,
   } = useSnapshot();
-  const { runHealthTrafficQuery, decisionFrameworkEnabled } = useOrgSettings();
+
+  const {
+    runHealthTrafficQuery,
+    decisionFrameworkEnabled,
+    useStickyBucketing,
+  } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
   const exposureQuery = datasource?.settings.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
 
   const hasPermissionToConfigHealthTag =
@@ -66,6 +74,12 @@ export default function HealthTab({
   const [loading, setLoading] = useState<boolean>(false);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
+  const orgStickyBucketing = !!useStickyBucketing;
+
+  const showMultipleExposures =
+    !isBandit ||
+    (isBandit && orgStickyBucketing && !experiment.disableStickyBucketing);
 
   const healthTabConfigParams: HealthTabConfigParams = {
     experiment,
@@ -88,12 +102,15 @@ export default function HealthTab({
   const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
       setHealthIssues((prev) => {
-        const issueSet: Set<IssueValue> = new Set([...prev, issue]);
-        return [...issueSet];
+        const issuesByValue = new Map(
+          prev.map((existing) => [existing.value, existing]),
+        );
+        issuesByValue.set(issue.value, issue);
+        return [...issuesByValue.values()];
       });
       onHealthNotify();
     },
-    [onHealthNotify]
+    [onHealthNotify],
   );
 
   // If org has the health tab turned to off and has no data, prompt set up if the
@@ -113,8 +130,8 @@ export default function HealthTab({
       );
     }
     return (
-      <Callout status="info" mt="3">
-        <div className="d-flex">
+      <Callout status="info" mt="3" contentsAs="div">
+        <Flex gap="4">
           {runHealthTrafficQuery === undefined
             ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
             : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
@@ -147,7 +164,7 @@ export default function HealthTab({
           ) : (
             "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
           )}
-        </div>
+        </Flex>
       </Callout>
     );
   }
@@ -241,16 +258,17 @@ export default function HealthTab({
 
   const totalUsers = snapshot?.health?.traffic?.overall?.variationUnits?.reduce(
     (acc, a) => acc + a,
-    0
+    0,
   );
 
   const traffic = snapshot.health.traffic;
 
   const phaseObj = experiment.phases?.[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -279,26 +297,34 @@ export default function HealthTab({
         ) : (
           <BanditSRMCard
             experiment={experiment}
+            snapshot={snapshot}
             phase={phaseObj}
             onNotify={handleHealthNotification}
           />
         )}
       </div>
-
-      <div className="row">
-        <div
-          className={!isBandit ? "col-8" : "col-12"}
-          id="multipleExposures"
-          style={{ scrollMarginTop: "100px" }}
-        >
-          <MultipleExposuresCard
-            totalUsers={totalUsers}
+      {!isBandit && (
+        <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+          <CovariateImbalanceCard
+            experiment={experiment}
+            variations={variations}
+            snapshot={snapshot}
             onNotify={handleHealthNotification}
           />
         </div>
-      </div>
+      )}
+      {showMultipleExposures && (
+        <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+          <MultipleExposuresCard
+            totalUsers={totalUsers}
+            onNotify={handleHealthNotification}
+            snapshot={snapshot}
+          />
+        </div>
+      )}
 
       {!isBandit &&
+      !isHoldout &&
       (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED) ? (
         <PowerCard
           experiment={experiment}

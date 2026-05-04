@@ -1,13 +1,23 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { zodNotificationEventNamesEnum } from "back-end/src/events/base-types";
+import { z } from "zod";
 import {
+  zodNotificationEventNamesEnum,
   eventWebHookMethods,
   eventWebHookPayloadTypes,
-} from "back-end/src/validators/event-webhook";
+  isEventWebhookWildcard,
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
+
+const eventNameOrWildcard = z
+  .string()
+  .refine(
+    (val) =>
+      zodNotificationEventNamesEnum.includes(val as never) ||
+      isEventWebhookWildcard(val),
+    { message: "Must be a valid event name or wildcard pattern" },
+  );
 
 const router = express.Router();
 
@@ -30,7 +40,7 @@ router.post(
       .object({
         url: z.string().url(),
         name: z.string().trim().min(2),
-        events: z.array(z.enum(zodNotificationEventNamesEnum)).min(1),
+        events: z.array(eventNameOrWildcard).min(1),
         enabled: z.boolean(),
         projects: z.array(z.string()),
         tags: z.array(z.string()),
@@ -41,7 +51,7 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.createEventWebHook
+  eventWebHooksController.createEventWebHook,
 );
 
 /**
@@ -57,7 +67,7 @@ router.get(
       })
       .strict(),
   }),
-  eventWebHooksController.getEventWebHookLogs
+  eventWebHooksController.getEventWebHookLogs,
 );
 
 /**
@@ -73,7 +83,7 @@ router.get(
       })
       .strict(),
   }),
-  eventWebHooksController.getEventWebHook
+  eventWebHooksController.getEventWebHook,
 );
 
 /**
@@ -89,7 +99,7 @@ router.delete(
       })
       .strict(),
   }),
-  eventWebHooksController.deleteEventWebHook
+  eventWebHooksController.deleteEventWebHook,
 );
 
 /**
@@ -108,7 +118,7 @@ router.put(
       .object({
         url: z.string().url(),
         name: z.string().trim().min(2),
-        events: z.array(z.enum(zodNotificationEventNamesEnum)).min(1),
+        events: z.array(eventNameOrWildcard).min(1),
         enabled: z.boolean(),
         projects: z.array(z.string()),
         tags: z.array(z.string()),
@@ -119,7 +129,7 @@ router.put(
       })
       .strict(),
   }),
-  eventWebHooksController.putEventWebHook
+  eventWebHooksController.putEventWebHook,
 );
 
 router.post(
@@ -133,7 +143,7 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.testWebHookParams
+  eventWebHooksController.testWebHookParams,
 );
 
 router.post(
@@ -145,7 +155,7 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.createTestEventWebHook
+  eventWebHooksController.createTestEventWebHook,
 );
 
 router.post(
@@ -157,7 +167,14 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.toggleEventWebHook
+  eventWebHooksController.toggleEventWebHook,
+);
+
+router.post(`/webhook-secrets`, eventWebHooksController.createWebhookSecret);
+router.put(`/webhook-secrets/:id`, eventWebHooksController.updateWebhookSecret);
+router.delete(
+  `/webhook-secrets/:id`,
+  eventWebHooksController.deleteWebhookSecret,
 );
 
 export { router as eventWebHooksRouter };

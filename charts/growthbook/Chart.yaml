@@ -1,0 +1,37 @@
+apiVersion: v2
+name: growthbook
+description: Open Source Feature Flags, Experimentation, and Product Analytics
+icon: https://avatars.githubusercontent.com/u/65404594
+home: https://www.growthbook.io/
+sources:
+  - https://github.com/growthbook/growthbook/
+
+type: application
+
+# This should generally match the appVersion
+# We can increment the patch version if changes to the chart itself are needed
+version: "4.3.1"
+
+# This should match the version in the root package.json
+appVersion: "4.3.0"
+
+dependencies:
+  - name: mongodb
+    repository: oci://registry-1.docker.io/bitnamicharts
+    version: "^18.0.0"
+    condition: mongodb.enabled
+  - name: server
+    version: "0.0.0"
+    alias: frontend
+  - name: server
+    version: "0.0.0"
+    alias: backend
+
+# This should match the version in the root package.json
+annotations:
+  artifacthub.io/images: |
+    - name: growthbook
+      image: growthbook/growthbook:4.3.0
+      platforms:
+        - linux/amd64
+        - linux/arm64

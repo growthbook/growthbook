@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
+import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
+import { stemRuleId } from "shared/util";
 import { FaChevronRight } from "react-icons/fa";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -18,9 +18,9 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useArchetype } from "@/hooks/useArchetype";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import DatePicker from "@/components/DatePicker";
-import Button from "@/components/Radix/Button";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import Frame from "@/components/Radix/Frame";
+import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
+import Switch from "@/ui/Switch";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -28,9 +28,6 @@ export interface Props {
   version: number;
   project?: string;
   startOpen?: boolean;
-  setVersion: (v: number) => void;
-  revisions: FeatureRevisionInterface[];
-  baseFeature: FeatureInterface;
 }
 
 export default function AssignmentTester({
@@ -38,21 +35,15 @@ export default function AssignmentTester({
   version,
   project,
   startOpen = true,
-  setVersion,
-  revisions,
-  baseFeature,
 }: Props) {
   const [open, setOpen] = useState(startOpen);
   const [formValues, setFormValues] = useState({});
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
   const [expandResults, setExpandResults] = useState<number[]>([]);
-  const [
-    openArchetypeModal,
-    setOpenArchetypeModal,
-  ] = useState<null | Partial<ArchetypeInterface>>(null);
-  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] = useState(
-    false
-  );
+  const [openArchetypeModal, setOpenArchetypeModal] =
+    useState<null | Partial<ArchetypeInterface>>(null);
+  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] =
+    useState(false);
   const [evalDate, setEvalDate] = useState<Date | undefined>(new Date());
 
   const { data, mutate: mutateData } = useArchetype({
@@ -62,25 +53,18 @@ export default function AssignmentTester({
     skipRulesWithPrerequisites,
   });
 
-  const currentVersion = version || baseFeature.version;
   const { apiCall } = useAuth();
 
   const hasPrerequisites = useMemo(() => {
     if (feature?.prerequisites?.length) return true;
-    if (
-      Object.values(feature?.environmentSettings ?? {}).some((env) =>
-        env?.rules?.some((rule) => !!rule?.prerequisites?.length)
-      )
-    )
+    if ((feature?.rules ?? []).some((rule) => !!rule?.prerequisites?.length))
       return true;
     return false;
   }, [feature]);
 
   const hasScheduled = useMemo(() => {
-    return Object.values(feature?.environmentSettings ?? {}).some((env) =>
-      env?.rules?.some(
-        (rule) => !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length
-      )
+    return (feature?.rules ?? []).some(
+      (rule) => !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length,
     );
   }, [feature]);
   const { hasCommercialFeature } = useUser();
@@ -124,8 +108,15 @@ export default function AssignmentTester({
           let matchedRule;
           const debugLog: string[] = [];
           if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
+            // SDK payloads strip env suffixes from rule ids (`stem__env` → `stem`)
+            // for telemetry continuity, but the UI's feature-definition mirror
+            // can carry either form depending on payload stage. Match on stem
+            // via the shared helper so we stay tolerant of both.
+            const lookupStem = stemRuleId(tr.result.ruleId);
             matchedRule = tr.featureDefinition.rules.find(
-              (r) => r.id === tr?.result?.ruleId
+              (r) =>
+                r.id === tr.result?.ruleId ||
+                stemRuleId(r.id || "") === lookupStem,
             );
           }
           let matchedRuleName = "";
@@ -152,11 +143,11 @@ export default function AssignmentTester({
                 debugLog.push(
                   `Rule ${
                     n + 1
-                  }: Skipped because user did not match the rule conditions`
+                  }: Skipped because user did not match the rule conditions`,
                 );
               } else if (reason === "In experiment") {
                 debugLog.push(
-                  `Rule ${n + 1}: Included user in experiment rule`
+                  `Rule ${n + 1}: Included user in experiment rule`,
                 );
               } else if (reason === "Use default value") {
                 debugLog.push(`No rules matched, using default value`);
@@ -214,7 +205,7 @@ export default function AssignmentTester({
                       onClick={() => {
                         if (expandResults.includes(i)) {
                           setExpandResults(
-                            expandResults.filter((o) => o !== i)
+                            expandResults.filter((o) => o !== i),
                           );
                         } else {
                           setExpandResults([...expandResults, i]);
@@ -253,7 +244,7 @@ export default function AssignmentTester({
                               code={JSON.stringify(
                                 tr.result.experimentResult,
                                 null,
-                                2
+                                2,
                               )}
                             />
                           </div>
@@ -281,24 +272,18 @@ export default function AssignmentTester({
 
   return (
     <>
-      <Box>
-        <Heading mb="1" size="5" as="h2">
-          Simulate Feature Rules
-        </Heading>
-        <Text mb="0">
-          test how your rules will apply to users.{" "}
-          <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
-        </Text>
-      </Box>
-      <Flex align="end" justify="between" mb="3" mt="3">
-        <RevisionDropdown
-          feature={feature}
-          version={currentVersion}
-          setVersion={setVersion}
-          revisions={revisions || []}
-        />
-        <Flex align="end" justify="end">
-          <Box>
+      <Flex align="start" justify="between" mt="4" mb="5" gap="4">
+        <Box flexShrink="1">
+          <Heading mb="1" size="4" as="h3">
+            Simulate Feature Rules
+          </Heading>
+          <Text mb="0">
+            Test how your rules will apply to users.{" "}
+            <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
+          </Text>
+        </Box>
+        {(hasPrerequisites || hasScheduled) && (
+          <Box flexShrink="0">
             {hasPrerequisites && (
               <Flex align="center" justify="end" mb="2" gap="3">
                 <span className="font-weight-bold">Prereq evaluation:</span>{" "}
@@ -318,22 +303,12 @@ export default function AssignmentTester({
             )}
             <Flex align="center">
               {hasPrerequisites && (
-                <>
-                  <label
-                    className="mr-2 mb-0"
-                    htmlFor="skipRulesWithPrerequisites"
-                  >
-                    <Text size="1" color="gray">
-                      Skip rules with prerequisite targeting
-                    </Text>
-                    <Switch
-                      ml="3"
-                      id="skipRulesWithPrerequisites"
-                      checked={skipRulesWithPrerequisites}
-                      onCheckedChange={(c) => setSkipRulesWithPrerequisites(c)}
-                    />
-                  </label>
-                </>
+                <Switch
+                  label="Skip rules with prerequisite targeting"
+                  id="skipRulesWithPrerequisites"
+                  value={skipRulesWithPrerequisites}
+                  onChange={(c) => setSkipRulesWithPrerequisites(c)}
+                />
               )}
               {hasScheduled && (
                 <Box ml="2">
@@ -357,7 +332,7 @@ export default function AssignmentTester({
               )}
             </Flex>
           </Box>
-        </Flex>
+        )}
       </Flex>
 
       <div>

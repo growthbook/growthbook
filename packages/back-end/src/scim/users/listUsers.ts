@@ -13,7 +13,7 @@ export const COUNT_DEFAULT = 20;
 
 export async function listUsers(
   req: ScimListRequest,
-  res: Response<ScimListResponse>
+  res: Response<ScimListResponse>,
 ) {
   const { startIndex, count, filter: filterQuery } = req.query;
 
@@ -36,9 +36,11 @@ export async function listUsers(
     return filtered;
   }, []);
 
+  const sortedUsers = reduced.sort((a, b) => a.id.localeCompare(b.id));
+
   const filteredUsers = filterQuery
-    ? reduced.filter(filter(parse(filterQuery)))
-    : reduced;
+    ? sortedUsers.filter(filter(parse(filterQuery)))
+    : sortedUsers;
 
   // a startIndex less than 0 should be interpreted as 0
   const correctedStartIndex =
@@ -46,7 +48,7 @@ export async function listUsers(
 
   const resources = filteredUsers.slice(
     correctedStartIndex,
-    correctedStartIndex + queryOptions.count
+    correctedStartIndex + queryOptions.count,
   );
 
   return res.status(200).json({

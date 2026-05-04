@@ -1,6 +1,15 @@
-import * as crypto from "crypto";
 import { createClient as createClickhouseClient } from "@clickhouse/client";
-import generator from "generate-password";
+import { AIPromptType } from "shared/ai";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  parseIntWithDefault,
+} from "shared/util";
+import {
+  GrowthbookClickhouseDataSource,
+  MaterializedColumn,
+} from "shared/types/datasource";
+import { DailyUsage } from "shared/types/organization";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -8,17 +17,31 @@ import {
   CLICKHOUSE_DATABASE,
   CLICKHOUSE_MAIN_TABLE,
   ENVIRONMENT,
+  IS_CLOUD,
+  CLICKHOUSE_OVERAGE_TABLE,
 } from "back-end/src/util/secrets";
-import { DataSourceParams } from "back-end/types/datasource";
-import { DailyUsage, ReqContext } from "back-end/types/organization";
+import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import {
+  getFactTablesForDatasource,
+  updateFactTableColumns,
+} from "back-end/src/models/FactTableModel";
+import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 
-function clickhouseUserId(orgId: string, datasourceId: string) {
-  return ENVIRONMENT === "production"
-    ? `${orgId}_${datasourceId}`
-    : `test_${orgId}_${datasourceId}`;
-}
+type ClickHouseDataType =
+  | "DateTime"
+  | "Float64"
+  | "Boolean"
+  | "String"
+  | "LowCardinality(String)";
+
+const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
+  environment: "LowCardinality(String)",
+  sdk_language: "LowCardinality(String)",
+  sdk_version: "LowCardinality(String)",
+  event_uuid: "String",
+  ip: "String",
+};
 
 function ensureClickhouseEnvVars() {
   if (
@@ -29,7 +52,7 @@ function ensureClickhouseEnvVars() {
     !CLICKHOUSE_MAIN_TABLE
   ) {
     throw new Error(
-      "Must specify necessary environment variables to interact with clickhouse."
+      "Must specify necessary environment variables to interact with clickhouse.",
     );
   }
 }
@@ -49,192 +72,74 @@ function createAdminClickhouseClient() {
   });
 }
 
-export async function createClickhouseUser(
-  context: ReqContext,
-  datasourceId: string
-): Promise<DataSourceParams> {
-  const client = createAdminClickhouseClient();
-
-  const orgId = context.org.id;
-  const user = clickhouseUserId(orgId, datasourceId);
-  const password = generator.generate({
-    length: 30,
-    numbers: true,
-  });
-  const hashedPassword = crypto
-    .createHash("sha256")
-    .update(password)
-    .digest("hex");
-
-  const database = user;
-  const eventsViewName = `${database}.events`;
-  const featureUsageViewName = `${database}.feature_usage`;
-
-  logger.info(`creating Clickhouse database ${database}`);
-  await client.command({
-    query: `CREATE DATABASE ${database}`,
-  });
-
-  logger.info(`Creating Clickhouse user ${user}`);
-  await client.command({
-    query: `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`,
-  });
-
-  const remainingColumns = `
-    environment,
-    user_id,
-    context_json,
-    url,
-    url_path,
-    url_host,
-    url_query,
-    url_fragment,
-    device_id,
-    page_id,
-    session_id,
-    sdk_language,
-    sdk_version,
-    page_title,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    utm_term,
-    utm_content,
-    event_uuid,
-    ip,
-    geo_country,
-    geo_city,
-    geo_lat,
-    geo_lon,
-    ua,
-    ua_browser,
-    ua_os,
-    ua_device_type
-  `;
-
-  const eventsMaterializedViewSql = `SELECT 
-    timestamp,
-    client_key,
-    event_name,
-    properties_json,
-    ${remainingColumns}
-FROM ${CLICKHOUSE_MAIN_TABLE} 
-WHERE (organization = '${orgId}') AND (event_name != 'Feature Evaluated')`;
-
-  logger.info(`Creating Clickhouse events materialized view ${eventsViewName}`);
-  await client.command({
-    query: `CREATE MATERIALIZED VIEW ${eventsViewName} 
-ENGINE = MergeTree
-PARTITION BY toYYYYMM(timestamp) 
-ORDER BY timestamp
-DEFINER=CURRENT_USER SQL SECURITY DEFINER
-AS ${eventsMaterializedViewSql}`,
-  });
-
-  logger.info(`Copying existing data to the events materialized view`);
-  await client.command({
-    query: `INSERT INTO ${eventsViewName} ${eventsMaterializedViewSql}`,
-  });
-
-  const featureUsageMaterializedViewSql = `SELECT
-    timestamp,
-    client_key,
-    JSONExtractString(properties_json, 'feature') as feature,
-    JSONExtractString(properties_json, 'revision') as revision,
-    JSONExtractString(properties_json, 'source') as source,
-    JSONExtractString(properties_json, 'value') as value,
-    JSONExtractString(properties_json, 'ruleId') as ruleId,
-    JSONExtractString(properties_json, 'variationId') as variationId,
-    ${remainingColumns}
-FROM ${CLICKHOUSE_MAIN_TABLE}
-WHERE (organization = '${orgId}') AND (event_name = 'Feature Evaluated')`;
-
-  logger.info(`Creating ${featureUsageViewName} materialized view`);
-  await client.command({
-    query: `CREATE MATERIALIZED VIEW ${featureUsageViewName}
-ENGINE = MergeTree
-PARTITION BY toYYYYMM(timestamp)
-ORDER BY timestamp
-DEFINER=CURRENT_USER SQL SECURITY DEFINER
-AS ${featureUsageMaterializedViewSql}`,
-  });
-
-  logger.info(`Copying existing data to the feature usage materialized view`);
-  await client.command({
-    query: `INSERT INTO ${featureUsageViewName} ${featureUsageMaterializedViewSql}`,
-  });
-
-  logger.info(`Granting select permissions on ${database}.* to ${user}`);
-  await client.command({
-    query: `GRANT SELECT ON ${database}.* TO ${user}`,
-  });
-
-  logger.info(
-    `Granting select permissions on information_schema.columns to ${user}`
+export function getReservedColumnNames(): Set<string> {
+  return new Set(
+    [
+      "timestamp",
+      "client_key",
+      "event_name",
+      "properties",
+      "attributes",
+      "experiment_id",
+      "variation_id",
+      ...Object.keys(REMAINING_COLUMNS_SCHEMA),
+    ].map((col) => col.toLowerCase()),
   );
-  // For schema browser.  They can only see info on tables that they have select permissions on.
-  await client.command({
-    query: `GRANT SELECT(data_type, table_name, table_catalog, table_schema, column_name) ON information_schema.columns TO ${user}`,
-  });
-
-  logger.info(`Clickhouse user ${user} created`);
-
-  const url = new URL(CLICKHOUSE_HOST);
-
-  const params = {
-    port: parseInt(url.port) || 9000,
-    url: url.toString(),
-    user: user,
-    password: password,
-    database: database,
-  };
-
-  return params;
 }
 
-export async function deleteClickhouseUser(
-  datasourceId: string,
-  organization: string
-) {
-  const client = createAdminClickhouseClient();
-  const user = clickhouseUserId(organization, datasourceId);
+// In order to monitor usage and quality of AI responses on cloud we log each request to AI agents
+export async function logCloudAIUsage({
+  organization,
+  type,
+  model,
+  temperature,
+  numPromptTokensUsed,
+  numCompletionTokensUsed,
+  usedDefaultPrompt,
+}: {
+  organization: string;
+  model: string;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
+  type: AIPromptType;
+  temperature?: number;
+  usedDefaultPrompt: boolean;
+}): Promise<void> {
+  if (!IS_CLOUD) {
+    // This is only for cloud
+    return;
+  }
 
-  logger.info(`Deleting Clickhouse user ${user}`);
-  await client.command({
-    query: `DROP USER ${user}`,
-  });
-
-  logger.info(`Deleting Clickhouse database ${user}`);
-  await client.command({
-    query: `DROP DATABASE ${user}`,
-  });
-
-  logger.info(`Clickhouse user ${user} deleted`);
-}
-
-export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
-  const { key, organization } = connection;
-
-  // This is not a fatal error, so just log instead of throwing
+  const env = ENVIRONMENT === "production" ? "prod" : ENVIRONMENT;
+  // As this is just for logging, there is no need to make this a fatal error if it fails
   try {
     const client = createAdminClickhouseClient();
     await client.insert({
-      table: "usage.sdk_key_mapping",
-      values: [{ key, organization }],
+      table: "usage.ai_usage",
+      values: [
+        {
+          env,
+          organization,
+          type,
+          model,
+          num_prompt_tokens_used: numPromptTokensUsed,
+          num_completion_tokens_used: numCompletionTokensUsed,
+          temperature,
+          used_default_prompt: usedDefaultPrompt,
+          date_created: new Date(),
+        },
+      ],
       format: "JSONEachRow",
     });
   } catch (e) {
-    logger.error(
-      e,
-      `Error inserting sdk key mapping (${key} -> ${organization})`
-    );
+    logger.error(e, "Failed to log AI usage to Clickhouse");
   }
 }
 
-export async function getDailyCDNUsageForOrg(
+export async function getDailyUsageForOrg(
   orgId: string,
   start: Date,
-  end: Date
+  end: Date,
 ): Promise<DailyUsage[]> {
   const client = createAdminClickhouseClient();
 
@@ -253,13 +158,48 @@ export async function getDailyCDNUsageForOrg(
 
   const sql = `
 select
-  toStartOfDay(hour) as date,
+  date,
   sum(requests) as requests,
-  sum(bandwidth) as bandwidth
-from usage.cdn_hourly
-where
-  organization = '${sanitizedOrgId}'
-  AND date BETWEEN '${startString}' AND '${endString}'
+  sum(bandwidth) as bandwidth,
+  sum(managedClickhouseEvents) as managedClickhouseEvents
+from (
+  select
+    toStartOfDay(hour) as date,
+    sum(requests) as requests,
+    sum(bandwidth) as bandwidth,
+    0 as managedClickhouseEvents
+  from usage.cdn_hourly
+  where
+    organization = '${sanitizedOrgId}'
+    AND date BETWEEN '${startString}' AND '${endString}'
+  group by date
+  
+  union all
+  
+  select
+    toStartOfDay(received_at) as date,
+    0 as requests,
+    0 as bandwidth,
+    count(1) as managedClickhouseEvents
+  from ${CLICKHOUSE_MAIN_TABLE}
+  where
+    organization = '${sanitizedOrgId}'
+    AND received_at BETWEEN '${startString}' AND '${endString}'
+  group by date
+  
+  union all
+  
+  select
+    toStartOfDay(received_at) as date,
+    0 as requests,
+    0 as bandwidth,
+    count(1) as managedClickhouseEvents
+  from ${CLICKHOUSE_OVERAGE_TABLE}
+  where
+    organization = '${sanitizedOrgId}'
+    AND received_at BETWEEN '${startString}' AND '${endString}'
+  group by date
+)
 group by date
 order by date ASC
 WITH FILL
@@ -279,12 +219,117 @@ WITH FILL
     // That is very unlikely, and even if it happens it will still be approximately correct
     requests: string;
     bandwidth: string;
+    managedClickhouseEvents: string;
   }[] = await res.json();
 
-  // Convert strings to numbers for requests/bandwidth
+  // Convert strings to numbers for all metrics
   return data.map((d) => ({
     date: d.date,
-    requests: parseInt(d.requests) || 0,
-    bandwidth: parseInt(d.bandwidth) || 0,
+    requests: parseIntWithDefault(d.requests, 0),
+    bandwidth: parseIntWithDefault(d.bandwidth, 0),
+    managedClickhouseEvents: parseIntWithDefault(d.managedClickhouseEvents, 0),
   }));
+}
+
+export async function updateMaterializedColumns({
+  context,
+  datasource,
+  columnsToAdd,
+  columnsToDelete,
+  columnsToRename,
+  finalColumns,
+  originalColumns,
+}: {
+  context: ReqContext;
+  datasource: GrowthbookClickhouseDataSource;
+  columnsToAdd: MaterializedColumn[];
+  columnsToDelete: string[];
+  columnsToRename: { from: string; to: string }[];
+  finalColumns: MaterializedColumn[];
+  originalColumns: MaterializedColumn[];
+}) {
+  if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+    return;
+  }
+  const orgId = datasource.organization;
+
+  await updateMaterializedColumnsInClickhouse({
+    orgId,
+    columnsToAdd,
+    columnsToDelete,
+    columnsToRename,
+    finalColumns,
+    originalColumns,
+  });
+
+  // Update the main events fact table with the new columns
+  const factTables = await getFactTablesForDatasource(context, datasource.id);
+  const ft = factTables.find(
+    (ft) => ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  );
+  if (ft) {
+    const newColumns = [...ft.columns];
+    newColumns.forEach((col) => {
+      if (col.numberFormat === undefined) {
+        col.numberFormat = "";
+      }
+    });
+
+    columnsToAdd.forEach((col) => {
+      const existingCol = newColumns.find((c) => c.column === col.columnName);
+      if (!existingCol) {
+        newColumns.push({
+          column: col.columnName,
+          name: col.columnName,
+          datatype: col.datatype,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          deleted: false,
+          description: "",
+          numberFormat: "",
+        });
+      } else {
+        // If the column already exists but was previously removed, restore it.
+        existingCol.deleted = false;
+        existingCol.dateUpdated = new Date();
+      }
+    });
+    columnsToRename.forEach(({ from, to }) => {
+      const col = newColumns.find((c) => c.column === from);
+      if (col) {
+        const existingDestinationCol = newColumns.find((c) => c.column === to);
+        // Destination already exists
+        if (existingDestinationCol) {
+          // Restore destination if it had been previously removed.
+          existingDestinationCol.deleted = false;
+          existingDestinationCol.dateUpdated = new Date();
+          // Mark the old column as deleted.
+          col.deleted = true;
+          col.dateUpdated = new Date();
+        } else {
+          // Otherwise, rename in place
+          col.column = to;
+          col.name = to;
+          col.dateUpdated = new Date();
+        }
+      }
+    });
+    columnsToDelete.forEach((name) => {
+      const col = newColumns.find((c) => c.column === name);
+      if (col) {
+        col.deleted = true;
+        col.dateUpdated = new Date();
+      }
+    });
+
+    const newIdentifierTypes = finalColumns
+      .filter((col) => col.type === "identifier")
+      .map((col) => col.columnName);
+
+    await updateFactTableColumns(
+      ft,
+      { columns: newColumns, userIdTypes: newIdentifierTypes },
+      context,
+    );
+  }
 }

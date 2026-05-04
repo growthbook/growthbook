@@ -28,9 +28,12 @@ export type BaseFieldProps = {
   markRequired?: boolean;
   error?: ReactNode;
   helpText?: ReactNode;
+  helpTextClassName?: string;
   containerClassName?: string;
+  containerStyle?: React.CSSProperties;
   inputGroupClassName?: string;
   labelClassName?: string;
+  customClassName?: string;
   // eslint-disable-next-line
   render?: (id: string, ref: any) => ReactElement;
   options?: SelectOptions;
@@ -95,7 +98,9 @@ const Field = forwardRef(
       className,
       error,
       helpText,
+      helpTextClassName,
       containerClassName,
+      containerStyle,
       inputGroupClassName,
       labelClassName,
       label,
@@ -111,13 +116,14 @@ const Field = forwardRef(
       type = "text",
       initialOption,
       comboBox,
+      customClassName: customClassNameProp,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
-    ref: any
+    ref: any,
   ) => {
     const [fieldId] = useState(
-      () => id || `field_${Math.floor(Math.random() * 1000000)}`
+      () => id || `field_${Math.floor(Math.random() * 1000000)}`,
     );
 
     const cn = clsx("form-control", className);
@@ -128,7 +134,7 @@ const Field = forwardRef(
     } else if (textarea) {
       component = (
         <TextareaAutosize
-          {...((otherProps as unknown) as TextareaAutosizeProps)}
+          {...(otherProps as unknown as TextareaAutosizeProps)}
           ref={ref}
           id={fieldId}
           className={cn}
@@ -157,7 +163,7 @@ const Field = forwardRef(
     } else if (options || optionGroups) {
       component = (
         <select
-          {...((otherProps as unknown) as DetailedHTMLProps<
+          {...(otherProps as unknown as DetailedHTMLProps<
             SelectHTMLAttributes<HTMLSelectElement>,
             HTMLSelectElement
           >)}
@@ -207,15 +213,16 @@ const Field = forwardRef(
       );
     }
 
-    const customClassName = otherProps?.["customClassName"] || "";
+    const customClassName = customClassNameProp || "";
     return (
       <div
         className={clsx(
           "form-group",
           containerClassName,
           { "mb-0": !label },
-          render ? customClassName : ""
+          render ? customClassName : "",
         )}
+        style={containerStyle}
       >
         <div className="d-flex flex-row justify-content-between">
           {label && (
@@ -232,10 +239,14 @@ const Field = forwardRef(
         </div>
         {component}
         {error && <div className="form-text text-danger">{error}</div>}
-        {helpText && <small className="form-text text-muted">{helpText}</small>}
+        {helpText && (
+          <small className={clsx("form-text text-muted", helpTextClassName)}>
+            {helpText}
+          </small>
+        )}
       </div>
     );
-  }
+  },
 );
 Field.displayName = "Field";
 

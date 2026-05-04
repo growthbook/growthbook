@@ -1,13 +1,13 @@
 import React, { FC, Fragment, ReactElement, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
-import { SegmentInterface } from "back-end/types/segment";
-import { IdeaInterface } from "back-end/types/idea";
-import { MetricInterface } from "back-end/types/metric";
-import Link from "next/link";
+import { SegmentInterface } from "shared/types/segment";
+import { IdeaInterface } from "shared/types/idea";
+import { MetricInterface } from "shared/types/metric";
 import clsx from "clsx";
 import { ago } from "shared/dates";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -18,6 +18,9 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ProjectBadges from "@/components/ProjectBadges";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
+import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 
 const SegmentPage: FC = () => {
   const {
@@ -31,6 +34,7 @@ const SegmentPage: FC = () => {
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
+  const { getOwnerDisplay } = useUser();
 
   const hasCreatePermission = permissionsUtil.canCreateSegment({
     projects: [project],
@@ -41,10 +45,8 @@ const SegmentPage: FC = () => {
     canStoreSegmentsInMongo = true;
   }
 
-  const [
-    segmentForm,
-    setSegmentForm,
-  ] = useState<null | Partial<SegmentInterface>>(null);
+  const [segmentForm, setSegmentForm] =
+    useState<null | Partial<SegmentInterface>>(null);
 
   const { apiCall } = useAuth();
 
@@ -76,19 +78,15 @@ const SegmentPage: FC = () => {
             refs.push(
               res.metrics.length === 1
                 ? "1 metric"
-                : res.metrics.length + " metrics"
+                : res.metrics.length + " metrics",
             );
             res.metrics.forEach((m) => {
-              metricLinks.push(
-                <Link href={`/metric/${m.id}`} className="">
-                  {m.name}
-                </Link>
-              );
+              metricLinks.push(<Link href={`/metric/${m.id}`}>{m.name}</Link>);
             });
           }
           if (res.ideas && res.ideas.length) {
             refs.push(
-              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas",
             );
             res.ideas.forEach((i) => {
               ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
@@ -98,7 +96,7 @@ const SegmentPage: FC = () => {
             refs.push(
               res.experiments.length === 1
                 ? "1 experiment"
-                : res.experiments.length + " Experiments"
+                : res.experiments.length + " Experiments",
             );
             res.experiments.forEach((e) => {
               expLinks.push(<Link href={`/experiment/${e.id}`}>{e.name}</Link>);
@@ -170,9 +168,9 @@ const SegmentPage: FC = () => {
       } catch (e) {
         console.error(e);
         return (
-          <div className="alert alert-danger">
+          <Callout status="error">
             An error occurred getting the segment usage
-          </div>
+          </Callout>
         );
       }
       return null;
@@ -180,7 +178,7 @@ const SegmentPage: FC = () => {
   };
 
   const hasValidDataSources = !!datasources.filter(
-    (d) => d.properties?.segments
+    (d) => d.properties?.segments,
   )[0];
 
   if (!hasValidDataSources) {
@@ -191,12 +189,12 @@ const SegmentPage: FC = () => {
             <h1>Segments</h1>
           </div>
         </div>
-        <div className="alert alert-info">
+        <Callout status="info">
           Segments are only available if you connect GrowthBook to a compatible
           data source (Snowflake, Redshift, BigQuery, ClickHouse, Athena,
           Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel). Support for
           other data sources like Google Analytics is coming soon.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -224,9 +222,9 @@ const SegmentPage: FC = () => {
         )}
       </div>
       {segmentsError && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           There was an error loading the list of segments
-        </div>
+        </Callout>
       )}
       {segments.length > 0 && (
         <div className="row mb-4">
@@ -248,7 +246,7 @@ const SegmentPage: FC = () => {
                   <th>Projects</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
-                  {canStoreSegmentsInMongo ? <th>Date Updated</th> : null}
+                  <th>Date Updated</th>
                   <th></th>
                 </tr>
               </thead>
@@ -262,13 +260,17 @@ const SegmentPage: FC = () => {
                     <tr key={s.id}>
                       <td>
                         <>
+                          <OfficialBadge
+                            type="Segment"
+                            managedBy={s.managedBy}
+                          />
                           {s.name}{" "}
                           {s.description ? (
                             <Tooltip body={s.description} />
                           ) : null}
                         </>
                       </td>
-                      <td>{s.owner}</td>
+                      <td>{getOwnerDisplay(s.owner)}</td>
                       <td className="col-2">
                         {s && (s.projects || []).length > 0 ? (
                           <ProjectBadges
@@ -299,25 +301,38 @@ const SegmentPage: FC = () => {
                           {userIdType}
                         </span>
                       </td>
-                      {canStoreSegmentsInMongo ? (
-                        <td>{ago(s.dateUpdated)}</td>
-                      ) : null}
+                      <td>
+                        {s.managedBy !== "config" ? (
+                          <>{ago(s.dateUpdated)}</>
+                        ) : (
+                          <>-</>
+                        )}
+                      </td>
                       <td>
                         <MoreMenu>
-                          {permissionsUtil.canUpdateSegment(s, {}) &&
-                          canStoreSegmentsInMongo ? (
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setSegmentForm(s);
-                              }}
-                            >
-                              <FaPencilAlt /> Edit
-                            </button>
-                          ) : null}
+                          {/* If the user has permission & the segment isn't externally managed, show edit icon,
+                          otherwise the cta should be `View Details`. This is because Segment's don't have an id page,
+                         in order for the user to see the sql that powers the segment, we need to show the edit form, but in read only mode */}
+                          <button
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSegmentForm(s);
+                            }}
+                          >
+                            {permissionsUtil.canUpdateSegment(s, {}) &&
+                            !s.managedBy ? (
+                              <>
+                                <FaPencilAlt /> Edit
+                              </>
+                            ) : (
+                              <>View Details</>
+                            )}
+                          </button>
                           {permissionsUtil.canDeleteSegment(s) &&
-                          canStoreSegmentsInMongo ? (
+                          canStoreSegmentsInMongo &&
+                          // if the segment has a managedBy value, it can't be deleted in the UI
+                          !s.managedBy ? (
                             <DeleteButton
                               className="dropdown-item"
                               displayName={s.name}
@@ -346,30 +361,30 @@ const SegmentPage: FC = () => {
         </div>
       )}
       {segments.length === 0 && !hasFileConfig() && (
-        <div className="alert alert-info">
+        <Callout status="info">
           You don&apos;t have any segments defined yet.{" "}
           {hasCreatePermission &&
             "Click the button above to create your first one."}
-        </div>
+        </Callout>
       )}
       {segments.length === 0 && hasFileConfig() && storeSegmentsInMongo() && (
-        <div className="alert alert-info">
+        <Callout status="info">
           You don&apos;t have any segments defined yet. You can add them to your{" "}
           <code>config.yml</code> file and remove the{" "}
           <code>STORE_SEGMENTS_IN_MONGO</code> environment variable
           {hasCreatePermission &&
             " or click the button above to create your first one"}
           . <DocLink docSection="config_yml">View Documentation</DocLink>
-        </div>
+        </Callout>
       )}
       {segments.length === 0 && hasFileConfig() && !storeSegmentsInMongo() && (
-        <div className="alert alert-info">
+        <Callout status="info">
           It looks like you have a <code>config.yml</code> file. Segments
           defined there will show up on this page. If you would like to store
           and access segments in MongoDB instead, please add the{" "}
           <code>STORE_SEGMENTS_IN_MONGO</code> environment variable.{" "}
           <DocLink docSection="config_yml">View Documentation</DocLink>
-        </div>
+        </Callout>
       )}
     </div>
   );

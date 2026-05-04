@@ -3,17 +3,27 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import { generateTrackingKey } from "shared/experiments";
+import {
+  generateTrackingKey,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
+import { VisualChange } from "shared/types/visual-changeset";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  ExperimentStatus,
+} from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
   ExperimentType,
   LegacyExperimentInterface,
   Variation,
-} from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
-import { VisualChange } from "back-end/types/visual-changeset";
+} from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { DiffResult } from "shared/types/events/diff";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
   toExperimentApiInterface,
@@ -21,12 +31,11 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
-  refreshSDKPayloadCache,
+  queueSDKPayloadRefresh,
   URLRedirectExperiment,
   VisualExperiment,
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { FeatureInterface } from "back-end/types/feature";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
@@ -35,6 +44,16 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import {
+  createVercelExperimentationItemFromExperiment,
+  updateVercelExperimentationItemFromExperiment,
+  deleteVercelExperimentationItemFromExperiment,
+} from "back-end/src/services/vercel-native-integration.service";
+import {
+  generateEmbeddings,
+  simpleCompletion,
+} from "back-end/src/enterprise/services/ai";
+import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -69,7 +88,6 @@ const banditResultObject = {
   ],
   currentWeights: [Number],
   updatedWeights: [Number],
-  srm: Number,
   bestArmProbabilities: [Number],
   additionalReward: Number,
   seed: Number,
@@ -77,6 +95,12 @@ const banditResultObject = {
   error: String,
   reweight: Boolean,
   weightsWereUpdated: Boolean,
+};
+
+const phaseVariation = {
+  _id: false,
+  id: String,
+  status: String,
 };
 
 const experimentSchema = new mongoose.Schema({
@@ -128,6 +152,24 @@ const experimentSchema = new mongoose.Schema({
       conversionDelayHours: Number,
     },
   ],
+  lookbackOverride: {
+    type: { type: String, enum: ["date", "window"] },
+    value: mongoose.Schema.Types.Mixed, // Date for "date" type, Number for "window" type
+    valueUnit: {
+      type: String,
+      enum: ["minutes", "hours", "days", "weeks"],
+    },
+  },
+  decisionFrameworkSettings: {
+    decisionCriteriaId: String,
+    decisionFrameworkMetricOverrides: [
+      {
+        _id: false,
+        id: String,
+        targetMDE: Number,
+      },
+    ],
+  },
   // These are using {} instead of [String] so Mongoose doesn't prefill them with empty arrays
   // This is necessary for migrations to work properly
   metrics: {},
@@ -209,15 +251,21 @@ const experimentSchema = new mongoose.Schema({
       namespace: {},
       seed: String,
       variationWeights: [Number],
+      variations: { type: [phaseVariation], default: undefined },
       groups: [String],
       banditEvents: [
         {
           _id: false,
           date: Date,
+          health: {
+            _id: false,
+            srm: Number,
+          },
           banditResult: banditResultObject,
           snapshotId: String,
         },
       ],
+      lookbackStartDate: Date,
     },
   ],
   data: String,
@@ -226,9 +274,17 @@ const experimentSchema = new mongoose.Schema({
   autoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
+  postStratificationEnabled: Boolean,
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
+  pendingFeatureDrafts: [
+    {
+      _id: false,
+      featureId: String,
+      revisionVersion: Number,
+    },
+  ],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
@@ -248,6 +304,8 @@ const experimentSchema = new mongoose.Schema({
   banditScheduleUnit: String,
   banditBurnInValue: Number,
   banditBurnInUnit: String,
+  banditConversionWindowValue: Number,
+  banditConversionWindowUnit: String,
   customFields: {},
   templateId: String,
   shareLevel: String,
@@ -259,6 +317,10 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      covariateImbalance: {
+        _id: false,
+        isImbalanced: Boolean,
+      },
       power: {
         _id: false,
         type: { type: String, enum: ["error", "success"] },
@@ -282,15 +344,35 @@ const experimentSchema = new mongoose.Schema({
         },
       ],
     },
+    precomputedDimensions: [String],
   },
   dismissedWarnings: [String],
+  holdoutId: String,
+  defaultDashboardId: String,
+  customMetricSlices: [
+    {
+      _id: false,
+      slices: [
+        {
+          _id: false,
+          column: String,
+          levels: [String],
+        },
+      ],
+    },
+  ],
 });
+
+// Compound indexes for API list filtering
+experimentSchema.index({ organization: 1, datasource: 1 });
+experimentSchema.index({ organization: 1, project: 1 });
+experimentSchema.index({ organization: 1, trackingKey: 1 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
 export const ExperimentModel = mongoose.model<ExperimentInterface>(
   "Experiment",
-  experimentSchema
+  experimentSchema,
 );
 
 /**
@@ -300,7 +382,7 @@ export const ExperimentModel = mongoose.model<ExperimentInterface>(
 const toInterface: ToInterface<ExperimentInterface> = (doc) => {
   const experiment = removeMongooseFields(doc);
   return upgradeExperimentDoc(
-    (experiment as unknown) as LegacyExperimentInterface
+    experiment as unknown as LegacyExperimentInterface,
   );
 };
 
@@ -308,7 +390,7 @@ async function findExperiments(
   context: ReqContext | ApiReqContext,
   query: FilterQuery<ExperimentDocument>,
   limit?: number,
-  sortBy?: SortFilter
+  sortBy?: SortFilter,
 ): Promise<ExperimentInterface[]> {
   let cursor = getCollection(COLLECTION).find(query);
 
@@ -321,13 +403,13 @@ async function findExperiments(
   const experiments = (await cursor.toArray()).map(toInterface);
 
   return experiments.filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project),
   );
 }
 
 export async function getExperimentById(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ): Promise<ExperimentInterface | null> {
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
@@ -344,7 +426,7 @@ export async function getExperimentById(
 }
 
 export async function getExperimentByUid(
-  uid: string
+  uid: string,
 ): Promise<ExperimentInterface | null> {
   const doc = await getCollection(COLLECTION).findOne({
     uid,
@@ -359,11 +441,19 @@ export async function getAllExperiments(
     project,
     includeArchived = false,
     type,
+    datasourceId,
+    trackingKey,
+    status,
+    sortBy,
   }: {
     project?: string;
     includeArchived?: boolean;
     type?: ExperimentType;
-  } = {}
+    datasourceId?: string;
+    trackingKey?: string;
+    status?: ExperimentStatus;
+    sortBy?: SortFilter;
+  } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -373,22 +463,38 @@ export async function getAllExperiments(
     query.project = project;
   }
 
+  if (datasourceId) {
+    query.datasource = datasourceId;
+  }
+
+  if (trackingKey) {
+    query.trackingKey = trackingKey;
+  }
+
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+
+  if (status) {
+    query.status = status;
   }
 
   if (type === "multi-armed-bandit") {
     query.type = "multi-armed-bandit";
   } else if (type === "standard") {
     query.type = { $in: ["standard", null] };
+  } else if (type === "holdout") {
+    query.type = "holdout";
+  } else if (!type) {
+    query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query);
+  return await findExperiments(context, query, undefined, sortBy);
 }
 
 export async function hasArchivedExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string
+  project?: string,
 ): Promise<boolean> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -405,7 +511,7 @@ export async function hasArchivedExperiments(
 
 export async function getExperimentByTrackingKey(
   context: ReqContext | ApiReqContext,
-  trackingKey: string
+  trackingKey: string,
 ): Promise<ExperimentInterface | null> {
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
@@ -423,7 +529,7 @@ export async function getExperimentByTrackingKey(
 
 export async function getExperimentsByIds(
   context: ReqContext | ApiReqContext,
-  ids: string[]
+  ids: string[],
 ): Promise<ExperimentInterface[]> {
   if (!ids.length) return [];
   return await findExperiments(context, {
@@ -434,7 +540,7 @@ export async function getExperimentsByIds(
 
 export async function getExperimentsByTrackingKeys(
   context: ReqContext | ApiReqContext,
-  trackingKeys: string[]
+  trackingKeys: string[],
 ): Promise<ExperimentInterface[]> {
   return await findExperiments(context, {
     trackingKey: { $in: trackingKeys },
@@ -443,7 +549,7 @@ export async function getExperimentsByTrackingKeys(
 }
 
 export async function getSampleExperiment(
-  organization: string
+  organization: string,
 ): Promise<ExperimentInterface | null> {
   const exp = await getCollection(COLLECTION).findOne({
     organization,
@@ -467,12 +573,12 @@ export async function createExperiment({
   if (!data.trackingKey) {
     data.trackingKey = await generateTrackingKey(
       data,
-      async (key: string) => await getExperimentByTrackingKey(context, key)
+      async (key: string) => await getExperimentByTrackingKey(context, key),
     );
   }
 
   const nextUpdate = determineNextDate(
-    context.org.settings?.updateSchedule || null
+    context.org.settings?.updateSchedule || null,
   );
 
   const exp = await ExperimentModel.create({
@@ -496,16 +602,29 @@ export async function createExperiment({
     nextSnapshotAttempt: nextUpdate,
   });
 
+  const experiment = toInterface(exp);
+
   await onExperimentCreate({
     context,
-    experiment: toInterface(exp),
+    experiment,
   });
 
   if (data.tags) {
     await addTags(data.organization, data.tags);
   }
 
-  return toInterface(exp);
+  return experiment;
+}
+
+export function hasActualChanges(
+  experiment: ExperimentInterface,
+  changes: Partial<ExperimentInterface>,
+) {
+  const changeKeys = Object.keys(changes).filter(
+    (key) => key !== "dateUpdated",
+  ) as Array<keyof ExperimentInterface>;
+
+  return changeKeys.some((key) => !isEqual(experiment[key], changes[key]));
 }
 
 export async function updateExperiment({
@@ -519,12 +638,15 @@ export async function updateExperiment({
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
-  // TODO: are there some changes where we don't want to update the dateUpdated?
+  // If no actual changes, return the experiment as-is
+  if (!hasActualChanges(experiment, changes)) {
+    return experiment;
+  }
+
   const allChanges = {
     ...changes,
+    dateUpdated: new Date(),
   };
-  allChanges.dateUpdated = new Date();
-
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
@@ -535,12 +657,11 @@ export async function updateExperiment({
     },
     {
       $set: allChanges,
-    }
+    },
   );
 
   const updated = { ...experiment, ...allChanges };
 
-  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,
@@ -553,7 +674,7 @@ export async function updateExperiment({
 
 export async function getExperimentsByMetric(
   context: ReqContext | ApiReqContext,
-  metricId: string
+  metricId: string,
 ): Promise<{ id: string; name: string }[]> {
   const experiments = await findExperiments(context, {
     organization: context.org.id,
@@ -575,7 +696,7 @@ export async function getExperimentsByMetric(
 
 export async function getExperimentByIdea(
   context: ReqContext | ApiReqContext,
-  idea: IdeaDocument
+  idea: IdeaDocument,
 ): Promise<ExperimentInterface | null> {
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
@@ -592,7 +713,7 @@ export async function getExperimentByIdea(
 }
 
 export async function getExperimentsToUpdate(
-  ids: string[]
+  ids: string[],
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
   const experiments = await getCollection(COLLECTION)
     .find({
@@ -625,7 +746,7 @@ export async function getExperimentsToUpdate(
 }
 
 export async function getExperimentsToUpdateLegacy(
-  latestDate: Date
+  latestDate: Date,
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
   const experiments = await getCollection(COLLECTION)
     .find({
@@ -658,7 +779,7 @@ export async function getExperimentsToUpdateLegacy(
 
 export async function getPastExperimentsByDatasource(
   context: ReqContext | ApiReqContext,
-  datasource: string
+  datasource: string,
 ): Promise<
   Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
 > {
@@ -677,7 +798,7 @@ export async function getPastExperimentsByDatasource(
     .toArray();
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project),
   );
 
   return experimentsUserCanAccess.map((exp) => ({
@@ -687,22 +808,35 @@ export async function getPastExperimentsByDatasource(
   }));
 }
 
-export async function getExperimentsUsingMetric(
-  context: ReqContext | ApiReqContext,
-  metricId: string,
-  limit?: number
-): Promise<ExperimentInterface[]> {
+export async function getExperimentsUsingMetric({
+  context,
+  metricId,
+  excludeMetricGroupIds,
+  limit,
+}: {
+  context: ReqContext | ApiReqContext;
+  metricId: string;
+  excludeMetricGroupIds?: boolean;
+  limit?: number;
+}): Promise<ExperimentInterface[]> {
+  const metricGroups = excludeMetricGroupIds
+    ? undefined
+    : await context.models.metricGroups.findByMetric(metricId);
+
+  const metricGroupIds = metricGroups?.map((g) => g.id);
+  const allIds = metricGroupIds ? [metricId, ...metricGroupIds] : [metricId];
+
   const experiments = await findExperiments(
     context,
     {
       organization: context.org.id,
       $or: [
-        { metrics: metricId },
-        { goalMetrics: metricId },
-        { guardrails: metricId },
-        { guardrailMetrics: metricId },
-        { secondaryMetrics: metricId },
-        { activationMetric: metricId },
+        { metrics: { $in: allIds } },
+        { goalMetrics: { $in: allIds } },
+        { guardrails: { $in: allIds } },
+        { guardrailMetrics: { $in: allIds } },
+        { secondaryMetrics: { $in: allIds } },
+        { activationMetric: { $in: allIds } },
       ],
       archived: {
         $ne: true,
@@ -710,7 +844,72 @@ export async function getExperimentsUsingMetric(
     },
     // hard cap at 1000 to prevent too many results
     limit !== undefined ? limit : 1000,
-    { _id: -1 }
+    { _id: -1 },
+  );
+
+  return experiments;
+}
+
+/**
+ * Batch version of getExperimentsUsingMetric that efficiently fetches experiments
+ * for multiple metrics in a single query.
+ *
+ * Returns a flat array of experiments that use any of the given metrics
+ * (directly or via a metric group). The caller is responsible for filtering
+ * the results to determine which experiments use which buific metrics.
+ */
+export async function getExperimentsUsingMetrics({
+  context,
+  metricIds,
+  metricToGroupIds,
+  limit,
+}: {
+  context: ReqContext | ApiReqContext;
+  metricIds: string[];
+  // Map from metric ID to group IDs to search for metric usage
+  // by including usage via metric groups. If passed in empty,
+  // this query will ignore metric usage via metric groups.
+  metricToGroupIds: Map<string, string[]>;
+  limit?: number;
+}): Promise<ExperimentInterface[]> {
+  if (metricIds.length === 0) {
+    return [];
+  }
+
+  // Build the search criteria: for each metric, include the metric itself
+  // and any metric groups that contain it
+  const allSearchIds: string[] = [];
+  for (const metricId of metricIds) {
+    const groupIds = metricToGroupIds.get(metricId) || [];
+    allSearchIds.push(metricId, ...groupIds);
+  }
+
+  // Deduplicate search IDs
+  const uniqueSearchIds = [...new Set(allSearchIds)];
+
+  // Build the query
+  const query: FilterQuery<ExperimentDocument> = {
+    organization: context.org.id,
+    $or: [
+      { metrics: { $in: uniqueSearchIds } },
+      { goalMetrics: { $in: uniqueSearchIds } },
+      { guardrails: { $in: uniqueSearchIds } },
+      { guardrailMetrics: { $in: uniqueSearchIds } },
+      { secondaryMetrics: { $in: uniqueSearchIds } },
+      { activationMetric: { $in: uniqueSearchIds } },
+    ],
+    archived: {
+      $ne: true,
+    },
+  };
+
+  // Query all experiments that use any of these metrics/groups in a single query
+  const experiments = await findExperiments(
+    context,
+    query,
+    // hard cap at 10000 to prevent too many results
+    limit !== undefined ? limit : 10000,
+    { _id: -1 },
   );
 
   return experiments;
@@ -718,7 +917,7 @@ export async function getExperimentsUsingMetric(
 
 export async function getRecentExperimentsUsingMetric(
   context: ReqContext | ApiReqContext,
-  metricId: string
+  metricId: string,
 ): Promise<
   Pick<
     ExperimentInterface,
@@ -742,7 +941,7 @@ export async function getRecentExperimentsUsingMetric(
       },
     },
     10,
-    { _id: -1 }
+    { _id: -1 },
   );
 
   return experiments.map((exp) => ({
@@ -757,7 +956,7 @@ export async function getRecentExperimentsUsingMetric(
 
 export async function deleteExperimentSegment(
   context: ReqContext | ApiReqContext,
-  segment: string
+  segment: string,
 ): Promise<void> {
   const exps = await getExperimentsUsingSegment(context, segment);
 
@@ -767,7 +966,7 @@ export async function deleteExperimentSegment(
     { organization: context.org.id, segment },
     {
       $set: { segment: "" },
-    }
+    },
   );
 
   exps.forEach((previous) => {
@@ -787,7 +986,7 @@ export async function deleteExperimentSegment(
 
 export async function getExperimentsForActivityFeed(
   context: ReqContext | ApiReqContext,
-  ids: string[]
+  ids: string[],
 ): Promise<Pick<ExperimentInterface, "id" | "name">[]> {
   const experiments = await getCollection(COLLECTION)
     .find({
@@ -805,7 +1004,7 @@ export async function getExperimentsForActivityFeed(
     .toArray();
 
   const filteredExperiments = experiments.filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project),
   );
 
   return filteredExperiments.map((exp) => ({
@@ -846,9 +1045,14 @@ const findExperiment = async ({
  */
 export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ) => {
-  const apiExperiment = await toExperimentApiInterface(context, experiment);
+  if (experiment.type === "holdout") return;
+
+  const apiExperiment = await toExperimentApiInterface(
+    context,
+    experiment as ExperimentInterfaceExcludingHoldouts,
+  );
 
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
@@ -885,20 +1089,20 @@ export const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }) => {
+  if (current.type === "holdout") return;
+
   const previousApiExperimentPromise = toExperimentApiInterface(
     context,
-    previous
+    previous as ExperimentInterfaceExcludingHoldouts,
   );
-
   const currentApiExperimentPromise = toExperimentApiInterface(
     context,
-    current
+    current as ExperimentInterfaceExcludingHoldouts,
   );
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
     previousApiExperimentPromise,
     currentApiExperimentPromise,
   ]);
-
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
   const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
@@ -906,6 +1110,36 @@ export const logExperimentUpdated = async ({
   const changedEnvs = hasPayloadChanges
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
+
+  let changes: DiffResult | undefined;
+  try {
+    changes = getObjectDiff(previousApiExperiment, currentApiExperiment, {
+      ignoredKeys: ["dateUpdated"],
+      nestedObjectConfigs: [
+        {
+          key: "phases",
+          idField: "__index",
+          ignoredKeys: [
+            "dateStarted",
+            "dateEnded",
+            "bucketVersion",
+            "minBucketVersion",
+          ],
+        },
+        {
+          key: "variations",
+          idField: "variationId",
+          ignoredKeys: ["screenshots"],
+        },
+        {
+          key: "metricOverrides",
+          idField: "id",
+        },
+      ],
+    });
+  } catch (e) {
+    logger.error(e, "error creating change patch");
+  }
 
   await createEvent({
     context,
@@ -915,12 +1149,13 @@ export const logExperimentUpdated = async ({
     data: {
       object: currentApiExperiment,
       previous_object: previousApiExperiment,
+      changes,
     },
     projects: Array.from(
-      new Set([previousApiExperiment.project, currentApiExperiment.project])
+      new Set([previousApiExperiment.project, currentApiExperiment.project]),
     ),
     tags: Array.from(
-      new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags])
+      new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags]),
     ),
     environments: changedEnvs,
     containsSecrets: false,
@@ -934,7 +1169,7 @@ export const logExperimentUpdated = async ({
  */
 export async function deleteExperimentByIdForOrganization(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ) {
   try {
     await ExperimentModel.deleteOne({
@@ -974,7 +1209,7 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }
@@ -1007,7 +1242,7 @@ export const removeTagFromExperiments = async ({
 
 export async function removeMetricFromExperiments(
   context: ReqContext | ApiReqContext,
-  metricId: string
+  metricId: string,
 ) {
   const oldExperiments: Record<
     string,
@@ -1113,7 +1348,7 @@ export async function removeMetricFromExperiments(
 
 export async function removeProjectFromExperiments(
   context: ReqContext | ApiReqContext,
-  project: string
+  project: string,
 ) {
   const query = { organization: context.org.id, project };
   const previousExperiments = await findExperiments(context, query);
@@ -1130,7 +1365,7 @@ export async function addLinkedFeatureToExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
   featureId: string,
-  experiment?: ExperimentInterface | null
+  experiment?: ExperimentInterface | null,
 ) {
   if (!experiment) {
     experiment = await findExperiment({
@@ -1152,7 +1387,7 @@ export async function addLinkedFeatureToExperiment(
       $addToSet: {
         linkedFeatures: featureId,
       },
-    }
+    },
   );
 
   onExperimentUpdate({
@@ -1170,7 +1405,7 @@ export async function addLinkedFeatureToExperiment(
 export async function removeLinkedFeatureFromExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
-  featureId: string
+  featureId: string,
 ) {
   const experiment = await findExperiment({
     experimentId,
@@ -1190,7 +1425,7 @@ export async function removeLinkedFeatureFromExperiment(
       $pull: {
         linkedFeatures: featureId,
       },
-    }
+    },
   );
 
   onExperimentUpdate({
@@ -1199,7 +1434,7 @@ export async function removeLinkedFeatureFromExperiment(
     newExperiment: {
       ...experiment,
       linkedFeatures: (experiment.linkedFeatures || []).filter(
-        (f) => f !== featureId
+        (f) => f !== featureId,
       ),
     },
   }).catch((e) => {
@@ -1207,10 +1442,140 @@ export async function removeLinkedFeatureFromExperiment(
   });
 }
 
+// Removes linkedFeatures + pendingFeatureDrafts for one feature from one experiment.
+export async function unlinkFeatureFromExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+) {
+  const experiment = await findExperiment({ experimentId, context });
+  if (!experiment) return;
+
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    {
+      $pull: { linkedFeatures: featureId, pendingFeatureDrafts: { featureId } },
+    },
+  );
+
+  onExperimentUpdate({
+    context,
+    oldExperiment: experiment,
+    newExperiment: {
+      ...experiment,
+      linkedFeatures: (experiment.linkedFeatures || []).filter(
+        (f) => f !== featureId,
+      ),
+      pendingFeatureDrafts: (experiment.pendingFeatureDrafts || []).filter(
+        (d) => d.featureId !== featureId,
+      ),
+    },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload on experiment update");
+  });
+}
+
+// Clears pendingFeatureDrafts but leaves linkedFeatures intact (used for archive).
+export async function clearPendingFeatureDraftsForFeature(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+) {
+  await ExperimentModel.updateMany(
+    {
+      organization: context.org.id,
+      "pendingFeatureDrafts.featureId": featureId,
+    },
+    { $pull: { pendingFeatureDrafts: { featureId } } },
+  );
+}
+
+// Clears both linkedFeatures[] and pendingFeatureDrafts[] for a feature (used for delete).
+export async function unlinkFeatureFromAllExperiments(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+) {
+  await ExperimentModel.updateMany(
+    {
+      organization: context.org.id,
+      linkedFeatures: featureId,
+    },
+    {
+      $pull: {
+        linkedFeatures: featureId,
+        pendingFeatureDrafts: { featureId },
+      },
+    },
+  );
+}
+
+// Queues a draft for auto-publish when the experiment transitions to running.
+// $addToSet is atomic and idempotent on exact (featureId, revisionVersion)
+// pairs. Multiple drafts of the same feature are intentionally allowed and
+// applied sequentially at start (publishPendingFeatureDraftsForExperiment).
+export async function addPendingFeatureDraftToExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  revisionVersion: number,
+) {
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    {
+      $addToSet: {
+        pendingFeatureDrafts: { featureId, revisionVersion },
+      },
+    },
+  );
+}
+
+// Removes pending draft entries. Pass `revisionVersion` to drop one specific
+// row; omit it to drop every row for the feature (used by archive/unlink).
+export async function removePendingFeatureDraftFromExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  revisionVersion?: number,
+) {
+  const pullFilter =
+    revisionVersion != null ? { featureId, revisionVersion } : { featureId };
+
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    { $pull: { pendingFeatureDrafts: pullFilter } },
+  );
+}
+
+// Clears pendingFeatureDrafts for all experiments referenced by the revision's experiment-ref rules.
+export async function clearPendingFeatureDraftsForRevision(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+  revisionVersion: number,
+  rules: { type?: string; experimentId?: string }[] | undefined,
+) {
+  const experimentIds = new Set<string>();
+  for (const rule of rules ?? []) {
+    if (rule.type === "experiment-ref" && rule.experimentId) {
+      experimentIds.add(rule.experimentId);
+    }
+  }
+  if (!experimentIds.size) return;
+
+  await Promise.all(
+    [...experimentIds].map((expId) =>
+      removePendingFeatureDraftFromExperiment(
+        context,
+        expId,
+        featureId,
+        revisionVersion,
+      ),
+    ),
+  );
+}
+
 function logAllChanges(
   context: ReqContext | ApiReqContext,
   previousExperiments: ExperimentInterface[],
-  applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
+  applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null,
 ) {
   previousExperiments.forEach((previous) => {
     const current = applyChanges(cloneDeep(previous));
@@ -1227,7 +1592,7 @@ function logAllChanges(
 
 export async function getExperimentsUsingSegment(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ) {
   return await findExperiments(context, {
     organization: context.org.id,
@@ -1242,9 +1607,12 @@ export async function getExperimentsUsingSegment(
  */
 export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ) => {
-  const apiExperiment = await toExperimentApiInterface(context, experiment);
+  const apiExperiment = await toExperimentApiInterface(
+    context,
+    experiment as ExperimentInterfaceExcludingHoldouts,
+  );
 
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
@@ -1269,12 +1637,12 @@ export const logExperimentDeleted = async (
 
 // type guard
 const _isValidVisualExperiment = (
-  e: Partial<VisualExperiment>
+  e: Partial<VisualExperiment>,
 ): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
 
 export async function getExperimentMapForFeature(
   context: ReqContext | ApiReqContext,
-  featureId: string
+  featureId: string,
 ): Promise<Map<string, ExperimentInterface>> {
   const experiments = await findExperiments(context, {
     organization: context.org.id,
@@ -1285,17 +1653,24 @@ export async function getExperimentMapForFeature(
   return new Map(
     experiments
       .filter((e) => includeExperimentInPayload(e))
-      .map((e) => [e.id, e])
+      .map((e) => [e.id, e]),
   );
 }
 
 export async function getAllPayloadExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string
+  projects?: string[],
 ): Promise<Map<string, ExperimentInterface>> {
+  const projectFilter =
+    !projects || !projects.length
+      ? {}
+      : projects.length === 1
+        ? { project: projects[0] }
+        : { project: { $in: projects } };
+
   const experiments = await findExperiments(context, {
     organization: context.org.id,
-    ...(project ? { project } : {}),
+    ...projectFilter,
     archived: { $ne: true },
     $or: [
       {
@@ -1313,13 +1688,13 @@ export async function getAllPayloadExperiments(
   return new Map(
     experiments
       .filter((e) => includeExperimentInPayload(e))
-      .map((e) => [e.id, e])
+      .map((e) => [e.id, e]),
   );
 }
 
 export const getAllVisualExperiments = async (
   context: ReqContext | ApiReqContext,
-  experimentMap: Map<string, ExperimentInterface>
+  experimentMap: Map<string, ExperimentInterface>,
 ): Promise<Array<VisualExperiment>> => {
   const visualChangesets = await findVisualChangesets(context.org.id);
 
@@ -1335,12 +1710,12 @@ export const getAllVisualExperiments = async (
 
   const hasVisualChangesForVariation = (
     experimentId: string,
-    variationId: string
+    variationId: string,
   ): boolean => {
     const changes = visualChangesByExperimentId[experimentId];
     if (!changes) return false;
     return hasVisualChanges(
-      changes.filter((vc) => vc.variation === variationId)
+      changes.filter((vc) => vc.variation === variationId),
     );
   };
 
@@ -1360,7 +1735,7 @@ export const getAllVisualExperiments = async (
         e.experiment.status === "stopped" &&
         !hasVisualChangesForVariation(
           e.experiment.id,
-          e.experiment.releasedVariationId
+          e.experiment.releasedVariationId,
         )
       ) {
         return false;
@@ -1371,7 +1746,7 @@ export const getAllVisualExperiments = async (
 
 export const getAllURLRedirectExperiments = async (
   context: ReqContext | ApiReqContext,
-  experimentMap: Map<string, ExperimentInterface>
+  experimentMap: Map<string, ExperimentInterface>,
 ): Promise<Array<URLRedirectExperiment>> => {
   const redirects = await context.models.urlRedirects.getAll();
 
@@ -1389,7 +1764,7 @@ export const getAllURLRedirectExperiments = async (
     // Exclude experiments that are stopped and the released variation doesn’t have a destination URL
     if (experiment.status === "stopped") {
       const destination = r.destinationURLs.find(
-        (d) => d.variation === experiment.releasedVariationId
+        (d) => d.variation === experiment.releasedVariationId,
       );
       if (!destination || !destination.url) return;
     }
@@ -1404,9 +1779,63 @@ export const getAllURLRedirectExperiments = async (
   return exps;
 };
 
+const getTextForEmbedding = (exp: ExperimentInterface): string => {
+  return `Name: ${exp.name}\nHypothesis: ${exp.hypothesis}\nDescription: ${
+    exp.description
+  }\n${exp.analysis ? "\nAnalysis: " + exp.analysis : ""}`;
+};
+
+export async function generateExperimentEmbeddings(
+  context: ReqContext | ApiReqContext,
+  experimentsToGenerateEmbeddings: ExperimentInterface[],
+) {
+  const batchSize = 15;
+  for (let i = 0; i < experimentsToGenerateEmbeddings.length; i += batchSize) {
+    const batch = experimentsToGenerateEmbeddings.slice(i, i + batchSize);
+    const input = batch.map((exp) => getTextForEmbedding(exp));
+    const embeddings = await generateEmbeddings({ context, input });
+
+    for (let j = 0; j < batch.length; j++) {
+      const exp = batch[j];
+      // save the embeddings back to the experiment:
+      try {
+        await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
+          embeddings: embeddings[j],
+        });
+      } catch (error) {
+        throw new Error("Error updating embeddings");
+      }
+    }
+  }
+}
+
+export async function generateExperimentKeywords(
+  context: ReqContext | ApiReqContext,
+  exp: ExperimentInterface,
+) {
+  const keywords = await simpleCompletion({
+    context,
+    prompt: `Generate a list of keywords for the following experiment.\nname: ${
+      exp.name
+    }\nhypothesis: ${exp.hypothesis}\n description: ${
+      exp.description || ""
+    }\nanalysisSummary: ${
+      exp.analysisSummary
+    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma seperated.`,
+    type: "generate-experiment-keywords",
+    isDefaultPrompt: true,
+    temperature: 0.1,
+  });
+  const keywordsArr = keywords.split(",").map((k) => k.trim());
+  // save the keywords back to the experiment:
+  await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
+    keywords: keywordsArr,
+  });
+}
+
 export function getPayloadKeysForAllEnvs(
   context: ReqContext | ApiReqContext,
-  projects: string[]
+  projects: string[],
 ) {
   const uniqueProjects = new Set(projects);
 
@@ -1427,7 +1856,7 @@ export function getPayloadKeysForAllEnvs(
 export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
-  linkedFeatures?: FeatureInterface[]
+  linkedFeatures?: FeatureInterface[],
 ): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
@@ -1459,7 +1888,7 @@ export function getPayloadKeys(
       (rule) =>
         rule.type === "experiment-ref" &&
         rule.experimentId === experiment.id &&
-        rule.enabled !== false
+        rule.enabled !== false,
     );
   }
 
@@ -1468,7 +1897,7 @@ export function getPayloadKeys(
 }
 
 const getExperimentChanges = (
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ): Omit<ExperimentInterface, "variations"> & {
   variations: Partial<Variation>[];
 } => {
@@ -1483,21 +1912,20 @@ const getExperimentChanges = (
     "releasedVariationId",
     "excludeFromPayload",
     "autoAssign",
-    "variations",
     "phases",
   ];
 
   return {
     ...pick(experiment, importantKeys),
-    variations: experiment.variations.map((v) =>
-      pick(v, ["id", "name", "key"])
+    variations: getLatestPhaseVariations(experiment).map((v) =>
+      pick(v, ["id", "name", "key"]),
     ),
   };
 };
 
 const hasChangesForSDKPayloadRefresh = (
   oldExperiment: ExperimentInterface,
-  newExperiment: ExperimentInterface
+  newExperiment: ExperimentInterface,
 ): boolean => {
   // Skip experiments that don't have linked changes
   if (
@@ -1521,6 +1949,12 @@ const onExperimentCreate = async ({
   experiment: ExperimentInterface;
 }) => {
   await logExperimentCreated(context, experiment);
+
+  if (context.org.isVercelIntegration)
+    await createVercelExperimentationItemFromExperiment({
+      experiment,
+      organization: context.org,
+    });
 };
 
 const onExperimentUpdate = async ({
@@ -1560,22 +1994,34 @@ const onExperimentUpdate = async ({
     const newPayloadKeys = getPayloadKeys(
       context,
       newExperiment,
-      linkedFeatures
+      linkedFeatures,
     );
     const payloadKeys = uniqWith(
       [...oldPayloadKeys, ...newPayloadKeys],
-      isEqual
+      isEqual,
     );
 
-    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
-      logger.error(e, "Error refreshing SDK payload cache");
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys,
+      auditContext: {
+        event: "updated",
+        model: "experiment",
+        id: newExperiment.id,
+      },
     });
   }
+
+  if (context.org.isVercelIntegration)
+    await updateVercelExperimentationItemFromExperiment({
+      experiment: newExperiment,
+      organization: context.org,
+    });
 };
 
 const onExperimentDelete = async (
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ) => {
   await logExperimentDeleted(context, experiment);
 
@@ -1586,7 +2032,32 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
-    logger.error(e, "Error refreshing SDK payload cache");
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      event: "deleted",
+      model: "experiment",
+      id: experiment.id,
+    },
   });
+
+  if (context.org.isVercelIntegration)
+    await deleteVercelExperimentationItemFromExperiment({
+      experiment,
+      organization: context.org,
+    });
 };
+
+export async function hasNonDemoExperiment(
+  context: ReqContext | ApiReqContext,
+) {
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    context.org.id,
+  );
+  const exp = await getCollection(COLLECTION).findOne({
+    organization: context.org.id,
+    project: { $ne: demoProjectId },
+  });
+  return !!exp;
+}

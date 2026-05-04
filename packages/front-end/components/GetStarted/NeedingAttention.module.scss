@@ -1,0 +1,28 @@
+.nameTd {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 300px;
+  @media (max-width: 1300px) {
+    min-width: auto;
+    max-width: 200px;
+  }
+  a {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    display: block;
+    width: 100%;
+  }
+}
+
+.ownerTd {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 200px;
+  @media (max-width: 1300px) {
+    min-width: auto;
+    max-width: 150px;
+  }
+}

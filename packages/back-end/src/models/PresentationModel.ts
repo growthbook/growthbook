@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { PresentationInterface } from "back-end/types/presentation";
+import { PresentationInterface } from "shared/types/presentation";
 
 const presentationSchema = new mongoose.Schema({
   id: String,
@@ -34,6 +34,9 @@ const presentationSchema = new mongoose.Schema({
     textColor: String,
     headingFont: String,
     bodyFont: String,
+    logoUrl: String,
+    transition: String,
+    celebration: String,
   },
   sharable: Boolean,
   voting: Boolean,
@@ -45,5 +48,5 @@ export type PresentationDocument = mongoose.Document & PresentationInterface;
 
 export const PresentationModel = mongoose.model<PresentationInterface>(
   "Presentation",
-  presentationSchema
+  presentationSchema,
 );

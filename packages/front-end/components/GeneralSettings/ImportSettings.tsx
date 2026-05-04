@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaUpload } from "react-icons/fa";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "@/types/app-features";
 import { DocLink } from "@/components/DocLink";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
@@ -18,7 +16,6 @@ export default function ImportSettings({
   settings: OrganizationSettings;
   refreshOrg: () => Promise<void>;
 }) {
-  const growthbook = useGrowthBook<AppFeatures>();
   return (
     <>
       {hasFileConfig && (
@@ -70,18 +67,16 @@ export default function ImportSettings({
         </div>
       )}
 
-      {growthbook?.getFeatureValue("import-from-x", false) && (
-        <div className="bg-white p-3 border position-relative my-3">
-          <h3>Import from another service</h3>
-          <p>
-            Import your data from another feature flag and/or experimentation
-            service.
-          </p>
-          <Link href="/importing" className="btn btn-primary">
-            <FaUpload className="mr-1" /> Import from another service
-          </Link>
-        </div>
-      )}
+      <div className="bg-white p-3 border position-relative my-3">
+        <h3>Import from another service</h3>
+        <p>
+          Import your data from another feature flag and/or experimentation
+          service.
+        </p>
+        <Link href="/importing" className="btn btn-primary">
+          <FaUpload className="mr-1" /> Import from another service
+        </Link>
+      </div>
     </>
   );
 }

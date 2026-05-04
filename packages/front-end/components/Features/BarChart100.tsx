@@ -18,7 +18,7 @@ export default function BarChart100({
   max?: number;
 }) {
   const sortedData = Object.fromEntries(
-    Object.entries(data).sort((a, b) => b[1] - a[1])
+    Object.entries(data).sort((a, b) => b[1] - a[1]),
   );
 
   const keys = Object.keys(sortedData).slice(0, max);
@@ -84,7 +84,7 @@ export default function BarChart100({
                           height={bar.height}
                           fill={bar.color}
                         />
-                      ))
+                      )),
                     )
                   }
                 </BarStackHorizontal>

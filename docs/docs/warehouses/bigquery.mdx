@@ -6,8 +6,7 @@ slug: /guide/bigquery
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
-
-# Configuring GrowthBook to work with BigQuery
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
 This document outlines the steps needed to add your BigQuery database to GrowthBook.
 
@@ -95,9 +94,11 @@ table (which will be `experiment_viewed` if you use Segment or Rudderstack).
 
 When you click save, GrowthBook will test the connection to make sure the credentials are correct. If the connection is successful, you should see a success message on the next page.
 
-## Enabling Data Pipeline Mode (Enterprise)
+## Enabling Data Pipeline Mode
 
-Enterprise customers can enable pipeline mode, which can reduce query costs if you grant the GrowthBook service account write permissions in your data warehouse.
+<CommercialFeature feature="pipeline-mode" />
+
+Pipeline mode can reduce query costs if you grant the GrowthBook service account write permissions in your data warehouse.
 
 [More details can be found here.](/app/data-pipeline)
 
@@ -106,3 +107,7 @@ Enterprise customers can enable pipeline mode, which can reduce query costs if y
 Whenever we query your BigQuery database we add `{ integration: "growthbook" }` as a label to the query job to make it easy for you to monitor cost or filter GrowthBook query jobs by label for other use cases.
 
 Read more about how to [group by label value for a specific key here.](https://cloud.google.com/billing/docs/how-to/bq-examples#group_by_label_value_for_a_specific_key)
+
+## Troubleshooting
+
+For help debugging missing experiment data in your BigQuery instance, please see our [Google BigQuery (BQ) Troubleshooting Guide](/kb/google-analytics/google-big-query-bq-troubleshooting#initial-sync-delay-for-new-ga4-properties) and our our [Google Analytics (GA4) Troubleshooting Guide](/kb/google-analytics/google-analytics-ga4-troubleshooting)

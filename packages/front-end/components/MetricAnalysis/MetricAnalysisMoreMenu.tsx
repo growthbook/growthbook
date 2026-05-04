@@ -1,5 +1,5 @@
 import { BsArrowRepeat } from "react-icons/bs";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 

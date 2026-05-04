@@ -1,24 +1,27 @@
 import React, { FC, useEffect, useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
 import clsx from "clsx";
-import Link from "next/link";
+import { Flex } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
+  getLatestPhaseVariations,
   getMetricResultStatus,
   isFactMetric,
 } from "shared/experiments";
-import { StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentWithSnapshot,
   SnapshotMetric,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
+  ExperimentDecisionFrameworkSettings,
   ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
@@ -27,24 +30,33 @@ import Pagination from "@/components/Pagination";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import { experimentDate } from "@/pages/experiments";
+import useSignificanceThresholdsByProject from "@/hooks/useSignificanceThresholdsByProject";
+import { experimentDate, RowResults } from "@/services/experiments";
 import { useSearch } from "@/services/search";
 import { formatNumber } from "@/services/metrics";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface MetricAnalysisProps {
   metric: ExperimentMetricInterface;
   outerClassName?: string;
   bandits?: boolean;
+  includeOnlyResults?: boolean;
+  dataWithSnapshot?: ExperimentWithSnapshot[];
+  numPerPage?: number;
+  differenceType?: DifferenceType;
 }
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
   metric: ExperimentMetricInterface;
   bandits?: boolean;
+  numPerPage?: number;
+  differenceType?: DifferenceType;
 }
 
-interface MetricExperimentData {
+export interface MetricExperimentData {
   id: string;
   date: string;
   name: string;
@@ -67,6 +79,8 @@ interface MetricExperimentData {
   goalMetrics: string[];
   secondaryMetrics: string[];
   datasource: string;
+  decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+  project?: string;
 }
 
 const NUM_PER_PAGE = 50;
@@ -75,30 +89,48 @@ function MetricExperimentResultTab({
   experimentsWithSnapshot,
   metric,
   bandits,
+  numPerPage = NUM_PER_PAGE,
+  differenceType = "relative",
 }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
+  const start = (currentPage - 1) * numPerPage;
+  const end = start + numPerPage;
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
+  const bayesianConfidenceLevels = useConfidenceLevels(undefined);
+  const pValueThreshold = usePValueThreshold(undefined);
+  const defaultSignificanceThresholds = {
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  };
+  // Experiments in this table can span projects. Resolve project-scoped
+  // significance thresholds up front for every project in the org so we can
+  // look them up per-experiment without calling hooks in a loop.
+  const significanceThresholdsByProject = useSignificanceThresholdsByProject();
 
   const expData: MetricExperimentData[] = [];
   experimentsWithSnapshot.forEach((e) => {
+    const {
+      bayesianConfidenceLevels: { ciUpper, ciLower },
+      pValueThreshold,
+    } =
+      significanceThresholdsByProject.get(e.project || "") ??
+      defaultSignificanceThresholds;
     let variationResults: SnapshotMetric[] = [];
     let statsEngine: StatsEngine = "bayesian";
+    let differenceType: DifferenceType = "relative";
     if (e.snapshot) {
       const snapshot = e.snapshot.analyses?.[0];
       if (snapshot) {
         statsEngine = snapshot.settings.statsEngine;
+        differenceType = snapshot.settings.differenceType;
         variationResults = snapshot.results?.[0]?.variations.map((v) => {
           return v.metrics?.[metric.id];
         });
       }
     }
     const baseline = variationResults?.[0];
-    e.variations.forEach((v, i) => {
+    getLatestPhaseVariations(e).forEach((v, i) => {
       if (i === 0) return;
       let expVariationData: MetricExperimentData = {
         id: e.id,
@@ -107,7 +139,7 @@ function MetricExperimentResultTab({
         status: e.status,
         results: e.results,
         archived: e.archived,
-        variations: e.variations,
+        variations: getLatestPhaseVariations(e),
         statsEngine: statsEngine,
         variationId: i,
         variationName: v.name,
@@ -116,22 +148,22 @@ function MetricExperimentResultTab({
         guardrailMetrics: e.guardrailMetrics,
         secondaryMetrics: e.secondaryMetrics,
         datasource: e.datasource,
+        decisionFrameworkSettings: e.decisionFrameworkSettings,
+        project: e.project,
       };
       if (!bandits && baseline && variationResults[i]) {
-        const {
-          significant,
-          resultsStatus,
-          directionalStatus,
-        } = getMetricResultStatus({
-          metric: metric,
-          metricDefaults,
-          baseline: baseline,
-          stats: variationResults[i],
-          ciLower,
-          ciUpper,
-          pValueThreshold,
-          statsEngine,
-        });
+        const { significant, resultsStatus, directionalStatus } =
+          getMetricResultStatus({
+            metric: metric,
+            metricDefaults,
+            baseline: baseline,
+            stats: variationResults[i],
+            ciLower,
+            ciUpper,
+            pValueThreshold,
+            statsEngine,
+            differenceType,
+          });
         expVariationData = {
           ...expVariationData,
           variationResults: variationResults[i],
@@ -201,10 +233,10 @@ function MetricExperimentResultTab({
           {e.status === "running"
             ? "started"
             : e.status === "draft"
-            ? "created"
-            : e.status === "stopped"
-            ? "ended"
-            : ""}{" "}
+              ? "created"
+              : e.status === "stopped"
+                ? "ended"
+                : ""}{" "}
           {date(e.date)}
         </td>
         <td>
@@ -217,14 +249,28 @@ function MetricExperimentResultTab({
           e.variationResults ? (
             <ChangeColumn
               metric={metric}
+              pValueThreshold={
+                (
+                  significanceThresholdsByProject.get(e.project || "") ??
+                  defaultSignificanceThresholds
+                ).pValueThreshold
+              }
               stats={e.variationResults}
               rowResults={{
                 enoughData: true,
                 directionalStatus: e.directionalStatus ?? "losing",
                 hasScaledImpact: true,
+                significant: e.significant ?? false,
+                resultsStatus:
+                  (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
+                suspiciousChange: false,
+                suspiciousThreshold: 0,
+                minPercentChange: 0,
+                currentMetricTotal: e.variationResults?.value ?? 0,
               }}
+              showPlusMinus={false}
               statsEngine={e.statsEngine}
-              differenceType="relative"
+              differenceType={differenceType}
               showCI={true}
               className={resultsHighlightClassname}
             />
@@ -252,11 +298,11 @@ function MetricExperimentResultTab({
         </thead>
         <tbody>{expRows}</tbody>
       </table>
-      {items.length > NUM_PER_PAGE && (
+      {items.length > numPerPage && (
         <Pagination
           numItemsTotal={items.length}
           currentPage={currentPage}
-          perPage={NUM_PER_PAGE}
+          perPage={numPerPage}
           onPageChange={setCurrentPage}
         />
       )}
@@ -268,25 +314,43 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
   metric,
   outerClassName,
   bandits = false,
+  includeOnlyResults = false,
+  dataWithSnapshot,
+  numPerPage = NUM_PER_PAGE,
+  differenceType = "relative",
 }) => {
   const { data } = useApi<{
     data: ExperimentWithSnapshot[];
-  }>(`/metrics/${metric.id}/experiments`);
-  const metricExperiments = (data?.data ?? []).filter((e) =>
-    bandits ? e.type === "multi-armed-bandit" : e.type !== "multi-armed-bandit"
+  }>(`/metrics/${metric.id}/experiments`, {
+    shouldRun: dataWithSnapshot ? () => false : undefined,
+  });
+  const loading = !data;
+
+  const metricExperiments = (dataWithSnapshot ?? data?.data ?? []).filter(
+    (e) =>
+      (bandits
+        ? e.type === "multi-armed-bandit"
+        : e.type !== "multi-armed-bandit") &&
+      (includeOnlyResults
+        ? e.status !== "draft" && e.snapshot?.status === "success"
+        : true),
   );
 
-  const body = !metricExperiments?.length ? (
-    <div className={`mt-2 alert alert-warning`}>
-      <span style={{ fontSize: "1.2em" }}>
-        0 {bandits ? "bandits" : "experiments"} with this metric found.
-      </span>
-    </div>
+  const body = loading ? (
+    <Flex mt="1" mb="2">
+      <LoadingSpinner />
+    </Flex>
+  ) : !metricExperiments?.length ? (
+    <Callout status="info" mt="1" mb="2">
+      0 {bandits ? "bandits" : "experiments"} with this metric found.
+    </Callout>
   ) : (
     <MetricExperimentResultTab
       experimentsWithSnapshot={metricExperiments}
       metric={metric}
       bandits={bandits}
+      numPerPage={numPerPage}
+      differenceType={differenceType}
     />
   );
 

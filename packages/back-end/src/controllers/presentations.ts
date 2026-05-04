@@ -1,4 +1,6 @@
 import { Response } from "express";
+import { PresentationInterface } from "shared/types/presentation";
+import { ExperimentInterface } from "shared/types/experiment";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getPresentationById,
@@ -8,8 +10,6 @@ import {
   getPresentationSnapshots,
 } from "back-end/src/services/presentations";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { PresentationInterface } from "back-end/types/presentation";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
   const { org } = getContextFromReq(req);
@@ -23,7 +23,7 @@ export async function getPresentations(req: AuthRequest, res: Response) {
 
 export async function getPresentation(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -78,7 +78,7 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
 
 export async function deletePresentation(
   req: AuthRequest<ExperimentInterface, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -123,7 +123,7 @@ export async function deletePresentation(
  */
 export async function postPresentation(
   req: AuthRequest<Partial<PresentationInterface>>,
-  res: Response
+  res: Response,
 ) {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -151,7 +151,7 @@ export async function postPresentation(
  */
 export async function updatePresentation(
   req: AuthRequest<PresentationInterface, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { id } = req.params;
   const data = req.body;

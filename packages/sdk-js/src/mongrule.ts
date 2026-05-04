@@ -18,7 +18,7 @@ export function evalCondition(
   obj: TestedObj,
   condition: ConditionInterface,
   // Must be included for `condition` to correctly evaluate group Operators
-  savedGroups?: SavedGroupsValues
+  savedGroups?: SavedGroupsValues,
 ): boolean {
   savedGroups = savedGroups || {};
   // Condition is an object, keys are either specific operators or object paths
@@ -60,21 +60,29 @@ function getPath(obj: TestedObj, path: string) {
 }
 
 // Transform a regex string into a real RegExp object
-function getRegex(regex: string): RegExp {
-  if (!_regexCache[regex]) {
-    _regexCache[regex] = new RegExp(regex.replace(/([^\\])\//g, "$1\\/"));
+function getRegex(regex: string, insensitive = false): RegExp {
+  const cacheKey = `${regex}${insensitive ? "/i" : ""}`;
+  if (!_regexCache[cacheKey]) {
+    _regexCache[cacheKey] = new RegExp(
+      regex.replace(/([^\\])\//g, "$1\\/"),
+      insensitive ? "i" : undefined,
+    );
   }
-  return _regexCache[regex];
+  return _regexCache[cacheKey];
 }
 
 // Evaluate a single value against a condition
 function evalConditionValue(
   condition: ConditionValue,
   value: any,
-  savedGroups: SavedGroupsValues
+  savedGroups: SavedGroupsValues,
+  insensitive: boolean = false,
 ) {
   // Simple equality comparisons
   if (typeof condition === "string") {
+    if (insensitive) {
+      return String(value).toLowerCase() === condition.toLowerCase();
+    }
     return value + "" === condition;
   }
   if (typeof condition === "number") {
@@ -99,7 +107,7 @@ function evalConditionValue(
         op as Operator,
         value,
         condition[op as keyof OperatorConditionValue],
-        savedGroups
+        savedGroups,
       )
     ) {
       return false;
@@ -141,7 +149,22 @@ function elemMatch(actual: any, expected: any, savedGroups: SavedGroupsValues) {
   return false;
 }
 
-function isIn(actual: any, expected: Array<any>): boolean {
+function isIn(
+  actual: any,
+  expected: Array<any>,
+  insensitive: boolean = false,
+): boolean {
+  if (insensitive) {
+    const caseFold = (val: any) =>
+      typeof val === "string" ? val.toLowerCase() : val;
+    // Do an intersection if attribute is an array (insensitive)
+    if (Array.isArray(actual)) {
+      return actual.some((el) =>
+        expected.some((exp) => caseFold(el) === caseFold(exp)),
+      );
+    }
+    return expected.some((exp) => caseFold(actual) === caseFold(exp));
+  }
   // Do an intersection if attribute is an array
   if (Array.isArray(actual)) {
     return actual.some((el) => expected.includes(el));
@@ -149,12 +172,34 @@ function isIn(actual: any, expected: Array<any>): boolean {
   return expected.includes(actual);
 }
 
+function isInAll(
+  actual: any,
+  expected: ConditionValue[],
+  savedGroups: SavedGroupsValues,
+  insensitive: boolean = false,
+): boolean {
+  if (!Array.isArray(actual)) return false;
+  for (let i = 0; i < expected.length; i++) {
+    let passed = false;
+    for (let j = 0; j < actual.length; j++) {
+      if (
+        evalConditionValue(expected[i], actual[j], savedGroups, insensitive)
+      ) {
+        passed = true;
+        break;
+      }
+    }
+    if (!passed) return false;
+  }
+  return true;
+}
+
 // Evaluate a single operator condition
 function evalOperatorCondition(
   operator: Operator,
   actual: any,
   expected: any,
-  savedGroups: SavedGroupsValues
+  savedGroups: SavedGroupsValues,
 ): boolean {
   switch (operator) {
     case "$veq":
@@ -187,6 +232,9 @@ function evalOperatorCondition(
     case "$in":
       if (!Array.isArray(expected)) return false;
       return isIn(actual, expected);
+    case "$ini":
+      if (!Array.isArray(expected)) return false;
+      return isIn(actual, expected, true);
     case "$inGroup":
       return isIn(actual, savedGroups[expected] || []);
     case "$notInGroup":
@@ -194,6 +242,9 @@ function evalOperatorCondition(
     case "$nin":
       if (!Array.isArray(expected)) return false;
       return !isIn(actual, expected);
+    case "$nini":
+      if (!Array.isArray(expected)) return false;
+      return !isIn(actual, expected, true);
     case "$not":
       return !evalConditionValue(expected, actual, savedGroups);
     case "$size":
@@ -202,21 +253,20 @@ function evalOperatorCondition(
     case "$elemMatch":
       return elemMatch(actual, expected, savedGroups);
     case "$all":
-      if (!Array.isArray(actual)) return false;
-      for (let i = 0; i < expected.length; i++) {
-        let passed = false;
-        for (let j = 0; j < actual.length; j++) {
-          if (evalConditionValue(expected[i], actual[j], savedGroups)) {
-            passed = true;
-            break;
-          }
-        }
-        if (!passed) return false;
-      }
-      return true;
+      if (!Array.isArray(expected)) return false;
+      return isInAll(actual, expected, savedGroups);
+    case "$alli":
+      if (!Array.isArray(expected)) return false;
+      return isInAll(actual, expected, savedGroups, true);
     case "$regex":
       try {
         return getRegex(expected).test(actual);
+      } catch (e) {
+        return false;
+      }
+    case "$regexi":
+      try {
+        return getRegex(expected, true).test(actual);
       } catch (e) {
         return false;
       }
@@ -232,7 +282,7 @@ function evalOperatorCondition(
 function evalOr(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroupsValues
+  savedGroups: SavedGroupsValues,
 ): boolean {
   if (!conditions.length) return true;
   for (let i = 0; i < conditions.length; i++) {
@@ -247,7 +297,7 @@ function evalOr(
 function evalAnd(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroupsValues
+  savedGroups: SavedGroupsValues,
 ): boolean {
   for (let i = 0; i < conditions.length; i++) {
     if (!evalCondition(obj, conditions[i], savedGroups)) {

@@ -3,7 +3,7 @@ import {
   DataSourceType,
   SchemaFormat,
   SchemaOption,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { ReactElement } from "react";
 import { BsDatabase } from "react-icons/bs";
 import { GrBarChart } from "react-icons/gr";
@@ -399,6 +399,7 @@ export const dataSourceConnections: {
       bucketUri: "s3://",
       region: "us-east-1",
       database: "",
+      catalog: "AwsDataCatalog",
       accessKeyId: "",
       secretAccessKey: "",
       workGroup: "primary",

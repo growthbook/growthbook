@@ -10,16 +10,15 @@ import React, {
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "back-end/types/archetype";
-import { FeatureTestResult } from "back-end/types/feature";
-import Link from "next/link";
+} from "shared/types/archetype";
+import { FeatureTestResult } from "shared/types/feature";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
-import { FiAlertTriangle } from "react-icons/fi";
-import {
-  useEnvironments,
-  useFeatureSearch,
-  useFeaturesList,
-} from "@/services/features";
+import { Box, Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import { useEnvironments } from "@/services/features";
+import { useSearch } from "@/services/search";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
 import TagsFilter, {
   filterByTags,
@@ -36,7 +35,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 
@@ -59,42 +58,39 @@ export const SimulateFeatureValues: FC<{
   const [featureResultsMap, setFeatureResultsMap] = useState<
     Map<string, FeatureTestResult>
   >(new Map());
-  const [
-    evaluatedAttributes,
-    setEvaluatedAttributes,
-  ] = useState<ArchetypeAttributeValues>({});
+  const [evaluatedAttributes, setEvaluatedAttributes] =
+    useState<ArchetypeAttributeValues>({});
   const [evaluatedFeatures, setEvaluatedFeatures] = useState<string[]>([]);
   const environments = useEnvironments();
   const showAllEnv = environments.length <= maxEnvironments;
   const [selectedEnvironment, setSelectedEnvironment] = useState<string>(
-    showAllEnv ? "all" : environments[0].id
+    showAllEnv ? "all" : environments[0].id,
   );
-  const [evaluatedEnvironment, setEvaluatedEnvironment] = useState(
-    selectedEnvironment
-  );
+  const [evaluatedEnvironment, setEvaluatedEnvironment] =
+    useState(selectedEnvironment);
   const { apiCall } = useAuth();
 
-  const { features: allFeatures, loading } = useFeaturesList(true, false);
+  const { project } = useDefinitions();
+  const { features: allFeatures, loading } = useFeatureMetaInfo({ project });
 
   const tagsFilter = useTagsFilter("features");
-  const filterResults = useCallback(
-    (items: typeof allFeatures) => {
-      items = items.filter((f) => !f.archived);
-      items = filterByTags(items, tagsFilter.tags);
-      return items;
-    },
-    [tagsFilter.tags]
-  );
   const permissionsUtil = usePermissionsUtil();
-  const { project } = useDefinitions();
   const canCreate = permissionsUtil.canCreateArchetype({ projects: [project] });
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
   const hasSimulateFeature = hasCommercialFeature("simulate");
 
-  const { searchInputProps, items, SortableTH } = useFeatureSearch({
-    allFeatures,
-    filterResults,
-    environments,
+  const { searchInputProps, items, SortableTH } = useSearch({
+    items: allFeatures.filter((f) => !f.archived),
+    searchFields: ["id^3", "description"],
+    localStorageKey: "simulate-features",
+    defaultSortField: "id",
+    filterResults: (items) => filterByTags(items, tagsFilter.tags),
+    searchTermFilters: {
+      is: (item) => [item.valueType ?? ""],
+      tag: (item) => item.tags,
+      project: (item) => [item.project ?? ""],
+      owner: (item) => [item.owner, getOwnerDisplay(item.owner)],
+    },
   });
 
   const featureItems = useMemo(() => {
@@ -130,7 +126,7 @@ export const SimulateFeatureValues: FC<{
               Object.keys(r).forEach((featureId) => {
                 featureResultsMap.set(
                   featureId + r[featureId].env,
-                  r[featureId]
+                  r[featureId],
                 );
               });
             });
@@ -171,7 +167,10 @@ export const SimulateFeatureValues: FC<{
     return <div>No environments added</div>;
   }
   let attributeText = (
-    <>Select Archetype or edit user attributes to see feature results.</>
+    <>
+      Click <strong>Set Attributes</strong> to select an Archetype or manually
+      enter attribute values to see simulated feature results.
+    </>
   );
   let attributeNodes: ReactNode[] = [];
   if (attributes && Object.keys(attributes).length > 0) {
@@ -196,7 +195,7 @@ export const SimulateFeatureValues: FC<{
   }
 
   const showEnvDropdown = true;
-  const numColumns = showEnvDropdown ? 4 : environments.length + 3;
+  const numColumns = showEnvDropdown ? 3 : environments.length + 2;
   const environmentOptions = [
     ...environments.map((e) => {
       return { label: e.id, value: e.id };
@@ -209,24 +208,9 @@ export const SimulateFeatureValues: FC<{
   const featureTableResults = (
     <>
       <div className="mb-3">
-        <div className="row mb-3">
-          <div className="col">
-            <div className="border border-primary appbox p-3">
-              {attributeText} {attributeNodes}{" "}
-              <a
-                href="#"
-                className="ml-2"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditAttributesModalOpen(true);
-                }}
-              >
-                ({attributes && Object.keys(attributes).length ? "edit" : "set"}
-                )
-              </a>
-            </div>
-          </div>
-        </div>
+        <Callout status="info" mb="5">
+          {attributeText} {attributeNodes}
+        </Callout>
 
         <div
           style={{
@@ -271,9 +255,6 @@ export const SimulateFeatureValues: FC<{
               <tr>
                 <th>Feature Name</th>
                 <SortableTH field="tags">Tags</SortableTH>
-                <th style={{ borderRight: "1px solid rgba(155,155,155, 0.2)" }}>
-                  Prerequisites
-                </th>
                 {selectedEnvironment !== "all" ? (
                   <th>{selectedEnvironment}</th>
                 ) : (
@@ -289,28 +270,6 @@ export const SimulateFeatureValues: FC<{
             </thead>
             <tbody>
               {featureItems.map((feature) => {
-                // get a list of all the prerequisites for this feature - both top level and rule prerequisites.
-                const prerequisites =
-                  feature.prerequisites?.map((p) => {
-                    return p.id;
-                  }) ?? [];
-                if (feature.environmentSettings) {
-                  Object.values(feature.environmentSettings).forEach(
-                    (envSetting) => {
-                      if (envSetting.rules) {
-                        envSetting.rules.forEach((rule) => {
-                          if (rule.prerequisites) {
-                            rule.prerequisites.forEach((p) => {
-                              if (!prerequisites.includes(p.id)) {
-                                prerequisites.push(p.id);
-                              }
-                            });
-                          }
-                        });
-                      }
-                    }
-                  );
-                }
                 return (
                   <Fragment key={feature.id + "results"}>
                     <tr className={feature.archived ? "text-muted" : ""}>
@@ -323,30 +282,12 @@ export const SimulateFeatureValues: FC<{
                         </Link>
                       </td>
                       <td>
-                        <SortedTags tags={feature?.tags || []} />
-                      </td>
-                      <td
-                        className="small"
-                        style={{
-                          borderRight: "1px solid rgba(155,155,155, 0.2)",
-                        }}
-                      >
-                        {prerequisites &&
-                          prerequisites.map((p, i) => {
-                            return (
-                              <Fragment key={`loop-${i}`}>
-                                <Link href={`/features/${p}`}>{p}</Link>
-                                {i === (prerequisites?.length || 1) - 1
-                                  ? ""
-                                  : ", "}
-                              </Fragment>
-                            );
-                          })}
+                        <SortedTags tags={feature?.tags || []} useFlex />
                       </td>
                       {selectedEnvironment !== "all" ? (
                         (() => {
                           const res = featureResultsMap.get(
-                            feature.id + selectedEnvironment
+                            feature.id + selectedEnvironment,
                           );
                           if (!res) {
                             return <td>-</td>;
@@ -366,7 +307,7 @@ export const SimulateFeatureValues: FC<{
                         <>
                           {environments.slice(0, maxEnvironments).map((en) => {
                             const res = featureResultsMap.get(
-                              feature.id + en.id
+                              feature.id + en.id,
                             );
                             if (!res) {
                               return (
@@ -412,38 +353,35 @@ export const SimulateFeatureValues: FC<{
           )}
         </div>
       </div>
-      <div className="alert-info mt-5 mb-5 p-3 cursor-pointer align-items-center">
-        <div
-          className="d-flex"
+      <Callout status="info" mt="5" mb="5" contentsAs="div">
+        <Flex
+          align="center"
+          gap="3"
           onClick={(e) => {
             e.preventDefault();
             setOpenWarning(!openWarning);
           }}
+          style={{ cursor: "pointer" }}
         >
-          <div className="p-2 pr-3">
-            <FiAlertTriangle />
-          </div>
-          <div>
+          <Box flexGrow="1">
             These results use the JS SDK, which supports the V2 hashing
             algorithm. If you use one of the older or unsupported SDKs, you may
             want to change the hashing algorithm of the experiment to v1 to
             ensure accurate results. Click for more info.
-          </div>
-          <div className="p-2">
-            <FaChevronRight
-              style={{
-                transform: `rotate(${openWarning ? "90deg" : "0deg"})`,
-              }}
-            />
-          </div>
-        </div>
+          </Box>
+          <FaChevronRight
+            style={{
+              transform: `rotate(${openWarning ? "90deg" : "0deg"})`,
+            }}
+          />
+        </Flex>
         {openWarning && (
-          <div className="p-3">
+          <Box mt="3">
             The following SDK versions support V2 hashing:
             <MinSDKVersionsList capability="bucketingV2" />
-          </div>
+          </Box>
         )}
-      </div>
+      </Callout>
     </>
   );
 
@@ -456,7 +394,6 @@ export const SimulateFeatureValues: FC<{
               values they have or would receive. Simulation is a premium
               feature."
           commercialFeature="simulate"
-          reason="Simulate landing page no access"
           learnMoreLink="https://docs.growthbook.io/features/rules#simulation"
         />
       </div>

@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import Field from "@/components/Forms/Field";
 import HostWarning from "./HostWarning";
 

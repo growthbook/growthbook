@@ -63,7 +63,7 @@ export function thirdPartyTrackingPlugin({
       ) {
         window.analytics.track("Experiment Viewed", eventParams);
         const segmentPromise = new Promise((resolve) =>
-          window.setTimeout(resolve, 300)
+          window.setTimeout(resolve, 300),
         );
         promises.push(segmentPromise);
       }

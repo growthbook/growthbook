@@ -5,18 +5,18 @@ import {
   metricTypeValidator,
   quantileSettingsValidator,
   windowSettingsValidator,
-} from "back-end/src/routers/fact-table/fact-table.validators";
+} from "shared/validators";
 import { z } from "zod";
 import { ReactNode, useState } from "react";
 import dJSON from "dirty-json";
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 const metricToCreateValidator = z.object({
   metricType: metricTypeValidator,
@@ -34,11 +34,11 @@ export default function CreateMetricFromTemplate() {
   const router = useRouter();
 
   const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project)
+    isProjectListValidForProject(d.projects, project),
   );
 
   const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project)
+    isProjectListValidForProject(f.projects, project),
   );
 
   const { hasCommercialFeature } = useUser();
@@ -46,7 +46,6 @@ export default function CreateMetricFromTemplate() {
   const [upgradeModal, setUpgradeModal] = useState<null | {
     source: string;
     commercialFeature: CommercialFeature;
-    reason: string;
   }>(null);
 
   const QUERY_KEY = "addMetric";
@@ -64,7 +63,7 @@ export default function CreateMetricFromTemplate() {
 
         if (json.numerator) {
           json.numerator.factTableId = "";
-          json.numerator.filters = json.numerator.filters || [];
+          json.numerator.rowFilters = json.numerator.rowFilters || [];
 
           if (
             json.metricType === "proportion" ||
@@ -77,7 +76,7 @@ export default function CreateMetricFromTemplate() {
         }
         if (json.denominator) {
           json.denominator.factTableId = "";
-          json.denominator.filters = json.denominator.filters || [];
+          json.denominator.rowFilters = json.denominator.rowFilters || [];
           json.denominator.column = json.denominator.column || "";
         }
 
@@ -95,7 +94,6 @@ export default function CreateMetricFromTemplate() {
                 showUpgradeModal={() =>
                   setUpgradeModal({
                     source: "metric-template-quantile",
-                    reason: "To create quantile metrics,",
                     commercialFeature: "quantile-metrics",
                   })
                 }
@@ -116,7 +114,6 @@ export default function CreateMetricFromTemplate() {
                 showUpgradeModal={() =>
                   setUpgradeModal({
                     source: "metric-template-retention",
-                    reason: "To create retention metrics,",
                     commercialFeature: "retention-metrics",
                   })
                 }
@@ -165,7 +162,6 @@ export default function CreateMetricFromTemplate() {
       {upgradeModal ? (
         <UpgradeModal
           close={() => setUpgradeModal(null)}
-          reason={upgradeModal.reason}
           source={upgradeModal.source}
           commercialFeature={upgradeModal.commercialFeature}
         />

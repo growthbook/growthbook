@@ -1,4 +1,4 @@
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -18,8 +18,8 @@ export default function FactTableSchema({ factTable }: Props) {
                 {col.datatype === "date"
                   ? "date / datetime"
                   : !col.datatype
-                  ? "unknown"
-                  : col.datatype}
+                    ? "unknown"
+                    : col.datatype}
               </em>
             </td>
           </tr>
