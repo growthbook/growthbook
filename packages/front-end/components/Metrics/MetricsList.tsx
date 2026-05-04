@@ -623,12 +623,11 @@ const MetricsList = (): React.ReactElement => {
               >
                 <TableCell
                   style={{
-                    width: "1%",
                     maxWidth: 36,
                     textAlign: "center",
                     verticalAlign: "middle",
                     whiteSpace: "nowrap",
-                    paddingInline: 3,
+                    paddingInline: "var(--space-4)",
                     paddingBlock: "var(--space-2)",
                     boxSizing: "border-box",
                     lineHeight: 1,
