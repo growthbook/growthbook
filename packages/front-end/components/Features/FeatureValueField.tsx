@@ -148,10 +148,8 @@ export default function FeatureValueField({
 
     const codeEditorToggleButton = useCodeInput ? (
       <Link
-        href="#"
         className="text-purple"
-        onClick={(e) => {
-          e.preventDefault();
+        onClick={() => {
           setCodeEditorToggledOn(!codeEditorToggledOn);
         }}
         style={{ whiteSpace: "nowrap" }}

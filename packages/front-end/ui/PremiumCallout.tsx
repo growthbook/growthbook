@@ -65,7 +65,7 @@ export default function PremiumCallout({
 
   const link =
     hasFeature && docSection ? (
-      <DocLink docSection={docSection}>
+      <DocLink docSection={docSection} useRadix={true}>
         View docs <PiArrowSquareOut size={15} />
       </DocLink>
     ) : pro ? (
