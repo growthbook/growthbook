@@ -552,6 +552,34 @@ export async function getSampleExperiment(
   return exp ? toInterface(exp) : null;
 }
 
+/**
+ * Validate Contextual Bandit-specific invariants:
+ *  - sticky bucketing must be off
+ *  - holdoutPercent must be 0 (locked in v1; reserved for v1.5)
+ *  - exactly one goal metric
+ */
+export function validateContextualBanditInvariants(
+  data: Partial<ExperimentInterface>,
+): void {
+  if (!data.isContextualBandit) return;
+  if (data.disableStickyBucketing === false) {
+    throw new Error(
+      "Contextual Bandit experiments cannot use sticky bucketing. Set disableStickyBucketing: true.",
+    );
+  }
+  const holdoutPercent = data.contextualBanditConfig?.holdoutPercent;
+  if (holdoutPercent !== undefined && holdoutPercent !== 0) {
+    throw new Error(
+      "Contextual Bandit experiments must set holdoutPercent: 0 in v1 (holdout is reserved for v1.5).",
+    );
+  }
+  if (data.goalMetrics && data.goalMetrics.length !== 1) {
+    throw new Error(
+      "Contextual Bandit experiments require exactly one goal metric.",
+    );
+  }
+}
+
 export async function createExperiment({
   data,
   context,
@@ -562,6 +590,8 @@ export async function createExperiment({
   data.organization = context.org.id;
 
   if (!data.name) throw new Error("Cannot create experiment with empty name!");
+
+  validateContextualBanditInvariants(data);
 
   if (!data.trackingKey) {
     data.trackingKey = await generateTrackingKey(
@@ -642,6 +672,11 @@ export async function updateExperiment({
   };
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
+
+  validateContextualBanditInvariants({
+    ...experiment,
+    ...allChanges,
+  });
 
   await ExperimentModel.updateOne(
     {

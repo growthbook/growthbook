@@ -1,5 +1,22 @@
 # Changelog
 
+## **1.7.0** - Apr 29, 2026
+
+- Add support for **Contextual Bandits** in feature rules:
+  - `FeatureRule` now optionally carries `isContextualBandit`, `contexts[]`,
+    and `attributesRequired[]`.
+  - When a CB rule is encountered, the SDK evaluates the user against each
+    `contexts[].condition` in order, then hash-buckets them against the
+    matched context's `weights` using `contextId` as the seed (so the hash
+    space is stable across reweights).
+  - If any required attribute is missing, or no context matches, the rule
+    is skipped and the next rule is evaluated.
+- Extend `TrackingCallback` to an optional 4-arg signature
+  `(experiment, result, attributes?, meta?)` where
+  `meta = { isBandit?, contextId? }`. Existing 2-arg callbacks remain
+  fully backwards-compatible — the SDK only supplies the new positional
+  arguments when they are meaningful (i.e. CB tracking).
+
 ## **1.6.5** - Feb 18, 2026
 
 - Add `setFeatureUsageCallback` method

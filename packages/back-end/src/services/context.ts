@@ -70,6 +70,8 @@ import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { ContextualBanditQueryModel } from "back-end/src/models/ContextualBanditQueryModel";
+import { ContextualBanditEventModel } from "back-end/src/models/ContextualBanditEventModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
@@ -119,7 +121,9 @@ export type ModelName =
   | "apiKeys"
   | "rampSchedules"
   | "rampScheduleTemplates"
-  | "aiConversations";
+  | "aiConversations"
+  | "contextualBanditQueries"
+  | "contextualBanditEvents";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -158,6 +162,8 @@ export const modelClasses = {
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  contextualBanditQueries: ContextualBanditQueryModel,
+  contextualBanditEvents: ContextualBanditEventModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -206,6 +212,8 @@ export class ReqContextClass {
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      contextualBanditQueries: new ContextualBanditQueryModel(this),
+      contextualBanditEvents: new ContextualBanditEventModel(this),
     };
   }
 

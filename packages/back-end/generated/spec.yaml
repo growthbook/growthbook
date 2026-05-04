@@ -195,6 +195,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: contextual-bandit-events
+    x-displayName: contextual-bandit-events
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -216,6 +219,14 @@ tags:
   - name: RampScheduleTemplates
     x-displayName: Ramp Schedule Templates
     description: Reusable step configurations for ramp schedules.
+  - name: ContextualBanditQueries
+    x-displayName: Contextual Bandit Queries
+    description: Per-datasource SQL definitions used by the contextual bandit pipeline.
+  - name: ContextualBanditEvents
+    x-displayName: Contextual Bandit Events
+    description: >-
+      Per-tick output of the contextual bandit pipeline (per-context weights +
+      tree summary).
   - name: AnalyticsExploration_model
     x-displayName: AnalyticsExploration
     description: <SchemaDefinition schemaRef="#/components/schemas/AnalyticsExploration" />
@@ -228,6 +239,16 @@ tags:
   - name: CodeRef_model
     x-displayName: CodeRef
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
+  - name: ContextualBanditEvent_model
+    x-displayName: ContextualBanditEvent
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/ContextualBanditEvent"
+      />
+  - name: ContextualBanditQuery_model
+    x-displayName: ContextualBanditQuery
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/ContextualBanditQuery"
+      />
   - name: CustomField_model
     x-displayName: CustomField
     description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
@@ -5377,6 +5398,48 @@ paths:
                     required:
                       - slices
                     additionalProperties: false
+                isContextualBandit:
+                  type: boolean
+                cbaqId:
+                  type: string
+                contextualBanditConfig:
+                  type: object
+                  properties:
+                    contextualAttributes:
+                      minItems: 1
+                      type: array
+                      items:
+                        type: string
+                    maxContexts:
+                      type: integer
+                      minimum: 1
+                      maximum: 3000
+                    treeModel:
+                      default: regression_tree
+                      type: string
+                      enum:
+                        - regression_tree
+                        - linear_thompson
+                    minUsersPerLeaf:
+                      default: 100
+                      type: integer
+                      minimum: 1
+                    holdoutPercent:
+                      default: 0
+                      type: number
+                      const: 0
+                    stickyBucketing:
+                      default: false
+                      type: boolean
+                      const: false
+                  required:
+                    - contextualAttributes
+                    - maxContexts
+                    - treeModel
+                    - minUsersPerLeaf
+                    - holdoutPercent
+                    - stickyBucketing
+                  additionalProperties: false
               required:
                 - trackingKey
                 - name
@@ -5907,6 +5970,48 @@ paths:
                     required:
                       - slices
                     additionalProperties: false
+                isContextualBandit:
+                  type: boolean
+                cbaqId:
+                  type: string
+                contextualBanditConfig:
+                  type: object
+                  properties:
+                    contextualAttributes:
+                      minItems: 1
+                      type: array
+                      items:
+                        type: string
+                    maxContexts:
+                      type: integer
+                      minimum: 1
+                      maximum: 3000
+                    treeModel:
+                      default: regression_tree
+                      type: string
+                      enum:
+                        - regression_tree
+                        - linear_thompson
+                    minUsersPerLeaf:
+                      default: 100
+                      type: integer
+                      minimum: 1
+                    holdoutPercent:
+                      default: 0
+                      type: number
+                      const: 0
+                    stickyBucketing:
+                      default: false
+                      type: boolean
+                      const: false
+                  required:
+                    - contextualAttributes
+                    - maxContexts
+                    - treeModel
+                    - minUsersPerLeaf
+                    - holdoutPercent
+                    - stickyBucketing
+                  additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -5984,6 +6089,12 @@ paths:
                   enum:
                     - manual
                     - schedule
+                bandit:
+                  type: object
+                  properties:
+                    reweight:
+                      type: boolean
+                  additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -6132,6 +6243,230 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/experiment-names' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /experiments/{id}/contextual-bandit/current:
+    get:
+      operationId: getExperimentContextualBanditCurrent
+      summary: Get the current (latest) contextual bandit event
+      tags:
+        - experiments
+        - contextual-bandit-events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Experiment id
+          schema:
+            description: Experiment id
+            type: string
+        - name: phase
+          in: query
+          description: Phase index (defaults to last phase)
+          schema:
+            description: Phase index (defaults to last phase)
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditEvent:
+                    $ref: '#/components/schemas/ContextualBanditEvent'
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/current'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /experiments/{id}/contextual-bandit/events:
+    get:
+      operationId: listExperimentContextualBanditEvents
+      summary: List contextual bandit events for an experiment
+      tags:
+        - experiments
+        - contextual-bandit-events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Experiment id
+          schema:
+            description: Experiment id
+            type: string
+        - $ref: '#/components/parameters/cursor'
+        - name: limit
+          in: query
+          description: Maximum number of events to return (default 25, max 100)
+          schema:
+            description: Maximum number of events to return (default 25, max 100)
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditEvents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContextualBanditEvent'
+                  nextCursor:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  hasMore:
+                    type: boolean
+                required:
+                  - contextualBanditEvents
+                  - nextCursor
+                  - hasMore
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/events'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /experiments/{id}/contextual-bandit/events/{eventId}:
+    get:
+      operationId: getExperimentContextualBanditEvent
+      summary: Get a single contextual bandit event for an experiment
+      tags:
+        - experiments
+        - contextual-bandit-events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Experiment id
+          schema:
+            description: Experiment id
+            type: string
+        - $ref: '#/components/parameters/eventId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditEvent:
+                    $ref: '#/components/schemas/ContextualBanditEvent'
+                required:
+                  - contextualBanditEvent
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/events/{eventId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /experiments/{id}/contextual-bandit/contexts:
+    get:
+      operationId: getExperimentContextualBanditContexts
+      summary: List context-level results for a contextual bandit experiment
+      tags:
+        - experiments
+        - contextual-bandit-events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Experiment id
+          schema:
+            description: Experiment id
+            type: string
+        - $ref: '#/components/parameters/contextId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contexts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/contexts'
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/history'
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/contexts'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /experiments/{id}/contextual-bandit/refresh:
+    post:
+      operationId: postExperimentContextualBanditRefresh
+      summary: Trigger a contextual bandit snapshot refresh
+      tags:
+        - experiments
+        - contextual-bandit-events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Experiment id
+          schema:
+            description: Experiment id
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reweight:
+                  description: >-
+                    Force the orchestrator into the reweight (exploit) path on
+                    this snapshot.
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditEvent:
+                    $ref: '#/components/schemas/ContextualBanditEvent'
+                  weightsWereUpdated:
+                    type: boolean
+                  trimmedContexts:
+                    type: array
+                    items:
+                      type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - contextualBanditEvent
+                  - weightsWereUpdated
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/refresh'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /experiments/{id}/visual-changesets:
     get:
@@ -19673,6 +20008,543 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /contextual-bandit-queries/{id}:
+    get:
+      operationId: getContextualBanditQuery
+      summary: Get a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteContextualBanditQuery
+      summary: Delete a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateContextualBanditQuery
+      summary: Update a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datasourceId:
+                  description: ID of the parent datasource
+                  type: string
+                name:
+                  description: Name of the contextual bandit query
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                identifierType:
+                  description: Identifier type that the SQL emits
+                  type: string
+                  minLength: 1
+                sql:
+                  description: >-
+                    SQL query that produces one row per assignment with the
+                    declared context attributes
+                  type: string
+                  minLength: 1
+                attributes:
+                  description: Context attributes available to the bandit
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        description: Display name for the attribute
+                        type: string
+                        minLength: 1
+                      column:
+                        description: >-
+                          Column on the SQL query result that holds this
+                          attribute
+                        type: string
+                        minLength: 1
+                      datatype:
+                        description: Datatype of the attribute
+                        type: string
+                        enum:
+                          - string
+                          - number
+                    required:
+                      - name
+                      - column
+                      - datatype
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /contextual-bandit-queries:
+    post:
+      operationId: createContextualBanditQuery
+      summary: Create a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datasourceId:
+                  description: ID of the parent datasource
+                  type: string
+                name:
+                  description: Name of the contextual bandit query
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                identifierType:
+                  description: Identifier type that the SQL emits
+                  type: string
+                  minLength: 1
+                sql:
+                  description: >-
+                    SQL query that produces one row per assignment with the
+                    declared context attributes
+                  type: string
+                  minLength: 1
+                attributes:
+                  description: Context attributes available to the bandit
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        description: Display name for the attribute
+                        type: string
+                        minLength: 1
+                      column:
+                        description: >-
+                          Column on the SQL query result that holds this
+                          attribute
+                        type: string
+                        minLength: 1
+                      datatype:
+                        description: Datatype of the attribute
+                        type: string
+                        enum:
+                          - string
+                          - number
+                    required:
+                      - name
+                      - column
+                      - datatype
+                    additionalProperties: false
+              required:
+                - datasourceId
+                - name
+                - identifierType
+                - sql
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listContextualBanditQueries
+      summary: Get all contextualBanditQueries
+      tags:
+        - ContextualBanditQueries
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQueries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQueries
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /contextual-bandit-queries/{id}/test:
+    post:
+      operationId: testContextualBanditQuery
+      summary: Test a contextual bandit query against its datasource
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sampleSize:
+                  description: Number of rows to sample (default 1000)
+                  type: integer
+                  minimum: 1
+                  maximum: 10000
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  error:
+                    type: string
+                  missingColumns:
+                    type: array
+                    items:
+                      type: string
+                  nullRate:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/nullRate'
+                required:
+                  - ok
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}/test'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /contextual-bandit-queries/{id}/refresh-top-values:
+    post:
+      operationId: refreshContextualBanditQueryTopValues
+      summary: Queue an immediate refresh of cached top values for a CBAQ
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              not: {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                  status:
+                    type: string
+                    const: running
+                required:
+                  - jobId
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}/refresh-top-values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /contextual-bandit-queries/{id}/attributes:
+    post:
+      operationId: addContextualBanditQueryAttribute
+      summary: Append a contextual attribute to a CBAQ
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  description: Display name for the attribute
+                  type: string
+                  minLength: 1
+                column:
+                  description: Column on the SQL query result that holds this attribute
+                  type: string
+                  minLength: 1
+                datatype:
+                  description: Datatype of the attribute
+                  type: string
+                  enum:
+                    - string
+                    - number
+              required:
+                - name
+                - column
+                - datatype
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}/attributes'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /contextual-bandit-queries/{id}/attributes/{column}:
+    put:
+      operationId: updateContextualBanditQueryAttribute
+      summary: Update a contextual attribute on a CBAQ
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/column'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  description: Display name for the attribute
+                  type: string
+                  minLength: 1
+                column:
+                  description: Column on the SQL query result that holds this attribute
+                  type: string
+                  minLength: 1
+                datatype:
+                  description: Datatype of the attribute
+                  type: string
+                  enum:
+                    - string
+                    - number
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}/attributes/{column}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteContextualBanditQueryAttribute
+      summary: Soft-delete a contextual attribute on a CBAQ
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/column'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}/attributes/{column}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /contextual-bandit-events/{id}:
+    get:
+      operationId: getContextualBanditEvent
+      summary: Get a single contextualBanditEvent
+      tags:
+        - ContextualBanditEvents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditEvent:
+                    $ref: '#/components/schemas/ContextualBanditEvent'
+                required:
+                  - contextualBanditEvent
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandit-events/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /contextual-bandit-events:
+    get:
+      operationId: listContextualBanditEvents
+      summary: Get all contextualBanditEvents
+      tags:
+        - ContextualBanditEvents
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditEvents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContextualBanditEvent'
+                required:
+                  - contextualBanditEvents
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandit-events' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -19878,6 +20750,28 @@ components:
       description: ''
       schema:
         type: string
+    cursor:
+      name: cursor
+      in: query
+      description: ISO date cursor returned by the previous page
+      schema:
+        description: ISO date cursor returned by the previous page
+        type: string
+    eventId:
+      name: eventId
+      in: path
+      required: true
+      description: Contextual bandit event id
+      schema:
+        description: Contextual bandit event id
+        type: string
+    contextId:
+      name: contextId
+      in: query
+      description: Filter to one specific context id
+      schema:
+        description: Filter to one specific context id
+        type: string
     property:
       name: property
       in: path
@@ -20032,6 +20926,13 @@ components:
           - preferred
           - required
           - never
+    column:
+      name: column
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
   schemas:
     Feature:
       type: object
@@ -21231,6 +22132,48 @@ components:
           type: string
         templateId:
           type: string
+        isContextualBandit:
+          type: boolean
+        cbaqId:
+          type: string
+        contextualBanditConfig:
+          type: object
+          properties:
+            contextualAttributes:
+              minItems: 1
+              type: array
+              items:
+                type: string
+            maxContexts:
+              type: integer
+              minimum: 1
+              maximum: 3000
+            treeModel:
+              default: regression_tree
+              type: string
+              enum:
+                - regression_tree
+                - linear_thompson
+            minUsersPerLeaf:
+              default: 100
+              type: integer
+              minimum: 1
+            holdoutPercent:
+              default: 0
+              type: number
+              const: 0
+            stickyBucketing:
+              default: false
+              type: boolean
+              const: false
+          required:
+            - contextualAttributes
+            - maxContexts
+            - treeModel
+            - minUsersPerLeaf
+            - holdoutPercent
+            - stickyBucketing
+          additionalProperties: false
       required:
         - id
         - trackingKey
@@ -21767,6 +22710,48 @@ components:
               type: string
             templateId:
               type: string
+            isContextualBandit:
+              type: boolean
+            cbaqId:
+              type: string
+            contextualBanditConfig:
+              type: object
+              properties:
+                contextualAttributes:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+                maxContexts:
+                  type: integer
+                  minimum: 1
+                  maximum: 3000
+                treeModel:
+                  default: regression_tree
+                  type: string
+                  enum:
+                    - regression_tree
+                    - linear_thompson
+                minUsersPerLeaf:
+                  default: 100
+                  type: integer
+                  minimum: 1
+                holdoutPercent:
+                  default: 0
+                  type: number
+                  const: 0
+                stickyBucketing:
+                  default: false
+                  type: boolean
+                  const: false
+              required:
+                - contextualAttributes
+                - maxContexts
+                - treeModel
+                - minUsersPerLeaf
+                - holdoutPercent
+                - stickyBucketing
+              additionalProperties: false
           required:
             - id
             - trackingKey
@@ -21935,6 +22920,133 @@ components:
         - settings
         - queryIds
         - results
+      additionalProperties: false
+    ContextualBanditEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        experimentId:
+          type: string
+        phase:
+          type: integer
+        snapshotId:
+          type: string
+        cbaqId:
+          type: string
+        date:
+          format: date-time
+          type: string
+        contextResults:
+          type: array
+          items:
+            type: object
+            properties:
+              contextId:
+                type: string
+              leafId:
+                type: string
+              'n':
+                type: integer
+              weights:
+                type: array
+                items:
+                  type: number
+              variationStats:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    users:
+                      type: number
+                    mean:
+                      type: number
+                    stddev:
+                      type: number
+                  additionalProperties: false
+            required:
+              - contextId
+              - leafId
+              - 'n'
+              - weights
+            additionalProperties: false
+        tree:
+          type: object
+          properties:
+            leaves:
+              type: array
+              items:
+                type: object
+                properties:
+                  leafId:
+                    type: string
+                  rule:
+                    type: string
+                  condition:
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties: {}
+                  'n':
+                    type: integer
+                  contextIds:
+                    type: array
+                    items:
+                      type: string
+                  weights:
+                    type: array
+                    items:
+                      type: number
+                required:
+                  - leafId
+                  - rule
+                  - condition
+                  - 'n'
+                  - contextIds
+                  - weights
+                additionalProperties: false
+            splitFeatures:
+              type: array
+              items:
+                type: string
+            treeModel:
+              type: string
+              enum:
+                - regression_tree
+                - linear_thompson
+          required:
+            - leaves
+            - splitFeatures
+            - treeModel
+          additionalProperties: false
+        updateMessage:
+          type: string
+        error:
+          type: string
+        weightsWereUpdated:
+          type: boolean
+        reweight:
+          type: boolean
+        seed:
+          type: number
+        dateCreated:
+          format: date-time
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - experimentId
+        - phase
+        - cbaqId
+        - date
+        - contextResults
+        - tree
+        - weightsWereUpdated
+        - reweight
+        - dateCreated
+        - dateUpdated
       additionalProperties: false
     VisualChangeset:
       type: object
@@ -26520,6 +27632,75 @@ components:
         - name
         - steps
       additionalProperties: false
+    ContextualBanditQuery:
+      type: object
+      properties:
+        id:
+          type: string
+        datasourceId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        identifierType:
+          type: string
+        sql:
+          type: string
+        attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              column:
+                type: string
+              datatype:
+                type: string
+                enum:
+                  - string
+                  - number
+              topValues:
+                type: array
+                items:
+                  type: string
+              topValuesDate:
+                format: date-time
+                type: string
+              dateCreated:
+                format: date-time
+                type: string
+              dateUpdated:
+                format: date-time
+                type: string
+              deleted:
+                type: boolean
+            required:
+              - name
+              - column
+              - datatype
+              - topValues
+              - dateCreated
+              - dateUpdated
+              - deleted
+            additionalProperties: false
+        dateCreated:
+          format: date-time
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - datasourceId
+        - name
+        - identifierType
+        - sql
+        - attributes
+        - dateCreated
+        - dateUpdated
+      additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -28215,6 +29396,33 @@ components:
                           - variationId
                           - value
                         additionalProperties: false
+                    isContextualBandit:
+                      type: boolean
+                    contexts:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          contextId:
+                            type: string
+                          condition:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties: {}
+                          weights:
+                            type: array
+                            items:
+                              type: number
+                        required:
+                          - contextId
+                          - condition
+                          - weights
+                        additionalProperties: false
+                    attributesRequired:
+                      type: array
+                      items:
+                        type: string
                   required:
                     - description
                     - id
@@ -28401,6 +29609,45 @@ components:
         - id
         - name
       additionalProperties: false
+    contexts:
+      type: object
+      properties:
+        contextId:
+          type: string
+        leafId:
+          type: string
+        'n':
+          type: integer
+        weights:
+          type: array
+          items:
+            type: number
+      required:
+        - contextId
+        - leafId
+        - 'n'
+        - weights
+      additionalProperties: false
+    history:
+      type: object
+      properties:
+        eventId:
+          type: string
+        date:
+          format: date-time
+          type: string
+        weights:
+          type: array
+          items:
+            type: number
+        leafId:
+          type: string
+      required:
+        - eventId
+        - date
+        - weights
+        - leafId
+      additionalProperties: false
     updatedMember:
       type: object
       properties:
@@ -28440,6 +29687,17 @@ components:
         - role
         - environments
         - limitAccessByEnvironment
+      additionalProperties: false
+    nullRate:
+      type: object
+      properties:
+        column:
+          type: string
+        pct:
+          type: number
+      required:
+        - column
+        - pct
       additionalProperties: false
   securitySchemes:
     bearerAuth:
@@ -28496,6 +29754,7 @@ x-tagGroups:
       - settings
       - attributes
       - usage
+      - contextual-bandit-events
       - Dashboards
       - CustomFields
       - MetricGroups
@@ -28503,12 +29762,16 @@ x-tagGroups:
       - ExperimentTemplates
       - AnalyticsExplorations
       - RampScheduleTemplates
+      - ContextualBanditQueries
+      - ContextualBanditEvents
   - name: Models
     tags:
       - AnalyticsExploration_model
       - Archetype_model
       - Attribute_model
       - CodeRef_model
+      - ContextualBanditEvent_model
+      - ContextualBanditQuery_model
       - CustomField_model
       - Dashboard_model
       - DataSource_model

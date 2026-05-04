@@ -92,6 +92,7 @@ import {
   SnapshotTriggeredBy,
   SnapshotType,
   SnapshotBanditSettings,
+  SnapshotContextualBanditSettings,
   DimensionForSnapshot,
 } from "shared/types/experiment-snapshot";
 import { Condition, MetricInterface, Operator } from "shared/types/metric";
@@ -685,6 +686,18 @@ export function getSnapshotSettings({
         }
       : undefined;
 
+  // Contextual Bandit settings are stitched in at runtime by
+  // `runContextualBanditSnapshot` (P4.2), which has access to the CBAQ and
+  // the latest CBE. We attach a placeholder shape here so downstream
+  // serializers know the field exists.
+  const contextualBanditSettings = experiment.isContextualBandit
+    ? buildContextualBanditSnapshotSettingsStub({
+        experiment,
+        phaseIndex,
+        reweight: !!reweight,
+      })
+    : undefined;
+
   return {
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
@@ -714,6 +727,48 @@ export function getSnapshotSettings({
     })),
     coverage: phase.coverage ?? 1,
     banditSettings,
+    contextualBanditSettings,
+  };
+}
+
+/**
+ * Build a placeholder `SnapshotContextualBanditSettings`. The CBAQ + latest
+ * CBE are loaded inside `runContextualBanditSnapshot` (P4.2) before the SQL
+ * is generated, since they require an org-scoped DB lookup and are not safe
+ * to perform inside the synchronous `getSnapshotSettings` factory.
+ */
+function buildContextualBanditSnapshotSettingsStub({
+  experiment,
+  phaseIndex,
+  reweight,
+}: {
+  experiment: ExperimentInterface;
+  phaseIndex: number;
+  reweight: boolean;
+}): SnapshotContextualBanditSettings {
+  const phase = experiment.phases[phaseIndex];
+  const currentLeafWeights = phase?.currentLeafWeights ?? [];
+  const currentWeightsByContext: Record<string, number[]> = {};
+  for (const leaf of currentLeafWeights) {
+    for (const cid of leaf.contextIds) {
+      currentWeightsByContext[cid] = leaf.weights;
+    }
+  }
+  return {
+    reweight,
+    decisionMetric: experiment.goalMetrics?.[0] ?? "",
+    seed: Math.floor(Math.random() * 1_000_000),
+    cbaqId: experiment.cbaqId ?? "",
+    cbaqSql: "",
+    identifierType: "",
+    contextualAttributes: [],
+    currentWeightsByContext,
+    treeModel:
+      experiment.contextualBanditConfig?.treeModel ?? "regression_tree",
+    maxLeaves: experiment.contextualBanditConfig?.maxContexts ?? 12,
+    minUsersPerLeaf:
+      experiment.contextualBanditConfig?.minUsersPerLeaf ?? 100,
+    lastContextualBanditEventId: phase?.lastContextualBanditEventId,
   };
 }
 
@@ -2353,6 +2408,15 @@ export async function toExperimentApiInterface(
     customMetricSlices: experiment.customMetricSlices ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
+    ...(experiment.isContextualBandit
+      ? {
+          isContextualBandit: true,
+          ...(experiment.cbaqId ? { cbaqId: experiment.cbaqId } : {}),
+          ...(experiment.contextualBanditConfig
+            ? { contextualBanditConfig: experiment.contextualBanditConfig }
+            : {}),
+        }
+      : {}),
   };
   return apiExperiment;
 }
@@ -3527,6 +3591,13 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.defaultDashboardId !== undefined
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
+    ...(payload.isContextualBandit !== undefined
+      ? { isContextualBandit: payload.isContextualBandit }
+      : {}),
+    ...(payload.cbaqId !== undefined ? { cbaqId: payload.cbaqId } : {}),
+    ...(payload.contextualBanditConfig !== undefined
+      ? { contextualBanditConfig: payload.contextualBanditConfig }
+      : {}),
   };
 
   const { settings } = getScopedSettings({
@@ -3836,6 +3907,13 @@ export function updateExperimentApiPayloadToInterface(
       ? { postStratificationEnabled }
       : {}),
     ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
+    ...(payload.isContextualBandit !== undefined
+      ? { isContextualBandit: payload.isContextualBandit }
+      : {}),
+    ...(payload.cbaqId !== undefined ? { cbaqId: payload.cbaqId } : {}),
+    ...(payload.contextualBanditConfig !== undefined
+      ? { contextualBanditConfig: payload.contextualBanditConfig }
+      : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

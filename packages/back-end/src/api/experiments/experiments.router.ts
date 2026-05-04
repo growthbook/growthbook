@@ -10,6 +10,11 @@ import { postExperimentSnapshot } from "./postExperimentSnapshot";
 import { postVariationImageUpload } from "./postVariationImageUpload";
 import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
 import { getExperimentNames } from "./getExperimentNames";
+import { getExperimentContextualBanditCurrent } from "./contextual-bandit/getExperimentContextualBanditCurrent";
+import { listExperimentContextualBanditEvents } from "./contextual-bandit/listExperimentContextualBanditEvents";
+import { getExperimentContextualBanditEvent } from "./contextual-bandit/getExperimentContextualBanditEvent";
+import { getExperimentContextualBanditContexts } from "./contextual-bandit/getExperimentContextualBanditContexts";
+import { postExperimentContextualBanditRefresh } from "./contextual-bandit/postExperimentContextualBanditRefresh";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
@@ -22,6 +27,12 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postVariationImageUpload,
   deleteVariationScreenshot,
   getExperimentNames,
+  // Contextual Bandit experiment-scoped endpoints
+  getExperimentContextualBanditCurrent,
+  listExperimentContextualBanditEvents,
+  getExperimentContextualBanditEvent,
+  getExperimentContextualBanditContexts,
+  postExperimentContextualBanditRefresh,
   // VisualChangeset Endpoints (mounted under /experiments)
   listVisualChangesets,
   postVisualChangesets,

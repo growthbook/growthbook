@@ -19,8 +19,10 @@ from gbstats.bayesian.bandits import (
     BanditsRatio,
     BanditsCuped,
     BanditConfig,
+    ContextualBandits,
     get_error_bandit_result,
 )
+from gbstats.bayesian.dimension_reducer import ContextRow
 
 from gbstats.power.midexperimentpower import (
     MidExperimentPower,
@@ -57,12 +59,14 @@ from gbstats.models.results import (
     SupplementalResults,
     VariationResponse,
     BanditResult,
+    ContextualBanditResult,
     SingleVariationResult,
     PowerResponse,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
     BanditSettingsForStatsEngine,
+    ContextualBanditSettingsForStatsEngine,
     DataForStatsEngine,
     ExperimentDataForStatsEngine,
     ExperimentMetricQueryResponseRows,
@@ -1429,6 +1433,59 @@ def process_experiment_results(
             current_weights=d.bandit_settings.current_weights,
         )
     return results, bandit_result
+
+
+def process_contextual_bandit_results(
+    rows: List[Dict[str, Any]],
+    settings: ContextualBanditSettingsForStatsEngine,
+) -> ContextualBanditResult:
+    """Top-level entrypoint for the Contextual Bandit stats engine.
+
+    Args:
+        rows: per-(variation, context_id) aggregated rows. Each row must
+            include keys: ``context_id``, ``variation``, ``n``, ``main_sum``,
+            ``main_sum_squares``.
+        settings: parsed :class:`ContextualBanditSettingsForStatsEngine`.
+
+    Returns:
+        :class:`ContextualBanditResult` with per-context weights, the tree
+        summary, and any update/error messages.
+    """
+    try:
+        context_rows = [
+            ContextRow(
+                context_id=str(r["context_id"]),
+                variation=str(r["variation"]),
+                n=int(r["n"]),
+                main_sum=float(r["main_sum"]),
+                main_sum_squares=float(r["main_sum_squares"]),
+            )
+            for r in rows
+        ]
+    except (KeyError, TypeError, ValueError) as exc:
+        return ContextualBanditResult(
+            result=[],
+            tree_summary=None,  # type: ignore[arg-type]
+            updateMessage="invalid input rows",
+            error=str(exc),
+        )
+
+    try:
+        return ContextualBandits(settings).run(context_rows)
+    except NotImplementedError as exc:
+        return ContextualBanditResult(
+            result=[],
+            tree_summary=None,  # type: ignore[arg-type]
+            updateMessage="reducer not implemented",
+            error=str(exc),
+        )
+    except Exception as exc:
+        return ContextualBanditResult(
+            result=[],
+            tree_summary=None,  # type: ignore[arg-type]
+            updateMessage="failed to run contextual bandit",
+            error=str(exc),
+        )
 
 
 def process_multiple_experiment_results(

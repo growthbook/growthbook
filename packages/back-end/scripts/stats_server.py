@@ -3,7 +3,10 @@ import json
 import time
 import sys
 import traceback
-from gbstats.gbstats import process_multiple_experiment_results
+from gbstats.gbstats import (
+    process_multiple_experiment_results,
+    process_contextual_bandit_results,
+)
 
 for line in sys.stdin:
     start = time.time()
@@ -37,9 +40,16 @@ for line in sys.stdin:
         sys.stderr.flush()
         continue
 
-    # Process experiment results
+    # Optional discriminator. Default keeps the historical behavior of
+    # multi-experiment metric analysis. New `contextual_bandit` kind dispatches
+    # into the contextual bandit pipeline (gbstats.process_contextual_bandit_results).
+    kind = (input.get("kind") if isinstance(input, dict) else None) or "experiments"
+
     try:
-        results = [asdict(analysis) for analysis in process_multiple_experiment_results(data)]
+        if kind == "contextual_bandit":
+            results = asdict(process_contextual_bandit_results(data))
+        else:
+            results = [asdict(analysis) for analysis in process_multiple_experiment_results(data)]
         sys.stdout.write(json.dumps({
             'id': id,
             'results': results,

@@ -98,6 +98,16 @@ export type QueryType =
   | "featureEvalDiagnostics"
 
   // ---
+  // Contextual bandit queries (CBAQ)
+  // ---
+  // Sample of CBAQ output for attribute coverage validation
+  | "cbaqSample"
+  // Refresh of CBAQ top values for SDK attribute labels
+  | "cbaqTopValues"
+  // Aggregated per-context per-variation rows fed to the python stats engine
+  | "cbAggregate"
+
+  // ---
   // Legacy, should be deprecated
   // ---
   | "experimentResults";

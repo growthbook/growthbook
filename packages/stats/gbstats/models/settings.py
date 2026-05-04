@@ -54,6 +54,31 @@ class BanditSettingsForStatsEngine:
     top_two: bool = False
 
 
+TreeModel = Literal["regression_tree", "linear_thompson"]
+
+
+@dataclass
+class ContextualBanditSettingsForStatsEngine:
+    """Settings for the contextual bandit stats-engine entry point.
+
+    Mirrors `BanditSettingsForStatsEngine` for the contextual case.
+    `current_weights_by_context` maps each context_id (the per-row dimension
+    emitted by the SQL layer) to the weights last sent to the SDK.
+    """
+
+    var_names: List[str]
+    var_ids: List[str]
+    reweight: bool
+    decision_metric: str
+    bandit_weights_seed: int
+    contextual_attributes: List[str]
+    current_weights_by_context: Dict[str, List[float]]
+    max_leaves: int = 12
+    min_users_per_leaf: int = 100
+    tree_model: TreeModel = "regression_tree"
+    top_two: bool = True
+
+
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
 VarIdMap = Dict[str, int]
 

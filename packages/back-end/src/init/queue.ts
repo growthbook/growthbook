@@ -22,6 +22,7 @@ import addDashboardUpdateJob from "back-end/src/jobs/updateDashboards";
 import addHoldoutUpdateJob from "back-end/src/jobs/updateHoldoutStatus";
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
+import refreshCBAQTopValues from "back-end/src/jobs/refreshCBAQTopValues";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 
 export async function queueInit() {
@@ -45,6 +46,7 @@ export async function queueInit() {
   addHoldoutUpdateJob(agenda);
   updateAutoSlicesJob(agenda);
   addRampScheduleJob(agenda);
+  refreshCBAQTopValues(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection

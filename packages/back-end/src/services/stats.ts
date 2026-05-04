@@ -797,3 +797,69 @@ export function analyzeExperimentTraffic({
   }
   return trafficResults;
 }
+
+// ---------------------------------------------------------------------------
+// Contextual Bandit attribute validation (P3.2)
+// ---------------------------------------------------------------------------
+
+const CBAQ_NULL_RATE_WARNING_THRESHOLD = 0.05;
+
+/** Result of validating a CBAQ payload's attribute coverage. */
+export type ContextualAttributesValidationResult =
+  | { ok: true; warnings?: { column: string; nullRate: number }[] }
+  | {
+      ok: false;
+      error: string;
+      missingColumns?: string[];
+    };
+
+/**
+ * Validate that every declared CBAQ attribute resolves to a real column on
+ * the SQL output and that the column has acceptable coverage.
+ *
+ * - Missing column → fail-fast, returns `{ ok: false }`.
+ * - Null rate > 5% → still ok, but `warnings` is populated so callers can
+ *   attach the soft-warning to the snapshot.
+ *
+ * `sampleRows` should be a head-N sample of the labeled CBAQ output; null /
+ * undefined values are treated as missing.
+ */
+export function validateContextualAttributesInPayload(
+  attributes: { name: string; column: string; deleted?: boolean }[],
+  sampleRows: Record<string, unknown>[],
+): ContextualAttributesValidationResult {
+  const active = attributes.filter((a) => !a.deleted);
+  if (active.length === 0) {
+    return { ok: false, error: "CBAQ has no active attributes" };
+  }
+  if (sampleRows.length === 0) {
+    return {
+      ok: false,
+      error: "CBAQ test query returned 0 rows",
+    };
+  }
+  const columnSet = new Set(Object.keys(sampleRows[0] ?? {}));
+  const missing = active
+    .filter((a) => !columnSet.has(a.column))
+    .map((a) => a.column);
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: `CBAQ output is missing columns: ${missing.join(", ")}`,
+      missingColumns: missing,
+    };
+  }
+  const warnings: { column: string; nullRate: number }[] = [];
+  for (const attr of active) {
+    let nulls = 0;
+    for (const row of sampleRows) {
+      const v = row[attr.column];
+      if (v === null || v === undefined || v === "") nulls++;
+    }
+    const rate = nulls / sampleRows.length;
+    if (rate > CBAQ_NULL_RATE_WARNING_THRESHOLD) {
+      warnings.push({ column: attr.column, nullRate: rate });
+    }
+  }
+  return { ok: true, warnings: warnings.length > 0 ? warnings : undefined };
+}

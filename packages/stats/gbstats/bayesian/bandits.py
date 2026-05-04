@@ -1,12 +1,21 @@
 from abc import abstractmethod, ABC
 from dataclasses import field
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 import random
 from pydantic.dataclasses import dataclass
 
-from gbstats.models.results import ResponseCI, BanditResult, SingleVariationResult
+from gbstats.models.results import (
+    ContextResult,
+    ContextualBanditResult,
+    ResponseCI,
+    BanditResult,
+    SingleVariationResult,
+    TreeLeafSummary,
+    TreeSummary,
+)
+from gbstats.models.settings import ContextualBanditSettingsForStatsEngine
 from gbstats.models.statistics import (
     SampleMeanStatistic,
     RatioStatistic,
@@ -17,6 +26,12 @@ from gbstats.utils import (
     gaussian_credible_interval,
 )
 from gbstats.bayesian.tests import BayesianConfig, GaussianPrior
+from gbstats.bayesian.dimension_reducer import (
+    ContextRow,
+    DimensionReducer,
+    Leaf,
+    make_reducer,
+)
 
 
 @dataclass
@@ -412,3 +427,178 @@ class BanditsCuped(Bandits):
             + self.theta**2 * self.variation_variances_pre
             - 2 * self.theta * self.variation_covariances
         )
+
+
+# ---------------------------------------------------------------------------
+# Contextual Bandits — Phase A (reduce) → Phase B (per-leaf Thompson) → Phase C
+# (map back to contexts)
+# ---------------------------------------------------------------------------
+
+
+class ContextualBandits:
+    """Glue layer for the Contextual Bandit stats engine.
+
+    Pipeline:
+        1. Run `reducer.fit(rows)` to obtain leaves.
+        2. Aggregate per-(leaf, variation) statistics from the row-level
+           ContextRow stream.
+        3. Run `BanditsSimple` Thompson sampling per leaf to compute updated
+           weights for each variation in that leaf.
+        4. Map the per-leaf weights back to each context_id so the SDK
+           payload can target individual contexts.
+    """
+
+    def __init__(
+        self,
+        settings: ContextualBanditSettingsForStatsEngine,
+        reducer: Optional[DimensionReducer] = None,
+    ):
+        self.settings = settings
+        self.reducer = reducer or make_reducer(
+            settings.tree_model, settings.max_leaves, settings.min_users_per_leaf
+        )
+
+    # ---- public ------------------------------------------------------
+
+    def run(self, rows: List[ContextRow]) -> ContextualBanditResult:
+        if not rows:
+            return ContextualBanditResult(
+                result=[],
+                tree_summary=TreeSummary(
+                    leaves=[],
+                    splitFeatures=list(self.settings.contextual_attributes),
+                    treeModel=self.settings.tree_model,
+                ),
+                updateMessage="no rows",
+                error=None,
+            )
+
+        leaves = self.reducer.fit(rows, self.settings.var_ids)
+        if not leaves:
+            return ContextualBanditResult(
+                result=[],
+                tree_summary=TreeSummary(
+                    leaves=[],
+                    splitFeatures=list(self.settings.contextual_attributes),
+                    treeModel=self.settings.tree_model,
+                ),
+                updateMessage="no leaves",
+                error="reducer produced no leaves",
+            )
+
+        rows_by_ctx_var = self._index_rows(rows)
+        leaf_weights: Dict[str, List[float]] = {}
+        leaf_summaries: List[TreeLeafSummary] = []
+        update_msgs: List[str] = []
+
+        for leaf in leaves:
+            stats = self._aggregate_leaf_stats(leaf, rows_by_ctx_var)
+            current_weights = self._current_weights_for_leaf(leaf)
+            cfg = BanditConfig(
+                bandit_weights_seed=self.settings.bandit_weights_seed,
+                top_two=self.settings.top_two,
+            )
+            simple = BanditsSimple(stats, current_weights, cfg)
+            response = simple.compute_result()
+            updated = response.bandit_weights or current_weights
+            leaf_weights[leaf.leaf_id] = updated
+            update_msgs.append(response.bandit_update_message)
+            leaf_summaries.append(
+                TreeLeafSummary(
+                    leafId=leaf.leaf_id,
+                    rule=leaf.rule,
+                    condition=leaf.condition,
+                    n=leaf.n,
+                    contextIds=list(leaf.context_ids),
+                    weights=updated,
+                )
+            )
+
+        per_context = self._map_weights_to_contexts(
+            leaves, leaf_weights, rows_by_ctx_var
+        )
+
+        return ContextualBanditResult(
+            result=per_context,
+            tree_summary=TreeSummary(
+                leaves=leaf_summaries,
+                splitFeatures=list(self.settings.contextual_attributes),
+                treeModel=self.settings.tree_model,
+            ),
+            updateMessage="; ".join(sorted(set(update_msgs))) or "ok",
+            error=None,
+        )
+
+    # ---- internals ---------------------------------------------------
+
+    @staticmethod
+    def _index_rows(
+        rows: List[ContextRow],
+    ) -> Dict[str, Dict[str, ContextRow]]:
+        out: Dict[str, Dict[str, ContextRow]] = {}
+        for r in rows:
+            out.setdefault(r.context_id, {})[r.variation] = r
+        return out
+
+    def _aggregate_leaf_stats(
+        self,
+        leaf: Leaf,
+        rows_by_ctx_var: Dict[str, Dict[str, ContextRow]],
+    ) -> List[SampleMeanStatistic]:
+        stats: List[SampleMeanStatistic] = []
+        for var_id in self.settings.var_ids:
+            n = 0
+            s = 0.0
+            ss = 0.0
+            for cid in leaf.context_ids:
+                row = rows_by_ctx_var.get(cid, {}).get(var_id)
+                if not row:
+                    continue
+                n += int(row.n)
+                s += float(row.main_sum)
+                ss += float(row.main_sum_squares)
+            stats.append(SampleMeanStatistic(n=n, sum=s, sum_squares=ss))
+        return stats
+
+    def _current_weights_for_leaf(self, leaf: Leaf) -> List[float]:
+        # Average the SDK's last-known per-context weights across the leaf's
+        # contexts, weighted by population. Falls back to a uniform prior.
+        n_vars = len(self.settings.var_ids)
+        if n_vars == 0:
+            return []
+        if not leaf.context_ids:
+            return [1 / n_vars] * n_vars
+        sums = [0.0] * n_vars
+        denom = 0.0
+        for cid in leaf.context_ids:
+            ws = self.settings.current_weights_by_context.get(cid)
+            if not ws or len(ws) != n_vars:
+                continue
+            for i, w in enumerate(ws):
+                sums[i] += float(w)
+            denom += 1
+        if denom == 0:
+            return [1 / n_vars] * n_vars
+        return [s / denom for s in sums]
+
+    def _map_weights_to_contexts(
+        self,
+        leaves: List[Leaf],
+        leaf_weights: Dict[str, List[float]],
+        rows_by_ctx_var: Dict[str, Dict[str, ContextRow]],
+    ) -> List[ContextResult]:
+        out: List[ContextResult] = []
+        for leaf in leaves:
+            weights = leaf_weights[leaf.leaf_id]
+            for cid in leaf.context_ids:
+                ctx_rows = rows_by_ctx_var.get(cid, {})
+                n = sum(int(r.n) for r in ctx_rows.values())
+                out.append(
+                    ContextResult(
+                        contextId=cid,
+                        leafId=leaf.leaf_id,
+                        n=n,
+                        weights=weights,
+                    )
+                )
+        return out

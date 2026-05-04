@@ -676,6 +676,32 @@ export function getFeatureDefinition({
               : phaseVariations.map((v) => ({ key: v.key }));
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
+
+            // Contextual bandit payload (P5.4): if the linked experiment is
+            // a CB and the latest phase has published per-leaf weights, emit
+            // them as `contexts[]` so the SDK can short-circuit to
+            // `evalContextualBanditRule`. We also surface
+            // `attributesRequired` from the experiment's CB config so the
+            // SDK can fail fast when an attribute is missing.
+            if (exp.isContextualBandit) {
+              (rule as Record<string, unknown>).isContextualBandit = true;
+              const requiredAttrs =
+                exp.contextualBanditConfig?.contextualAttributes ?? [];
+              if (requiredAttrs.length > 0) {
+                (rule as Record<string, unknown>).attributesRequired =
+                  requiredAttrs;
+              }
+              const leafWeights = phase.currentLeafWeights ?? [];
+              if (leafWeights.length > 0) {
+                (rule as Record<string, unknown>).contexts = leafWeights.map(
+                  (lw) => ({
+                    contextId: lw.leafId,
+                    condition: lw.condition,
+                    weights: lw.weights,
+                  }),
+                );
+              }
+            }
           }
           if (shouldExpandSavedGroups && savedGroupsMap && organization) {
             if (rule.condition)

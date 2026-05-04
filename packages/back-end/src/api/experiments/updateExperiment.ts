@@ -24,6 +24,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
+  assertContextualBanditPayload,
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
@@ -54,6 +55,21 @@ export const updateExperiment = createApiRequestHandler(
     metricOverrides: req.body.metricOverrides,
     defaultDashboardId: req.body.defaultDashboardId,
   });
+
+  // Determine the merged CB payload (existing experiment ⊕ patch) so we can
+  // validate cross-resource invariants against the post-update view.
+  const mergedIsCB = req.body.isContextualBandit ?? experiment.isContextualBandit;
+  if (mergedIsCB) {
+    await assertContextualBanditPayload(req.context, {
+      isContextualBandit: true,
+      cbaqId: req.body.cbaqId ?? experiment.cbaqId,
+      contextualBanditConfig:
+        req.body.contextualBanditConfig ?? experiment.contextualBanditConfig,
+      variations: (req.body.variations ?? experiment.variations) as
+        | { id?: string }[]
+        | undefined,
+    });
+  }
 
   // validate datasource only if updating
   const datasourceId = req.body.datasourceId ?? experiment.datasource;

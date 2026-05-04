@@ -170,7 +170,7 @@ class PythonStatsServer<Input, Output> {
     return this.python.exitCode === null;
   }
 
-  async call(data: Input) {
+  async call(data: Input, kind?: string) {
     return new Promise<Output>((resolve, reject) => {
       const id = randomUUID();
       const start = Date.now();
@@ -229,7 +229,9 @@ class PythonStatsServer<Input, Output> {
       logger.debug(
         `Python stats server (pid: ${this.pid}) call started for id ${id}`,
       );
-      this.python.stdin?.write(JSON.stringify({ id, data }) + "\n");
+      this.python.stdin?.write(
+        JSON.stringify(kind ? { id, data, kind } : { id, data }) + "\n",
+      );
     });
   }
 }

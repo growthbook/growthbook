@@ -21,6 +21,7 @@ import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications"
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { runContextualBanditSnapshot } from "back-end/src/jobs/runContextualBanditSnapshot";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -141,6 +142,28 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
+    }
+
+    // Contextual bandits run on the same MAB cadence but go through a
+    // dedicated orchestrator (no analyses, no sticky bucketing).
+    if (experiment.isContextualBandit) {
+      const reweight =
+        experiment.banditStage === "exploit" ||
+        // First-tick: if we have no published per-leaf weights yet, force a
+        // reweight so the SDK gets non-uniform contexts as soon as possible.
+        !experiment.phases[experiment.phases.length - 1]?.currentLeafWeights
+          ?.length;
+      await runContextualBanditSnapshot({
+        context,
+        experiment,
+        phaseIndex: experiment.phases.length - 1,
+        opts: { reweight },
+      });
+      logger.info(
+        "Successfully Refreshed Contextual Bandit for experiment " +
+          experimentId,
+      );
+      return;
     }
 
     const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =

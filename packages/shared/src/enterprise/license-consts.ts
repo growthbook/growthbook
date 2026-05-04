@@ -53,6 +53,7 @@ export type CommercialFeature =
   | "metric-populations"
   | "large-saved-groups"
   | "multi-armed-bandits"
+  | "contextual-bandits"
   | "metric-groups"
   | "environment-inheritance"
   | "templates"
@@ -260,6 +261,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "incremental-refresh",
   "adv-presentations",
   "ramp-schedules",
+  "contextual-bandits",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

@@ -23,6 +23,7 @@ import {
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
+  assertContextualBanditPayload,
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
@@ -132,6 +133,13 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       decisionFrameworkSettings: payload.decisionFrameworkSettings,
       metricOverrides: payload.metricOverrides,
       defaultDashboardId: payload.defaultDashboardId,
+    });
+
+    await assertContextualBanditPayload(req.context, {
+      isContextualBandit: payload.isContextualBandit,
+      cbaqId: payload.cbaqId,
+      contextualBanditConfig: payload.contextualBanditConfig,
+      variations: payload.variations,
     });
 
     const datasource = payload.datasourceId

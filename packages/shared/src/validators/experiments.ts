@@ -71,6 +71,41 @@ export const banditEvent = z
 export type BanditResult = z.infer<typeof banditResult>;
 export type BanditEvent = z.infer<typeof banditEvent>;
 
+// ---------------------------------------------------------------------------
+// Contextual Bandit fields stored on the experiment
+// ---------------------------------------------------------------------------
+
+export const cbTreeModelType = ["regression_tree", "linear_thompson"] as const;
+export type CbTreeModel = (typeof cbTreeModelType)[number];
+
+export const contextualBanditConfigValidator = z
+  .object({
+    contextualAttributes: z.array(z.string()).min(1),
+    maxContexts: z.number().int().min(1).max(3000),
+    treeModel: z.enum(cbTreeModelType).default("regression_tree"),
+    minUsersPerLeaf: z.number().int().min(1).default(100),
+    /** Locked to 0 in v1; reserved for v1.5 holdout work. */
+    holdoutPercent: z.literal(0).default(0),
+    /** Sticky bucketing is forced off for CB experiments. */
+    stickyBucketing: z.literal(false).default(false),
+  })
+  .strict();
+export type ContextualBanditConfig = z.infer<
+  typeof contextualBanditConfigValidator
+>;
+
+/** Per-leaf weights snapshot stored on the experiment phase between ticks. */
+export const leafWeightValidator = z
+  .object({
+    leafId: z.string(),
+    rule: z.string(),
+    condition: z.record(z.string(), z.unknown()),
+    weights: z.array(z.number()),
+    contextIds: z.array(z.string()),
+  })
+  .strict();
+export type LeafWeight = z.infer<typeof leafWeightValidator>;
+
 // TODO(phase-update): allow "passThrough" e.g. forcibly skip a range
 // and send users to the next feature rule
 export const variationStatus = ["active"] as const;
@@ -100,6 +135,10 @@ export const experimentPhase = z
     variations: z.array(phaseVariation),
     banditEvents: z.array(banditEvent).optional(),
     lookbackStartDate: z.date().optional(),
+    /** Per-leaf weights for contextual bandit experiments. */
+    currentLeafWeights: z.array(leafWeightValidator).optional(),
+    /** Pointer to the most recent contextualBanditEvents doc for this phase. */
+    lastContextualBanditEventId: z.string().optional(),
   })
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
@@ -393,6 +432,12 @@ export const experimentInterface = z
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
+    /** True when the experiment is a Contextual Bandit. */
+    isContextualBandit: z.boolean().optional(),
+    /** Reference to the parent Contextual Bandit Assignment Query (CBAQ). */
+    cbaqId: z.string().optional(),
+    /** Configuration for the CB stats engine call. */
+    contextualBanditConfig: contextualBanditConfigValidator.optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -733,6 +778,12 @@ const apiExperimentShape = z.object({
     .describe("ID of the default dashboard for this experiment.")
     .optional(),
   templateId: z.string().optional(),
+  /** Marks an experiment as a contextual bandit (CB). */
+  isContextualBandit: z.boolean().optional(),
+  /** ID of the ContextualBanditQuery used to source labeled assignments. */
+  cbaqId: z.string().optional(),
+  /** CB-specific configuration (attributes, tree model, etc.). */
+  contextualBanditConfig: contextualBanditConfigValidator.optional(),
 });
 export const apiExperimentValidator = namedSchema(
   "Experiment",
@@ -1066,6 +1117,14 @@ const postExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    /** Marks this experiment as a contextual bandit. */
+    isContextualBandit: z.boolean().optional(),
+    /**
+     * ID of the ContextualBanditQuery to use as the source of labeled
+     * assignments. Required when `isContextualBandit` is true.
+     */
+    cbaqId: z.string().optional(),
+    contextualBanditConfig: contextualBanditConfigValidator.optional(),
   })
   .strict();
 
@@ -1250,6 +1309,9 @@ const updateExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    isContextualBandit: z.boolean().optional(),
+    cbaqId: z.string().optional(),
+    contextualBanditConfig: contextualBanditConfigValidator.optional(),
   })
   .strict();
 
@@ -1393,6 +1455,17 @@ export const postExperimentSnapshotValidator = {
         .describe(
           'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
         )
+        .optional(),
+      /**
+       * Bandit-specific overrides. Currently the only knob is `reweight`,
+       * which forces a CB experiment into the reweight (exploit) path on
+       * this snapshot. Ignored for non-bandit experiments.
+       */
+      bandit: z
+        .object({
+          reweight: z.boolean().optional(),
+        })
+        .strict()
         .optional(),
     })
     .strict()

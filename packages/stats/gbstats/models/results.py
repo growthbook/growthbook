@@ -1,6 +1,7 @@
-from typing import List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
+from dataclasses import field
 import pandas as pd
 
 
@@ -78,6 +79,46 @@ class BanditResult:
     error: Optional[str]
     reweight: bool
     weightsWereUpdated: bool
+
+
+# ---------------------------------------------------------------------------
+# Contextual Bandit results
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ContextResult:
+    contextId: str
+    leafId: str
+    n: int
+    weights: List[float]
+
+
+@dataclass
+class TreeLeafSummary:
+    leafId: str
+    rule: str
+    condition: Dict[str, Any]
+    n: int
+    contextIds: List[str]
+    weights: List[float]
+
+
+@dataclass
+class TreeSummary:
+    leaves: List[TreeLeafSummary]
+    splitFeatures: List[str] = field(default_factory=list)
+    treeModel: Literal["regression_tree", "linear_thompson"] = "regression_tree"
+
+
+@dataclass
+class ContextualBanditResult:
+    """Top-level result returned by `process_contextual_bandit_results`."""
+
+    result: List[ContextResult]
+    tree_summary: TreeSummary
+    updateMessage: str
+    error: Optional[str]
 
 
 @dataclass

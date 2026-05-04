@@ -155,11 +155,32 @@ const experimentRefVariation = z
 
 export type ExperimentRefVariation = z.infer<typeof experimentRefVariation>;
 
+/**
+ * One context (leaf) emitted by the contextual bandit pipeline. The SDK
+ * picks the first match by `condition` and then hash-buckets against
+ * `weights` using `contextId` as the seed so each context owns a stable
+ * hash space across reweights.
+ */
+export const contextsEntryValidator = z
+  .object({
+    contextId: z.string(),
+    condition: z.record(z.string(), z.unknown()),
+    weights: z.array(z.number()),
+  })
+  .strict();
+export type ContextsEntry = z.infer<typeof contextsEntryValidator>;
+
 const experimentRefRule = baseRule
   .extend({
     type: z.literal("experiment-ref"),
     experimentId: z.string(),
     variations: z.array(experimentRefVariation),
+    /** Set when the referenced experiment is a contextual bandit. */
+    isContextualBandit: z.boolean().optional(),
+    /** Per-leaf weights/conditions emitted by the CB stats engine. */
+    contexts: z.array(contextsEntryValidator).optional(),
+    /** Attribute names whose presence is required for the CB rule to fire. */
+    attributesRequired: z.array(z.string()).optional(),
   })
   .strict();
 

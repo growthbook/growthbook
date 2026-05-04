@@ -4,6 +4,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { runContextualBanditSnapshot } from "back-end/src/jobs/runContextualBanditSnapshot";
 
 // TODO update params (add phase, useCache)
 export const postExperimentSnapshot = createApiRequestHandler(
@@ -12,7 +13,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   const context = req.context;
   const id = req.params.id;
 
-  const { triggeredBy } = req.body ?? {};
+  const { triggeredBy, bandit } = req.body ?? {};
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -41,6 +42,27 @@ export const postExperimentSnapshot = createApiRequestHandler(
 
   if (!experiment.phases.length) {
     throw new Error(`Experiment has no phases`);
+  }
+
+  // Contextual bandit experiments take a dedicated synchronous orchestrator.
+  // The standard snapshot pipeline doesn't apply: there are no analyses,
+  // no sticky bucketing, and the python "stats" call is the CB pipeline,
+  // not the multi-experiment metric analysis.
+  if (experiment.isContextualBandit) {
+    const result = await runContextualBanditSnapshot({
+      context,
+      experiment,
+      phaseIndex: experiment.phases.length - 1,
+      opts: { reweight: !!bandit?.reweight },
+    });
+    return {
+      snapshot: {
+        // CBE id stands in as the snapshot identifier for CB experiments.
+        id: result.event.id,
+        experiment: experiment.id,
+        status: "success" as const,
+      },
+    };
   }
 
   const createSnapshotPayload = {

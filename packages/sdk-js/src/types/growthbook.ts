@@ -20,6 +20,19 @@ export type VariationMeta = {
   name?: string;
 };
 
+/**
+ * One labeled context (a leaf produced by the back-end's contextual bandit
+ * stats engine). Evaluated client-side: the SDK picks the first context whose
+ * `condition` matches the user's attributes, then bucket-hashes them against
+ * `weights` keyed by `contextId` (so each context preserves a stable hash
+ * space across reweights).
+ */
+export type ContextualBanditContext = {
+  contextId: string;
+  condition: ConditionInterface;
+  weights: number[];
+};
+
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
@@ -48,6 +61,15 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
+  /**
+   * Contextual bandit metadata. When `isContextualBandit === true` and
+   * `contexts` is non-empty, the SDK delegates bucketing to
+   * `evalContextualBanditRule` instead of the standard experiment path.
+   */
+  isContextualBandit?: boolean;
+  contexts?: ContextualBanditContext[];
+  /** Required attribute names; missing any one short-circuits to skip. */
+  attributesRequired?: string[];
 };
 
 export interface FeatureDefinition<T = any> {
@@ -167,15 +189,35 @@ export interface TrackingDataWithUser {
   user: UserContext;
 }
 
+/**
+ * Optional metadata attached to tracking calls. Currently only emitted by
+ * the contextual bandit evaluator. Older 2/3-arg callbacks ignore this
+ * positionally; new consumers can opt in by widening their signature.
+ */
+export type TrackingMeta = {
+  isBandit?: boolean;
+  contextId?: string;
+};
+
+/**
+ * @since 1.7.0 — `attributes` and `meta` are optional 3rd/4th args. Pre-1.7
+ *   callbacks (2-arg `(experiment, result)`) remain valid; the SDK only
+ *   passes the new args when they're meaningful (i.e. CB tracking). For
+ *   non-CB experiments the `attributes`/`meta` slots are omitted, so the
+ *   call still looks like `(experiment, result)` to legacy consumers.
+ */
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>,
+  attributes?: Record<string, any>,
+  meta?: TrackingMeta,
 ) => Promise<void> | void;
 
 export type TrackingCallbackWithUser = (
   experiment: Experiment<any>,
   result: Result<any>,
   user: UserContext,
+  meta?: TrackingMeta,
 ) => Promise<void> | void;
 
 export type FeatureUsageCallback = (

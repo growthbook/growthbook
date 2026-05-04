@@ -68,6 +68,68 @@ export const eventData = <T extends z.ZodTypeAny>(data: T) =>
 
 const webhookTestEventSchema = z.object({ webhookId: z.string() }).strict();
 
+// ---------------------------------------------------------------------------
+// Contextual Bandit webhook payloads (P6.6)
+//
+// These are intentionally minimal — full per-context tree summaries are
+// available from the read-only ContextualBanditEvent API endpoints
+// (`/api/v1/contextual-bandit-events/:id`). The webhook is a notification
+// envelope; subscribers fetch event details on demand.
+// ---------------------------------------------------------------------------
+
+const contextualBanditEventRef = z
+  .object({
+    experimentId: z.string(),
+    cbaqId: z.string(),
+    contextualBanditEventId: z.string(),
+    snapshotId: z.string().optional(),
+    phase: z.number().int().min(0),
+    date: z.string().describe("ISO 8601 timestamp of the CBE"),
+  })
+  .strict();
+
+const contextualBanditSnapshotCompletedPayload = contextualBanditEventRef
+  .extend({
+    weightsWereUpdated: z.boolean(),
+    reweight: z.boolean(),
+    /** Number of contexts trimmed into the residual "other" bucket. */
+    trimmedContexts: z.number().int().min(0).optional(),
+    /** Soft warnings from `validateContextualAttributesInPayload`. */
+    warnings: z.array(z.string()).optional(),
+    error: z.string().optional(),
+  })
+  .strict();
+
+const contextualBanditWeightsUpdatedPayload = contextualBanditEventRef
+  .extend({
+    /** Number of leaves in the published tree. */
+    leafCount: z.number().int().min(1),
+    /** Number of variations being weighted. */
+    variationCount: z.number().int().min(1),
+  })
+  .strict();
+
+const contextualBanditAttributeCoverageDegradedPayload =
+  contextualBanditEventRef
+    .extend({
+      attributes: z.array(
+        z.object({
+          column: z.string(),
+          nullRate: z.number().min(0).max(1),
+        }),
+      ),
+    })
+    .strict();
+
+const contextualBanditStageTransitionedPayload = z
+  .object({
+    experimentId: z.string(),
+    fromStage: z.enum(["explore", "exploit", "paused"]),
+    toStage: z.enum(["explore", "exploit", "paused"]),
+    date: z.string().describe("ISO 8601 timestamp of the transition"),
+  })
+  .strict();
+
 export const notificationEvents = {
   feature: {
     created: {
@@ -214,6 +276,26 @@ export const notificationEvents = {
     "decision.review": {
       schema: experimentDecisionNotificationPayload,
       description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
+    },
+    "contextual_bandit.snapshot.completed": {
+      schema: contextualBanditSnapshotCompletedPayload,
+      description:
+        "Triggered after a contextual bandit snapshot finishes (regardless of whether weights changed).",
+    },
+    "contextual_bandit.weights.updated": {
+      schema: contextualBanditWeightsUpdatedPayload,
+      description:
+        "Triggered when a contextual bandit snapshot publishes new per-leaf weights for the experiment.",
+    },
+    "contextual_bandit.attribute_coverage_degraded": {
+      schema: contextualBanditAttributeCoverageDegradedPayload,
+      description:
+        "Triggered when one or more contextual attributes have a high null rate or have stopped appearing in the labeled rows.",
+    },
+    "contextual_bandit.stage_transitioned": {
+      schema: contextualBanditStageTransitionedPayload,
+      description:
+        "Triggered when a contextual bandit experiment moves between explore/exploit stages.",
     },
   },
   user: {

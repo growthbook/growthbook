@@ -242,6 +242,8 @@ export const entityEvents = {
   sqlResultChunk: ["create", "update", "delete"],
   rampSchedule: ["create", "update", "delete"],
   rampScheduleTemplate: ["create", "update", "delete"],
+  contextualBanditQuery: ["create", "update", "delete"],
+  contextualBanditEvent: ["create"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

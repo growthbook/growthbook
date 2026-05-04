@@ -185,6 +185,29 @@ export interface SnapshotBanditSettings {
   windowSettings?: MetricWindowSettings;
 }
 
+export interface SnapshotContextualBanditSettings {
+  reweight: boolean;
+  decisionMetric: string;
+  seed: number;
+  cbaqId: string;
+  cbaqSql: string;
+  identifierType: string;
+  contextualAttributes: {
+    name: string;
+    column: string;
+    datatype: "string" | "number";
+    topValues: string[];
+  }[];
+  /** Per-context weights last published to the SDK (keyed by context_id). */
+  currentWeightsByContext: Record<string, number[]>;
+  treeModel: "regression_tree" | "linear_thompson";
+  maxLeaves: number;
+  minUsersPerLeaf: number;
+  /** Most recent ContextualBanditEvent id for this phase. */
+  lastContextualBanditEventId?: string;
+  windowSettings?: MetricWindowSettings;
+}
+
 // Settings that control which queries are run
 // Used to determine which types of analyses are possible
 // Also used to determine when to show "out-of-date" in the UI
@@ -212,6 +235,7 @@ export interface ExperimentSnapshotSettings {
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;
+  contextualBanditSettings?: SnapshotContextualBanditSettings;
   /** @deprecated */
   manual?: boolean;
 }

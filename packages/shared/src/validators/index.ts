@@ -64,4 +64,6 @@ export * from "./team";
 export * from "./visual-changesets";
 export * from "./sdk-connections";
 export * from "./data-sources";
+export * from "./contextual-bandit-query";
+export * from "./contextual-bandit-event";
 export * from "./openapi-helpers";

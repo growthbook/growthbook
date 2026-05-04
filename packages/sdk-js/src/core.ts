@@ -324,6 +324,25 @@ export function evalFeature<V = unknown>(
         continue;
       }
 
+      // Contextual bandit rules: short-circuit before the standard
+      // experiment path. If we have a published `contexts` payload we
+      // attempt CB evaluation; if we don't (e.g. the snapshot hasn't
+      // produced its first set yet) we fall through to the standard
+      // experiment path so the user still gets a deterministic variation.
+      if (
+        rule.isContextualBandit &&
+        rule.contexts &&
+        rule.contexts.length > 0
+      ) {
+        const cbResult = evalContextualBanditRule<V>(rule, id, ctx);
+        if (cbResult) {
+          if (cbResult.skip) {
+            continue rules;
+          }
+          return cbResult.featureResult;
+        }
+      }
+
       // For experiment rules, run an experiment
       const exp: Experiment<V> = {
         variations: rule.variations as [V, V, ...V[]],
@@ -1233,4 +1252,198 @@ export function getExperimentDedupeKey(
     experiment.key +
     result.variationId
   );
+}
+
+interface FeatureRuleLike {
+  id?: string;
+  key?: string;
+  hashAttribute?: string;
+  fallbackAttribute?: string;
+  hashVersion?: number;
+  variations?: unknown[];
+  meta?: VariationMeta[];
+  isContextualBandit?: boolean;
+  attributesRequired?: string[];
+  contexts?: {
+    contextId: string;
+    condition: ConditionInterface;
+    weights: number[];
+  }[];
+}
+
+/**
+ * Returns either:
+ *   - `{ skip: true }` to tell the rule loop to advance to the next rule
+ *     (e.g. required attribute missing, no context matched)
+ *   - `{ skip: false, featureResult }` to short-circuit with a forced
+ *     contextual bandit assignment
+ *   - `null` to fall through to the standard experiment path (e.g. when the
+ *     rule is malformed)
+ */
+function evalContextualBanditRule<V>(
+  rule: FeatureRuleLike,
+  featureId: string,
+  ctx: EvalContext,
+):
+  | { skip: true; featureResult?: undefined }
+  | { skip: false; featureResult: FeatureResult<V | null> }
+  | null {
+  if (!rule.contexts || rule.contexts.length === 0) return null;
+  if (!rule.variations || rule.variations.length < 2) return null;
+
+  const attributes = getAttributes(ctx);
+
+  // Required-attribute gate. If even one required attr is missing/null
+  // we skip this rule entirely. This is intentionally stricter than a
+  // condition match: missing CB attributes mean the back-end-trained tree
+  // can't classify this user, so it's safer to fall through than to bucket
+  // them on partial info.
+  if (rule.attributesRequired?.length) {
+    for (const attr of rule.attributesRequired) {
+      const v = attributes[attr];
+      if (v === undefined || v === null || v === "") {
+        process.env.NODE_ENV !== "production" &&
+          ctx.global.log("Skip CB rule: missing required attr", {
+            id: featureId,
+            attr,
+          });
+        return { skip: true };
+      }
+    }
+  }
+
+  // First match wins. Contexts are emitted by the back-end in tree-walk
+  // order, so the first matching condition is the most specific leaf the
+  // user belongs to.
+  let match:
+    | { contextId: string; condition: ConditionInterface; weights: number[] }
+    | undefined;
+  for (const ctxEntry of rule.contexts) {
+    if (
+      evalCondition(
+        attributes,
+        ctxEntry.condition,
+        ctx.global.savedGroups || {},
+      )
+    ) {
+      match = ctxEntry;
+      break;
+    }
+  }
+  if (!match) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log("Skip CB rule: no context matched", { id: featureId });
+    return { skip: true };
+  }
+
+  const numVariations = rule.variations.length;
+  const { hashAttribute, hashValue } = getHashAttribute(
+    ctx,
+    rule.hashAttribute,
+    rule.fallbackAttribute,
+  );
+  if (!hashValue) {
+    return { skip: true };
+  }
+
+  // Per-context seed keeps the hash space stable across reweights for users
+  // in the same leaf, even as new contexts split off in subsequent ticks.
+  const seed = match.contextId;
+  const n = hash(seed, hashValue, rule.hashVersion || 2);
+  if (n === null) return { skip: true };
+
+  const ranges = getBucketRanges(numVariations, 1, match.weights);
+  const variationIndex = chooseVariation(n, ranges);
+  if (variationIndex < 0) return { skip: true };
+
+  const meta: Partial<VariationMeta> = rule.meta
+    ? rule.meta[variationIndex] ?? {}
+    : {};
+
+  const exp: Experiment<V> = {
+    variations: rule.variations as [V, V, ...V[]],
+    key: rule.key || featureId,
+    weights: match.weights,
+    hashAttribute: rule.hashAttribute,
+    fallbackAttribute: rule.fallbackAttribute,
+    hashVersion: rule.hashVersion,
+  };
+  if (rule.meta) exp.meta = rule.meta;
+
+  const result: Result<V> = {
+    key: meta.key || String(variationIndex),
+    featureId,
+    inExperiment: true,
+    hashUsed: true,
+    variationId: variationIndex,
+    value: rule.variations[variationIndex] as V,
+    hashAttribute,
+    hashValue,
+    stickyBucketUsed: false,
+  };
+  if (meta.name) result.name = meta.name;
+  if (meta.passthrough) result.passthrough = meta.passthrough;
+
+  // Fire tracking with CB-flavored metadata. The 2/3-arg legacy callback
+  // shape still works; new 4-arg consumers receive `(experiment, result,
+  // attributes, { isBandit, contextId })` (see P5.3).
+  fireContextualBanditTracking({
+    ctx,
+    experiment: exp,
+    result,
+    attributes,
+    contextId: match.contextId,
+  });
+
+  const featureResult = getFeatureResult<V | null>(
+    ctx,
+    featureId,
+    result.value,
+    "experiment",
+    rule.id,
+    exp,
+    result,
+  );
+  return { skip: false, featureResult };
+}
+
+function fireContextualBanditTracking({
+  ctx,
+  experiment,
+  result,
+  attributes,
+  contextId,
+}: {
+  ctx: EvalContext;
+  experiment: Experiment<unknown>;
+  result: Result<unknown>;
+  attributes: Record<string, unknown>;
+  contextId: string;
+}): void {
+  if (ctx.user.trackedExperiments) {
+    const k = getExperimentDedupeKey(experiment, result);
+    if (ctx.user.trackedExperiments.has(k)) return;
+    ctx.user.trackedExperiments.add(k);
+  }
+
+  const meta = { isBandit: true as const, contextId };
+
+  if (ctx.global.trackingCallback) {
+    const cb = ctx.global.trackingCallback as (
+      experiment: Experiment<unknown>,
+      result: Result<unknown>,
+      attributesOrUser?: unknown,
+      meta?: { isBandit: true; contextId: string },
+    ) => void | Promise<void>;
+    safeCall(() => cb(experiment, result, attributes, meta));
+  }
+  if (ctx.user.trackingCallback) {
+    const cb = ctx.user.trackingCallback as (
+      experiment: Experiment<unknown>,
+      result: Result<unknown>,
+      attributes?: unknown,
+      meta?: { isBandit: true; contextId: string },
+    ) => void | Promise<void>;
+    safeCall(() => cb(experiment, result, attributes, meta));
+  }
 }
