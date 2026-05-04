@@ -668,7 +668,15 @@ const MetricsList = (): React.ReactElement => {
                   )}
                 </TableCell>
                 <TableCell
-                  style={{ cursor: "initial" }}
+                  style={{
+                    width: "1%",
+                    cursor: "initial",
+                    textAlign: "right",
+                    verticalAlign: "middle",
+                    whiteSpace: "nowrap",
+                    paddingInline: "var(--space-2)",
+                    boxSizing: "border-box",
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                   }}
