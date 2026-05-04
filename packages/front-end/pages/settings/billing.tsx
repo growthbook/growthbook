@@ -53,7 +53,7 @@ const BillingPage: FC = () => {
     }
   }, [apiCall, refreshOrganization, router]);
 
-  if (accountPlan === "enterprise") {
+  if (accountPlan === "enterprise" && subscription?.billingPlatform !== "orb") {
     return (
       <div className="container pagecontents">
         <div className="alert alert-info">

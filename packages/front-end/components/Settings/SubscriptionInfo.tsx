@@ -122,7 +122,8 @@ export default function SubscriptionInfo() {
         </StripeProvider>
       )}
       <div className="col-auto mb-3">
-        <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
+        <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"}{" "}
+        {planNameFromAccountPlan(accountPlan)}
         {subscription?.status === "trialing" && (
           <>
             {" "}
@@ -237,7 +238,7 @@ export default function SubscriptionInfo() {
             </button>
           </div>
         )}
-        {hasActiveOrbSubscription ? (
+        {hasActiveOrbSubscription && accountPlan !== "enterprise" ? (
           <Button
             onClick={() => setCancelSubscriptionModal(true)}
             color="danger"
