@@ -78,13 +78,22 @@ SELECT
   score
 FROM classifier_scores
 WHERE
-  sample_type = CONCAT('experiment:', '{{ experimentId }}')
+  sample_type = '{{ experimentId }}'
 ```
 
-When the same SQL is run outside of an experiment context (for example, when previewing a Fact Table or running a standalone Metric Analysis), `{{ experimentId }}` is replaced with `%`. If you need the query to return rows in both contexts, write the filter as a `LIKE` so that `%` matches everything:
+When the same SQL is run outside of an experiment context (for example, when previewing a Fact Table or running a standalone Metric Analysis), `{{ experimentId }}` is replaced with `%`. If you need the query to return rows in both contexts, write the filter as a `LIKE` pattern so `%` can act as a wildcard:
 
 ```sql
-WHERE sample_type LIKE CONCAT('experiment:', '{{ experimentId }}')
+WHERE sample_type LIKE '{{ experimentId }}'
+```
+
+If you prefer an exact match in experiment context and no filter outside experiment context, you can conditionally add the clause with `{{#if ...}}`. Since `%` is always non-empty, this example uses `replace` to strip `%` first:
+
+```sql
+WHERE 1=1
+  {{#if (replace experimentId "%" "")}}
+    AND sample_type = '{{ experimentId }}'
+  {{/if}}
 ```
 
 ## Phase Filters

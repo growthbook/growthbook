@@ -363,6 +363,64 @@ describe("bigquery integration", () => {
     );
   });
 
+  it("substitutes {{phase.index}} in fact table SQL when phase is provided", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT user_id, timestamp, value FROM events WHERE phase_index = '{{phase.index}}'",
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const startDate = new Date("2023-01-01");
+    const endDate = new Date("2023-01-31");
+
+    const result = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate,
+      endDate,
+      phase: { index: "2" },
+    });
+
+    expect(result).toContain("WHERE phase_index = '2'");
+  });
+
+  it("substitutes {{customFields.*}} in fact table SQL when custom fields are provided", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT user_id, timestamp, value FROM events WHERE region = {{sqlstring customFields.region}}",
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const startDate = new Date("2023-01-01");
+    const endDate = new Date("2023-01-31");
+
+    const result = getFactMetricCTE(bigQueryDialect, {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      baseIdType: "user_id",
+      idJoinMap: {},
+      startDate,
+      endDate,
+      customFields: { region: "north-america" },
+    });
+
+    expect(result).toContain("WHERE region = 'north-america'");
+  });
+
   it("generates CTE with metric filters in where clause if all metrics have filters", () => {
     const factTableWithFilters = factTableFactory.build({
       filters: [
