@@ -23,6 +23,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { filterRowsForMetricDrilldown } from "./helpers";
+import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricInterface;
@@ -61,6 +62,7 @@ interface MetricDrilldownSlicesProps {
   // SSR polyfills for public pages
   ssrPolyfills?: SSRPolyfills;
   hideTimeSeries?: boolean;
+  dimensionInfo?: DrilldownDimensionInfo;
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
@@ -92,6 +94,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setVisibleTimeSeriesRowIds,
   ssrPolyfills,
   hideTimeSeries,
+  dimensionInfo,
 }) => {
   const { hasCommercialFeature } = useUser();
 
@@ -253,6 +256,8 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
         mutate={mutate}
+        dimensionId={dimensionInfo?.id}
+        dimensionValue={dimensionInfo?.rawValue}
       />
     </Box>
   );
