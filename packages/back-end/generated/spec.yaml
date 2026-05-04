@@ -10064,6 +10064,21 @@ paths:
                   enum:
                     - manual
                     - schedule
+                dimension:
+                  description: >-
+                    Dimension to break results down by. For Unit Dimensions, use
+                    the dimension id (e.g. "dim_abc123"). For Experiment
+                    Dimensions, use "exp:<dimensionName>" (e.g. "exp:country").
+                    Built-in pre-exposure dimensions include "pre:date" and,
+                    when configured, "pre:activation". Omit this field to create
+                    a standard snapshot.
+                  type: string
+                phase:
+                  description: >-
+                    Zero-based phase index to snapshot, where 0 is the first
+                    experiment phase. Defaults to the latest phase.
+                  type: integer
+                  minimum: 0
               additionalProperties: false
       responses:
         '200':
