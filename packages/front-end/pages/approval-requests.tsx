@@ -193,6 +193,9 @@ function featureRevisionToRow(
     createdBy && createdBy.type === "dashboard" ? createdBy.name : "";
 
   // Feature revisions use "published" where unified revisions use "merged".
+  // "pending-parent" revisions are system-managed (ramp schedules) and not
+  // user-actionable — skip them entirely.
+  if (revision.status === "pending-parent") return null;
   const status: RevisionStatus =
     revision.status === "published" ? "merged" : revision.status;
 

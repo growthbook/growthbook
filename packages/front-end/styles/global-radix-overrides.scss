@@ -372,6 +372,10 @@
   color: var(--gray-9);
 }
 
+.rt-TabsContent[data-state="inactive"] {
+  display: none;
+}
+
 .rt-BaseTabListTrigger {
   color: var(--color-text-mid);
   font-weight: var(--font-weight-medium);
@@ -399,7 +403,6 @@
 // Ensure Frame & appbox do not override/ignore mb props
 // Text should be styling only, no spacing by default either
 p.rt-Text,
-label.rt-Text,
 .appbox.rt-Box {
   margin-bottom: var(--margin-bottom-override, var(--margin-bottom));
 }

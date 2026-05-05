@@ -20,11 +20,11 @@ import {
   PiProhibit,
   PiLockSimple,
   PiPencilSimpleFill,
-  PiArrowsLeftRightBold,
+  PiGitDiff,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { isIdListSupportedAttribute } from "shared/util";
-import { Box, Card, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
@@ -1389,7 +1389,7 @@ export default function EditSavedGroupPage() {
                   wrap="wrap"
                   gap="2"
                 >
-                  <Flex align="start" gap="4" style={{ marginTop: 6 }}>
+                  <Flex align="start" gap="4" style={{ marginTop: 5 }}>
                     <Flex direction="column" gap="1">
                       {hasRevisions && (
                         <Flex align="center" gap="2">
@@ -1487,14 +1487,15 @@ export default function EditSavedGroupPage() {
                           orientation="vertical"
                           style={{ marginTop: 2 }}
                         />
-                        <Link
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<PiGitDiff />}
                           onClick={() => setCompareRevisionsModalOpen(true)}
+                          style={{ position: "relative", top: -5 }}
                         >
-                          <PiArrowsLeftRightBold
-                            style={{ marginRight: 4, verticalAlign: "middle" }}
-                          />
                           Compare revisions
-                        </Link>
+                        </Button>
                       </>
                     )}
                   </Flex>
@@ -1583,12 +1584,20 @@ export default function EditSavedGroupPage() {
                   </Flex>
                 </Flex>
                 <Separator size="4" my="3" />
-                <Flex direction="column" gap="1">
-                  <Flex align="center" gap="4" wrap="wrap">
+                <Flex direction="column">
+                  <Flex
+                    align="center"
+                    justify="between"
+                    wrap="wrap"
+                    style={{
+                      rowGap: "var(--space-1)",
+                      columnGap: "var(--space-4)",
+                    }}
+                  >
                     <Metadata
                       label={hasRevisions ? "Revised by" : "Created by"}
                       value={
-                        <span>
+                        <Flex align="center" gap="2" wrap="wrap">
                           <UserAvatar
                             name={getOwnerDisplay(
                               hasRevisions && displayRevision
@@ -1603,27 +1612,29 @@ export default function EditSavedGroupPage() {
                               ? displayRevision.authorId
                               : savedGroup.owner,
                           )}
-                        </span>
+                        </Flex>
                       }
                     />
-                    <Metadata
-                      label="Created"
-                      value={datetime(
-                        hasRevisions && displayRevision
-                          ? displayRevision.dateCreated
-                          : savedGroup.dateCreated,
-                      )}
-                    />
-                    {hasRevisions &&
-                      (isLive || isMerged) &&
-                      displayRevision?.resolution?.dateCreated && (
-                        <Metadata
-                          label="Published"
-                          value={datetime(
-                            displayRevision.resolution.dateCreated,
-                          )}
-                        />
-                      )}
+                    <Flex align="center" gap="4" wrap="wrap">
+                      <Metadata
+                        label="Created"
+                        value={datetime(
+                          hasRevisions && displayRevision
+                            ? displayRevision.dateCreated
+                            : savedGroup.dateCreated,
+                        )}
+                      />
+                      {hasRevisions &&
+                        (isLive || isMerged) &&
+                        displayRevision?.resolution?.dateCreated && (
+                          <Metadata
+                            label="Published"
+                            value={datetime(
+                              displayRevision.resolution.dateCreated,
+                            )}
+                          />
+                        )}
+                    </Flex>
                   </Flex>
                 </Flex>
               </Frame>
@@ -1639,47 +1650,47 @@ export default function EditSavedGroupPage() {
         )}
         {savedGroup.type === "condition" ? (
           <>
-            <Flex align="center" justify="between" mb="3">
-              <Heading size="medium" as="h2" mb="0">
-                Condition
-              </Heading>
-              <Tooltip
-                body={
-                  isMerged
-                    ? "You cannot edit a merged revision."
-                    : isDiscarded
-                      ? "You cannot edit a discarded revision."
-                      : ""
-                }
-              >
-                <Button
-                  variant="outline"
-                  disabled={!!(isMerged || isDiscarded)}
-                  onClick={() => {
-                    if (!selectedRevision && userOpenRevision) {
-                      selectFlow(userOpenRevision);
-                    }
-                    setEditConditionModal(
-                      selectedRevision
-                        ? applyTopLevelPatchOps(
-                            (selectedRevision.target
-                              .snapshot as SavedGroupInterface) || savedGroup,
-                            selectedRevision.target.proposedChanges,
-                          )
-                        : savedGroup,
-                    );
-                  }}
+            <Heading size="medium" as="h2" mb="3">
+              Condition
+            </Heading>
+
+            <Frame mb="4" px="6" py="5">
+              <Flex justify="between" align="center">
+                <Text as="div" weight="semibold" mb="4">
+                  Include all users who match:
+                </Text>
+                <Tooltip
+                  body={
+                    isMerged
+                      ? "You cannot edit a merged revision."
+                      : isDiscarded
+                        ? "You cannot edit a discarded revision."
+                        : ""
+                  }
                 >
-                  <PiPencil className="mr-1" />
-                  Edit Condition
-                </Button>
-              </Tooltip>
-            </Flex>
-            <Text as="p" mb="3">
-              Include all users who match the following:
-            </Text>
-            <Card mb="4">
-              <Flex direction="row" gap="2" p="2">
+                  <Button
+                    variant="ghost"
+                    disabled={!!(isMerged || isDiscarded)}
+                    onClick={() => {
+                      if (!selectedRevision && userOpenRevision) {
+                        selectFlow(userOpenRevision);
+                      }
+                      setEditConditionModal(
+                        selectedRevision
+                          ? applyTopLevelPatchOps(
+                              (selectedRevision.target
+                                .snapshot as SavedGroupInterface) || savedGroup,
+                              selectedRevision.target.proposedChanges,
+                            )
+                          : savedGroup,
+                      );
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </Tooltip>
+              </Flex>
+              <Flex direction="row" gap="2">
                 <Text weight="medium">IF</Text>
                 <Box>
                   <ConditionDisplay
@@ -1688,7 +1699,7 @@ export default function EditSavedGroupPage() {
                   />
                 </Box>
               </Flex>
-            </Card>
+            </Frame>
           </>
         ) : (
           <>
