@@ -1719,7 +1719,7 @@
   },
   "packages/front-end/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView.tsx": {
     "local/no-alert-classname": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/SqlExplorer/BigValueChart.tsx": {

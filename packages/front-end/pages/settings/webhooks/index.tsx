@@ -1,5 +1,6 @@
 import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -11,7 +12,6 @@ import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
-import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import Link from "@/ui/Link";
 
 const WebhooksPage: FC = () => {

@@ -1,10 +1,4 @@
-import React, {
-  FC,
-  PropsWithChildren,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import React, { FC, useCallback, useMemo, useState } from "react";
 import pick from "lodash/pick";
 import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import { TagInterface } from "shared/types/tag";
@@ -18,7 +12,6 @@ import useApi from "@/hooks/useApi";
 import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 
@@ -101,9 +94,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
       )}
 
       {/* Empty state - don't allow creating new slack integrations */}
-      {slackIntegrations.length === 0 ? (
-        null
-      ) : (
+      {slackIntegrations.length === 0 ? null : (
         <div>
           {/* List View */}
           {slackIntegrations.map((slackIntegration) => (
