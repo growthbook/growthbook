@@ -63,7 +63,7 @@ export function getSubscriptionFromLicense(
   if (!sub) return null;
 
   return {
-    billingPlatform: license.orbSubscription ? "orb" : "stripe",
+    billingPlatform: orbSub ? "orb" : "stripe",
     externalId: sub.id,
     trialEnd: sub.trialEnd,
     status: getStripeSubscriptionStatus(sub.status),
