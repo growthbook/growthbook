@@ -52,6 +52,7 @@ import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import {
   DropdownMenu,
@@ -102,6 +103,8 @@ export type UIStep = {
   notesOpen: boolean; // UI-only: whether the notes field is expanded
   additionalEffectsOpen: boolean; // UI-only: whether the effects sub-rows are expanded
   monitored: boolean;
+  requireHealthy: boolean;
+  minSampleSize: number | null;
 };
 
 export type RampMode = "off" | "create" | "edit" | "link";
@@ -260,6 +263,12 @@ export function buildRampSteps(
         ? { approvalNotes: s.approvalNotes }
         : {}),
       ...(s.monitored ? { monitored: true } : {}),
+      ...(() => {
+        const hc: Record<string, unknown> = {};
+        if (s.requireHealthy) hc.requireHealthy = true;
+        if (s.minSampleSize) hc.minSampleSize = s.minSampleSize;
+        return Object.keys(hc).length > 0 ? { holdConditions: hc } : {};
+      })(),
     };
   });
 }
@@ -504,6 +513,8 @@ export default function RampScheduleSection({
       notesOpen: false,
       additionalEffectsOpen: false,
       monitored: prev?.monitored ?? false,
+      requireHealthy: prev?.requireHealthy ?? false,
+      minSampleSize: prev?.minSampleSize ?? null,
     };
     const steps = [...state.steps];
     steps.splice(insertAt, 0, newStep);
@@ -532,6 +543,8 @@ export default function RampScheduleSection({
           notesOpen: false,
           additionalEffectsOpen: false,
           monitored: last?.monitored ?? false,
+          requireHealthy: last?.requireHealthy ?? false,
+          minSampleSize: last?.minSampleSize ?? null,
         },
       ],
     });
@@ -1062,7 +1075,20 @@ export default function RampScheduleSection({
                   )}
                 </Flex>
 
-                {step.triggerType !== "approval" && <Box flexGrow="1" />}
+                <Checkbox
+                  value={step.monitored}
+                  setValue={(v) =>
+                    updateStep(i, {
+                      monitored: v,
+                      requireHealthy: v ? true : false,
+                      minSampleSize: v ? step.minSampleSize : null,
+                    })
+                  }
+                  label="Monitor"
+                  size="sm"
+                />
+
+                <Box flexGrow="1" />
                 {/* Three-dot menu — pushed to far right */}
                 <DropdownMenu
                   open={openMenuIndex === i}
@@ -1098,16 +1124,6 @@ export default function RampScheduleSection({
                     <DropdownMenuItem
                       onClick={() => {
                         setOpenMenuIndex(null);
-                        updateStep(i, { monitored: !step.monitored });
-                      }}
-                    >
-                      {step.monitored
-                        ? "Disable monitoring"
-                        : "Enable monitoring"}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setOpenMenuIndex(null);
                         addStepAfter(i);
                       }}
                     >
@@ -1132,6 +1148,53 @@ export default function RampScheduleSection({
                   ) : null}
                 </DropdownMenu>
               </Flex>
+
+              {/* Monitored step hold conditions */}
+              {step.monitored && (
+                <Box
+                  ml="1"
+                  pl="3"
+                  pb="2"
+                  style={{
+                    borderLeft: "2px solid var(--blue-6)",
+                  }}
+                >
+                  <Flex direction="column" gap="1">
+                    <Checkbox
+                      value={step.requireHealthy}
+                      setValue={(v) => updateStep(i, { requireHealthy: v })}
+                      label="Require healthy guardrails"
+                      size="sm"
+                    />
+                    <Flex align="center" gap="2">
+                      <Checkbox
+                        value={step.minSampleSize !== null}
+                        setValue={(v) =>
+                          updateStep(i, {
+                            minSampleSize: v ? 1000 : null,
+                          })
+                        }
+                        label="Min sample size"
+                        size="sm"
+                      />
+                      {step.minSampleSize !== null && (
+                        <Field
+                          type="number"
+                          min="1"
+                          value={String(step.minSampleSize)}
+                          onChange={(e) =>
+                            updateStep(i, {
+                              minSampleSize: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          containerClassName="mb-0"
+                          style={{ width: 80, minHeight: 30 }}
+                        />
+                      )}
+                    </Flex>
+                  </Flex>
+                </Box>
+              )}
 
               {renderPatchSubRows(
                 step.patch,
@@ -1567,6 +1630,8 @@ export function reconstructUIStep(step: RampStep): UIStep {
       notesOpen: approvalNotes.trim().length > 0,
       additionalEffectsOpen,
       monitored: step.monitored ?? false,
+      requireHealthy: step.holdConditions?.requireHealthy ?? false,
+      minSampleSize: step.holdConditions?.minSampleSize ?? null,
     };
   }
   const seconds = step.trigger.seconds;
@@ -1590,6 +1655,8 @@ export function reconstructUIStep(step: RampStep): UIStep {
     notesOpen: false,
     additionalEffectsOpen,
     monitored: step.monitored ?? false,
+    requireHealthy: step.holdConditions?.requireHealthy ?? false,
+    minSampleSize: step.holdConditions?.minSampleSize ?? null,
   };
 }
 
@@ -1645,6 +1712,8 @@ export function defaultRampSectionState(
         notesOpen: false,
         additionalEffectsOpen: false,
         monitored: false,
+        requireHealthy: false,
+        minSampleSize: null,
       },
     ],
     endScheduleAt: "",

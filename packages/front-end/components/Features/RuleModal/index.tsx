@@ -1348,9 +1348,9 @@ export default function RuleModal({
             options={[
               {
                 value: "force",
-                label: "Targeted release",
+                label: "Targeting rule",
                 description:
-                  "Assign a specific feature value to groups of users or control the rollout percentage",
+                  "Roll out to specific users or percentages, with optional scheduling and safety monitoring",
               },
               {
                 value: "experiment",
