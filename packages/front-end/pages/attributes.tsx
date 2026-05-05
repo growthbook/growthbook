@@ -49,9 +49,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { references } = useAttributeReferences(attributeKeys);
   const { data: eventForwarderData } = useApi<{
     status: 200;
-    hasEventForwarder: boolean;
-  }>("/event-forwarder/exists");
-  const activeEventForwarder = eventForwarderData?.hasEventForwarder || false;
+    hasReadyEventForwarder: boolean;
+  }>("/event-forwarder/connected");
+  const activeEventForwarder =
+    eventForwarderData?.hasReadyEventForwarder || false;
 
   const attributesWithComputedFields = useAddComputedFields(
     attributeSchema,
