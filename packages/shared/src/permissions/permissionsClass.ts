@@ -295,10 +295,7 @@ export class Permissions {
   public canUpdateAttribute = (
     existing: Pick<SDKAttribute, "projects">,
     updates: Pick<SDKAttribute, "projects">,
-    hasReadyEventForwarder = false,
   ): boolean => {
-    if (hasReadyEventForwarder) return false;
-
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,

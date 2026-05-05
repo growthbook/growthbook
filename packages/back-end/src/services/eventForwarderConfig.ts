@@ -77,11 +77,11 @@ export async function getEventForwarderConfigForDatasource(
   return configs.find((config) => config.datasourceId === datasourceId) ?? null;
 }
 
-export async function hasReadyEventForwarderConfig(
+export async function hasAnyEventForwarderConfig(
   context: ReqContext,
 ): Promise<boolean> {
   const configs = await context.models.eventForwarderConfigs.getAll();
-  return configs.some((config) => config.status === "ready");
+  return configs.length > 0;
 }
 
 /**
