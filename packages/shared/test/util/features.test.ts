@@ -440,6 +440,39 @@ describe("autoMerge", () => {
         );
       }
     });
+
+    // Regression for PR #5800: legacy v1 docs (Mongoose `Mixed`) can land
+    // with sparse `null`/`undefined` rule slots. Before `naiveFlattenV1Rules`
+    // filtered them out, autoMerge → tryRuleLevelMerge would crash on
+    // `r.id` access while building its by-id map, blocking publish with
+    // "Cannot read properties of undefined (reading 'id'/'type')".
+    it("tolerates sparse null/undefined slots in any of base/live/revision rules", () => {
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, null as unknown as FeatureRule, B],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, undefined as unknown as FeatureRule],
+        version: 2,
+      };
+      const Bmod = { ...B, value: "b-updated" };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, Bmod, null as unknown as FeatureRule],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success && result.result.rules) {
+        // Filtered: only A and Bmod survive, ordered by live's positions
+        // with revision-side edits substituted in.
+        expect(result.result.rules.map((r) => r.id)).toEqual(["a", "b"]);
+        expect(result.result.rules[1].value).toBe("b-updated");
+      }
+    });
   });
 });
 
