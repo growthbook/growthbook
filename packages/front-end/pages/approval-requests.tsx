@@ -28,7 +28,6 @@ import { buildSavedGroupRevisionUrl } from "@/components/Revision/revisionUtils"
 import { useRevisions } from "@/hooks/useRevisions";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 
 const ITEMS_PER_PAGE = 20;
@@ -615,80 +614,64 @@ const ApprovalRequests: FC = () => {
         </Callout>
       ) : (
         <>
-          <Table variant="list" roundedCorners stickyHeader={false}>
-            <TableHeader>
-              <TableRow>
+          <table className="table gbtable table-valign-top">
+            <thead>
+              <tr>
                 <SortableTH field="entityName">Name</SortableTH>
                 <SortableTH field="version">Revision</SortableTH>
                 <SortableTH field="entityType">Type</SortableTH>
                 <SortableTH field="authorDisplay">Requested by</SortableTH>
                 <SortableTH field="dateCreated">Date Requested</SortableTH>
-                {/* Clicking Status sorts by the composite "status priority +
-                    date requested" key that also drives the page's default
-                    sort, so the column header reflects the default ordering
-                    and toggling ascending/descending behaves intuitively. */}
                 <SortableTH field="_sortKey">Status</SortableTH>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+              </tr>
+            </thead>
+            <tbody>
               {paginatedItems.map((row) => (
-                <TableRow
+                <tr
                   key={row.id}
-                  onClick={() => router.push(row.url)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      router.push(row.url);
-                    }
-                  }}
-                  tabIndex={0}
-                  role="link"
-                  aria-label={row.entityName || row.title}
-                  style={{ cursor: "pointer" }}
                   className="hover-highlight"
+                  onClick={() => router.push(row.url)}
+                  style={{ cursor: "pointer" }}
                 >
-                  <TableCell>
+                  <td>
                     <Link
                       href={row.url}
-                      // Stop propagation so the row-level onClick doesn't also
-                      // fire (which would trigger `router.push` a second time).
                       onClick={(e) => e.stopPropagation()}
-                      style={{
-                        textDecoration: "none",
-                        color: "inherit",
-                        display: "block",
-                      }}
+                      className="link-purple"
                     >
                       {row.entityName}
                     </Link>
-                  </TableCell>
-                  <TableCell>
+                  </td>
+                  <td>
                     <Link
                       href={row.url}
                       onClick={(e) => e.stopPropagation()}
-                      style={{
-                        textDecoration: "none",
-                        color: "inherit",
-                        display: "block",
-                      }}
+                      className="link-purple"
                     >
                       {row.title || `Revision ${row.version}`}
                     </Link>
-                  </TableCell>
-                  <TableCell>{getEntityTypeLabel(row.entityType)}</TableCell>
-                  <TableCell>
+                  </td>
+                  <td>{getEntityTypeLabel(row.entityType)}</td>
+                  <td>
                     {row.authorId ? (
                       <Owner ownerId={row.authorId} />
                     ) : (
                       row.authorDisplay || "--"
                     )}
-                  </TableCell>
-                  <TableCell>{datetime(new Date(row.dateCreated))}</TableCell>
-                  <TableCell>{renderApprovalStatus(row.status)}</TableCell>
-                </TableRow>
+                  </td>
+                  <td>{datetime(new Date(row.dateCreated))}</td>
+                  <td>{renderApprovalStatus(row.status)}</td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
+              {paginatedItems.length === 0 && (
+                <tr>
+                  <td colSpan={6} align="center">
+                    No matching approval requests
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
 
           {effectiveItems.length > ITEMS_PER_PAGE && (
             <Pagination

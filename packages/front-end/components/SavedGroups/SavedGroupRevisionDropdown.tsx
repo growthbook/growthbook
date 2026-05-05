@@ -14,6 +14,9 @@ import {
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Features/RevisionLabel";
 
 export interface Props {
   savedGroupId: string;
@@ -49,22 +52,11 @@ function RevisionRow({
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
+              maxWidth: 400,
             }}
-            title={revision.title}
+            title={revisionLabelText(revisionNumber, revision.title)}
           >
-            <span
-              style={{
-                display: "inline-block",
-                minWidth: "1.9em",
-                paddingRight: ".4em",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              <Text as="span" color="text-mid" size="small">
-                {revisionNumber}.
-              </Text>
-            </span>
-            {revision.title}
+            <RevisionLabel version={revisionNumber} title={revision.title} />
           </span>
         </Text>
       </Box>
@@ -215,7 +207,7 @@ export default function SavedGroupRevisionDropdown({
     (r) => r.status === "discarded",
   ).length;
 
-  const triggerWidth = context === "header" ? 340 : "100%";
+  const triggerWidth = context === "header" ? 280 : "100%";
   const selectedRevisionNumber = selectedRevision
     ? (revisionNumberById.get(selectedRevision.id) ?? 1)
     : null;
@@ -236,22 +228,18 @@ export default function SavedGroupRevisionDropdown({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
+                maxWidth: 400,
               }}
-              title={selectedRevision.title}
+              title={revisionLabelText(
+                selectedRevisionNumber,
+                selectedRevision.title,
+              )}
             >
-              <span
-                style={{
-                  display: "inline-block",
-                  minWidth: "1.9em",
-                  paddingRight: ".4em",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                <Text as="span" color="text-mid" size="small">
-                  {selectedRevisionNumber}.
-                </Text>
-              </span>
-              {selectedRevision.title}
+              <RevisionLabel
+                numbered={false}
+                version={selectedRevisionNumber}
+                title={selectedRevision.title}
+              />
             </span>
           ) : (
             "Select revision"

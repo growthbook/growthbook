@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -10,7 +10,11 @@ import { useUser } from "@/services/UserContext";
 import Owner from "@/components/Avatar/Owner";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/ui/Pagination";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  SyntaxFilter,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import {
   FilterDropdown,
   useSearchFiltersBase,
@@ -20,9 +24,15 @@ import {
   renderRevisionStatusCell,
 } from "@/components/Revision/revisionUtils";
 import { useRevisionsEntityType } from "@/hooks/useRevisions";
-import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 
 const ITEMS_PER_PAGE = 10;
+
+const DEFAULT_STATUSES: RevisionStatus[] = [
+  "draft",
+  "pending-review",
+  "approved",
+  "changes-requested",
+];
 
 type ReviewRow = {
   id: string;
@@ -102,24 +112,16 @@ const SavedGroupReviews: FC = () => {
       setSearchValue,
     });
 
-  // Default to showing only actionable statuses on first render.
-  const defaultApplied = useRef(false);
-  useEffect(() => {
-    if (!defaultApplied.current && !router.query.q) {
-      setSearchValue("status:draft,pending-review,approved,changes-requested");
-      defaultApplied.current = true;
-    }
-  }, [router.query.q, setSearchValue]);
+  const hasExplicitStatusFilter = useMemo(
+    () => syntaxFilters.some((f) => f.field === "status"),
+    [syntaxFilters],
+  );
 
-  // Mirror the parsed status filter back to the server fetch so explicit
-  // status selections actually narrow the underlying request. "open" is the
-  // bounded default; a negated filter falls back to undefined since the server
-  // can't easily express NOT-in (the client filter still narrows the view).
   useEffect(() => {
     const f = syntaxFilters.find((x) => x.field === "status");
     let next: string | undefined;
     if (!f || f.values.length === 0) {
-      next = "open";
+      next = DEFAULT_STATUSES.join(",");
     } else if (f.negated) {
       next = undefined;
     } else {
@@ -128,20 +130,70 @@ const SavedGroupReviews: FC = () => {
     setServerStatusFilter((prev) => (prev === next ? prev : next));
   }, [syntaxFilters]);
 
+  const statusFilteredItems = useMemo(() => {
+    if (hasExplicitStatusFilter) return items;
+    const allowed = new Set<string>(DEFAULT_STATUSES);
+    return items.filter((item) => allowed.has(item.status));
+  }, [items, hasExplicitStatusFilter]);
+
+  const statusDropdownSyntaxFilters = useMemo<SyntaxFilter[]>(() => {
+    if (hasExplicitStatusFilter) return syntaxFilters;
+    return [
+      ...syntaxFilters,
+      {
+        field: "status",
+        values: [...DEFAULT_STATUSES],
+        operator: "",
+        negated: false,
+      },
+    ];
+  }, [syntaxFilters, hasExplicitStatusFilter]);
+
+  const updateStatusQuery = useCallback(
+    (filter: SyntaxFilter) => {
+      if (hasExplicitStatusFilter) {
+        updateQuery(filter);
+        return;
+      }
+      const clicked = filter.values[0];
+      const nextStatuses = (DEFAULT_STATUSES as string[]).includes(clicked)
+        ? DEFAULT_STATUSES.filter((s) => s !== clicked)
+        : [...DEFAULT_STATUSES, clicked as RevisionStatus];
+      const existing = searchInputProps.value.trim();
+      const term =
+        nextStatuses.length > 0 ? `status:${nextStatuses.join(",")}` : "";
+      const combined = existing
+        ? term
+          ? `${existing} ${term}`
+          : existing
+        : term;
+      setSearchValue(combined.trim());
+    },
+    [
+      hasExplicitStatusFilter,
+      updateQuery,
+      searchInputProps.value,
+      setSearchValue,
+    ],
+  );
+
   const [currentPage, setCurrentPage] = useState(1);
 
   // Reset to page 1 whenever the filtered/sorted list shrinks below the
   // current page's window so users don't end up stranded on an empty page
   // after narrowing filters.
   useEffect(() => {
-    const lastPage = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
+    const lastPage = Math.max(
+      1,
+      Math.ceil(statusFilteredItems.length / ITEMS_PER_PAGE),
+    );
     if (currentPage > lastPage) setCurrentPage(1);
-  }, [items.length, currentPage]);
+  }, [statusFilteredItems.length, currentPage]);
 
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return items.slice(start, start + ITEMS_PER_PAGE);
-  }, [items, currentPage]);
+    return statusFilteredItems.slice(start, start + ITEMS_PER_PAGE);
+  }, [statusFilteredItems, currentPage]);
 
   const statusFilterItems = [
     {
@@ -161,16 +213,7 @@ const SavedGroupReviews: FC = () => {
   ];
 
   return (
-    <Box mt="4" mb="5" p="4" className="appbox">
-      <div className="row align-items-center mb-1">
-        <div className="col-auto">
-          <h2 className="mb-0">Reviews</h2>
-        </div>
-      </div>
-      <p className="text-gray mb-3">
-        Open review requests for saved groups across your organization.
-      </p>
-
+    <Box mt="4">
       <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
         <Box style={{ flexBasis: 300, flexShrink: 0 }}>
           <Field placeholder="Search..." type="search" {...searchInputProps} />
@@ -178,7 +221,7 @@ const SavedGroupReviews: FC = () => {
         <Flex gap="5" align="center">
           <FilterDropdown
             filter="author"
-            heading="Requested by"
+            heading="Author"
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
@@ -192,79 +235,71 @@ const SavedGroupReviews: FC = () => {
           <FilterDropdown
             filter="status"
             heading="Status"
-            syntaxFilters={syntaxFilters}
+            syntaxFilters={statusDropdownSyntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
             items={statusFilterItems}
-            updateQuery={updateQuery}
+            updateQuery={updateStatusQuery}
           />
         </Flex>
       </Flex>
 
       {isLoading ? (
         <LoadingOverlay />
-      ) : items.length === 0 ? (
-        <Callout status="info">No reviews for saved groups.</Callout>
+      ) : statusFilteredItems.length === 0 ? (
+        <Callout status="info">No drafts for saved groups.</Callout>
       ) : (
         <>
-          <Table variant="list" roundedCorners stickyHeader={false}>
-            <TableHeader>
-              <TableRow>
+          <table className="table gbtable table-valign-top">
+            <thead>
+              <tr>
                 <SortableTH field="title">Revision</SortableTH>
                 <SortableTH field="groupName">Saved Group</SortableTH>
-                <SortableTH field="authorDisplay">Requested by</SortableTH>
-                <SortableTH field="dateCreated">Date Requested</SortableTH>
+                <SortableTH field="authorDisplay">Author</SortableTH>
+                <SortableTH field="dateCreated">Date Created</SortableTH>
                 <SortableTH field="status">Status</SortableTH>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+              </tr>
+            </thead>
+            <tbody>
               {paginatedItems.map((row) => (
-                <TableRow
+                <tr
                   key={row.id}
                   className="hover-highlight"
                   onClick={() => router.push(row.url)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      router.push(row.url);
-                    }
-                  }}
-                  tabIndex={0}
-                  role="link"
-                  aria-label={row.title || row.groupName}
                   style={{ cursor: "pointer" }}
                 >
-                  <TableCell>
+                  <td>
                     <Link
                       href={row.url}
-                      // Stop propagation so the row-level onClick doesn't also
-                      // fire (which would trigger `router.push` a second time).
                       onClick={(e) => e.stopPropagation()}
-                      style={{
-                        textDecoration: "none",
-                        color: "inherit",
-                        display: "block",
-                      }}
+                      className="link-purple"
                     >
                       {row.title || (
                         <span className="text-muted">Untitled</span>
                       )}
                     </Link>
-                  </TableCell>
-                  <TableCell>{row.groupName}</TableCell>
-                  <TableCell>
+                  </td>
+                  <td>{row.groupName}</td>
+                  <td>
                     <Owner ownerId={row.authorId} />
-                  </TableCell>
-                  <TableCell>{datetime(row.dateCreated)}</TableCell>
-                  <TableCell>{renderRevisionStatusCell(row.status)}</TableCell>
-                </TableRow>
+                  </td>
+                  <td>{datetime(row.dateCreated)}</td>
+                  <td>{renderRevisionStatusCell(row.status)}</td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
+              {paginatedItems.length === 0 && (
+                <tr>
+                  <td colSpan={5} align="center">
+                    No matching drafts
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
 
-          {items.length > ITEMS_PER_PAGE && (
+          {statusFilteredItems.length > ITEMS_PER_PAGE && (
             <Pagination
-              numItemsTotal={items.length}
+              numItemsTotal={statusFilteredItems.length}
               perPage={ITEMS_PER_PAGE}
               currentPage={currentPage}
               onPageChange={setCurrentPage}
